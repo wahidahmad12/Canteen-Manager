@@ -39,8 +39,8 @@ export async function registerRoutes(
         });
       }
       // Check for unique constraint violation on date
-      if (err instanceof Error && 'code' in err && err.code === '23505') {
-        return res.status(400).json({ message: 'A report for this date already exists.' });
+      if (err instanceof Error && 'code' in (err as any) && (err as any).code === '23505') {
+        return res.status(400).json({ message: 'A report for this date already exists. Each day can only have one report.' });
       }
       throw err;
     }

@@ -69,7 +69,7 @@ export default function ReportForm() {
       date: new Date(),
       openingBalance: 0,
       receivedAmount: 0,
-      items: DEFAULT_FIXED_ITEMS,
+      items: DEFAULT_FIXED_ITEMS.map(item => ({ ...item, reportId: 0 })),
     },
   });
 
