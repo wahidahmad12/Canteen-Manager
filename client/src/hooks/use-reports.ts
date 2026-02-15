@@ -4,7 +4,8 @@ import {
   type CreateReportRequest, 
   type UpdateReportRequest, 
   type ReportWithItems,
-  type DailyReport
+  type DailyReport,
+  type VegetableItem
 } from "@shared/schema";
 
 // GET /api/reports
@@ -100,6 +101,18 @@ export function useDeleteReport() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: [api.reports.list.path] });
+    },
+  });
+}
+
+// GET /api/vegetables
+export function useVegetableItems() {
+  return useQuery({
+    queryKey: [api.vegetables.list.path],
+    queryFn: async () => {
+      const res = await fetch(api.vegetables.list.path, { credentials: "include" });
+      if (!res.ok) throw new Error("Failed to fetch vegetable items");
+      return api.vegetables.list.responses[200].parse(await res.json());
     },
   });
 }

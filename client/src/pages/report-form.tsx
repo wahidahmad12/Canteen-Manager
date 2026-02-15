@@ -11,8 +11,15 @@ import { Separator } from "@/components/ui/separator";
 import { useToast } from "@/hooks/use-toast";
 import { DatePicker } from "@/components/ui/date-picker";
 import { Loader2, Plus, Trash2, Calculator, Save, ArrowLeft } from "lucide-react";
-import { useCreateReport, useUpdateReport, useReport } from "@/hooks/use-reports";
+import { useCreateReport, useUpdateReport, useReport, useVegetableItems } from "@/hooks/use-reports";
 import { insertDailyReportSchema, insertExpenseItemSchema } from "@shared/schema";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { format } from "date-fns";
 
 // Schema for the form
@@ -52,6 +59,7 @@ export default function ReportForm() {
 
   const { toast } = useToast();
   const { data: report, isLoading: isReportLoading } = useReport(reportId);
+  const { data: vegetableItems = [] } = useVegetableItems();
   const createMutation = useCreateReport();
   const updateMutation = useUpdateReport();
 
@@ -338,11 +346,26 @@ export default function ReportForm() {
                       <tr key={field.id}>
                         <td className="text-center text-muted-foreground">{index + 1}</td>
                         <td>
-                          <Input 
-                            className="h-8" 
-                            placeholder="Item name"
-                            {...form.register(`items.${index}.description` as const)}
-                          />
+                          <Select
+                            value={items[index]?.description || ''}
+                            onValueChange={(val) => form.setValue(`items.${index}.description`, val)}
+                          >
+                            <SelectTrigger className="h-8">
+                              <SelectValue placeholder="Select item" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {vegetableItems.map((veg) => (
+                                <SelectItem key={veg.id} value={veg.name}>
+                                  {veg.name}
+                                </SelectItem>
+                              ))}
+                              {!vegetableItems.find(v => v.name === items[index]?.description) && items[index]?.description && (
+                                <SelectItem value={items[index]?.description}>
+                                  {items[index]?.description}
+                                </SelectItem>
+                              )}
+                            </SelectContent>
+                          </Select>
                         </td>
                         <td>
                           <Input 

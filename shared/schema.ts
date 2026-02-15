@@ -16,6 +16,12 @@ export const dailyReports = pgTable("daily_reports", {
   updatedAt: timestamp("updated_at").defaultNow(),
 });
 
+// Stores predefined vegetable names for selection
+export const vegetableItems = pgTable("vegetable_items", {
+  id: serial("id").primaryKey(),
+  name: text("name").notNull().unique(),
+});
+
 // Stores individual line items (both fixed and vegetable)
 export const expenseItems = pgTable("expense_items", {
   id: serial("id").primaryKey(),
@@ -60,6 +66,7 @@ export const insertExpenseItemSchema = createInsertSchema(expenseItems).omit({
 
 export const selectDailyReportSchema = createSelectSchema(dailyReports);
 export const selectExpenseItemSchema = createSelectSchema(expenseItems);
+export const selectVegetableItemSchema = createSelectSchema(vegetableItems);
 
 // === API TYPES ===
 export type DailyReport = typeof dailyReports.$inferSelect;

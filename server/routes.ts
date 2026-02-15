@@ -72,11 +72,25 @@ export async function registerRoutes(
     res.status(204).send();
   });
 
+  // Get vegetable items
+  app.get(api.vegetables.list.path, async (req, res) => {
+    const items = await storage.getVegetableItems();
+    res.json(items);
+  });
+
   return httpServer;
 }
 
 // Helper to seed some initial data
 async function seedDatabase() {
+  // Seed vegetable items first
+  const vegetableNames = [
+    "Potato", "Onion", "Tomato", "Green Chilli", "Ginger", "Garlic", 
+    "Cabbage", "Cauliflower", "Spinach", "Carrot", "Beans", "Lady Finger",
+    "Brinjal", "Capsicum", "Bottle Gourd", "Bitter Gourd"
+  ];
+  await storage.seedVegetableItems(vegetableNames);
+
   const reports = await storage.getReports();
   if (reports.length === 0) {
     console.log("Seeding database...");

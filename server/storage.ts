@@ -3,11 +3,13 @@ import { db } from "./db";
 import { 
   dailyReports, 
   expenseItems, 
+  vegetableItems,
   type DailyReport, 
   type ExpenseItem,
   type CreateReportRequest,
   type UpdateReportRequest,
-  type ReportWithItems
+  type ReportWithItems,
+  type VegetableItem
 } from "@shared/schema";
 import { eq, desc } from "drizzle-orm";
 
@@ -17,9 +19,21 @@ export interface IStorage {
   createReport(report: CreateReportRequest): Promise<ReportWithItems>;
   updateReport(id: number, report: UpdateReportRequest): Promise<ReportWithItems>;
   deleteReport(id: number): Promise<void>;
+  getVegetableItems(): Promise<VegetableItem[]>;
+  seedVegetableItems(names: string[]): Promise<void>;
 }
 
 export class DatabaseStorage implements IStorage {
+  async getVegetableItems(): Promise<VegetableItem[]> {
+    return await db.select().from(vegetableItems);
+  }
+
+  async seedVegetableItems(names: string[]): Promise<void> {
+    for (const name of names) {
+      await db.insert(vegetableItems).values({ name }).onConflictDoNothing();
+    }
+  }
+
   async getReports(): Promise<DailyReport[]> {
     return await db.select().from(dailyReports).orderBy(desc(dailyReports.date));
   }
