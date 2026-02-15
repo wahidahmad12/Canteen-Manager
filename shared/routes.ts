@@ -35,7 +35,48 @@ const updateReportInput = insertDailyReportSchema.partial().extend({
 
 export const api = {
   reports: {
-    // ... reports endpoints
+    list: {
+      method: 'GET' as const,
+      path: '/api/reports' as const,
+      responses: {
+        200: z.array(dailyReportSchema),
+      },
+    },
+    get: {
+      method: 'GET' as const,
+      path: '/api/reports/:id' as const,
+      responses: {
+        200: reportWithItemsSchema,
+        404: errorSchemas.notFound,
+      },
+    },
+    create: {
+      method: 'POST' as const,
+      path: '/api/reports' as const,
+      input: createReportInput,
+      responses: {
+        201: reportWithItemsSchema,
+        400: errorSchemas.validation,
+      },
+    },
+    update: {
+      method: 'PUT' as const,
+      path: '/api/reports/:id' as const,
+      input: updateReportInput,
+      responses: {
+        200: reportWithItemsSchema,
+        400: errorSchemas.validation,
+        404: errorSchemas.notFound,
+      },
+    },
+    delete: {
+      method: 'DELETE' as const,
+      path: '/api/reports/:id' as const,
+      responses: {
+        204: z.void(),
+        404: errorSchemas.notFound,
+      },
+    },
   },
   vegetables: {
     list: {

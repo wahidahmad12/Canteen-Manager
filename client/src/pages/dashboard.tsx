@@ -44,14 +44,7 @@ export default function Dashboard() {
 
   // Calculate some aggregate stats
   const totalReports = reports?.length || 0;
-  const totalExpense = reports?.reduce((acc, r) => {
-    // We don't have total expense in the basic list response unless we fetch details or compute it.
-    // However, let's assume for dashboard display we might just show recent. 
-    // If the schema included a computed total, we'd use it. 
-    // For now, let's just show the list.
-    return acc;
-  }, 0) || 0;
-
+  
   return (
     <Layout>
       <div className="flex flex-col md:flex-row md:items-center justify-between mb-8 gap-4">

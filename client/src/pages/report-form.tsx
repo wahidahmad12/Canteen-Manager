@@ -85,7 +85,7 @@ export default function ReportForm() {
         date: new Date(report.date),
         openingBalance: Number(report.openingBalance),
         receivedAmount: Number(report.receivedAmount),
-        items: report.items.map(item => ({
+        items: report.items.map((item: any) => ({
           ...item,
           qty: Number(item.qty),
           rate: Number(item.rate),
@@ -313,6 +313,7 @@ export default function ReportForm() {
               size="sm" 
               variant="outline"
               onClick={() => append({ 
+                reportId: reportId || 0,
                 category: 'vegetable', 
                 description: '', 
                 uom: 'Kg', 

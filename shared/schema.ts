@@ -59,6 +59,7 @@ export const insertDailyReportSchema = createInsertSchema(dailyReports).omit({
 export const insertExpenseItemSchema = createInsertSchema(expenseItems).omit({ 
   id: true 
 }).extend({
+  reportId: z.coerce.number().optional(),
   qty: z.coerce.number().min(0),
   rate: z.coerce.number().min(0),
   amount: z.coerce.number().min(0),
@@ -83,3 +84,5 @@ export type UpdateReportRequest = Partial<z.infer<typeof insertDailyReportSchema
 export type ReportWithItems = DailyReport & {
   items: ExpenseItem[];
 };
+
+export type VegetableItem = typeof vegetableItems.$inferSelect;
