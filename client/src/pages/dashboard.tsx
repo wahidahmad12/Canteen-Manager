@@ -86,64 +86,72 @@ export default function Dashboard() {
                 <tr>
                   <th>No.</th>
                   <th>Date</th>
-                  <th className="text-right">Opening Balance</th>
-                  <th className="text-right">Received Amount</th>
+                  <th className="text-right">Opening Bal.</th>
+                  <th className="text-right">Received</th>
+                  <th className="text-right">Total Cash</th>
                   <th className="text-right">Actions</th>
                 </tr>
               </thead>
               <tbody>
-                {sortedReports.map((report) => (
-                  <tr key={report.id} className="group">
-                    <td className="font-mono text-muted-foreground">#{report.reportNumber}</td>
-                    <td className="font-medium text-foreground">
-                      <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 rounded-lg bg-primary/10 text-primary flex items-center justify-center font-bold text-xs">
-                          {format(new Date(report.date), "dd")}
+                {sortedReports.map((report) => {
+                  const opening = Number(report.openingBalance) || 0;
+                  const received = Number(report.receivedAmount) || 0;
+                  const totalCash = opening + received;
+                  
+                  return (
+                    <tr key={report.id} className="group">
+                      <td className="font-mono text-muted-foreground text-center">#{report.reportNumber}</td>
+                      <td className="font-medium text-foreground">
+                        <div className="flex items-center gap-3">
+                          <div className="w-10 h-10 rounded-lg bg-primary/10 text-primary flex items-center justify-center font-bold text-xs shrink-0">
+                            {format(new Date(report.date), "dd")}
+                          </div>
+                          <div className="flex flex-col min-w-0">
+                            <span className="truncate">{format(new Date(report.date), "MMMM yyyy")}</span>
+                            <span className="text-xs text-muted-foreground truncate">{format(new Date(report.date), "EEEE")}</span>
+                          </div>
                         </div>
-                        <div className="flex flex-col">
-                          <span>{format(new Date(report.date), "MMMM yyyy")}</span>
-                          <span className="text-xs text-muted-foreground">{format(new Date(report.date), "EEEE")}</span>
-                        </div>
-                      </div>
-                    </td>
-                    <td className="text-right font-mono text-muted-foreground">₹{Number(report.openingBalance).toFixed(2)}</td>
-                    <td className="text-right font-mono text-muted-foreground">₹{Number(report.receivedAmount).toFixed(2)}</td>
-                    <td className="text-right">
-                      <div className="flex items-center justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                        <Link href={`/report/${report.id}`}>
-                          <Button size="sm" variant="ghost" className="h-8">
-                            View <ArrowRight className="w-3 h-3 ml-1" />
-                          </Button>
-                        </Link>
-                        
-                        <AlertDialog>
-                          <AlertDialogTrigger asChild>
-                            <Button size="sm" variant="ghost" className="h-8 text-destructive hover:text-destructive hover:bg-destructive/10">
-                              Delete
+                      </td>
+                      <td className="text-right font-mono text-muted-foreground">₹{opening.toFixed(2)}</td>
+                      <td className="text-right font-mono text-muted-foreground">₹{received.toFixed(2)}</td>
+                      <td className="text-right font-mono font-bold text-primary">₹{totalCash.toFixed(2)}</td>
+                      <td className="text-right">
+                        <div className="flex items-center justify-end gap-2">
+                          <Link href={`/report/${report.id}`}>
+                            <Button size="sm" variant="ghost" className="h-8 hover-elevate">
+                              View <ArrowRight className="w-3 h-3 ml-1" />
                             </Button>
-                          </AlertDialogTrigger>
-                          <AlertDialogContent>
-                            <AlertDialogHeader>
-                              <AlertDialogTitle>Are you sure?</AlertDialogTitle>
-                              <AlertDialogDescription>
-                                This will permanently delete the report for {format(new Date(report.date), "PPP")}.
-                              </AlertDialogDescription>
-                            </AlertDialogHeader>
-                            <AlertDialogFooter>
-                              <AlertDialogCancel>Cancel</AlertDialogCancel>
-                              <AlertDialogAction 
-                                onClick={() => deleteMutation.mutate(report.id)}
-                                className="bg-destructive hover:bg-destructive/90 text-destructive-foreground"
-                              >
+                          </Link>
+                          
+                          <AlertDialog>
+                            <AlertDialogTrigger asChild>
+                              <Button size="sm" variant="ghost" className="h-8 text-destructive hover:text-destructive hover:bg-destructive/10 hover-elevate">
                                 Delete
-                              </AlertDialogAction>
-                            </AlertDialogFooter>
-                          </AlertDialogContent>
-                        </AlertDialog>
-                      </div>
-                    </td>
-                  </tr>
-                ))}
+                              </Button>
+                            </AlertDialogTrigger>
+                            <AlertDialogContent>
+                              <AlertDialogHeader>
+                                <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+                                <AlertDialogDescription>
+                                  This will permanently delete the report for {format(new Date(report.date), "PPP")}.
+                                </AlertDialogDescription>
+                              </AlertDialogHeader>
+                              <AlertDialogFooter>
+                                <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                <AlertDialogAction 
+                                  onClick={() => deleteMutation.mutate(report.id)}
+                                  className="bg-destructive hover:bg-destructive/90 text-destructive-foreground"
+                                >
+                                  Delete
+                                </AlertDialogAction>
+                              </AlertDialogFooter>
+                            </AlertDialogContent>
+                          </AlertDialog>
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           </div>
