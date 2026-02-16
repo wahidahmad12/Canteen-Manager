@@ -79,6 +79,7 @@ export default function Dashboard() {
             <table className="glass-table">
               <thead>
                 <tr>
+                  <th>No.</th>
                   <th>Date</th>
                   <th className="text-right">Opening Balance</th>
                   <th className="text-right">Received Amount</th>
@@ -88,6 +89,7 @@ export default function Dashboard() {
               <tbody>
                 {reports?.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()).map((report) => (
                   <tr key={report.id} className="group">
+                    <td className="font-mono text-muted-foreground">#{report.reportNumber}</td>
                     <td className="font-medium text-foreground">
                       <div className="flex items-center gap-3">
                         <div className="w-10 h-10 rounded-lg bg-primary/10 text-primary flex items-center justify-center font-bold text-xs">

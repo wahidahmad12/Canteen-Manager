@@ -9,6 +9,7 @@ import { relations } from "drizzle-orm";
 // Stores the header information for each day's report
 export const dailyReports = pgTable("daily_reports", {
   id: serial("id").primaryKey(),
+  reportNumber: serial("report_number"), // Auto-incrementing report number
   date: date("date").notNull().unique(), // One report per day
   openingBalance: numeric("opening_balance", { precision: 10, scale: 2 }).default("0").notNull(),
   receivedAmount: numeric("received_amount", { precision: 10, scale: 2 }).default("0").notNull(),
