@@ -45,6 +45,11 @@ export default function Dashboard() {
   // Calculate some aggregate stats
   const totalReports = reports?.length || 0;
   
+  // Robust parsing and sorting
+  const sortedReports = reports ? [...reports].sort((a, b) => 
+    new Date(b.date).getTime() - new Date(a.date).getTime()
+  ) : [];
+
   return (
     <Layout>
       <div className="flex flex-col md:flex-row md:items-center justify-between mb-8 gap-4">
@@ -87,7 +92,7 @@ export default function Dashboard() {
                 </tr>
               </thead>
               <tbody>
-                {reports?.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()).map((report) => (
+                {sortedReports.map((report) => (
                   <tr key={report.id} className="group">
                     <td className="font-mono text-muted-foreground">#{report.reportNumber}</td>
                     <td className="font-medium text-foreground">
