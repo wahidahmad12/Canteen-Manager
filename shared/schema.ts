@@ -66,7 +66,11 @@ export const insertExpenseItemSchema = createInsertSchema(expenseItems).omit({
   amount: z.coerce.number().min(0),
 });
 
-export const selectDailyReportSchema = createSelectSchema(dailyReports);
+export const selectDailyReportSchema = createSelectSchema(dailyReports, {
+  date: z.string(),
+  createdAt: z.string().or(z.date()),
+  updatedAt: z.string().or(z.date()),
+});
 export const selectExpenseItemSchema = createSelectSchema(expenseItems);
 export const selectVegetableItemSchema = createSelectSchema(vegetableItems);
 

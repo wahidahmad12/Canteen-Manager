@@ -20,8 +20,8 @@ export function Layout({ children }: { children: React.ReactNode }) {
             <ChefHat className="w-6 h-6" />
           </div>
           <div>
-            <h1 className="font-bold text-lg leading-none">Canteen</h1>
-            <p className="text-xs text-muted-foreground mt-1">Manager</p>
+            <h1 className="font-bold text-lg leading-none">DJ KPF</h1>
+            <p className="text-xs text-muted-foreground mt-1">Delay Cash Expanse</p>
           </div>
         </div>
         

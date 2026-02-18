@@ -54,8 +54,8 @@ export default function Dashboard() {
     <Layout>
       <div className="flex flex-col md:flex-row md:items-center justify-between mb-8 gap-4">
         <div>
-          <h2 className="text-3xl font-bold tracking-tight">Daily Reports</h2>
-          <p className="text-muted-foreground mt-2">Manage your canteen expenses and daily balances.</p>
+          <h2 className="text-3xl font-bold tracking-tight">DJ KPF</h2>
+          <p className="text-muted-foreground mt-2">Delay Cash Expanse Manager</p>
         </div>
         <Link href="/new">
           <Button className="h-11 px-6 rounded-xl shadow-lg shadow-primary/20 hover:shadow-primary/30 transition-all">

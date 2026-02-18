@@ -1,8 +1,8 @@
-# Canteen Manager
+# DJ KPF Delay Cash Expanse
 
 ## Overview
 
-A daily canteen expense reporting application. Users create one report per day that tracks an opening balance, received amount, and line-item expenses (both "fixed" items like common ingredients and dynamic "vegetable" items). The app calculates totals in real-time (qty × rate = amount) and provides a dashboard listing all reports.
+A daily expense reporting application for DJ KPF. Users create one report per day that tracks an opening balance, received amount, and line-item expenses (both "fixed" items like common ingredients and dynamic "vegetable" items). The app calculates totals in real-time (qty × rate = amount) and provides a dashboard listing all reports.
 
 ## User Preferences
 
