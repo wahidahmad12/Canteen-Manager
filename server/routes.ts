@@ -78,6 +78,49 @@ export async function registerRoutes(
     res.json(items);
   });
 
+  // Create vegetable item
+  app.post(api.vegetables.create.path, async (req, res) => {
+    try {
+      const input = api.vegetables.create.input.parse(req.body);
+      const item = await storage.createVegetableItem(input);
+      res.status(201).json(item);
+    } catch (err) {
+      if (err instanceof z.ZodError) {
+        return res.status(400).json({
+          message: err.errors[0].message,
+          field: err.errors[0].path.join('.'),
+        });
+      }
+      throw err;
+    }
+  });
+
+  // Update vegetable item
+  app.put(api.vegetables.update.path, async (req, res) => {
+    try {
+      const input = api.vegetables.update.input.parse(req.body);
+      const item = await storage.updateVegetableItem(Number(req.params.id), input);
+      res.json(item);
+    } catch (err) {
+      if (err instanceof z.ZodError) {
+        return res.status(400).json({
+          message: err.errors[0].message,
+          field: err.errors[0].path.join('.'),
+        });
+      }
+      if (err instanceof Error && err.message === "Vegetable not found") {
+        return res.status(404).json({ message: "Vegetable not found" });
+      }
+      throw err;
+    }
+  });
+
+  // Delete vegetable item
+  app.delete(api.vegetables.delete.path, async (req, res) => {
+    await storage.deleteVegetableItem(Number(req.params.id));
+    res.status(204).send();
+  });
+
   return httpServer;
 }
 

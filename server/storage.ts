@@ -20,12 +20,33 @@ export interface IStorage {
   updateReport(id: number, report: UpdateReportRequest): Promise<ReportWithItems>;
   deleteReport(id: number): Promise<void>;
   getVegetableItems(): Promise<VegetableItem[]>;
+  createVegetableItem(item: { name: string }): Promise<VegetableItem>;
+  updateVegetableItem(id: number, item: { name: string }): Promise<VegetableItem>;
+  deleteVegetableItem(id: number): Promise<void>;
   seedVegetableItems(names: string[]): Promise<void>;
 }
 
 export class DatabaseStorage implements IStorage {
   async getVegetableItems(): Promise<VegetableItem[]> {
-    return await db.select().from(vegetableItems);
+    return await db.select().from(vegetableItems).orderBy(vegetableItems.name);
+  }
+
+  async createVegetableItem(item: { name: string }): Promise<VegetableItem> {
+    const [newItem] = await db.insert(vegetableItems).values(item).returning();
+    return newItem;
+  }
+
+  async updateVegetableItem(id: number, item: { name: string }): Promise<VegetableItem> {
+    const [updated] = await db.update(vegetableItems)
+      .set(item)
+      .where(eq(vegetableItems.id, id))
+      .returning();
+    if (!updated) throw new Error("Vegetable not found");
+    return updated;
+  }
+
+  async deleteVegetableItem(id: number): Promise<void> {
+    await db.delete(vegetableItems).where(eq(vegetableItems.id, id));
   }
 
   async seedVegetableItems(names: string[]): Promise<void> {

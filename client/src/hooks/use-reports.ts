@@ -116,3 +116,62 @@ export function useVegetableItems() {
     },
   });
 }
+
+// POST /api/vegetables
+export function useCreateVegetableItem() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (data: { name: string }) => {
+      const res = await fetch(api.vegetables.create.path, {
+        method: api.vegetables.create.method,
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(data),
+        credentials: "include",
+      });
+      if (!res.ok) throw new Error("Failed to create vegetable item");
+      return api.vegetables.create.responses[201].parse(await res.json());
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: [api.vegetables.list.path] });
+    },
+  });
+}
+
+// PUT /api/vegetables/:id
+export function useUpdateVegetableItem() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ id, name }: { id: number; name: string }) => {
+      const url = buildUrl(api.vegetables.update.path, { id });
+      const res = await fetch(url, {
+        method: api.vegetables.update.method,
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name }),
+        credentials: "include",
+      });
+      if (!res.ok) throw new Error("Failed to update vegetable item");
+      return api.vegetables.update.responses[200].parse(await res.json());
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: [api.vegetables.list.path] });
+    },
+  });
+}
+
+// DELETE /api/vegetables/:id
+export function useDeleteVegetableItem() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (id: number) => {
+      const url = buildUrl(api.vegetables.delete.path, { id });
+      const res = await fetch(url, {
+        method: api.vegetables.delete.method,
+        credentials: "include",
+      });
+      if (!res.ok) throw new Error("Failed to delete vegetable item");
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: [api.vegetables.list.path] });
+    },
+  });
+}

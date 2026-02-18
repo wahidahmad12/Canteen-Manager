@@ -86,6 +86,32 @@ export const api = {
         200: z.array(selectVegetableItemSchema),
       },
     },
+    create: {
+      method: 'POST' as const,
+      path: '/api/vegetables' as const,
+      input: z.object({ name: z.string().min(1) }),
+      responses: {
+        201: selectVegetableItemSchema,
+        400: errorSchemas.validation,
+      },
+    },
+    update: {
+      method: 'PUT' as const,
+      path: '/api/vegetables/:id' as const,
+      input: z.object({ name: z.string().min(1) }),
+      responses: {
+        200: selectVegetableItemSchema,
+        404: errorSchemas.notFound,
+      },
+    },
+    delete: {
+      method: 'DELETE' as const,
+      path: '/api/vegetables/:id' as const,
+      responses: {
+        204: z.void(),
+        404: errorSchemas.notFound,
+      },
+    },
   },
 };
 
