@@ -72,6 +72,12 @@ export async function registerRoutes(
     res.status(204).send();
   });
 
+  // Get previous day balance
+  app.get('/api/reports/previous-balance/:date', async (req, res) => {
+    const balance = await storage.getPreviousDayBalance(req.params.date);
+    res.json({ balance });
+  });
+
   // Get vegetable items
   app.get(api.vegetables.list.path, async (req, res) => {
     const items = await storage.getVegetableItems();

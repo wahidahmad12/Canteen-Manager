@@ -35,9 +35,36 @@ export const expenseItems = pgTable("expense_items", {
   amount: numeric("amount", { precision: 10, scale: 2 }).default("0"),
 });
 
+// Stores cash seal (income vs expense) per day
+export const cashSeals = pgTable("cash_seals", {
+  id: serial("id").primaryKey(),
+  reportId: integer("report_id").notNull().references(() => dailyReports.id, { onDelete: 'cascade' }),
+  incomeMorningQty: numeric("income_morning_qty", { precision: 10, scale: 2 }).default("0"),
+  incomeLunchQty: numeric("income_lunch_qty", { precision: 10, scale: 2 }).default("0"),
+  incomeEveningQty: numeric("income_evening_qty", { precision: 10, scale: 2 }).default("0"),
+  incomeNightQty: numeric("income_night_qty", { precision: 10, scale: 2 }).default("0"),
+  incomeNonVegRate: numeric("income_non_veg_rate", { precision: 10, scale: 2 }).default("0"),
+  incomeNonVegQty: numeric("income_non_veg_qty", { precision: 10, scale: 2 }).default("0"),
+  incomeVegRate: numeric("income_veg_rate", { precision: 10, scale: 2 }).default("0"),
+  incomeVegQty: numeric("income_veg_qty", { precision: 10, scale: 2 }).default("0"),
+  incomeMorningCashRate: numeric("income_morning_cash_rate", { precision: 10, scale: 2 }).default("0"),
+  incomeMorningCashQty: numeric("income_morning_cash_qty", { precision: 10, scale: 2 }).default("0"),
+  incomeEveningCashRate: numeric("income_evening_cash_rate", { precision: 10, scale: 2 }).default("0"),
+  incomeEveningCashQty: numeric("income_evening_cash_qty", { precision: 10, scale: 2 }).default("0"),
+  expenseBananaQty: numeric("expense_banana_qty", { precision: 10, scale: 2 }).default("0"),
+  expenseDahiBharQty: numeric("expense_dahi_bhar_qty", { precision: 10, scale: 2 }).default("0"),
+  expenseDahiBharRate: numeric("expense_dahi_bhar_rate", { precision: 10, scale: 2 }).default("0"),
+  expenseOtherAmount: numeric("expense_other_amount", { precision: 10, scale: 2 }).default("0"),
+  totalGivenToAkbarAli: numeric("total_given_to_akbar_ali", { precision: 10, scale: 2 }).default("0"),
+});
+
 // === RELATIONS ===
-export const dailyReportsRelations = relations(dailyReports, ({ many }) => ({
+export const dailyReportsRelations = relations(dailyReports, ({ many, one }) => ({
   items: many(expenseItems),
+  cashSeal: one(cashSeals, {
+    fields: [dailyReports.id],
+    references: [cashSeals.reportId],
+  }),
 }));
 
 export const expenseItemsRelations = relations(expenseItems, ({ one }) => ({

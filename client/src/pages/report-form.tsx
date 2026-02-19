@@ -69,9 +69,24 @@ export default function ReportForm() {
       date: new Date(),
       openingBalance: 0,
       receivedAmount: 0,
-      items: DEFAULT_FIXED_ITEMS.map(item => ({ ...item, reportId: 0 })),
+      items: DEFAULT_FIXED_ITEMS.map(item => ({ ...item, reportId: 0, category: 'fixed' })),
     },
   });
+
+  const selectedDate = useWatch({ control: form.control, name: "date" });
+
+  useEffect(() => {
+    if (!isEditMode && selectedDate) {
+      const dateStr = format(selectedDate, 'yyyy-MM-dd');
+      fetch(`/api/reports/previous-balance/${dateStr}`)
+        .then(res => res.json())
+        .then(data => {
+          if (data.balance !== undefined) {
+            form.setValue("openingBalance", data.balance);
+          }
+        });
+    }
+  }, [selectedDate, isEditMode, form]);
 
   const { fields, append, remove, update } = useFieldArray({
     control: form.control,

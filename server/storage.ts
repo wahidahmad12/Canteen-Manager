@@ -11,11 +11,12 @@ import {
   type ReportWithItems,
   type VegetableItem
 } from "@shared/schema";
-import { eq, desc } from "drizzle-orm";
+import { eq, desc, lt } from "drizzle-orm";
 
 export interface IStorage {
   getReports(): Promise<DailyReport[]>;
   getReport(id: number): Promise<ReportWithItems | undefined>;
+  getPreviousDayBalance(date: string): Promise<number>;
   createReport(report: CreateReportRequest): Promise<ReportWithItems>;
   updateReport(id: number, report: UpdateReportRequest): Promise<ReportWithItems>;
   deleteReport(id: number): Promise<void>;
@@ -72,6 +73,23 @@ export class DatabaseStorage implements IStorage {
       ...report[0],
       items: items.sort((a, b) => a.id - b.id), // Maintain insertion order roughly
     };
+  }
+
+  async getPreviousDayBalance(dateStr: string): Promise<number> {
+    const prevReport = await db.select()
+      .from(dailyReports)
+      .where(lt(dailyReports.date, dateStr))
+      .orderBy(desc(dailyReports.date))
+      .limit(1);
+
+    if (prevReport.length === 0) return 0;
+
+    const report = prevReport[0];
+    const items = await db.select().from(expenseItems).where(eq(expenseItems.reportId, report.id));
+    
+    const totalExpense = items.reduce((sum, item) => sum + Number(item.amount), 0);
+    const totalCash = Number(report.openingBalance) + Number(report.receivedAmount);
+    return totalCash - totalExpense;
   }
 
   async createReport(request: CreateReportRequest): Promise<ReportWithItems> {
