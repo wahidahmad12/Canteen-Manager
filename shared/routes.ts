@@ -39,7 +39,7 @@ export const api = {
       method: 'GET' as const,
       path: '/api/reports' as const,
       responses: {
-        200: z.array(dailyReportSchema),
+        200: z.array(reportWithItemsSchema),
       },
     },
     get: {

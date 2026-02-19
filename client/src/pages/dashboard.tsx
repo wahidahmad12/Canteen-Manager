@@ -89,6 +89,7 @@ export default function Dashboard() {
                   <th className="text-right">Opening Bal.</th>
                   <th className="text-right">Received</th>
                   <th className="text-right">Total Cash</th>
+                  <th className="text-right">Total Expense</th>
                   <th className="text-right">Actions</th>
                 </tr>
               </thead>
@@ -97,6 +98,7 @@ export default function Dashboard() {
                   const opening = Number(report.openingBalance) || 0;
                   const received = Number(report.receivedAmount) || 0;
                   const totalCash = opening + received;
+                  const totalExpense = report.items?.reduce((sum: number, item: any) => sum + (Number(item.amount) || 0), 0) || 0;
                   
                   return (
                     <tr key={report.id} className="group">
@@ -115,6 +117,7 @@ export default function Dashboard() {
                       <td className="text-right font-mono text-muted-foreground">₹{opening.toFixed(2)}</td>
                       <td className="text-right font-mono text-muted-foreground">₹{received.toFixed(2)}</td>
                       <td className="text-right font-mono font-bold text-primary">₹{totalCash.toFixed(2)}</td>
+                      <td className="text-right font-mono text-destructive">₹{totalExpense.toFixed(2)}</td>
                       <td className="text-right">
                         <div className="flex items-center justify-end gap-2">
                           <Link href={`/report/${report.id}`}>

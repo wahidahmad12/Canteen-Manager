@@ -56,8 +56,12 @@ export class DatabaseStorage implements IStorage {
     }
   }
 
-  async getReports(): Promise<DailyReport[]> {
-    return await db.select().from(dailyReports).orderBy(desc(dailyReports.date));
+  async getReports(): Promise<ReportWithItems[]> {
+    const reports = await db.select().from(dailyReports).orderBy(desc(dailyReports.date));
+    return await Promise.all(reports.map(async (report) => {
+      const items = await db.select().from(expenseItems).where(eq(expenseItems.reportId, report.id));
+      return { ...report, items: items.sort((a, b) => a.id - b.id) };
+    }));
   }
 
   async getReport(id: number): Promise<ReportWithItems | undefined> {
