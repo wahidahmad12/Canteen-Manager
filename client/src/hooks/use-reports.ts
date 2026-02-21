@@ -19,7 +19,7 @@ export function useCurrentUser() {
     queryFn: async () => {
       const res = await fetch(api.auth.me.path, { credentials: "include" });
       if (!res.ok) return null;
-      return res.json() as Promise<{ id: number; username: string; displayName: string; role: string; clientName: string | null }>;
+      return res.json() as Promise<{ id: number; username: string; displayName: string; role: string; clientName: string | null; permissions: string[] }>;
     },
     retry: false,
     staleTime: 5 * 60 * 1000,
@@ -60,7 +60,7 @@ export function useUsers() {
 export function useCreateUser() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: async (data: { username: string; password: string; displayName: string; role: string; clientName: string | null }) => {
+    mutationFn: async (data: { username: string; password: string; displayName: string; role: string; clientName: string | null; permissions?: string[] }) => {
       const res = await fetch(api.users.create.path, {
         method: "POST",
         headers: { "Content-Type": "application/json" },

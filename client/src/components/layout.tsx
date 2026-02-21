@@ -10,14 +10,16 @@ export function Layout({ children }: { children: React.ReactNode }) {
   const { data: user } = useCurrentUser();
   const logoutMutation = useLogout();
 
+  const perms = user?.role === 'admin' ? ['expense', 'cashseal', 'inventory', 'menu'] : (user?.permissions || []);
+
   const navItems = [
-    { href: '/', label: 'Dashboard', icon: LayoutDashboard },
-    { href: '/new', label: 'KPF Delay Cash Expanse', icon: FilePlus },
-    { href: '/cash-seal', label: 'KPF Delay CASH SEAL', icon: Calculator },
-    { href: '/inventory', label: 'KPF Daily Inventory', icon: ClipboardList },
-    { href: '/menu', label: 'Menu Manager', icon: UtensilsCrossed },
-    ...(user?.role === 'admin' ? [{ href: '/admin', label: 'Admin', icon: Settings }] : []),
-  ];
+    { href: '/', label: 'Dashboard', icon: LayoutDashboard, perm: null },
+    { href: '/new', label: 'KPF Delay Cash Expanse', icon: FilePlus, perm: 'expense' },
+    { href: '/cash-seal', label: 'KPF Delay CASH SEAL', icon: Calculator, perm: 'cashseal' },
+    { href: '/inventory', label: 'KPF Daily Inventory', icon: ClipboardList, perm: 'inventory' },
+    { href: '/menu', label: 'Menu Manager', icon: UtensilsCrossed, perm: 'menu' },
+    ...(user?.role === 'admin' ? [{ href: '/admin', label: 'Admin', icon: Settings, perm: null }] : []),
+  ].filter(item => item.perm === null || perms.includes(item.perm));
 
   return (
     <div className="min-h-screen bg-muted/20 flex flex-col md:flex-row">

@@ -23,6 +23,22 @@ function requireAdmin(req: Request, res: Response, next: NextFunction) {
   next();
 }
 
+function requirePermission(perm: string) {
+  return (req: Request, res: Response, next: NextFunction) => {
+    if (!req.session.userId) {
+      return res.status(401).json({ message: "Not authenticated" });
+    }
+    if (req.session.role === "admin") {
+      return next();
+    }
+    const perms = req.session.permissions || [];
+    if (!perms.includes(perm)) {
+      return res.status(403).json({ message: "You do not have permission to access this feature" });
+    }
+    next();
+  };
+}
+
 export async function registerRoutes(
   httpServer: Server,
   app: Express
@@ -48,7 +64,8 @@ export async function registerRoutes(
       req.session.role = user.role;
       req.session.clientName = user.clientName;
       req.session.displayName = user.displayName;
-      res.json({ id: user.id, username: user.username, displayName: user.displayName, role: user.role, clientName: user.clientName });
+      req.session.permissions = user.permissions;
+      res.json({ id: user.id, username: user.username, displayName: user.displayName, role: user.role, clientName: user.clientName, permissions: user.permissions });
     } catch (err) {
       if (err instanceof z.ZodError) {
         return res.status(400).json({ message: err.errors[0].message });
@@ -74,6 +91,7 @@ export async function registerRoutes(
       role: req.session.role,
       clientName: req.session.clientName,
       username: req.session.username || "",
+      permissions: req.session.permissions || [],
     });
   });
 
@@ -107,13 +125,13 @@ export async function registerRoutes(
   // === PROTECTED ROUTES (require auth) ===
 
   // Get all reports
-  app.get(api.reports.list.path, requireAuth, async (req, res) => {
+  app.get(api.reports.list.path, requirePermission('expense'), async (req, res) => {
     const reports = await storage.getReports();
     res.json(reports);
   });
 
   // Get single report
-  app.get(api.reports.get.path, requireAuth, async (req, res) => {
+  app.get(api.reports.get.path, requirePermission('expense'), async (req, res) => {
     const report = await storage.getReport(Number(req.params.id));
     if (!report) {
       return res.status(404).json({ message: 'Report not found' });
@@ -122,7 +140,7 @@ export async function registerRoutes(
   });
 
   // Create report
-  app.post(api.reports.create.path, requireAuth, async (req, res) => {
+  app.post(api.reports.create.path, requirePermission('expense'), async (req, res) => {
     try {
       const input = api.reports.create.input.parse(req.body);
       const report = await storage.createReport(input);
@@ -143,7 +161,7 @@ export async function registerRoutes(
   });
 
   // Update report
-  app.put(api.reports.update.path, requireAuth, async (req, res) => {
+  app.put(api.reports.update.path, requirePermission('expense'), async (req, res) => {
     try {
       const input = api.reports.update.input.parse(req.body);
       const report = await storage.updateReport(Number(req.params.id), input);
@@ -163,19 +181,19 @@ export async function registerRoutes(
   });
 
   // Delete report
-  app.delete(api.reports.delete.path, requireAuth, async (req, res) => {
+  app.delete(api.reports.delete.path, requirePermission('expense'), async (req, res) => {
     await storage.deleteReport(Number(req.params.id));
     res.status(204).send();
   });
 
   // Get previous day balance
-  app.get('/api/reports/previous-balance/:date', requireAuth, async (req, res) => {
+  app.get('/api/reports/previous-balance/:date', requirePermission('expense'), async (req, res) => {
     const balance = await storage.getPreviousDayBalance(req.params.date);
     res.json({ balance });
   });
 
   // Get vegetable items
-  app.get(api.vegetables.list.path, requireAuth, async (req, res) => {
+  app.get(api.vegetables.list.path, requirePermission('expense'), async (req, res) => {
     const items = await storage.getVegetableItems();
     res.json(items);
   });
@@ -224,12 +242,12 @@ export async function registerRoutes(
   });
 
   // === CASH SEAL ROUTES ===
-  app.get(api.cashSeals.list.path, requireAuth, async (req, res) => {
+  app.get(api.cashSeals.list.path, requirePermission('cashseal'), async (req, res) => {
     const seals = await storage.getCashSeals();
     res.json(seals);
   });
 
-  app.post(api.cashSeals.create.path, requireAuth, async (req, res) => {
+  app.post(api.cashSeals.create.path, requirePermission('cashseal'), async (req, res) => {
     try {
       const input = api.cashSeals.create.input.parse(req.body);
       const seal = await storage.createCashSeal(input);
@@ -243,18 +261,18 @@ export async function registerRoutes(
   });
 
   // === INVENTORY ROUTES ===
-  app.get(api.inventory.list.path, requireAuth, async (req, res) => {
+  app.get(api.inventory.list.path, requirePermission('inventory'), async (req, res) => {
     const inventories = await storage.getInventories();
     res.json(inventories);
   });
 
-  app.get(api.inventory.get.path, requireAuth, async (req, res) => {
+  app.get(api.inventory.get.path, requirePermission('inventory'), async (req, res) => {
     const inv = await storage.getInventory(Number(req.params.id));
     if (!inv) return res.status(404).json({ message: 'Inventory not found' });
     res.json(inv);
   });
 
-  app.post(api.inventory.create.path, requireAuth, async (req, res) => {
+  app.post(api.inventory.create.path, requirePermission('inventory'), async (req, res) => {
     try {
       const input = api.inventory.create.input.parse(req.body);
       const inv = await storage.createInventory(input);
@@ -270,7 +288,7 @@ export async function registerRoutes(
     }
   });
 
-  app.put(api.inventory.update.path, requireAuth, async (req, res) => {
+  app.put(api.inventory.update.path, requirePermission('inventory'), async (req, res) => {
     try {
       const input = api.inventory.update.input.parse(req.body);
       const inv = await storage.updateInventory(Number(req.params.id), input);
@@ -286,24 +304,24 @@ export async function registerRoutes(
     }
   });
 
-  app.delete(api.inventory.delete.path, requireAuth, async (req, res) => {
+  app.delete(api.inventory.delete.path, requirePermission('inventory'), async (req, res) => {
     await storage.deleteInventory(Number(req.params.id));
     res.status(204).send();
   });
 
   // === MENU ROUTES ===
-  app.get(api.menus.list.path, requireAuth, async (req, res) => {
+  app.get(api.menus.list.path, requirePermission('menu'), async (req, res) => {
     const menus = await storage.getSavedMenus();
     res.json(menus);
   });
 
-  app.get(api.menus.get.path, requireAuth, async (req, res) => {
+  app.get(api.menus.get.path, requirePermission('menu'), async (req, res) => {
     const menu = await storage.getSavedMenu(Number(req.params.id));
     if (!menu) return res.status(404).json({ message: "Menu not found" });
     res.json(menu);
   });
 
-  app.post(api.menus.create.path, requireAuth, async (req, res) => {
+  app.post(api.menus.create.path, requirePermission('menu'), async (req, res) => {
     try {
       const input = api.menus.create.input.parse(req.body);
       const menu = await storage.createSavedMenu(input);
@@ -316,7 +334,7 @@ export async function registerRoutes(
     }
   });
 
-  app.delete(api.menus.delete.path, requireAuth, async (req, res) => {
+  app.delete(api.menus.delete.path, requirePermission('menu'), async (req, res) => {
     await storage.deleteSavedMenu(Number(req.params.id));
     res.status(204).send();
   });

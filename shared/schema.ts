@@ -2,7 +2,7 @@
 import { pgTable, text, serial, integer, numeric, date, timestamp, boolean } from "drizzle-orm/pg-core";
 import { createInsertSchema, createSelectSchema } from "drizzle-zod";
 import { z } from "zod";
-import { relations } from "drizzle-orm";
+import { relations, sql } from "drizzle-orm";
 
 // === TABLE DEFINITIONS ===
 
@@ -114,8 +114,9 @@ export const users = pgTable("users", {
   username: text("username").notNull().unique(),
   passwordHash: text("password_hash").notNull(),
   displayName: text("display_name").notNull(),
-  role: text("role").notNull().default("user"), // 'admin' or 'user'
-  clientName: text("client_name"), // which client group this user belongs to
+  role: text("role").notNull().default("user"),
+  clientName: text("client_name"),
+  permissions: text("permissions").array().notNull().default(sql`ARRAY['expense','cashseal','inventory','menu']::text[]`),
   isActive: boolean("is_active").notNull().default(true),
   createdAt: timestamp("created_at").defaultNow(),
 });
@@ -214,9 +215,13 @@ export type AdminSettingsType = typeof adminSettings.$inferSelect;
 export type ClientName = typeof clientNames.$inferSelect;
 export const selectClientNameSchema = createSelectSchema(clientNames);
 
+export const ALL_PERMISSIONS = ['expense', 'cashseal', 'inventory', 'menu'] as const;
+export type Permission = typeof ALL_PERMISSIONS[number];
+
 export type User = typeof users.$inferSelect;
 export const insertUserSchema = createInsertSchema(users).omit({ id: true, createdAt: true, passwordHash: true }).extend({
   password: z.string().min(4),
+  permissions: z.array(z.enum(ALL_PERMISSIONS)).default([...ALL_PERMISSIONS]),
 });
 export const selectUserSchema = createSelectSchema(users, {
   createdAt: z.string().or(z.date()),

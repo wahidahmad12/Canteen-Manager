@@ -14,6 +14,13 @@ import Login from "./pages/login";
 import { useCurrentUser } from "./hooks/use-reports";
 import { Loader2 } from "lucide-react";
 
+function PermRoute({ perm, children }: { perm: string; children: React.ReactNode }) {
+  const { data: user } = useCurrentUser();
+  const perms = user?.role === 'admin' ? ['expense', 'cashseal', 'inventory', 'menu'] : (user?.permissions || []);
+  if (!perms.includes(perm)) return <Redirect to="/" />;
+  return <>{children}</>;
+}
+
 function AdminRoute() {
   const { data: user } = useCurrentUser();
   if (user?.role !== "admin") return <Redirect to="/" />;
@@ -24,12 +31,12 @@ function AuthenticatedRouter() {
   return (
     <Switch>
       <Route path="/" component={Dashboard} />
-      <Route path="/new" component={ReportForm} />
-      <Route path="/report/:id" component={ReportForm} />
+      <Route path="/new">{() => <PermRoute perm="expense"><ReportForm /></PermRoute>}</Route>
+      <Route path="/report/:id">{(params) => <PermRoute perm="expense"><ReportForm /></PermRoute>}</Route>
       <Route path="/admin" component={AdminRoute} />
-      <Route path="/cash-seal" component={CashSeal} />
-      <Route path="/inventory" component={DailyInventory} />
-      <Route path="/menu" component={MenuManager} />
+      <Route path="/cash-seal">{() => <PermRoute perm="cashseal"><CashSeal /></PermRoute>}</Route>
+      <Route path="/inventory">{() => <PermRoute perm="inventory"><DailyInventory /></PermRoute>}</Route>
+      <Route path="/menu">{() => <PermRoute perm="menu"><MenuManager /></PermRoute>}</Route>
       <Route component={NotFound} />
     </Switch>
   );

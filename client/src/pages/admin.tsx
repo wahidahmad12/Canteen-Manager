@@ -69,6 +69,18 @@ export default function Admin() {
   const [newDisplayName, setNewDisplayName] = useState("");
   const [newUserRole, setNewUserRole] = useState("user");
   const [newUserClient, setNewUserClient] = useState("");
+  const [newUserPerms, setNewUserPerms] = useState<string[]>(['expense', 'cashseal', 'inventory', 'menu']);
+
+  const permissionLabels: Record<string, string> = {
+    expense: 'KPF Delay Cash Expanse',
+    cashseal: 'KPF Delay Cash Seal',
+    inventory: 'KPF Daily Inventory',
+    menu: 'Menu Manager',
+  };
+
+  const togglePerm = (perm: string) => {
+    setNewUserPerms(prev => prev.includes(perm) ? prev.filter(p => p !== perm) : [...prev, perm]);
+  };
 
   const handleCreate = async () => {
     if (!newItemName.trim()) return;
@@ -141,12 +153,14 @@ export default function Admin() {
         displayName: newDisplayName,
         role: newUserRole,
         clientName: newUserClient || null,
+        permissions: newUserPerms,
       });
       setNewUsername("");
       setNewPassword("");
       setNewDisplayName("");
       setNewUserRole("user");
       setNewUserClient("");
+      setNewUserPerms(['expense', 'cashseal', 'inventory', 'menu']);
       toast({ title: "Success", description: "User account created" });
     } catch (e: any) {
       toast({ title: "Error", description: e.message || "Failed to create user", variant: "destructive" });
@@ -435,6 +449,23 @@ export default function Admin() {
                   ))}
                 </select>
               </div>
+              <div className="space-y-2">
+                <p className="text-sm font-medium">Permissions</p>
+                <div className="flex flex-wrap gap-3">
+                  {Object.entries(permissionLabels).map(([key, label]) => (
+                    <label key={key} className="flex items-center gap-2 text-sm cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={newUserPerms.includes(key)}
+                        onChange={() => togglePerm(key)}
+                        className="rounded border-input"
+                        data-testid={`checkbox-perm-${key}`}
+                      />
+                      {label}
+                    </label>
+                  ))}
+                </div>
+              </div>
               <Button onClick={handleCreateUser} disabled={createUserMutation.isPending} data-testid="button-create-user">
                 {createUserMutation.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <UserPlus className="w-4 h-4 mr-2" />}
                 Create User
@@ -453,6 +484,7 @@ export default function Admin() {
                         <th className="px-4 py-3 text-left">Display Name</th>
                         <th className="px-4 py-3 text-left">Role</th>
                         <th className="px-4 py-3 text-left">Client</th>
+                        <th className="px-4 py-3 text-left">Permissions</th>
                         <th className="px-4 py-3 text-right w-24">Actions</th>
                       </tr>
                     </thead>
@@ -467,6 +499,15 @@ export default function Admin() {
                             </span>
                           </td>
                           <td className="px-4 py-3 text-muted-foreground">{u.clientName || '-'}</td>
+                          <td className="px-4 py-3">
+                            <div className="flex flex-wrap gap-1">
+                              {(u.role === 'admin' ? Object.keys(permissionLabels) : (u.permissions || [])).map((p: string) => (
+                                <span key={p} className="inline-flex items-center px-1.5 py-0.5 rounded text-xs bg-muted text-muted-foreground">
+                                  {permissionLabels[p] || p}
+                                </span>
+                              ))}
+                            </div>
+                          </td>
                           <td className="px-4 py-3 text-right">
                             {u.username !== 'admin' && (
                               <Button

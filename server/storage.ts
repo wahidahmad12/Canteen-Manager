@@ -62,7 +62,7 @@ export interface IStorage {
   getUsers(): Promise<SafeUser[]>;
   getUserById(id: number): Promise<User | undefined>;
   getUserByUsername(username: string): Promise<User | undefined>;
-  createUser(data: { username: string; password: string; displayName: string; role: string; clientName: string | null }): Promise<SafeUser>;
+  createUser(data: { username: string; password: string; displayName: string; role: string; clientName: string | null; permissions?: string[] }): Promise<SafeUser>;
   deleteUser(id: number): Promise<void>;
   seedAdminUser(): Promise<void>;
 }
@@ -462,7 +462,7 @@ export class DatabaseStorage implements IStorage {
     return user;
   }
 
-  async createUser(data: { username: string; password: string; displayName: string; role: string; clientName: string | null }): Promise<SafeUser> {
+  async createUser(data: { username: string; password: string; displayName: string; role: string; clientName: string | null; permissions?: string[] }): Promise<SafeUser> {
     const passwordHash = await bcrypt.hash(data.password, 10);
     const [user] = await db.insert(users).values({
       username: data.username,
@@ -470,6 +470,7 @@ export class DatabaseStorage implements IStorage {
       displayName: data.displayName,
       role: data.role,
       clientName: data.clientName,
+      permissions: data.permissions || ['expense', 'cashseal', 'inventory', 'menu'],
     }).returning();
     const { passwordHash: _, ...safeUser } = user;
     return safeUser as SafeUser;

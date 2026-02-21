@@ -21,6 +21,7 @@ declare module "express-session" {
     role: string;
     clientName: string | null;
     displayName: string;
+    permissions: string[];
   }
 }
 
