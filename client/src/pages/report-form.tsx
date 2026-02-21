@@ -35,11 +35,6 @@ const formSchema = insertDailyReportSchema.extend({
 type FormValues = z.infer<typeof formSchema>;
 
 const DEFAULT_FIXED_ITEMS = [
-  { category: 'fixed', description: 'Ginger (Adarak)', uom: 'Kg', qty: 0, rate: 0, amount: 0 },
-  { category: 'fixed', description: 'Garlic (Lahasun)', uom: 'Kg', qty: 0, rate: 0, amount: 0 },
-  { category: 'fixed', description: 'Tomato (Tamaatar)', uom: 'Kg', qty: 0, rate: 0, amount: 0 },
-  { category: 'fixed', description: 'Green Chilli (Mirch)', uom: 'Kg', qty: 0, rate: 0, amount: 0 },
-  { category: 'fixed', description: 'Lemon (Neemboo)', uom: 'Pcs', qty: 0, rate: 0, amount: 0 },
   { category: 'fixed', description: 'Cup Dahi 85g', uom: 'Kg', qty: 0, rate: 15, amount: 0 },
   { category: 'fixed', description: 'Dahi 100g Khatta', uom: 'Pcs', qty: 0, rate: 19, amount: 0 },
   { category: 'fixed', description: 'Dahi 100g Sweet', uom: 'Pcs', qty: 0, rate: 21, amount: 0 },
@@ -49,6 +44,14 @@ const DEFAULT_FIXED_ITEMS = [
   { category: 'fixed', description: 'Paneer', uom: 'Kg', qty: 0, rate: 250, amount: 0 },
   { category: 'fixed', description: 'Petrol', uom: 'Ltr', qty: 0, rate: 105, amount: 0 },
   { category: 'fixed', description: 'Transport/Parking', uom: 'Trip', qty: 0, rate: 10, amount: 0 },
+];
+
+const DEFAULT_VEGETABLE_ITEMS = [
+  { category: 'vegetable', description: 'Ginger (Adarak)', uom: 'Kg', qty: 0, rate: 0, amount: 0 },
+  { category: 'vegetable', description: 'Garlic (Lahasun)', uom: 'Kg', qty: 0, rate: 0, amount: 0 },
+  { category: 'vegetable', description: 'Tomato (Tamaatar)', uom: 'Kg', qty: 0, rate: 0, amount: 0 },
+  { category: 'vegetable', description: 'Green Chilli (Mirch)', uom: 'Kg', qty: 0, rate: 0, amount: 0 },
+  { category: 'vegetable', description: 'Lemon (Neemboo)', uom: 'Pcs', qty: 0, rate: 0, amount: 0 },
 ];
 
 export default function ReportForm() {
@@ -69,7 +72,10 @@ export default function ReportForm() {
       date: new Date(),
       openingBalance: 0,
       receivedAmount: 0,
-      items: DEFAULT_FIXED_ITEMS.map(item => ({ ...item, reportId: 0, category: 'fixed' })),
+      items: [
+        ...DEFAULT_FIXED_ITEMS.map(item => ({ ...item, reportId: 0 })),
+        ...DEFAULT_VEGETABLE_ITEMS.map(item => ({ ...item, reportId: 0 })),
+      ],
     },
   });
 
@@ -271,9 +277,10 @@ export default function ReportForm() {
                 <tbody>
                   {fields.map((field, index) => {
                     if (field.category !== 'fixed') return null;
+                    const fixedIndex = fields.slice(0, index).filter(f => f.category === 'fixed').length + 1;
                     return (
                       <tr key={field.id}>
-                        <td className="text-center text-muted-foreground">{index + 1}</td>
+                        <td className="text-center text-muted-foreground">{fixedIndex}</td>
                         <td className="font-medium">{field.description}</td>
                         <td className="text-muted-foreground text-xs font-mono bg-muted/30 px-2 py-1 rounded inline-block w-fit">
                           {field.uom}
@@ -370,9 +377,10 @@ export default function ReportForm() {
                 <tbody>
                   {fields.map((field, index) => {
                     if (field.category !== 'vegetable') return null;
+                    const vegIndex = fields.slice(0, index).filter(f => f.category === 'vegetable').length + 1;
                     return (
                       <tr key={field.id}>
-                        <td className="text-center text-muted-foreground">{index + 1}</td>
+                        <td className="text-center text-muted-foreground">{vegIndex}</td>
                         <td>
                           <Select
                             value={items[index]?.description || ''}
