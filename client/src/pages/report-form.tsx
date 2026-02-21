@@ -136,11 +136,8 @@ export default function ReportForm() {
     const newRate = field === 'rate' ? numValue : Number(currentItem.rate);
     const newAmount = newQty * newRate;
 
-    update(index, { 
-      ...currentItem, 
-      [field]: numValue,
-      amount: newAmount 
-    });
+    form.setValue(`items.${index}.${field}`, numValue);
+    form.setValue(`items.${index}.amount`, newAmount);
   };
 
   const onSubmit = async (data: FormValues) => {
@@ -284,21 +281,37 @@ export default function ReportForm() {
                         <td>
                           <Input 
                             type="number"
-                            step="0.01"
+                            step="any"
                             className="h-8 font-mono text-right no-spinner"
-                            placeholder="0.00"
-                            value={items[index]?.qty || ''}
-                            onChange={(e) => handleItemChange(index, 'qty', e.target.value)}
+                            placeholder="0"
+                            defaultValue=""
+                            key={`fixed-qty-${field.id}`}
+                            {...form.register(`items.${index}.qty` as const, {
+                              valueAsNumber: true,
+                              onChange: (e) => {
+                                const val = parseFloat(e.target.value) || 0;
+                                const rate = Number(items[index]?.rate) || 0;
+                                form.setValue(`items.${index}.amount`, val * rate);
+                              }
+                            })}
                           />
                         </td>
                         <td>
                           <Input 
                             type="number"
-                            step="0.01"
+                            step="any"
                             className="h-8 font-mono text-right no-spinner"
-                            placeholder="0.00"
-                            value={items[index]?.rate || ''}
-                            onChange={(e) => handleItemChange(index, 'rate', e.target.value)}
+                            placeholder="0"
+                            defaultValue=""
+                            key={`fixed-rate-${field.id}`}
+                            {...form.register(`items.${index}.rate` as const, {
+                              valueAsNumber: true,
+                              onChange: (e) => {
+                                const val = parseFloat(e.target.value) || 0;
+                                const qty = Number(items[index]?.qty) || 0;
+                                form.setValue(`items.${index}.amount`, qty * val);
+                              }
+                            })}
                           />
                         </td>
                         <td className="text-right font-mono font-medium">
@@ -392,21 +405,35 @@ export default function ReportForm() {
                         <td>
                           <Input 
                             type="number"
-                            step="0.01"
+                            step="any"
                             className="h-8 font-mono text-right no-spinner"
-                            placeholder="0.00"
-                            value={items[index]?.qty || ''}
-                            onChange={(e) => handleItemChange(index, 'qty', e.target.value)}
+                            placeholder="0"
+                            key={`veg-qty-${field.id}`}
+                            {...form.register(`items.${index}.qty` as const, {
+                              valueAsNumber: true,
+                              onChange: (e) => {
+                                const val = parseFloat(e.target.value) || 0;
+                                const rate = Number(items[index]?.rate) || 0;
+                                form.setValue(`items.${index}.amount`, val * rate);
+                              }
+                            })}
                           />
                         </td>
                         <td>
                           <Input 
                             type="number"
-                            step="0.01"
+                            step="any"
                             className="h-8 font-mono text-right no-spinner"
-                            placeholder="0.00"
-                            value={items[index]?.rate || ''}
-                            onChange={(e) => handleItemChange(index, 'rate', e.target.value)}
+                            placeholder="0"
+                            key={`veg-rate-${field.id}`}
+                            {...form.register(`items.${index}.rate` as const, {
+                              valueAsNumber: true,
+                              onChange: (e) => {
+                                const val = parseFloat(e.target.value) || 0;
+                                const qty = Number(items[index]?.qty) || 0;
+                                form.setValue(`items.${index}.amount`, qty * val);
+                              }
+                            })}
                           />
                         </td>
                         <td className="text-right font-mono font-medium">
