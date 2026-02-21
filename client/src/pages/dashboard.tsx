@@ -526,28 +526,17 @@ export default function Dashboard() {
                               </Link>
                             )}
                             {isAdmin && pr.status === 'pending' && (
-                              <>
+                              <Link href={`/purchase-request/${pr.id}/review`}>
                                 <Button
                                   size="sm"
                                   variant="ghost"
                                   className="h-8 text-green-600 hover:text-green-700 hover:bg-green-50"
-                                  onClick={() => updatePurchaseMutation.mutate({ id: pr.id, status: 'approved' })}
-                                  disabled={updatePurchaseMutation.isPending}
-                                  data-testid={`button-approve-purchase-${pr.id}`}
+                                  data-testid={`button-review-purchase-${pr.id}`}
                                 >
-                                  <Check className="w-4 h-4" />
+                                  <Check className="w-4 h-4 mr-1" />
+                                  <span className="text-xs">Review</span>
                                 </Button>
-                                <Button
-                                  size="sm"
-                                  variant="ghost"
-                                  className="h-8 text-red-600 hover:text-red-700 hover:bg-red-50"
-                                  onClick={() => updatePurchaseMutation.mutate({ id: pr.id, status: 'rejected' })}
-                                  disabled={updatePurchaseMutation.isPending}
-                                  data-testid={`button-reject-purchase-${pr.id}`}
-                                >
-                                  <X className="w-4 h-4" />
-                                </Button>
-                              </>
+                              </Link>
                             )}
                             {isAdmin && (
                             <AlertDialog>

@@ -5,7 +5,6 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { DatePicker } from "@/components/ui/date-picker";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Checkbox } from "@/components/ui/checkbox";
 import { format } from "date-fns";
 import { ShoppingCart, Plus, Trash2, Save, Loader2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
@@ -16,9 +15,7 @@ import { Label } from "@/components/ui/label";
 interface PurchaseItem {
   itemName: string;
   uom: string;
-  qty: number;
   requestQty: number;
-  approved: boolean;
 }
 
 const UOM_OPTIONS = ["Kg", "Gm", "Ltr", "Ml", "Pcs", "Pkt", "Box", "Dz", "Nos", "Bag", "Tin", "Cyl", "Plats", "Cup", "Set"];
@@ -27,7 +24,7 @@ export default function PurchaseRequest() {
   const [date, setDate] = useState<Date>(new Date());
   const [clientName, setClientName] = useState("");
   const [items, setItems] = useState<PurchaseItem[]>([
-    { itemName: "", uom: "Kg", qty: 0, requestQty: 0, approved: false },
+    { itemName: "", uom: "Kg", requestQty: 0 },
   ]);
   const { toast } = useToast();
   const [, navigate] = useLocation();
@@ -36,7 +33,7 @@ export default function PurchaseRequest() {
   const { data: savedItems } = useSavedItemNames();
 
   const addItem = () => {
-    setItems([...items, { itemName: "", uom: "Kg", qty: 0, requestQty: 0, approved: false }]);
+    setItems([...items, { itemName: "", uom: "Kg", requestQty: 0 }]);
   };
 
   const removeItem = (index: number) => {
@@ -136,7 +133,6 @@ export default function PurchaseRequest() {
             </div>
           </CardHeader>
           <CardContent>
-            {/* Desktop table view */}
             <div className="hidden sm:block">
               <div className="overflow-x-auto">
                 <table className="w-full text-sm">
@@ -145,9 +141,7 @@ export default function PurchaseRequest() {
                       <th className="text-left py-2 px-2 font-medium text-muted-foreground w-8">#</th>
                       <th className="text-left py-2 px-2 font-medium text-muted-foreground">Item Name</th>
                       <th className="text-left py-2 px-2 font-medium text-muted-foreground w-24">UOM</th>
-                      <th className="text-right py-2 px-2 font-medium text-muted-foreground w-24">Qty</th>
-                      <th className="text-right py-2 px-2 font-medium text-muted-foreground w-28">Request Qty</th>
-                      <th className="text-center py-2 px-2 font-medium text-muted-foreground w-20">Approve</th>
+                      <th className="text-right py-2 px-2 font-medium text-muted-foreground w-28">Qty</th>
                       <th className="w-10"></th>
                     </tr>
                   </thead>
@@ -180,28 +174,11 @@ export default function PurchaseRequest() {
                         <td className="py-2 px-2">
                           <Input
                             type="number"
-                            value={item.qty || ""}
-                            onChange={(e) => updateItem(index, "qty", Number(e.target.value))}
-                            className="h-9 text-right"
-                            min={0}
-                            data-testid={`input-qty-${index}`}
-                          />
-                        </td>
-                        <td className="py-2 px-2">
-                          <Input
-                            type="number"
                             value={item.requestQty || ""}
                             onChange={(e) => updateItem(index, "requestQty", Number(e.target.value))}
                             className="h-9 text-right"
                             min={0}
                             data-testid={`input-request-qty-${index}`}
-                          />
-                        </td>
-                        <td className="py-2 px-2 text-center">
-                          <Checkbox
-                            checked={item.approved}
-                            onCheckedChange={(checked) => updateItem(index, "approved", !!checked)}
-                            data-testid={`checkbox-approve-${index}`}
                           />
                         </td>
                         <td className="py-2 px-2">
@@ -223,7 +200,6 @@ export default function PurchaseRequest() {
               </div>
             </div>
 
-            {/* Mobile card view */}
             <div className="sm:hidden space-y-4">
               {items.map((item, index) => (
                 <div key={index} className="border rounded-xl p-4 space-y-3">
@@ -251,7 +227,7 @@ export default function PurchaseRequest() {
                     />
                   </div>
 
-                  <div className="grid grid-cols-3 gap-2">
+                  <div className="grid grid-cols-2 gap-2">
                     <div className="space-y-1">
                       <Label className="text-xs">UOM</Label>
                       <Select value={item.uom} onValueChange={(v) => updateItem(index, "uom", v)}>
@@ -269,30 +245,12 @@ export default function PurchaseRequest() {
                       <Label className="text-xs">Qty</Label>
                       <Input
                         type="number"
-                        value={item.qty || ""}
-                        onChange={(e) => updateItem(index, "qty", Number(e.target.value))}
-                        className="h-9 text-right"
-                        min={0}
-                      />
-                    </div>
-                    <div className="space-y-1">
-                      <Label className="text-xs">Request Qty</Label>
-                      <Input
-                        type="number"
                         value={item.requestQty || ""}
                         onChange={(e) => updateItem(index, "requestQty", Number(e.target.value))}
                         className="h-9 text-right"
                         min={0}
                       />
                     </div>
-                  </div>
-
-                  <div className="flex items-center gap-2">
-                    <Checkbox
-                      checked={item.approved}
-                      onCheckedChange={(checked) => updateItem(index, "approved", !!checked)}
-                    />
-                    <Label className="text-xs">Approved</Label>
                   </div>
                 </div>
               ))}

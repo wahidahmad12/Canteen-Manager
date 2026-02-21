@@ -188,7 +188,7 @@ export async function registerRoutes(
 
   // Get previous day balance
   app.get('/api/reports/previous-balance/:date', requirePermission('expense'), async (req, res) => {
-    const balance = await storage.getPreviousDayBalance(req.params.date);
+    const balance = await storage.getPreviousDayBalance(req.params.date as string);
     res.json({ balance });
   });
 

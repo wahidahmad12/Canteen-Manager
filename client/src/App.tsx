@@ -12,6 +12,7 @@ import DailyInventory from "./pages/daily-inventory";
 import MenuManager from "./pages/menu-manager";
 import PurchaseRequest from "./pages/purchase-request";
 import PurchaseRequestPDF from "./pages/purchase-request-pdf";
+import PurchaseRequestReview from "./pages/purchase-request-review";
 import Login from "./pages/login";
 import { useCurrentUser } from "./hooks/use-reports";
 import { Loader2 } from "lucide-react";
@@ -29,6 +30,12 @@ function AdminRoute() {
   return <Admin />;
 }
 
+function AdminOnlyRoute({ children }: { children: React.ReactNode }) {
+  const { data: user } = useCurrentUser();
+  if (user?.role !== "admin") return <Redirect to="/" />;
+  return <>{children}</>;
+}
+
 function AuthenticatedRouter() {
   return (
     <Switch>
@@ -41,6 +48,7 @@ function AuthenticatedRouter() {
       <Route path="/menu">{() => <PermRoute perm="menu"><MenuManager /></PermRoute>}</Route>
       <Route path="/purchase-request">{() => <PermRoute perm="purchase"><PurchaseRequest /></PermRoute>}</Route>
       <Route path="/purchase-request/:id/pdf">{() => <PermRoute perm="purchase"><PurchaseRequestPDF /></PermRoute>}</Route>
+      <Route path="/purchase-request/:id/review">{() => <AdminOnlyRoute><PurchaseRequestReview /></AdminOnlyRoute>}</Route>
       <Route component={NotFound} />
     </Switch>
   );

@@ -126,8 +126,8 @@ export const purchaseRequestItems = pgTable("purchase_request_items", {
   requestId: integer("request_id").notNull().references(() => purchaseRequests.id, { onDelete: 'cascade' }),
   itemName: text("item_name").notNull(),
   uom: text("uom").notNull(),
-  qty: numeric("qty", { precision: 10, scale: 2 }).default("0"),
   requestQty: numeric("request_qty", { precision: 10, scale: 2 }).default("0"),
+  approveQty: numeric("approve_qty", { precision: 10, scale: 2 }),
   approved: boolean("approved").notNull().default(false),
 });
 

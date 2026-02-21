@@ -92,9 +92,9 @@ export default function PurchaseRequestPDF() {
                 <th className="border border-border print:border-gray-300 px-3 py-2 text-left font-semibold w-12">S.No</th>
                 <th className="border border-border print:border-gray-300 px-3 py-2 text-left font-semibold">Item Name</th>
                 <th className="border border-border print:border-gray-300 px-3 py-2 text-center font-semibold w-20">UOM</th>
-                <th className="border border-border print:border-gray-300 px-3 py-2 text-right font-semibold w-20">Qty</th>
-                <th className="border border-border print:border-gray-300 px-3 py-2 text-right font-semibold w-24">Req Qty</th>
-                <th className="border border-border print:border-gray-300 px-3 py-2 text-center font-semibold w-24">Approved</th>
+                <th className="border border-border print:border-gray-300 px-3 py-2 text-right font-semibold w-24">Request Qty</th>
+                <th className="border border-border print:border-gray-300 px-3 py-2 text-right font-semibold w-24">Approve Qty</th>
+                <th className="border border-border print:border-gray-300 px-3 py-2 text-center font-semibold w-24">Status</th>
               </tr>
             </thead>
             <tbody>
@@ -103,13 +103,15 @@ export default function PurchaseRequestPDF() {
                   <td className="border border-border print:border-gray-300 px-3 py-2 text-center text-muted-foreground">{index + 1}</td>
                   <td className="border border-border print:border-gray-300 px-3 py-2 font-medium print:text-black">{item.itemName}</td>
                   <td className="border border-border print:border-gray-300 px-3 py-2 text-center">{item.uom}</td>
-                  <td className="border border-border print:border-gray-300 px-3 py-2 text-right font-mono">{Number(item.qty)}</td>
                   <td className="border border-border print:border-gray-300 px-3 py-2 text-right font-mono">{Number(item.requestQty)}</td>
+                  <td className="border border-border print:border-gray-300 px-3 py-2 text-right font-mono">
+                    {item.approveQty != null ? Number(item.approveQty) : '—'}
+                  </td>
                   <td className="border border-border print:border-gray-300 px-3 py-2 text-center">
                     {item.approved ? (
-                      <span className="text-green-600 font-semibold">✓ Yes</span>
+                      <span className="text-green-600 font-semibold">✓ Approved</span>
                     ) : (
-                      <span className="text-muted-foreground">—</span>
+                      <span className="text-red-500 font-medium">✗ Rejected</span>
                     )}
                   </td>
                 </tr>
@@ -121,13 +123,13 @@ export default function PurchaseRequestPDF() {
                   Total Items: {allItems.length}
                 </td>
                 <td className="border border-border print:border-gray-300 px-3 py-2 text-right font-mono font-semibold">
-                  {allItems.reduce((sum: number, item: any) => sum + Number(item.qty), 0)}
-                </td>
-                <td className="border border-border print:border-gray-300 px-3 py-2 text-right font-mono font-semibold">
                   {allItems.reduce((sum: number, item: any) => sum + Number(item.requestQty), 0)}
                 </td>
+                <td className="border border-border print:border-gray-300 px-3 py-2 text-right font-mono font-semibold">
+                  {approvedItems.reduce((sum: number, item: any) => sum + (Number(item.approveQty) || 0), 0)}
+                </td>
                 <td className="border border-border print:border-gray-300 px-3 py-2 text-center font-semibold text-green-600">
-                  {approvedItems.length} approved
+                  {approvedItems.length}/{allItems.length}
                 </td>
               </tr>
             </tfoot>

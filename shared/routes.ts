@@ -292,9 +292,7 @@ export const api = {
         items: z.array(z.object({
           itemName: z.string().min(1),
           uom: z.string().min(1),
-          qty: z.coerce.number().default(0),
           requestQty: z.coerce.number().default(0),
-          approved: z.boolean().default(false),
         })),
       }),
       responses: {
@@ -310,10 +308,11 @@ export const api = {
         date: z.string().optional(),
         status: z.string().optional(),
         items: z.array(z.object({
+          id: z.number().optional(),
           itemName: z.string().min(1),
           uom: z.string().min(1),
-          qty: z.coerce.number().default(0),
           requestQty: z.coerce.number().default(0),
+          approveQty: z.coerce.number().nullable().optional(),
           approved: z.boolean().default(false),
         })).optional(),
       }),

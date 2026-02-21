@@ -72,8 +72,8 @@ export interface IStorage {
   seedAdminUser(): Promise<void>;
   getPurchaseRequests(): Promise<PurchaseRequestWithItems[]>;
   getPurchaseRequest(id: number): Promise<PurchaseRequestWithItems | undefined>;
-  createPurchaseRequest(data: { clientName: string; date: string; createdBy?: string; items: { itemName: string; uom: string; qty: number; requestQty: number; approved: boolean }[] }): Promise<PurchaseRequestWithItems>;
-  updatePurchaseRequest(id: number, data: { clientName?: string; date?: string; status?: string; approvedBy?: string; items?: { itemName: string; uom: string; qty: number; requestQty: number; approved: boolean }[] }): Promise<PurchaseRequestWithItems>;
+  createPurchaseRequest(data: { clientName: string; date: string; createdBy?: string; items: { itemName: string; uom: string; requestQty: number }[] }): Promise<PurchaseRequestWithItems>;
+  updatePurchaseRequest(id: number, data: { clientName?: string; date?: string; status?: string; approvedBy?: string; items?: { id?: number; itemName: string; uom: string; requestQty: number; approveQty?: number | null; approved: boolean }[] }): Promise<PurchaseRequestWithItems>;
   deletePurchaseRequest(id: number): Promise<void>;
   getSavedItemNames(source?: string): Promise<SavedItemName[]>;
   saveItemNames(names: string[], source: string, categoryId?: number): Promise<void>;
@@ -507,7 +507,7 @@ export class DatabaseStorage implements IStorage {
     return { ...req, items };
   }
 
-  async createPurchaseRequest(data: { clientName: string; date: string; createdBy?: string; items: { itemName: string; uom: string; qty: number; requestQty: number; approved: boolean }[] }): Promise<PurchaseRequestWithItems> {
+  async createPurchaseRequest(data: { clientName: string; date: string; createdBy?: string; items: { itemName: string; uom: string; requestQty: number }[] }): Promise<PurchaseRequestWithItems> {
     return await db.transaction(async (tx) => {
       const [req] = await tx.insert(purchaseRequests).values({
         clientName: data.clientName,
@@ -520,9 +520,7 @@ export class DatabaseStorage implements IStorage {
             requestId: req.id,
             itemName: item.itemName,
             uom: item.uom,
-            qty: item.qty.toString(),
             requestQty: item.requestQty.toString(),
-            approved: item.approved,
           }))
         );
       }
@@ -531,7 +529,7 @@ export class DatabaseStorage implements IStorage {
     });
   }
 
-  async updatePurchaseRequest(id: number, data: { clientName?: string; date?: string; status?: string; approvedBy?: string; items?: { itemName: string; uom: string; qty: number; requestQty: number; approved: boolean }[] }): Promise<PurchaseRequestWithItems> {
+  async updatePurchaseRequest(id: number, data: { clientName?: string; date?: string; status?: string; approvedBy?: string; items?: { id?: number; itemName: string; uom: string; requestQty: number; approveQty?: number | null; approved: boolean }[] }): Promise<PurchaseRequestWithItems> {
     return await db.transaction(async (tx) => {
       const [req] = await tx.update(purchaseRequests).set({
         ...(data.clientName ? { clientName: data.clientName } : {}),
@@ -548,8 +546,8 @@ export class DatabaseStorage implements IStorage {
               requestId: id,
               itemName: item.itemName,
               uom: item.uom,
-              qty: item.qty.toString(),
               requestQty: item.requestQty.toString(),
+              approveQty: item.approveQty != null ? item.approveQty.toString() : null,
               approved: item.approved,
             }))
           );
