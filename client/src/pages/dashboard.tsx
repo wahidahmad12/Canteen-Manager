@@ -58,50 +58,51 @@ export default function Dashboard() {
 
   return (
     <Layout>
-      <div className="flex flex-col md:flex-row md:items-center justify-between mb-8 gap-4">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-6 sm:mb-8 gap-3 sm:gap-4">
         <div>
-          <h2 className="text-3xl font-bold tracking-tight" data-testid="text-dashboard-title">DJ KPF</h2>
-          <p className="text-muted-foreground mt-2">Delay Cash Expanse Manager</p>
+          <h2 className="text-2xl sm:text-3xl font-bold tracking-tight" data-testid="text-dashboard-title">DJ KPF</h2>
+          <p className="text-muted-foreground mt-1 sm:mt-2 text-sm sm:text-base">Delay Cash Expanse Manager</p>
         </div>
         <div className="flex gap-2 flex-wrap">
           <Link href="/new">
-            <Button className="h-11 px-5 rounded-xl shadow-lg shadow-primary/20" data-testid="button-new-report">
-              <Plus className="w-4 h-4 mr-2" />
-              KPF Delay Cash Expanse
+            <Button className="h-9 sm:h-11 px-3 sm:px-5 rounded-xl shadow-lg shadow-primary/20 text-xs sm:text-sm" data-testid="button-new-report">
+              <Plus className="w-4 h-4 mr-1 sm:mr-2" />
+              <span className="hidden sm:inline">KPF Delay Cash Expanse</span>
+              <span className="sm:hidden">New Report</span>
             </Button>
           </Link>
           <Link href="/cash-seal">
-            <Button variant="outline" className="h-11 px-5 rounded-xl" data-testid="button-cash-seal">
-              <Calculator className="w-4 h-4 mr-2" />
+            <Button variant="outline" className="h-9 sm:h-11 px-3 sm:px-5 rounded-xl text-xs sm:text-sm" data-testid="button-cash-seal">
+              <Calculator className="w-4 h-4 mr-1 sm:mr-2" />
               Cash Seal
             </Button>
           </Link>
           <Link href="/inventory">
-            <Button variant="outline" className="h-11 px-5 rounded-xl" data-testid="button-inventory">
-              <ClipboardList className="w-4 h-4 mr-2" />
-              Daily Inventory
+            <Button variant="outline" className="h-9 sm:h-11 px-3 sm:px-5 rounded-xl text-xs sm:text-sm" data-testid="button-inventory">
+              <ClipboardList className="w-4 h-4 mr-1 sm:mr-2" />
+              Inventory
             </Button>
           </Link>
         </div>
       </div>
 
       <Tabs defaultValue="reports" className="space-y-4">
-        <TabsList className="grid w-full grid-cols-4" data-testid="tabs-dashboard">
-          <TabsTrigger value="reports" data-testid="tab-reports">
-            <FileText className="w-4 h-4 mr-2" />
-            Expense Reports
+        <TabsList className="grid w-full grid-cols-2 sm:grid-cols-4 h-auto" data-testid="tabs-dashboard">
+          <TabsTrigger value="reports" className="text-xs sm:text-sm py-2" data-testid="tab-reports">
+            <FileText className="w-4 h-4 mr-1 sm:mr-2 shrink-0" />
+            <span className="truncate">Reports</span>
           </TabsTrigger>
-          <TabsTrigger value="cashseal" data-testid="tab-cashseal">
-            <Calculator className="w-4 h-4 mr-2" />
-            Cash Seal
+          <TabsTrigger value="cashseal" className="text-xs sm:text-sm py-2" data-testid="tab-cashseal">
+            <Calculator className="w-4 h-4 mr-1 sm:mr-2 shrink-0" />
+            <span className="truncate">Cash Seal</span>
           </TabsTrigger>
-          <TabsTrigger value="inventory" data-testid="tab-inventory">
-            <ClipboardList className="w-4 h-4 mr-2" />
-            Daily Inventory
+          <TabsTrigger value="inventory" className="text-xs sm:text-sm py-2" data-testid="tab-inventory">
+            <ClipboardList className="w-4 h-4 mr-1 sm:mr-2 shrink-0" />
+            <span className="truncate">Inventory</span>
           </TabsTrigger>
-          <TabsTrigger value="menus" data-testid="tab-menus">
-            <UtensilsCrossed className="w-4 h-4 mr-2" />
-            Saved Menus
+          <TabsTrigger value="menus" className="text-xs sm:text-sm py-2" data-testid="tab-menus">
+            <UtensilsCrossed className="w-4 h-4 mr-1 sm:mr-2 shrink-0" />
+            <span className="truncate">Menus</span>
           </TabsTrigger>
         </TabsList>
 

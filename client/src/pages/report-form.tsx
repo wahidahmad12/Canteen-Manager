@@ -184,28 +184,27 @@ export default function ReportForm() {
 
   return (
     <Layout>
-      <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-8 pb-24">
-        {/* Header Actions */}
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-4">
-            <Button variant="outline" size="icon" onClick={() => setLocation("/")} type="button">
+      <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6 sm:space-y-8 pb-32 sm:pb-24">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <div className="flex items-center gap-3 sm:gap-4">
+            <Button variant="outline" size="icon" onClick={() => setLocation("/")} type="button" className="shrink-0">
               <ArrowLeft className="w-4 h-4" />
             </Button>
-            <div>
-              <h1 className="text-2xl font-bold tracking-tight">
+            <div className="min-w-0">
+              <h1 className="text-lg sm:text-2xl font-bold tracking-tight truncate">
                 {isEditMode ? "Edit Report" : "DJ KPF Delay Cash Expanse"}
               </h1>
-              <p className="text-muted-foreground">Fill in the daily expense details.</p>
+              <p className="text-muted-foreground text-xs sm:text-sm">Fill in the daily expense details.</p>
             </div>
           </div>
-          <div className="flex gap-3">
-             <Button variant="outline" type="button" onClick={() => setLocation("/")}>
+          <div className="flex gap-2 sm:gap-3 ml-12 sm:ml-0">
+             <Button variant="outline" type="button" onClick={() => setLocation("/")} className="text-xs sm:text-sm h-9 sm:h-10">
                Cancel
              </Button>
              <Button 
                type="submit" 
                disabled={createMutation.isPending || updateMutation.isPending}
-               className="shadow-lg shadow-primary/20"
+               className="shadow-lg shadow-primary/20 text-xs sm:text-sm h-9 sm:h-10"
              >
                {(createMutation.isPending || updateMutation.isPending) ? (
                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
@@ -445,22 +444,21 @@ export default function ReportForm() {
           </CardContent>
         </Card>
 
-        {/* Summary Footer - Sticky at bottom on mobile, inline on desktop */}
-        <div className="fixed bottom-0 left-0 right-0 md:static bg-background/80 backdrop-blur-md md:bg-transparent border-t md:border-0 p-4 md:p-0 z-10">
+        <div className="fixed bottom-0 left-0 right-0 md:static bg-background/80 backdrop-blur-md md:bg-transparent border-t md:border-0 p-3 sm:p-4 md:p-0 z-10">
           <Card className="border-primary/20 bg-primary/5 shadow-lg">
-            <CardContent className="p-6">
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
+            <CardContent className="p-3 sm:p-6">
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-3 sm:gap-6">
                 <div>
-                  <p className="text-xs text-muted-foreground uppercase tracking-wider font-semibold">Total Expense</p>
-                  <p className="text-2xl font-bold font-mono text-primary">₹{grandTotalExpense.toFixed(2)}</p>
+                  <p className="text-[10px] sm:text-xs text-muted-foreground uppercase tracking-wider font-semibold">Total Expense</p>
+                  <p className="text-lg sm:text-2xl font-bold font-mono text-primary">₹{grandTotalExpense.toFixed(2)}</p>
                 </div>
                 <div>
-                  <p className="text-xs text-muted-foreground uppercase tracking-wider font-semibold">Total Cash</p>
-                  <p className="text-2xl font-bold font-mono">₹{totalCash.toFixed(2)}</p>
+                  <p className="text-[10px] sm:text-xs text-muted-foreground uppercase tracking-wider font-semibold">Total Cash</p>
+                  <p className="text-lg sm:text-2xl font-bold font-mono">₹{totalCash.toFixed(2)}</p>
                 </div>
-                <div className="md:col-span-2 text-right">
-                  <p className="text-xs text-muted-foreground uppercase tracking-wider font-semibold">Balance In Hand</p>
-                  <p className={`text-3xl font-bold font-mono ${balanceInHand < 0 ? 'text-destructive' : 'text-green-600'}`}>
+                <div className="col-span-2 text-right">
+                  <p className="text-[10px] sm:text-xs text-muted-foreground uppercase tracking-wider font-semibold">Balance In Hand</p>
+                  <p className={`text-xl sm:text-3xl font-bold font-mono ${balanceInHand < 0 ? 'text-destructive' : 'text-green-600'}`}>
                     ₹{balanceInHand.toFixed(2)}
                   </p>
                 </div>

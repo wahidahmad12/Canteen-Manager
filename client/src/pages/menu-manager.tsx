@@ -456,15 +456,15 @@ export default function MenuManager() {
       </div>
 
       <div
-        className="flex flex-wrap items-center gap-4 p-4 rounded-xl mb-6"
+        className="flex flex-wrap items-center gap-3 sm:gap-4 p-3 sm:p-4 rounded-xl mb-6"
         style={{ background: "#1a3a5a" }}
       >
-        <div className="flex items-center gap-2">
-          <label className="text-white font-medium text-sm">Client:</label>
+        <div className="flex items-center gap-2 w-full sm:w-auto">
+          <label className="text-white font-medium text-xs sm:text-sm shrink-0">Client:</label>
           <select
             value={client}
             onChange={e => handleClientChange(e.target.value)}
-            className="px-3 py-2 rounded font-bold text-sm"
+            className="px-2 sm:px-3 py-2 rounded font-bold text-xs sm:text-sm flex-1 sm:flex-none"
             data-testid="select-menu-client"
           >
             {clientList.map(c => (
@@ -472,8 +472,8 @@ export default function MenuManager() {
             ))}
           </select>
         </div>
-        <div className="flex items-center gap-2">
-          <label className="text-white font-medium text-sm">Start Date:</label>
+        <div className="flex items-center gap-2 w-full sm:w-auto">
+          <label className="text-white font-medium text-xs sm:text-sm shrink-0">Start:</label>
           <input
             type="date"
             value={startDate}
@@ -481,49 +481,51 @@ export default function MenuManager() {
               setStartDate(e.target.value);
               setTimeout(() => setCellValues(initValues()), 0);
             }}
-            className="px-3 py-2 rounded font-bold text-sm"
+            className="px-2 sm:px-3 py-2 rounded font-bold text-xs sm:text-sm flex-1 sm:flex-none"
             data-testid="input-menu-start-date"
           />
         </div>
-        <Button
-          onClick={handleSaveMenu}
-          className="bg-[#2196F3] text-white font-bold"
-          disabled={saveMenuMutation.isPending}
-          data-testid="button-menu-save"
-        >
-          {saveMenuMutation.isPending ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Save className="w-4 h-4 mr-2" />}
-          Save Menu
-        </Button>
-        <Button
-          onClick={handleDownload}
-          className="bg-[#25D366] text-white font-bold"
-          data-testid="button-menu-download"
-        >
-          <Download className="w-4 h-4 mr-2" />
-          Save as Image
-        </Button>
-        <Button
-          onClick={handleExcelDownload}
-          className="bg-[#217346] text-white font-bold"
-          data-testid="button-menu-excel"
-        >
-          <FileSpreadsheet className="w-4 h-4 mr-2" />
-          Save as Excel
-        </Button>
-        <Button
-          onClick={handleReset}
-          variant="secondary"
-          className="bg-[#7f8c8d] text-white font-bold"
-          data-testid="button-menu-reset"
-        >
-          <RotateCcw className="w-4 h-4 mr-2" />
-          Reset Menu
-        </Button>
+        <div className="flex flex-wrap gap-2 w-full sm:w-auto">
+          <Button
+            onClick={handleSaveMenu}
+            className="bg-[#2196F3] text-white font-bold text-xs sm:text-sm h-9 flex-1 sm:flex-none"
+            disabled={saveMenuMutation.isPending}
+            data-testid="button-menu-save"
+          >
+            {saveMenuMutation.isPending ? <Loader2 className="w-4 h-4 mr-1 animate-spin" /> : <Save className="w-4 h-4 mr-1" />}
+            Save
+          </Button>
+          <Button
+            onClick={handleDownload}
+            className="bg-[#25D366] text-white font-bold text-xs sm:text-sm h-9 flex-1 sm:flex-none"
+            data-testid="button-menu-download"
+          >
+            <Download className="w-4 h-4 mr-1" />
+            Image
+          </Button>
+          <Button
+            onClick={handleExcelDownload}
+            className="bg-[#217346] text-white font-bold text-xs sm:text-sm h-9 flex-1 sm:flex-none"
+            data-testid="button-menu-excel"
+          >
+            <FileSpreadsheet className="w-4 h-4 mr-1" />
+            Excel
+          </Button>
+          <Button
+            onClick={handleReset}
+            variant="secondary"
+            className="bg-[#7f8c8d] text-white font-bold text-xs sm:text-sm h-9 flex-1 sm:flex-none"
+            data-testid="button-menu-reset"
+          >
+            <RotateCcw className="w-4 h-4 mr-1" />
+            Reset
+          </Button>
+        </div>
       </div>
 
       <div
         ref={captureRef}
-        className="bg-white p-6 rounded-xl shadow-lg"
+        className="bg-white p-3 sm:p-6 rounded-xl shadow-lg overflow-x-auto"
         style={{ fontFamily: "'Segoe UI', Arial, sans-serif" }}
       >
         <div
@@ -538,7 +540,7 @@ export default function MenuManager() {
             style={{
               margin: 0,
               color: "#1a3a5a",
-              fontSize: "24px",
+              fontSize: "clamp(16px, 4vw, 24px)",
               textTransform: "uppercase",
               fontWeight: 900,
             }}
@@ -549,7 +551,7 @@ export default function MenuManager() {
             style={{
               fontWeight: 900,
               color: "#a52a2a",
-              fontSize: "20px",
+              fontSize: "clamp(14px, 3.5vw, 20px)",
               textTransform: "uppercase",
               marginTop: "10px",
               letterSpacing: "0.5px",

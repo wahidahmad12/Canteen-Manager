@@ -408,7 +408,7 @@ export default function Admin() {
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-6">
-              <div className="grid grid-cols-1 md:grid-cols-5 gap-2">
+              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-5 gap-2">
                 <Input
                   placeholder="Username"
                   value={newUsername}
@@ -476,16 +476,16 @@ export default function Admin() {
                   <Loader2 className="w-8 h-8 animate-spin text-primary" />
                 </div>
               ) : (
-                <div className="border rounded-lg overflow-hidden">
-                  <table className="w-full text-sm">
+                <div className="border rounded-lg overflow-hidden overflow-x-auto">
+                  <table className="w-full text-xs sm:text-sm min-w-[600px]">
                     <thead className="bg-muted/50 border-b">
                       <tr>
-                        <th className="px-4 py-3 text-left">Username</th>
-                        <th className="px-4 py-3 text-left">Display Name</th>
-                        <th className="px-4 py-3 text-left">Role</th>
-                        <th className="px-4 py-3 text-left">Client</th>
-                        <th className="px-4 py-3 text-left">Permissions</th>
-                        <th className="px-4 py-3 text-right w-24">Actions</th>
+                        <th className="px-3 sm:px-4 py-3 text-left">Username</th>
+                        <th className="px-3 sm:px-4 py-3 text-left">Display Name</th>
+                        <th className="px-3 sm:px-4 py-3 text-left">Role</th>
+                        <th className="px-3 sm:px-4 py-3 text-left">Client</th>
+                        <th className="px-3 sm:px-4 py-3 text-left">Permissions</th>
+                        <th className="px-3 sm:px-4 py-3 text-right w-24">Actions</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y">

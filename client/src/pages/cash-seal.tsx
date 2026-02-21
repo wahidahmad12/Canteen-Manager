@@ -97,9 +97,9 @@ export default function CashSeal() {
 
   return (
     <Layout>
-      <div className="flex items-center justify-between mb-8">
-        <h2 className="text-3xl font-bold tracking-tight">CASH SEAL KPF</h2>
-        <Button onClick={handleSave} disabled={saveMutation.isPending}>
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-6 sm:mb-8 gap-3">
+        <h2 className="text-2xl sm:text-3xl font-bold tracking-tight">CASH SEAL KPF</h2>
+        <Button onClick={handleSave} disabled={saveMutation.isPending} className="w-full sm:w-auto">
           {saveMutation.isPending ? "Saving..." : <><Save className="w-4 h-4 mr-2" /> Save Seal</>}
         </Button>
       </div>
@@ -129,15 +129,16 @@ export default function CashSeal() {
             <CardTitle className="text-center text-white text-lg">INCOME</CardTitle>
           </CardHeader>
           <CardContent className="p-0">
-            <table className="w-full border-collapse">
+            <div className="overflow-x-auto">
+            <table className="w-full border-collapse min-w-[500px]">
               <thead>
                 <tr className="bg-muted/50 border-b">
-                  <th className="border px-4 py-2 text-left">Name</th>
-                  <th className="border px-4 py-2 text-center w-24">Rate</th>
-                  <th className="border px-4 py-2 text-center w-12"></th>
-                  <th className="border px-4 py-2 text-center w-32">Qty</th>
-                  <th className="border px-4 py-2 text-center w-12"></th>
-                  <th className="border px-4 py-2 text-right w-40">Total</th>
+                  <th className="border px-2 sm:px-4 py-2 text-left text-xs sm:text-sm">Name</th>
+                  <th className="border px-2 sm:px-4 py-2 text-center w-16 sm:w-24 text-xs sm:text-sm">Rate</th>
+                  <th className="border px-1 sm:px-4 py-2 text-center w-8 sm:w-12 text-xs sm:text-sm"></th>
+                  <th className="border px-2 sm:px-4 py-2 text-center w-20 sm:w-32 text-xs sm:text-sm">Qty</th>
+                  <th className="border px-1 sm:px-4 py-2 text-center w-8 sm:w-12 text-xs sm:text-sm"></th>
+                  <th className="border px-2 sm:px-4 py-2 text-right w-24 sm:w-40 text-xs sm:text-sm">Total</th>
                 </tr>
               </thead>
               <tbody className="divide-y">
@@ -179,11 +180,12 @@ export default function CashSeal() {
                   </tr>
                 ))}
                 <tr className="bg-muted/10 font-bold">
-                  <td colSpan={5} className="border px-4 py-3 text-right">Total Income</td>
-                  <td className="border px-4 py-3 text-right text-lg font-mono">{totalIncome.toFixed(2)}</td>
+                  <td colSpan={5} className="border px-4 py-3 text-right text-xs sm:text-sm">Total Income</td>
+                  <td className="border px-4 py-3 text-right text-sm sm:text-lg font-mono">{totalIncome.toFixed(2)}</td>
                 </tr>
               </tbody>
             </table>
+            </div>
           </CardContent>
         </Card>
 
@@ -192,14 +194,15 @@ export default function CashSeal() {
             <CardTitle className="text-center text-white text-lg">EXPENSE</CardTitle>
           </CardHeader>
           <CardContent className="p-0">
-            <table className="w-full border-collapse">
+            <div className="overflow-x-auto">
+            <table className="w-full border-collapse min-w-[400px]">
               <thead>
                 <tr className="bg-muted/50 border-b">
-                  <th className="border px-4 py-2 text-left">Name</th>
-                  <th className="border px-4 py-2 text-center w-24">Qty</th>
-                  <th className="border px-4 py-2 text-center w-24">UoM</th>
-                  <th className="border px-4 py-2 text-center w-32">Price</th>
-                  <th className="border px-4 py-2 text-right w-40">Total</th>
+                  <th className="border px-2 sm:px-4 py-2 text-left text-xs sm:text-sm">Name</th>
+                  <th className="border px-2 sm:px-4 py-2 text-center w-20 sm:w-24 text-xs sm:text-sm">Qty</th>
+                  <th className="border px-2 sm:px-4 py-2 text-center w-16 sm:w-24 text-xs sm:text-sm">UoM</th>
+                  <th className="border px-2 sm:px-4 py-2 text-center w-20 sm:w-32 text-xs sm:text-sm">Price</th>
+                  <th className="border px-2 sm:px-4 py-2 text-right w-24 sm:w-40 text-xs sm:text-sm">Total</th>
                 </tr>
               </thead>
               <tbody className="divide-y">
@@ -234,17 +237,18 @@ export default function CashSeal() {
                 </tr>
               </tbody>
             </table>
+            </div>
           </CardContent>
         </Card>
 
         <div className="grid gap-2 border rounded-lg overflow-hidden bg-card shadow-sm">
-          <div className="flex border-b">
-            <div className="flex-1 px-4 py-3 font-bold text-right bg-muted/10 border-r">Balance (Income - Expense)</div>
-            <div className="w-40 px-4 py-3 text-right font-mono">{balance.toFixed(2)}</div>
+          <div className="flex flex-col sm:flex-row border-b">
+            <div className="flex-1 px-4 py-3 font-bold text-right bg-muted/10 sm:border-r text-sm sm:text-base">Balance (Income - Expense)</div>
+            <div className="w-full sm:w-40 px-4 py-3 text-right font-mono">{balance.toFixed(2)}</div>
           </div>
-          <div className="flex">
-            <div className="flex-1 px-4 py-3 font-bold text-right bg-muted/10 border-r">Total Amount Given to Akbar Ali</div>
-            <div className="w-40 px-2 py-1">
+          <div className="flex flex-col sm:flex-row">
+            <div className="flex-1 px-4 py-3 font-bold text-right bg-muted/10 sm:border-r text-sm sm:text-base">Total Amount Given to Akbar Ali</div>
+            <div className="w-full sm:w-40 px-2 py-1">
               <Input type="number" className="h-full font-mono text-right bg-yellow-50" value={akbarAliAmount || ""} onChange={(e) => setAkbarAliAmount(Number(e.target.value))} />
             </div>
           </div>

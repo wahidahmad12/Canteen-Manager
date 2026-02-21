@@ -91,20 +91,27 @@
 
 /* Stunning Table Styles */
 .glass-table {
-  @apply w-full border-collapse text-sm;
+  @apply w-full border-collapse text-xs sm:text-sm;
 }
 .glass-table thead {
-  @apply bg-muted/50 text-muted-foreground uppercase text-xs font-semibold tracking-wider;
+  @apply bg-muted/50 text-muted-foreground uppercase text-[10px] sm:text-xs font-semibold tracking-wider;
 }
 .glass-table th {
-  @apply px-4 py-3 text-left font-medium;
+  @apply px-2 sm:px-4 py-2 sm:py-3 text-left font-medium;
 }
 .glass-table td {
-  @apply px-4 py-3 border-b border-border/40 align-middle;
+  @apply px-2 sm:px-4 py-2 sm:py-3 border-b border-border/40 align-middle;
 }
 .glass-table tr:hover td {
   @apply bg-muted/30;
 }
 .glass-table tr:last-child td {
   @apply border-0;
+}
+
+/* Responsive touch targets */
+@media (max-width: 640px) {
+  input, select, button {
+    min-height: 36px;
+  }
 }
