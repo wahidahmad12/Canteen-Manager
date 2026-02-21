@@ -67,7 +67,7 @@ export default function Dashboard() {
           <Link href="/new">
             <Button className="h-11 px-5 rounded-xl shadow-lg shadow-primary/20" data-testid="button-new-report">
               <Plus className="w-4 h-4 mr-2" />
-              New Report
+              KPF Delay Cash Expanse
             </Button>
           </Link>
           <Link href="/cash-seal">
