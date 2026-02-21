@@ -13,6 +13,8 @@ import MenuManager from "./pages/menu-manager";
 import PurchaseRequest from "./pages/purchase-request";
 import PurchaseRequestPDF from "./pages/purchase-request-pdf";
 import PurchaseRequestReview from "./pages/purchase-request-review";
+import PurchaseInvoice from "./pages/purchase-invoice";
+import PurchaseInvoicePDF from "./pages/purchase-invoice-pdf";
 import Login from "./pages/login";
 import { useCurrentUser } from "./hooks/use-reports";
 import { Loader2 } from "lucide-react";
@@ -49,6 +51,10 @@ function AuthenticatedRouter() {
       <Route path="/purchase-request">{() => <PermRoute perm="purchase"><PurchaseRequest /></PermRoute>}</Route>
       <Route path="/purchase-request/:id/pdf">{() => <PermRoute perm="purchase"><PurchaseRequestPDF /></PermRoute>}</Route>
       <Route path="/purchase-request/:id/review">{() => <AdminOnlyRoute><PurchaseRequestReview /></AdminOnlyRoute>}</Route>
+      <Route path="/purchase-invoice">{() => <PermRoute perm="purchase"><PurchaseInvoice /></PermRoute>}</Route>
+      <Route path="/purchase-invoice/from/:prId">{() => <PermRoute perm="purchase"><PurchaseInvoice /></PermRoute>}</Route>
+      <Route path="/purchase-invoice/:id/edit">{() => <PermRoute perm="purchase"><PurchaseInvoice /></PermRoute>}</Route>
+      <Route path="/purchase-invoice/:id/pdf">{() => <PermRoute perm="purchase"><PurchaseInvoicePDF /></PermRoute>}</Route>
       <Route component={NotFound} />
     </Switch>
   );

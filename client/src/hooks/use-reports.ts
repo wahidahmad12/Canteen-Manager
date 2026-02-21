@@ -660,3 +660,139 @@ export function useDeletePurchaseRequest() {
     },
   });
 }
+
+// === VENDOR HOOKS ===
+
+export function useVendors() {
+  return useQuery({
+    queryKey: [api.vendors.list.path],
+    queryFn: async () => {
+      const res = await fetch(api.vendors.list.path, { credentials: "include" });
+      if (!res.ok) throw new Error("Failed to fetch vendors");
+      return res.json() as Promise<{ id: number; name: string; createdAt: string }[]>;
+    },
+  });
+}
+
+export function useCreateVendor() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (data: { name: string }) => {
+      const res = await fetch(api.vendors.create.path, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(data),
+        credentials: "include",
+      });
+      if (!res.ok) {
+        const error = await res.json();
+        throw new Error(error.message || "Failed to create vendor");
+      }
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: [api.vendors.list.path] });
+    },
+  });
+}
+
+export function useDeleteVendor() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (id: number) => {
+      const url = buildUrl(api.vendors.delete.path, { id });
+      const res = await fetch(url, { method: "DELETE", credentials: "include" });
+      if (!res.ok) throw new Error("Failed to delete vendor");
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: [api.vendors.list.path] });
+    },
+  });
+}
+
+// === PURCHASE INVOICE HOOKS ===
+
+export function usePurchaseInvoices(options?: { enabled?: boolean }) {
+  return useQuery({
+    queryKey: [api.purchaseInvoices.list.path],
+    queryFn: async () => {
+      const res = await fetch(api.purchaseInvoices.list.path, { credentials: "include" });
+      if (!res.ok) throw new Error("Failed to fetch purchase invoices");
+      return res.json() as Promise<any[]>;
+    },
+    enabled: options?.enabled !== false,
+  });
+}
+
+export function usePurchaseInvoice(id: number | null) {
+  return useQuery({
+    queryKey: [api.purchaseInvoices.list.path, id],
+    queryFn: async () => {
+      if (!id) return null;
+      const url = buildUrl(api.purchaseInvoices.get.path, { id });
+      const res = await fetch(url, { credentials: "include" });
+      if (!res.ok) throw new Error("Failed to fetch purchase invoice");
+      return res.json();
+    },
+    enabled: !!id,
+  });
+}
+
+export function useCreatePurchaseInvoice() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (data: any) => {
+      const res = await fetch(api.purchaseInvoices.create.path, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(data),
+        credentials: "include",
+      });
+      if (!res.ok) {
+        const error = await res.json();
+        throw new Error(error.message || "Failed to create invoice");
+      }
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: [api.purchaseInvoices.list.path] });
+    },
+  });
+}
+
+export function useUpdatePurchaseInvoice() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ id, ...data }: any) => {
+      const url = buildUrl(api.purchaseInvoices.update.path, { id });
+      const res = await fetch(url, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(data),
+        credentials: "include",
+      });
+      if (!res.ok) {
+        const error = await res.json();
+        throw new Error(error.message || "Failed to update invoice");
+      }
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: [api.purchaseInvoices.list.path] });
+    },
+  });
+}
+
+export function useDeletePurchaseInvoice() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (id: number) => {
+      const url = buildUrl(api.purchaseInvoices.delete.path, { id });
+      const res = await fetch(url, { method: "DELETE", credentials: "include" });
+      if (!res.ok) throw new Error("Failed to delete invoice");
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: [api.purchaseInvoices.list.path] });
+    },
+  });
+}

@@ -15,6 +15,9 @@ import {
   purchaseRequests,
   purchaseRequestItems,
   savedItemNames,
+  vendors,
+  purchaseInvoices,
+  purchaseInvoiceItems,
   type DailyReport, 
   type ExpenseItem,
   type CreateReportRequest,
@@ -30,6 +33,8 @@ import {
   type SafeUser,
   type PurchaseRequestWithItems,
   type SavedItemName,
+  type Vendor,
+  type PurchaseInvoiceWithItems,
 } from "@shared/schema";
 import { eq, desc, lt } from "drizzle-orm";
 import bcrypt from "bcryptjs";
@@ -77,6 +82,14 @@ export interface IStorage {
   deletePurchaseRequest(id: number): Promise<void>;
   getSavedItemNames(source?: string): Promise<SavedItemName[]>;
   saveItemNames(names: string[], source: string, categoryId?: number): Promise<void>;
+  getVendors(): Promise<Vendor[]>;
+  createVendor(data: { name: string }): Promise<Vendor>;
+  deleteVendor(id: number): Promise<void>;
+  getPurchaseInvoices(): Promise<PurchaseInvoiceWithItems[]>;
+  getPurchaseInvoice(id: number): Promise<PurchaseInvoiceWithItems | undefined>;
+  createPurchaseInvoice(data: { purchaseRequestId?: number | null; clientName: string; vendorName: string; vendorInvoiceNo: string; date: string; createdBy?: string; items: { itemName: string; uom: string; qty: number; unitPrice: number; totalPrice: number; gstRate: number; gstAmount: number; netAmount: number }[] }): Promise<PurchaseInvoiceWithItems>;
+  updatePurchaseInvoice(id: number, data: { purchaseRequestId?: number | null; clientName?: string; vendorName?: string; vendorInvoiceNo?: string; date?: string; items?: { id?: number; itemName: string; uom: string; qty: number; unitPrice: number; totalPrice: number; gstRate: number; gstAmount: number; netAmount: number }[] }): Promise<PurchaseInvoiceWithItems>;
+  deletePurchaseInvoice(id: number): Promise<void>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -596,6 +609,115 @@ export class DatabaseStorage implements IStorage {
         clientName: null,
       });
     }
+  }
+
+  async getVendors(): Promise<Vendor[]> {
+    return await db.select().from(vendors).orderBy(vendors.name);
+  }
+
+  async createVendor(data: { name: string }): Promise<Vendor> {
+    const [vendor] = await db.insert(vendors).values(data).returning();
+    return vendor;
+  }
+
+  async deleteVendor(id: number): Promise<void> {
+    await db.delete(vendors).where(eq(vendors.id, id));
+  }
+
+  async getPurchaseInvoices(): Promise<PurchaseInvoiceWithItems[]> {
+    const invoices = await db.select().from(purchaseInvoices).orderBy(desc(purchaseInvoices.createdAt));
+    return await Promise.all(invoices.map(async (inv) => {
+      const items = await db.select().from(purchaseInvoiceItems).where(eq(purchaseInvoiceItems.invoiceId, inv.id));
+      return { ...inv, items };
+    }));
+  }
+
+  async getPurchaseInvoice(id: number): Promise<PurchaseInvoiceWithItems | undefined> {
+    const [inv] = await db.select().from(purchaseInvoices).where(eq(purchaseInvoices.id, id));
+    if (!inv) return undefined;
+    const items = await db.select().from(purchaseInvoiceItems).where(eq(purchaseInvoiceItems.invoiceId, id));
+    return { ...inv, items };
+  }
+
+  async createPurchaseInvoice(data: { purchaseRequestId?: number | null; clientName: string; vendorName: string; vendorInvoiceNo: string; date: string; createdBy?: string; items: { itemName: string; uom: string; qty: number; unitPrice: number; totalPrice: number; gstRate: number; gstAmount: number; netAmount: number }[] }): Promise<PurchaseInvoiceWithItems> {
+    return await db.transaction(async (tx) => {
+      const totalAmount = data.items.reduce((sum, i) => sum + i.totalPrice, 0);
+      const totalGst = data.items.reduce((sum, i) => sum + i.gstAmount, 0);
+      const grandTotal = data.items.reduce((sum, i) => sum + i.netAmount, 0);
+      const [inv] = await tx.insert(purchaseInvoices).values({
+        purchaseRequestId: data.purchaseRequestId || null,
+        clientName: data.clientName,
+        vendorName: data.vendorName,
+        vendorInvoiceNo: data.vendorInvoiceNo || "",
+        date: data.date,
+        createdBy: data.createdBy || null,
+        totalAmount: totalAmount.toString(),
+        totalGst: totalGst.toString(),
+        grandTotal: grandTotal.toString(),
+      }).returning();
+      if (data.items.length > 0) {
+        await tx.insert(purchaseInvoiceItems).values(
+          data.items.map(item => ({
+            invoiceId: inv.id,
+            itemName: item.itemName,
+            uom: item.uom,
+            qty: item.qty.toString(),
+            unitPrice: item.unitPrice.toString(),
+            totalPrice: item.totalPrice.toString(),
+            gstRate: item.gstRate.toString(),
+            gstAmount: item.gstAmount.toString(),
+            netAmount: item.netAmount.toString(),
+          }))
+        );
+      }
+      const items = await tx.select().from(purchaseInvoiceItems).where(eq(purchaseInvoiceItems.invoiceId, inv.id));
+      return { ...inv, items };
+    });
+  }
+
+  async updatePurchaseInvoice(id: number, data: { purchaseRequestId?: number | null; clientName?: string; vendorName?: string; vendorInvoiceNo?: string; date?: string; items?: { id?: number; itemName: string; uom: string; qty: number; unitPrice: number; totalPrice: number; gstRate: number; gstAmount: number; netAmount: number }[] }): Promise<PurchaseInvoiceWithItems> {
+    return await db.transaction(async (tx) => {
+      const updateFields: any = {};
+      if (data.clientName) updateFields.clientName = data.clientName;
+      if (data.vendorName) updateFields.vendorName = data.vendorName;
+      if (data.vendorInvoiceNo !== undefined) updateFields.vendorInvoiceNo = data.vendorInvoiceNo;
+      if (data.date) updateFields.date = data.date;
+      if (data.purchaseRequestId !== undefined) updateFields.purchaseRequestId = data.purchaseRequestId;
+      if (data.items) {
+        const totalAmount = data.items.reduce((sum, i) => sum + i.totalPrice, 0);
+        const totalGst = data.items.reduce((sum, i) => sum + i.gstAmount, 0);
+        const grandTotal = data.items.reduce((sum, i) => sum + i.netAmount, 0);
+        updateFields.totalAmount = totalAmount.toString();
+        updateFields.totalGst = totalGst.toString();
+        updateFields.grandTotal = grandTotal.toString();
+      }
+      const [inv] = await tx.update(purchaseInvoices).set(updateFields).where(eq(purchaseInvoices.id, id)).returning();
+      if (!inv) throw new Error("Purchase invoice not found");
+      if (data.items) {
+        await tx.delete(purchaseInvoiceItems).where(eq(purchaseInvoiceItems.invoiceId, id));
+        if (data.items.length > 0) {
+          await tx.insert(purchaseInvoiceItems).values(
+            data.items.map(item => ({
+              invoiceId: id,
+              itemName: item.itemName,
+              uom: item.uom,
+              qty: item.qty.toString(),
+              unitPrice: item.unitPrice.toString(),
+              totalPrice: item.totalPrice.toString(),
+              gstRate: item.gstRate.toString(),
+              gstAmount: item.gstAmount.toString(),
+              netAmount: item.netAmount.toString(),
+            }))
+          );
+        }
+      }
+      const items = await tx.select().from(purchaseInvoiceItems).where(eq(purchaseInvoiceItems.invoiceId, id));
+      return { ...inv, items };
+    });
+  }
+
+  async deletePurchaseInvoice(id: number): Promise<void> {
+    await db.delete(purchaseInvoices).where(eq(purchaseInvoices.id, id));
   }
 }
 

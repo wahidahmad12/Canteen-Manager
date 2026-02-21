@@ -131,6 +131,43 @@ export const purchaseRequestItems = pgTable("purchase_request_items", {
   approved: boolean("approved").notNull().default(false),
 });
 
+// Vendors
+export const vendors = pgTable("vendors", {
+  id: serial("id").primaryKey(),
+  name: text("name").notNull().unique(),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+// Purchase invoices
+export const purchaseInvoices = pgTable("purchase_invoices", {
+  id: serial("id").primaryKey(),
+  serialNumber: serial("serial_number"),
+  purchaseRequestId: integer("purchase_request_id").references(() => purchaseRequests.id),
+  clientName: text("client_name").notNull(),
+  vendorName: text("vendor_name").notNull(),
+  vendorInvoiceNo: text("vendor_invoice_no").notNull().default(""),
+  date: date("date").notNull(),
+  totalAmount: numeric("total_amount", { precision: 12, scale: 2 }).default("0"),
+  totalGst: numeric("total_gst", { precision: 12, scale: 2 }).default("0"),
+  grandTotal: numeric("grand_total", { precision: 12, scale: 2 }).default("0"),
+  createdBy: text("created_by"),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+// Purchase invoice line items
+export const purchaseInvoiceItems = pgTable("purchase_invoice_items", {
+  id: serial("id").primaryKey(),
+  invoiceId: integer("invoice_id").notNull().references(() => purchaseInvoices.id, { onDelete: 'cascade' }),
+  itemName: text("item_name").notNull(),
+  uom: text("uom").notNull(),
+  qty: numeric("qty", { precision: 10, scale: 2 }).default("0"),
+  unitPrice: numeric("unit_price", { precision: 10, scale: 2 }).default("0"),
+  totalPrice: numeric("total_price", { precision: 12, scale: 2 }).default("0"),
+  gstRate: numeric("gst_rate", { precision: 5, scale: 2 }).default("0"),
+  gstAmount: numeric("gst_amount", { precision: 12, scale: 2 }).default("0"),
+  netAmount: numeric("net_amount", { precision: 12, scale: 2 }).default("0"),
+});
+
 // Saved item names for autocomplete in purchase requests and menus
 export const savedItemNames = pgTable("saved_item_names", {
   id: serial("id").primaryKey(),
@@ -295,4 +332,26 @@ export const selectDailyInventorySchema = createSelectSchema(dailyInventory, {
 export const inventoryWithItemsSchema = selectDailyInventorySchema.extend({
   kitchenStock: z.array(selectKitchenStockSchema),
   biscuits: z.array(selectBiscuitSchema),
+});
+
+// Vendor types and schemas
+export type Vendor = typeof vendors.$inferSelect;
+export const insertVendorSchema = createInsertSchema(vendors).omit({ id: true, createdAt: true });
+export const selectVendorSchema = createSelectSchema(vendors, { createdAt: z.string().or(z.date()) });
+
+// Purchase invoice types and schemas
+export type PurchaseInvoice = typeof purchaseInvoices.$inferSelect;
+export type PurchaseInvoiceItem = typeof purchaseInvoiceItems.$inferSelect;
+export type PurchaseInvoiceWithItems = PurchaseInvoice & { items: PurchaseInvoiceItem[] };
+
+export const insertPurchaseInvoiceSchema = createInsertSchema(purchaseInvoices).omit({ id: true, serialNumber: true, createdAt: true });
+export const insertPurchaseInvoiceItemSchema = createInsertSchema(purchaseInvoiceItems).omit({ id: true });
+export const selectPurchaseInvoiceSchema = createSelectSchema(purchaseInvoices, {
+  date: z.string(),
+  createdAt: z.string().or(z.date()),
+});
+export const selectPurchaseInvoiceItemSchema = createSelectSchema(purchaseInvoiceItems);
+
+export const purchaseInvoiceWithItemsSchema = selectPurchaseInvoiceSchema.extend({
+  items: z.array(selectPurchaseInvoiceItemSchema),
 });

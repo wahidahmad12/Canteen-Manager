@@ -413,6 +413,87 @@ export async function registerRoutes(
     res.status(204).send();
   });
 
+  // === VENDOR ROUTES ===
+  app.get(api.vendors.list.path, requireAuth, async (req, res) => {
+    const vendorsList = await storage.getVendors();
+    res.json(vendorsList);
+  });
+
+  app.post(api.vendors.create.path, requireAuth, async (req, res) => {
+    try {
+      const input = api.vendors.create.input.parse(req.body);
+      const vendor = await storage.createVendor(input);
+      res.status(201).json(vendor);
+    } catch (err) {
+      if (err instanceof z.ZodError) {
+        return res.status(400).json({ message: err.errors[0].message, field: err.errors[0].path.join('.') });
+      }
+      if (err instanceof Error && 'code' in (err as any) && (err as any).code === '23505') {
+        return res.status(400).json({ message: 'This vendor already exists.' });
+      }
+      throw err;
+    }
+  });
+
+  app.delete(api.vendors.delete.path, requireAdmin, async (req, res) => {
+    await storage.deleteVendor(Number(req.params.id));
+    res.status(204).send();
+  });
+
+  // === PURCHASE INVOICE ROUTES ===
+  app.get(api.purchaseInvoices.list.path, requirePermission('purchase'), async (req, res) => {
+    const invoices = await storage.getPurchaseInvoices();
+    if (req.session.role !== 'admin') {
+      const filtered = invoices.filter(inv => inv.createdBy === req.session.displayName || inv.createdBy === req.session.username);
+      return res.json(filtered);
+    }
+    res.json(invoices);
+  });
+
+  app.get(api.purchaseInvoices.get.path, requirePermission('purchase'), async (req, res) => {
+    const invoice = await storage.getPurchaseInvoice(Number(req.params.id));
+    if (!invoice) return res.status(404).json({ message: "Invoice not found" });
+    if (req.session.role !== 'admin' && invoice.createdBy !== req.session.displayName && invoice.createdBy !== req.session.username) {
+      return res.status(403).json({ message: "Access denied" });
+    }
+    res.json(invoice);
+  });
+
+  app.post(api.purchaseInvoices.create.path, requirePermission('purchase'), async (req, res) => {
+    try {
+      const input = api.purchaseInvoices.create.input.parse(req.body);
+      const createdByName = req.session.displayName || req.session.username || '';
+      const invoice = await storage.createPurchaseInvoice({ ...input, createdBy: createdByName });
+      res.status(201).json(invoice);
+    } catch (err) {
+      if (err instanceof z.ZodError) {
+        return res.status(400).json({ message: err.errors[0].message, field: err.errors[0].path.join('.') });
+      }
+      throw err;
+    }
+  });
+
+  app.put(api.purchaseInvoices.update.path, requirePermission('purchase'), async (req, res) => {
+    try {
+      const input = api.purchaseInvoices.update.input.parse(req.body);
+      const invoice = await storage.updatePurchaseInvoice(Number(req.params.id), input);
+      res.json(invoice);
+    } catch (err) {
+      if (err instanceof z.ZodError) {
+        return res.status(400).json({ message: err.errors[0].message, field: err.errors[0].path.join('.') });
+      }
+      if (err instanceof Error && err.message === "Purchase invoice not found") {
+        return res.status(404).json({ message: "Purchase invoice not found" });
+      }
+      throw err;
+    }
+  });
+
+  app.delete(api.purchaseInvoices.delete.path, requireAdmin, async (req, res) => {
+    await storage.deletePurchaseInvoice(Number(req.params.id));
+    res.status(204).send();
+  });
+
   // === SAVED ITEM NAMES ROUTES ===
   app.get(api.savedItems.list.path, requireAuth, async (req, res) => {
     const source = req.query.source as string | undefined;

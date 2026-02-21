@@ -1,6 +1,6 @@
 import { Link } from "wouter";
-import { Plus, Loader2, AlertCircle, FileText, ArrowRight, Calculator, ClipboardList, UtensilsCrossed, ShoppingCart, Trash2, Check, X, FileDown, Eye, Pencil } from "lucide-react";
-import { useReports, useDeleteReport, useInventories, useCashSeals, useSavedMenus, useDeleteSavedMenu, usePurchaseRequests, useDeletePurchaseRequest, useUpdatePurchaseRequest, useCurrentUser } from "@/hooks/use-reports";
+import { Plus, Loader2, AlertCircle, FileText, ArrowRight, Calculator, ClipboardList, UtensilsCrossed, ShoppingCart, Trash2, Check, X, FileDown, Eye, Pencil, Receipt } from "lucide-react";
+import { useReports, useDeleteReport, useInventories, useCashSeals, useSavedMenus, useDeleteSavedMenu, usePurchaseRequests, useDeletePurchaseRequest, useUpdatePurchaseRequest, useCurrentUser, usePurchaseInvoices, useDeletePurchaseInvoice } from "@/hooks/use-reports";
 import { format } from "date-fns";
 import { Layout } from "@/components/layout";
 import { Button } from "@/components/ui/button";
@@ -33,11 +33,13 @@ export default function Dashboard() {
   const { data: cashSeals, isLoading: csLoading } = useCashSeals({ enabled: hasCashSeal });
   const { data: savedMenus, isLoading: menusLoading } = useSavedMenus({ enabled: hasMenu });
   const { data: purchaseRequests, isLoading: prLoading } = usePurchaseRequests({ enabled: hasPurchase });
+  const { data: purchaseInvoices, isLoading: piLoading } = usePurchaseInvoices({ enabled: hasPurchase });
   const isAdmin = user?.role === 'admin';
   const deleteMutation = useDeleteReport();
   const deleteMenuMutation = useDeleteSavedMenu();
   const deletePurchaseMutation = useDeletePurchaseRequest();
   const updatePurchaseMutation = useUpdatePurchaseRequest();
+  const deleteInvoiceMutation = useDeletePurchaseInvoice();
 
   const tabItems = [
     { value: 'reports', label: 'Reports', icon: FileText, perm: 'expense' },
@@ -45,11 +47,12 @@ export default function Dashboard() {
     { value: 'inventory', label: 'Inventory', icon: ClipboardList, perm: 'inventory' },
     { value: 'menus', label: 'Menus', icon: UtensilsCrossed, perm: 'menu' },
     { value: 'purchase', label: 'Purchase', icon: ShoppingCart, perm: 'purchase' },
+    { value: 'invoices', label: 'Invoices', icon: Receipt, perm: 'purchase' },
   ].filter(item => perms.includes(item.perm));
 
   const defaultTab = tabItems.length > 0 ? tabItems[0].value : 'reports';
 
-  const anyLoading = (hasExpense && isLoading) || (hasInventory && invLoading) || (hasCashSeal && csLoading) || (hasMenu && menusLoading) || (hasPurchase && prLoading);
+  const anyLoading = (hasExpense && isLoading) || (hasInventory && invLoading) || (hasCashSeal && csLoading) || (hasMenu && menusLoading) || (hasPurchase && prLoading) || (hasPurchase && piLoading);
 
   if (anyLoading) {
     return (
@@ -107,7 +110,7 @@ export default function Dashboard() {
 
       <Tabs defaultValue={defaultTab} className="space-y-4">
         {tabItems.length > 0 && (
-          <TabsList className={`grid w-full h-auto`} style={{ gridTemplateColumns: `repeat(${Math.min(tabItems.length, 4)}, 1fr)` }} data-testid="tabs-dashboard">
+          <TabsList className={`grid w-full h-auto`} style={{ gridTemplateColumns: `repeat(${Math.min(tabItems.length, 6)}, 1fr)` }} data-testid="tabs-dashboard">
             {tabItems.map(tab => (
               <TabsTrigger key={tab.value} value={tab.value} className="text-xs sm:text-sm py-2" data-testid={`tab-${tab.value}`}>
                 <tab.icon className="w-4 h-4 mr-1 sm:mr-2 shrink-0" />
@@ -517,17 +520,30 @@ export default function Dashboard() {
                         <td className="text-right">
                           <div className="flex items-center justify-end gap-2">
                             {pr.status === 'approved' && (
-                              <Link href={`/purchase-request/${pr.id}/pdf`}>
-                                <Button
-                                  size="sm"
-                                  variant="ghost"
-                                  className="h-8 text-primary hover:text-primary hover:bg-primary/10"
-                                  data-testid={`button-view-pdf-${pr.id}`}
-                                >
-                                  <FileDown className="w-4 h-4 mr-1" />
-                                  <span className="hidden sm:inline text-xs">PDF</span>
-                                </Button>
-                              </Link>
+                              <>
+                                <Link href={`/purchase-request/${pr.id}/pdf`}>
+                                  <Button
+                                    size="sm"
+                                    variant="ghost"
+                                    className="h-8 text-primary hover:text-primary hover:bg-primary/10"
+                                    data-testid={`button-view-pdf-${pr.id}`}
+                                  >
+                                    <FileDown className="w-4 h-4 mr-1" />
+                                    <span className="hidden sm:inline text-xs">PDF</span>
+                                  </Button>
+                                </Link>
+                                <Link href={`/purchase-invoice/from/${pr.id}`}>
+                                  <Button
+                                    size="sm"
+                                    variant="ghost"
+                                    className="h-8 text-orange-600 hover:text-orange-700 hover:bg-orange-50"
+                                    data-testid={`button-create-invoice-${pr.id}`}
+                                  >
+                                    <Receipt className="w-4 h-4 mr-1" />
+                                    <span className="hidden sm:inline text-xs">Invoice</span>
+                                  </Button>
+                                </Link>
+                              </>
                             )}
                             {isAdmin && (pr.status === 'pending' || pr.status === 'approved') && (
                               <Link href={`/purchase-request/${pr.id}/review`}>
@@ -560,6 +576,118 @@ export default function Dashboard() {
                                   <AlertDialogCancel>Cancel</AlertDialogCancel>
                                   <AlertDialogAction
                                     onClick={() => deletePurchaseMutation.mutate(pr.id)}
+                                    className="bg-destructive hover:bg-destructive/90 text-destructive-foreground"
+                                  >
+                                    Delete
+                                  </AlertDialogAction>
+                                </AlertDialogFooter>
+                              </AlertDialogContent>
+                            </AlertDialog>
+                            )}
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+        </TabsContent>
+
+        <TabsContent value="invoices">
+          {!purchaseInvoices || purchaseInvoices.length === 0 ? (
+            <Card>
+              <CardContent className="text-center py-12">
+                <div className="w-16 h-16 bg-muted rounded-2xl flex items-center justify-center mx-auto mb-6">
+                  <Receipt className="w-8 h-8 text-muted-foreground" />
+                </div>
+                <h3 className="text-xl font-bold mb-2">No purchase invoices yet</h3>
+                <p className="text-muted-foreground max-w-sm mx-auto mb-6">
+                  Create invoices from approved purchase requests with vendor details, pricing and GST.
+                </p>
+                <Link href="/purchase-invoice">
+                  <Button data-testid="button-go-invoice">Create Purchase Invoice</Button>
+                </Link>
+              </CardContent>
+            </Card>
+          ) : (
+            <div className="bg-card rounded-2xl border border-border shadow-sm overflow-hidden">
+              <div className="overflow-x-auto">
+                <table className="glass-table">
+                  <thead>
+                    <tr>
+                      <th>S.No</th>
+                      <th>Client Name</th>
+                      <th>Vendor</th>
+                      <th>Invoice No</th>
+                      <th>Date</th>
+                      <th className="text-right">Grand Total</th>
+                      <th className="text-right">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {purchaseInvoices.map((inv: any) => (
+                      <tr key={inv.id} className="group">
+                        <td className="font-mono text-muted-foreground text-center">#{inv.serialNumber}</td>
+                        <td className="font-medium text-foreground">
+                          <div className="flex items-center gap-3">
+                            <div className="w-10 h-10 rounded-lg bg-orange-100 text-orange-700 flex items-center justify-center font-bold text-xs shrink-0">
+                              <Receipt className="w-5 h-5" />
+                            </div>
+                            <span className="truncate">{inv.clientName}</span>
+                          </div>
+                        </td>
+                        <td className="text-muted-foreground">{inv.vendorName}</td>
+                        <td className="text-muted-foreground font-mono">{inv.vendorInvoiceNo || '—'}</td>
+                        <td className="text-muted-foreground">
+                          {format(new Date(inv.date), "dd MMM yyyy")}
+                        </td>
+                        <td className="text-right font-mono font-semibold text-primary">
+                          {Number(inv.grandTotal).toFixed(2)}
+                        </td>
+                        <td className="text-right">
+                          <div className="flex items-center justify-end gap-2">
+                            <Link href={`/purchase-invoice/${inv.id}/pdf`}>
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                className="h-8 text-primary hover:text-primary hover:bg-primary/10"
+                                data-testid={`button-invoice-pdf-${inv.id}`}
+                              >
+                                <FileDown className="w-4 h-4 mr-1" />
+                                <span className="hidden sm:inline text-xs">PDF</span>
+                              </Button>
+                            </Link>
+                            <Link href={`/purchase-invoice/${inv.id}/edit`}>
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                className="h-8 text-blue-600 hover:text-blue-700 hover:bg-blue-50"
+                                data-testid={`button-edit-invoice-${inv.id}`}
+                              >
+                                <Pencil className="w-4 h-4 mr-1" />
+                                <span className="hidden sm:inline text-xs">Edit</span>
+                              </Button>
+                            </Link>
+                            {isAdmin && (
+                            <AlertDialog>
+                              <AlertDialogTrigger asChild>
+                                <Button size="sm" variant="ghost" className="h-8 text-destructive hover:text-destructive hover:bg-destructive/10" data-testid={`button-delete-invoice-${inv.id}`}>
+                                  <Trash2 className="w-4 h-4" />
+                                </Button>
+                              </AlertDialogTrigger>
+                              <AlertDialogContent>
+                                <AlertDialogHeader>
+                                  <AlertDialogTitle>Delete purchase invoice?</AlertDialogTitle>
+                                  <AlertDialogDescription>
+                                    This will permanently delete the invoice for {inv.clientName} - {inv.vendorName} ({format(new Date(inv.date), "dd MMM yyyy")}).
+                                  </AlertDialogDescription>
+                                </AlertDialogHeader>
+                                <AlertDialogFooter>
+                                  <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                  <AlertDialogAction
+                                    onClick={() => deleteInvoiceMutation.mutate(inv.id)}
                                     className="bg-destructive hover:bg-destructive/90 text-destructive-foreground"
                                   >
                                     Delete

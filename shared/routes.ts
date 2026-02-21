@@ -1,6 +1,6 @@
 
 import { z } from 'zod';
-import { insertDailyReportSchema, insertExpenseItemSchema, selectDailyReportSchema, selectExpenseItemSchema, selectVegetableItemSchema, inventoryWithItemsSchema, selectClientNameSchema, selectSavedMenuSchema, purchaseRequestWithItemsSchema, selectSavedItemNameSchema } from './schema';
+import { insertDailyReportSchema, insertExpenseItemSchema, selectDailyReportSchema, selectExpenseItemSchema, selectVegetableItemSchema, inventoryWithItemsSchema, selectClientNameSchema, selectSavedMenuSchema, purchaseRequestWithItemsSchema, selectSavedItemNameSchema, selectVendorSchema, purchaseInvoiceWithItemsSchema } from './schema';
 
 export const errorSchemas = {
   validation: z.object({
@@ -416,6 +416,108 @@ export const api = {
       responses: {
         200: z.object({ id: z.number(), username: z.string(), displayName: z.string(), role: z.string(), clientName: z.string().nullable() }),
         401: errorSchemas.validation,
+      },
+    },
+  },
+  vendors: {
+    list: {
+      method: 'GET' as const,
+      path: '/api/vendors' as const,
+      responses: {
+        200: z.array(selectVendorSchema),
+      },
+    },
+    create: {
+      method: 'POST' as const,
+      path: '/api/vendors' as const,
+      input: z.object({ name: z.string().min(1) }),
+      responses: {
+        201: selectVendorSchema,
+        400: errorSchemas.validation,
+      },
+    },
+    delete: {
+      method: 'DELETE' as const,
+      path: '/api/vendors/:id' as const,
+      responses: {
+        204: z.void(),
+        404: errorSchemas.notFound,
+      },
+    },
+  },
+  purchaseInvoices: {
+    list: {
+      method: 'GET' as const,
+      path: '/api/purchase-invoices' as const,
+      responses: {
+        200: z.array(purchaseInvoiceWithItemsSchema),
+      },
+    },
+    get: {
+      method: 'GET' as const,
+      path: '/api/purchase-invoices/:id' as const,
+      responses: {
+        200: purchaseInvoiceWithItemsSchema,
+        404: errorSchemas.notFound,
+      },
+    },
+    create: {
+      method: 'POST' as const,
+      path: '/api/purchase-invoices' as const,
+      input: z.object({
+        purchaseRequestId: z.number().nullable().optional(),
+        clientName: z.string().min(1),
+        vendorName: z.string().min(1),
+        vendorInvoiceNo: z.string().default(""),
+        date: z.string(),
+        items: z.array(z.object({
+          itemName: z.string().min(1),
+          uom: z.string().min(1),
+          qty: z.coerce.number().default(0),
+          unitPrice: z.coerce.number().default(0),
+          totalPrice: z.coerce.number().default(0),
+          gstRate: z.coerce.number().default(0),
+          gstAmount: z.coerce.number().default(0),
+          netAmount: z.coerce.number().default(0),
+        })),
+      }),
+      responses: {
+        201: purchaseInvoiceWithItemsSchema,
+        400: errorSchemas.validation,
+      },
+    },
+    update: {
+      method: 'PUT' as const,
+      path: '/api/purchase-invoices/:id' as const,
+      input: z.object({
+        purchaseRequestId: z.number().nullable().optional(),
+        clientName: z.string().min(1).optional(),
+        vendorName: z.string().min(1).optional(),
+        vendorInvoiceNo: z.string().optional(),
+        date: z.string().optional(),
+        items: z.array(z.object({
+          id: z.number().optional(),
+          itemName: z.string().min(1),
+          uom: z.string().min(1),
+          qty: z.coerce.number().default(0),
+          unitPrice: z.coerce.number().default(0),
+          totalPrice: z.coerce.number().default(0),
+          gstRate: z.coerce.number().default(0),
+          gstAmount: z.coerce.number().default(0),
+          netAmount: z.coerce.number().default(0),
+        })).optional(),
+      }),
+      responses: {
+        200: purchaseInvoiceWithItemsSchema,
+        404: errorSchemas.notFound,
+      },
+    },
+    delete: {
+      method: 'DELETE' as const,
+      path: '/api/purchase-invoices/:id' as const,
+      responses: {
+        204: z.void(),
+        404: errorSchemas.notFound,
       },
     },
   },

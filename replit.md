@@ -52,6 +52,9 @@ Preferred communication style: Simple, everyday language.
   - `admin_settings` — Stores admin PIN for access control (default: 1234)
   - `purchase_requests` — Purchase request headers with serialNumber, clientName, date, status (pending/approved/rejected)
   - `purchase_request_items` — Line items for purchase requests: itemName, uom, qty, requestQty, approved flag. Cascade deletes with parent
+  - `vendors` — Vendor names (unique) for purchase invoice selection
+  - `purchase_invoices` — Purchase invoice headers with serialNumber, purchaseRequestId (optional link), clientName, vendorName, vendorInvoiceNo, date, totalAmount, totalGst, grandTotal, createdBy
+  - `purchase_invoice_items` — Invoice line items: itemName, uom, qty, unitPrice, totalPrice, gstRate, gstAmount, netAmount. Cascade deletes with parent invoice
   - `users` — User accounts with username (unique), passwordHash (bcrypt), displayName, role (admin/user), clientName (nullable), isActive flag
 - **Storage Layer**: `server/storage.ts` implements `IStorage` interface with `DatabaseStorage` class, abstracting all DB operations
 
