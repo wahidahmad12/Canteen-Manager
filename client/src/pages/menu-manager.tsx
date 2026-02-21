@@ -152,7 +152,17 @@ export default function MenuManager() {
   };
 
   const handleReset = () => {
-    setCellValues(initValues());
+    const defaults: Record<string, string> = {};
+    for (let week = 1; week <= 2; week++) {
+      const dates = week === 1 ? week1Dates : week2Dates;
+      categories.forEach(cat => {
+        dates.forEach((_, di) => {
+          defaults[`w${week}_c${cat.id}_d${di}`] = cat.def;
+        });
+      });
+    }
+    setCellValues(defaults);
+    toast({ title: "Menu reset to defaults" });
   };
 
   const handleClientChange = (val: string) => {
