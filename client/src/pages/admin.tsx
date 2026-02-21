@@ -69,13 +69,14 @@ export default function Admin() {
   const [newDisplayName, setNewDisplayName] = useState("");
   const [newUserRole, setNewUserRole] = useState("user");
   const [newUserClient, setNewUserClient] = useState("");
-  const [newUserPerms, setNewUserPerms] = useState<string[]>(['expense', 'cashseal', 'inventory', 'menu']);
+  const [newUserPerms, setNewUserPerms] = useState<string[]>(['expense', 'cashseal', 'inventory', 'menu', 'purchase']);
 
   const permissionLabels: Record<string, string> = {
     expense: 'Delay Cash Expanse',
     cashseal: 'Cash Seal',
     inventory: 'Daily Inventory',
     menu: 'Menu Manager',
+    purchase: 'Purchase Request',
   };
 
   const togglePerm = (perm: string) => {

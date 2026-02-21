@@ -1,6 +1,6 @@
 import { Link } from "wouter";
-import { Plus, Loader2, AlertCircle, FileText, ArrowRight, Calculator, ClipboardList, UtensilsCrossed, Trash2 } from "lucide-react";
-import { useReports, useDeleteReport, useInventories, useCashSeals, useSavedMenus, useDeleteSavedMenu, useCurrentUser } from "@/hooks/use-reports";
+import { Plus, Loader2, AlertCircle, FileText, ArrowRight, Calculator, ClipboardList, UtensilsCrossed, ShoppingCart, Trash2 } from "lucide-react";
+import { useReports, useDeleteReport, useInventories, useCashSeals, useSavedMenus, useDeleteSavedMenu, usePurchaseRequests, useDeletePurchaseRequest, useCurrentUser } from "@/hooks/use-reports";
 import { format } from "date-fns";
 import { Layout } from "@/components/layout";
 import { Button } from "@/components/ui/button";
@@ -20,30 +20,34 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 export default function Dashboard() {
   const { data: user } = useCurrentUser();
-  const perms = user?.role === 'admin' ? ['expense', 'cashseal', 'inventory', 'menu'] : (user?.permissions || []);
+  const perms = user?.role === 'admin' ? ['expense', 'cashseal', 'inventory', 'menu', 'purchase'] : (user?.permissions || []);
 
   const hasExpense = perms.includes('expense');
   const hasCashSeal = perms.includes('cashseal');
   const hasInventory = perms.includes('inventory');
   const hasMenu = perms.includes('menu');
+  const hasPurchase = perms.includes('purchase');
 
   const { data: reports, isLoading } = useReports({ enabled: hasExpense });
   const { data: inventories, isLoading: invLoading } = useInventories({ enabled: hasInventory });
   const { data: cashSeals, isLoading: csLoading } = useCashSeals({ enabled: hasCashSeal });
   const { data: savedMenus, isLoading: menusLoading } = useSavedMenus({ enabled: hasMenu });
+  const { data: purchaseRequests, isLoading: prLoading } = usePurchaseRequests({ enabled: hasPurchase });
   const deleteMutation = useDeleteReport();
   const deleteMenuMutation = useDeleteSavedMenu();
+  const deletePurchaseMutation = useDeletePurchaseRequest();
 
   const tabItems = [
     { value: 'reports', label: 'Reports', icon: FileText, perm: 'expense' },
     { value: 'cashseal', label: 'Cash Seal', icon: Calculator, perm: 'cashseal' },
     { value: 'inventory', label: 'Inventory', icon: ClipboardList, perm: 'inventory' },
     { value: 'menus', label: 'Menus', icon: UtensilsCrossed, perm: 'menu' },
+    { value: 'purchase', label: 'Purchase', icon: ShoppingCart, perm: 'purchase' },
   ].filter(item => perms.includes(item.perm));
 
   const defaultTab = tabItems.length > 0 ? tabItems[0].value : 'reports';
 
-  const anyLoading = (hasExpense && isLoading) || (hasInventory && invLoading) || (hasCashSeal && csLoading) || (hasMenu && menusLoading);
+  const anyLoading = (hasExpense && isLoading) || (hasInventory && invLoading) || (hasCashSeal && csLoading) || (hasMenu && menusLoading) || (hasPurchase && prLoading);
 
   if (anyLoading) {
     return (
@@ -425,6 +429,96 @@ export default function Dashboard() {
                                   <AlertDialogCancel>Cancel</AlertDialogCancel>
                                   <AlertDialogAction
                                     onClick={() => deleteMenuMutation.mutate(menu.id)}
+                                    className="bg-destructive hover:bg-destructive/90 text-destructive-foreground"
+                                  >
+                                    Delete
+                                  </AlertDialogAction>
+                                </AlertDialogFooter>
+                              </AlertDialogContent>
+                            </AlertDialog>
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+        </TabsContent>
+
+        <TabsContent value="purchase">
+          {!purchaseRequests || purchaseRequests.length === 0 ? (
+            <Card>
+              <CardContent className="text-center py-12">
+                <div className="w-16 h-16 bg-muted rounded-2xl flex items-center justify-center mx-auto mb-6">
+                  <ShoppingCart className="w-8 h-8 text-muted-foreground" />
+                </div>
+                <h3 className="text-xl font-bold mb-2">No purchase requests yet</h3>
+                <p className="text-muted-foreground max-w-sm mx-auto mb-6">Create a purchase request to track items needed.</p>
+                <Link href="/purchase-request">
+                  <Button data-testid="button-go-purchase">Create Purchase Request</Button>
+                </Link>
+              </CardContent>
+            </Card>
+          ) : (
+            <div className="bg-card rounded-2xl border border-border shadow-sm overflow-hidden">
+              <div className="overflow-x-auto">
+                <table className="glass-table">
+                  <thead>
+                    <tr>
+                      <th>S.No</th>
+                      <th>Client Name</th>
+                      <th>Date</th>
+                      <th className="text-center">Items</th>
+                      <th className="text-center">Status</th>
+                      <th className="text-right">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {purchaseRequests.map((pr: any) => (
+                      <tr key={pr.id} className="group">
+                        <td className="font-mono text-muted-foreground text-center">#{pr.serialNumber}</td>
+                        <td className="font-medium text-foreground">
+                          <div className="flex items-center gap-3">
+                            <div className="w-10 h-10 rounded-lg bg-amber-100 text-amber-700 flex items-center justify-center font-bold text-xs shrink-0">
+                              <ShoppingCart className="w-5 h-5" />
+                            </div>
+                            <span className="truncate">{pr.clientName}</span>
+                          </div>
+                        </td>
+                        <td className="text-muted-foreground">
+                          {format(new Date(pr.date), "dd MMM yyyy")}
+                        </td>
+                        <td className="text-center font-mono">{pr.items?.length || 0}</td>
+                        <td className="text-center">
+                          <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                            pr.status === 'approved' ? 'bg-green-100 text-green-700' :
+                            pr.status === 'rejected' ? 'bg-red-100 text-red-700' :
+                            'bg-yellow-100 text-yellow-700'
+                          }`}>
+                            {pr.status === 'approved' ? 'Approved' : pr.status === 'rejected' ? 'Rejected' : 'Pending'}
+                          </span>
+                        </td>
+                        <td className="text-right">
+                          <div className="flex items-center justify-end gap-2">
+                            <AlertDialog>
+                              <AlertDialogTrigger asChild>
+                                <Button size="sm" variant="ghost" className="h-8 text-destructive hover:text-destructive hover:bg-destructive/10" data-testid={`button-delete-purchase-${pr.id}`}>
+                                  <Trash2 className="w-4 h-4" />
+                                </Button>
+                              </AlertDialogTrigger>
+                              <AlertDialogContent>
+                                <AlertDialogHeader>
+                                  <AlertDialogTitle>Delete purchase request?</AlertDialogTitle>
+                                  <AlertDialogDescription>
+                                    This will permanently delete the purchase request for {pr.clientName} ({format(new Date(pr.date), "dd MMM yyyy")}).
+                                  </AlertDialogDescription>
+                                </AlertDialogHeader>
+                                <AlertDialogFooter>
+                                  <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                  <AlertDialogAction
+                                    onClick={() => deletePurchaseMutation.mutate(pr.id)}
                                     className="bg-destructive hover:bg-destructive/90 text-destructive-foreground"
                                   >
                                     Delete

@@ -108,6 +108,27 @@ export const savedMenus = pgTable("saved_menus", {
   createdAt: timestamp("created_at").defaultNow(),
 });
 
+// Purchase requests
+export const purchaseRequests = pgTable("purchase_requests", {
+  id: serial("id").primaryKey(),
+  serialNumber: serial("serial_number"),
+  clientName: text("client_name").notNull(),
+  date: date("date").notNull(),
+  status: text("status").notNull().default("pending"),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+// Purchase request line items
+export const purchaseRequestItems = pgTable("purchase_request_items", {
+  id: serial("id").primaryKey(),
+  requestId: integer("request_id").notNull().references(() => purchaseRequests.id, { onDelete: 'cascade' }),
+  itemName: text("item_name").notNull(),
+  uom: text("uom").notNull(),
+  qty: numeric("qty", { precision: 10, scale: 2 }).default("0"),
+  requestQty: numeric("request_qty", { precision: 10, scale: 2 }).default("0"),
+  approved: boolean("approved").notNull().default(false),
+});
+
 // Users table for authentication
 export const users = pgTable("users", {
   id: serial("id").primaryKey(),
@@ -215,7 +236,24 @@ export type AdminSettingsType = typeof adminSettings.$inferSelect;
 export type ClientName = typeof clientNames.$inferSelect;
 export const selectClientNameSchema = createSelectSchema(clientNames);
 
-export const ALL_PERMISSIONS = ['expense', 'cashseal', 'inventory', 'menu'] as const;
+// Purchase request types and schemas
+export type PurchaseRequest = typeof purchaseRequests.$inferSelect;
+export type PurchaseRequestItem = typeof purchaseRequestItems.$inferSelect;
+export type PurchaseRequestWithItems = PurchaseRequest & { items: PurchaseRequestItem[] };
+
+export const insertPurchaseRequestSchema = createInsertSchema(purchaseRequests).omit({ id: true, serialNumber: true, createdAt: true });
+export const insertPurchaseRequestItemSchema = createInsertSchema(purchaseRequestItems).omit({ id: true });
+export const selectPurchaseRequestSchema = createSelectSchema(purchaseRequests, {
+  date: z.string(),
+  createdAt: z.string().or(z.date()),
+});
+export const selectPurchaseRequestItemSchema = createSelectSchema(purchaseRequestItems);
+
+export const purchaseRequestWithItemsSchema = selectPurchaseRequestSchema.extend({
+  items: z.array(selectPurchaseRequestItemSchema),
+});
+
+export const ALL_PERMISSIONS = ['expense', 'cashseal', 'inventory', 'menu', 'purchase'] as const;
 export type Permission = typeof ALL_PERMISSIONS[number];
 
 export type User = typeof users.$inferSelect;

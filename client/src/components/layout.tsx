@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Link, useLocation } from 'wouter';
-import { LayoutDashboard, FilePlus, Settings, Calculator, ClipboardList, UtensilsCrossed, LogOut, User, Menu, X } from 'lucide-react';
+import { LayoutDashboard, FilePlus, Settings, Calculator, ClipboardList, UtensilsCrossed, ShoppingCart, LogOut, User, Menu, X } from 'lucide-react';
 import logoImg from '@assets/logo1_1771660912341.png';
 import { useCurrentUser, useLogout } from '@/hooks/use-reports';
 import { Button } from '@/components/ui/button';
@@ -11,7 +11,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
   const logoutMutation = useLogout();
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
-  const perms = user?.role === 'admin' ? ['expense', 'cashseal', 'inventory', 'menu'] : (user?.permissions || []);
+  const perms = user?.role === 'admin' ? ['expense', 'cashseal', 'inventory', 'menu', 'purchase'] : (user?.permissions || []);
 
   const navItems = [
     { href: '/', label: 'Dashboard', icon: LayoutDashboard, perm: null },
@@ -19,6 +19,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
     { href: '/cash-seal', label: 'Cash Seal', icon: Calculator, perm: 'cashseal' },
     { href: '/inventory', label: 'Daily Inventory', icon: ClipboardList, perm: 'inventory' },
     { href: '/menu', label: 'Menu Manager', icon: UtensilsCrossed, perm: 'menu' },
+    { href: '/purchase-request', label: 'Purchase Request', icon: ShoppingCart, perm: 'purchase' },
     ...(user?.role === 'admin' ? [{ href: '/admin', label: 'Admin', icon: Settings, perm: null }] : []),
   ].filter(item => item.perm === null || perms.includes(item.perm));
 

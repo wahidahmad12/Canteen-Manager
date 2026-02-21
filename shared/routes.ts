@@ -1,6 +1,6 @@
 
 import { z } from 'zod';
-import { insertDailyReportSchema, insertExpenseItemSchema, selectDailyReportSchema, selectExpenseItemSchema, selectVegetableItemSchema, inventoryWithItemsSchema, selectClientNameSchema, selectSavedMenuSchema } from './schema';
+import { insertDailyReportSchema, insertExpenseItemSchema, selectDailyReportSchema, selectExpenseItemSchema, selectVegetableItemSchema, inventoryWithItemsSchema, selectClientNameSchema, selectSavedMenuSchema, purchaseRequestWithItemsSchema } from './schema';
 
 export const errorSchemas = {
   validation: z.object({
@@ -264,6 +264,70 @@ export const api = {
       path: '/api/menus/:id' as const,
       responses: {
         204: z.void(),
+      },
+    },
+  },
+  purchaseRequests: {
+    list: {
+      method: 'GET' as const,
+      path: '/api/purchase-requests' as const,
+      responses: {
+        200: z.array(purchaseRequestWithItemsSchema),
+      },
+    },
+    get: {
+      method: 'GET' as const,
+      path: '/api/purchase-requests/:id' as const,
+      responses: {
+        200: purchaseRequestWithItemsSchema,
+        404: errorSchemas.notFound,
+      },
+    },
+    create: {
+      method: 'POST' as const,
+      path: '/api/purchase-requests' as const,
+      input: z.object({
+        clientName: z.string().min(1),
+        date: z.string(),
+        items: z.array(z.object({
+          itemName: z.string().min(1),
+          uom: z.string().min(1),
+          qty: z.coerce.number().default(0),
+          requestQty: z.coerce.number().default(0),
+          approved: z.boolean().default(false),
+        })),
+      }),
+      responses: {
+        201: purchaseRequestWithItemsSchema,
+        400: errorSchemas.validation,
+      },
+    },
+    update: {
+      method: 'PUT' as const,
+      path: '/api/purchase-requests/:id' as const,
+      input: z.object({
+        clientName: z.string().min(1).optional(),
+        date: z.string().optional(),
+        status: z.string().optional(),
+        items: z.array(z.object({
+          itemName: z.string().min(1),
+          uom: z.string().min(1),
+          qty: z.coerce.number().default(0),
+          requestQty: z.coerce.number().default(0),
+          approved: z.boolean().default(false),
+        })).optional(),
+      }),
+      responses: {
+        200: purchaseRequestWithItemsSchema,
+        404: errorSchemas.notFound,
+      },
+    },
+    delete: {
+      method: 'DELETE' as const,
+      path: '/api/purchase-requests/:id' as const,
+      responses: {
+        204: z.void(),
+        404: errorSchemas.notFound,
       },
     },
   },

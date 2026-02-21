@@ -12,6 +12,8 @@ import {
   savedMenus,
   adminSettings,
   users,
+  purchaseRequests,
+  purchaseRequestItems,
   type DailyReport, 
   type ExpenseItem,
   type CreateReportRequest,
@@ -25,6 +27,7 @@ import {
   type SavedMenu,
   type User,
   type SafeUser,
+  type PurchaseRequestWithItems,
 } from "@shared/schema";
 import { eq, desc, lt } from "drizzle-orm";
 import bcrypt from "bcryptjs";
@@ -65,6 +68,11 @@ export interface IStorage {
   createUser(data: { username: string; password: string; displayName: string; role: string; clientName: string | null; permissions?: string[] }): Promise<SafeUser>;
   deleteUser(id: number): Promise<void>;
   seedAdminUser(): Promise<void>;
+  getPurchaseRequests(): Promise<PurchaseRequestWithItems[]>;
+  getPurchaseRequest(id: number): Promise<PurchaseRequestWithItems | undefined>;
+  createPurchaseRequest(data: { clientName: string; date: string; items: { itemName: string; uom: string; qty: number; requestQty: number; approved: boolean }[] }): Promise<PurchaseRequestWithItems>;
+  updatePurchaseRequest(id: number, data: { clientName?: string; date?: string; status?: string; items?: { itemName: string; uom: string; qty: number; requestQty: number; approved: boolean }[] }): Promise<PurchaseRequestWithItems>;
+  deletePurchaseRequest(id: number): Promise<void>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -478,6 +486,76 @@ export class DatabaseStorage implements IStorage {
 
   async deleteUser(id: number): Promise<void> {
     await db.delete(users).where(eq(users.id, id));
+  }
+
+  async getPurchaseRequests(): Promise<PurchaseRequestWithItems[]> {
+    const requests = await db.select().from(purchaseRequests).orderBy(desc(purchaseRequests.createdAt));
+    return await Promise.all(requests.map(async (req) => {
+      const items = await db.select().from(purchaseRequestItems).where(eq(purchaseRequestItems.requestId, req.id));
+      return { ...req, items };
+    }));
+  }
+
+  async getPurchaseRequest(id: number): Promise<PurchaseRequestWithItems | undefined> {
+    const [req] = await db.select().from(purchaseRequests).where(eq(purchaseRequests.id, id));
+    if (!req) return undefined;
+    const items = await db.select().from(purchaseRequestItems).where(eq(purchaseRequestItems.requestId, id));
+    return { ...req, items };
+  }
+
+  async createPurchaseRequest(data: { clientName: string; date: string; items: { itemName: string; uom: string; qty: number; requestQty: number; approved: boolean }[] }): Promise<PurchaseRequestWithItems> {
+    return await db.transaction(async (tx) => {
+      const [req] = await tx.insert(purchaseRequests).values({
+        clientName: data.clientName,
+        date: data.date,
+      }).returning();
+      if (data.items.length > 0) {
+        await tx.insert(purchaseRequestItems).values(
+          data.items.map(item => ({
+            requestId: req.id,
+            itemName: item.itemName,
+            uom: item.uom,
+            qty: item.qty.toString(),
+            requestQty: item.requestQty.toString(),
+            approved: item.approved,
+          }))
+        );
+      }
+      const items = await tx.select().from(purchaseRequestItems).where(eq(purchaseRequestItems.requestId, req.id));
+      return { ...req, items };
+    });
+  }
+
+  async updatePurchaseRequest(id: number, data: { clientName?: string; date?: string; status?: string; items?: { itemName: string; uom: string; qty: number; requestQty: number; approved: boolean }[] }): Promise<PurchaseRequestWithItems> {
+    return await db.transaction(async (tx) => {
+      const [req] = await tx.update(purchaseRequests).set({
+        ...(data.clientName ? { clientName: data.clientName } : {}),
+        ...(data.date ? { date: data.date } : {}),
+        ...(data.status ? { status: data.status } : {}),
+      }).where(eq(purchaseRequests.id, id)).returning();
+      if (!req) throw new Error("Purchase request not found");
+      if (data.items) {
+        await tx.delete(purchaseRequestItems).where(eq(purchaseRequestItems.requestId, id));
+        if (data.items.length > 0) {
+          await tx.insert(purchaseRequestItems).values(
+            data.items.map(item => ({
+              requestId: id,
+              itemName: item.itemName,
+              uom: item.uom,
+              qty: item.qty.toString(),
+              requestQty: item.requestQty.toString(),
+              approved: item.approved,
+            }))
+          );
+        }
+      }
+      const items = await tx.select().from(purchaseRequestItems).where(eq(purchaseRequestItems.requestId, id));
+      return { ...req, items };
+    });
+  }
+
+  async deletePurchaseRequest(id: number): Promise<void> {
+    await db.delete(purchaseRequests).where(eq(purchaseRequests.id, id));
   }
 
   async seedAdminUser(): Promise<void> {

@@ -557,3 +557,90 @@ export function useChangeAdminPin() {
     },
   });
 }
+
+// === PURCHASE REQUEST HOOKS ===
+
+export function usePurchaseRequests(options?: { enabled?: boolean }) {
+  return useQuery({
+    queryKey: [api.purchaseRequests.list.path],
+    queryFn: async () => {
+      const res = await fetch(api.purchaseRequests.list.path, { credentials: "include" });
+      if (!res.ok) throw new Error("Failed to fetch purchase requests");
+      return res.json() as Promise<any[]>;
+    },
+    enabled: options?.enabled !== false,
+  });
+}
+
+export function usePurchaseRequest(id: number | null) {
+  return useQuery({
+    queryKey: [api.purchaseRequests.list.path, id],
+    queryFn: async () => {
+      if (!id) return null;
+      const url = buildUrl(api.purchaseRequests.get.path, { id });
+      const res = await fetch(url, { credentials: "include" });
+      if (!res.ok) throw new Error("Failed to fetch purchase request");
+      return res.json();
+    },
+    enabled: !!id,
+  });
+}
+
+export function useCreatePurchaseRequest() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (data: any) => {
+      const res = await fetch(api.purchaseRequests.create.path, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(data),
+        credentials: "include",
+      });
+      if (!res.ok) {
+        const error = await res.json();
+        throw new Error(error.message || "Failed to create purchase request");
+      }
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: [api.purchaseRequests.list.path] });
+    },
+  });
+}
+
+export function useUpdatePurchaseRequest() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ id, ...data }: any) => {
+      const url = buildUrl(api.purchaseRequests.update.path, { id });
+      const res = await fetch(url, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(data),
+        credentials: "include",
+      });
+      if (!res.ok) {
+        const error = await res.json();
+        throw new Error(error.message || "Failed to update purchase request");
+      }
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: [api.purchaseRequests.list.path] });
+    },
+  });
+}
+
+export function useDeletePurchaseRequest() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (id: number) => {
+      const url = buildUrl(api.purchaseRequests.delete.path, { id });
+      const res = await fetch(url, { method: "DELETE", credentials: "include" });
+      if (!res.ok) throw new Error("Failed to delete purchase request");
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: [api.purchaseRequests.list.path] });
+    },
+  });
+}

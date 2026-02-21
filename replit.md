@@ -50,6 +50,8 @@ Preferred communication style: Simple, everyday language.
   - `kitchen_stock_items` — Kitchen stock line items (Banana, Dahi, Chicken, Fish, Eggs) linked to daily_inventory
   - `biscuit_items` — Biscuit inventory items linked to daily_inventory
   - `admin_settings` — Stores admin PIN for access control (default: 1234)
+  - `purchase_requests` — Purchase request headers with serialNumber, clientName, date, status (pending/approved/rejected)
+  - `purchase_request_items` — Line items for purchase requests: itemName, uom, qty, requestQty, approved flag. Cascade deletes with parent
   - `users` — User accounts with username (unique), passwordHash (bcrypt), displayName, role (admin/user), clientName (nullable), isActive flag
 - **Storage Layer**: `server/storage.ts` implements `IStorage` interface with `DatabaseStorage` class, abstracting all DB operations
 
@@ -66,5 +68,6 @@ Preferred communication style: Simple, everyday language.
 - **Google Fonts** — Loads Inter, DM Sans, Fira Code, Geist Mono, and Architects Daughter font families from Google Fonts CDN
 - **Authentication** — Session-based auth with bcrypt password hashing. Admin creates user accounts grouped by client name. Default admin: username "admin", password "admin123"
 - **Session Storage** — PostgreSQL-backed sessions via connect-pg-simple with 30-day cookie lifetime
-- **Role-based Access** — "admin" role for full access (user management, client management, vegetable management, PIN settings); "user" role for standard operations (reports, cash seals, inventory, menus)
+- **Role-based Access** — "admin" role for full access (user management, client management, vegetable management, PIN settings); "user" role for standard operations (reports, cash seals, inventory, menus, purchase requests)
+- **Permissions** — Available permissions: expense, cashseal, inventory, menu, purchase. Dashboard tabs and navigation are filtered based on user permissions.
 - **Route Protection** — All API routes require authentication; admin-only routes use requireAdmin middleware. Frontend gates /admin route to admin users only

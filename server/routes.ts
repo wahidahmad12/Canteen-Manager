@@ -339,6 +339,52 @@ export async function registerRoutes(
     res.status(204).send();
   });
 
+  // === PURCHASE REQUEST ROUTES ===
+  app.get(api.purchaseRequests.list.path, requirePermission('purchase'), async (req, res) => {
+    const requests = await storage.getPurchaseRequests();
+    res.json(requests);
+  });
+
+  app.get(api.purchaseRequests.get.path, requirePermission('purchase'), async (req, res) => {
+    const request = await storage.getPurchaseRequest(Number(req.params.id));
+    if (!request) return res.status(404).json({ message: "Purchase request not found" });
+    res.json(request);
+  });
+
+  app.post(api.purchaseRequests.create.path, requirePermission('purchase'), async (req, res) => {
+    try {
+      const input = api.purchaseRequests.create.input.parse(req.body);
+      const request = await storage.createPurchaseRequest(input);
+      res.status(201).json(request);
+    } catch (err) {
+      if (err instanceof z.ZodError) {
+        return res.status(400).json({ message: err.errors[0].message, field: err.errors[0].path.join('.') });
+      }
+      throw err;
+    }
+  });
+
+  app.put(api.purchaseRequests.update.path, requirePermission('purchase'), async (req, res) => {
+    try {
+      const input = api.purchaseRequests.update.input.parse(req.body);
+      const request = await storage.updatePurchaseRequest(Number(req.params.id), input);
+      res.json(request);
+    } catch (err) {
+      if (err instanceof z.ZodError) {
+        return res.status(400).json({ message: err.errors[0].message, field: err.errors[0].path.join('.') });
+      }
+      if (err instanceof Error && err.message === "Purchase request not found") {
+        return res.status(404).json({ message: "Purchase request not found" });
+      }
+      throw err;
+    }
+  });
+
+  app.delete(api.purchaseRequests.delete.path, requirePermission('purchase'), async (req, res) => {
+    await storage.deletePurchaseRequest(Number(req.params.id));
+    res.status(204).send();
+  });
+
   // === CLIENT ROUTES ===
   app.get(api.clients.list.path, requireAuth, async (req, res) => {
     const items = await storage.getClientNames();
