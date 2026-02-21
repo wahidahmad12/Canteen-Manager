@@ -479,7 +479,7 @@ export default function Dashboard() {
                     <tr>
                       <th>S.No</th>
                       <th>Client Name</th>
-                      {isAdmin && <th>Created By</th>}
+                      <th>Created By</th>
                       <th>Date</th>
                       <th className="text-center">Items</th>
                       <th className="text-center">Status</th>
@@ -498,11 +498,9 @@ export default function Dashboard() {
                             <span className="truncate">{pr.clientName}</span>
                           </div>
                         </td>
-                        {isAdmin && (
-                          <td className="text-muted-foreground">
-                            {pr.createdBy || '—'}
-                          </td>
-                        )}
+                        <td className="text-muted-foreground">
+                          {pr.createdBy || '—'}
+                        </td>
                         <td className="text-muted-foreground">
                           {format(new Date(pr.date), "dd MMM yyyy")}
                         </td>
