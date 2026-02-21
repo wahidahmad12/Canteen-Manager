@@ -22,7 +22,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
   return (
     <div className="min-h-screen bg-muted/20 flex flex-col md:flex-row">
       {/* Sidebar / Mobile Header */}
-      <aside className="w-full md:w-64 bg-card border-b md:border-r border-border shrink-0 md:h-screen md:sticky md:top-0 z-20">
+      <aside className="w-full md:w-64 bg-card border-b md:border-r border-border shrink-0 md:h-screen md:sticky md:top-0 z-20 flex flex-col">
         <div className="p-6 border-b border-border flex items-center gap-3">
           <img src={logoImg} alt="DJ Hospitality" className="w-10 h-10 rounded-xl object-cover shadow-lg" />
           <div>
