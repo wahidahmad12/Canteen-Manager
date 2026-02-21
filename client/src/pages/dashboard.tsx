@@ -1,6 +1,6 @@
 import { Link } from "wouter";
-import { Plus, Loader2, AlertCircle, FileText, ArrowRight, Calculator, ClipboardList, UtensilsCrossed, ShoppingCart, Trash2 } from "lucide-react";
-import { useReports, useDeleteReport, useInventories, useCashSeals, useSavedMenus, useDeleteSavedMenu, usePurchaseRequests, useDeletePurchaseRequest, useCurrentUser } from "@/hooks/use-reports";
+import { Plus, Loader2, AlertCircle, FileText, ArrowRight, Calculator, ClipboardList, UtensilsCrossed, ShoppingCart, Trash2, Check, X } from "lucide-react";
+import { useReports, useDeleteReport, useInventories, useCashSeals, useSavedMenus, useDeleteSavedMenu, usePurchaseRequests, useDeletePurchaseRequest, useUpdatePurchaseRequest, useCurrentUser } from "@/hooks/use-reports";
 import { format } from "date-fns";
 import { Layout } from "@/components/layout";
 import { Button } from "@/components/ui/button";
@@ -33,9 +33,11 @@ export default function Dashboard() {
   const { data: cashSeals, isLoading: csLoading } = useCashSeals({ enabled: hasCashSeal });
   const { data: savedMenus, isLoading: menusLoading } = useSavedMenus({ enabled: hasMenu });
   const { data: purchaseRequests, isLoading: prLoading } = usePurchaseRequests({ enabled: hasPurchase });
+  const isAdmin = user?.role === 'admin';
   const deleteMutation = useDeleteReport();
   const deleteMenuMutation = useDeleteSavedMenu();
   const deletePurchaseMutation = useDeletePurchaseRequest();
+  const updatePurchaseMutation = useUpdatePurchaseRequest();
 
   const tabItems = [
     { value: 'reports', label: 'Reports', icon: FileText, perm: 'expense' },
@@ -454,8 +456,12 @@ export default function Dashboard() {
                 <div className="w-16 h-16 bg-muted rounded-2xl flex items-center justify-center mx-auto mb-6">
                   <ShoppingCart className="w-8 h-8 text-muted-foreground" />
                 </div>
-                <h3 className="text-xl font-bold mb-2">No purchase requests yet</h3>
-                <p className="text-muted-foreground max-w-sm mx-auto mb-6">Create a purchase request to track items needed.</p>
+                <h3 className="text-xl font-bold mb-2">
+                  {isAdmin ? "No purchase requests to review" : "No approved purchase requests yet"}
+                </h3>
+                <p className="text-muted-foreground max-w-sm mx-auto mb-6">
+                  {isAdmin ? "Purchase requests from users will appear here for your approval." : "Your purchase requests are pending admin approval."}
+                </p>
                 <Link href="/purchase-request">
                   <Button data-testid="button-go-purchase">Create Purchase Request</Button>
                 </Link>
@@ -502,6 +508,30 @@ export default function Dashboard() {
                         </td>
                         <td className="text-right">
                           <div className="flex items-center justify-end gap-2">
+                            {isAdmin && pr.status === 'pending' && (
+                              <>
+                                <Button
+                                  size="sm"
+                                  variant="ghost"
+                                  className="h-8 text-green-600 hover:text-green-700 hover:bg-green-50"
+                                  onClick={() => updatePurchaseMutation.mutate({ id: pr.id, status: 'approved' })}
+                                  disabled={updatePurchaseMutation.isPending}
+                                  data-testid={`button-approve-purchase-${pr.id}`}
+                                >
+                                  <Check className="w-4 h-4" />
+                                </Button>
+                                <Button
+                                  size="sm"
+                                  variant="ghost"
+                                  className="h-8 text-red-600 hover:text-red-700 hover:bg-red-50"
+                                  onClick={() => updatePurchaseMutation.mutate({ id: pr.id, status: 'rejected' })}
+                                  disabled={updatePurchaseMutation.isPending}
+                                  data-testid={`button-reject-purchase-${pr.id}`}
+                                >
+                                  <X className="w-4 h-4" />
+                                </Button>
+                              </>
+                            )}
                             <AlertDialog>
                               <AlertDialogTrigger asChild>
                                 <Button size="sm" variant="ghost" className="h-8 text-destructive hover:text-destructive hover:bg-destructive/10" data-testid={`button-delete-purchase-${pr.id}`}>

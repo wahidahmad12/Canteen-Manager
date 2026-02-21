@@ -342,7 +342,11 @@ export async function registerRoutes(
   // === PURCHASE REQUEST ROUTES ===
   app.get(api.purchaseRequests.list.path, requirePermission('purchase'), async (req, res) => {
     const requests = await storage.getPurchaseRequests();
-    res.json(requests);
+    if (req.session.role === 'admin') {
+      res.json(requests);
+    } else {
+      res.json(requests.filter(r => r.status === 'approved'));
+    }
   });
 
   app.get(api.purchaseRequests.get.path, requirePermission('purchase'), async (req, res) => {
@@ -354,7 +358,8 @@ export async function registerRoutes(
   app.post(api.purchaseRequests.create.path, requirePermission('purchase'), async (req, res) => {
     try {
       const input = api.purchaseRequests.create.input.parse(req.body);
-      const request = await storage.createPurchaseRequest(input);
+      const { status, ...safeInput } = input as any;
+      const request = await storage.createPurchaseRequest(safeInput);
       res.status(201).json(request);
     } catch (err) {
       if (err instanceof z.ZodError) {
@@ -364,7 +369,7 @@ export async function registerRoutes(
     }
   });
 
-  app.put(api.purchaseRequests.update.path, requirePermission('purchase'), async (req, res) => {
+  app.put(api.purchaseRequests.update.path, requireAdmin, async (req, res) => {
     try {
       const input = api.purchaseRequests.update.input.parse(req.body);
       const request = await storage.updatePurchaseRequest(Number(req.params.id), input);
