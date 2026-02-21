@@ -1,7 +1,7 @@
 import { useState, useMemo, useRef, useCallback, useEffect } from "react";
 import { Layout } from "@/components/layout";
 import { Button } from "@/components/ui/button";
-import { RotateCcw, Download, Loader2 } from "lucide-react";
+import { RotateCcw, Download, Loader2, FileSpreadsheet } from "lucide-react";
 import { format, addDays, getDay } from "date-fns";
 import { useClientNames } from "@/hooks/use-reports";
 
@@ -144,6 +144,29 @@ export default function MenuManager() {
     link.download = `DJ_Menu_Schedule_${format(rangeStart, "dd-MM-yyyy")}.jpg`;
     link.href = canvas.toDataURL("image/jpeg", 1.0);
     link.click();
+  };
+
+  const handleExcelDownload = async () => {
+    const XLSX = await import("xlsx");
+    const wb = XLSX.utils.book_new();
+
+    for (let weekNum = 1; weekNum <= 2; weekNum++) {
+      const dates = weekNum === 1 ? week1Dates : week2Dates;
+      const header = ["Category", ...dates.map(d => `${DAY_NAMES[getDay(d)]} ${format(d, "dd/MM")}`)];
+      const rows = categories.map(cat => {
+        const row: string[] = [cat.name];
+        dates.forEach((_, di) => {
+          row.push(cellValues[`w${weekNum}_c${cat.id}_d${di}`] || cat.def);
+        });
+        return row;
+      });
+      const ws = XLSX.utils.aoa_to_sheet([header, ...rows]);
+      const colWidths = [{ wch: 22 }, ...dates.map(() => ({ wch: 18 }))];
+      ws["!cols"] = colWidths;
+      XLSX.utils.book_append_sheet(wb, ws, `Week ${weekNum}`);
+    }
+
+    XLSX.writeFile(wb, `DJ_Menu_Schedule_${format(rangeStart, "dd-MM-yyyy")}.xlsx`);
   };
 
   const renderWeekTable = (weekNum: number, dates: Date[]) => (
@@ -332,6 +355,14 @@ export default function MenuManager() {
         >
           <Download className="w-4 h-4 mr-2" />
           Save as Image
+        </Button>
+        <Button
+          onClick={handleExcelDownload}
+          className="bg-[#217346] text-white font-bold"
+          data-testid="button-menu-excel"
+        >
+          <FileSpreadsheet className="w-4 h-4 mr-2" />
+          Save as Excel
         </Button>
         <Button
           onClick={handleReset}
