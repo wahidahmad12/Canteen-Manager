@@ -429,6 +429,12 @@ export default function PurchaseInvoice() {
               </div>
             </div>
 
+            <div className="flex justify-center mt-4">
+              <Button size="sm" variant="outline" onClick={addItem} className="w-full sm:w-auto" data-testid="button-add-item-bottom">
+                <Plus className="w-4 h-4 mr-1" /> Add Item
+              </Button>
+            </div>
+
             <div className="flex justify-end gap-3 pt-4">
               <Button variant="outline" onClick={() => navigate("/")} data-testid="button-cancel-invoice">
                 Cancel

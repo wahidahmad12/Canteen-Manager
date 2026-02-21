@@ -630,7 +630,24 @@ export default function ReportForm() {
                 </tbody>
               </table>
             </div>
-            <div className="p-3 sm:p-4 bg-muted/20 border-t border-border flex justify-end">
+            <div className="p-3 sm:p-4 bg-muted/20 border-t border-border flex items-center justify-between">
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                onClick={() => append({
+                  reportId: reportId || 0,
+                  category: 'vegetable',
+                  description: '',
+                  uom: 'Kg',
+                  qty: 0,
+                  rate: 0,
+                  amount: 0
+                })}
+                data-testid="button-add-veg-bottom"
+              >
+                <Plus className="w-4 h-4 mr-1" /> Add Item
+              </Button>
               <div className="text-sm font-medium">
                 Total Vegetables: <span className="font-mono ml-2 text-base sm:text-lg">₹{totalVegCost.toFixed(2)}</span>
               </div>
