@@ -179,6 +179,7 @@ export default function Dashboard() {
                                 </Button>
                               </Link>
                               
+                              {isAdmin && (
                               <AlertDialog>
                                 <AlertDialogTrigger asChild>
                                   <Button size="sm" variant="ghost" className="h-8 text-destructive hover:text-destructive hover:bg-destructive/10 hover-elevate" data-testid={`button-delete-report-${report.id}`}>
@@ -203,6 +204,7 @@ export default function Dashboard() {
                                   </AlertDialogFooter>
                                 </AlertDialogContent>
                               </AlertDialog>
+                              )}
                             </div>
                           </td>
                         </tr>
@@ -414,6 +416,7 @@ export default function Dashboard() {
                                 View <ArrowRight className="w-3 h-3 ml-1" />
                               </Button>
                             </Link>
+                            {isAdmin && (
                             <AlertDialog>
                               <AlertDialogTrigger asChild>
                                 <Button size="sm" variant="ghost" className="h-8 text-destructive hover:text-destructive hover:bg-destructive/10" data-testid={`button-delete-menu-${menu.id}`}>
@@ -438,6 +441,7 @@ export default function Dashboard() {
                                 </AlertDialogFooter>
                               </AlertDialogContent>
                             </AlertDialog>
+                            )}
                           </div>
                         </td>
                       </tr>
@@ -545,6 +549,7 @@ export default function Dashboard() {
                                 </Button>
                               </>
                             )}
+                            {isAdmin && (
                             <AlertDialog>
                               <AlertDialogTrigger asChild>
                                 <Button size="sm" variant="ghost" className="h-8 text-destructive hover:text-destructive hover:bg-destructive/10" data-testid={`button-delete-purchase-${pr.id}`}>
@@ -569,6 +574,7 @@ export default function Dashboard() {
                                 </AlertDialogFooter>
                               </AlertDialogContent>
                             </AlertDialog>
+                            )}
                           </div>
                         </td>
                       </tr>

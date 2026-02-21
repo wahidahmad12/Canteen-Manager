@@ -181,7 +181,7 @@ export async function registerRoutes(
   });
 
   // Delete report
-  app.delete(api.reports.delete.path, requirePermission('expense'), async (req, res) => {
+  app.delete(api.reports.delete.path, requireAdmin, async (req, res) => {
     await storage.deleteReport(Number(req.params.id));
     res.status(204).send();
   });
@@ -304,7 +304,7 @@ export async function registerRoutes(
     }
   });
 
-  app.delete(api.inventory.delete.path, requirePermission('inventory'), async (req, res) => {
+  app.delete(api.inventory.delete.path, requireAdmin, async (req, res) => {
     await storage.deleteInventory(Number(req.params.id));
     res.status(204).send();
   });
@@ -341,7 +341,7 @@ export async function registerRoutes(
     }
   });
 
-  app.delete(api.menus.delete.path, requirePermission('menu'), async (req, res) => {
+  app.delete(api.menus.delete.path, requireAdmin, async (req, res) => {
     await storage.deleteSavedMenu(Number(req.params.id));
     res.status(204).send();
   });
@@ -401,7 +401,7 @@ export async function registerRoutes(
     }
   });
 
-  app.delete(api.purchaseRequests.delete.path, requirePermission('purchase'), async (req, res) => {
+  app.delete(api.purchaseRequests.delete.path, requireAdmin, async (req, res) => {
     await storage.deletePurchaseRequest(Number(req.params.id));
     res.status(204).send();
   });
