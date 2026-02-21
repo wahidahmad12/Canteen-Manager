@@ -12,6 +12,7 @@ export default function PurchaseRequestPDF() {
   const { data: pr, isLoading } = usePurchaseRequest(id);
   const { data: user } = useCurrentUser();
   const [, navigate] = useLocation();
+  const isAdmin = user?.role === "admin";
 
   const handlePrint = () => {
     window.print();
@@ -40,8 +41,8 @@ export default function PurchaseRequestPDF() {
     );
   }
 
-  const approvedItems = pr.items?.filter((item: any) => item.approved) || [];
   const allItems = pr.items || [];
+  const approvedItems = allItems.filter((item: any) => item.approved);
 
   return (
     <Layout>
@@ -86,54 +87,87 @@ export default function PurchaseRequestPDF() {
             </div>
           </div>
 
-          <table className="w-full text-sm border-collapse mb-6">
-            <thead>
-              <tr className="bg-muted/50 print:bg-gray-100">
-                <th className="border border-border print:border-gray-300 px-3 py-2 text-left font-semibold w-12">S.No</th>
-                <th className="border border-border print:border-gray-300 px-3 py-2 text-left font-semibold">Item Name</th>
-                <th className="border border-border print:border-gray-300 px-3 py-2 text-center font-semibold w-20">UOM</th>
-                <th className="border border-border print:border-gray-300 px-3 py-2 text-right font-semibold w-24">Request Qty</th>
-                <th className="border border-border print:border-gray-300 px-3 py-2 text-right font-semibold w-24">Approve Qty</th>
-                <th className="border border-border print:border-gray-300 px-3 py-2 text-center font-semibold w-24">Status</th>
-              </tr>
-            </thead>
-            <tbody>
-              {allItems.map((item: any, index: number) => (
-                <tr key={item.id || index} className={item.approved ? 'bg-green-50/50 print:bg-green-50' : ''}>
-                  <td className="border border-border print:border-gray-300 px-3 py-2 text-center text-muted-foreground">{index + 1}</td>
-                  <td className="border border-border print:border-gray-300 px-3 py-2 font-medium print:text-black">{item.itemName}</td>
-                  <td className="border border-border print:border-gray-300 px-3 py-2 text-center">{item.uom}</td>
-                  <td className="border border-border print:border-gray-300 px-3 py-2 text-right font-mono">{Number(item.requestQty)}</td>
-                  <td className="border border-border print:border-gray-300 px-3 py-2 text-right font-mono">
-                    {item.approveQty != null ? Number(item.approveQty) : '—'}
+          {isAdmin ? (
+            <table className="w-full text-sm border-collapse mb-6">
+              <thead>
+                <tr className="bg-muted/50 print:bg-gray-100">
+                  <th className="border border-border print:border-gray-300 px-3 py-2 text-left font-semibold w-12">S.No</th>
+                  <th className="border border-border print:border-gray-300 px-3 py-2 text-left font-semibold">Item Name</th>
+                  <th className="border border-border print:border-gray-300 px-3 py-2 text-center font-semibold w-20">UOM</th>
+                  <th className="border border-border print:border-gray-300 px-3 py-2 text-right font-semibold w-24">Request Qty</th>
+                  <th className="border border-border print:border-gray-300 px-3 py-2 text-right font-semibold w-24">Approve Qty</th>
+                  <th className="border border-border print:border-gray-300 px-3 py-2 text-center font-semibold w-24">Status</th>
+                </tr>
+              </thead>
+              <tbody>
+                {allItems.map((item: any, index: number) => (
+                  <tr key={item.id || index} className={item.approved ? 'bg-green-50/50 print:bg-green-50' : ''}>
+                    <td className="border border-border print:border-gray-300 px-3 py-2 text-center text-muted-foreground">{index + 1}</td>
+                    <td className="border border-border print:border-gray-300 px-3 py-2 font-medium print:text-black">{item.itemName}</td>
+                    <td className="border border-border print:border-gray-300 px-3 py-2 text-center">{item.uom}</td>
+                    <td className="border border-border print:border-gray-300 px-3 py-2 text-right font-mono">{Number(item.requestQty)}</td>
+                    <td className="border border-border print:border-gray-300 px-3 py-2 text-right font-mono">
+                      {item.approveQty != null ? Number(item.approveQty) : '—'}
+                    </td>
+                    <td className="border border-border print:border-gray-300 px-3 py-2 text-center">
+                      {item.approved ? (
+                        <span className="text-green-600 font-semibold">✓ Approved</span>
+                      ) : (
+                        <span className="text-red-500 font-medium">✗ Rejected</span>
+                      )}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+              <tfoot>
+                <tr className="bg-muted/30 print:bg-gray-50">
+                  <td colSpan={3} className="border border-border print:border-gray-300 px-3 py-2 font-semibold text-right">
+                    Total Items: {allItems.length}
                   </td>
-                  <td className="border border-border print:border-gray-300 px-3 py-2 text-center">
-                    {item.approved ? (
-                      <span className="text-green-600 font-semibold">✓ Approved</span>
-                    ) : (
-                      <span className="text-red-500 font-medium">✗ Rejected</span>
-                    )}
+                  <td className="border border-border print:border-gray-300 px-3 py-2 text-right font-mono font-semibold">
+                    {allItems.reduce((sum: number, item: any) => sum + Number(item.requestQty), 0)}
+                  </td>
+                  <td className="border border-border print:border-gray-300 px-3 py-2 text-right font-mono font-semibold">
+                    {approvedItems.reduce((sum: number, item: any) => sum + (Number(item.approveQty) || 0), 0)}
+                  </td>
+                  <td className="border border-border print:border-gray-300 px-3 py-2 text-center font-semibold text-green-600">
+                    {approvedItems.length}/{allItems.length}
                   </td>
                 </tr>
-              ))}
-            </tbody>
-            <tfoot>
-              <tr className="bg-muted/30 print:bg-gray-50">
-                <td colSpan={3} className="border border-border print:border-gray-300 px-3 py-2 font-semibold text-right">
-                  Total Items: {allItems.length}
-                </td>
-                <td className="border border-border print:border-gray-300 px-3 py-2 text-right font-mono font-semibold">
-                  {allItems.reduce((sum: number, item: any) => sum + Number(item.requestQty), 0)}
-                </td>
-                <td className="border border-border print:border-gray-300 px-3 py-2 text-right font-mono font-semibold">
-                  {approvedItems.reduce((sum: number, item: any) => sum + (Number(item.approveQty) || 0), 0)}
-                </td>
-                <td className="border border-border print:border-gray-300 px-3 py-2 text-center font-semibold text-green-600">
-                  {approvedItems.length}/{allItems.length}
-                </td>
-              </tr>
-            </tfoot>
-          </table>
+              </tfoot>
+            </table>
+          ) : (
+            <table className="w-full text-sm border-collapse mb-6">
+              <thead>
+                <tr className="bg-muted/50 print:bg-gray-100">
+                  <th className="border border-border print:border-gray-300 px-3 py-2 text-left font-semibold w-12">S.No</th>
+                  <th className="border border-border print:border-gray-300 px-3 py-2 text-left font-semibold">Item Name</th>
+                  <th className="border border-border print:border-gray-300 px-3 py-2 text-center font-semibold w-20">UOM</th>
+                  <th className="border border-border print:border-gray-300 px-3 py-2 text-right font-semibold w-24">Approve Qty</th>
+                </tr>
+              </thead>
+              <tbody>
+                {approvedItems.map((item: any, index: number) => (
+                  <tr key={item.id || index}>
+                    <td className="border border-border print:border-gray-300 px-3 py-2 text-center text-muted-foreground">{index + 1}</td>
+                    <td className="border border-border print:border-gray-300 px-3 py-2 font-medium print:text-black">{item.itemName}</td>
+                    <td className="border border-border print:border-gray-300 px-3 py-2 text-center">{item.uom}</td>
+                    <td className="border border-border print:border-gray-300 px-3 py-2 text-right font-mono">{item.approveQty != null ? Number(item.approveQty) : 0}</td>
+                  </tr>
+                ))}
+              </tbody>
+              <tfoot>
+                <tr className="bg-muted/30 print:bg-gray-50">
+                  <td colSpan={3} className="border border-border print:border-gray-300 px-3 py-2 font-semibold text-right">
+                    Total Approved Items: {approvedItems.length}
+                  </td>
+                  <td className="border border-border print:border-gray-300 px-3 py-2 text-right font-mono font-semibold">
+                    {approvedItems.reduce((sum: number, item: any) => sum + (Number(item.approveQty) || 0), 0)}
+                  </td>
+                </tr>
+              </tfoot>
+            </table>
+          )}
 
           <div className="grid grid-cols-2 gap-8 mt-12 pt-8 border-t print:mt-16">
             <div className="text-center">

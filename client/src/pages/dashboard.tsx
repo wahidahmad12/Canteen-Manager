@@ -1,5 +1,5 @@
 import { Link } from "wouter";
-import { Plus, Loader2, AlertCircle, FileText, ArrowRight, Calculator, ClipboardList, UtensilsCrossed, ShoppingCart, Trash2, Check, X, FileDown, Eye } from "lucide-react";
+import { Plus, Loader2, AlertCircle, FileText, ArrowRight, Calculator, ClipboardList, UtensilsCrossed, ShoppingCart, Trash2, Check, X, FileDown, Eye, Pencil } from "lucide-react";
 import { useReports, useDeleteReport, useInventories, useCashSeals, useSavedMenus, useDeleteSavedMenu, usePurchaseRequests, useDeletePurchaseRequest, useUpdatePurchaseRequest, useCurrentUser } from "@/hooks/use-reports";
 import { format } from "date-fns";
 import { Layout } from "@/components/layout";
@@ -529,16 +529,16 @@ export default function Dashboard() {
                                 </Button>
                               </Link>
                             )}
-                            {isAdmin && pr.status === 'pending' && (
+                            {isAdmin && (pr.status === 'pending' || pr.status === 'approved') && (
                               <Link href={`/purchase-request/${pr.id}/review`}>
                                 <Button
                                   size="sm"
                                   variant="ghost"
-                                  className="h-8 text-green-600 hover:text-green-700 hover:bg-green-50"
+                                  className={`h-8 ${pr.status === 'pending' ? 'text-green-600 hover:text-green-700 hover:bg-green-50' : 'text-blue-600 hover:text-blue-700 hover:bg-blue-50'}`}
                                   data-testid={`button-review-purchase-${pr.id}`}
                                 >
-                                  <Check className="w-4 h-4 mr-1" />
-                                  <span className="text-xs">Review</span>
+                                  {pr.status === 'pending' ? <Check className="w-4 h-4 mr-1" /> : <Pencil className="w-4 h-4 mr-1" />}
+                                  <span className="text-xs">{pr.status === 'pending' ? 'Review' : 'Edit'}</span>
                                 </Button>
                               </Link>
                             )}
