@@ -115,3 +115,33 @@
     min-height: 36px;
   }
 }
+
+/* Print styles for PDF export */
+@media print {
+  body {
+    background: white !important;
+    color: black !important;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+  .print\:hidden,
+  nav,
+  header,
+  aside,
+  footer,
+  [data-testid="button-convert-pdf"],
+  [data-testid="button-back-dashboard"] {
+    display: none !important;
+  }
+  #pdf-content {
+    border: none !important;
+    box-shadow: none !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    max-width: 100% !important;
+  }
+  @page {
+    margin: 1.5cm;
+    size: A4;
+  }
+}

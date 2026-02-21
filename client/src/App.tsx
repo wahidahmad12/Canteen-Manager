@@ -11,6 +11,7 @@ import CashSeal from "./pages/cash-seal";
 import DailyInventory from "./pages/daily-inventory";
 import MenuManager from "./pages/menu-manager";
 import PurchaseRequest from "./pages/purchase-request";
+import PurchaseRequestPDF from "./pages/purchase-request-pdf";
 import Login from "./pages/login";
 import { useCurrentUser } from "./hooks/use-reports";
 import { Loader2 } from "lucide-react";
@@ -39,6 +40,7 @@ function AuthenticatedRouter() {
       <Route path="/inventory">{() => <PermRoute perm="inventory"><DailyInventory /></PermRoute>}</Route>
       <Route path="/menu">{() => <PermRoute perm="menu"><MenuManager /></PermRoute>}</Route>
       <Route path="/purchase-request">{() => <PermRoute perm="purchase"><PurchaseRequest /></PermRoute>}</Route>
+      <Route path="/purchase-request/:id/pdf">{() => <PermRoute perm="purchase"><PurchaseRequestPDF /></PermRoute>}</Route>
       <Route component={NotFound} />
     </Switch>
   );

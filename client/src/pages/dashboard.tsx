@@ -1,5 +1,5 @@
 import { Link } from "wouter";
-import { Plus, Loader2, AlertCircle, FileText, ArrowRight, Calculator, ClipboardList, UtensilsCrossed, ShoppingCart, Trash2, Check, X } from "lucide-react";
+import { Plus, Loader2, AlertCircle, FileText, ArrowRight, Calculator, ClipboardList, UtensilsCrossed, ShoppingCart, Trash2, Check, X, FileDown, Eye } from "lucide-react";
 import { useReports, useDeleteReport, useInventories, useCashSeals, useSavedMenus, useDeleteSavedMenu, usePurchaseRequests, useDeletePurchaseRequest, useUpdatePurchaseRequest, useCurrentUser } from "@/hooks/use-reports";
 import { format } from "date-fns";
 import { Layout } from "@/components/layout";
@@ -508,6 +508,19 @@ export default function Dashboard() {
                         </td>
                         <td className="text-right">
                           <div className="flex items-center justify-end gap-2">
+                            {pr.status === 'approved' && (
+                              <Link href={`/purchase-request/${pr.id}/pdf`}>
+                                <Button
+                                  size="sm"
+                                  variant="ghost"
+                                  className="h-8 text-primary hover:text-primary hover:bg-primary/10"
+                                  data-testid={`button-view-pdf-${pr.id}`}
+                                >
+                                  <FileDown className="w-4 h-4 mr-1" />
+                                  <span className="hidden sm:inline text-xs">PDF</span>
+                                </Button>
+                              </Link>
+                            )}
                             {isAdmin && pr.status === 'pending' && (
                               <>
                                 <Button
