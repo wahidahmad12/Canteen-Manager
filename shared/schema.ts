@@ -38,6 +38,7 @@ export const expenseItems = pgTable("expense_items", {
 // Stores cash seal (income vs expense) per day
 export const cashSeals = pgTable("cash_seals", {
   id: serial("id").primaryKey(),
+  serialNumber: serial("serial_number"),
   reportId: integer("report_id").notNull().references(() => dailyReports.id, { onDelete: 'cascade' }),
   incomeMorningQty: numeric("income_morning_qty", { precision: 10, scale: 2 }).default("0"),
   incomeLunchQty: numeric("income_lunch_qty", { precision: 10, scale: 2 }).default("0"),
@@ -61,6 +62,7 @@ export const cashSeals = pgTable("cash_seals", {
 // Daily Inventory records
 export const dailyInventory = pgTable("daily_inventory", {
   id: serial("id").primaryKey(),
+  serialNumber: serial("serial_number"),
   date: date("date").notNull().unique(),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
