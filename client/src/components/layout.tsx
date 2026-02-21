@@ -8,7 +8,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
   const navItems = [
     { href: '/', label: 'Dashboard', icon: LayoutDashboard },
     { href: '/new', label: 'KPF Delay Cash Expanse', icon: FilePlus },
-    { href: '/cash-seal', label: 'Cash Seal KPF', icon: Calculator },
+    { href: '/cash-seal', label: 'KPF Delay CASH SEAL', icon: Calculator },
     { href: '/inventory', label: 'KPF Daily Inventory', icon: ClipboardList },
     { href: '/menu', label: 'Menu Manager', icon: UtensilsCrossed },
     { href: '/admin', label: 'Admin', icon: Settings },
