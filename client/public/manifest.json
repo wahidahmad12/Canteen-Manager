@@ -1,7 +1,7 @@
 {
-  "name": "DJ KPF Delay Cash Expanse",
-  "short_name": "DJ KPF",
-  "description": "Daily expense reporting application for DJ KPF",
+  "name": "Delay Cash Expanse - Canteen Management",
+  "short_name": "DJ Hospitality",
+  "description": "Canteen Management - DJ Hospitality & Facility Management Pvt Ltd",
   "start_url": "/",
   "scope": "/",
   "display": "standalone",

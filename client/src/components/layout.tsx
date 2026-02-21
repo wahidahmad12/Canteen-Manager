@@ -15,9 +15,9 @@ export function Layout({ children }: { children: React.ReactNode }) {
 
   const navItems = [
     { href: '/', label: 'Dashboard', icon: LayoutDashboard, perm: null },
-    { href: '/new', label: 'KPF Delay Cash Expanse', icon: FilePlus, perm: 'expense' },
-    { href: '/cash-seal', label: 'KPF Delay CASH SEAL', icon: Calculator, perm: 'cashseal' },
-    { href: '/inventory', label: 'KPF Daily Inventory', icon: ClipboardList, perm: 'inventory' },
+    { href: '/new', label: 'Delay Cash Expanse', icon: FilePlus, perm: 'expense' },
+    { href: '/cash-seal', label: 'Cash Seal', icon: Calculator, perm: 'cashseal' },
+    { href: '/inventory', label: 'Daily Inventory', icon: ClipboardList, perm: 'inventory' },
     { href: '/menu', label: 'Menu Manager', icon: UtensilsCrossed, perm: 'menu' },
     ...(user?.role === 'admin' ? [{ href: '/admin', label: 'Admin', icon: Settings, perm: null }] : []),
   ].filter(item => item.perm === null || perms.includes(item.perm));
@@ -54,7 +54,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
             <Menu className="w-5 h-5" />
           </Button>
           <img src={logoImg} alt="DJ Hospitality" className="w-8 h-8 rounded-lg object-cover" />
-          <h1 className="font-bold text-base leading-none">DJ KPF</h1>
+          <h1 className="font-bold text-base leading-none">DJ Hospitality</h1>
         </div>
         {user && (
           <div className="flex items-center gap-2">
@@ -83,8 +83,8 @@ export function Layout({ children }: { children: React.ReactNode }) {
           <div className="flex items-center gap-3">
             <img src={logoImg} alt="DJ Hospitality" className="w-10 h-10 rounded-xl object-cover shadow-lg" />
             <div>
-              <h1 className="font-bold text-lg leading-none">DJ KPF</h1>
-              <p className="text-xs text-muted-foreground mt-1">Delay Cash Expanse</p>
+              <h1 className="font-bold text-lg leading-none">DJ Hospitality</h1>
+              <p className="text-xs text-muted-foreground mt-1">Canteen Management</p>
             </div>
           </div>
           <Button

@@ -50,8 +50,8 @@ export default function Login() {
           <div className="flex justify-center mb-4">
             <img src={logoImg} alt="DJ Hospitality" className="w-20 h-20 rounded-2xl object-cover shadow-lg" />
           </div>
-          <CardTitle className="text-2xl font-bold">DJ KPF</CardTitle>
-          <p className="text-sm text-muted-foreground mt-1">Delay Cash Expanse Manager</p>
+          <CardTitle className="text-2xl font-bold">DJ Hospitality</CardTitle>
+          <p className="text-sm text-muted-foreground mt-1">Delay Cash Expanse - Canteen Management</p>
         </CardHeader>
         <CardContent>
           <form onSubmit={handleSubmit} className="space-y-4">

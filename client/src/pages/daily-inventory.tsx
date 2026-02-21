@@ -113,7 +113,7 @@ export default function DailyInventory() {
   return (
     <Layout>
       <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-6 sm:mb-8 gap-3">
-        <h2 className="text-2xl sm:text-3xl font-bold tracking-tight" data-testid="text-inventory-title">DJ KPF Daily Inventory</h2>
+        <h2 className="text-2xl sm:text-3xl font-bold tracking-tight" data-testid="text-inventory-title">Daily Inventory</h2>
         <Button onClick={handleSave} disabled={createMutation.isPending} data-testid="button-save-inventory" className="w-full sm:w-auto">
           {createMutation.isPending ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Save className="w-4 h-4 mr-2" />}
           Save Inventory
