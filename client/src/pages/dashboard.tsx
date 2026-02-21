@@ -1,6 +1,6 @@
 import { Link } from "wouter";
 import { Plus, Loader2, AlertCircle, FileText, ArrowRight, Calculator, ClipboardList, UtensilsCrossed, Trash2 } from "lucide-react";
-import { useReports, useDeleteReport, useInventories, useCashSeals, useSavedMenus, useDeleteSavedMenu } from "@/hooks/use-reports";
+import { useReports, useDeleteReport, useInventories, useCashSeals, useSavedMenus, useDeleteSavedMenu, useCurrentUser } from "@/hooks/use-reports";
 import { format } from "date-fns";
 import { Layout } from "@/components/layout";
 import { Button } from "@/components/ui/button";
@@ -19,12 +19,23 @@ import {
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 export default function Dashboard() {
+  const { data: user } = useCurrentUser();
+  const perms = user?.role === 'admin' ? ['expense', 'cashseal', 'inventory', 'menu'] : (user?.permissions || []);
   const { data: reports, isLoading, error } = useReports();
   const { data: inventories, isLoading: invLoading } = useInventories();
   const { data: cashSeals, isLoading: csLoading } = useCashSeals();
   const deleteMutation = useDeleteReport();
   const { data: savedMenus, isLoading: menusLoading } = useSavedMenus();
   const deleteMenuMutation = useDeleteSavedMenu();
+
+  const tabItems = [
+    { value: 'reports', label: 'Reports', icon: FileText, perm: 'expense' },
+    { value: 'cashseal', label: 'Cash Seal', icon: Calculator, perm: 'cashseal' },
+    { value: 'inventory', label: 'Inventory', icon: ClipboardList, perm: 'inventory' },
+    { value: 'menus', label: 'Menus', icon: UtensilsCrossed, perm: 'menu' },
+  ].filter(item => perms.includes(item.perm));
+
+  const defaultTab = tabItems.length > 0 ? tabItems[0].value : 'reports';
 
   if (isLoading) {
     return (
@@ -64,47 +75,45 @@ export default function Dashboard() {
           <p className="text-muted-foreground mt-1 sm:mt-2 text-sm sm:text-base">Canteen Management</p>
         </div>
         <div className="flex gap-2 flex-wrap">
-          <Link href="/new">
-            <Button className="h-9 sm:h-11 px-3 sm:px-5 rounded-xl shadow-lg shadow-primary/20 text-xs sm:text-sm" data-testid="button-new-report">
-              <Plus className="w-4 h-4 mr-1 sm:mr-2" />
-              <span className="hidden sm:inline">Delay Cash Expanse</span>
-              <span className="sm:hidden">New Report</span>
-            </Button>
-          </Link>
-          <Link href="/cash-seal">
-            <Button variant="outline" className="h-9 sm:h-11 px-3 sm:px-5 rounded-xl text-xs sm:text-sm" data-testid="button-cash-seal">
-              <Calculator className="w-4 h-4 mr-1 sm:mr-2" />
-              Cash Seal
-            </Button>
-          </Link>
-          <Link href="/inventory">
-            <Button variant="outline" className="h-9 sm:h-11 px-3 sm:px-5 rounded-xl text-xs sm:text-sm" data-testid="button-inventory">
-              <ClipboardList className="w-4 h-4 mr-1 sm:mr-2" />
-              Inventory
-            </Button>
-          </Link>
+          {perms.includes('expense') && (
+            <Link href="/new">
+              <Button className="h-9 sm:h-11 px-3 sm:px-5 rounded-xl shadow-lg shadow-primary/20 text-xs sm:text-sm" data-testid="button-new-report">
+                <Plus className="w-4 h-4 mr-1 sm:mr-2" />
+                <span className="hidden sm:inline">Delay Cash Expanse</span>
+                <span className="sm:hidden">New Report</span>
+              </Button>
+            </Link>
+          )}
+          {perms.includes('cashseal') && (
+            <Link href="/cash-seal">
+              <Button variant="outline" className="h-9 sm:h-11 px-3 sm:px-5 rounded-xl text-xs sm:text-sm" data-testid="button-cash-seal">
+                <Calculator className="w-4 h-4 mr-1 sm:mr-2" />
+                Cash Seal
+              </Button>
+            </Link>
+          )}
+          {perms.includes('inventory') && (
+            <Link href="/inventory">
+              <Button variant="outline" className="h-9 sm:h-11 px-3 sm:px-5 rounded-xl text-xs sm:text-sm" data-testid="button-inventory">
+                <ClipboardList className="w-4 h-4 mr-1 sm:mr-2" />
+                Inventory
+              </Button>
+            </Link>
+          )}
         </div>
       </div>
 
-      <Tabs defaultValue="reports" className="space-y-4">
-        <TabsList className="grid w-full grid-cols-2 sm:grid-cols-4 h-auto" data-testid="tabs-dashboard">
-          <TabsTrigger value="reports" className="text-xs sm:text-sm py-2" data-testid="tab-reports">
-            <FileText className="w-4 h-4 mr-1 sm:mr-2 shrink-0" />
-            <span className="truncate">Reports</span>
-          </TabsTrigger>
-          <TabsTrigger value="cashseal" className="text-xs sm:text-sm py-2" data-testid="tab-cashseal">
-            <Calculator className="w-4 h-4 mr-1 sm:mr-2 shrink-0" />
-            <span className="truncate">Cash Seal</span>
-          </TabsTrigger>
-          <TabsTrigger value="inventory" className="text-xs sm:text-sm py-2" data-testid="tab-inventory">
-            <ClipboardList className="w-4 h-4 mr-1 sm:mr-2 shrink-0" />
-            <span className="truncate">Inventory</span>
-          </TabsTrigger>
-          <TabsTrigger value="menus" className="text-xs sm:text-sm py-2" data-testid="tab-menus">
-            <UtensilsCrossed className="w-4 h-4 mr-1 sm:mr-2 shrink-0" />
-            <span className="truncate">Menus</span>
-          </TabsTrigger>
-        </TabsList>
+      <Tabs defaultValue={defaultTab} className="space-y-4">
+        {tabItems.length > 0 && (
+          <TabsList className={`grid w-full h-auto`} style={{ gridTemplateColumns: `repeat(${Math.min(tabItems.length, 4)}, 1fr)` }} data-testid="tabs-dashboard">
+            {tabItems.map(tab => (
+              <TabsTrigger key={tab.value} value={tab.value} className="text-xs sm:text-sm py-2" data-testid={`tab-${tab.value}`}>
+                <tab.icon className="w-4 h-4 mr-1 sm:mr-2 shrink-0" />
+                <span className="truncate">{tab.label}</span>
+              </TabsTrigger>
+            ))}
+          </TabsList>
+        )}
 
         <TabsContent value="reports">
           {reports?.length === 0 ? (
