@@ -15,7 +15,13 @@ export default function PurchaseRequestPDF() {
   const isAdmin = user?.role === "admin";
 
   const handlePrint = () => {
+    const originalTitle = document.title;
+    if (pr) {
+      const dateStr = format(new Date(pr.date), "dd-MM-yyyy");
+      document.title = `DJ Hospitality Purchase Request for ${pr.clientName} ${pr.serialNumber} ${dateStr}`;
+    }
     window.print();
+    document.title = originalTitle;
   };
 
   if (isLoading) {
