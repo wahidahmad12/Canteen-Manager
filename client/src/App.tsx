@@ -9,6 +9,7 @@ import ReportForm from "./pages/report-form";
 import Admin from "./pages/admin";
 import CashSeal from "./pages/cash-seal";
 import DailyInventory from "./pages/daily-inventory";
+import MenuManager from "./pages/menu-manager";
 
 function Router() {
   return (
@@ -19,6 +20,7 @@ function Router() {
       <Route path="/admin" component={Admin} />
       <Route path="/cash-seal" component={CashSeal} />
       <Route path="/inventory" component={DailyInventory} />
+      <Route path="/menu" component={MenuManager} />
       <Route component={NotFound} />
     </Switch>
   );

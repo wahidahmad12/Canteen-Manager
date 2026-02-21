@@ -1,6 +1,6 @@
 import React from 'react';
 import { Link, useLocation } from 'wouter';
-import { LayoutDashboard, FilePlus, ChefHat, Settings, Calculator, ClipboardList } from 'lucide-react';
+import { LayoutDashboard, FilePlus, ChefHat, Settings, Calculator, ClipboardList, UtensilsCrossed } from 'lucide-react';
 
 export function Layout({ children }: { children: React.ReactNode }) {
   const [location] = useLocation();
@@ -10,6 +10,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
     { href: '/new', label: 'New Report', icon: FilePlus },
     { href: '/cash-seal', label: 'Cash Seal KPF', icon: Calculator },
     { href: '/inventory', label: 'Daily Inventory', icon: ClipboardList },
+    { href: '/menu', label: 'Menu Manager', icon: UtensilsCrossed },
     { href: '/admin', label: 'Admin', icon: Settings },
   ];
 

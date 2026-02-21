@@ -18,9 +18,13 @@ Preferred communication style: Simple, everyday language.
 - **UI Components**: shadcn/ui (new-york style) built on Radix UI primitives
 - **Styling**: Tailwind CSS with CSS variables for theming (light/dark mode support)
 - **Key Pages**:
-  - `/` — Dashboard listing all reports
+  - `/` — Dashboard listing all reports with tabs (Expense Reports, Cash Seal, Daily Inventory)
   - `/new` — Create new report form (pre-populated with default fixed items)
   - `/report/:id` — Edit existing report
+  - `/cash-seal` — Cash Seal KPF income/expense tracking
+  - `/inventory` — Daily Inventory (Kitchen Stock + Biscuits)
+  - `/menu` — Menu Manager (2-week lunch menu schedule with client selection)
+  - `/admin` — PIN-protected admin panel for vegetable management
 
 ### Backend
 - **Framework**: Express 5 on Node.js with TypeScript (run via tsx)
@@ -38,9 +42,14 @@ Preferred communication style: Simple, everyday language.
 - **ORM**: Drizzle ORM with node-postgres driver
 - **Schema Push**: `npm run db:push` uses drizzle-kit to push schema changes directly (no migration files needed for development)
 - **Tables**:
-  - `daily_reports` — One row per day (date is unique). Stores opening balance and received amount
+  - `daily_reports` — One row per day (date is unique). Stores opening balance, received amount, auto-incrementing reportNumber
   - `expense_items` — Line items belonging to a report. Has category ('fixed' or 'vegetable'), description, UOM, qty, rate, amount. Cascade deletes with parent report
   - `vegetable_items` — Lookup table of predefined vegetable names for selection dropdowns
+  - `cash_seals` — Daily cash seal income/expense records with auto-incrementing serialNumber. Linked to daily_reports via reportId
+  - `daily_inventory` — Daily inventory records with auto-incrementing serialNumber
+  - `kitchen_stock_items` — Kitchen stock line items (Banana, Dahi, Chicken, Fish, Eggs) linked to daily_inventory
+  - `biscuit_items` — Biscuit inventory items linked to daily_inventory
+  - `admin_settings` — Stores admin PIN for access control (default: 1234)
 - **Storage Layer**: `server/storage.ts` implements `IStorage` interface with `DatabaseStorage` class, abstracting all DB operations
 
 ### Key Design Decisions
