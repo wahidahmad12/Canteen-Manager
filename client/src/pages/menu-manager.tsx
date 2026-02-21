@@ -147,26 +147,109 @@ export default function MenuManager() {
   };
 
   const handleExcelDownload = async () => {
-    const XLSX = await import("xlsx");
-    const wb = XLSX.utils.book_new();
+    const ExcelJS = await import("exceljs");
+    const { saveAs } = await import("file-saver");
+    const workbook = new ExcelJS.Workbook();
+    const worksheet = workbook.addWorksheet("Menu");
+
+    const navyFill = { type: "pattern", pattern: "solid", fgColor: { argb: "FF1A3A5A" } } as const;
+    const redFill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFFFEBEE" } } as const;
+    const grayFill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFF1F4F7" } } as const;
+
+    const whiteFont = { name: "Arial", color: { argb: "FFFFFFFF" }, bold: true, size: 11 };
+    const navyFont = { name: "Arial", color: { argb: "FF1A3A5A" }, bold: true, size: 10 };
+    const redFont = { name: "Arial", color: { argb: "FFD32F2F" }, bold: true, size: 11 };
+    const blackFont = { name: "Arial", color: { argb: "FF000000" }, size: 10 };
+
+    const borderStyle = {
+      top: { style: "thin" as const },
+      left: { style: "thin" as const },
+      bottom: { style: "thin" as const },
+      right: { style: "thin" as const },
+    };
+
+    const totalCols = Math.max(week1Dates.length, week2Dates.length) + 1;
+    const lastCol = String.fromCharCode(64 + totalCols);
+
+    const titleRow = worksheet.addRow(["DJ HOSPITALITY & FACILITY MANAGEMENT PVT LTD"]);
+    titleRow.font = { size: 16, bold: true, color: { argb: "FF1A3A5A" } };
+    titleRow.alignment = { horizontal: "center" };
+    worksheet.mergeCells(`A1:${lastCol}1`);
+
+    const clientRow = worksheet.addRow([`CLIENT: ${client}`]);
+    clientRow.font = { size: 12, bold: true, color: { argb: "FFA52A2A" } };
+    clientRow.alignment = { horizontal: "center" };
+    worksheet.mergeCells(`A2:${lastCol}2`);
+
+    const dateText = `LUNCH MENU: ${format(rangeStart, "dd-MM-yyyy")} TO ${format(rangeEnd, "dd-MM-yyyy")}`;
+    const dateRow = worksheet.addRow([dateText]);
+    dateRow.font = { size: 11, bold: true, color: { argb: "FF555555" } };
+    dateRow.alignment = { horizontal: "center" };
+    worksheet.mergeCells(`A3:${lastCol}3`);
+
+    worksheet.addRow([]);
 
     for (let weekNum = 1; weekNum <= 2; weekNum++) {
       const dates = weekNum === 1 ? week1Dates : week2Dates;
-      const header = ["Category", ...dates.map(d => `${DAY_NAMES[getDay(d)]} ${format(d, "dd/MM")}`)];
-      const rows = categories.map(cat => {
-        const row: string[] = [cat.name];
-        dates.forEach((_, di) => {
-          row.push(cellValues[`w${weekNum}_c${cat.id}_d${di}`] || cat.def);
-        });
-        return row;
+
+      const weekTitleRow = worksheet.addRow([`WEEK ${weekNum} SCHEDULE`]);
+      weekTitleRow.font = whiteFont;
+      weekTitleRow.fill = navyFill;
+      weekTitleRow.alignment = { horizontal: "center", vertical: "middle" };
+      worksheet.mergeCells(`A${weekTitleRow.number}:${lastCol}${weekTitleRow.number}`);
+
+      const headerData = ["CATEGORY", ...dates.map(d => `${DAY_NAMES[getDay(d)]} ${format(d, "dd-MM-yyyy")}`)];
+      const headerRow = worksheet.addRow(headerData);
+      headerRow.height = 30;
+      headerRow.eachCell((cell) => {
+        cell.fill = navyFill;
+        cell.font = whiteFont;
+        cell.alignment = { horizontal: "center", vertical: "middle", wrapText: true };
+        cell.border = borderStyle;
       });
-      const ws = XLSX.utils.aoa_to_sheet([header, ...rows]);
-      const colWidths = [{ wch: 22 }, ...dates.map(() => ({ wch: 18 }))];
-      ws["!cols"] = colWidths;
-      XLSX.utils.book_append_sheet(wb, ws, `Week ${weekNum}`);
+
+      categories.forEach((cat) => {
+        const rowData = [cat.name];
+        dates.forEach((_, di) => {
+          rowData.push(cellValues[`w${weekNum}_c${cat.id}_d${di}`] || cat.def);
+        });
+
+        const excelRow = worksheet.addRow(rowData);
+        excelRow.height = 25;
+
+        const isNonVeg = cat.name.toLowerCase().includes("chicken") || cat.name.toLowerCase().includes("fish") || cat.name.toLowerCase().includes("egg");
+
+        excelRow.eachCell((cell, colNumber) => {
+          cell.border = borderStyle;
+          cell.alignment = { horizontal: "center", vertical: "middle" };
+
+          if (colNumber === 1) {
+            cell.alignment = { horizontal: "left", vertical: "middle" };
+            if (isNonVeg) {
+              cell.fill = redFill;
+              cell.font = redFont;
+            } else {
+              cell.fill = grayFill;
+              cell.font = navyFont;
+            }
+          } else {
+            cell.font = isNonVeg ? redFont : blackFont;
+          }
+        });
+      });
+
+      worksheet.addRow([]);
     }
 
-    XLSX.writeFile(wb, `DJ_Menu_Schedule_${format(rangeStart, "dd-MM-yyyy")}.xlsx`);
+    worksheet.getColumn(1).width = 25;
+    for (let i = 2; i <= totalCols; i++) worksheet.getColumn(i).width = 20;
+
+    const safeClientName = client.toLowerCase().replace(/ /g, "_").replace(/[^a-z0-9_]/g, "");
+    const dateSuffix = `_${format(rangeStart, "dd-MM-yyyy")}_${format(rangeEnd, "dd-MM-yyyy")}`;
+    const fileName = `Menu_${safeClientName}${dateSuffix}.xlsx`;
+
+    const buffer = await workbook.xlsx.writeBuffer();
+    saveAs(new Blob([buffer]), fileName);
   };
 
   const renderWeekTable = (weekNum: number, dates: Date[]) => (
