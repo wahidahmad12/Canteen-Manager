@@ -1,10 +1,14 @@
 import React from 'react';
 import { Link, useLocation } from 'wouter';
-import { LayoutDashboard, FilePlus, Settings, Calculator, ClipboardList, UtensilsCrossed } from 'lucide-react';
+import { LayoutDashboard, FilePlus, Settings, Calculator, ClipboardList, UtensilsCrossed, LogOut, User } from 'lucide-react';
 import logoImg from '@assets/logo1_1771660912341.png';
+import { useCurrentUser, useLogout } from '@/hooks/use-reports';
+import { Button } from '@/components/ui/button';
 
 export function Layout({ children }: { children: React.ReactNode }) {
   const [location] = useLocation();
+  const { data: user } = useCurrentUser();
+  const logoutMutation = useLogout();
 
   const navItems = [
     { href: '/', label: 'Dashboard', icon: LayoutDashboard },
@@ -12,7 +16,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
     { href: '/cash-seal', label: 'KPF Delay CASH SEAL', icon: Calculator },
     { href: '/inventory', label: 'KPF Daily Inventory', icon: ClipboardList },
     { href: '/menu', label: 'Menu Manager', icon: UtensilsCrossed },
-    { href: '/admin', label: 'Admin', icon: Settings },
+    ...(user?.role === 'admin' ? [{ href: '/admin', label: 'Admin', icon: Settings }] : []),
   ];
 
   return (
@@ -49,6 +53,28 @@ export function Layout({ children }: { children: React.ReactNode }) {
             );
           })}
         </nav>
+
+        {user && (
+          <div className="mt-auto p-4 border-t border-border">
+            <div className="flex items-center gap-2 px-4 py-2 mb-2">
+              <User className="w-4 h-4 text-muted-foreground" />
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-medium truncate">{user.displayName}</p>
+                <p className="text-xs text-muted-foreground truncate">{user.clientName || user.role}</p>
+              </div>
+            </div>
+            <Button
+              variant="ghost"
+              className="w-full justify-start gap-3 px-4 text-muted-foreground hover:text-destructive"
+              onClick={() => logoutMutation.mutate()}
+              disabled={logoutMutation.isPending}
+              data-testid="button-logout"
+            >
+              <LogOut className="w-4 h-4" />
+              Logout
+            </Button>
+          </div>
+        )}
       </aside>
 
       {/* Main Content */}

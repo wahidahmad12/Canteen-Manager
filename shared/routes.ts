@@ -321,6 +321,63 @@ export const api = {
       },
     },
   },
+  auth: {
+    login: {
+      method: 'POST' as const,
+      path: '/api/auth/login' as const,
+      input: z.object({ username: z.string().min(1), password: z.string().min(1) }),
+      responses: {
+        200: z.object({ id: z.number(), username: z.string(), displayName: z.string(), role: z.string(), clientName: z.string().nullable() }),
+        401: errorSchemas.validation,
+      },
+    },
+    logout: {
+      method: 'POST' as const,
+      path: '/api/auth/logout' as const,
+      responses: {
+        200: z.object({ success: z.boolean() }),
+      },
+    },
+    me: {
+      method: 'GET' as const,
+      path: '/api/auth/me' as const,
+      responses: {
+        200: z.object({ id: z.number(), username: z.string(), displayName: z.string(), role: z.string(), clientName: z.string().nullable() }),
+        401: errorSchemas.validation,
+      },
+    },
+  },
+  users: {
+    list: {
+      method: 'GET' as const,
+      path: '/api/users' as const,
+      responses: {
+        200: z.array(z.any()),
+      },
+    },
+    create: {
+      method: 'POST' as const,
+      path: '/api/users' as const,
+      input: z.object({
+        username: z.string().min(1),
+        password: z.string().min(4),
+        displayName: z.string().min(1),
+        role: z.string().default("user"),
+        clientName: z.string().nullable().default(null),
+      }),
+      responses: {
+        201: z.any(),
+        400: errorSchemas.validation,
+      },
+    },
+    delete: {
+      method: 'DELETE' as const,
+      path: '/api/users/:id' as const,
+      responses: {
+        204: z.void(),
+      },
+    },
+  },
 };
 
 export function buildUrl(path: string, params?: Record<string, string | number>): string {

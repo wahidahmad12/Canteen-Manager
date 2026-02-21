@@ -2,7 +2,7 @@
 
 ## Overview
 
-A daily expense reporting application for DJ KPF. Users create one report per day that tracks an opening balance, received amount, and line-item expenses (both "fixed" items like common ingredients and dynamic "vegetable" items). The app calculates totals in real-time (qty × rate = amount) and provides a dashboard listing all reports.
+A daily expense reporting application for DJ KPF with multi-user authentication. Admin creates user accounts grouped by client name. Features include daily expense reports, Cash Seal tracking, daily inventory management, and Menu Manager with 2-week lunch schedules.
 
 ## User Preferences
 
@@ -50,6 +50,7 @@ Preferred communication style: Simple, everyday language.
   - `kitchen_stock_items` — Kitchen stock line items (Banana, Dahi, Chicken, Fish, Eggs) linked to daily_inventory
   - `biscuit_items` — Biscuit inventory items linked to daily_inventory
   - `admin_settings` — Stores admin PIN for access control (default: 1234)
+  - `users` — User accounts with username (unique), passwordHash (bcrypt), displayName, role (admin/user), clientName (nullable), isActive flag
 - **Storage Layer**: `server/storage.ts` implements `IStorage` interface with `DatabaseStorage` class, abstracting all DB operations
 
 ### Key Design Decisions
@@ -63,5 +64,7 @@ Preferred communication style: Simple, everyday language.
 
 - **PostgreSQL** — Primary database, connected via `DATABASE_URL` environment variable. Required for the app to start
 - **Google Fonts** — Loads Inter, DM Sans, Fira Code, Geist Mono, and Architects Daughter font families from Google Fonts CDN
-- **No authentication** — The app currently has no auth mechanism; all endpoints are publicly accessible
-- **connect-pg-simple** — Listed as a dependency (for session storage) but no session/auth system is actively implemented
+- **Authentication** — Session-based auth with bcrypt password hashing. Admin creates user accounts grouped by client name. Default admin: username "admin", password "admin123"
+- **Session Storage** — PostgreSQL-backed sessions via connect-pg-simple with 30-day cookie lifetime
+- **Role-based Access** — "admin" role for full access (user management, client management, vegetable management, PIN settings); "user" role for standard operations (reports, cash seals, inventory, menus)
+- **Route Protection** — All API routes require authentication; admin-only routes use requireAdmin middleware. Frontend gates /admin route to admin users only

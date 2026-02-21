@@ -1,23 +1,119 @@
 
-import type { Express } from "express";
+import type { Express, Request, Response, NextFunction } from "express";
 import type { Server } from "http";
 import { storage } from "./storage";
 import { api } from "@shared/routes";
 import { z } from "zod";
+import bcrypt from "bcryptjs";
+
+function requireAuth(req: Request, res: Response, next: NextFunction) {
+  if (!req.session.userId) {
+    return res.status(401).json({ message: "Not authenticated" });
+  }
+  next();
+}
+
+function requireAdmin(req: Request, res: Response, next: NextFunction) {
+  if (!req.session.userId) {
+    return res.status(401).json({ message: "Not authenticated" });
+  }
+  if (req.session.role !== "admin") {
+    return res.status(403).json({ message: "Admin access required" });
+  }
+  next();
+}
 
 export async function registerRoutes(
   httpServer: Server,
   app: Express
 ): Promise<Server> {
-  
+
+  // === AUTH ROUTES (no auth required) ===
+  app.post(api.auth.login.path, async (req, res) => {
+    try {
+      const { username, password } = api.auth.login.input.parse(req.body);
+      const user = await storage.getUserByUsername(username);
+      if (!user) {
+        return res.status(401).json({ message: "Invalid username or password" });
+      }
+      if (!user.isActive) {
+        return res.status(401).json({ message: "Account is disabled" });
+      }
+      const valid = await bcrypt.compare(password, user.passwordHash);
+      if (!valid) {
+        return res.status(401).json({ message: "Invalid username or password" });
+      }
+      req.session.userId = user.id;
+      req.session.username = user.username;
+      req.session.role = user.role;
+      req.session.clientName = user.clientName;
+      req.session.displayName = user.displayName;
+      res.json({ id: user.id, username: user.username, displayName: user.displayName, role: user.role, clientName: user.clientName });
+    } catch (err) {
+      if (err instanceof z.ZodError) {
+        return res.status(400).json({ message: err.errors[0].message });
+      }
+      throw err;
+    }
+  });
+
+  app.post(api.auth.logout.path, (req, res) => {
+    req.session.destroy((err) => {
+      if (err) return res.status(500).json({ message: "Failed to logout" });
+      res.json({ success: true });
+    });
+  });
+
+  app.get(api.auth.me.path, (req, res) => {
+    if (!req.session.userId) {
+      return res.status(401).json({ message: "Not authenticated" });
+    }
+    res.json({
+      id: req.session.userId,
+      displayName: req.session.displayName,
+      role: req.session.role,
+      clientName: req.session.clientName,
+      username: req.session.username || "",
+    });
+  });
+
+  // === USER MANAGEMENT ROUTES (admin only) ===
+  app.get(api.users.list.path, requireAdmin, async (req, res) => {
+    const users = await storage.getUsers();
+    res.json(users);
+  });
+
+  app.post(api.users.create.path, requireAdmin, async (req, res) => {
+    try {
+      const input = api.users.create.input.parse(req.body);
+      const user = await storage.createUser(input);
+      res.status(201).json(user);
+    } catch (err) {
+      if (err instanceof z.ZodError) {
+        return res.status(400).json({ message: err.errors[0].message });
+      }
+      if (err instanceof Error && 'code' in (err as any) && (err as any).code === '23505') {
+        return res.status(400).json({ message: 'This username already exists.' });
+      }
+      throw err;
+    }
+  });
+
+  app.delete(api.users.delete.path, requireAdmin, async (req, res) => {
+    await storage.deleteUser(Number(req.params.id));
+    res.status(204).send();
+  });
+
+  // === PROTECTED ROUTES (require auth) ===
+
   // Get all reports
-  app.get(api.reports.list.path, async (req, res) => {
+  app.get(api.reports.list.path, requireAuth, async (req, res) => {
     const reports = await storage.getReports();
     res.json(reports);
   });
 
   // Get single report
-  app.get(api.reports.get.path, async (req, res) => {
+  app.get(api.reports.get.path, requireAuth, async (req, res) => {
     const report = await storage.getReport(Number(req.params.id));
     if (!report) {
       return res.status(404).json({ message: 'Report not found' });
@@ -26,7 +122,7 @@ export async function registerRoutes(
   });
 
   // Create report
-  app.post(api.reports.create.path, async (req, res) => {
+  app.post(api.reports.create.path, requireAuth, async (req, res) => {
     try {
       const input = api.reports.create.input.parse(req.body);
       const report = await storage.createReport(input);
@@ -47,7 +143,7 @@ export async function registerRoutes(
   });
 
   // Update report
-  app.put(api.reports.update.path, async (req, res) => {
+  app.put(api.reports.update.path, requireAuth, async (req, res) => {
     try {
       const input = api.reports.update.input.parse(req.body);
       const report = await storage.updateReport(Number(req.params.id), input);
@@ -67,25 +163,25 @@ export async function registerRoutes(
   });
 
   // Delete report
-  app.delete(api.reports.delete.path, async (req, res) => {
+  app.delete(api.reports.delete.path, requireAuth, async (req, res) => {
     await storage.deleteReport(Number(req.params.id));
     res.status(204).send();
   });
 
   // Get previous day balance
-  app.get('/api/reports/previous-balance/:date', async (req, res) => {
+  app.get('/api/reports/previous-balance/:date', requireAuth, async (req, res) => {
     const balance = await storage.getPreviousDayBalance(req.params.date);
     res.json({ balance });
   });
 
   // Get vegetable items
-  app.get(api.vegetables.list.path, async (req, res) => {
+  app.get(api.vegetables.list.path, requireAuth, async (req, res) => {
     const items = await storage.getVegetableItems();
     res.json(items);
   });
 
   // Create vegetable item
-  app.post(api.vegetables.create.path, async (req, res) => {
+  app.post(api.vegetables.create.path, requireAdmin, async (req, res) => {
     try {
       const input = api.vegetables.create.input.parse(req.body);
       const item = await storage.createVegetableItem(input);
@@ -102,7 +198,7 @@ export async function registerRoutes(
   });
 
   // Update vegetable item
-  app.put(api.vegetables.update.path, async (req, res) => {
+  app.put(api.vegetables.update.path, requireAdmin, async (req, res) => {
     try {
       const input = api.vegetables.update.input.parse(req.body);
       const item = await storage.updateVegetableItem(Number(req.params.id), input);
@@ -122,18 +218,18 @@ export async function registerRoutes(
   });
 
   // Delete vegetable item
-  app.delete(api.vegetables.delete.path, async (req, res) => {
+  app.delete(api.vegetables.delete.path, requireAdmin, async (req, res) => {
     await storage.deleteVegetableItem(Number(req.params.id));
     res.status(204).send();
   });
 
   // === CASH SEAL ROUTES ===
-  app.get(api.cashSeals.list.path, async (req, res) => {
+  app.get(api.cashSeals.list.path, requireAuth, async (req, res) => {
     const seals = await storage.getCashSeals();
     res.json(seals);
   });
 
-  app.post(api.cashSeals.create.path, async (req, res) => {
+  app.post(api.cashSeals.create.path, requireAuth, async (req, res) => {
     try {
       const input = api.cashSeals.create.input.parse(req.body);
       const seal = await storage.createCashSeal(input);
@@ -147,18 +243,18 @@ export async function registerRoutes(
   });
 
   // === INVENTORY ROUTES ===
-  app.get(api.inventory.list.path, async (req, res) => {
+  app.get(api.inventory.list.path, requireAuth, async (req, res) => {
     const inventories = await storage.getInventories();
     res.json(inventories);
   });
 
-  app.get(api.inventory.get.path, async (req, res) => {
+  app.get(api.inventory.get.path, requireAuth, async (req, res) => {
     const inv = await storage.getInventory(Number(req.params.id));
     if (!inv) return res.status(404).json({ message: 'Inventory not found' });
     res.json(inv);
   });
 
-  app.post(api.inventory.create.path, async (req, res) => {
+  app.post(api.inventory.create.path, requireAuth, async (req, res) => {
     try {
       const input = api.inventory.create.input.parse(req.body);
       const inv = await storage.createInventory(input);
@@ -174,7 +270,7 @@ export async function registerRoutes(
     }
   });
 
-  app.put(api.inventory.update.path, async (req, res) => {
+  app.put(api.inventory.update.path, requireAuth, async (req, res) => {
     try {
       const input = api.inventory.update.input.parse(req.body);
       const inv = await storage.updateInventory(Number(req.params.id), input);
@@ -190,24 +286,24 @@ export async function registerRoutes(
     }
   });
 
-  app.delete(api.inventory.delete.path, async (req, res) => {
+  app.delete(api.inventory.delete.path, requireAuth, async (req, res) => {
     await storage.deleteInventory(Number(req.params.id));
     res.status(204).send();
   });
 
   // === MENU ROUTES ===
-  app.get(api.menus.list.path, async (req, res) => {
+  app.get(api.menus.list.path, requireAuth, async (req, res) => {
     const menus = await storage.getSavedMenus();
     res.json(menus);
   });
 
-  app.get(api.menus.get.path, async (req, res) => {
+  app.get(api.menus.get.path, requireAuth, async (req, res) => {
     const menu = await storage.getSavedMenu(Number(req.params.id));
     if (!menu) return res.status(404).json({ message: "Menu not found" });
     res.json(menu);
   });
 
-  app.post(api.menus.create.path, async (req, res) => {
+  app.post(api.menus.create.path, requireAuth, async (req, res) => {
     try {
       const input = api.menus.create.input.parse(req.body);
       const menu = await storage.createSavedMenu(input);
@@ -220,18 +316,18 @@ export async function registerRoutes(
     }
   });
 
-  app.delete(api.menus.delete.path, async (req, res) => {
+  app.delete(api.menus.delete.path, requireAuth, async (req, res) => {
     await storage.deleteSavedMenu(Number(req.params.id));
     res.status(204).send();
   });
 
   // === CLIENT ROUTES ===
-  app.get(api.clients.list.path, async (req, res) => {
+  app.get(api.clients.list.path, requireAuth, async (req, res) => {
     const items = await storage.getClientNames();
     res.json(items);
   });
 
-  app.post(api.clients.create.path, async (req, res) => {
+  app.post(api.clients.create.path, requireAdmin, async (req, res) => {
     try {
       const input = api.clients.create.input.parse(req.body);
       const item = await storage.createClientName(input);
@@ -247,7 +343,7 @@ export async function registerRoutes(
     }
   });
 
-  app.put(api.clients.update.path, async (req, res) => {
+  app.put(api.clients.update.path, requireAdmin, async (req, res) => {
     try {
       const input = api.clients.update.input.parse(req.body);
       const item = await storage.updateClientName(Number(req.params.id), input);
@@ -263,13 +359,13 @@ export async function registerRoutes(
     }
   });
 
-  app.delete(api.clients.delete.path, async (req, res) => {
+  app.delete(api.clients.delete.path, requireAdmin, async (req, res) => {
     await storage.deleteClientName(Number(req.params.id));
     res.status(204).send();
   });
 
   // === ADMIN ROUTES ===
-  app.post(api.admin.verifyPin.path, async (req, res) => {
+  app.post(api.admin.verifyPin.path, requireAdmin, async (req, res) => {
     const { pin } = api.admin.verifyPin.input.parse(req.body);
     const valid = await storage.verifyAdminPin(pin);
     if (valid) {
@@ -279,7 +375,7 @@ export async function registerRoutes(
     res.json({ valid });
   });
 
-  app.post(api.admin.changePin.path, async (req, res) => {
+  app.post(api.admin.changePin.path, requireAdmin, async (req, res) => {
     const { currentPin, newPin } = api.admin.changePin.input.parse(req.body);
     const valid = await storage.verifyAdminPin(currentPin);
     if (!valid) {
@@ -294,7 +390,8 @@ export async function registerRoutes(
 
 // Helper to seed some initial data
 async function seedDatabase() {
-  // Seed vegetable items first
+  await storage.seedAdminUser();
+
   const vegetableNames = [
     "Potato", "Onion", "Tomato", "Green Chilli", "Ginger", "Garlic", 
     "Cabbage", "Cauliflower", "Spinach", "Carrot", "Beans", "Lady Finger",
@@ -308,26 +405,6 @@ async function seedDatabase() {
     "United Breweries Limited",
   ];
   await storage.seedClientNames(defaultClients);
-
-  const reports = await storage.getReports();
-  if (reports.length === 0) {
-    console.log("Seeding database...");
-    const today = new Date().toISOString().split('T')[0];
-    
-    await storage.createReport({
-      date: today,
-      openingBalance: 5000,
-      receivedAmount: 2000,
-      items: [
-        { category: "fixed", description: "Ginger (Adarak)", uom: "Kg", qty: 2, rate: 50, amount: 100 },
-        { category: "fixed", description: "Garlic (Lahasun)", uom: "Kg", qty: 1, rate: 150, amount: 150 },
-        { category: "fixed", description: "Milk", uom: "Ltr", qty: 10, rate: 60, amount: 600 },
-        { category: "vegetable", description: "Spinach", uom: "Kg", qty: 5, rate: 40, amount: 200 },
-        { category: "vegetable", description: "Potatoes", uom: "Kg", qty: 20, rate: 20, amount: 400 },
-      ]
-    });
-    console.log("Database seeded!");
-  }
 }
 
 // Run seeder

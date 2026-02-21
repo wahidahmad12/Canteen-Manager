@@ -108,6 +108,18 @@ export const savedMenus = pgTable("saved_menus", {
   createdAt: timestamp("created_at").defaultNow(),
 });
 
+// Users table for authentication
+export const users = pgTable("users", {
+  id: serial("id").primaryKey(),
+  username: text("username").notNull().unique(),
+  passwordHash: text("password_hash").notNull(),
+  displayName: text("display_name").notNull(),
+  role: text("role").notNull().default("user"), // 'admin' or 'user'
+  clientName: text("client_name"), // which client group this user belongs to
+  isActive: boolean("is_active").notNull().default(true),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
 // Admin settings for access control
 export const adminSettings = pgTable("admin_settings", {
   id: serial("id").primaryKey(),
@@ -201,6 +213,16 @@ export const selectSavedMenuSchema = createSelectSchema(savedMenus, {
 export type AdminSettingsType = typeof adminSettings.$inferSelect;
 export type ClientName = typeof clientNames.$inferSelect;
 export const selectClientNameSchema = createSelectSchema(clientNames);
+
+export type User = typeof users.$inferSelect;
+export const insertUserSchema = createInsertSchema(users).omit({ id: true, createdAt: true, passwordHash: true }).extend({
+  password: z.string().min(4),
+});
+export const selectUserSchema = createSelectSchema(users, {
+  createdAt: z.string().or(z.date()),
+}).omit({ passwordHash: true });
+export type InsertUser = z.infer<typeof insertUserSchema>;
+export type SafeUser = z.infer<typeof selectUserSchema>;
 
 export const insertKitchenStockSchema = createInsertSchema(kitchenStockItems).omit({ id: true });
 export const insertBiscuitSchema = createInsertSchema(biscuitItems).omit({ id: true });

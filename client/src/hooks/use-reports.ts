@@ -7,8 +7,91 @@ import {
   type DailyReport,
   type VegetableItem,
   type InventoryWithItems,
-  type CreateInventoryRequest
+  type CreateInventoryRequest,
+  type SafeUser,
 } from "@shared/schema";
+
+// === AUTH HOOKS ===
+
+export function useCurrentUser() {
+  return useQuery({
+    queryKey: [api.auth.me.path],
+    queryFn: async () => {
+      const res = await fetch(api.auth.me.path, { credentials: "include" });
+      if (!res.ok) return null;
+      return res.json() as Promise<{ id: number; username: string; displayName: string; role: string; clientName: string | null }>;
+    },
+    retry: false,
+    staleTime: 5 * 60 * 1000,
+  });
+}
+
+export function useLogout() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async () => {
+      const res = await fetch(api.auth.logout.path, {
+        method: "POST",
+        credentials: "include",
+      });
+      if (!res.ok) throw new Error("Failed to logout");
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.setQueryData([api.auth.me.path], null);
+      queryClient.clear();
+    },
+  });
+}
+
+// === USER MANAGEMENT HOOKS ===
+
+export function useUsers() {
+  return useQuery({
+    queryKey: [api.users.list.path],
+    queryFn: async () => {
+      const res = await fetch(api.users.list.path, { credentials: "include" });
+      if (!res.ok) throw new Error("Failed to fetch users");
+      return res.json() as Promise<SafeUser[]>;
+    },
+  });
+}
+
+export function useCreateUser() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (data: { username: string; password: string; displayName: string; role: string; clientName: string | null }) => {
+      const res = await fetch(api.users.create.path, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(data),
+        credentials: "include",
+      });
+      if (!res.ok) {
+        const error = await res.json();
+        throw new Error(error.message || "Failed to create user");
+      }
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: [api.users.list.path] });
+    },
+  });
+}
+
+export function useDeleteUser() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (id: number) => {
+      const url = buildUrl(api.users.delete.path, { id });
+      const res = await fetch(url, { method: "DELETE", credentials: "include" });
+      if (!res.ok) throw new Error("Failed to delete user");
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: [api.users.list.path] });
+    },
+  });
+}
 
 // GET /api/reports
 export function useReports() {

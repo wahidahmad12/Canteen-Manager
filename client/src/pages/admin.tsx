@@ -14,8 +14,12 @@ import {
   useCreateClientName,
   useUpdateClientName,
   useDeleteClientName,
+  useUsers,
+  useCreateUser,
+  useDeleteUser,
+  useCurrentUser,
 } from "@/hooks/use-reports";
-import { Loader2, Plus, Pencil, Trash2, Save, X, Lock, KeyRound, Building2 } from "lucide-react";
+import { Loader2, Plus, Pencil, Trash2, Save, X, Lock, KeyRound, Building2, Users, UserPlus } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
 export default function Admin() {
@@ -55,6 +59,16 @@ export default function Admin() {
   const [newClientName, setNewClientName] = useState("");
   const [editingClientId, setEditingClientId] = useState<number | null>(null);
   const [editingClientName, setEditingClientName] = useState("");
+
+  const { data: currentUser } = useCurrentUser();
+  const { data: userList, isLoading: usersLoading } = useUsers();
+  const createUserMutation = useCreateUser();
+  const deleteUserMutation = useDeleteUser();
+  const [newUsername, setNewUsername] = useState("");
+  const [newPassword, setNewPassword] = useState("");
+  const [newDisplayName, setNewDisplayName] = useState("");
+  const [newUserRole, setNewUserRole] = useState("user");
+  const [newUserClient, setNewUserClient] = useState("");
 
   const handleCreate = async () => {
     if (!newItemName.trim()) return;
@@ -115,6 +129,36 @@ export default function Admin() {
       toast({ title: "Success", description: "Client deleted" });
     } catch (e) {
       toast({ title: "Error", description: "Failed to delete client", variant: "destructive" });
+    }
+  };
+
+  const handleCreateUser = async () => {
+    if (!newUsername.trim() || !newPassword.trim() || !newDisplayName.trim()) return;
+    try {
+      await createUserMutation.mutateAsync({
+        username: newUsername,
+        password: newPassword,
+        displayName: newDisplayName,
+        role: newUserRole,
+        clientName: newUserClient || null,
+      });
+      setNewUsername("");
+      setNewPassword("");
+      setNewDisplayName("");
+      setNewUserRole("user");
+      setNewUserClient("");
+      toast({ title: "Success", description: "User account created" });
+    } catch (e: any) {
+      toast({ title: "Error", description: e.message || "Failed to create user", variant: "destructive" });
+    }
+  };
+
+  const handleDeleteUser = async (id: number) => {
+    try {
+      await deleteUserMutation.mutateAsync(id);
+      toast({ title: "Success", description: "User deleted" });
+    } catch (e: any) {
+      toast({ title: "Error", description: e.message || "Failed to delete user", variant: "destructive" });
     }
   };
 
@@ -340,6 +384,112 @@ export default function Admin() {
             )}
           </CardContent>
         </Card>
+
+        {currentUser?.role === 'admin' && (
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Users className="w-5 h-5" />
+                User Management
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-6">
+              <div className="grid grid-cols-1 md:grid-cols-5 gap-2">
+                <Input
+                  placeholder="Username"
+                  value={newUsername}
+                  onChange={(e) => setNewUsername(e.target.value)}
+                  data-testid="input-new-username"
+                />
+                <Input
+                  placeholder="Display Name"
+                  value={newDisplayName}
+                  onChange={(e) => setNewDisplayName(e.target.value)}
+                  data-testid="input-new-displayname"
+                />
+                <Input
+                  type="password"
+                  placeholder="Password"
+                  value={newPassword}
+                  onChange={(e) => setNewPassword(e.target.value)}
+                  data-testid="input-new-password"
+                />
+                <select
+                  className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                  value={newUserRole}
+                  onChange={(e) => setNewUserRole(e.target.value)}
+                  data-testid="select-new-role"
+                >
+                  <option value="user">User</option>
+                  <option value="admin">Admin</option>
+                </select>
+                <select
+                  className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                  value={newUserClient}
+                  onChange={(e) => setNewUserClient(e.target.value)}
+                  data-testid="select-new-client"
+                >
+                  <option value="">No Client</option>
+                  {clients?.map((c) => (
+                    <option key={c.id} value={c.name}>{c.name}</option>
+                  ))}
+                </select>
+              </div>
+              <Button onClick={handleCreateUser} disabled={createUserMutation.isPending} data-testid="button-create-user">
+                {createUserMutation.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <UserPlus className="w-4 h-4 mr-2" />}
+                Create User
+              </Button>
+
+              {usersLoading ? (
+                <div className="flex justify-center py-8">
+                  <Loader2 className="w-8 h-8 animate-spin text-primary" />
+                </div>
+              ) : (
+                <div className="border rounded-lg overflow-hidden">
+                  <table className="w-full text-sm">
+                    <thead className="bg-muted/50 border-b">
+                      <tr>
+                        <th className="px-4 py-3 text-left">Username</th>
+                        <th className="px-4 py-3 text-left">Display Name</th>
+                        <th className="px-4 py-3 text-left">Role</th>
+                        <th className="px-4 py-3 text-left">Client</th>
+                        <th className="px-4 py-3 text-right w-24">Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y">
+                      {userList?.map((u) => (
+                        <tr key={u.id} className="hover:bg-muted/30 transition-colors">
+                          <td className="px-4 py-3 font-medium">{u.username}</td>
+                          <td className="px-4 py-3">{u.displayName}</td>
+                          <td className="px-4 py-3">
+                            <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${u.role === 'admin' ? 'bg-primary/10 text-primary' : 'bg-muted text-muted-foreground'}`}>
+                              {u.role}
+                            </span>
+                          </td>
+                          <td className="px-4 py-3 text-muted-foreground">{u.clientName || '-'}</td>
+                          <td className="px-4 py-3 text-right">
+                            {u.username !== 'admin' && (
+                              <Button
+                                size="icon"
+                                variant="ghost"
+                                className="h-8 w-8 text-destructive hover:text-destructive hover:bg-destructive/10"
+                                onClick={() => handleDeleteUser(u.id)}
+                                disabled={deleteUserMutation.isPending}
+                                data-testid={`button-delete-user-${u.id}`}
+                              >
+                                <Trash2 className="w-4 h-4" />
+                              </Button>
+                            )}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        )}
 
         <Card>
           <CardHeader>

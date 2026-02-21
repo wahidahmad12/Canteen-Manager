@@ -11,6 +11,7 @@ import {
   clientNames,
   savedMenus,
   adminSettings,
+  users,
   type DailyReport, 
   type ExpenseItem,
   type CreateReportRequest,
@@ -22,8 +23,11 @@ import {
   type AdminSettingsType,
   type ClientName,
   type SavedMenu,
+  type User,
+  type SafeUser,
 } from "@shared/schema";
 import { eq, desc, lt } from "drizzle-orm";
+import bcrypt from "bcryptjs";
 
 export interface IStorage {
   getReports(): Promise<ReportWithItems[]>;
@@ -55,6 +59,12 @@ export interface IStorage {
   getAdminPin(): Promise<string>;
   setAdminPin(pin: string): Promise<void>;
   verifyAdminPin(pin: string): Promise<boolean>;
+  getUsers(): Promise<SafeUser[]>;
+  getUserById(id: number): Promise<User | undefined>;
+  getUserByUsername(username: string): Promise<User | undefined>;
+  createUser(data: { username: string; password: string; displayName: string; role: string; clientName: string | null }): Promise<SafeUser>;
+  deleteUser(id: number): Promise<void>;
+  seedAdminUser(): Promise<void>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -427,6 +437,60 @@ export class DatabaseStorage implements IStorage {
   async verifyAdminPin(pin: string): Promise<boolean> {
     const storedPin = await this.getAdminPin();
     return storedPin === pin;
+  }
+
+  async getUsers(): Promise<SafeUser[]> {
+    const allUsers = await db.select({
+      id: users.id,
+      username: users.username,
+      displayName: users.displayName,
+      role: users.role,
+      clientName: users.clientName,
+      isActive: users.isActive,
+      createdAt: users.createdAt,
+    }).from(users).orderBy(users.username);
+    return allUsers as SafeUser[];
+  }
+
+  async getUserById(id: number): Promise<User | undefined> {
+    const [user] = await db.select().from(users).where(eq(users.id, id));
+    return user;
+  }
+
+  async getUserByUsername(username: string): Promise<User | undefined> {
+    const [user] = await db.select().from(users).where(eq(users.username, username));
+    return user;
+  }
+
+  async createUser(data: { username: string; password: string; displayName: string; role: string; clientName: string | null }): Promise<SafeUser> {
+    const passwordHash = await bcrypt.hash(data.password, 10);
+    const [user] = await db.insert(users).values({
+      username: data.username,
+      passwordHash,
+      displayName: data.displayName,
+      role: data.role,
+      clientName: data.clientName,
+    }).returning();
+    const { passwordHash: _, ...safeUser } = user;
+    return safeUser as SafeUser;
+  }
+
+  async deleteUser(id: number): Promise<void> {
+    await db.delete(users).where(eq(users.id, id));
+  }
+
+  async seedAdminUser(): Promise<void> {
+    const existing = await db.select().from(users).where(eq(users.username, "admin"));
+    if (existing.length === 0) {
+      const passwordHash = await bcrypt.hash("admin123", 10);
+      await db.insert(users).values({
+        username: "admin",
+        passwordHash,
+        displayName: "Administrator",
+        role: "admin",
+        clientName: null,
+      });
+    }
   }
 }
 
