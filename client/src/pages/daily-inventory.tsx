@@ -228,11 +228,12 @@ export default function DailyInventory() {
                     <tr key={idx} className="hover:bg-muted/30">
                       <td className="border px-4 py-2 font-medium">{item.name}</td>
                       <td className="border px-1 py-1">
-                        <Input
-                          className="h-8 text-center border-0 focus-visible:ring-1"
-                          value={item.expDate}
-                          onChange={(e) => updateBiscuit(idx, "expDate", e.target.value)}
-                          placeholder="DD/MM/YY"
+                        <DatePicker
+                          date={item.expDate ? new Date(item.expDate) : undefined}
+                          setDate={(d) => updateBiscuit(idx, "expDate", d ? format(d, "yyyy-MM-dd") : "")}
+                          className="h-8 text-xs border-0 focus-visible:ring-1"
+                          dateFormat="dd/MM/yy"
+                          placeholder="Exp Date"
                           data-testid={`input-biscuit-expdate-${idx}`}
                         />
                       </td>
