@@ -1,6 +1,7 @@
 import React from 'react';
 import { Link, useLocation } from 'wouter';
-import { LayoutDashboard, FilePlus, ChefHat, Settings, Calculator, ClipboardList, UtensilsCrossed } from 'lucide-react';
+import { LayoutDashboard, FilePlus, Settings, Calculator, ClipboardList, UtensilsCrossed } from 'lucide-react';
+import logoImg from '@assets/logo1_1771660912341.png';
 
 export function Layout({ children }: { children: React.ReactNode }) {
   const [location] = useLocation();
@@ -19,9 +20,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
       {/* Sidebar / Mobile Header */}
       <aside className="w-full md:w-64 bg-card border-b md:border-r border-border shrink-0 md:h-screen md:sticky md:top-0 z-20">
         <div className="p-6 border-b border-border flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-primary flex items-center justify-center text-primary-foreground shadow-lg shadow-primary/25">
-            <ChefHat className="w-6 h-6" />
-          </div>
+          <img src={logoImg} alt="DJ Hospitality" className="w-10 h-10 rounded-xl object-cover shadow-lg" />
           <div>
             <h1 className="font-bold text-lg leading-none">DJ KPF</h1>
             <p className="text-xs text-muted-foreground mt-1">Delay Cash Expanse</p>
