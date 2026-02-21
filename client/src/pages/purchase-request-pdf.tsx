@@ -135,12 +135,18 @@ export default function PurchaseRequestPDF() {
 
           <div className="grid grid-cols-2 gap-8 mt-12 pt-8 border-t print:mt-16">
             <div className="text-center">
-              <div className="border-t border-border print:border-gray-400 pt-2 mt-12">
+              {pr.createdBy && (
+                <p className="font-semibold text-sm print:text-black mb-1" data-testid="text-prepared-by-name">{pr.createdBy}</p>
+              )}
+              <div className="border-t border-border print:border-gray-400 pt-2 mt-8">
                 <p className="text-sm text-muted-foreground print:text-gray-500">Prepared By</p>
               </div>
             </div>
             <div className="text-center">
-              <div className="border-t border-border print:border-gray-400 pt-2 mt-12">
+              {pr.approvedBy && (
+                <p className="font-semibold text-sm print:text-black mb-1" data-testid="text-approved-by-name">{pr.approvedBy}</p>
+              )}
+              <div className="border-t border-border print:border-gray-400 pt-2 mt-8">
                 <p className="text-sm text-muted-foreground print:text-gray-500">Approved By</p>
               </div>
             </div>

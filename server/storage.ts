@@ -72,8 +72,8 @@ export interface IStorage {
   seedAdminUser(): Promise<void>;
   getPurchaseRequests(): Promise<PurchaseRequestWithItems[]>;
   getPurchaseRequest(id: number): Promise<PurchaseRequestWithItems | undefined>;
-  createPurchaseRequest(data: { clientName: string; date: string; items: { itemName: string; uom: string; qty: number; requestQty: number; approved: boolean }[] }): Promise<PurchaseRequestWithItems>;
-  updatePurchaseRequest(id: number, data: { clientName?: string; date?: string; status?: string; items?: { itemName: string; uom: string; qty: number; requestQty: number; approved: boolean }[] }): Promise<PurchaseRequestWithItems>;
+  createPurchaseRequest(data: { clientName: string; date: string; createdBy?: string; items: { itemName: string; uom: string; qty: number; requestQty: number; approved: boolean }[] }): Promise<PurchaseRequestWithItems>;
+  updatePurchaseRequest(id: number, data: { clientName?: string; date?: string; status?: string; approvedBy?: string; items?: { itemName: string; uom: string; qty: number; requestQty: number; approved: boolean }[] }): Promise<PurchaseRequestWithItems>;
   deletePurchaseRequest(id: number): Promise<void>;
   getSavedItemNames(source?: string): Promise<SavedItemName[]>;
   saveItemNames(names: string[], source: string, categoryId?: number): Promise<void>;
@@ -507,11 +507,12 @@ export class DatabaseStorage implements IStorage {
     return { ...req, items };
   }
 
-  async createPurchaseRequest(data: { clientName: string; date: string; items: { itemName: string; uom: string; qty: number; requestQty: number; approved: boolean }[] }): Promise<PurchaseRequestWithItems> {
+  async createPurchaseRequest(data: { clientName: string; date: string; createdBy?: string; items: { itemName: string; uom: string; qty: number; requestQty: number; approved: boolean }[] }): Promise<PurchaseRequestWithItems> {
     return await db.transaction(async (tx) => {
       const [req] = await tx.insert(purchaseRequests).values({
         clientName: data.clientName,
         date: data.date,
+        createdBy: data.createdBy || null,
       }).returning();
       if (data.items.length > 0) {
         await tx.insert(purchaseRequestItems).values(
@@ -530,12 +531,13 @@ export class DatabaseStorage implements IStorage {
     });
   }
 
-  async updatePurchaseRequest(id: number, data: { clientName?: string; date?: string; status?: string; items?: { itemName: string; uom: string; qty: number; requestQty: number; approved: boolean }[] }): Promise<PurchaseRequestWithItems> {
+  async updatePurchaseRequest(id: number, data: { clientName?: string; date?: string; status?: string; approvedBy?: string; items?: { itemName: string; uom: string; qty: number; requestQty: number; approved: boolean }[] }): Promise<PurchaseRequestWithItems> {
     return await db.transaction(async (tx) => {
       const [req] = await tx.update(purchaseRequests).set({
         ...(data.clientName ? { clientName: data.clientName } : {}),
         ...(data.date ? { date: data.date } : {}),
         ...(data.status ? { status: data.status } : {}),
+        ...(data.approvedBy !== undefined ? { approvedBy: data.approvedBy } : {}),
       }).where(eq(purchaseRequests.id, id)).returning();
       if (!req) throw new Error("Purchase request not found");
       if (data.items) {

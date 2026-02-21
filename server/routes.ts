@@ -366,7 +366,8 @@ export async function registerRoutes(
     try {
       const input = api.purchaseRequests.create.input.parse(req.body);
       const { status, ...safeInput } = input as any;
-      const request = await storage.createPurchaseRequest(safeInput);
+      const createdByName = req.session.displayName || req.session.username || '';
+      const request = await storage.createPurchaseRequest({ ...safeInput, createdBy: createdByName });
       const itemNames = safeInput.items.map((i: any) => i.itemName).filter((n: string) => n.trim());
       if (itemNames.length > 0) {
         await storage.saveItemNames(itemNames, 'purchase');
@@ -383,7 +384,11 @@ export async function registerRoutes(
   app.put(api.purchaseRequests.update.path, requireAdmin, async (req, res) => {
     try {
       const input = api.purchaseRequests.update.input.parse(req.body);
-      const request = await storage.updatePurchaseRequest(Number(req.params.id), input);
+      const updateData: any = { ...input };
+      if (input.status === 'approved') {
+        updateData.approvedBy = req.session.displayName || req.session.username || '';
+      }
+      const request = await storage.updatePurchaseRequest(Number(req.params.id), updateData);
       res.json(request);
     } catch (err) {
       if (err instanceof z.ZodError) {

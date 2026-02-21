@@ -115,6 +115,8 @@ export const purchaseRequests = pgTable("purchase_requests", {
   clientName: text("client_name").notNull(),
   date: date("date").notNull(),
   status: text("status").notNull().default("pending"),
+  createdBy: text("created_by"),
+  approvedBy: text("approved_by"),
   createdAt: timestamp("created_at").defaultNow(),
 });
 
