@@ -195,6 +195,36 @@ export async function registerRoutes(
     res.status(204).send();
   });
 
+  // === MENU ROUTES ===
+  app.get(api.menus.list.path, async (req, res) => {
+    const menus = await storage.getSavedMenus();
+    res.json(menus);
+  });
+
+  app.get(api.menus.get.path, async (req, res) => {
+    const menu = await storage.getSavedMenu(Number(req.params.id));
+    if (!menu) return res.status(404).json({ message: "Menu not found" });
+    res.json(menu);
+  });
+
+  app.post(api.menus.create.path, async (req, res) => {
+    try {
+      const input = api.menus.create.input.parse(req.body);
+      const menu = await storage.createSavedMenu(input);
+      res.status(201).json(menu);
+    } catch (err) {
+      if (err instanceof z.ZodError) {
+        return res.status(400).json({ message: err.errors[0].message, field: err.errors[0].path.join('.') });
+      }
+      throw err;
+    }
+  });
+
+  app.delete(api.menus.delete.path, async (req, res) => {
+    await storage.deleteSavedMenu(Number(req.params.id));
+    res.status(204).send();
+  });
+
   // === CLIENT ROUTES ===
   app.get(api.clients.list.path, async (req, res) => {
     const items = await storage.getClientNames();

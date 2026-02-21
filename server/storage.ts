@@ -9,6 +9,7 @@ import {
   biscuitItems,
   cashSeals,
   clientNames,
+  savedMenus,
   adminSettings,
   type DailyReport, 
   type ExpenseItem,
@@ -19,7 +20,8 @@ import {
   type InventoryWithItems,
   type CreateInventoryRequest,
   type AdminSettingsType,
-  type ClientName
+  type ClientName,
+  type SavedMenu,
 } from "@shared/schema";
 import { eq, desc, lt } from "drizzle-orm";
 
@@ -41,6 +43,10 @@ export interface IStorage {
   updateInventory(id: number, data: CreateInventoryRequest): Promise<InventoryWithItems>;
   deleteInventory(id: number): Promise<void>;
   getCashSeals(): Promise<any[]>;
+  getSavedMenus(): Promise<SavedMenu[]>;
+  getSavedMenu(id: number): Promise<SavedMenu | undefined>;
+  createSavedMenu(data: { clientName: string; startDate: string; endDate: string; menuData: string }): Promise<SavedMenu>;
+  deleteSavedMenu(id: number): Promise<void>;
   getClientNames(): Promise<ClientName[]>;
   createClientName(item: { name: string }): Promise<ClientName>;
   updateClientName(id: number, item: { name: string }): Promise<ClientName>;
@@ -352,6 +358,24 @@ export class DatabaseStorage implements IStorage {
         return { ...created, date: data.date };
       }
     });
+  }
+
+  async getSavedMenus(): Promise<SavedMenu[]> {
+    return await db.select().from(savedMenus).orderBy(desc(savedMenus.createdAt));
+  }
+
+  async getSavedMenu(id: number): Promise<SavedMenu | undefined> {
+    const [menu] = await db.select().from(savedMenus).where(eq(savedMenus.id, id));
+    return menu;
+  }
+
+  async createSavedMenu(data: { clientName: string; startDate: string; endDate: string; menuData: string }): Promise<SavedMenu> {
+    const [menu] = await db.insert(savedMenus).values(data).returning();
+    return menu;
+  }
+
+  async deleteSavedMenu(id: number): Promise<void> {
+    await db.delete(savedMenus).where(eq(savedMenus.id, id));
   }
 
   async getClientNames(): Promise<ClientName[]> {

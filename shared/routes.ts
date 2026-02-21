@@ -1,6 +1,6 @@
 
 import { z } from 'zod';
-import { insertDailyReportSchema, insertExpenseItemSchema, selectDailyReportSchema, selectExpenseItemSchema, selectVegetableItemSchema, inventoryWithItemsSchema, selectClientNameSchema } from './schema';
+import { insertDailyReportSchema, insertExpenseItemSchema, selectDailyReportSchema, selectExpenseItemSchema, selectVegetableItemSchema, inventoryWithItemsSchema, selectClientNameSchema, selectSavedMenuSchema } from './schema';
 
 export const errorSchemas = {
   validation: z.object({
@@ -226,6 +226,44 @@ export const api = {
       responses: {
         201: z.any(),
         400: errorSchemas.validation,
+      },
+    },
+  },
+  menus: {
+    list: {
+      method: 'GET' as const,
+      path: '/api/menus' as const,
+      responses: {
+        200: z.array(selectSavedMenuSchema),
+      },
+    },
+    get: {
+      method: 'GET' as const,
+      path: '/api/menus/:id' as const,
+      responses: {
+        200: selectSavedMenuSchema,
+        404: errorSchemas.notFound,
+      },
+    },
+    create: {
+      method: 'POST' as const,
+      path: '/api/menus' as const,
+      input: z.object({
+        clientName: z.string().min(1),
+        startDate: z.string(),
+        endDate: z.string(),
+        menuData: z.string(),
+      }),
+      responses: {
+        201: selectSavedMenuSchema,
+        400: errorSchemas.validation,
+      },
+    },
+    delete: {
+      method: 'DELETE' as const,
+      path: '/api/menus/:id' as const,
+      responses: {
+        204: z.void(),
       },
     },
   },

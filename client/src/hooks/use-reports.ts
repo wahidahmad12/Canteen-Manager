@@ -299,6 +299,71 @@ export function useCreateCashSeal() {
   });
 }
 
+// === SAVED MENU HOOKS ===
+
+export function useSavedMenus() {
+  return useQuery({
+    queryKey: [api.menus.list.path],
+    queryFn: async () => {
+      const res = await fetch(api.menus.list.path, { credentials: "include" });
+      if (!res.ok) throw new Error("Failed to fetch menus");
+      return res.json() as Promise<{ id: number; clientName: string; startDate: string; endDate: string; menuData: string; createdAt: string }[]>;
+    },
+  });
+}
+
+export function useSavedMenu(id: number) {
+  return useQuery({
+    queryKey: [api.menus.list.path, id],
+    queryFn: async () => {
+      const url = buildUrl(api.menus.get.path, { id });
+      const res = await fetch(url, { credentials: "include" });
+      if (!res.ok) throw new Error("Failed to fetch menu");
+      return res.json() as Promise<{ id: number; clientName: string; startDate: string; endDate: string; menuData: string; createdAt: string }>;
+    },
+    enabled: id > 0,
+  });
+}
+
+export function useCreateSavedMenu() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (data: { clientName: string; startDate: string; endDate: string; menuData: string }) => {
+      const res = await fetch(api.menus.create.path, {
+        method: api.menus.create.method,
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(data),
+        credentials: "include",
+      });
+      if (!res.ok) {
+        const error = await res.json();
+        throw new Error(error.message || "Failed to save menu");
+      }
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: [api.menus.list.path] });
+    },
+  });
+}
+
+export function useDeleteSavedMenu() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (id: number) => {
+      const url = buildUrl(api.menus.delete.path, { id });
+      const res = await fetch(url, {
+        method: api.menus.delete.method,
+        credentials: "include",
+      });
+      if (!res.ok) throw new Error("Failed to delete menu");
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: [api.menus.list.path] });
+    },
+  });
+}
+
 // === CLIENT HOOKS ===
 
 export function useClientNames() {

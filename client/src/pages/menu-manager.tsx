@@ -1,9 +1,11 @@
 import { useState, useMemo, useRef, useCallback, useEffect } from "react";
 import { Layout } from "@/components/layout";
 import { Button } from "@/components/ui/button";
-import { RotateCcw, Download, Loader2, FileSpreadsheet } from "lucide-react";
+import { RotateCcw, Download, Loader2, FileSpreadsheet, Save } from "lucide-react";
 import { format, addDays, getDay } from "date-fns";
-import { useClientNames } from "@/hooks/use-reports";
+import { useClientNames, useCreateSavedMenu, useSavedMenu } from "@/hooks/use-reports";
+import { useToast } from "@/hooks/use-toast";
+import { useSearch } from "wouter";
 
 interface Category {
   id: number;
@@ -66,12 +68,30 @@ export default function MenuManager() {
   const [client, setClient] = useState("");
   const [startDate, setStartDate] = useState(format(new Date(), "yyyy-MM-dd"));
   const captureRef = useRef<HTMLDivElement>(null);
+  const saveMenuMutation = useCreateSavedMenu();
+  const { toast } = useToast();
+
+  const searchString = useSearch();
+  const loadId = useMemo(() => {
+    const params = new URLSearchParams(searchString);
+    return Number(params.get("load")) || 0;
+  }, [searchString]);
+  const { data: loadedMenu } = useSavedMenu(loadId);
+  const [loadedForId, setLoadedForId] = useState(0);
 
   useEffect(() => {
-    if (clientList.length > 0 && !client) {
+    if (clientList.length > 0 && !client && loadId === 0) {
       setClient(clientList[0]);
     }
-  }, [clientList, client]);
+  }, [clientList, client, loadId]);
+
+  useEffect(() => {
+    if (loadedMenu && loadId > 0 && loadedForId !== loadId) {
+      setClient(loadedMenu.clientName);
+      setStartDate(loadedMenu.startDate);
+      setLoadedForId(loadId);
+    }
+  }, [loadedMenu, loadId, loadedForId]);
 
   const isHUL_UB = client === "Hindustan Unilever Limited" || client === "United Breweries Limited";
   const daysToDisplay = isHUL_UB ? 7 : 6;
@@ -104,8 +124,18 @@ export default function MenuManager() {
   const [cellValues, setCellValues] = useState<Record<string, string>>({});
 
   useEffect(() => {
-    setCellValues(initValues());
-  }, [initValues]);
+    if (loadedMenu && loadedForId === loadId && loadId > 0) {
+      try {
+        const saved = JSON.parse(loadedMenu.menuData);
+        const defaults = initValues();
+        setCellValues({ ...defaults, ...saved });
+      } catch {
+        setCellValues(initValues());
+      }
+    } else {
+      setCellValues(initValues());
+    }
+  }, [initValues, loadedMenu, loadedForId, loadId]);
 
   if (clientsLoading || !client) {
     return (
@@ -127,6 +157,20 @@ export default function MenuManager() {
 
   const handleClientChange = (val: string) => {
     setClient(val);
+  };
+
+  const handleSaveMenu = async () => {
+    try {
+      await saveMenuMutation.mutateAsync({
+        clientName: client,
+        startDate: format(rangeStart, "yyyy-MM-dd"),
+        endDate: format(rangeEnd, "yyyy-MM-dd"),
+        menuData: JSON.stringify(cellValues),
+      });
+      toast({ title: "Success", description: "Menu saved successfully" });
+    } catch (e: any) {
+      toast({ title: "Error", description: e.message || "Failed to save menu", variant: "destructive" });
+    }
   };
 
   const handleDownload = async () => {
@@ -431,6 +475,15 @@ export default function MenuManager() {
             data-testid="input-menu-start-date"
           />
         </div>
+        <Button
+          onClick={handleSaveMenu}
+          className="bg-[#2196F3] text-white font-bold"
+          disabled={saveMenuMutation.isPending}
+          data-testid="button-menu-save"
+        >
+          {saveMenuMutation.isPending ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Save className="w-4 h-4 mr-2" />}
+          Save Menu
+        </Button>
         <Button
           onClick={handleDownload}
           className="bg-[#25D366] text-white font-bold"

@@ -98,6 +98,16 @@ export const clientNames = pgTable("client_names", {
   name: text("name").notNull().unique(),
 });
 
+// Saved menus
+export const savedMenus = pgTable("saved_menus", {
+  id: serial("id").primaryKey(),
+  clientName: text("client_name").notNull(),
+  startDate: date("start_date").notNull(),
+  endDate: date("end_date").notNull(),
+  menuData: text("menu_data").notNull(), // JSON string of cell values
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
 // Admin settings for access control
 export const adminSettings = pgTable("admin_settings", {
   id: serial("id").primaryKey(),
@@ -180,6 +190,13 @@ export type CreateInventoryRequest = {
   kitchenStock: { name: string; unit: string; open: number; used: number; balance: number; remarks: string; }[];
   biscuits: { name: string; expDate: string; brand: string; given: number; used: number; balance: number; }[];
 };
+
+export type SavedMenu = typeof savedMenus.$inferSelect;
+export const selectSavedMenuSchema = createSelectSchema(savedMenus, {
+  startDate: z.string(),
+  endDate: z.string(),
+  createdAt: z.string().or(z.date()),
+});
 
 export type AdminSettingsType = typeof adminSettings.$inferSelect;
 export type ClientName = typeof clientNames.$inferSelect;

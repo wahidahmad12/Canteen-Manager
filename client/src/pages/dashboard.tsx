@@ -1,6 +1,6 @@
 import { Link } from "wouter";
-import { Plus, Loader2, AlertCircle, FileText, ArrowRight, Calculator, ClipboardList } from "lucide-react";
-import { useReports, useDeleteReport, useInventories, useCashSeals } from "@/hooks/use-reports";
+import { Plus, Loader2, AlertCircle, FileText, ArrowRight, Calculator, ClipboardList, UtensilsCrossed, Trash2 } from "lucide-react";
+import { useReports, useDeleteReport, useInventories, useCashSeals, useSavedMenus, useDeleteSavedMenu } from "@/hooks/use-reports";
 import { format } from "date-fns";
 import { Layout } from "@/components/layout";
 import { Button } from "@/components/ui/button";
@@ -23,6 +23,8 @@ export default function Dashboard() {
   const { data: inventories, isLoading: invLoading } = useInventories();
   const { data: cashSeals, isLoading: csLoading } = useCashSeals();
   const deleteMutation = useDeleteReport();
+  const { data: savedMenus, isLoading: menusLoading } = useSavedMenus();
+  const deleteMenuMutation = useDeleteSavedMenu();
 
   if (isLoading) {
     return (
@@ -84,7 +86,7 @@ export default function Dashboard() {
       </div>
 
       <Tabs defaultValue="reports" className="space-y-4">
-        <TabsList className="grid w-full grid-cols-3" data-testid="tabs-dashboard">
+        <TabsList className="grid w-full grid-cols-4" data-testid="tabs-dashboard">
           <TabsTrigger value="reports" data-testid="tab-reports">
             <FileText className="w-4 h-4 mr-2" />
             Expense Reports
@@ -96,6 +98,10 @@ export default function Dashboard() {
           <TabsTrigger value="inventory" data-testid="tab-inventory">
             <ClipboardList className="w-4 h-4 mr-2" />
             Daily Inventory
+          </TabsTrigger>
+          <TabsTrigger value="menus" data-testid="tab-menus">
+            <UtensilsCrossed className="w-4 h-4 mr-2" />
+            Saved Menus
           </TabsTrigger>
         </TabsList>
 
@@ -335,6 +341,95 @@ export default function Dashboard() {
                         </tr>
                       );
                     })}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+        </TabsContent>
+
+        <TabsContent value="menus">
+          {menusLoading ? (
+            <div className="flex justify-center py-8">
+              <Loader2 className="w-8 h-8 animate-spin text-primary" />
+            </div>
+          ) : !savedMenus || savedMenus.length === 0 ? (
+            <Card>
+              <CardContent className="text-center py-12">
+                <div className="w-16 h-16 bg-muted rounded-2xl flex items-center justify-center mx-auto mb-6">
+                  <UtensilsCrossed className="w-8 h-8 text-muted-foreground" />
+                </div>
+                <h3 className="text-xl font-bold mb-2">No saved menus yet</h3>
+                <p className="text-muted-foreground max-w-sm mx-auto mb-6">Create a menu in the Menu Manager and save it to see it here.</p>
+                <Link href="/menu">
+                  <Button data-testid="button-go-menu">Go to Menu Manager</Button>
+                </Link>
+              </CardContent>
+            </Card>
+          ) : (
+            <div className="bg-card rounded-2xl border border-border shadow-sm overflow-hidden">
+              <div className="overflow-x-auto">
+                <table className="glass-table">
+                  <thead>
+                    <tr>
+                      <th>Client Name</th>
+                      <th>Date Range</th>
+                      <th>Saved On</th>
+                      <th className="text-right">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {savedMenus.map((menu) => (
+                      <tr key={menu.id} className="group">
+                        <td className="font-medium text-foreground">
+                          <div className="flex items-center gap-3">
+                            <div className="w-10 h-10 rounded-lg bg-purple-100 text-purple-700 flex items-center justify-center font-bold text-xs shrink-0">
+                              <UtensilsCrossed className="w-5 h-5" />
+                            </div>
+                            <span className="truncate">{menu.clientName}</span>
+                          </div>
+                        </td>
+                        <td className="font-mono text-muted-foreground">
+                          {format(new Date(menu.startDate), "dd MMM yyyy")} — {format(new Date(menu.endDate), "dd MMM yyyy")}
+                        </td>
+                        <td className="text-muted-foreground text-sm">
+                          {menu.createdAt ? format(new Date(menu.createdAt), "dd MMM yyyy, hh:mm a") : "-"}
+                        </td>
+                        <td className="text-right">
+                          <div className="flex items-center justify-end gap-2">
+                            <Link href={`/menu?load=${menu.id}`}>
+                              <Button size="sm" variant="ghost" className="h-8" data-testid={`button-view-menu-${menu.id}`}>
+                                View <ArrowRight className="w-3 h-3 ml-1" />
+                              </Button>
+                            </Link>
+                            <AlertDialog>
+                              <AlertDialogTrigger asChild>
+                                <Button size="sm" variant="ghost" className="h-8 text-destructive hover:text-destructive hover:bg-destructive/10" data-testid={`button-delete-menu-${menu.id}`}>
+                                  <Trash2 className="w-4 h-4" />
+                                </Button>
+                              </AlertDialogTrigger>
+                              <AlertDialogContent>
+                                <AlertDialogHeader>
+                                  <AlertDialogTitle>Delete saved menu?</AlertDialogTitle>
+                                  <AlertDialogDescription>
+                                    This will permanently delete the saved menu for {menu.clientName} ({format(new Date(menu.startDate), "dd MMM")} - {format(new Date(menu.endDate), "dd MMM yyyy")}).
+                                  </AlertDialogDescription>
+                                </AlertDialogHeader>
+                                <AlertDialogFooter>
+                                  <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                  <AlertDialogAction
+                                    onClick={() => deleteMenuMutation.mutate(menu.id)}
+                                    className="bg-destructive hover:bg-destructive/90 text-destructive-foreground"
+                                  >
+                                    Delete
+                                  </AlertDialogAction>
+                                </AlertDialogFooter>
+                              </AlertDialogContent>
+                            </AlertDialog>
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
                   </tbody>
                 </table>
               </div>
