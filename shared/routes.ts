@@ -1,6 +1,6 @@
 
 import { z } from 'zod';
-import { insertDailyReportSchema, insertExpenseItemSchema, selectDailyReportSchema, selectExpenseItemSchema, selectVegetableItemSchema, inventoryWithItemsSchema } from './schema';
+import { insertDailyReportSchema, insertExpenseItemSchema, selectDailyReportSchema, selectExpenseItemSchema, selectVegetableItemSchema, inventoryWithItemsSchema, selectClientNameSchema } from './schema';
 
 export const errorSchemas = {
   validation: z.object({
@@ -226,6 +226,41 @@ export const api = {
       responses: {
         201: z.any(),
         400: errorSchemas.validation,
+      },
+    },
+  },
+  clients: {
+    list: {
+      method: 'GET' as const,
+      path: '/api/clients' as const,
+      responses: {
+        200: z.array(selectClientNameSchema),
+      },
+    },
+    create: {
+      method: 'POST' as const,
+      path: '/api/clients' as const,
+      input: z.object({ name: z.string().min(1) }),
+      responses: {
+        201: selectClientNameSchema,
+        400: errorSchemas.validation,
+      },
+    },
+    update: {
+      method: 'PUT' as const,
+      path: '/api/clients/:id' as const,
+      input: z.object({ name: z.string().min(1) }),
+      responses: {
+        200: selectClientNameSchema,
+        404: errorSchemas.notFound,
+      },
+    },
+    delete: {
+      method: 'DELETE' as const,
+      path: '/api/clients/:id' as const,
+      responses: {
+        204: z.void(),
+        404: errorSchemas.notFound,
       },
     },
   },

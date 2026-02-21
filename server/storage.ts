@@ -8,6 +8,7 @@ import {
   kitchenStockItems,
   biscuitItems,
   cashSeals,
+  clientNames,
   adminSettings,
   type DailyReport, 
   type ExpenseItem,
@@ -17,7 +18,8 @@ import {
   type VegetableItem,
   type InventoryWithItems,
   type CreateInventoryRequest,
-  type AdminSettingsType
+  type AdminSettingsType,
+  type ClientName
 } from "@shared/schema";
 import { eq, desc, lt } from "drizzle-orm";
 
@@ -39,6 +41,11 @@ export interface IStorage {
   updateInventory(id: number, data: CreateInventoryRequest): Promise<InventoryWithItems>;
   deleteInventory(id: number): Promise<void>;
   getCashSeals(): Promise<any[]>;
+  getClientNames(): Promise<ClientName[]>;
+  createClientName(item: { name: string }): Promise<ClientName>;
+  updateClientName(id: number, item: { name: string }): Promise<ClientName>;
+  deleteClientName(id: number): Promise<void>;
+  seedClientNames(names: string[]): Promise<void>;
   getAdminPin(): Promise<string>;
   setAdminPin(pin: string): Promise<void>;
   verifyAdminPin(pin: string): Promise<boolean>;
@@ -345,6 +352,34 @@ export class DatabaseStorage implements IStorage {
         return { ...created, date: data.date };
       }
     });
+  }
+
+  async getClientNames(): Promise<ClientName[]> {
+    return await db.select().from(clientNames).orderBy(clientNames.name);
+  }
+
+  async createClientName(item: { name: string }): Promise<ClientName> {
+    const [newItem] = await db.insert(clientNames).values(item).returning();
+    return newItem;
+  }
+
+  async updateClientName(id: number, item: { name: string }): Promise<ClientName> {
+    const [updated] = await db.update(clientNames)
+      .set(item)
+      .where(eq(clientNames.id, id))
+      .returning();
+    if (!updated) throw new Error("Client not found");
+    return updated;
+  }
+
+  async deleteClientName(id: number): Promise<void> {
+    await db.delete(clientNames).where(eq(clientNames.id, id));
+  }
+
+  async seedClientNames(names: string[]): Promise<void> {
+    for (const name of names) {
+      await db.insert(clientNames).values({ name }).onConflictDoNothing();
+    }
   }
 
   async getAdminPin(): Promise<string> {

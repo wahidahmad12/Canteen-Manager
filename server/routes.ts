@@ -195,6 +195,49 @@ export async function registerRoutes(
     res.status(204).send();
   });
 
+  // === CLIENT ROUTES ===
+  app.get(api.clients.list.path, async (req, res) => {
+    const items = await storage.getClientNames();
+    res.json(items);
+  });
+
+  app.post(api.clients.create.path, async (req, res) => {
+    try {
+      const input = api.clients.create.input.parse(req.body);
+      const item = await storage.createClientName(input);
+      res.status(201).json(item);
+    } catch (err) {
+      if (err instanceof z.ZodError) {
+        return res.status(400).json({ message: err.errors[0].message, field: err.errors[0].path.join('.') });
+      }
+      if (err instanceof Error && 'code' in (err as any) && (err as any).code === '23505') {
+        return res.status(400).json({ message: 'This client name already exists.' });
+      }
+      throw err;
+    }
+  });
+
+  app.put(api.clients.update.path, async (req, res) => {
+    try {
+      const input = api.clients.update.input.parse(req.body);
+      const item = await storage.updateClientName(Number(req.params.id), input);
+      res.json(item);
+    } catch (err) {
+      if (err instanceof z.ZodError) {
+        return res.status(400).json({ message: err.errors[0].message, field: err.errors[0].path.join('.') });
+      }
+      if (err instanceof Error && err.message === "Client not found") {
+        return res.status(404).json({ message: "Client not found" });
+      }
+      throw err;
+    }
+  });
+
+  app.delete(api.clients.delete.path, async (req, res) => {
+    await storage.deleteClientName(Number(req.params.id));
+    res.status(204).send();
+  });
+
   // === ADMIN ROUTES ===
   app.post(api.admin.verifyPin.path, async (req, res) => {
     const { pin } = api.admin.verifyPin.input.parse(req.body);
@@ -228,6 +271,13 @@ async function seedDatabase() {
     "Brinjal", "Capsicum", "Bottle Gourd", "Bitter Gourd"
   ];
   await storage.seedVegetableItems(vegetableNames);
+
+  const defaultClients = [
+    "Unichem Laboratories Ltd",
+    "Hindustan Unilever Limited",
+    "United Breweries Limited",
+  ];
+  await storage.seedClientNames(defaultClients);
 
   const reports = await storage.getReports();
   if (reports.length === 0) {

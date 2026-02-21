@@ -1,8 +1,9 @@
-import { useState, useMemo, useRef, useCallback } from "react";
+import { useState, useMemo, useRef, useCallback, useEffect } from "react";
 import { Layout } from "@/components/layout";
 import { Button } from "@/components/ui/button";
-import { RotateCcw, Download } from "lucide-react";
+import { RotateCcw, Download, Loader2 } from "lucide-react";
 import { format, addDays, getDay } from "date-fns";
+import { useClientNames } from "@/hooks/use-reports";
 
 interface Category {
   id: number;
@@ -33,7 +34,7 @@ const hul_extras: Category[] = [
   { id: 9, name: "9. Sweets", options: ["Gulab Jamun", "Rasgulla", "Kheer", "Siwai"], def: "Gulab Jamun" },
 ];
 
-const clients = [
+const DEFAULT_CLIENTS = [
   "Unichem Laboratories Ltd",
   "Hindustan Unilever Limited",
   "United Breweries Limited",
@@ -56,9 +57,21 @@ function getWeekDates(startDate: Date, daysToDisplay: number, skipSunday: boolea
 }
 
 export default function MenuManager() {
-  const [client, setClient] = useState(clients[0]);
+  const { data: dbClients, isLoading: clientsLoading } = useClientNames();
+  const clientList = useMemo(() => {
+    if (dbClients && dbClients.length > 0) return dbClients.map(c => c.name);
+    return DEFAULT_CLIENTS;
+  }, [dbClients]);
+
+  const [client, setClient] = useState("");
   const [startDate, setStartDate] = useState(format(new Date(), "yyyy-MM-dd"));
   const captureRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (clientList.length > 0 && !client) {
+      setClient(clientList[0]);
+    }
+  }, [clientList, client]);
 
   const isHUL_UB = client === "Hindustan Unilever Limited" || client === "United Breweries Limited";
   const daysToDisplay = isHUL_UB ? 7 : 6;
@@ -88,7 +101,21 @@ export default function MenuManager() {
     return vals;
   }, [categories, week1Dates, week2Dates]);
 
-  const [cellValues, setCellValues] = useState<Record<string, string>>(() => initValues());
+  const [cellValues, setCellValues] = useState<Record<string, string>>({});
+
+  useEffect(() => {
+    setCellValues(initValues());
+  }, [initValues]);
+
+  if (clientsLoading || !client) {
+    return (
+      <Layout>
+        <div className="flex justify-center items-center py-20">
+          <Loader2 className="w-8 h-8 animate-spin text-primary" />
+        </div>
+      </Layout>
+    );
+  }
 
   const handleCellChange = (key: string, value: string) => {
     setCellValues(prev => ({ ...prev, [key]: value }));
@@ -100,7 +127,6 @@ export default function MenuManager() {
 
   const handleClientChange = (val: string) => {
     setClient(val);
-    setTimeout(() => setCellValues(initValues()), 0);
   };
 
   const handleDownload = async () => {
@@ -281,7 +307,7 @@ export default function MenuManager() {
             className="px-3 py-2 rounded font-bold text-sm"
             data-testid="select-menu-client"
           >
-            {clients.map(c => (
+            {clientList.map(c => (
               <option key={c} value={c}>{c}</option>
             ))}
           </select>

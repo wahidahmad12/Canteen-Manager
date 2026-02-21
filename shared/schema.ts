@@ -92,6 +92,12 @@ export const biscuitItems = pgTable("biscuit_items", {
   balance: numeric("balance", { precision: 10, scale: 2 }).default("0"),
 });
 
+// Client names for menu manager
+export const clientNames = pgTable("client_names", {
+  id: serial("id").primaryKey(),
+  name: text("name").notNull().unique(),
+});
+
 // Admin settings for access control
 export const adminSettings = pgTable("admin_settings", {
   id: serial("id").primaryKey(),
@@ -176,6 +182,8 @@ export type CreateInventoryRequest = {
 };
 
 export type AdminSettingsType = typeof adminSettings.$inferSelect;
+export type ClientName = typeof clientNames.$inferSelect;
+export const selectClientNameSchema = createSelectSchema(clientNames);
 
 export const insertKitchenStockSchema = createInsertSchema(kitchenStockItems).omit({ id: true });
 export const insertBiscuitSchema = createInsertSchema(biscuitItems).omit({ id: true });

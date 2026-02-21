@@ -299,6 +299,78 @@ export function useCreateCashSeal() {
   });
 }
 
+// === CLIENT HOOKS ===
+
+export function useClientNames() {
+  return useQuery({
+    queryKey: [api.clients.list.path],
+    queryFn: async () => {
+      const res = await fetch(api.clients.list.path, { credentials: "include" });
+      if (!res.ok) throw new Error("Failed to fetch clients");
+      return res.json() as Promise<{ id: number; name: string }[]>;
+    },
+  });
+}
+
+export function useCreateClientName() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (data: { name: string }) => {
+      const res = await fetch(api.clients.create.path, {
+        method: api.clients.create.method,
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(data),
+        credentials: "include",
+      });
+      if (!res.ok) {
+        const error = await res.json();
+        throw new Error(error.message || "Failed to create client");
+      }
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: [api.clients.list.path] });
+    },
+  });
+}
+
+export function useUpdateClientName() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ id, name }: { id: number; name: string }) => {
+      const url = buildUrl(api.clients.update.path, { id });
+      const res = await fetch(url, {
+        method: api.clients.update.method,
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name }),
+        credentials: "include",
+      });
+      if (!res.ok) throw new Error("Failed to update client");
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: [api.clients.list.path] });
+    },
+  });
+}
+
+export function useDeleteClientName() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (id: number) => {
+      const url = buildUrl(api.clients.delete.path, { id });
+      const res = await fetch(url, {
+        method: api.clients.delete.method,
+        credentials: "include",
+      });
+      if (!res.ok) throw new Error("Failed to delete client");
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: [api.clients.list.path] });
+    },
+  });
+}
+
 // === ADMIN HOOKS ===
 
 export function useVerifyAdminPin() {

@@ -9,9 +9,13 @@ import {
   useUpdateVegetableItem, 
   useDeleteVegetableItem,
   useVerifyAdminPin,
-  useChangeAdminPin
+  useChangeAdminPin,
+  useClientNames,
+  useCreateClientName,
+  useUpdateClientName,
+  useDeleteClientName,
 } from "@/hooks/use-reports";
-import { Loader2, Plus, Pencil, Trash2, Save, X, Lock, KeyRound } from "lucide-react";
+import { Loader2, Plus, Pencil, Trash2, Save, X, Lock, KeyRound, Building2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
 export default function Admin() {
@@ -44,6 +48,14 @@ export default function Admin() {
   const [newPin, setNewPin] = useState("");
   const [confirmPin, setConfirmPin] = useState("");
 
+  const { data: clients, isLoading: clientsLoading } = useClientNames();
+  const createClientMutation = useCreateClientName();
+  const updateClientMutation = useUpdateClientName();
+  const deleteClientMutation = useDeleteClientName();
+  const [newClientName, setNewClientName] = useState("");
+  const [editingClientId, setEditingClientId] = useState<number | null>(null);
+  const [editingClientName, setEditingClientName] = useState("");
+
   const handleCreate = async () => {
     if (!newItemName.trim()) return;
     try {
@@ -72,6 +84,37 @@ export default function Admin() {
       toast({ title: "Success", description: "Vegetable item deleted" });
     } catch (e) {
       toast({ title: "Error", description: "Failed to delete item", variant: "destructive" });
+    }
+  };
+
+  const handleCreateClient = async () => {
+    if (!newClientName.trim()) return;
+    try {
+      await createClientMutation.mutateAsync({ name: newClientName });
+      setNewClientName("");
+      toast({ title: "Success", description: "Client added" });
+    } catch (e: any) {
+      toast({ title: "Error", description: e.message || "Failed to add client", variant: "destructive" });
+    }
+  };
+
+  const handleUpdateClient = async (id: number) => {
+    if (!editingClientName.trim()) return;
+    try {
+      await updateClientMutation.mutateAsync({ id, name: editingClientName });
+      setEditingClientId(null);
+      toast({ title: "Success", description: "Client updated" });
+    } catch (e) {
+      toast({ title: "Error", description: "Failed to update client", variant: "destructive" });
+    }
+  };
+
+  const handleDeleteClient = async (id: number) => {
+    try {
+      await deleteClientMutation.mutateAsync(id);
+      toast({ title: "Success", description: "Client deleted" });
+    } catch (e) {
+      toast({ title: "Error", description: "Failed to delete client", variant: "destructive" });
     }
   };
 
@@ -187,6 +230,114 @@ export default function Admin() {
                 Change PIN
               </Button>
             </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Building2 className="w-5 h-5" />
+              Manage Clients
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-6">
+            <div className="flex gap-2">
+              <Input
+                placeholder="New client name..."
+                value={newClientName}
+                onChange={(e) => setNewClientName(e.target.value)}
+                onKeyDown={(e) => e.key === 'Enter' && handleCreateClient()}
+                data-testid="input-new-client"
+              />
+              <Button onClick={handleCreateClient} disabled={createClientMutation.isPending} data-testid="button-add-client">
+                {createClientMutation.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4 mr-2" />}
+                Add Client
+              </Button>
+            </div>
+
+            {clientsLoading ? (
+              <div className="flex justify-center py-8">
+                <Loader2 className="w-8 h-8 animate-spin text-primary" />
+              </div>
+            ) : (
+              <div className="border rounded-lg overflow-hidden">
+                <table className="w-full text-sm">
+                  <thead className="bg-muted/50 border-b">
+                    <tr>
+                      <th className="px-4 py-3 text-left">Client Name</th>
+                      <th className="px-4 py-3 text-right w-32">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y">
+                    {clients?.map((client) => (
+                      <tr key={client.id} className="hover:bg-muted/30 transition-colors">
+                        <td className="px-4 py-3">
+                          {editingClientId === client.id ? (
+                            <Input
+                              value={editingClientName}
+                              onChange={(e) => setEditingClientName(e.target.value)}
+                              className="h-8"
+                              autoFocus
+                            />
+                          ) : (
+                            client.name
+                          )}
+                        </td>
+                        <td className="px-4 py-3 text-right">
+                          <div className="flex justify-end gap-1">
+                            {editingClientId === client.id ? (
+                              <>
+                                <Button
+                                  size="icon"
+                                  variant="ghost"
+                                  className="h-8 w-8 text-green-600"
+                                  onClick={() => handleUpdateClient(client.id)}
+                                  data-testid={`button-save-client-${client.id}`}
+                                >
+                                  <Save className="w-4 h-4" />
+                                </Button>
+                                <Button
+                                  size="icon"
+                                  variant="ghost"
+                                  className="h-8 w-8 text-muted-foreground"
+                                  onClick={() => setEditingClientId(null)}
+                                >
+                                  <X className="w-4 h-4" />
+                                </Button>
+                              </>
+                            ) : (
+                              <>
+                                <Button
+                                  size="icon"
+                                  variant="ghost"
+                                  className="h-8 w-8"
+                                  onClick={() => {
+                                    setEditingClientId(client.id);
+                                    setEditingClientName(client.name);
+                                  }}
+                                  data-testid={`button-edit-client-${client.id}`}
+                                >
+                                  <Pencil className="w-4 h-4" />
+                                </Button>
+                                <Button
+                                  size="icon"
+                                  variant="ghost"
+                                  className="h-8 w-8 text-destructive"
+                                  onClick={() => handleDeleteClient(client.id)}
+                                  data-testid={`button-delete-client-${client.id}`}
+                                >
+                                  <Trash2 className="w-4 h-4" />
+                                </Button>
+                              </>
+                            )}
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
           </CardContent>
         </Card>
 
