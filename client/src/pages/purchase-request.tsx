@@ -21,7 +21,7 @@ interface PurchaseItem {
   approved: boolean;
 }
 
-const UOM_OPTIONS = ["Kg", "Gm", "Ltr", "Ml", "Pcs", "Pkt", "Box", "Dz", "Nos"];
+const UOM_OPTIONS = ["Kg", "Gm", "Ltr", "Ml", "Pcs", "Pkt", "Box", "Dz", "Nos", "Bag", "Tin", "Cyl", "Plats", "Cup", "Set"];
 
 export default function PurchaseRequest() {
   const [date, setDate] = useState<Date>(new Date());
