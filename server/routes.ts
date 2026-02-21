@@ -325,6 +325,13 @@ export async function registerRoutes(
     try {
       const input = api.menus.create.input.parse(req.body);
       const menu = await storage.createSavedMenu(input);
+      try {
+        const menuData = JSON.parse(input.menuData);
+        const menuItemNames = Array.from(new Set(Object.values(menuData).filter((v): v is string => typeof v === 'string' && v.trim().length > 0)));
+        if (menuItemNames.length > 0) {
+          await storage.saveItemNames(menuItemNames as string[], 'menu');
+        }
+      } catch {}
       res.status(201).json(menu);
     } catch (err) {
       if (err instanceof z.ZodError) {
@@ -360,6 +367,10 @@ export async function registerRoutes(
       const input = api.purchaseRequests.create.input.parse(req.body);
       const { status, ...safeInput } = input as any;
       const request = await storage.createPurchaseRequest(safeInput);
+      const itemNames = safeInput.items.map((i: any) => i.itemName).filter((n: string) => n.trim());
+      if (itemNames.length > 0) {
+        await storage.saveItemNames(itemNames, 'purchase');
+      }
       res.status(201).json(request);
     } catch (err) {
       if (err instanceof z.ZodError) {
@@ -388,6 +399,13 @@ export async function registerRoutes(
   app.delete(api.purchaseRequests.delete.path, requirePermission('purchase'), async (req, res) => {
     await storage.deletePurchaseRequest(Number(req.params.id));
     res.status(204).send();
+  });
+
+  // === SAVED ITEM NAMES ROUTES ===
+  app.get(api.savedItems.list.path, requireAuth, async (req, res) => {
+    const source = req.query.source as string | undefined;
+    const items = await storage.getSavedItemNames(source);
+    res.json(items);
   });
 
   // === CLIENT ROUTES ===

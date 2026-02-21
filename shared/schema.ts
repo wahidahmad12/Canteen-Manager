@@ -129,6 +129,15 @@ export const purchaseRequestItems = pgTable("purchase_request_items", {
   approved: boolean("approved").notNull().default(false),
 });
 
+// Saved item names for autocomplete in purchase requests and menus
+export const savedItemNames = pgTable("saved_item_names", {
+  id: serial("id").primaryKey(),
+  name: text("name").notNull().unique(),
+  source: text("source").notNull().default("purchase"),
+  categoryId: integer("category_id"),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
 // Users table for authentication
 export const users = pgTable("users", {
   id: serial("id").primaryKey(),
@@ -252,6 +261,10 @@ export const selectPurchaseRequestItemSchema = createSelectSchema(purchaseReques
 export const purchaseRequestWithItemsSchema = selectPurchaseRequestSchema.extend({
   items: z.array(selectPurchaseRequestItemSchema),
 });
+
+export type SavedItemName = typeof savedItemNames.$inferSelect;
+export const insertSavedItemNameSchema = createInsertSchema(savedItemNames).omit({ id: true, createdAt: true });
+export const selectSavedItemNameSchema = createSelectSchema(savedItemNames, { createdAt: z.string().or(z.date()) });
 
 export const ALL_PERMISSIONS = ['expense', 'cashseal', 'inventory', 'menu', 'purchase'] as const;
 export type Permission = typeof ALL_PERMISSIONS[number];

@@ -430,6 +430,7 @@ export function useCreateSavedMenu() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: [api.menus.list.path] });
+      queryClient.invalidateQueries({ queryKey: [api.savedItems.list.path] });
     },
   });
 }
@@ -558,6 +559,20 @@ export function useChangeAdminPin() {
   });
 }
 
+// === SAVED ITEM NAMES HOOKS ===
+
+export function useSavedItemNames(source?: string) {
+  const queryParams = source ? `?source=${source}` : '';
+  return useQuery({
+    queryKey: [api.savedItems.list.path, source],
+    queryFn: async () => {
+      const res = await fetch(`${api.savedItems.list.path}${queryParams}`, { credentials: "include" });
+      if (!res.ok) throw new Error("Failed to fetch saved items");
+      return res.json() as Promise<{ id: number; name: string; source: string; categoryId: number | null }[]>;
+    },
+  });
+}
+
 // === PURCHASE REQUEST HOOKS ===
 
 export function usePurchaseRequests(options?: { enabled?: boolean }) {
@@ -604,6 +619,7 @@ export function useCreatePurchaseRequest() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: [api.purchaseRequests.list.path] });
+      queryClient.invalidateQueries({ queryKey: [api.savedItems.list.path] });
     },
   });
 }

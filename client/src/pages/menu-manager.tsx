@@ -3,7 +3,7 @@ import { Layout } from "@/components/layout";
 import { Button } from "@/components/ui/button";
 import { RotateCcw, Download, Loader2, FileSpreadsheet, Save } from "lucide-react";
 import { format, addDays, getDay } from "date-fns";
-import { useClientNames, useCreateSavedMenu, useSavedMenu } from "@/hooks/use-reports";
+import { useClientNames, useCreateSavedMenu, useSavedMenu, useSavedItemNames } from "@/hooks/use-reports";
 import { useToast } from "@/hooks/use-toast";
 import { useSearch } from "wouter";
 
@@ -60,6 +60,7 @@ function getWeekDates(startDate: Date, daysToDisplay: number, skipSunday: boolea
 
 export default function MenuManager() {
   const { data: dbClients, isLoading: clientsLoading } = useClientNames();
+  const { data: savedMenuItems } = useSavedItemNames();
   const clientList = useMemo(() => {
     if (dbClients && dbClients.length > 0) return dbClients.map(c => c.name);
     return DEFAULT_CLIENTS;
@@ -438,13 +439,17 @@ export default function MenuManager() {
 
   return (
     <Layout>
-      {categories.map(cat => (
-        <datalist key={cat.id} id={`list_${cat.id}`}>
-          {cat.options.map(opt => (
-            <option key={opt} value={opt} />
-          ))}
-        </datalist>
-      ))}
+      {categories.map(cat => {
+        const savedNames = savedMenuItems?.map(i => i.name) || [];
+        const allOptions = Array.from(new Set([...cat.options, ...savedNames]));
+        return (
+          <datalist key={cat.id} id={`list_${cat.id}`}>
+            {allOptions.map(opt => (
+              <option key={opt} value={opt} />
+            ))}
+          </datalist>
+        );
+      })}
 
       <div className="flex flex-col md:flex-row md:items-center justify-between mb-6 gap-4">
         <div>

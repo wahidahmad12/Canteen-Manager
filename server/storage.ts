@@ -14,6 +14,7 @@ import {
   users,
   purchaseRequests,
   purchaseRequestItems,
+  savedItemNames,
   type DailyReport, 
   type ExpenseItem,
   type CreateReportRequest,
@@ -28,6 +29,7 @@ import {
   type User,
   type SafeUser,
   type PurchaseRequestWithItems,
+  type SavedItemName,
 } from "@shared/schema";
 import { eq, desc, lt } from "drizzle-orm";
 import bcrypt from "bcryptjs";
@@ -73,6 +75,8 @@ export interface IStorage {
   createPurchaseRequest(data: { clientName: string; date: string; items: { itemName: string; uom: string; qty: number; requestQty: number; approved: boolean }[] }): Promise<PurchaseRequestWithItems>;
   updatePurchaseRequest(id: number, data: { clientName?: string; date?: string; status?: string; items?: { itemName: string; uom: string; qty: number; requestQty: number; approved: boolean }[] }): Promise<PurchaseRequestWithItems>;
   deletePurchaseRequest(id: number): Promise<void>;
+  getSavedItemNames(source?: string): Promise<SavedItemName[]>;
+  saveItemNames(names: string[], source: string, categoryId?: number): Promise<void>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -556,6 +560,28 @@ export class DatabaseStorage implements IStorage {
 
   async deletePurchaseRequest(id: number): Promise<void> {
     await db.delete(purchaseRequests).where(eq(purchaseRequests.id, id));
+  }
+
+  async getSavedItemNames(source?: string): Promise<SavedItemName[]> {
+    if (source) {
+      return await db.select().from(savedItemNames).where(eq(savedItemNames.source, source)).orderBy(savedItemNames.name);
+    }
+    return await db.select().from(savedItemNames).orderBy(savedItemNames.name);
+  }
+
+  async saveItemNames(names: string[], source: string, categoryId?: number): Promise<void> {
+    for (const name of names) {
+      const trimmed = name.trim();
+      if (!trimmed) continue;
+      try {
+        await db.insert(savedItemNames).values({
+          name: trimmed,
+          source,
+          categoryId: categoryId || null,
+        }).onConflictDoNothing();
+      } catch {
+      }
+    }
   }
 
   async seedAdminUser(): Promise<void> {

@@ -9,7 +9,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { format } from "date-fns";
 import { ShoppingCart, Plus, Trash2, Save, Loader2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import { useCreatePurchaseRequest, useClientNames } from "@/hooks/use-reports";
+import { useCreatePurchaseRequest, useClientNames, useSavedItemNames } from "@/hooks/use-reports";
 import { useLocation } from "wouter";
 import { Label } from "@/components/ui/label";
 
@@ -33,6 +33,7 @@ export default function PurchaseRequest() {
   const [, navigate] = useLocation();
   const createMutation = useCreatePurchaseRequest();
   const { data: clients } = useClientNames();
+  const { data: savedItems } = useSavedItemNames();
 
   const addItem = () => {
     setItems([...items, { itemName: "", uom: "Kg", qty: 0, requestQty: 0, approved: false }]);
@@ -80,6 +81,11 @@ export default function PurchaseRequest() {
 
   return (
     <Layout>
+      <datalist id="purchase-item-suggestions">
+        {savedItems?.map((item) => (
+          <option key={item.id} value={item.name} />
+        ))}
+      </datalist>
       <div className="max-w-4xl mx-auto">
         <div className="flex items-center gap-3 mb-6">
           <div className="w-10 h-10 rounded-xl bg-primary/10 text-primary flex items-center justify-center">
@@ -155,6 +161,7 @@ export default function PurchaseRequest() {
                             onChange={(e) => updateItem(index, "itemName", e.target.value)}
                             placeholder="Enter item name"
                             className="h-9"
+                            list="purchase-item-suggestions"
                             data-testid={`input-item-name-${index}`}
                           />
                         </td>
@@ -240,6 +247,7 @@ export default function PurchaseRequest() {
                       onChange={(e) => updateItem(index, "itemName", e.target.value)}
                       placeholder="Enter item name"
                       className="h-9"
+                      list="purchase-item-suggestions"
                     />
                   </div>
 
