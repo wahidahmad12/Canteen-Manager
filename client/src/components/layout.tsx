@@ -1,6 +1,6 @@
 import React from 'react';
 import { Link, useLocation } from 'wouter';
-import { LayoutDashboard, FilePlus, ChefHat, Settings, Calculator } from 'lucide-react';
+import { LayoutDashboard, FilePlus, ChefHat, Settings, Calculator, ClipboardList } from 'lucide-react';
 
 export function Layout({ children }: { children: React.ReactNode }) {
   const [location] = useLocation();
@@ -8,8 +8,9 @@ export function Layout({ children }: { children: React.ReactNode }) {
   const navItems = [
     { href: '/', label: 'Dashboard', icon: LayoutDashboard },
     { href: '/new', label: 'New Report', icon: FilePlus },
-    { href: '/admin', label: 'Admin', icon: Settings },
     { href: '/cash-seal', label: 'Cash Seal KPF', icon: Calculator },
+    { href: '/inventory', label: 'Daily Inventory', icon: ClipboardList },
+    { href: '/admin', label: 'Admin', icon: Settings },
   ];
 
   return (

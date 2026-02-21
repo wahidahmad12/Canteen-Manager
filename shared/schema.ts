@@ -58,6 +58,44 @@ export const cashSeals = pgTable("cash_seals", {
   totalGivenToAkbarAli: numeric("total_given_to_akbar_ali", { precision: 10, scale: 2 }).default("0"),
 });
 
+// Daily Inventory records
+export const dailyInventory = pgTable("daily_inventory", {
+  id: serial("id").primaryKey(),
+  date: date("date").notNull().unique(),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+// Kitchen stock items for daily inventory
+export const kitchenStockItems = pgTable("kitchen_stock_items", {
+  id: serial("id").primaryKey(),
+  inventoryId: integer("inventory_id").notNull().references(() => dailyInventory.id, { onDelete: 'cascade' }),
+  name: text("name").notNull(),
+  unit: text("unit").notNull(),
+  open: numeric("open", { precision: 10, scale: 2 }).default("0"),
+  used: numeric("used", { precision: 10, scale: 2 }).default("0"),
+  balance: numeric("balance", { precision: 10, scale: 2 }).default("0"),
+  remarks: text("remarks").default(""),
+});
+
+// Biscuit items for daily inventory
+export const biscuitItems = pgTable("biscuit_items", {
+  id: serial("id").primaryKey(),
+  inventoryId: integer("inventory_id").notNull().references(() => dailyInventory.id, { onDelete: 'cascade' }),
+  name: text("name").notNull(),
+  expDate: text("exp_date").default(""),
+  brand: text("brand").default(""),
+  given: numeric("given", { precision: 10, scale: 2 }).default("0"),
+  used: numeric("used", { precision: 10, scale: 2 }).default("0"),
+  balance: numeric("balance", { precision: 10, scale: 2 }).default("0"),
+});
+
+// Admin settings for access control
+export const adminSettings = pgTable("admin_settings", {
+  id: serial("id").primaryKey(),
+  adminPin: text("admin_pin").notNull().default("1234"),
+});
+
 // === RELATIONS ===
 export const dailyReportsRelations = relations(dailyReports, ({ many, one }) => ({
   items: many(expenseItems),
@@ -118,3 +156,36 @@ export type ReportWithItems = DailyReport & {
 };
 
 export type VegetableItem = typeof vegetableItems.$inferSelect;
+
+// Inventory types
+export type DailyInventoryRecord = typeof dailyInventory.$inferSelect;
+export type KitchenStockItem = typeof kitchenStockItems.$inferSelect;
+export type BiscuitItem = typeof biscuitItems.$inferSelect;
+
+export type InventoryWithItems = DailyInventoryRecord & {
+  kitchenStock: KitchenStockItem[];
+  biscuits: BiscuitItem[];
+};
+
+export type CreateInventoryRequest = {
+  date: string;
+  kitchenStock: { name: string; unit: string; open: number; used: number; balance: number; remarks: string; }[];
+  biscuits: { name: string; expDate: string; brand: string; given: number; used: number; balance: number; }[];
+};
+
+export type AdminSettingsType = typeof adminSettings.$inferSelect;
+
+export const insertKitchenStockSchema = createInsertSchema(kitchenStockItems).omit({ id: true });
+export const insertBiscuitSchema = createInsertSchema(biscuitItems).omit({ id: true });
+export const selectKitchenStockSchema = createSelectSchema(kitchenStockItems);
+export const selectBiscuitSchema = createSelectSchema(biscuitItems);
+export const selectDailyInventorySchema = createSelectSchema(dailyInventory, {
+  date: z.string(),
+  createdAt: z.string().or(z.date()),
+  updatedAt: z.string().or(z.date()),
+});
+
+export const inventoryWithItemsSchema = selectDailyInventorySchema.extend({
+  kitchenStock: z.array(selectKitchenStockSchema),
+  biscuits: z.array(selectBiscuitSchema),
+});

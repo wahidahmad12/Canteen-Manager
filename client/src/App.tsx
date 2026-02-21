@@ -8,6 +8,7 @@ import Dashboard from "./pages/dashboard";
 import ReportForm from "./pages/report-form";
 import Admin from "./pages/admin";
 import CashSeal from "./pages/cash-seal";
+import DailyInventory from "./pages/daily-inventory";
 
 function Router() {
   return (
@@ -17,6 +18,7 @@ function Router() {
       <Route path="/report/:id" component={ReportForm} />
       <Route path="/admin" component={Admin} />
       <Route path="/cash-seal" component={CashSeal} />
+      <Route path="/inventory" component={DailyInventory} />
       <Route component={NotFound} />
     </Switch>
   );

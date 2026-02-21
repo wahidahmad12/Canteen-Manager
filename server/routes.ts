@@ -127,6 +127,95 @@ export async function registerRoutes(
     res.status(204).send();
   });
 
+  // === CASH SEAL ROUTES ===
+  app.get(api.cashSeals.list.path, async (req, res) => {
+    const seals = await storage.getCashSeals();
+    res.json(seals);
+  });
+
+  app.post(api.cashSeals.create.path, async (req, res) => {
+    try {
+      const input = api.cashSeals.create.input.parse(req.body);
+      const seal = await storage.createCashSeal(input);
+      res.status(201).json(seal);
+    } catch (err) {
+      if (err instanceof z.ZodError) {
+        return res.status(400).json({ message: err.errors[0].message, field: err.errors[0].path.join('.') });
+      }
+      throw err;
+    }
+  });
+
+  // === INVENTORY ROUTES ===
+  app.get(api.inventory.list.path, async (req, res) => {
+    const inventories = await storage.getInventories();
+    res.json(inventories);
+  });
+
+  app.get(api.inventory.get.path, async (req, res) => {
+    const inv = await storage.getInventory(Number(req.params.id));
+    if (!inv) return res.status(404).json({ message: 'Inventory not found' });
+    res.json(inv);
+  });
+
+  app.post(api.inventory.create.path, async (req, res) => {
+    try {
+      const input = api.inventory.create.input.parse(req.body);
+      const inv = await storage.createInventory(input);
+      res.status(201).json(inv);
+    } catch (err) {
+      if (err instanceof z.ZodError) {
+        return res.status(400).json({ message: err.errors[0].message, field: err.errors[0].path.join('.') });
+      }
+      if (err instanceof Error && 'code' in (err as any) && (err as any).code === '23505') {
+        return res.status(400).json({ message: 'An inventory record for this date already exists.' });
+      }
+      throw err;
+    }
+  });
+
+  app.put(api.inventory.update.path, async (req, res) => {
+    try {
+      const input = api.inventory.update.input.parse(req.body);
+      const inv = await storage.updateInventory(Number(req.params.id), input);
+      res.json(inv);
+    } catch (err) {
+      if (err instanceof z.ZodError) {
+        return res.status(400).json({ message: err.errors[0].message, field: err.errors[0].path.join('.') });
+      }
+      if (err instanceof Error && err.message === "Inventory not found") {
+        return res.status(404).json({ message: "Inventory not found" });
+      }
+      throw err;
+    }
+  });
+
+  app.delete(api.inventory.delete.path, async (req, res) => {
+    await storage.deleteInventory(Number(req.params.id));
+    res.status(204).send();
+  });
+
+  // === ADMIN ROUTES ===
+  app.post(api.admin.verifyPin.path, async (req, res) => {
+    const { pin } = api.admin.verifyPin.input.parse(req.body);
+    const valid = await storage.verifyAdminPin(pin);
+    if (valid) {
+      (req as any).session = (req as any).session || {};
+      (req as any).session.adminAuthenticated = true;
+    }
+    res.json({ valid });
+  });
+
+  app.post(api.admin.changePin.path, async (req, res) => {
+    const { currentPin, newPin } = api.admin.changePin.input.parse(req.body);
+    const valid = await storage.verifyAdminPin(currentPin);
+    if (!valid) {
+      return res.status(400).json({ message: "Current PIN is incorrect" });
+    }
+    await storage.setAdminPin(newPin);
+    res.json({ success: true });
+  });
+
   return httpServer;
 }
 

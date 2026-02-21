@@ -7,12 +7,14 @@ import { DatePicker } from "@/components/ui/date-picker";
 import { format } from "date-fns";
 import { Calculator, Save } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useCreateCashSeal } from "@/hooks/use-reports";
+import { useLocation } from "wouter";
 
 export default function CashSeal() {
   const [date, setDate] = useState<Date>(new Date());
   const { toast } = useToast();
-  const queryClient = useQueryClient();
+  const [, navigate] = useLocation();
+  const saveMutation = useCreateCashSeal();
   
   // Income States
   const [morningQty, setMorningQty] = useState(0);
@@ -64,29 +66,40 @@ export default function CashSeal() {
 
   const balance = totalIncome - totalExpense;
 
-  const saveMutation = useMutation({
-    mutationFn: async () => {
-      console.log("Saving cash seal data:", {
+  const handleSave = async () => {
+    try {
+      await saveMutation.mutateAsync({
         date: format(date, 'yyyy-MM-dd'),
-        income: { morningQty, lunchQty, eveningQty, nightQty, nonVegRate, nonVegQty, vegRate, vegQty, morningCashRate, morningCashQty, eveningCashRate, eveningCashQty },
-        expense: { bananaQty, dahiBharQty, dahiBharRate, otherExpense },
-        akbarAliAmount
+        incomeMorningQty: morningQty,
+        incomeLunchQty: lunchQty,
+        incomeEveningQty: eveningQty,
+        incomeNightQty: nightQty,
+        incomeNonVegRate: nonVegRate,
+        incomeNonVegQty: nonVegQty,
+        incomeVegRate: vegRate,
+        incomeVegQty: vegQty,
+        incomeMorningCashRate: morningCashRate,
+        incomeMorningCashQty: morningCashQty,
+        incomeEveningCashRate: eveningCashRate,
+        incomeEveningCashQty: eveningCashQty,
+        expenseBananaQty: bananaQty,
+        expenseDahiBharQty: dahiBharQty,
+        expenseDahiBharRate: dahiBharRate,
+        expenseOtherAmount: otherExpense,
+        totalGivenToAkbarAli: akbarAliAmount,
       });
-      await new Promise(resolve => setTimeout(resolve, 500));
-    },
-    onSuccess: () => {
       toast({ title: "Success", description: "Cash Seal KPF saved successfully" });
-    },
-    onError: () => {
-      toast({ title: "Error", description: "Failed to save Cash Seal KPF", variant: "destructive" });
+      navigate("/");
+    } catch (e: any) {
+      toast({ title: "Error", description: e.message || "Failed to save Cash Seal KPF", variant: "destructive" });
     }
-  });
+  };
 
   return (
     <Layout>
       <div className="flex items-center justify-between mb-8">
         <h2 className="text-3xl font-bold tracking-tight">CASH SEAL KPF</h2>
-        <Button onClick={() => saveMutation.mutate()} disabled={saveMutation.isPending}>
+        <Button onClick={handleSave} disabled={saveMutation.isPending}>
           {saveMutation.isPending ? "Saving..." : <><Save className="w-4 h-4 mr-2" /> Save Seal</>}
         </Button>
       </div>

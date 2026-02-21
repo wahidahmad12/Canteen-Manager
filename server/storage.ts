@@ -4,17 +4,25 @@ import {
   dailyReports, 
   expenseItems, 
   vegetableItems,
+  dailyInventory,
+  kitchenStockItems,
+  biscuitItems,
+  cashSeals,
+  adminSettings,
   type DailyReport, 
   type ExpenseItem,
   type CreateReportRequest,
   type UpdateReportRequest,
   type ReportWithItems,
-  type VegetableItem
+  type VegetableItem,
+  type InventoryWithItems,
+  type CreateInventoryRequest,
+  type AdminSettingsType
 } from "@shared/schema";
 import { eq, desc, lt } from "drizzle-orm";
 
 export interface IStorage {
-  getReports(): Promise<DailyReport[]>;
+  getReports(): Promise<ReportWithItems[]>;
   getReport(id: number): Promise<ReportWithItems | undefined>;
   getPreviousDayBalance(date: string): Promise<number>;
   createReport(report: CreateReportRequest): Promise<ReportWithItems>;
@@ -25,6 +33,15 @@ export interface IStorage {
   updateVegetableItem(id: number, item: { name: string }): Promise<VegetableItem>;
   deleteVegetableItem(id: number): Promise<void>;
   seedVegetableItems(names: string[]): Promise<void>;
+  getInventories(): Promise<InventoryWithItems[]>;
+  getInventory(id: number): Promise<InventoryWithItems | undefined>;
+  createInventory(data: CreateInventoryRequest): Promise<InventoryWithItems>;
+  updateInventory(id: number, data: CreateInventoryRequest): Promise<InventoryWithItems>;
+  deleteInventory(id: number): Promise<void>;
+  getCashSeals(): Promise<any[]>;
+  getAdminPin(): Promise<string>;
+  setAdminPin(pin: string): Promise<void>;
+  verifyAdminPin(pin: string): Promise<boolean>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -167,6 +184,190 @@ export class DatabaseStorage implements IStorage {
 
   async deleteReport(id: number): Promise<void> {
     await db.delete(dailyReports).where(eq(dailyReports.id, id));
+  }
+
+  async getInventories(): Promise<InventoryWithItems[]> {
+    const inventories = await db.select().from(dailyInventory).orderBy(desc(dailyInventory.date));
+    return await Promise.all(inventories.map(async (inv) => {
+      const stock = await db.select().from(kitchenStockItems).where(eq(kitchenStockItems.inventoryId, inv.id));
+      const biscuits = await db.select().from(biscuitItems).where(eq(biscuitItems.inventoryId, inv.id));
+      return { ...inv, kitchenStock: stock, biscuits };
+    }));
+  }
+
+  async getInventory(id: number): Promise<InventoryWithItems | undefined> {
+    const inv = await db.select().from(dailyInventory).where(eq(dailyInventory.id, id));
+    if (inv.length === 0) return undefined;
+    const stock = await db.select().from(kitchenStockItems).where(eq(kitchenStockItems.inventoryId, id));
+    const biscuits = await db.select().from(biscuitItems).where(eq(biscuitItems.inventoryId, id));
+    return { ...inv[0], kitchenStock: stock, biscuits };
+  }
+
+  async createInventory(data: CreateInventoryRequest): Promise<InventoryWithItems> {
+    return await db.transaction(async (tx) => {
+      const [inv] = await tx.insert(dailyInventory).values({ date: data.date }).returning();
+      if (data.kitchenStock.length > 0) {
+        await tx.insert(kitchenStockItems).values(
+          data.kitchenStock.map(item => ({
+            ...item,
+            inventoryId: inv.id,
+            open: (item.open || 0).toString(),
+            used: (item.used || 0).toString(),
+            balance: (item.balance || 0).toString(),
+          }))
+        );
+      }
+      if (data.biscuits.length > 0) {
+        await tx.insert(biscuitItems).values(
+          data.biscuits.map(item => ({
+            ...item,
+            inventoryId: inv.id,
+            given: (item.given || 0).toString(),
+            used: (item.used || 0).toString(),
+            balance: (item.balance || 0).toString(),
+          }))
+        );
+      }
+      const stock = await tx.select().from(kitchenStockItems).where(eq(kitchenStockItems.inventoryId, inv.id));
+      const biscuitsResult = await tx.select().from(biscuitItems).where(eq(biscuitItems.inventoryId, inv.id));
+      return { ...inv, kitchenStock: stock, biscuits: biscuitsResult };
+    });
+  }
+
+  async updateInventory(id: number, data: CreateInventoryRequest): Promise<InventoryWithItems> {
+    return await db.transaction(async (tx) => {
+      const [inv] = await tx.update(dailyInventory)
+        .set({ date: data.date, updatedAt: new Date() })
+        .where(eq(dailyInventory.id, id))
+        .returning();
+      if (!inv) throw new Error("Inventory not found");
+      await tx.delete(kitchenStockItems).where(eq(kitchenStockItems.inventoryId, id));
+      await tx.delete(biscuitItems).where(eq(biscuitItems.inventoryId, id));
+      if (data.kitchenStock.length > 0) {
+        await tx.insert(kitchenStockItems).values(
+          data.kitchenStock.map(item => ({
+            ...item,
+            inventoryId: id,
+            open: (item.open || 0).toString(),
+            used: (item.used || 0).toString(),
+            balance: (item.balance || 0).toString(),
+          }))
+        );
+      }
+      if (data.biscuits.length > 0) {
+        await tx.insert(biscuitItems).values(
+          data.biscuits.map(item => ({
+            ...item,
+            inventoryId: id,
+            given: (item.given || 0).toString(),
+            used: (item.used || 0).toString(),
+            balance: (item.balance || 0).toString(),
+          }))
+        );
+      }
+      const stock = await tx.select().from(kitchenStockItems).where(eq(kitchenStockItems.inventoryId, id));
+      const biscuitsResult = await tx.select().from(biscuitItems).where(eq(biscuitItems.inventoryId, id));
+      return { ...inv, kitchenStock: stock, biscuits: biscuitsResult };
+    });
+  }
+
+  async deleteInventory(id: number): Promise<void> {
+    await db.delete(dailyInventory).where(eq(dailyInventory.id, id));
+  }
+
+  async getCashSeals(): Promise<any[]> {
+    const seals = await db.select({
+      cashSeal: cashSeals,
+      report: dailyReports,
+    }).from(cashSeals)
+      .innerJoin(dailyReports, eq(cashSeals.reportId, dailyReports.id))
+      .orderBy(desc(dailyReports.date));
+    return seals.map(s => ({ ...s.cashSeal, date: s.report.date }));
+  }
+
+  async createCashSeal(data: any): Promise<any> {
+    return await db.transaction(async (tx) => {
+      let report = await tx.select().from(dailyReports).where(eq(dailyReports.date, data.date));
+      let reportId: number;
+      if (report.length === 0) {
+        const [newReport] = await tx.insert(dailyReports).values({
+          date: data.date,
+          openingBalance: "0",
+          receivedAmount: "0",
+        }).returning();
+        reportId = newReport.id;
+      } else {
+        reportId = report[0].id;
+      }
+      const existing = await tx.select().from(cashSeals).where(eq(cashSeals.reportId, reportId));
+      if (existing.length > 0) {
+        const [updated] = await tx.update(cashSeals).set({
+          incomeMorningQty: data.incomeMorningQty?.toString() || "0",
+          incomeLunchQty: data.incomeLunchQty?.toString() || "0",
+          incomeEveningQty: data.incomeEveningQty?.toString() || "0",
+          incomeNightQty: data.incomeNightQty?.toString() || "0",
+          incomeNonVegRate: data.incomeNonVegRate?.toString() || "0",
+          incomeNonVegQty: data.incomeNonVegQty?.toString() || "0",
+          incomeVegRate: data.incomeVegRate?.toString() || "0",
+          incomeVegQty: data.incomeVegQty?.toString() || "0",
+          incomeMorningCashRate: data.incomeMorningCashRate?.toString() || "0",
+          incomeMorningCashQty: data.incomeMorningCashQty?.toString() || "0",
+          incomeEveningCashRate: data.incomeEveningCashRate?.toString() || "0",
+          incomeEveningCashQty: data.incomeEveningCashQty?.toString() || "0",
+          expenseBananaQty: data.expenseBananaQty?.toString() || "0",
+          expenseDahiBharQty: data.expenseDahiBharQty?.toString() || "0",
+          expenseDahiBharRate: data.expenseDahiBharRate?.toString() || "0",
+          expenseOtherAmount: data.expenseOtherAmount?.toString() || "0",
+          totalGivenToAkbarAli: data.totalGivenToAkbarAli?.toString() || "0",
+        }).where(eq(cashSeals.id, existing[0].id)).returning();
+        return { ...updated, date: data.date };
+      } else {
+        const [created] = await tx.insert(cashSeals).values({
+          reportId,
+          incomeMorningQty: data.incomeMorningQty?.toString() || "0",
+          incomeLunchQty: data.incomeLunchQty?.toString() || "0",
+          incomeEveningQty: data.incomeEveningQty?.toString() || "0",
+          incomeNightQty: data.incomeNightQty?.toString() || "0",
+          incomeNonVegRate: data.incomeNonVegRate?.toString() || "0",
+          incomeNonVegQty: data.incomeNonVegQty?.toString() || "0",
+          incomeVegRate: data.incomeVegRate?.toString() || "0",
+          incomeVegQty: data.incomeVegQty?.toString() || "0",
+          incomeMorningCashRate: data.incomeMorningCashRate?.toString() || "0",
+          incomeMorningCashQty: data.incomeMorningCashQty?.toString() || "0",
+          incomeEveningCashRate: data.incomeEveningCashRate?.toString() || "0",
+          incomeEveningCashQty: data.incomeEveningCashQty?.toString() || "0",
+          expenseBananaQty: data.expenseBananaQty?.toString() || "0",
+          expenseDahiBharQty: data.expenseDahiBharQty?.toString() || "0",
+          expenseDahiBharRate: data.expenseDahiBharRate?.toString() || "0",
+          expenseOtherAmount: data.expenseOtherAmount?.toString() || "0",
+          totalGivenToAkbarAli: data.totalGivenToAkbarAli?.toString() || "0",
+        }).returning();
+        return { ...created, date: data.date };
+      }
+    });
+  }
+
+  async getAdminPin(): Promise<string> {
+    const settings = await db.select().from(adminSettings);
+    if (settings.length === 0) {
+      await db.insert(adminSettings).values({ adminPin: "1234" });
+      return "1234";
+    }
+    return settings[0].adminPin;
+  }
+
+  async setAdminPin(pin: string): Promise<void> {
+    const settings = await db.select().from(adminSettings);
+    if (settings.length === 0) {
+      await db.insert(adminSettings).values({ adminPin: pin });
+    } else {
+      await db.update(adminSettings).set({ adminPin: pin }).where(eq(adminSettings.id, settings[0].id));
+    }
+  }
+
+  async verifyAdminPin(pin: string): Promise<boolean> {
+    const storedPin = await this.getAdminPin();
+    return storedPin === pin;
   }
 }
 

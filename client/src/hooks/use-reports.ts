@@ -5,7 +5,9 @@ import {
   type UpdateReportRequest, 
   type ReportWithItems,
   type DailyReport,
-  type VegetableItem
+  type VegetableItem,
+  type InventoryWithItems,
+  type CreateInventoryRequest
 } from "@shared/schema";
 
 // GET /api/reports
@@ -172,6 +174,162 @@ export function useDeleteVegetableItem() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: [api.vegetables.list.path] });
+    },
+  });
+}
+
+// === INVENTORY HOOKS ===
+
+export function useInventories() {
+  return useQuery({
+    queryKey: [api.inventory.list.path],
+    queryFn: async () => {
+      const res = await fetch(api.inventory.list.path, { credentials: "include" });
+      if (!res.ok) throw new Error("Failed to fetch inventories");
+      return res.json() as Promise<InventoryWithItems[]>;
+    },
+  });
+}
+
+export function useInventory(id: number | null) {
+  return useQuery({
+    queryKey: [api.inventory.get.path, id],
+    queryFn: async () => {
+      if (!id) return null;
+      const url = buildUrl(api.inventory.get.path, { id });
+      const res = await fetch(url, { credentials: "include" });
+      if (!res.ok) throw new Error("Failed to fetch inventory");
+      return res.json() as Promise<InventoryWithItems>;
+    },
+    enabled: !!id,
+  });
+}
+
+export function useCreateInventory() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (data: CreateInventoryRequest) => {
+      const res = await fetch(api.inventory.create.path, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(data),
+        credentials: "include",
+      });
+      if (!res.ok) {
+        const error = await res.json();
+        throw new Error(error.message || "Failed to create inventory");
+      }
+      return res.json() as Promise<InventoryWithItems>;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: [api.inventory.list.path] });
+    },
+  });
+}
+
+export function useUpdateInventory() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ id, ...data }: CreateInventoryRequest & { id: number }) => {
+      const url = buildUrl(api.inventory.update.path, { id });
+      const res = await fetch(url, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(data),
+        credentials: "include",
+      });
+      if (!res.ok) {
+        const error = await res.json();
+        throw new Error(error.message || "Failed to update inventory");
+      }
+      return res.json() as Promise<InventoryWithItems>;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: [api.inventory.list.path] });
+    },
+  });
+}
+
+export function useDeleteInventory() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (id: number) => {
+      const url = buildUrl(api.inventory.delete.path, { id });
+      const res = await fetch(url, { method: "DELETE", credentials: "include" });
+      if (!res.ok) throw new Error("Failed to delete inventory");
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: [api.inventory.list.path] });
+    },
+  });
+}
+
+// === CASH SEAL HOOKS ===
+
+export function useCashSeals() {
+  return useQuery({
+    queryKey: [api.cashSeals.list.path],
+    queryFn: async () => {
+      const res = await fetch(api.cashSeals.list.path, { credentials: "include" });
+      if (!res.ok) throw new Error("Failed to fetch cash seals");
+      return res.json();
+    },
+  });
+}
+
+export function useCreateCashSeal() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (data: any) => {
+      const res = await fetch(api.cashSeals.create.path, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(data),
+        credentials: "include",
+      });
+      if (!res.ok) {
+        const error = await res.json();
+        throw new Error(error.message || "Failed to save cash seal");
+      }
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: [api.cashSeals.list.path] });
+    },
+  });
+}
+
+// === ADMIN HOOKS ===
+
+export function useVerifyAdminPin() {
+  return useMutation({
+    mutationFn: async (pin: string) => {
+      const res = await fetch(api.admin.verifyPin.path, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ pin }),
+        credentials: "include",
+      });
+      const data = await res.json();
+      return data.valid as boolean;
+    },
+  });
+}
+
+export function useChangeAdminPin() {
+  return useMutation({
+    mutationFn: async ({ currentPin, newPin }: { currentPin: string; newPin: string }) => {
+      const res = await fetch(api.admin.changePin.path, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ currentPin, newPin }),
+        credentials: "include",
+      });
+      if (!res.ok) {
+        const error = await res.json();
+        throw new Error(error.message || "Failed to change PIN");
+      }
+      return res.json();
     },
   });
 }

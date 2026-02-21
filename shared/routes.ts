@@ -1,6 +1,6 @@
 
 import { z } from 'zod';
-import { insertDailyReportSchema, insertExpenseItemSchema, selectDailyReportSchema, selectExpenseItemSchema, selectVegetableItemSchema } from './schema';
+import { insertDailyReportSchema, insertExpenseItemSchema, selectDailyReportSchema, selectExpenseItemSchema, selectVegetableItemSchema, inventoryWithItemsSchema } from './schema';
 
 export const errorSchemas = {
   validation: z.object({
@@ -110,6 +110,141 @@ export const api = {
       responses: {
         204: z.void(),
         404: errorSchemas.notFound,
+      },
+    },
+  },
+  inventory: {
+    list: {
+      method: 'GET' as const,
+      path: '/api/inventory' as const,
+      responses: {
+        200: z.array(inventoryWithItemsSchema),
+      },
+    },
+    get: {
+      method: 'GET' as const,
+      path: '/api/inventory/:id' as const,
+      responses: {
+        200: inventoryWithItemsSchema,
+        404: errorSchemas.notFound,
+      },
+    },
+    create: {
+      method: 'POST' as const,
+      path: '/api/inventory' as const,
+      input: z.object({
+        date: z.string(),
+        kitchenStock: z.array(z.object({
+          name: z.string(),
+          unit: z.string(),
+          open: z.coerce.number().default(0),
+          used: z.coerce.number().default(0),
+          balance: z.coerce.number().default(0),
+          remarks: z.string().default(""),
+        })),
+        biscuits: z.array(z.object({
+          name: z.string(),
+          expDate: z.string().default(""),
+          brand: z.string().default(""),
+          given: z.coerce.number().default(0),
+          used: z.coerce.number().default(0),
+          balance: z.coerce.number().default(0),
+        })),
+      }),
+      responses: {
+        201: inventoryWithItemsSchema,
+        400: errorSchemas.validation,
+      },
+    },
+    update: {
+      method: 'PUT' as const,
+      path: '/api/inventory/:id' as const,
+      input: z.object({
+        date: z.string(),
+        kitchenStock: z.array(z.object({
+          name: z.string(),
+          unit: z.string(),
+          open: z.coerce.number().default(0),
+          used: z.coerce.number().default(0),
+          balance: z.coerce.number().default(0),
+          remarks: z.string().default(""),
+        })),
+        biscuits: z.array(z.object({
+          name: z.string(),
+          expDate: z.string().default(""),
+          brand: z.string().default(""),
+          given: z.coerce.number().default(0),
+          used: z.coerce.number().default(0),
+          balance: z.coerce.number().default(0),
+        })),
+      }),
+      responses: {
+        200: inventoryWithItemsSchema,
+        404: errorSchemas.notFound,
+      },
+    },
+    delete: {
+      method: 'DELETE' as const,
+      path: '/api/inventory/:id' as const,
+      responses: {
+        204: z.void(),
+        404: errorSchemas.notFound,
+      },
+    },
+  },
+  cashSeals: {
+    list: {
+      method: 'GET' as const,
+      path: '/api/cash-seals' as const,
+      responses: {
+        200: z.array(z.any()),
+      },
+    },
+    create: {
+      method: 'POST' as const,
+      path: '/api/cash-seals' as const,
+      input: z.object({
+        date: z.string(),
+        incomeMorningQty: z.coerce.number().default(0),
+        incomeLunchQty: z.coerce.number().default(0),
+        incomeEveningQty: z.coerce.number().default(0),
+        incomeNightQty: z.coerce.number().default(0),
+        incomeNonVegRate: z.coerce.number().default(0),
+        incomeNonVegQty: z.coerce.number().default(0),
+        incomeVegRate: z.coerce.number().default(0),
+        incomeVegQty: z.coerce.number().default(0),
+        incomeMorningCashRate: z.coerce.number().default(0),
+        incomeMorningCashQty: z.coerce.number().default(0),
+        incomeEveningCashRate: z.coerce.number().default(0),
+        incomeEveningCashQty: z.coerce.number().default(0),
+        expenseBananaQty: z.coerce.number().default(0),
+        expenseDahiBharQty: z.coerce.number().default(0),
+        expenseDahiBharRate: z.coerce.number().default(0),
+        expenseOtherAmount: z.coerce.number().default(0),
+        totalGivenToAkbarAli: z.coerce.number().default(0),
+      }),
+      responses: {
+        201: z.any(),
+        400: errorSchemas.validation,
+      },
+    },
+  },
+  admin: {
+    verifyPin: {
+      method: 'POST' as const,
+      path: '/api/admin/verify-pin' as const,
+      input: z.object({ pin: z.string() }),
+      responses: {
+        200: z.object({ valid: z.boolean() }),
+      },
+    },
+    changePin: {
+      method: 'POST' as const,
+      path: '/api/admin/change-pin' as const,
+      input: z.object({ currentPin: z.string(), newPin: z.string().min(4) }),
+      responses: {
+        200: z.object({ success: z.boolean() }),
+        400: errorSchemas.validation,
       },
     },
   },
