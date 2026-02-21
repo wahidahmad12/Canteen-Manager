@@ -21,11 +21,17 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 export default function Dashboard() {
   const { data: user } = useCurrentUser();
   const perms = user?.role === 'admin' ? ['expense', 'cashseal', 'inventory', 'menu'] : (user?.permissions || []);
-  const { data: reports, isLoading, error } = useReports();
-  const { data: inventories, isLoading: invLoading } = useInventories();
-  const { data: cashSeals, isLoading: csLoading } = useCashSeals();
+
+  const hasExpense = perms.includes('expense');
+  const hasCashSeal = perms.includes('cashseal');
+  const hasInventory = perms.includes('inventory');
+  const hasMenu = perms.includes('menu');
+
+  const { data: reports, isLoading } = useReports({ enabled: hasExpense });
+  const { data: inventories, isLoading: invLoading } = useInventories({ enabled: hasInventory });
+  const { data: cashSeals, isLoading: csLoading } = useCashSeals({ enabled: hasCashSeal });
+  const { data: savedMenus, isLoading: menusLoading } = useSavedMenus({ enabled: hasMenu });
   const deleteMutation = useDeleteReport();
-  const { data: savedMenus, isLoading: menusLoading } = useSavedMenus();
   const deleteMenuMutation = useDeleteSavedMenu();
 
   const tabItems = [
@@ -37,23 +43,13 @@ export default function Dashboard() {
 
   const defaultTab = tabItems.length > 0 ? tabItems[0].value : 'reports';
 
-  if (isLoading) {
+  const anyLoading = (hasExpense && isLoading) || (hasInventory && invLoading) || (hasCashSeal && csLoading) || (hasMenu && menusLoading);
+
+  if (anyLoading) {
     return (
       <Layout>
         <div className="flex h-[50vh] items-center justify-center">
           <Loader2 className="w-8 h-8 animate-spin text-primary" />
-        </div>
-      </Layout>
-    );
-  }
-
-  if (error) {
-    return (
-      <Layout>
-        <div className="p-8 border border-destructive/20 rounded-2xl bg-destructive/5 text-destructive flex flex-col items-center justify-center text-center">
-          <AlertCircle className="w-10 h-10 mb-4" />
-          <h2 className="text-lg font-bold mb-2">Failed to load reports</h2>
-          <p>{error.message}</p>
         </div>
       </Layout>
     );

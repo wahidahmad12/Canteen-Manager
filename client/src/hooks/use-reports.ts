@@ -94,7 +94,7 @@ export function useDeleteUser() {
 }
 
 // GET /api/reports
-export function useReports() {
+export function useReports(options?: { enabled?: boolean }) {
   return useQuery({
     queryKey: [api.reports.list.path],
     queryFn: async () => {
@@ -102,6 +102,7 @@ export function useReports() {
       if (!res.ok) throw new Error("Failed to fetch reports");
       return api.reports.list.responses[200].parse(await res.json());
     },
+    enabled: options?.enabled !== false,
   });
 }
 
@@ -263,7 +264,7 @@ export function useDeleteVegetableItem() {
 
 // === INVENTORY HOOKS ===
 
-export function useInventories() {
+export function useInventories(options?: { enabled?: boolean }) {
   return useQuery({
     queryKey: [api.inventory.list.path],
     queryFn: async () => {
@@ -271,6 +272,7 @@ export function useInventories() {
       if (!res.ok) throw new Error("Failed to fetch inventories");
       return res.json() as Promise<InventoryWithItems[]>;
     },
+    enabled: options?.enabled !== false,
   });
 }
 
@@ -349,7 +351,7 @@ export function useDeleteInventory() {
 
 // === CASH SEAL HOOKS ===
 
-export function useCashSeals() {
+export function useCashSeals(options?: { enabled?: boolean }) {
   return useQuery({
     queryKey: [api.cashSeals.list.path],
     queryFn: async () => {
@@ -357,6 +359,7 @@ export function useCashSeals() {
       if (!res.ok) throw new Error("Failed to fetch cash seals");
       return res.json();
     },
+    enabled: options?.enabled !== false,
   });
 }
 
@@ -384,7 +387,7 @@ export function useCreateCashSeal() {
 
 // === SAVED MENU HOOKS ===
 
-export function useSavedMenus() {
+export function useSavedMenus(options?: { enabled?: boolean }) {
   return useQuery({
     queryKey: [api.menus.list.path],
     queryFn: async () => {
@@ -392,6 +395,7 @@ export function useSavedMenus() {
       if (!res.ok) throw new Error("Failed to fetch menus");
       return res.json() as Promise<{ id: number; clientName: string; startDate: string; endDate: string; menuData: string; createdAt: string }[]>;
     },
+    enabled: options?.enabled !== false,
   });
 }
 
