@@ -352,13 +352,20 @@ export async function registerRoutes(
     if (req.session.role === 'admin') {
       res.json(requests);
     } else {
-      res.json(requests.filter(r => r.status === 'approved'));
+      const username = req.session.displayName || req.session.username || '';
+      res.json(requests.filter(r => r.createdBy === username));
     }
   });
 
   app.get(api.purchaseRequests.get.path, requirePermission('purchase'), async (req, res) => {
     const request = await storage.getPurchaseRequest(Number(req.params.id));
     if (!request) return res.status(404).json({ message: "Purchase request not found" });
+    if (req.session.role !== 'admin') {
+      const username = req.session.displayName || req.session.username || '';
+      if (request.createdBy !== username) {
+        return res.status(403).json({ message: "Access denied" });
+      }
+    }
     res.json(request);
   });
 
