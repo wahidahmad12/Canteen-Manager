@@ -262,16 +262,76 @@ export default function ReportForm() {
             <CardTitle>Fixed Items</CardTitle>
           </CardHeader>
           <CardContent className="p-0">
-            <div className="overflow-x-auto">
+            {/* Mobile card layout */}
+            <div className="sm:hidden divide-y">
+              {fields.map((field, index) => {
+                if (field.category !== 'fixed') return null;
+                const fixedIndex = fields.slice(0, index).filter(f => f.category === 'fixed').length + 1;
+                return (
+                  <div key={field.id} className="p-3 space-y-2">
+                    <div className="flex items-center justify-between">
+                      <span className="font-medium text-sm">{fixedIndex}. {field.description}</span>
+                      <span className="text-xs text-muted-foreground font-mono bg-muted/30 px-2 py-0.5 rounded">{field.uom}</span>
+                    </div>
+                    <div className="grid grid-cols-3 gap-2">
+                      <div>
+                        <label className="text-[10px] text-muted-foreground uppercase font-semibold">Qty</label>
+                        <Input
+                          type="number"
+                          step="any"
+                          className="h-9 font-mono text-center no-spinner"
+                          placeholder="0"
+                          key={`fixed-qty-m-${field.id}`}
+                          {...form.register(`items.${index}.qty` as const, {
+                            valueAsNumber: true,
+                            onChange: (e) => {
+                              const val = parseFloat(e.target.value) || 0;
+                              const rate = Number(items[index]?.rate) || 0;
+                              form.setValue(`items.${index}.amount`, val * rate);
+                            }
+                          })}
+                        />
+                      </div>
+                      <div>
+                        <label className="text-[10px] text-muted-foreground uppercase font-semibold">Rate ₹</label>
+                        <Input
+                          type="number"
+                          step="any"
+                          className="h-9 font-mono text-center no-spinner"
+                          placeholder="0"
+                          key={`fixed-rate-m-${field.id}`}
+                          {...form.register(`items.${index}.rate` as const, {
+                            valueAsNumber: true,
+                            onChange: (e) => {
+                              const val = parseFloat(e.target.value) || 0;
+                              const qty = Number(items[index]?.qty) || 0;
+                              form.setValue(`items.${index}.amount`, qty * val);
+                            }
+                          })}
+                        />
+                      </div>
+                      <div>
+                        <label className="text-[10px] text-muted-foreground uppercase font-semibold">Amount</label>
+                        <div className="h-9 flex items-center justify-center font-mono font-medium text-sm bg-muted/20 rounded-md">
+                          ₹{(items[index]?.amount || 0).toFixed(2)}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+            {/* Desktop table layout */}
+            <div className="hidden sm:block overflow-x-auto">
               <table className="glass-table">
                 <thead>
                   <tr>
-                    <th className="w-12">No.</th>
+                    <th className="w-10">No.</th>
                     <th>Description</th>
-                    <th className="w-24">UoM</th>
-                    <th className="w-32">Qty</th>
-                    <th className="w-32">Rate (₹)</th>
-                    <th className="w-32 text-right">Amount (₹)</th>
+                    <th className="w-16">UoM</th>
+                    <th className="w-24">Qty</th>
+                    <th className="w-24">Rate (₹)</th>
+                    <th className="w-28 text-right">Amount (₹)</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -282,7 +342,7 @@ export default function ReportForm() {
                       <tr key={field.id}>
                         <td className="text-center text-muted-foreground">{fixedIndex}</td>
                         <td className="font-medium">{field.description}</td>
-                        <td className="text-muted-foreground text-xs font-mono bg-muted/30 px-2 py-1 rounded inline-block w-fit">
+                        <td className="text-muted-foreground text-xs font-mono bg-muted/30 px-2 py-1 rounded">
                           {field.uom}
                         </td>
                         <td>
@@ -330,9 +390,9 @@ export default function ReportForm() {
                 </tbody>
               </table>
             </div>
-            <div className="p-4 bg-muted/20 border-t border-border flex justify-end">
+            <div className="p-3 sm:p-4 bg-muted/20 border-t border-border flex justify-end">
               <div className="text-sm font-medium">
-                Total Fixed: <span className="font-mono ml-2 text-lg">₹{totalFixedCost.toFixed(2)}</span>
+                Total Fixed: <span className="font-mono ml-2 text-base sm:text-lg">₹{totalFixedCost.toFixed(2)}</span>
               </div>
             </div>
           </CardContent>
@@ -361,17 +421,116 @@ export default function ReportForm() {
             </Button>
           </CardHeader>
           <CardContent className="p-0">
-            <div className="overflow-x-auto">
+            {/* Mobile card layout */}
+            <div className="sm:hidden divide-y">
+              {fields.map((field, index) => {
+                if (field.category !== 'vegetable') return null;
+                const vegIndex = fields.slice(0, index).filter(f => f.category === 'vegetable').length + 1;
+                return (
+                  <div key={field.id} className="p-3 space-y-2">
+                    <div className="flex items-center justify-between gap-2">
+                      <div className="flex items-center gap-2 flex-1 min-w-0">
+                        <span className="text-xs text-muted-foreground shrink-0">{vegIndex}.</span>
+                        <Select
+                          value={items[index]?.description || ''}
+                          onValueChange={(val) => form.setValue(`items.${index}.description`, val)}
+                        >
+                          <SelectTrigger className="h-8 text-sm">
+                            <SelectValue placeholder="Select item" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {vegetableItems.map((veg) => (
+                              <SelectItem key={veg.id} value={veg.name}>{veg.name}</SelectItem>
+                            ))}
+                            {!vegetableItems.find(v => v.name === items[index]?.description) && items[index]?.description && (
+                              <SelectItem value={items[index]?.description}>{items[index]?.description}</SelectItem>
+                            )}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        className="h-8 w-8 text-destructive hover:text-destructive hover:bg-destructive/10 shrink-0"
+                        onClick={() => remove(index)}
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </Button>
+                    </div>
+                    <div className="grid grid-cols-4 gap-2">
+                      <div>
+                        <label className="text-[10px] text-muted-foreground uppercase font-semibold">UoM</label>
+                        <Input
+                          className="h-9 text-center text-sm"
+                          placeholder="Kg"
+                          {...form.register(`items.${index}.uom` as const)}
+                        />
+                      </div>
+                      <div>
+                        <label className="text-[10px] text-muted-foreground uppercase font-semibold">Qty</label>
+                        <Input
+                          type="number"
+                          step="any"
+                          className="h-9 font-mono text-center no-spinner"
+                          placeholder="0"
+                          key={`veg-qty-m-${field.id}`}
+                          {...form.register(`items.${index}.qty` as const, {
+                            valueAsNumber: true,
+                            onChange: (e) => {
+                              const val = parseFloat(e.target.value) || 0;
+                              const rate = Number(items[index]?.rate) || 0;
+                              form.setValue(`items.${index}.amount`, val * rate);
+                            }
+                          })}
+                        />
+                      </div>
+                      <div>
+                        <label className="text-[10px] text-muted-foreground uppercase font-semibold">Rate ₹</label>
+                        <Input
+                          type="number"
+                          step="any"
+                          className="h-9 font-mono text-center no-spinner"
+                          placeholder="0"
+                          key={`veg-rate-m-${field.id}`}
+                          {...form.register(`items.${index}.rate` as const, {
+                            valueAsNumber: true,
+                            onChange: (e) => {
+                              const val = parseFloat(e.target.value) || 0;
+                              const qty = Number(items[index]?.qty) || 0;
+                              form.setValue(`items.${index}.amount`, qty * val);
+                            }
+                          })}
+                        />
+                      </div>
+                      <div>
+                        <label className="text-[10px] text-muted-foreground uppercase font-semibold">Amt</label>
+                        <div className="h-9 flex items-center justify-center font-mono font-medium text-sm bg-muted/20 rounded-md">
+                          ₹{(items[index]?.amount || 0).toFixed(0)}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+              {fields.filter(f => f.category === 'vegetable').length === 0 && (
+                <div className="text-center py-8 text-muted-foreground italic text-sm">
+                  No vegetable items added yet. Tap "Add Item" to start.
+                </div>
+              )}
+            </div>
+            {/* Desktop table layout */}
+            <div className="hidden sm:block overflow-x-auto">
               <table className="glass-table">
                 <thead>
                   <tr>
-                    <th className="w-12">No.</th>
+                    <th className="w-10">No.</th>
                     <th>Description</th>
-                    <th className="w-32">UoM</th>
-                    <th className="w-32">Qty</th>
-                    <th className="w-32">Rate (₹)</th>
-                    <th className="w-32 text-right">Amount (₹)</th>
-                    <th className="w-12"></th>
+                    <th className="w-20">UoM</th>
+                    <th className="w-24">Qty</th>
+                    <th className="w-24">Rate (₹)</th>
+                    <th className="w-28 text-right">Amount (₹)</th>
+                    <th className="w-10"></th>
                   </tr>
                 </thead>
                 <tbody>
@@ -471,9 +630,9 @@ export default function ReportForm() {
                 </tbody>
               </table>
             </div>
-            <div className="p-4 bg-muted/20 border-t border-border flex justify-end">
+            <div className="p-3 sm:p-4 bg-muted/20 border-t border-border flex justify-end">
               <div className="text-sm font-medium">
-                Total Vegetables: <span className="font-mono ml-2 text-lg">₹{totalVegCost.toFixed(2)}</span>
+                Total Vegetables: <span className="font-mono ml-2 text-base sm:text-lg">₹{totalVegCost.toFixed(2)}</span>
               </div>
             </div>
           </CardContent>
