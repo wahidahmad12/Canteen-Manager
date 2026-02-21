@@ -221,6 +221,7 @@ export default function Dashboard() {
                 <table className="glass-table">
                   <thead>
                     <tr>
+                      <th>No.</th>
                       <th>Date</th>
                       <th className="text-right">Total Income</th>
                       <th className="text-right">Total Expense</th>
@@ -246,6 +247,7 @@ export default function Dashboard() {
                       
                       return (
                         <tr key={seal.id} className="group">
+                          <td className="font-mono text-muted-foreground text-center">#{seal.serialNumber}</td>
                           <td className="font-medium text-foreground">
                             <div className="flex items-center gap-3">
                               <div className="w-10 h-10 rounded-lg bg-blue-100 text-blue-700 flex items-center justify-center font-bold text-xs shrink-0">
@@ -295,6 +297,7 @@ export default function Dashboard() {
                 <table className="glass-table">
                   <thead>
                     <tr>
+                      <th>No.</th>
                       <th>Date</th>
                       <th className="text-center">Kitchen Items</th>
                       <th className="text-center">Biscuit Items</th>
@@ -309,6 +312,7 @@ export default function Dashboard() {
                       
                       return (
                         <tr key={inv.id} className="group">
+                          <td className="font-mono text-muted-foreground text-center">#{(inv as any).serialNumber}</td>
                           <td className="font-medium text-foreground">
                             <div className="flex items-center gap-3">
                               <div className="w-10 h-10 rounded-lg bg-green-100 text-green-700 flex items-center justify-center font-bold text-xs shrink-0">
