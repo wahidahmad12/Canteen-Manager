@@ -10,7 +10,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import { useToast } from "@/hooks/use-toast";
 import { DatePicker } from "@/components/ui/date-picker";
-import { Loader2, Plus, Trash2, Calculator, Save, ArrowLeft } from "lucide-react";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Loader2, Plus, Trash2, Calculator, Save, ArrowLeft, X } from "lucide-react";
 import { useCreateReport, useUpdateReport, useReport, useVegetableItems } from "@/hooks/use-reports";
 import { insertDailyReportSchema, insertExpenseItemSchema } from "@shared/schema";
 import {
@@ -21,6 +22,95 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { format } from "date-fns";
+
+function AddUpCalculator({ value, onApply }: { value: number; onApply: (total: number) => void }) {
+  const [entries, setEntries] = useState<number[]>(() => value > 0 ? [value] : [0]);
+  const [open, setOpen] = useState(false);
+
+  const total = entries.reduce((sum, v) => sum + v, 0);
+
+  const updateEntry = (index: number, val: number) => {
+    setEntries(prev => {
+      const updated = [...prev];
+      updated[index] = val;
+      return updated;
+    });
+  };
+
+  const addRow = () => setEntries(prev => [...prev, 0]);
+
+  const removeRow = (index: number) => {
+    if (entries.length <= 1) return;
+    setEntries(prev => prev.filter((_, i) => i !== index));
+  };
+
+  const handleApply = () => {
+    onApply(total);
+    setOpen(false);
+  };
+
+  useEffect(() => {
+    if (open) {
+      setEntries(value > 0 ? [value] : [0]);
+    }
+  }, [open]);
+
+  return (
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger asChild>
+        <Button type="button" size="icon" variant="outline" className="h-9 w-9 shrink-0" data-testid="button-calculator">
+          <Calculator className="w-4 h-4" />
+        </Button>
+      </PopoverTrigger>
+      <PopoverContent className="w-72 p-3" align="start">
+        <div className="space-y-2">
+          <div className="flex items-center justify-between">
+            <span className="text-sm font-medium">Add Up Amounts</span>
+            <Button type="button" size="icon" variant="ghost" className="h-6 w-6" onClick={() => setOpen(false)}>
+              <X className="w-3 h-3" />
+            </Button>
+          </div>
+          <div className="space-y-1.5 max-h-48 overflow-y-auto">
+            {entries.map((entry, idx) => (
+              <div key={idx} className="flex items-center gap-1.5">
+                <span className="text-xs text-muted-foreground w-4 shrink-0">{idx + 1}.</span>
+                <Input
+                  type="number"
+                  step="0.01"
+                  value={entry || ""}
+                  onChange={(e) => updateEntry(idx, Number(e.target.value) || 0)}
+                  className="h-8 font-mono text-right"
+                  autoFocus={idx === entries.length - 1}
+                  data-testid={`input-calc-entry-${idx}`}
+                />
+                <Button
+                  type="button"
+                  size="icon"
+                  variant="ghost"
+                  className="h-7 w-7 shrink-0 text-destructive"
+                  onClick={() => removeRow(idx)}
+                  disabled={entries.length <= 1}
+                >
+                  <Trash2 className="w-3 h-3" />
+                </Button>
+              </div>
+            ))}
+          </div>
+          <Button type="button" size="sm" variant="ghost" className="w-full h-7 text-xs" onClick={addRow} data-testid="button-calc-add-row">
+            <Plus className="w-3 h-3 mr-1" /> Add Row
+          </Button>
+          <Separator />
+          <div className="flex items-center justify-between">
+            <span className="text-sm font-semibold">Total: ₹{total.toFixed(2)}</span>
+            <Button type="button" size="sm" onClick={handleApply} data-testid="button-calc-apply">
+              Apply
+            </Button>
+          </div>
+        </div>
+      </PopoverContent>
+    </Popover>
+  );
+}
 
 // Schema for the form
 const formSchema = insertDailyReportSchema.extend({
@@ -246,12 +336,19 @@ export default function ReportForm() {
             </div>
             <div className="space-y-2">
               <label className="text-sm font-medium">Received Amount (₹)</label>
-              <Input 
-                type="number" 
-                step="0.01"
-                className="font-mono"
-                {...form.register("receivedAmount", { valueAsNumber: true })}
-              />
+              <div className="flex gap-2">
+                <Input 
+                  type="number" 
+                  step="0.01"
+                  className="font-mono"
+                  {...form.register("receivedAmount", { valueAsNumber: true })}
+                  data-testid="input-received-amount"
+                />
+                <AddUpCalculator
+                  value={receivedAmount}
+                  onApply={(total) => form.setValue("receivedAmount", total)}
+                />
+              </div>
             </div>
           </CardContent>
         </Card>
