@@ -203,6 +203,18 @@ export function useVegetableItems() {
   });
 }
 
+// GET /api/vegetables/last-prices
+export function useVegetableLastPrices() {
+  return useQuery({
+    queryKey: [api.vegetables.lastPrices.path],
+    queryFn: async () => {
+      const res = await fetch(api.vegetables.lastPrices.path, { credentials: "include" });
+      if (!res.ok) throw new Error("Failed to fetch vegetable last prices");
+      return res.json() as Promise<{ description: string; rate: number }[]>;
+    },
+  });
+}
+
 // POST /api/vegetables
 export function useCreateVegetableItem() {
   const queryClient = useQueryClient();

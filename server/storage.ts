@@ -92,6 +92,7 @@ export interface IStorage {
   updatePurchaseInvoice(id: number, data: { purchaseRequestId?: number | null; clientName?: string; vendorName?: string; vendorInvoiceNo?: string; date?: string; items?: { id?: number; itemName: string; uom: string; qty: number; unitPrice: number; totalPrice: number; gstRate: number; gstAmount: number; netAmount: number }[] }): Promise<PurchaseInvoiceWithItems>;
   deletePurchaseInvoice(id: number): Promise<void>;
   getLastPurchasePrices(): Promise<{ itemName: string; unitPrice: number; gstRate: number }[]>;
+  getLastVegetablePrices(): Promise<{ description: string; rate: number }[]>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -730,6 +731,21 @@ export class DatabaseStorage implements IStorage {
 
   async deletePurchaseInvoice(id: number): Promise<void> {
     await db.delete(purchaseInvoices).where(eq(purchaseInvoices.id, id));
+  }
+
+  async getLastVegetablePrices(): Promise<{ description: string; rate: number }[]> {
+    const result = await db.execute(sql`
+      SELECT DISTINCT ON (description)
+        description,
+        rate
+      FROM expense_items
+      WHERE category = 'vegetable' AND description IS NOT NULL AND description != ''
+      ORDER BY description, id DESC
+    `);
+    return (result.rows || []).map((row: any) => ({
+      description: row.description,
+      rate: Number(row.rate) || 0,
+    }));
   }
 
   async getLastPurchasePrices(): Promise<{ itemName: string; unitPrice: number; gstRate: number }[]> {

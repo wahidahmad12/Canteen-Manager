@@ -112,6 +112,16 @@ export const api = {
         404: errorSchemas.notFound,
       },
     },
+    lastPrices: {
+      method: 'GET' as const,
+      path: '/api/vegetables/last-prices' as const,
+      responses: {
+        200: z.array(z.object({
+          description: z.string(),
+          rate: z.number(),
+        })),
+      },
+    },
   },
   inventory: {
     list: {

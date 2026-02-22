@@ -192,6 +192,12 @@ export async function registerRoutes(
     res.json({ balance });
   });
 
+  // Get last vegetable prices
+  app.get(api.vegetables.lastPrices.path, requirePermission('expense'), async (req, res) => {
+    const prices = await storage.getLastVegetablePrices();
+    res.json(prices);
+  });
+
   // Get vegetable items
   app.get(api.vegetables.list.path, requirePermission('expense'), async (req, res) => {
     const items = await storage.getVegetableItems();

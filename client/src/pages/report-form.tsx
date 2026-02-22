@@ -12,7 +12,7 @@ import { useToast } from "@/hooks/use-toast";
 import { DatePicker } from "@/components/ui/date-picker";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Loader2, Plus, Trash2, Calculator, Save, ArrowLeft, X } from "lucide-react";
-import { useCreateReport, useUpdateReport, useReport, useVegetableItems } from "@/hooks/use-reports";
+import { useCreateReport, useUpdateReport, useReport, useVegetableItems, useVegetableLastPrices } from "@/hooks/use-reports";
 import { insertDailyReportSchema, insertExpenseItemSchema } from "@shared/schema";
 import {
   Select,
@@ -176,8 +176,13 @@ export default function ReportForm() {
   const { toast } = useToast();
   const { data: report, isLoading: isReportLoading } = useReport(reportId);
   const { data: vegetableItems = [] } = useVegetableItems();
+  const { data: vegLastPrices = [] } = useVegetableLastPrices();
   const createMutation = useCreateReport();
   const updateMutation = useUpdateReport();
+
+  const vegPriceMap = new Map(vegLastPrices.map(p => [p.description, p.rate]));
+
+  const [lastEdited, setLastEdited] = useState<Record<number, 'rate' | 'amount'>>({});
 
   const form = useForm<FormValues>({
     resolver: zodResolver(formSchema),
@@ -406,8 +411,13 @@ export default function ReportForm() {
                             valueAsNumber: true,
                             onChange: (e) => {
                               const val = parseFloat(e.target.value) || 0;
-                              const rate = Number(items[index]?.rate) || 0;
-                              form.setValue(`items.${index}.amount`, val * rate);
+                              if (lastEdited[index] === 'amount') {
+                                const amt = Number(items[index]?.amount) || 0;
+                                if (val > 0) form.setValue(`items.${index}.rate`, amt / val);
+                              } else {
+                                const rate = Number(items[index]?.rate) || 0;
+                                form.setValue(`items.${index}.amount`, val * rate);
+                              }
                             }
                           })}
                         />
@@ -425,6 +435,7 @@ export default function ReportForm() {
                             onChange: (e) => {
                               const val = parseFloat(e.target.value) || 0;
                               const qty = Number(items[index]?.qty) || 0;
+                              setLastEdited(prev => ({ ...prev, [index]: 'rate' }));
                               form.setValue(`items.${index}.amount`, qty * val);
                             }
                           })}
@@ -432,9 +443,24 @@ export default function ReportForm() {
                       </div>
                       <div>
                         <label className="text-[10px] text-muted-foreground uppercase font-semibold">Amount</label>
-                        <div className="h-9 flex items-center justify-center font-mono font-medium text-sm bg-muted/20 rounded-md">
-                          ₹{(items[index]?.amount || 0).toFixed(2)}
-                        </div>
+                        <Input
+                          type="number"
+                          step="any"
+                          className="h-9 font-mono text-center no-spinner"
+                          placeholder="0"
+                          key={`fixed-amt-m-${field.id}`}
+                          {...form.register(`items.${index}.amount` as const, {
+                            valueAsNumber: true,
+                            onChange: (e) => {
+                              const val = parseFloat(e.target.value) || 0;
+                              const qty = Number(items[index]?.qty) || 0;
+                              setLastEdited(prev => ({ ...prev, [index]: 'amount' }));
+                              if (qty > 0) {
+                                form.setValue(`items.${index}.rate`, val / qty);
+                              }
+                            }
+                          })}
+                        />
                       </div>
                     </div>
                   </div>
@@ -477,8 +503,13 @@ export default function ReportForm() {
                               valueAsNumber: true,
                               onChange: (e) => {
                                 const val = parseFloat(e.target.value) || 0;
-                                const rate = Number(items[index]?.rate) || 0;
-                                form.setValue(`items.${index}.amount`, val * rate);
+                                if (lastEdited[index] === 'amount') {
+                                  const amt = Number(items[index]?.amount) || 0;
+                                  if (val > 0) form.setValue(`items.${index}.rate`, amt / val);
+                                } else {
+                                  const rate = Number(items[index]?.rate) || 0;
+                                  form.setValue(`items.${index}.amount`, val * rate);
+                                }
                               }
                             })}
                           />
@@ -496,13 +527,32 @@ export default function ReportForm() {
                               onChange: (e) => {
                                 const val = parseFloat(e.target.value) || 0;
                                 const qty = Number(items[index]?.qty) || 0;
+                                setLastEdited(prev => ({ ...prev, [index]: 'rate' }));
                                 form.setValue(`items.${index}.amount`, qty * val);
                               }
                             })}
                           />
                         </td>
-                        <td className="text-right font-mono font-medium">
-                          {(items[index]?.amount || 0).toFixed(2)}
+                        <td>
+                          <Input 
+                            type="number"
+                            step="any"
+                            className="h-8 font-mono text-right no-spinner"
+                            placeholder="0"
+                            defaultValue=""
+                            key={`fixed-amt-${field.id}`}
+                            {...form.register(`items.${index}.amount` as const, {
+                              valueAsNumber: true,
+                              onChange: (e) => {
+                                const val = parseFloat(e.target.value) || 0;
+                                const qty = Number(items[index]?.qty) || 0;
+                                setLastEdited(prev => ({ ...prev, [index]: 'amount' }));
+                                if (qty > 0) {
+                                  form.setValue(`items.${index}.rate`, val / qty);
+                                }
+                              }
+                            })}
+                          />
                         </td>
                       </tr>
                     );
@@ -553,7 +603,15 @@ export default function ReportForm() {
                         <span className="text-xs text-muted-foreground shrink-0">{vegIndex}.</span>
                         <Select
                           value={items[index]?.description || ''}
-                          onValueChange={(val) => form.setValue(`items.${index}.description`, val)}
+                          onValueChange={(val) => {
+                            form.setValue(`items.${index}.description`, val);
+                            const lastRate = vegPriceMap.get(val);
+                            if (lastRate && !items[index]?.rate) {
+                              form.setValue(`items.${index}.rate`, lastRate);
+                              const qty = Number(items[index]?.qty) || 0;
+                              form.setValue(`items.${index}.amount`, qty * lastRate);
+                            }
+                          }}
                         >
                           <SelectTrigger className="h-8 text-sm">
                             <SelectValue placeholder="Select item" />
@@ -599,8 +657,13 @@ export default function ReportForm() {
                             valueAsNumber: true,
                             onChange: (e) => {
                               const val = parseFloat(e.target.value) || 0;
-                              const rate = Number(items[index]?.rate) || 0;
-                              form.setValue(`items.${index}.amount`, val * rate);
+                              if (lastEdited[index] === 'amount') {
+                                const amt = Number(items[index]?.amount) || 0;
+                                if (val > 0) form.setValue(`items.${index}.rate`, amt / val);
+                              } else {
+                                const rate = Number(items[index]?.rate) || 0;
+                                form.setValue(`items.${index}.amount`, val * rate);
+                              }
                             }
                           })}
                         />
@@ -618,6 +681,7 @@ export default function ReportForm() {
                             onChange: (e) => {
                               const val = parseFloat(e.target.value) || 0;
                               const qty = Number(items[index]?.qty) || 0;
+                              setLastEdited(prev => ({ ...prev, [index]: 'rate' }));
                               form.setValue(`items.${index}.amount`, qty * val);
                             }
                           })}
@@ -625,9 +689,24 @@ export default function ReportForm() {
                       </div>
                       <div>
                         <label className="text-[10px] text-muted-foreground uppercase font-semibold">Amt</label>
-                        <div className="h-9 flex items-center justify-center font-mono font-medium text-sm bg-muted/20 rounded-md">
-                          ₹{(items[index]?.amount || 0).toFixed(0)}
-                        </div>
+                        <Input
+                          type="number"
+                          step="any"
+                          className="h-9 font-mono text-center no-spinner"
+                          placeholder="0"
+                          key={`veg-amt-m-${field.id}`}
+                          {...form.register(`items.${index}.amount` as const, {
+                            valueAsNumber: true,
+                            onChange: (e) => {
+                              const val = parseFloat(e.target.value) || 0;
+                              const qty = Number(items[index]?.qty) || 0;
+                              setLastEdited(prev => ({ ...prev, [index]: 'amount' }));
+                              if (qty > 0) {
+                                form.setValue(`items.${index}.rate`, val / qty);
+                              }
+                            }
+                          })}
+                        />
                       </div>
                     </div>
                   </div>
@@ -663,7 +742,15 @@ export default function ReportForm() {
                         <td>
                           <Select
                             value={items[index]?.description || ''}
-                            onValueChange={(val) => form.setValue(`items.${index}.description`, val)}
+                            onValueChange={(val) => {
+                              form.setValue(`items.${index}.description`, val);
+                              const lastRate = vegPriceMap.get(val);
+                              if (lastRate && !items[index]?.rate) {
+                                form.setValue(`items.${index}.rate`, lastRate);
+                                const qty = Number(items[index]?.qty) || 0;
+                                form.setValue(`items.${index}.amount`, qty * lastRate);
+                              }
+                            }}
                           >
                             <SelectTrigger className="h-8">
                               <SelectValue placeholder="Select item" />
@@ -700,8 +787,13 @@ export default function ReportForm() {
                               valueAsNumber: true,
                               onChange: (e) => {
                                 const val = parseFloat(e.target.value) || 0;
-                                const rate = Number(items[index]?.rate) || 0;
-                                form.setValue(`items.${index}.amount`, val * rate);
+                                if (lastEdited[index] === 'amount') {
+                                  const amt = Number(items[index]?.amount) || 0;
+                                  if (val > 0) form.setValue(`items.${index}.rate`, amt / val);
+                                } else {
+                                  const rate = Number(items[index]?.rate) || 0;
+                                  form.setValue(`items.${index}.amount`, val * rate);
+                                }
                               }
                             })}
                           />
@@ -718,13 +810,31 @@ export default function ReportForm() {
                               onChange: (e) => {
                                 const val = parseFloat(e.target.value) || 0;
                                 const qty = Number(items[index]?.qty) || 0;
+                                setLastEdited(prev => ({ ...prev, [index]: 'rate' }));
                                 form.setValue(`items.${index}.amount`, qty * val);
                               }
                             })}
                           />
                         </td>
-                        <td className="text-right font-mono font-medium">
-                          {(items[index]?.amount || 0).toFixed(2)}
+                        <td>
+                          <Input 
+                            type="number"
+                            step="any"
+                            className="h-8 font-mono text-right no-spinner"
+                            placeholder="0"
+                            key={`veg-amt-${field.id}`}
+                            {...form.register(`items.${index}.amount` as const, {
+                              valueAsNumber: true,
+                              onChange: (e) => {
+                                const val = parseFloat(e.target.value) || 0;
+                                const qty = Number(items[index]?.qty) || 0;
+                                setLastEdited(prev => ({ ...prev, [index]: 'amount' }));
+                                if (qty > 0) {
+                                  form.setValue(`items.${index}.rate`, val / qty);
+                                }
+                              }
+                            })}
+                          />
                         </td>
                         <td>
                           <Button 
