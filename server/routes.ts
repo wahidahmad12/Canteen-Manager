@@ -435,6 +435,19 @@ export async function registerRoutes(
     }
   });
 
+  app.put(api.vendors.update.path, requireAdmin, async (req, res) => {
+    try {
+      const input = api.vendors.update.input.parse(req.body);
+      const vendor = await storage.updateVendor(Number(req.params.id), input);
+      res.json(vendor);
+    } catch (err) {
+      if (err instanceof Error && err.message === "Vendor not found") {
+        return res.status(404).json({ message: "Vendor not found" });
+      }
+      throw err;
+    }
+  });
+
   app.delete(api.vendors.delete.path, requireAdmin, async (req, res) => {
     await storage.deleteVendor(Number(req.params.id));
     res.status(204).send();

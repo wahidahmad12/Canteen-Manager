@@ -18,8 +18,12 @@ import {
   useCreateUser,
   useDeleteUser,
   useCurrentUser,
+  useVendors,
+  useCreateVendor,
+  useUpdateVendor,
+  useDeleteVendor,
 } from "@/hooks/use-reports";
-import { Loader2, Plus, Pencil, Trash2, Save, X, Lock, KeyRound, Building2, Users, UserPlus } from "lucide-react";
+import { Loader2, Plus, Pencil, Trash2, Save, X, Lock, KeyRound, Building2, Users, UserPlus, Store } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
 export default function Admin() {
@@ -59,6 +63,14 @@ export default function Admin() {
   const [newClientName, setNewClientName] = useState("");
   const [editingClientId, setEditingClientId] = useState<number | null>(null);
   const [editingClientName, setEditingClientName] = useState("");
+
+  const { data: vendorsList, isLoading: vendorsLoading } = useVendors();
+  const createVendorMutation = useCreateVendor();
+  const updateVendorMutation = useUpdateVendor();
+  const deleteVendorMutation = useDeleteVendor();
+  const [newVendorName, setNewVendorName] = useState("");
+  const [editingVendorId, setEditingVendorId] = useState<number | null>(null);
+  const [editingVendorName, setEditingVendorName] = useState("");
 
   const { data: currentUser } = useCurrentUser();
   const { data: userList, isLoading: usersLoading } = useUsers();
@@ -142,6 +154,37 @@ export default function Admin() {
       toast({ title: "Success", description: "Client deleted" });
     } catch (e) {
       toast({ title: "Error", description: "Failed to delete client", variant: "destructive" });
+    }
+  };
+
+  const handleCreateVendor = async () => {
+    if (!newVendorName.trim()) return;
+    try {
+      await createVendorMutation.mutateAsync({ name: newVendorName.trim() });
+      setNewVendorName("");
+      toast({ title: "Success", description: "Vendor added" });
+    } catch (e: any) {
+      toast({ title: "Error", description: e.message || "Failed to add vendor", variant: "destructive" });
+    }
+  };
+
+  const handleUpdateVendor = async (id: number) => {
+    if (!editingVendorName.trim()) return;
+    try {
+      await updateVendorMutation.mutateAsync({ id, name: editingVendorName.trim() });
+      setEditingVendorId(null);
+      toast({ title: "Success", description: "Vendor updated" });
+    } catch (e: any) {
+      toast({ title: "Error", description: e.message || "Failed to update vendor", variant: "destructive" });
+    }
+  };
+
+  const handleDeleteVendor = async (id: number) => {
+    try {
+      await deleteVendorMutation.mutateAsync(id);
+      toast({ title: "Success", description: "Vendor deleted" });
+    } catch (e: any) {
+      toast({ title: "Error", description: e.message || "Failed to delete vendor", variant: "destructive" });
     }
   };
 
@@ -393,6 +436,122 @@ export default function Admin() {
                         </td>
                       </tr>
                     ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Store className="w-5 h-5" />
+              Manage Vendors
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-6">
+            <div className="flex gap-2">
+              <Input
+                placeholder="New vendor name..."
+                value={newVendorName}
+                onChange={(e) => setNewVendorName(e.target.value)}
+                onKeyDown={(e) => e.key === 'Enter' && handleCreateVendor()}
+                data-testid="input-new-vendor"
+              />
+              <Button onClick={handleCreateVendor} disabled={createVendorMutation.isPending} data-testid="button-add-vendor">
+                {createVendorMutation.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4 mr-2" />}
+                Add Vendor
+              </Button>
+            </div>
+
+            {vendorsLoading ? (
+              <div className="flex justify-center py-8">
+                <Loader2 className="w-8 h-8 animate-spin text-primary" />
+              </div>
+            ) : (
+              <div className="border rounded-lg overflow-hidden">
+                <table className="w-full text-sm">
+                  <thead className="bg-muted/50 border-b">
+                    <tr>
+                      <th className="px-4 py-3 text-left">Vendor Name</th>
+                      <th className="px-4 py-3 text-right w-32">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y">
+                    {vendorsList?.map((vendor) => (
+                      <tr key={vendor.id} className="hover:bg-muted/30 transition-colors">
+                        <td className="px-4 py-3">
+                          {editingVendorId === vendor.id ? (
+                            <Input
+                              value={editingVendorName}
+                              onChange={(e) => setEditingVendorName(e.target.value)}
+                              onKeyDown={(e) => e.key === 'Enter' && handleUpdateVendor(vendor.id)}
+                              className="h-8"
+                              autoFocus
+                            />
+                          ) : (
+                            vendor.name
+                          )}
+                        </td>
+                        <td className="px-4 py-3 text-right">
+                          <div className="flex justify-end gap-1">
+                            {editingVendorId === vendor.id ? (
+                              <>
+                                <Button
+                                  size="icon"
+                                  variant="ghost"
+                                  className="h-8 w-8 text-green-600"
+                                  onClick={() => handleUpdateVendor(vendor.id)}
+                                  data-testid={`button-save-vendor-${vendor.id}`}
+                                >
+                                  <Save className="w-4 h-4" />
+                                </Button>
+                                <Button
+                                  size="icon"
+                                  variant="ghost"
+                                  className="h-8 w-8 text-muted-foreground"
+                                  onClick={() => setEditingVendorId(null)}
+                                >
+                                  <X className="w-4 h-4" />
+                                </Button>
+                              </>
+                            ) : (
+                              <>
+                                <Button
+                                  size="icon"
+                                  variant="ghost"
+                                  className="h-8 w-8"
+                                  onClick={() => {
+                                    setEditingVendorId(vendor.id);
+                                    setEditingVendorName(vendor.name);
+                                  }}
+                                  data-testid={`button-edit-vendor-${vendor.id}`}
+                                >
+                                  <Pencil className="w-4 h-4" />
+                                </Button>
+                                <Button
+                                  size="icon"
+                                  variant="ghost"
+                                  className="h-8 w-8 text-destructive hover:text-destructive hover:bg-destructive/10"
+                                  onClick={() => handleDeleteVendor(vendor.id)}
+                                  data-testid={`button-delete-vendor-${vendor.id}`}
+                                >
+                                  <Trash2 className="w-4 h-4" />
+                                </Button>
+                              </>
+                            )}
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                    {(!vendorsList || vendorsList.length === 0) && (
+                      <tr>
+                        <td colSpan={2} className="px-4 py-8 text-center text-muted-foreground italic">
+                          No vendors added yet
+                        </td>
+                      </tr>
+                    )}
                   </tbody>
                 </table>
               </div>

@@ -84,6 +84,7 @@ export interface IStorage {
   saveItemNames(names: string[], source: string, categoryId?: number): Promise<void>;
   getVendors(): Promise<Vendor[]>;
   createVendor(data: { name: string }): Promise<Vendor>;
+  updateVendor(id: number, data: { name: string }): Promise<Vendor>;
   deleteVendor(id: number): Promise<void>;
   getPurchaseInvoices(): Promise<PurchaseInvoiceWithItems[]>;
   getPurchaseInvoice(id: number): Promise<PurchaseInvoiceWithItems | undefined>;
@@ -618,6 +619,12 @@ export class DatabaseStorage implements IStorage {
 
   async createVendor(data: { name: string }): Promise<Vendor> {
     const [vendor] = await db.insert(vendors).values(data).returning();
+    return vendor;
+  }
+
+  async updateVendor(id: number, data: { name: string }): Promise<Vendor> {
+    const [vendor] = await db.update(vendors).set({ name: data.name }).where(eq(vendors.id, id)).returning();
+    if (!vendor) throw new Error("Vendor not found");
     return vendor;
   }
 

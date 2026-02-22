@@ -696,6 +696,29 @@ export function useCreateVendor() {
   });
 }
 
+export function useUpdateVendor() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ id, name }: { id: number; name: string }) => {
+      const url = buildUrl(api.vendors.update.path, { id });
+      const res = await fetch(url, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name }),
+        credentials: "include",
+      });
+      if (!res.ok) {
+        const error = await res.json();
+        throw new Error(error.message || "Failed to update vendor");
+      }
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: [api.vendors.list.path] });
+    },
+  });
+}
+
 export function useDeleteVendor() {
   const queryClient = useQueryClient();
   return useMutation({

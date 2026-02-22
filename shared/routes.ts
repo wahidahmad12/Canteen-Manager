@@ -436,6 +436,15 @@ export const api = {
         400: errorSchemas.validation,
       },
     },
+    update: {
+      method: 'PUT' as const,
+      path: '/api/vendors/:id' as const,
+      input: z.object({ name: z.string().min(1) }),
+      responses: {
+        200: selectVendorSchema,
+        404: errorSchemas.notFound,
+      },
+    },
     delete: {
       method: 'DELETE' as const,
       path: '/api/vendors/:id' as const,
