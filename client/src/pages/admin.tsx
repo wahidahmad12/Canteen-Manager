@@ -69,8 +69,14 @@ export default function Admin() {
   const updateVendorMutation = useUpdateVendor();
   const deleteVendorMutation = useDeleteVendor();
   const [newVendorName, setNewVendorName] = useState("");
+  const [newVendorPhone, setNewVendorPhone] = useState("");
+  const [newVendorAddress, setNewVendorAddress] = useState("");
+  const [newVendorGstNo, setNewVendorGstNo] = useState("");
   const [editingVendorId, setEditingVendorId] = useState<number | null>(null);
   const [editingVendorName, setEditingVendorName] = useState("");
+  const [editingVendorPhone, setEditingVendorPhone] = useState("");
+  const [editingVendorAddress, setEditingVendorAddress] = useState("");
+  const [editingVendorGstNo, setEditingVendorGstNo] = useState("");
 
   const { data: currentUser } = useCurrentUser();
   const { data: userList, isLoading: usersLoading } = useUsers();
@@ -160,8 +166,11 @@ export default function Admin() {
   const handleCreateVendor = async () => {
     if (!newVendorName.trim()) return;
     try {
-      await createVendorMutation.mutateAsync({ name: newVendorName.trim() });
+      await createVendorMutation.mutateAsync({ name: newVendorName.trim(), phone: newVendorPhone.trim(), address: newVendorAddress.trim(), gstNo: newVendorGstNo.trim() });
       setNewVendorName("");
+      setNewVendorPhone("");
+      setNewVendorAddress("");
+      setNewVendorGstNo("");
       toast({ title: "Success", description: "Vendor added" });
     } catch (e: any) {
       toast({ title: "Error", description: e.message || "Failed to add vendor", variant: "destructive" });
@@ -171,7 +180,7 @@ export default function Admin() {
   const handleUpdateVendor = async (id: number) => {
     if (!editingVendorName.trim()) return;
     try {
-      await updateVendorMutation.mutateAsync({ id, name: editingVendorName.trim() });
+      await updateVendorMutation.mutateAsync({ id, name: editingVendorName.trim(), phone: editingVendorPhone.trim(), address: editingVendorAddress.trim(), gstNo: editingVendorGstNo.trim() });
       setEditingVendorId(null);
       toast({ title: "Success", description: "Vendor updated" });
     } catch (e: any) {
@@ -451,15 +460,34 @@ export default function Admin() {
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-6">
-            <div className="flex gap-2">
-              <Input
-                placeholder="New vendor name..."
-                value={newVendorName}
-                onChange={(e) => setNewVendorName(e.target.value)}
-                onKeyDown={(e) => e.key === 'Enter' && handleCreateVendor()}
-                data-testid="input-new-vendor"
-              />
-              <Button onClick={handleCreateVendor} disabled={createVendorMutation.isPending} data-testid="button-add-vendor">
+            <div className="space-y-3 p-4 border rounded-lg bg-muted/20">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                <Input
+                  placeholder="Vendor name *"
+                  value={newVendorName}
+                  onChange={(e) => setNewVendorName(e.target.value)}
+                  data-testid="input-new-vendor"
+                />
+                <Input
+                  placeholder="Phone number"
+                  value={newVendorPhone}
+                  onChange={(e) => setNewVendorPhone(e.target.value)}
+                  data-testid="input-new-vendor-phone"
+                />
+                <Input
+                  placeholder="Address"
+                  value={newVendorAddress}
+                  onChange={(e) => setNewVendorAddress(e.target.value)}
+                  data-testid="input-new-vendor-address"
+                />
+                <Input
+                  placeholder="GST number"
+                  value={newVendorGstNo}
+                  onChange={(e) => setNewVendorGstNo(e.target.value)}
+                  data-testid="input-new-vendor-gstno"
+                />
+              </div>
+              <Button onClick={handleCreateVendor} disabled={createVendorMutation.isPending} data-testid="button-add-vendor" className="w-full sm:w-auto">
                 {createVendorMutation.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4 mr-2" />}
                 Add Vendor
               </Button>
@@ -470,90 +498,106 @@ export default function Admin() {
                 <Loader2 className="w-8 h-8 animate-spin text-primary" />
               </div>
             ) : (
-              <div className="border rounded-lg overflow-hidden">
-                <table className="w-full text-sm">
-                  <thead className="bg-muted/50 border-b">
-                    <tr>
-                      <th className="px-4 py-3 text-left">Vendor Name</th>
-                      <th className="px-4 py-3 text-right w-32">Actions</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y">
-                    {vendorsList?.map((vendor) => (
-                      <tr key={vendor.id} className="hover:bg-muted/30 transition-colors">
-                        <td className="px-4 py-3">
-                          {editingVendorId === vendor.id ? (
-                            <Input
-                              value={editingVendorName}
-                              onChange={(e) => setEditingVendorName(e.target.value)}
-                              onKeyDown={(e) => e.key === 'Enter' && handleUpdateVendor(vendor.id)}
-                              className="h-8"
-                              autoFocus
-                            />
-                          ) : (
-                            vendor.name
-                          )}
-                        </td>
-                        <td className="px-4 py-3 text-right">
-                          <div className="flex justify-end gap-1">
-                            {editingVendorId === vendor.id ? (
-                              <>
-                                <Button
-                                  size="icon"
-                                  variant="ghost"
-                                  className="h-8 w-8 text-green-600"
-                                  onClick={() => handleUpdateVendor(vendor.id)}
-                                  data-testid={`button-save-vendor-${vendor.id}`}
-                                >
-                                  <Save className="w-4 h-4" />
-                                </Button>
-                                <Button
-                                  size="icon"
-                                  variant="ghost"
-                                  className="h-8 w-8 text-muted-foreground"
-                                  onClick={() => setEditingVendorId(null)}
-                                >
-                                  <X className="w-4 h-4" />
-                                </Button>
-                              </>
-                            ) : (
-                              <>
-                                <Button
-                                  size="icon"
-                                  variant="ghost"
-                                  className="h-8 w-8"
-                                  onClick={() => {
-                                    setEditingVendorId(vendor.id);
-                                    setEditingVendorName(vendor.name);
-                                  }}
-                                  data-testid={`button-edit-vendor-${vendor.id}`}
-                                >
-                                  <Pencil className="w-4 h-4" />
-                                </Button>
-                                <Button
-                                  size="icon"
-                                  variant="ghost"
-                                  className="h-8 w-8 text-destructive hover:text-destructive hover:bg-destructive/10"
-                                  onClick={() => handleDeleteVendor(vendor.id)}
-                                  data-testid={`button-delete-vendor-${vendor.id}`}
-                                >
-                                  <Trash2 className="w-4 h-4" />
-                                </Button>
-                              </>
-                            )}
+              <div className="space-y-3">
+                {vendorsList?.map((vendor) => (
+                  <div key={vendor.id} className="border rounded-lg p-4 hover:bg-muted/30 transition-colors" data-testid={`vendor-card-${vendor.id}`}>
+                    {editingVendorId === vendor.id ? (
+                      <div className="space-y-3">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                          <Input
+                            value={editingVendorName}
+                            onChange={(e) => setEditingVendorName(e.target.value)}
+                            placeholder="Vendor name *"
+                            className="h-9"
+                            autoFocus
+                            data-testid={`input-edit-vendor-name-${vendor.id}`}
+                          />
+                          <Input
+                            value={editingVendorPhone}
+                            onChange={(e) => setEditingVendorPhone(e.target.value)}
+                            placeholder="Phone number"
+                            className="h-9"
+                            data-testid={`input-edit-vendor-phone-${vendor.id}`}
+                          />
+                          <Input
+                            value={editingVendorAddress}
+                            onChange={(e) => setEditingVendorAddress(e.target.value)}
+                            placeholder="Address"
+                            className="h-9"
+                            data-testid={`input-edit-vendor-address-${vendor.id}`}
+                          />
+                          <Input
+                            value={editingVendorGstNo}
+                            onChange={(e) => setEditingVendorGstNo(e.target.value)}
+                            placeholder="GST number"
+                            className="h-9"
+                            data-testid={`input-edit-vendor-gstno-${vendor.id}`}
+                          />
+                        </div>
+                        <div className="flex gap-2">
+                          <Button
+                            size="sm"
+                            className="text-white bg-green-600 hover:bg-green-700"
+                            onClick={() => handleUpdateVendor(vendor.id)}
+                            data-testid={`button-save-vendor-${vendor.id}`}
+                          >
+                            <Save className="w-4 h-4 mr-1" /> Save
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => setEditingVendorId(null)}
+                          >
+                            <X className="w-4 h-4 mr-1" /> Cancel
+                          </Button>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="flex-1 min-w-0">
+                          <div className="font-medium text-base" data-testid={`text-vendor-name-${vendor.id}`}>{vendor.name}</div>
+                          <div className="text-sm text-muted-foreground mt-1 space-y-0.5">
+                            {vendor.phone && <div>Phone: {vendor.phone}</div>}
+                            {vendor.address && <div>Address: {vendor.address}</div>}
+                            {vendor.gstNo && <div>GST: {vendor.gstNo}</div>}
+                            {!vendor.phone && !vendor.address && !vendor.gstNo && <div className="italic">No details added</div>}
                           </div>
-                        </td>
-                      </tr>
-                    ))}
-                    {(!vendorsList || vendorsList.length === 0) && (
-                      <tr>
-                        <td colSpan={2} className="px-4 py-8 text-center text-muted-foreground italic">
-                          No vendors added yet
-                        </td>
-                      </tr>
+                        </div>
+                        <div className="flex gap-1 shrink-0">
+                          <Button
+                            size="icon"
+                            variant="ghost"
+                            className="h-8 w-8"
+                            onClick={() => {
+                              setEditingVendorId(vendor.id);
+                              setEditingVendorName(vendor.name);
+                              setEditingVendorPhone(vendor.phone || "");
+                              setEditingVendorAddress(vendor.address || "");
+                              setEditingVendorGstNo(vendor.gstNo || "");
+                            }}
+                            data-testid={`button-edit-vendor-${vendor.id}`}
+                          >
+                            <Pencil className="w-4 h-4" />
+                          </Button>
+                          <Button
+                            size="icon"
+                            variant="ghost"
+                            className="h-8 w-8 text-destructive hover:text-destructive hover:bg-destructive/10"
+                            onClick={() => handleDeleteVendor(vendor.id)}
+                            data-testid={`button-delete-vendor-${vendor.id}`}
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </Button>
+                        </div>
+                      </div>
                     )}
-                  </tbody>
-                </table>
+                  </div>
+                ))}
+                {(!vendorsList || vendorsList.length === 0) && (
+                  <div className="py-8 text-center text-muted-foreground italic border rounded-lg">
+                    No vendors added yet
+                  </div>
+                )}
               </div>
             )}
           </CardContent>

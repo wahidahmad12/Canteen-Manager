@@ -135,6 +135,9 @@ export const purchaseRequestItems = pgTable("purchase_request_items", {
 export const vendors = pgTable("vendors", {
   id: serial("id").primaryKey(),
   name: text("name").notNull().unique(),
+  phone: text("phone").default(""),
+  address: text("address").default(""),
+  gstNo: text("gst_no").default(""),
   createdAt: timestamp("created_at").defaultNow(),
 });
 

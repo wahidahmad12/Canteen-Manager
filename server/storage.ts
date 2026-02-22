@@ -83,8 +83,8 @@ export interface IStorage {
   getSavedItemNames(source?: string): Promise<SavedItemName[]>;
   saveItemNames(names: string[], source: string, categoryId?: number): Promise<void>;
   getVendors(): Promise<Vendor[]>;
-  createVendor(data: { name: string }): Promise<Vendor>;
-  updateVendor(id: number, data: { name: string }): Promise<Vendor>;
+  createVendor(data: { name: string; phone?: string; address?: string; gstNo?: string }): Promise<Vendor>;
+  updateVendor(id: number, data: { name: string; phone?: string; address?: string; gstNo?: string }): Promise<Vendor>;
   deleteVendor(id: number): Promise<void>;
   getPurchaseInvoices(): Promise<PurchaseInvoiceWithItems[]>;
   getPurchaseInvoice(id: number): Promise<PurchaseInvoiceWithItems | undefined>;
@@ -617,13 +617,17 @@ export class DatabaseStorage implements IStorage {
     return await db.select().from(vendors).orderBy(vendors.name);
   }
 
-  async createVendor(data: { name: string }): Promise<Vendor> {
+  async createVendor(data: { name: string; phone?: string; address?: string; gstNo?: string }): Promise<Vendor> {
     const [vendor] = await db.insert(vendors).values(data).returning();
     return vendor;
   }
 
-  async updateVendor(id: number, data: { name: string }): Promise<Vendor> {
-    const [vendor] = await db.update(vendors).set({ name: data.name }).where(eq(vendors.id, id)).returning();
+  async updateVendor(id: number, data: { name: string; phone?: string; address?: string; gstNo?: string }): Promise<Vendor> {
+    const updateData: Record<string, any> = { name: data.name };
+    if (data.phone !== undefined) updateData.phone = data.phone;
+    if (data.address !== undefined) updateData.address = data.address;
+    if (data.gstNo !== undefined) updateData.gstNo = data.gstNo;
+    const [vendor] = await db.update(vendors).set(updateData).where(eq(vendors.id, id)).returning();
     if (!vendor) throw new Error("Vendor not found");
     return vendor;
   }
