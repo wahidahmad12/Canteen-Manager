@@ -88,10 +88,10 @@ export default function CashSeal() {
         expenseOtherAmount: otherExpense,
         totalGivenToAkbarAli: akbarAliAmount,
       });
-      toast({ title: "Success", description: "Cash Seal KPF saved successfully" });
+      toast({ title: "Success", description: "Daily Cash Seal KPF saved successfully" });
       navigate("/");
     } catch (e: any) {
-      toast({ title: "Error", description: e.message || "Failed to save Cash Seal KPF", variant: "destructive" });
+      toast({ title: "Error", description: e.message || "Failed to save Daily Cash Seal KPF", variant: "destructive" });
     }
   };
 

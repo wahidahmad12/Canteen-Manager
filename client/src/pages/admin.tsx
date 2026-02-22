@@ -91,7 +91,7 @@ export default function Admin() {
 
   const permissionLabels: Record<string, string> = {
     expense: 'Daily Cash Expance',
-    cashseal: 'Cash Seal',
+    cashseal: 'Daily Cash Seal',
     inventory: 'Daily Inventory',
     menu: 'Menu Manager',
     purchase: 'Purchase Request',

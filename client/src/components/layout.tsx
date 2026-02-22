@@ -16,7 +16,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
   const navItems = [
     { href: '/', label: 'Dashboard', icon: LayoutDashboard, perm: null },
     { href: '/new', label: 'Daily Cash Expance', icon: FilePlus, perm: 'expense' },
-    { href: '/cash-seal', label: 'Cash Seal', icon: Calculator, perm: 'cashseal' },
+    { href: '/cash-seal', label: 'Daily Cash Seal', icon: Calculator, perm: 'cashseal' },
     { href: '/inventory', label: 'Daily Inventory', icon: ClipboardList, perm: 'inventory' },
     { href: '/menu', label: 'Menu Manager', icon: UtensilsCrossed, perm: 'menu' },
     { href: '/purchase-request', label: 'Purchase Request', icon: ShoppingCart, perm: 'purchase' },

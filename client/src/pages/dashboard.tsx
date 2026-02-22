@@ -43,7 +43,7 @@ export default function Dashboard() {
 
   const tabItems = [
     { value: 'reports', label: 'Reports', icon: FileText, perm: 'expense' },
-    { value: 'cashseal', label: 'Cash Seal', icon: Calculator, perm: 'cashseal' },
+    { value: 'cashseal', label: 'Daily Cash Seal', icon: Calculator, perm: 'cashseal' },
     { value: 'inventory', label: 'Inventory', icon: ClipboardList, perm: 'inventory' },
     { value: 'menus', label: 'Menus', icon: UtensilsCrossed, perm: 'menu' },
     { value: 'purchase', label: 'Purchase', icon: ShoppingCart, perm: 'purchase' },
@@ -93,7 +93,7 @@ export default function Dashboard() {
             <Link href="/cash-seal">
               <Button variant="outline" className="h-9 sm:h-11 px-3 sm:px-5 rounded-xl text-xs sm:text-sm" data-testid="button-cash-seal">
                 <Calculator className="w-4 h-4 mr-1 sm:mr-2" />
-                Cash Seal
+                Daily Cash Seal
               </Button>
             </Link>
           )}
@@ -233,10 +233,10 @@ export default function Dashboard() {
                 <div className="w-16 h-16 bg-muted rounded-2xl flex items-center justify-center mx-auto mb-6">
                   <Calculator className="w-8 h-8 text-muted-foreground" />
                 </div>
-                <h3 className="text-xl font-bold mb-2">No Cash Seal records yet</h3>
+                <h3 className="text-xl font-bold mb-2">No Daily Cash Seal records yet</h3>
                 <p className="text-muted-foreground max-w-sm mx-auto mb-6">Start recording your daily cash seal income and expenses.</p>
                 <Link href="/cash-seal">
-                  <Button data-testid="button-go-cashseal">Create Cash Seal Record</Button>
+                  <Button data-testid="button-go-cashseal">Create Daily Cash Seal Record</Button>
                 </Link>
               </CardContent>
             </Card>
