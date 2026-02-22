@@ -338,13 +338,13 @@ export default function PurchaseInvoice() {
 
             <div className="space-y-3">
               <div className="flex items-center justify-between">
-                <h3 className="font-semibold text-lg">Invoice Items</h3>
+                <h3 className="font-semibold text-base sm:text-lg">Invoice Items</h3>
                 <Button size="sm" variant="outline" onClick={addItem} data-testid="button-add-item">
                   <Plus className="w-4 h-4 mr-1" /> Add Item
                 </Button>
               </div>
 
-              <div className="overflow-x-auto">
+              <div className="hidden md:block overflow-x-auto">
                 <table className="w-full text-sm">
                   <thead>
                     <tr className="border-b">
@@ -450,6 +450,108 @@ export default function PurchaseInvoice() {
                     </tr>
                   </tfoot>
                 </table>
+              </div>
+
+              <div className="md:hidden space-y-3">
+                {items.map((item, index) => (
+                  <div key={index} className="border rounded-xl p-3 space-y-3" data-testid={`mobile-invoice-item-${index}`}>
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm font-medium text-muted-foreground">Item #{index + 1}</span>
+                      <Button
+                        size="icon"
+                        variant="ghost"
+                        className="h-7 w-7 text-destructive"
+                        onClick={() => removeItem(index)}
+                        disabled={items.length <= 1}
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </Button>
+                    </div>
+                    <div className="space-y-2">
+                      <Label className="text-xs">Item Name</Label>
+                      <Input
+                        value={item.itemName}
+                        onChange={(e) => updateItem(index, "itemName", e.target.value)}
+                        placeholder="Enter item name"
+                        className="h-9"
+                      />
+                    </div>
+                    <div className="grid grid-cols-3 gap-2">
+                      <div className="space-y-1">
+                        <Label className="text-xs">UOM</Label>
+                        <Select value={item.uom} onValueChange={(v) => updateItem(index, "uom", v)}>
+                          <SelectTrigger className="h-9">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {UOM_OPTIONS.map(u => (
+                              <SelectItem key={u} value={u}>{u}</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div className="space-y-1">
+                        <Label className="text-xs">Qty</Label>
+                        <Input
+                          type="number"
+                          value={item.qty || ""}
+                          onChange={(e) => updateItem(index, "qty", Number(e.target.value) || 0)}
+                          className="h-9 text-right"
+                        />
+                      </div>
+                      <div className="space-y-1">
+                        <Label className="text-xs">Unit Price</Label>
+                        <Input
+                          type="number"
+                          value={item.unitPrice || ""}
+                          onChange={(e) => updateItem(index, "unitPrice", Number(e.target.value) || 0)}
+                          className="h-9 text-right"
+                        />
+                      </div>
+                    </div>
+                    <div className="grid grid-cols-3 gap-2">
+                      <div className="space-y-1">
+                        <Label className="text-xs">GST %</Label>
+                        <Select value={item.gstRate.toString()} onValueChange={(v) => updateItem(index, "gstRate", Number(v))}>
+                          <SelectTrigger className="h-9">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {GST_RATES.map(r => (
+                              <SelectItem key={r} value={r.toString()}>{r}%</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div className="space-y-1">
+                        <Label className="text-xs">GST Amt</Label>
+                        <div className="h-9 flex items-center justify-end font-mono text-sm bg-muted/20 rounded-md px-2">
+                          ₹{item.gstAmount.toFixed(2)}
+                        </div>
+                      </div>
+                      <div className="space-y-1">
+                        <Label className="text-xs font-semibold">Net Amt</Label>
+                        <div className="h-9 flex items-center justify-end font-mono text-sm font-semibold bg-primary/5 rounded-md px-2">
+                          ₹{item.netAmount.toFixed(2)}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+                <div className="border rounded-lg p-3 bg-muted/30 space-y-1">
+                  <div className="flex justify-between text-sm">
+                    <span>Total Price:</span>
+                    <span className="font-mono">₹{totals.totalPrice.toFixed(2)}</span>
+                  </div>
+                  <div className="flex justify-between text-sm">
+                    <span>Total GST:</span>
+                    <span className="font-mono">₹{totals.gstAmount.toFixed(2)}</span>
+                  </div>
+                  <div className="flex justify-between text-sm font-bold text-primary">
+                    <span>Grand Total:</span>
+                    <span className="font-mono">₹{totals.netAmount.toFixed(2)}</span>
+                  </div>
+                </div>
               </div>
             </div>
 

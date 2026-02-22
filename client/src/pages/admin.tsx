@@ -680,57 +680,101 @@ export default function Admin() {
                   <Loader2 className="w-8 h-8 animate-spin text-primary" />
                 </div>
               ) : (
-                <div className="border rounded-lg overflow-hidden overflow-x-auto">
-                  <table className="w-full text-xs sm:text-sm min-w-[600px]">
-                    <thead className="bg-muted/50 border-b">
-                      <tr>
-                        <th className="px-3 sm:px-4 py-3 text-left">Username</th>
-                        <th className="px-3 sm:px-4 py-3 text-left">Display Name</th>
-                        <th className="px-3 sm:px-4 py-3 text-left">Role</th>
-                        <th className="px-3 sm:px-4 py-3 text-left">Client</th>
-                        <th className="px-3 sm:px-4 py-3 text-left">Permissions</th>
-                        <th className="px-3 sm:px-4 py-3 text-right w-24">Actions</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y">
-                      {userList?.map((u) => (
-                        <tr key={u.id} className="hover:bg-muted/30 transition-colors">
-                          <td className="px-4 py-3 font-medium">{u.username}</td>
-                          <td className="px-4 py-3">{u.displayName}</td>
-                          <td className="px-4 py-3">
+                <>
+                  <div className="hidden md:block border rounded-lg overflow-hidden overflow-x-auto">
+                    <table className="w-full text-sm">
+                      <thead className="bg-muted/50 border-b">
+                        <tr>
+                          <th className="px-4 py-3 text-left">Username</th>
+                          <th className="px-4 py-3 text-left">Display Name</th>
+                          <th className="px-4 py-3 text-left">Role</th>
+                          <th className="px-4 py-3 text-left">Client</th>
+                          <th className="px-4 py-3 text-left">Permissions</th>
+                          <th className="px-4 py-3 text-right w-24">Actions</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y">
+                        {userList?.map((u) => (
+                          <tr key={u.id} className="hover:bg-muted/30 transition-colors">
+                            <td className="px-4 py-3 font-medium">{u.username}</td>
+                            <td className="px-4 py-3">{u.displayName}</td>
+                            <td className="px-4 py-3">
+                              <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${u.role === 'admin' ? 'bg-primary/10 text-primary' : 'bg-muted text-muted-foreground'}`}>
+                                {u.role}
+                              </span>
+                            </td>
+                            <td className="px-4 py-3 text-muted-foreground">{u.clientName || '-'}</td>
+                            <td className="px-4 py-3">
+                              <div className="flex flex-wrap gap-1">
+                                {(u.role === 'admin' ? Object.keys(permissionLabels) : (u.permissions || [])).map((p: string) => (
+                                  <span key={p} className="inline-flex items-center px-1.5 py-0.5 rounded text-xs bg-muted text-muted-foreground">
+                                    {permissionLabels[p] || p}
+                                  </span>
+                                ))}
+                              </div>
+                            </td>
+                            <td className="px-4 py-3 text-right">
+                              {u.username !== 'admin' && (
+                                <Button
+                                  size="icon"
+                                  variant="ghost"
+                                  className="h-8 w-8 text-destructive hover:text-destructive hover:bg-destructive/10"
+                                  onClick={() => handleDeleteUser(u.id)}
+                                  disabled={deleteUserMutation.isPending}
+                                  data-testid={`button-delete-user-${u.id}`}
+                                >
+                                  <Trash2 className="w-4 h-4" />
+                                </Button>
+                              )}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+
+                  <div className="md:hidden space-y-3">
+                    {userList?.map((u) => (
+                      <div key={u.id} className="border rounded-lg p-3 space-y-2" data-testid={`mobile-user-card-${u.id}`}>
+                        <div className="flex items-center justify-between">
+                          <div>
+                            <div className="font-medium">{u.displayName}</div>
+                            <div className="text-sm text-muted-foreground">@{u.username}</div>
+                          </div>
+                          <div className="flex items-center gap-2">
                             <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${u.role === 'admin' ? 'bg-primary/10 text-primary' : 'bg-muted text-muted-foreground'}`}>
                               {u.role}
                             </span>
-                          </td>
-                          <td className="px-4 py-3 text-muted-foreground">{u.clientName || '-'}</td>
-                          <td className="px-4 py-3">
-                            <div className="flex flex-wrap gap-1">
-                              {(u.role === 'admin' ? Object.keys(permissionLabels) : (u.permissions || [])).map((p: string) => (
-                                <span key={p} className="inline-flex items-center px-1.5 py-0.5 rounded text-xs bg-muted text-muted-foreground">
-                                  {permissionLabels[p] || p}
-                                </span>
-                              ))}
-                            </div>
-                          </td>
-                          <td className="px-4 py-3 text-right">
                             {u.username !== 'admin' && (
                               <Button
                                 size="icon"
                                 variant="ghost"
-                                className="h-8 w-8 text-destructive hover:text-destructive hover:bg-destructive/10"
+                                className="h-7 w-7 text-destructive hover:text-destructive hover:bg-destructive/10"
                                 onClick={() => handleDeleteUser(u.id)}
                                 disabled={deleteUserMutation.isPending}
-                                data-testid={`button-delete-user-${u.id}`}
+                                data-testid={`button-delete-user-mobile-${u.id}`}
                               >
-                                <Trash2 className="w-4 h-4" />
+                                <Trash2 className="w-3.5 h-3.5" />
                               </Button>
                             )}
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
+                          </div>
+                        </div>
+                        {u.clientName && (
+                          <div className="text-xs text-muted-foreground">
+                            Client: <span className="font-medium text-foreground">{u.clientName}</span>
+                          </div>
+                        )}
+                        <div className="flex flex-wrap gap-1">
+                          {(u.role === 'admin' ? Object.keys(permissionLabels) : (u.permissions || [])).map((p: string) => (
+                            <span key={p} className="inline-flex items-center px-1.5 py-0.5 rounded text-xs bg-muted text-muted-foreground">
+                              {permissionLabels[p] || p}
+                            </span>
+                          ))}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </>
               )}
             </CardContent>
           </Card>

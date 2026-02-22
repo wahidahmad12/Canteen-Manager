@@ -5,6 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { DatePicker } from "@/components/ui/date-picker";
 import { format } from "date-fns";
+import { Label } from "@/components/ui/label";
 import { Save, Loader2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useCreateInventory, useInventories } from "@/hooks/use-reports";
@@ -145,7 +146,7 @@ export default function DailyInventory() {
             <CardTitle className="text-center text-white text-lg">Kitchen Stock</CardTitle>
           </CardHeader>
           <CardContent className="p-0">
-            <div className="overflow-x-auto">
+            <div className="hidden sm:block overflow-x-auto">
               <table className="w-full border-collapse text-sm">
                 <thead>
                   <tr className="bg-blue-600 text-white">
@@ -203,6 +204,59 @@ export default function DailyInventory() {
                 </tbody>
               </table>
             </div>
+
+            <div className="sm:hidden p-3 space-y-3">
+              {kitchenStock.map((item, idx) => (
+                <div key={idx} className="border rounded-lg p-3 space-y-2" data-testid={`mobile-kitchen-item-${idx}`}>
+                  <div className="flex items-center justify-between">
+                    <span className="font-medium text-sm">{item.name}</span>
+                    <span className="text-xs text-muted-foreground bg-muted px-2 py-0.5 rounded">{item.unit}</span>
+                  </div>
+                  <div className="grid grid-cols-3 gap-2">
+                    <div className="space-y-1">
+                      <Label className="text-xs text-muted-foreground">Open</Label>
+                      <Input
+                        type="number"
+                        className="h-8 text-center bg-yellow-50"
+                        value={item.open || ""}
+                        onChange={(e) => updateKitchenStock(idx, "open", Number(e.target.value))}
+                        data-testid={`input-mobile-kitchen-open-${idx}`}
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <Label className="text-xs text-muted-foreground">Used</Label>
+                      <Input
+                        type="number"
+                        className="h-8 text-center bg-yellow-50"
+                        value={item.used || ""}
+                        onChange={(e) => updateKitchenStock(idx, "used", Number(e.target.value))}
+                        data-testid={`input-mobile-kitchen-used-${idx}`}
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <Label className="text-xs text-muted-foreground">Balance</Label>
+                      <Input
+                        type="number"
+                        className="h-8 text-center bg-yellow-50"
+                        value={item.balance || ""}
+                        readOnly
+                        data-testid={`input-mobile-kitchen-balance-${idx}`}
+                      />
+                    </div>
+                  </div>
+                  <div className="space-y-1">
+                    <Label className="text-xs text-muted-foreground">Remarks</Label>
+                    <Input
+                      className="h-8 text-sm"
+                      value={item.remarks}
+                      onChange={(e) => updateKitchenStock(idx, "remarks", e.target.value)}
+                      placeholder="Add remarks..."
+                      data-testid={`input-mobile-kitchen-remarks-${idx}`}
+                    />
+                  </div>
+                </div>
+              ))}
+            </div>
           </CardContent>
         </Card>
 
@@ -211,7 +265,7 @@ export default function DailyInventory() {
             <CardTitle className="text-center text-white text-lg">Biscuits</CardTitle>
           </CardHeader>
           <CardContent className="p-0">
-            <div className="overflow-x-auto">
+            <div className="hidden sm:block overflow-x-auto">
               <table className="w-full border-collapse text-sm">
                 <thead>
                   <tr className="bg-blue-600 text-white">
@@ -277,6 +331,69 @@ export default function DailyInventory() {
                   ))}
                 </tbody>
               </table>
+            </div>
+
+            <div className="sm:hidden p-3 space-y-3">
+              {biscuits.map((item, idx) => (
+                <div key={idx} className="border rounded-lg p-3 space-y-2" data-testid={`mobile-biscuit-item-${idx}`}>
+                  <div className="font-medium text-sm">{item.name}</div>
+                  <div className="grid grid-cols-2 gap-2">
+                    <div className="space-y-1">
+                      <Label className="text-xs text-muted-foreground">Exp. Date</Label>
+                      <DatePicker
+                        date={item.expDate ? new Date(item.expDate) : undefined}
+                        setDate={(d) => updateBiscuit(idx, "expDate", d ? format(d, "yyyy-MM-dd") : "")}
+                        className="h-8 text-xs"
+                        dateFormat="dd/MM/yy"
+                        placeholder="Exp Date"
+                        data-testid={`input-mobile-biscuit-expdate-${idx}`}
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <Label className="text-xs text-muted-foreground">Brand</Label>
+                      <Input
+                        className="h-8 text-sm"
+                        value={item.brand}
+                        onChange={(e) => updateBiscuit(idx, "brand", e.target.value)}
+                        placeholder="Brand..."
+                        data-testid={`input-mobile-biscuit-brand-${idx}`}
+                      />
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-3 gap-2">
+                    <div className="space-y-1">
+                      <Label className="text-xs text-muted-foreground">Given</Label>
+                      <Input
+                        type="number"
+                        className="h-8 text-center bg-yellow-50"
+                        value={item.given || ""}
+                        onChange={(e) => updateBiscuit(idx, "given", Number(e.target.value))}
+                        data-testid={`input-mobile-biscuit-given-${idx}`}
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <Label className="text-xs text-muted-foreground">Used</Label>
+                      <Input
+                        type="number"
+                        className="h-8 text-center bg-yellow-50"
+                        value={item.used || ""}
+                        onChange={(e) => updateBiscuit(idx, "used", Number(e.target.value))}
+                        data-testid={`input-mobile-biscuit-used-${idx}`}
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <Label className="text-xs text-muted-foreground">Balance</Label>
+                      <Input
+                        type="number"
+                        className="h-8 text-center bg-yellow-50"
+                        value={item.balance || ""}
+                        readOnly
+                        data-testid={`input-mobile-biscuit-balance-${idx}`}
+                      />
+                    </div>
+                  </div>
+                </div>
+              ))}
             </div>
           </CardContent>
         </Card>
