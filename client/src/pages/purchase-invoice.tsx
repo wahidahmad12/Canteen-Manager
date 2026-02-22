@@ -21,6 +21,7 @@ interface InvoiceItem {
   gstRate: number;
   gstAmount: number;
   netAmount: number;
+  lastEdited?: "unitPrice" | "netAmount";
 }
 
 const UOM_OPTIONS = ["Kg", "Gm", "Ltr", "Ml", "Pcs", "Pkt", "Box", "Dz", "Nos", "Bag", "Tin", "Cyl", "Plats", "Cup", "Set"];
@@ -132,11 +133,26 @@ export default function PurchaseInvoice() {
     }
   };
 
-  const recalcItem = (item: InvoiceItem): InvoiceItem => {
+  const recalcFromUnitPrice = (item: InvoiceItem): InvoiceItem => {
     const totalPrice = item.qty * item.unitPrice;
     const gstAmount = totalPrice * item.gstRate / 100;
     const netAmount = totalPrice + gstAmount;
     return { ...item, totalPrice, gstAmount, netAmount };
+  };
+
+  const recalcFromNetAmount = (item: InvoiceItem): InvoiceItem => {
+    const gstMultiplier = 1 + item.gstRate / 100;
+    const totalPrice = item.netAmount / gstMultiplier;
+    const unitPrice = item.qty > 0 ? totalPrice / item.qty : 0;
+    const gstAmount = item.netAmount - totalPrice;
+    return { ...item, unitPrice: Math.round(unitPrice * 100) / 100, totalPrice: Math.round(totalPrice * 100) / 100, gstAmount: Math.round(gstAmount * 100) / 100 };
+  };
+
+  const recalcItem = (item: InvoiceItem): InvoiceItem => {
+    if (item.lastEdited === "netAmount") {
+      return recalcFromNetAmount(item);
+    }
+    return recalcFromUnitPrice(item);
   };
 
   const addItem = () => {
@@ -161,11 +177,17 @@ export default function PurchaseInvoice() {
   const updateItem = (index: number, field: keyof InvoiceItem, value: any) => {
     const newItems = [...items];
     newItems[index] = { ...newItems[index], [field]: value };
+    if (field === "unitPrice") {
+      newItems[index].lastEdited = "unitPrice";
+    } else if (field === "netAmount") {
+      newItems[index].lastEdited = "netAmount";
+    }
     if (field === "itemName" && lastPrices) {
       const match = lastPrices.find(p => p.itemName.toLowerCase() === String(value).toLowerCase());
       if (match) {
         newItems[index].unitPrice = match.unitPrice;
         newItems[index].gstRate = match.gstRate;
+        newItems[index].lastEdited = "unitPrice";
       }
     }
     newItems[index] = recalcItem(newItems[index]);
@@ -208,7 +230,7 @@ export default function PurchaseInvoice() {
       vendorName,
       vendorInvoiceNo,
       date: format(date, "yyyy-MM-dd"),
-      items: validItems,
+      items: validItems.map(({ lastEdited, ...rest }) => rest),
     };
 
     if (editId) {
@@ -421,8 +443,14 @@ export default function PurchaseInvoice() {
                         <td className="py-2 px-1 text-right font-mono">
                           {item.gstAmount.toFixed(2)}
                         </td>
-                        <td className="py-2 px-1 text-right font-mono font-semibold">
-                          {item.netAmount.toFixed(2)}
+                        <td className="py-2 px-1">
+                          <Input
+                            type="number"
+                            value={item.netAmount || ""}
+                            onChange={(e) => updateItem(index, "netAmount", Number(e.target.value) || 0)}
+                            className="h-8 text-right font-mono font-semibold"
+                            data-testid={`input-net-amount-${index}`}
+                          />
                         </td>
                         <td className="py-2 px-1">
                           <Button
@@ -531,9 +559,12 @@ export default function PurchaseInvoice() {
                       </div>
                       <div className="space-y-1">
                         <Label className="text-xs font-semibold">Net Amt</Label>
-                        <div className="h-9 flex items-center justify-end font-mono text-sm font-semibold bg-primary/5 rounded-md px-2">
-                          ₹{item.netAmount.toFixed(2)}
-                        </div>
+                        <Input
+                          type="number"
+                          value={item.netAmount || ""}
+                          onChange={(e) => updateItem(index, "netAmount", Number(e.target.value) || 0)}
+                          className="h-9 text-right font-mono font-semibold"
+                        />
                       </div>
                     </div>
                   </div>
