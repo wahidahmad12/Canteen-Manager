@@ -136,36 +136,6 @@ const DEFAULT_FIXED_ITEMS = [
   { category: 'fixed', description: 'Transport/Parking', uom: 'Trip', qty: 0, rate: 10, amount: 0 },
 ];
 
-const DEFAULT_VEGETABLE_ITEMS = [
-  { category: 'vegetable', description: 'Potato (Aaloo)', uom: 'Kg', qty: 0, rate: 0, amount: 0 },
-  { category: 'vegetable', description: 'Onion (Payaaj)', uom: 'Kg', qty: 0, rate: 0, amount: 0 },
-  { category: 'vegetable', description: 'Ginger (Adarak)', uom: 'Kg', qty: 0, rate: 0, amount: 0 },
-  { category: 'vegetable', description: 'Garlic (Lahasun)', uom: 'Kg', qty: 0, rate: 0, amount: 0 },
-  { category: 'vegetable', description: 'Tomato (Tamaatar)', uom: 'Kg', qty: 0, rate: 0, amount: 0 },
-  { category: 'vegetable', description: 'Green Chilli (Haree Mirch)', uom: 'Kg', qty: 0, rate: 0, amount: 0 },
-  { category: 'vegetable', description: 'Lemon (Neemboo)', uom: 'Pcs', qty: 0, rate: 0, amount: 0 },
-  { category: 'vegetable', description: 'Corrinder Leef (Dhaniya Pattee)', uom: 'Kg', qty: 0, rate: 0, amount: 0 },
-  { category: 'vegetable', description: 'Cauliflower (Phool Gobhee)', uom: 'Kg', qty: 0, rate: 0, amount: 0 },
-  { category: 'vegetable', description: 'Cabbage (Patta Gobhee)', uom: 'Kg', qty: 0, rate: 0, amount: 0 },
-  { category: 'vegetable', description: 'Brinjal (Baingan)', uom: 'Kg', qty: 0, rate: 0, amount: 0 },
-  { category: 'vegetable', description: 'Spinach (Palak Saag)', uom: 'Kg', qty: 0, rate: 0, amount: 0 },
-  { category: 'vegetable', description: 'Papaya', uom: 'Kg', qty: 0, rate: 0, amount: 0 },
-  { category: 'vegetable', description: 'Bins / Barbatti', uom: 'Kg', qty: 0, rate: 0, amount: 0 },
-  { category: 'vegetable', description: 'Muli', uom: 'Kg', qty: 0, rate: 0, amount: 0 },
-  { category: 'vegetable', description: 'Carrot (Gaajar)', uom: 'Kg', qty: 0, rate: 0, amount: 0 },
-  { category: 'vegetable', description: 'Ledies Finger (Bhindee)', uom: 'Kg', qty: 0, rate: 0, amount: 0 },
-  { category: 'vegetable', description: 'Palwal', uom: 'Kg', qty: 0, rate: 0, amount: 0 },
-  { category: 'vegetable', description: 'Pampkin (Kumra/ Loki)', uom: 'Kg', qty: 0, rate: 0, amount: 0 },
-  { category: 'vegetable', description: 'Bitter Gourd (Karela)', uom: 'Kg', qty: 0, rate: 0, amount: 0 },
-  { category: 'vegetable', description: 'Cucumber (Kheera)', uom: 'Kg', qty: 0, rate: 0, amount: 0 },
-  { category: 'vegetable', description: 'Oal Gobhee (Knol Khol)', uom: 'Kg', qty: 0, rate: 0, amount: 0 },
-  { category: 'vegetable', description: 'Pea (Green Matar)', uom: 'Kg', qty: 0, rate: 0, amount: 0 },
-  { category: 'vegetable', description: 'Malabar Spinach (Poi Saag)', uom: 'Kg', qty: 0, rate: 0, amount: 0 },
-  { category: 'vegetable', description: 'Rich Gourd (Jhinga)', uom: 'Kg', qty: 0, rate: 0, amount: 0 },
-  { category: 'vegetable', description: 'Jackfruit (Katahal)', uom: 'Kg', qty: 0, rate: 0, amount: 0 },
-  { category: 'vegetable', description: 'Sweet Potato (shakarakand)', uom: 'Kg', qty: 0, rate: 0, amount: 0 },
-  { category: 'vegetable', description: 'Capcium', uom: 'Kg', qty: 0, rate: 0, amount: 0 },
-];
 
 export default function ReportForm() {
   const [location, setLocation] = useLocation();
@@ -192,7 +162,6 @@ export default function ReportForm() {
       receivedAmount: 0,
       items: [
         ...DEFAULT_FIXED_ITEMS.map(item => ({ ...item, reportId: 0 })),
-        ...DEFAULT_VEGETABLE_ITEMS.map(item => ({ ...item, reportId: 0 })),
       ],
     },
   });
