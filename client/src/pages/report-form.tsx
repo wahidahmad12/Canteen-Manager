@@ -308,7 +308,7 @@ export default function ReportForm() {
             </Button>
             <div className="min-w-0">
               <h1 className="text-lg sm:text-2xl font-bold tracking-tight truncate">
-                {isEditMode ? "Edit Report" : "Delay Cash Expanse"}
+                {isEditMode ? "Edit Report" : "Daily Cash Expance"}
               </h1>
               <p className="text-muted-foreground text-xs sm:text-sm">Fill in the daily expense details.</p>
             </div>

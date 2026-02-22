@@ -76,7 +76,7 @@ export default function Dashboard() {
     <Layout>
       <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-6 sm:mb-8 gap-3 sm:gap-4">
         <div>
-          <h2 className="text-2xl sm:text-3xl font-bold tracking-tight" data-testid="text-dashboard-title">Delay Cash Expanse</h2>
+          <h2 className="text-2xl sm:text-3xl font-bold tracking-tight" data-testid="text-dashboard-title">Daily Cash Expance</h2>
           <p className="text-muted-foreground mt-1 sm:mt-2 text-sm sm:text-base">Canteen Management</p>
         </div>
         <div className="flex gap-2 flex-wrap">
@@ -84,7 +84,7 @@ export default function Dashboard() {
             <Link href="/new">
               <Button className="h-9 sm:h-11 px-3 sm:px-5 rounded-xl shadow-lg shadow-primary/20 text-xs sm:text-sm" data-testid="button-new-report">
                 <Plus className="w-4 h-4 mr-1 sm:mr-2" />
-                <span className="hidden sm:inline">Delay Cash Expanse</span>
+                <span className="hidden sm:inline">Daily Cash Expance</span>
                 <span className="sm:hidden">New Report</span>
               </Button>
             </Link>

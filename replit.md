@@ -1,4 +1,4 @@
-# DJ KPF Delay Cash Expanse
+# DJ KPF Daily Cash Expance
 
 ## Overview
 

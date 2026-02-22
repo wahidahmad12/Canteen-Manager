@@ -90,7 +90,7 @@ export default function Admin() {
   const [newUserPerms, setNewUserPerms] = useState<string[]>(['expense', 'cashseal', 'inventory', 'menu', 'purchase']);
 
   const permissionLabels: Record<string, string> = {
-    expense: 'Delay Cash Expanse',
+    expense: 'Daily Cash Expance',
     cashseal: 'Cash Seal',
     inventory: 'Daily Inventory',
     menu: 'Menu Manager',

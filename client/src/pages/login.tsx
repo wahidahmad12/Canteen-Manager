@@ -51,7 +51,7 @@ export default function Login() {
             <img src={logoImg} alt="DJ Hospitality" className="w-20 h-20 rounded-2xl object-cover shadow-lg" />
           </div>
           <CardTitle className="text-2xl font-bold">DJ Hospitality</CardTitle>
-          <p className="text-sm text-muted-foreground mt-1">Delay Cash Expanse - Canteen Management</p>
+          <p className="text-sm text-muted-foreground mt-1">Daily Cash Expance - Canteen Management</p>
         </CardHeader>
         <CardContent>
           <form onSubmit={handleSubmit} className="space-y-4">
