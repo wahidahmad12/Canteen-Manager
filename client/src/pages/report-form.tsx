@@ -373,22 +373,22 @@ export default function ReportForm() {
                         <Input
                           type="number"
                           step="any"
+                          inputMode="decimal"
                           className="h-9 font-mono text-center no-spinner"
                           placeholder="0"
-                          key={`fixed-qty-m-${field.id}`}
-                          {...form.register(`items.${index}.qty` as const, {
-                            valueAsNumber: true,
-                            onChange: (e) => {
-                              const val = parseFloat(e.target.value) || 0;
-                              if (lastEdited[index] === 'amount') {
-                                const amt = Number(items[index]?.amount) || 0;
-                                if (val > 0) form.setValue(`items.${index}.rate`, amt / val);
-                              } else {
-                                const rate = Number(items[index]?.rate) || 0;
-                                form.setValue(`items.${index}.amount`, val * rate);
-                              }
+                          value={items[index]?.qty || ''}
+                          onFocus={(e) => e.target.select()}
+                          onChange={(e) => {
+                            const val = parseFloat(e.target.value) || 0;
+                            form.setValue(`items.${index}.qty`, val);
+                            if (lastEdited[index] === 'amount') {
+                              const amt = Number(items[index]?.amount) || 0;
+                              if (val > 0) form.setValue(`items.${index}.rate`, amt / val);
+                            } else {
+                              const rate = Number(items[index]?.rate) || 0;
+                              form.setValue(`items.${index}.amount`, val * rate);
                             }
-                          })}
+                          }}
                         />
                       </div>
                       <div>
@@ -396,18 +396,18 @@ export default function ReportForm() {
                         <Input
                           type="number"
                           step="any"
+                          inputMode="decimal"
                           className="h-9 font-mono text-center no-spinner"
                           placeholder="0"
-                          key={`fixed-rate-m-${field.id}`}
-                          {...form.register(`items.${index}.rate` as const, {
-                            valueAsNumber: true,
-                            onChange: (e) => {
-                              const val = parseFloat(e.target.value) || 0;
-                              const qty = Number(items[index]?.qty) || 0;
-                              setLastEdited(prev => ({ ...prev, [index]: 'rate' }));
-                              form.setValue(`items.${index}.amount`, qty * val);
-                            }
-                          })}
+                          value={items[index]?.rate || ''}
+                          onFocus={(e) => e.target.select()}
+                          onChange={(e) => {
+                            const val = parseFloat(e.target.value) || 0;
+                            const qty = Number(items[index]?.qty) || 0;
+                            form.setValue(`items.${index}.rate`, val);
+                            setLastEdited(prev => ({ ...prev, [index]: 'rate' }));
+                            form.setValue(`items.${index}.amount`, qty * val);
+                          }}
                         />
                       </div>
                       <div>
@@ -415,20 +415,20 @@ export default function ReportForm() {
                         <Input
                           type="number"
                           step="any"
+                          inputMode="decimal"
                           className="h-9 font-mono text-center no-spinner"
                           placeholder="0"
-                          key={`fixed-amt-m-${field.id}`}
-                          {...form.register(`items.${index}.amount` as const, {
-                            valueAsNumber: true,
-                            onChange: (e) => {
-                              const val = parseFloat(e.target.value) || 0;
-                              const qty = Number(items[index]?.qty) || 0;
-                              setLastEdited(prev => ({ ...prev, [index]: 'amount' }));
-                              if (qty > 0) {
-                                form.setValue(`items.${index}.rate`, val / qty);
-                              }
+                          value={items[index]?.amount || ''}
+                          onFocus={(e) => e.target.select()}
+                          onChange={(e) => {
+                            const val = parseFloat(e.target.value) || 0;
+                            const qty = Number(items[index]?.qty) || 0;
+                            form.setValue(`items.${index}.amount`, val);
+                            setLastEdited(prev => ({ ...prev, [index]: 'amount' }));
+                            if (qty > 0) {
+                              form.setValue(`items.${index}.rate`, val / qty);
                             }
-                          })}
+                          }}
                         />
                       </div>
                     </div>
@@ -619,22 +619,22 @@ export default function ReportForm() {
                         <Input
                           type="number"
                           step="any"
+                          inputMode="decimal"
                           className="h-9 font-mono text-center no-spinner"
                           placeholder="0"
-                          key={`veg-qty-m-${field.id}`}
-                          {...form.register(`items.${index}.qty` as const, {
-                            valueAsNumber: true,
-                            onChange: (e) => {
-                              const val = parseFloat(e.target.value) || 0;
-                              if (lastEdited[index] === 'amount') {
-                                const amt = Number(items[index]?.amount) || 0;
-                                if (val > 0) form.setValue(`items.${index}.rate`, amt / val);
-                              } else {
-                                const rate = Number(items[index]?.rate) || 0;
-                                form.setValue(`items.${index}.amount`, val * rate);
-                              }
+                          value={items[index]?.qty || ''}
+                          onFocus={(e) => e.target.select()}
+                          onChange={(e) => {
+                            const val = parseFloat(e.target.value) || 0;
+                            form.setValue(`items.${index}.qty`, val);
+                            if (lastEdited[index] === 'amount') {
+                              const amt = Number(items[index]?.amount) || 0;
+                              if (val > 0) form.setValue(`items.${index}.rate`, amt / val);
+                            } else {
+                              const rate = Number(items[index]?.rate) || 0;
+                              form.setValue(`items.${index}.amount`, val * rate);
                             }
-                          })}
+                          }}
                         />
                       </div>
                       <div>
@@ -642,18 +642,18 @@ export default function ReportForm() {
                         <Input
                           type="number"
                           step="any"
+                          inputMode="decimal"
                           className="h-9 font-mono text-center no-spinner"
                           placeholder="0"
-                          key={`veg-rate-m-${field.id}`}
-                          {...form.register(`items.${index}.rate` as const, {
-                            valueAsNumber: true,
-                            onChange: (e) => {
-                              const val = parseFloat(e.target.value) || 0;
-                              const qty = Number(items[index]?.qty) || 0;
-                              setLastEdited(prev => ({ ...prev, [index]: 'rate' }));
-                              form.setValue(`items.${index}.amount`, qty * val);
-                            }
-                          })}
+                          value={items[index]?.rate || ''}
+                          onFocus={(e) => e.target.select()}
+                          onChange={(e) => {
+                            const val = parseFloat(e.target.value) || 0;
+                            const qty = Number(items[index]?.qty) || 0;
+                            form.setValue(`items.${index}.rate`, val);
+                            setLastEdited(prev => ({ ...prev, [index]: 'rate' }));
+                            form.setValue(`items.${index}.amount`, qty * val);
+                          }}
                         />
                       </div>
                       <div>
@@ -661,20 +661,20 @@ export default function ReportForm() {
                         <Input
                           type="number"
                           step="any"
+                          inputMode="decimal"
                           className="h-9 font-mono text-center no-spinner"
                           placeholder="0"
-                          key={`veg-amt-m-${field.id}`}
-                          {...form.register(`items.${index}.amount` as const, {
-                            valueAsNumber: true,
-                            onChange: (e) => {
-                              const val = parseFloat(e.target.value) || 0;
-                              const qty = Number(items[index]?.qty) || 0;
-                              setLastEdited(prev => ({ ...prev, [index]: 'amount' }));
-                              if (qty > 0) {
-                                form.setValue(`items.${index}.rate`, val / qty);
-                              }
+                          value={items[index]?.amount || ''}
+                          onFocus={(e) => e.target.select()}
+                          onChange={(e) => {
+                            const val = parseFloat(e.target.value) || 0;
+                            const qty = Number(items[index]?.qty) || 0;
+                            form.setValue(`items.${index}.amount`, val);
+                            setLastEdited(prev => ({ ...prev, [index]: 'amount' }));
+                            if (qty > 0) {
+                              form.setValue(`items.${index}.rate`, val / qty);
                             }
-                          })}
+                          }}
                         />
                       </div>
                     </div>
