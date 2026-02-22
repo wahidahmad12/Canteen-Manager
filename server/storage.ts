@@ -36,7 +36,7 @@ import {
   type Vendor,
   type PurchaseInvoiceWithItems,
 } from "@shared/schema";
-import { eq, desc, lt } from "drizzle-orm";
+import { eq, desc, lt, sql } from "drizzle-orm";
 import bcrypt from "bcryptjs";
 
 export interface IStorage {
@@ -90,6 +90,7 @@ export interface IStorage {
   createPurchaseInvoice(data: { purchaseRequestId?: number | null; clientName: string; vendorName: string; vendorInvoiceNo: string; date: string; createdBy?: string; items: { itemName: string; uom: string; qty: number; unitPrice: number; totalPrice: number; gstRate: number; gstAmount: number; netAmount: number }[] }): Promise<PurchaseInvoiceWithItems>;
   updatePurchaseInvoice(id: number, data: { purchaseRequestId?: number | null; clientName?: string; vendorName?: string; vendorInvoiceNo?: string; date?: string; items?: { id?: number; itemName: string; uom: string; qty: number; unitPrice: number; totalPrice: number; gstRate: number; gstAmount: number; netAmount: number }[] }): Promise<PurchaseInvoiceWithItems>;
   deletePurchaseInvoice(id: number): Promise<void>;
+  getLastPurchasePrices(): Promise<{ itemName: string; unitPrice: number; gstRate: number }[]>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -718,6 +719,22 @@ export class DatabaseStorage implements IStorage {
 
   async deletePurchaseInvoice(id: number): Promise<void> {
     await db.delete(purchaseInvoices).where(eq(purchaseInvoices.id, id));
+  }
+
+  async getLastPurchasePrices(): Promise<{ itemName: string; unitPrice: number; gstRate: number }[]> {
+    const result = await db.execute(sql`
+      SELECT DISTINCT ON (item_name)
+        item_name,
+        unit_price,
+        gst_rate
+      FROM purchase_invoice_items
+      ORDER BY item_name, id DESC
+    `);
+    return (result.rows || []).map((row: any) => ({
+      itemName: row.item_name,
+      unitPrice: Number(row.unit_price) || 0,
+      gstRate: Number(row.gst_rate) || 0,
+    }));
   }
 }
 

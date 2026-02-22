@@ -712,6 +712,17 @@ export function useDeleteVendor() {
 
 // === PURCHASE INVOICE HOOKS ===
 
+export function useLastPurchasePrices() {
+  return useQuery({
+    queryKey: [api.purchaseInvoices.lastPrices.path],
+    queryFn: async () => {
+      const res = await fetch(api.purchaseInvoices.lastPrices.path, { credentials: "include" });
+      if (!res.ok) throw new Error("Failed to fetch last prices");
+      return res.json() as Promise<{ itemName: string; unitPrice: number; gstRate: number }[]>;
+    },
+  });
+}
+
 export function usePurchaseInvoices(options?: { enabled?: boolean }) {
   return useQuery({
     queryKey: [api.purchaseInvoices.list.path],

@@ -520,6 +520,17 @@ export const api = {
         404: errorSchemas.notFound,
       },
     },
+    lastPrices: {
+      method: 'GET' as const,
+      path: '/api/purchase-invoices/last-prices' as const,
+      responses: {
+        200: z.array(z.object({
+          itemName: z.string(),
+          unitPrice: z.number(),
+          gstRate: z.number(),
+        })),
+      },
+    },
   },
   users: {
     list: {

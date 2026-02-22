@@ -8,7 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { format } from "date-fns";
 import { FileText, Plus, Trash2, Save, Loader2, Store } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import { useCreatePurchaseInvoice, useClientNames, useVendors, useCreateVendor, usePurchaseRequests, usePurchaseInvoice, useUpdatePurchaseInvoice } from "@/hooks/use-reports";
+import { useCreatePurchaseInvoice, useClientNames, useVendors, useCreateVendor, usePurchaseRequests, usePurchaseInvoice, useUpdatePurchaseInvoice, useLastPurchasePrices } from "@/hooks/use-reports";
 import { useLocation, useRoute } from "wouter";
 import { Label } from "@/components/ui/label";
 
@@ -51,6 +51,7 @@ export default function PurchaseInvoice() {
   const { data: vendorsList } = useVendors();
   const createVendorMutation = useCreateVendor();
   const { data: purchaseRequests } = usePurchaseRequests();
+  const { data: lastPrices } = useLastPurchasePrices();
   const [showNewVendor, setShowNewVendor] = useState(false);
 
   const approvedPRs = (purchaseRequests || []).filter((pr: any) => pr.status === 'approved');
@@ -85,20 +86,23 @@ export default function PurchaseInvoice() {
         setPurchaseRequestId(pr.id);
         const approvedItems = (pr.items || []).filter((item: any) => item.approved);
         if (approvedItems.length > 0) {
-          setItems(approvedItems.map((item: any) => ({
-            itemName: item.itemName,
-            uom: item.uom,
-            qty: Number(item.approveQty) || 0,
-            unitPrice: 0,
-            totalPrice: 0,
-            gstRate: 0,
-            gstAmount: 0,
-            netAmount: 0,
-          })));
+          setItems(approvedItems.map((item: any) => {
+            const base: InvoiceItem = {
+              itemName: item.itemName,
+              uom: item.uom,
+              qty: Number(item.approveQty) || 0,
+              unitPrice: 0,
+              totalPrice: 0,
+              gstRate: 0,
+              gstAmount: 0,
+              netAmount: 0,
+            };
+            return applyLastPrice(base);
+          }));
         }
       }
     }
-  }, [fromPrId, purchaseRequests]);
+  }, [fromPrId, purchaseRequests, lastPrices]);
 
   const loadFromPR = (prId: string) => {
     if (!prId) {
@@ -111,16 +115,19 @@ export default function PurchaseInvoice() {
       setClientName(pr.clientName);
       const approvedItems = (pr.items || []).filter((item: any) => item.approved);
       if (approvedItems.length > 0) {
-        setItems(approvedItems.map((item: any) => ({
-          itemName: item.itemName,
-          uom: item.uom,
-          qty: Number(item.approveQty) || 0,
-          unitPrice: 0,
-          totalPrice: 0,
-          gstRate: 0,
-          gstAmount: 0,
-          netAmount: 0,
-        })));
+        setItems(approvedItems.map((item: any) => {
+          const base: InvoiceItem = {
+            itemName: item.itemName,
+            uom: item.uom,
+            qty: Number(item.approveQty) || 0,
+            unitPrice: 0,
+            totalPrice: 0,
+            gstRate: 0,
+            gstAmount: 0,
+            netAmount: 0,
+          };
+          return applyLastPrice(base);
+        }));
       }
     }
   };
@@ -141,9 +148,26 @@ export default function PurchaseInvoice() {
     setItems(items.filter((_, i) => i !== index));
   };
 
+  const applyLastPrice = (item: InvoiceItem): InvoiceItem => {
+    if (!lastPrices || item.unitPrice > 0) return item;
+    const match = lastPrices.find(p => p.itemName.toLowerCase() === item.itemName.toLowerCase());
+    if (match) {
+      const updated = { ...item, unitPrice: match.unitPrice, gstRate: match.gstRate };
+      return recalcItem(updated);
+    }
+    return item;
+  };
+
   const updateItem = (index: number, field: keyof InvoiceItem, value: any) => {
     const newItems = [...items];
     newItems[index] = { ...newItems[index], [field]: value };
+    if (field === "itemName" && lastPrices) {
+      const match = lastPrices.find(p => p.itemName.toLowerCase() === String(value).toLowerCase());
+      if (match) {
+        newItems[index].unitPrice = match.unitPrice;
+        newItems[index].gstRate = match.gstRate;
+      }
+    }
     newItems[index] = recalcItem(newItems[index]);
     setItems(newItems);
   };

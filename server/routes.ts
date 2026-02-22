@@ -441,6 +441,11 @@ export async function registerRoutes(
   });
 
   // === PURCHASE INVOICE ROUTES ===
+  app.get(api.purchaseInvoices.lastPrices.path, requirePermission('purchase'), async (req, res) => {
+    const prices = await storage.getLastPurchasePrices();
+    res.json(prices);
+  });
+
   app.get(api.purchaseInvoices.list.path, requirePermission('purchase'), async (req, res) => {
     const invoices = await storage.getPurchaseInvoices();
     if (req.session.role !== 'admin') {
