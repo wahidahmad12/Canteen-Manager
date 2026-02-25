@@ -5,11 +5,17 @@ import * as schema from "@shared/schema";
 
 const { Pool } = pg;
 
-if (!process.env.DATABASE_URL) {
+const databaseUrl = process.env.GOOGLE_DATABASE_URL || process.env.DATABASE_URL;
+
+if (!databaseUrl) {
   throw new Error(
-    "DATABASE_URL must be set. Did you forget to provision a database?",
+    "Database connection URL must be set. Configure GOOGLE_DATABASE_URL or DATABASE_URL.",
   );
 }
 
-export const pool = new Pool({ connectionString: process.env.DATABASE_URL });
+const isGoogleCloud = !!process.env.GOOGLE_DATABASE_URL;
+export const pool = new Pool({
+  connectionString: databaseUrl,
+  ssl: isGoogleCloud ? { rejectUnauthorized: false } : undefined,
+});
 export const db = drizzle(pool, { schema });

@@ -39,3 +39,8 @@ author = "agent"
 task = "shell.exec"
 args = "npm run dev"
 waitForPort = 5000
+
+[userenv]
+
+[userenv.shared]
+GOOGLE_DATABASE_URL = "postgresql://postgres:Shi%401251995@34.100.151.246:5432/djpkf"

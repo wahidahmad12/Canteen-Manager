@@ -67,7 +67,7 @@ Preferred communication style: Simple, everyday language.
 
 ## External Dependencies
 
-- **PostgreSQL** — Primary database, connected via `DATABASE_URL` environment variable. Required for the app to start
+- **PostgreSQL** — Primary database hosted on **Google Cloud SQL** (PostgreSQL 16). Connected via `GOOGLE_DATABASE_URL` environment variable (falls back to `DATABASE_URL` if not set). SSL is enabled with `rejectUnauthorized: false` for Google Cloud. The database name is `djpkf` on host `34.100.151.246`
 - **Google Fonts** — Loads Inter, DM Sans, Fira Code, Geist Mono, and Architects Daughter font families from Google Fonts CDN
 - **Authentication** — Session-based auth with bcrypt password hashing. Admin creates user accounts grouped by client name. Default admin: username "admin", password "admin123"
 - **Session Storage** — PostgreSQL-backed sessions via connect-pg-simple with 30-day cookie lifetime

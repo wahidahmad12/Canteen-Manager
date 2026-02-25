@@ -4,6 +4,7 @@ import { serveStatic } from "./static";
 import { createServer } from "http";
 import session from "express-session";
 import connectPgSimple from "connect-pg-simple";
+import { pool } from "./db";
 
 const app = express();
 const httpServer = createServer(app);
@@ -39,7 +40,7 @@ const PgStore = connectPgSimple(session);
 app.use(
   session({
     store: new PgStore({
-      conString: process.env.DATABASE_URL,
+      pool: pool,
       createTableIfMissing: true,
     }),
     secret: process.env.SESSION_SECRET || "kpf-delay-cash-expanse-secret",
