@@ -92,6 +92,12 @@ export default function PurchaseInvoicePDF() {
                 <span className="ml-2 font-semibold print:text-black">{inv.vendorInvoiceNo}</span>
               </div>
             )}
+            <div className={inv.vendorInvoiceNo ? "text-right" : ""}>
+              <span className="text-muted-foreground print:text-gray-500">Payment:</span>
+              <span className={`ml-2 font-semibold ${inv.paymentGiven ? 'text-green-600 print:text-green-700' : 'text-red-600 print:text-red-700'}`}>
+                {inv.paymentGiven ? 'Paid' : 'Unpaid'}
+              </span>
+            </div>
           </div>
 
           <table className="w-full text-sm border-collapse mb-6">

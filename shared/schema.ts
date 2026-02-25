@@ -153,6 +153,7 @@ export const purchaseInvoices = pgTable("purchase_invoices", {
   totalAmount: numeric("total_amount", { precision: 12, scale: 2 }).default("0"),
   totalGst: numeric("total_gst", { precision: 12, scale: 2 }).default("0"),
   grandTotal: numeric("grand_total", { precision: 12, scale: 2 }).default("0"),
+  paymentGiven: boolean("payment_given").default(false).notNull(),
   createdBy: text("created_by"),
   createdAt: timestamp("created_at").defaultNow(),
 });

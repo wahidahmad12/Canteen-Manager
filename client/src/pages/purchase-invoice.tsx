@@ -53,6 +53,7 @@ export default function PurchaseInvoice() {
   const createVendorMutation = useCreateVendor();
   const { data: purchaseRequests } = usePurchaseRequests();
   const { data: lastPrices } = useLastPurchasePrices();
+  const [paymentGiven, setPaymentGiven] = useState(false);
   const [showNewVendor, setShowNewVendor] = useState(false);
 
   const approvedPRs = (purchaseRequests || []).filter((pr: any) => pr.status === 'approved');
@@ -64,6 +65,7 @@ export default function PurchaseInvoice() {
       setVendorName(existingInvoice.vendorName);
       setVendorInvoiceNo(existingInvoice.vendorInvoiceNo || "");
       setPurchaseRequestId(existingInvoice.purchaseRequestId || null);
+      setPaymentGiven(existingInvoice.paymentGiven || false);
       if (existingInvoice.items?.length > 0) {
         setItems(existingInvoice.items.map((item: any) => ({
           itemName: item.itemName,
@@ -230,6 +232,7 @@ export default function PurchaseInvoice() {
       vendorName,
       vendorInvoiceNo,
       date: format(date, "yyyy-MM-dd"),
+      paymentGiven,
       items: validItems.map(({ lastEdited, ...rest }) => rest),
     };
 
@@ -590,6 +593,22 @@ export default function PurchaseInvoice() {
               <Button size="sm" variant="outline" onClick={addItem} className="w-full sm:w-auto" data-testid="button-add-item-bottom">
                 <Plus className="w-4 h-4 mr-1" /> Add Item
               </Button>
+            </div>
+
+            <div className="flex items-center gap-3 pt-4 px-1">
+              <button
+                type="button"
+                role="switch"
+                aria-checked={paymentGiven}
+                onClick={() => setPaymentGiven(!paymentGiven)}
+                className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors ${paymentGiven ? 'bg-green-600' : 'bg-gray-300 dark:bg-gray-600'}`}
+                data-testid="switch-payment-given"
+              >
+                <span className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow-lg ring-0 transition-transform ${paymentGiven ? 'translate-x-5' : 'translate-x-0'}`} />
+              </button>
+              <Label className={`text-sm font-medium cursor-pointer ${paymentGiven ? 'text-green-700 dark:text-green-400' : 'text-muted-foreground'}`} onClick={() => setPaymentGiven(!paymentGiven)}>
+                {paymentGiven ? "Payment Given ✓" : "Payment Not Given"}
+              </Label>
             </div>
 
             <div className="flex justify-end gap-3 pt-4">

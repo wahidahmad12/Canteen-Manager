@@ -489,6 +489,7 @@ export const api = {
         vendorName: z.string().min(1),
         vendorInvoiceNo: z.string().default(""),
         date: z.string(),
+        paymentGiven: z.boolean().default(false),
         items: z.array(z.object({
           itemName: z.string().min(1),
           uom: z.string().min(1),
@@ -514,6 +515,7 @@ export const api = {
         vendorName: z.string().min(1).optional(),
         vendorInvoiceNo: z.string().optional(),
         date: z.string().optional(),
+        paymentGiven: z.boolean().optional(),
         items: z.array(z.object({
           id: z.number().optional(),
           itemName: z.string().min(1),

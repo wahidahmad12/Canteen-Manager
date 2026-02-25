@@ -625,6 +625,7 @@ export default function Dashboard() {
                       <th>Invoice No</th>
                       <th>Date</th>
                       <th className="text-right">Grand Total</th>
+                      <th className="text-center">Payment</th>
                       <th className="text-right">Actions</th>
                     </tr>
                   </thead>
@@ -647,6 +648,11 @@ export default function Dashboard() {
                         </td>
                         <td className="text-right font-mono font-semibold text-primary">
                           {Number(inv.grandTotal).toFixed(2)}
+                        </td>
+                        <td className="text-center">
+                          <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${inv.paymentGiven ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400' : 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400'}`} data-testid={`badge-payment-${inv.id}`}>
+                            {inv.paymentGiven ? 'Paid' : 'Unpaid'}
+                          </span>
                         </td>
                         <td className="text-right">
                           <div className="flex items-center justify-end gap-2">
