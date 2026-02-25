@@ -613,3 +613,82 @@ async function seedDatabase() {
 
 // Run seeder
 setTimeout(seedDatabase, 1000);
+
+// Auto-migrate production data from old Replit DB to Google Cloud on startup
+async function migrateProductionData() {
+  const oldDbUrl = process.env.DATABASE_URL;
+  const googleDbUrl = process.env.GOOGLE_DATABASE_URL;
+  if (!oldDbUrl || !googleDbUrl) return;
+
+  try {
+    const pg = await import("pg");
+    const oldPool = new pg.default.Pool({ connectionString: oldDbUrl });
+    const newPool = new pg.default.Pool({ connectionString: googleDbUrl, ssl: { rejectUnauthorized: false } });
+
+    // Check if migration is needed by comparing counts
+    const oldPR = await oldPool.query('SELECT COUNT(*) as c FROM purchase_requests');
+    const newPR = await newPool.query('SELECT COUNT(*) as c FROM purchase_requests');
+    const oldPI = await oldPool.query('SELECT COUNT(*) as c FROM purchase_invoices');
+    const newPI = await newPool.query('SELECT COUNT(*) as c FROM purchase_invoices');
+
+    const oldPRCount = parseInt(oldPR.rows[0].c);
+    const newPRCount = parseInt(newPR.rows[0].c);
+    const oldPICount = parseInt(oldPI.rows[0].c);
+    const newPICount = parseInt(newPI.rows[0].c);
+
+    console.log(`[migration] Old DB: ${oldPRCount} PRs, ${oldPICount} invoices | Google Cloud: ${newPRCount} PRs, ${newPICount} invoices`);
+
+    if (oldPRCount <= newPRCount && oldPICount <= newPICount) {
+      console.log("[migration] Google Cloud already has equal or more data. Skipping.");
+      await oldPool.end();
+      await newPool.end();
+      return;
+    }
+
+    console.log("[migration] Old production DB has more data. Transferring...");
+
+    const orderedTables = [
+      "admin_settings", "users", "vegetable_items", "vendors", "client_names",
+      "saved_item_names", "daily_reports", "expense_items", "cash_seals",
+      "daily_inventory", "kitchen_stock_items", "biscuit_items",
+      "purchase_requests", "purchase_request_items",
+      "purchase_invoices", "purchase_invoice_items", "saved_menus"
+    ];
+
+    for (const table of orderedTables) {
+      try {
+        const sourceData = await oldPool.query(`SELECT * FROM ${table}`);
+        if (sourceData.rows.length === 0) continue;
+        await newPool.query(`DELETE FROM ${table}`);
+        const columns = Object.keys(sourceData.rows[0]);
+        const quotedColumns = columns.map((c: string) => `"${c}"`).join(", ");
+        let transferred = 0;
+        for (const row of sourceData.rows) {
+          const values = columns.map((_: string, i: number) => `$${i + 1}`).join(", ");
+          const params = columns.map((c: string) => row[c]);
+          try {
+            await newPool.query(`INSERT INTO ${table} (${quotedColumns}) VALUES (${values})`, params);
+            transferred++;
+          } catch (e) {}
+        }
+        console.log(`[migration] ${table}: ${transferred}/${sourceData.rows.length} rows`);
+      } catch (e) {}
+    }
+
+    // Reset sequences
+    for (const table of orderedTables) {
+      try {
+        await newPool.query(`SELECT setval(pg_get_serial_sequence('${table}', 'id'), COALESCE((SELECT MAX(id) FROM ${table}), 1))`);
+      } catch (e) {}
+    }
+
+    console.log("[migration] Production data transfer complete!");
+    await oldPool.end();
+    await newPool.end();
+  } catch (err) {
+    console.error("[migration] Error:", err);
+  }
+}
+
+// Run migration after a delay to let the server start
+setTimeout(migrateProductionData, 5000);
