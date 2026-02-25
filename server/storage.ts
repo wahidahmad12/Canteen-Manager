@@ -88,8 +88,8 @@ export interface IStorage {
   deleteVendor(id: number): Promise<void>;
   getPurchaseInvoices(): Promise<PurchaseInvoiceWithItems[]>;
   getPurchaseInvoice(id: number): Promise<PurchaseInvoiceWithItems | undefined>;
-  createPurchaseInvoice(data: { purchaseRequestId?: number | null; clientName: string; vendorName: string; vendorInvoiceNo: string; date: string; createdBy?: string; items: { itemName: string; uom: string; qty: number; unitPrice: number; totalPrice: number; gstRate: number; gstAmount: number; netAmount: number }[] }): Promise<PurchaseInvoiceWithItems>;
-  updatePurchaseInvoice(id: number, data: { purchaseRequestId?: number | null; clientName?: string; vendorName?: string; vendorInvoiceNo?: string; date?: string; items?: { id?: number; itemName: string; uom: string; qty: number; unitPrice: number; totalPrice: number; gstRate: number; gstAmount: number; netAmount: number }[] }): Promise<PurchaseInvoiceWithItems>;
+  createPurchaseInvoice(data: { purchaseRequestId?: number | null; clientName: string; vendorName: string; vendorInvoiceNo: string; date: string; paymentGiven?: boolean; createdBy?: string; items: { itemName: string; uom: string; qty: number; unitPrice: number; totalPrice: number; gstRate: number; gstAmount: number; netAmount: number }[] }): Promise<PurchaseInvoiceWithItems>;
+  updatePurchaseInvoice(id: number, data: { purchaseRequestId?: number | null; clientName?: string; vendorName?: string; vendorInvoiceNo?: string; date?: string; paymentGiven?: boolean; items?: { id?: number; itemName: string; uom: string; qty: number; unitPrice: number; totalPrice: number; gstRate: number; gstAmount: number; netAmount: number }[] }): Promise<PurchaseInvoiceWithItems>;
   deletePurchaseInvoice(id: number): Promise<void>;
   getLastPurchasePrices(): Promise<{ itemName: string; unitPrice: number; gstRate: number }[]>;
   getLastVegetablePrices(): Promise<{ description: string; rate: number }[]>;
@@ -652,7 +652,7 @@ export class DatabaseStorage implements IStorage {
     return { ...inv, items };
   }
 
-  async createPurchaseInvoice(data: { purchaseRequestId?: number | null; clientName: string; vendorName: string; vendorInvoiceNo: string; date: string; createdBy?: string; items: { itemName: string; uom: string; qty: number; unitPrice: number; totalPrice: number; gstRate: number; gstAmount: number; netAmount: number }[] }): Promise<PurchaseInvoiceWithItems> {
+  async createPurchaseInvoice(data: { purchaseRequestId?: number | null; clientName: string; vendorName: string; vendorInvoiceNo: string; date: string; paymentGiven?: boolean; createdBy?: string; items: { itemName: string; uom: string; qty: number; unitPrice: number; totalPrice: number; gstRate: number; gstAmount: number; netAmount: number }[] }): Promise<PurchaseInvoiceWithItems> {
     return await db.transaction(async (tx) => {
       const totalAmount = data.items.reduce((sum, i) => sum + i.totalPrice, 0);
       const totalGst = data.items.reduce((sum, i) => sum + i.gstAmount, 0);
@@ -663,6 +663,7 @@ export class DatabaseStorage implements IStorage {
         vendorName: data.vendorName,
         vendorInvoiceNo: data.vendorInvoiceNo || "",
         date: data.date,
+        paymentGiven: data.paymentGiven || false,
         createdBy: data.createdBy || null,
         totalAmount: totalAmount.toString(),
         totalGst: totalGst.toString(),
@@ -688,7 +689,7 @@ export class DatabaseStorage implements IStorage {
     });
   }
 
-  async updatePurchaseInvoice(id: number, data: { purchaseRequestId?: number | null; clientName?: string; vendorName?: string; vendorInvoiceNo?: string; date?: string; items?: { id?: number; itemName: string; uom: string; qty: number; unitPrice: number; totalPrice: number; gstRate: number; gstAmount: number; netAmount: number }[] }): Promise<PurchaseInvoiceWithItems> {
+  async updatePurchaseInvoice(id: number, data: { purchaseRequestId?: number | null; clientName?: string; vendorName?: string; vendorInvoiceNo?: string; date?: string; paymentGiven?: boolean; items?: { id?: number; itemName: string; uom: string; qty: number; unitPrice: number; totalPrice: number; gstRate: number; gstAmount: number; netAmount: number }[] }): Promise<PurchaseInvoiceWithItems> {
     return await db.transaction(async (tx) => {
       const updateFields: any = {};
       if (data.clientName) updateFields.clientName = data.clientName;
@@ -696,6 +697,7 @@ export class DatabaseStorage implements IStorage {
       if (data.vendorInvoiceNo !== undefined) updateFields.vendorInvoiceNo = data.vendorInvoiceNo;
       if (data.date) updateFields.date = data.date;
       if (data.purchaseRequestId !== undefined) updateFields.purchaseRequestId = data.purchaseRequestId;
+      if (data.paymentGiven !== undefined) updateFields.paymentGiven = data.paymentGiven;
       if (data.items) {
         const totalAmount = data.items.reduce((sum, i) => sum + i.totalPrice, 0);
         const totalGst = data.items.reduce((sum, i) => sum + i.gstAmount, 0);
