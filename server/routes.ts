@@ -44,14 +44,19 @@ export async function registerRoutes(
   app: Express
 ): Promise<Server> {
 
-  // Temporary data export endpoint for migration
+  // Temporary data export endpoint for migration - reads from old Replit production DB
   app.get("/api/export-all-data", async (req: Request, res: Response) => {
     const secret = req.query.key;
     if (secret !== "migrate-to-gcloud-2026") {
       return res.status(403).json({ message: "Forbidden" });
     }
     try {
-      const { db } = await import("./db");
+      const pg = await import("pg");
+      const oldDbUrl = process.env.DATABASE_URL;
+      if (!oldDbUrl) {
+        return res.status(500).json({ error: "No DATABASE_URL found" });
+      }
+      const oldPool = new pg.default.Pool({ connectionString: oldDbUrl });
       const tables = [
         "admin_settings", "users", "vegetable_items", "vendors", "client_names",
         "saved_item_names", "daily_reports", "expense_items", "cash_seals",
@@ -61,9 +66,14 @@ export async function registerRoutes(
       ];
       const data: Record<string, any[]> = {};
       for (const table of tables) {
-        const result = await db.execute(`SELECT * FROM "${table}"`);
-        data[table] = result.rows as any[];
+        try {
+          const result = await oldPool.query(`SELECT * FROM ${table}`);
+          data[table] = result.rows;
+        } catch (e) {
+          data[table] = [];
+        }
       }
+      await oldPool.end();
       res.json(data);
     } catch (err: any) {
       res.status(500).json({ error: err.message });
