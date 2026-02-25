@@ -44,6 +44,32 @@ export async function registerRoutes(
   app: Express
 ): Promise<Server> {
 
+  // Temporary data export endpoint for migration
+  app.get("/api/export-all-data", async (req: Request, res: Response) => {
+    const secret = req.query.key;
+    if (secret !== "migrate-to-gcloud-2026") {
+      return res.status(403).json({ message: "Forbidden" });
+    }
+    try {
+      const { db } = await import("./db");
+      const tables = [
+        "admin_settings", "users", "vegetable_items", "vendors", "client_names",
+        "saved_item_names", "daily_reports", "expense_items", "cash_seals",
+        "daily_inventory", "kitchen_stock_items", "biscuit_items",
+        "purchase_requests", "purchase_request_items",
+        "purchase_invoices", "purchase_invoice_items", "saved_menus"
+      ];
+      const data: Record<string, any[]> = {};
+      for (const table of tables) {
+        const result = await db.execute(`SELECT * FROM "${table}"`);
+        data[table] = result.rows as any[];
+      }
+      res.json(data);
+    } catch (err: any) {
+      res.status(500).json({ error: err.message });
+    }
+  });
+
   // === AUTH ROUTES (no auth required) ===
   app.post(api.auth.login.path, async (req, res) => {
     try {
@@ -613,29 +639,3 @@ async function seedDatabase() {
 
 // Run seeder
 setTimeout(seedDatabase, 1000);
-
-// Temporary data export endpoint for migration
-app.get("/api/export-all-data", async (req: Request, res: Response) => {
-  const secret = req.query.key;
-  if (secret !== "migrate-to-gcloud-2026") {
-    return res.status(403).json({ message: "Forbidden" });
-  }
-  try {
-    const { db } = await import("./db");
-    const tables = [
-      "admin_settings", "users", "vegetable_items", "vendors", "client_names",
-      "saved_item_names", "daily_reports", "expense_items", "cash_seals",
-      "daily_inventory", "kitchen_stock_items", "biscuit_items",
-      "purchase_requests", "purchase_request_items",
-      "purchase_invoices", "purchase_invoice_items", "saved_menus"
-    ];
-    const data: Record<string, any[]> = {};
-    for (const table of tables) {
-      const result = await db.execute(`SELECT * FROM "${table}"`);
-      data[table] = result.rows as any[];
-    }
-    res.json(data);
-  } catch (err: any) {
-    res.status(500).json({ error: err.message });
-  }
-});
