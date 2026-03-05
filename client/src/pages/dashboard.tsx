@@ -1,5 +1,5 @@
 import { Link } from "wouter";
-import { Plus, Loader2, AlertCircle, FileText, ArrowRight, Calculator, ClipboardList, UtensilsCrossed, ShoppingCart, Trash2, Check, X, FileDown, Eye, Pencil, Receipt } from "lucide-react";
+import { Plus, Loader2, AlertCircle, FileText, ArrowRight, Calculator, ClipboardList, UtensilsCrossed, ShoppingCart, Trash2, Check, X, FileDown, Eye, Pencil, Receipt, BarChart3 } from "lucide-react";
 import { useReports, useDeleteReport, useInventories, useCashSeals, useSavedMenus, useDeleteSavedMenu, usePurchaseRequests, useDeletePurchaseRequest, useUpdatePurchaseRequest, useCurrentUser, usePurchaseInvoices, useDeletePurchaseInvoice } from "@/hooks/use-reports";
 import { format } from "date-fns";
 import { Layout } from "@/components/layout";
@@ -102,6 +102,14 @@ export default function Dashboard() {
               <Button variant="outline" className="h-9 sm:h-11 px-3 sm:px-5 rounded-xl text-xs sm:text-sm" data-testid="button-inventory">
                 <ClipboardList className="w-4 h-4 mr-1 sm:mr-2" />
                 Inventory
+              </Button>
+            </Link>
+          )}
+          {isAdmin && (
+            <Link href="/vendor-report">
+              <Button variant="outline" className="h-9 sm:h-11 px-3 sm:px-5 rounded-xl text-xs sm:text-sm" data-testid="button-vendor-report">
+                <BarChart3 className="w-4 h-4 mr-1 sm:mr-2" />
+                Vendor Report
               </Button>
             </Link>
           )}
