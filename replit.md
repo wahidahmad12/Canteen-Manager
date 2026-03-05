@@ -24,7 +24,8 @@ Preferred communication style: Simple, everyday language.
   - `/cash-seal` — Cash Seal KPF income/expense tracking
   - `/inventory` — Daily Inventory (Kitchen Stock + Biscuits)
   - `/menu` — Menu Manager (2-week lunch menu schedule with client selection)
-  - `/admin` — PIN-protected admin panel for vegetable management
+  - `/admin` — PIN-protected admin panel for Item Master management, vendor/client/user management
+  - `/vendor-report` — Vendor Payment Report with date filters, vendor/client filters, group by vendor/client, summary cards, PDF export (admin only)
 
 ### Backend
 - **Framework**: Express 5 on Node.js with TypeScript (run via tsx)

@@ -24,7 +24,8 @@ import {
   useDeleteVendor,
 } from "@/hooks/use-reports";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Loader2, Plus, Pencil, Trash2, Save, X, Lock, KeyRound, Building2, Users, UserPlus, Store, Package, Search } from "lucide-react";
+import { Loader2, Plus, Pencil, Trash2, Save, X, Lock, KeyRound, Building2, Users, UserPlus, Store, Package, Search, BarChart3, ArrowRight } from "lucide-react";
+import { Link } from "wouter";
 import { useToast } from "@/hooks/use-toast";
 
 export default function Admin() {
@@ -335,10 +336,25 @@ export default function Admin() {
     <Layout>
       <div className="mb-8">
         <h2 className="text-3xl font-bold tracking-tight">Admin Panel</h2>
-        <p className="text-muted-foreground mt-2">Manage vegetables and settings.</p>
+        <p className="text-muted-foreground mt-2">Manage items, settings, and reports.</p>
       </div>
 
       <div className="grid gap-6">
+        <Link href="/vendor-report">
+          <Card className="cursor-pointer hover:border-primary/50 transition-colors" data-testid="card-vendor-report">
+            <CardContent className="p-4 flex items-center gap-4">
+              <div className="p-3 bg-primary/10 rounded-lg">
+                <BarChart3 className="w-6 h-6 text-primary" />
+              </div>
+              <div className="flex-1">
+                <h3 className="font-semibold">Vendor Payment Report</h3>
+                <p className="text-sm text-muted-foreground">View vendor-wise bill amounts, payments, and balances with date filters and PDF export</p>
+              </div>
+              <ArrowRight className="w-5 h-5 text-muted-foreground" />
+            </CardContent>
+          </Card>
+        </Link>
+
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
