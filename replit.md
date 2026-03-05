@@ -19,7 +19,7 @@ Preferred communication style: Simple, everyday language.
 - **Styling**: Tailwind CSS with CSS variables for theming (light/dark mode support)
 - **Key Pages**:
   - `/` — Dashboard listing all reports with tabs (Expense Reports, Cash Seal, Daily Inventory)
-  - `/new` — Create new report form (pre-populated with default fixed items)
+  - `/new` — Create new report form (pre-populated with default fixed items, Other Item Purchase section with Item Master dropdown for non-vegetable items, Vegetable Purchase section for vegetable items)
   - `/report/:id` — Edit existing report
   - `/cash-seal` — Cash Seal KPF income/expense tracking
   - `/inventory` — Daily Inventory (Kitchen Stock + Biscuits)
