@@ -4,7 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { DatePicker } from "@/components/ui/date-picker";
-import { usePurchaseInvoices } from "@/hooks/use-reports";
+import { usePurchaseInvoices, useVendors, useClientNames } from "@/hooks/use-reports";
 import { format, startOfMonth, endOfMonth, subMonths, startOfYear } from "date-fns";
 import { Loader2, FileDown, ArrowLeft, BarChart3, Filter } from "lucide-react";
 import { useLocation } from "wouter";
@@ -43,9 +43,9 @@ export default function VendorReport() {
   const { data: vendors } = useVendors();
   const { data: clients } = useClientNames();
 
-  const [datePreset, setDatePreset] = useState<DatePreset>("current-month");
-  const [fromDate, setFromDate] = useState<Date | undefined>(startOfMonth(new Date()));
-  const [toDate, setToDate] = useState<Date | undefined>(endOfMonth(new Date()));
+  const [datePreset, setDatePreset] = useState<DatePreset>("all");
+  const [fromDate, setFromDate] = useState<Date | undefined>(undefined);
+  const [toDate, setToDate] = useState<Date | undefined>(undefined);
   const [vendorFilter, setVendorFilter] = useState<string>("all");
   const [clientFilter, setClientFilter] = useState<string>("all");
   const [groupBy, setGroupBy] = useState<"vendor" | "client">("vendor");
@@ -228,11 +228,11 @@ export default function VendorReport() {
                 <>
                   <div className="space-y-1.5">
                     <Label className="text-xs">From Date</Label>
-                    <DatePicker date={fromDate} onDateChange={(d) => setFromDate(d)} />
+                    <DatePicker date={fromDate} setDate={(d) => setFromDate(d)} />
                   </div>
                   <div className="space-y-1.5">
                     <Label className="text-xs">To Date</Label>
-                    <DatePicker date={toDate} onDateChange={(d) => setToDate(d)} />
+                    <DatePicker date={toDate} setDate={(d) => setToDate(d)} />
                   </div>
                 </>
               )}
