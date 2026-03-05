@@ -1,5 +1,6 @@
 import { Link } from "wouter";
-import { Plus, Loader2, AlertCircle, FileText, ArrowRight, Calculator, ClipboardList, UtensilsCrossed, ShoppingCart, Trash2, Check, X, FileDown, Eye, Pencil, Receipt, BarChart3 } from "lucide-react";
+import { useMemo } from "react";
+import { Plus, Loader2, FileText, ArrowRight, Calculator, ClipboardList, UtensilsCrossed, ShoppingCart, Trash2, Check, X, FileDown, Eye, Pencil, Receipt, BarChart3, IndianRupee, TrendingUp, TrendingDown, Wallet, CreditCard, DollarSign } from "lucide-react";
 import { useReports, useDeleteReport, useInventories, useCashSeals, useSavedMenus, useDeleteSavedMenu, usePurchaseRequests, useDeletePurchaseRequest, useUpdatePurchaseRequest, useCurrentUser, usePurchaseInvoices, useDeletePurchaseInvoice } from "@/hooks/use-reports";
 import { format } from "date-fns";
 import { Layout } from "@/components/layout";
@@ -17,6 +18,41 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend, PieChart, Pie, Cell } from "recharts";
+
+const CHART_COLORS = ["#6366f1", "#f43f5e", "#10b981", "#f59e0b", "#8b5cf6", "#06b6d4", "#ec4899", "#14b8a6"];
+
+function SummaryCard({ title, value, icon: Icon, color, subtitle }: { title: string; value: string; icon: any; color: string; subtitle?: string }) {
+  const colorMap: Record<string, string> = {
+    blue: "from-blue-500 to-blue-600 shadow-blue-500/25",
+    green: "from-emerald-500 to-emerald-600 shadow-emerald-500/25",
+    red: "from-rose-500 to-rose-600 shadow-rose-500/25",
+    orange: "from-orange-500 to-orange-600 shadow-orange-500/25",
+    purple: "from-violet-500 to-violet-600 shadow-violet-500/25",
+    indigo: "from-indigo-500 to-indigo-600 shadow-indigo-500/25",
+    amber: "from-amber-500 to-amber-600 shadow-amber-500/25",
+    cyan: "from-cyan-500 to-cyan-600 shadow-cyan-500/25",
+  };
+  return (
+    <Card className={`relative overflow-hidden bg-gradient-to-br ${colorMap[color] || colorMap.blue} text-white border-0 shadow-lg`} data-testid={`card-summary-${title.toLowerCase().replace(/\s+/g, '-')}`}>
+      <CardContent className="p-4 sm:p-5">
+        <div className="flex items-start justify-between">
+          <div className="space-y-1">
+            <p className="text-xs sm:text-sm font-medium text-white/80">{title}</p>
+            <p className="text-xl sm:text-2xl font-bold tracking-tight">{value}</p>
+            {subtitle && <p className="text-[10px] sm:text-xs text-white/70">{subtitle}</p>}
+          </div>
+          <div className="p-2 sm:p-2.5 bg-white/20 rounded-xl backdrop-blur-sm">
+            <Icon className="w-5 h-5 sm:w-6 sm:h-6" />
+          </div>
+        </div>
+        <div className="absolute -bottom-4 -right-4 w-20 h-20 sm:w-24 sm:h-24 bg-white/10 rounded-full" />
+      </CardContent>
+    </Card>
+  );
+}
+
+const fmt = (n: number) => "₹" + n.toLocaleString("en-IN", { minimumFractionDigits: 0, maximumFractionDigits: 0 });
 
 export default function Dashboard() {
   const { data: user } = useCurrentUser();
@@ -54,6 +90,57 @@ export default function Dashboard() {
 
   const anyLoading = (hasExpense && isLoading) || (hasInventory && invLoading) || (hasCashSeal && csLoading) || (hasMenu && menusLoading) || (hasPurchase && prLoading) || (hasPurchase && piLoading);
 
+  const expenseStats = useMemo(() => {
+    if (!reports || reports.length === 0) return { totalCash: 0, totalExpense: 0, totalReceived: 0, totalOpening: 0, chartData: [] };
+    let totalCash = 0, totalExpense = 0, totalReceived = 0, totalOpening = 0;
+    const chartData = [...reports].sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime()).slice(-10).map((r: any) => {
+      const opening = Number(r.openingBalance) || 0;
+      const received = Number(r.receivedAmount) || 0;
+      const expense = r.items?.reduce((sum: number, item: any) => sum + (Number(item.amount) || 0), 0) || 0;
+      totalCash += opening + received;
+      totalExpense += expense;
+      totalReceived += received;
+      totalOpening += opening;
+      return {
+        date: format(new Date(r.date), "dd MMM"),
+        cash: opening + received,
+        expense,
+        balance: (opening + received) - expense,
+      };
+    });
+    return { totalCash, totalExpense, totalReceived, totalOpening, chartData };
+  }, [reports]);
+
+  const invoiceStats = useMemo(() => {
+    if (!purchaseInvoices || purchaseInvoices.length === 0) return { totalAmount: 0, totalPaid: 0, totalUnpaid: 0, paidCount: 0, unpaidCount: 0, vendorData: [], paymentPieData: [] };
+    let totalAmount = 0, totalPaid = 0, totalUnpaid = 0, paidCount = 0, unpaidCount = 0;
+    const vendorMap = new Map<string, number>();
+    purchaseInvoices.forEach((inv: any) => {
+      const grand = Number(inv.grandTotal) || 0;
+      totalAmount += grand;
+      if (inv.paymentGiven) { totalPaid += grand; paidCount++; }
+      else { totalUnpaid += grand; unpaidCount++; }
+      vendorMap.set(inv.vendorName, (vendorMap.get(inv.vendorName) || 0) + grand);
+    });
+    const vendorData = Array.from(vendorMap.entries()).map(([name, amount]) => ({ name: name.length > 12 ? name.slice(0, 12) + '...' : name, amount })).sort((a, b) => b.amount - a.amount).slice(0, 8);
+    const paymentPieData = [
+      { name: "Paid", value: totalPaid },
+      { name: "Unpaid", value: totalUnpaid },
+    ].filter(d => d.value > 0);
+    return { totalAmount, totalPaid, totalUnpaid, paidCount, unpaidCount, vendorData, paymentPieData };
+  }, [purchaseInvoices]);
+
+  const purchaseStats = useMemo(() => {
+    if (!purchaseRequests) return { pending: 0, approved: 0, rejected: 0 };
+    let pending = 0, approved = 0, rejected = 0;
+    purchaseRequests.forEach((pr: any) => {
+      if (pr.status === 'pending') pending++;
+      else if (pr.status === 'approved') approved++;
+      else rejected++;
+    });
+    return { pending, approved, rejected };
+  }, [purchaseRequests]);
+
   if (anyLoading) {
     return (
       <Layout>
@@ -76,13 +163,13 @@ export default function Dashboard() {
     <Layout>
       <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-6 sm:mb-8 gap-3 sm:gap-4">
         <div>
-          <h2 className="text-2xl sm:text-3xl font-bold tracking-tight" data-testid="text-dashboard-title">Daily Cash Expance</h2>
-          <p className="text-muted-foreground mt-1 sm:mt-2 text-sm sm:text-base">Canteen Management</p>
+          <h2 className="text-2xl sm:text-3xl font-bold tracking-tight bg-gradient-to-r from-indigo-600 via-purple-600 to-pink-500 bg-clip-text text-transparent" data-testid="text-dashboard-title">Daily Cash Expance</h2>
+          <p className="text-muted-foreground mt-1 sm:mt-2 text-sm sm:text-base">Canteen Management Dashboard</p>
         </div>
         <div className="flex gap-2 flex-wrap">
           {perms.includes('expense') && (
             <Link href="/new">
-              <Button className="h-9 sm:h-11 px-3 sm:px-5 rounded-xl shadow-lg shadow-primary/20 text-xs sm:text-sm" data-testid="button-new-report">
+              <Button className="h-9 sm:h-11 px-3 sm:px-5 rounded-xl shadow-lg shadow-primary/20 text-xs sm:text-sm bg-gradient-to-r from-indigo-500 to-purple-600 hover:from-indigo-600 hover:to-purple-700 border-0" data-testid="button-new-report">
                 <Plus className="w-4 h-4 mr-1 sm:mr-2" />
                 <span className="hidden sm:inline">Daily Cash Expance</span>
                 <span className="sm:hidden">New Report</span>
@@ -107,7 +194,7 @@ export default function Dashboard() {
           )}
           {isAdmin && (
             <Link href="/vendor-report">
-              <Button variant="outline" className="h-9 sm:h-11 px-3 sm:px-5 rounded-xl text-xs sm:text-sm" data-testid="button-vendor-report">
+              <Button variant="outline" className="h-9 sm:h-11 px-3 sm:px-5 rounded-xl text-xs sm:text-sm border-violet-300 text-violet-700 hover:bg-violet-50 dark:border-violet-600 dark:text-violet-400 dark:hover:bg-violet-900/20" data-testid="button-vendor-report">
                 <BarChart3 className="w-4 h-4 mr-1 sm:mr-2" />
                 Vendor Report
               </Button>
@@ -116,12 +203,135 @@ export default function Dashboard() {
         </div>
       </div>
 
+      {hasExpense && reports && reports.length > 0 && (
+        <div className="mb-6 space-y-4">
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
+            <SummaryCard title="Total Cash" value={fmt(expenseStats.totalCash)} icon={Wallet} color="blue" subtitle={`${reports.length} reports`} />
+            <SummaryCard title="Total Expense" value={fmt(expenseStats.totalExpense)} icon={TrendingDown} color="red" subtitle="All reports" />
+            <SummaryCard title="Received Amount" value={fmt(expenseStats.totalReceived)} icon={TrendingUp} color="green" subtitle="Cash received" />
+            <SummaryCard title="Opening Balance" value={fmt(expenseStats.totalOpening)} icon={IndianRupee} color="purple" subtitle="Carried forward" />
+          </div>
+
+          {expenseStats.chartData.length > 1 && (
+            <Card className="border-0 shadow-lg" data-testid="chart-expense-trends">
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm font-semibold text-muted-foreground flex items-center gap-2">
+                  <BarChart3 className="w-4 h-4 text-indigo-500" />
+                  Cash vs Expense (Last 10 Reports)
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="p-2 sm:p-4">
+                <div className="h-[220px] sm:h-[280px]">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <BarChart data={expenseStats.chartData} barGap={4}>
+                      <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="hsl(var(--border))" />
+                      <XAxis dataKey="date" tick={{ fontSize: 11 }} stroke="hsl(var(--muted-foreground))" />
+                      <YAxis tick={{ fontSize: 11 }} stroke="hsl(var(--muted-foreground))" tickFormatter={(v) => v >= 1000 ? `${(v / 1000).toFixed(0)}k` : v} />
+                      <Tooltip
+                        contentStyle={{ borderRadius: '12px', border: '1px solid hsl(var(--border))', background: 'hsl(var(--card))', fontSize: '12px' }}
+                        formatter={(value: number) => [fmt(value), undefined]}
+                      />
+                      <Legend wrapperStyle={{ fontSize: '12px' }} />
+                      <Bar dataKey="cash" name="Total Cash" fill="#6366f1" radius={[6, 6, 0, 0]} />
+                      <Bar dataKey="expense" name="Expense" fill="#f43f5e" radius={[6, 6, 0, 0]} />
+                      <Bar dataKey="balance" name="Balance" fill="#10b981" radius={[6, 6, 0, 0]} />
+                    </BarChart>
+                  </ResponsiveContainer>
+                </div>
+              </CardContent>
+            </Card>
+          )}
+        </div>
+      )}
+
+      {hasPurchase && purchaseInvoices && purchaseInvoices.length > 0 && (
+        <div className="mb-6 space-y-4">
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
+            <SummaryCard title="Total Invoices" value={fmt(invoiceStats.totalAmount)} icon={Receipt} color="indigo" subtitle={`${purchaseInvoices.length} invoices`} />
+            <SummaryCard title="Payment Given" value={fmt(invoiceStats.totalPaid)} icon={Check} color="green" subtitle={`${invoiceStats.paidCount} paid`} />
+            <SummaryCard title="Balance to Pay" value={fmt(invoiceStats.totalUnpaid)} icon={CreditCard} color="orange" subtitle={`${invoiceStats.unpaidCount} unpaid`} />
+            <SummaryCard title="Purchase Requests" value={`${purchaseRequests?.length || 0}`} icon={ShoppingCart} color="amber" subtitle={`${purchaseStats.pending} pending, ${purchaseStats.approved} approved`} />
+          </div>
+
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+            {invoiceStats.vendorData.length > 0 && (
+              <Card className="border-0 shadow-lg" data-testid="chart-vendor-invoices">
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-sm font-semibold text-muted-foreground flex items-center gap-2">
+                    <BarChart3 className="w-4 h-4 text-violet-500" />
+                    Vendor-wise Invoice Amount
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="p-2 sm:p-4">
+                  <div className="h-[220px] sm:h-[280px]">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <BarChart data={invoiceStats.vendorData} layout="vertical" barSize={20}>
+                        <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="hsl(var(--border))" />
+                        <XAxis type="number" tick={{ fontSize: 10 }} stroke="hsl(var(--muted-foreground))" tickFormatter={(v) => v >= 1000 ? `${(v / 1000).toFixed(0)}k` : v} />
+                        <YAxis dataKey="name" type="category" tick={{ fontSize: 10 }} stroke="hsl(var(--muted-foreground))" width={90} />
+                        <Tooltip
+                          contentStyle={{ borderRadius: '12px', border: '1px solid hsl(var(--border))', background: 'hsl(var(--card))', fontSize: '12px' }}
+                          formatter={(value: number) => [fmt(value), "Amount"]}
+                        />
+                        <Bar dataKey="amount" radius={[0, 6, 6, 0]}>
+                          {invoiceStats.vendorData.map((_, index) => (
+                            <Cell key={`cell-${index}`} fill={CHART_COLORS[index % CHART_COLORS.length]} />
+                          ))}
+                        </Bar>
+                      </BarChart>
+                    </ResponsiveContainer>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+
+            {invoiceStats.paymentPieData.length > 0 && (
+              <Card className="border-0 shadow-lg" data-testid="chart-payment-status">
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-sm font-semibold text-muted-foreground flex items-center gap-2">
+                    <DollarSign className="w-4 h-4 text-emerald-500" />
+                    Payment Status
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="p-2 sm:p-4">
+                  <div className="h-[220px] sm:h-[280px] flex items-center justify-center">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <PieChart>
+                        <Pie
+                          data={invoiceStats.paymentPieData}
+                          cx="50%"
+                          cy="50%"
+                          innerRadius={55}
+                          outerRadius={90}
+                          paddingAngle={5}
+                          dataKey="value"
+                          label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
+                          labelLine={false}
+                        >
+                          <Cell fill="#10b981" />
+                          <Cell fill="#f43f5e" />
+                        </Pie>
+                        <Tooltip
+                          contentStyle={{ borderRadius: '12px', border: '1px solid hsl(var(--border))', background: 'hsl(var(--card))', fontSize: '12px' }}
+                          formatter={(value: number) => [fmt(value), undefined]}
+                        />
+                        <Legend wrapperStyle={{ fontSize: '12px' }} />
+                      </PieChart>
+                    </ResponsiveContainer>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+          </div>
+        </div>
+      )}
+
       <Tabs defaultValue={defaultTab} className="space-y-4">
         {tabItems.length > 0 && (
           <div className="overflow-x-auto -mx-1 px-1 pb-1">
-            <TabsList className="inline-flex w-auto min-w-full sm:grid sm:w-full h-auto" style={{ gridTemplateColumns: `repeat(${Math.min(tabItems.length, 6)}, 1fr)` }} data-testid="tabs-dashboard">
+            <TabsList className="inline-flex w-auto min-w-full sm:grid sm:w-full h-auto bg-gradient-to-r from-slate-100 to-slate-50 dark:from-slate-800 dark:to-slate-900" style={{ gridTemplateColumns: `repeat(${Math.min(tabItems.length, 6)}, 1fr)` }} data-testid="tabs-dashboard">
               {tabItems.map(tab => (
-                <TabsTrigger key={tab.value} value={tab.value} className="text-xs sm:text-sm py-2 px-2 sm:px-3 whitespace-nowrap" data-testid={`tab-${tab.value}`}>
+                <TabsTrigger key={tab.value} value={tab.value} className="text-xs sm:text-sm py-2 px-2 sm:px-3 whitespace-nowrap data-[state=active]:bg-gradient-to-r data-[state=active]:from-indigo-500 data-[state=active]:to-purple-600 data-[state=active]:text-white data-[state=active]:shadow-md" data-testid={`tab-${tab.value}`}>
                   <tab.icon className="w-3.5 h-3.5 sm:w-4 sm:h-4 mr-1 sm:mr-2 shrink-0" />
                   <span>{tab.label}</span>
                 </TabsTrigger>
@@ -133,15 +343,15 @@ export default function Dashboard() {
         <TabsContent value="reports">
           {reports?.length === 0 ? (
             <div className="text-center py-20 bg-card rounded-3xl border border-dashed border-border">
-              <div className="w-16 h-16 bg-muted rounded-2xl flex items-center justify-center mx-auto mb-6">
-                <FileText className="w-8 h-8 text-muted-foreground" />
+              <div className="w-16 h-16 bg-gradient-to-br from-indigo-100 to-purple-100 dark:from-indigo-900/30 dark:to-purple-900/30 rounded-2xl flex items-center justify-center mx-auto mb-6">
+                <FileText className="w-8 h-8 text-indigo-500" />
               </div>
               <h3 className="text-xl font-bold mb-2">No reports yet</h3>
               <p className="text-muted-foreground max-w-sm mx-auto mb-8">
                 Create your first daily expense report to start tracking.
               </p>
               <Link href="/new">
-                <Button>Create Report</Button>
+                <Button className="bg-gradient-to-r from-indigo-500 to-purple-600 border-0">Create Report</Button>
               </Link>
             </div>
           ) : (
@@ -171,7 +381,7 @@ export default function Dashboard() {
                           <td className="font-mono text-muted-foreground text-center">#{report.reportNumber}</td>
                           <td className="font-medium text-foreground">
                             <div className="flex items-center gap-3">
-                              <div className="w-10 h-10 rounded-lg bg-primary/10 text-primary flex items-center justify-center font-bold text-xs shrink-0">
+                              <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-indigo-500 to-purple-500 text-white flex items-center justify-center font-bold text-xs shrink-0 shadow-md shadow-indigo-500/20">
                                 {format(new Date(report.date), "dd")}
                               </div>
                               <div className="flex flex-col min-w-0">
@@ -181,9 +391,9 @@ export default function Dashboard() {
                             </div>
                           </td>
                           <td className="text-right font-mono text-muted-foreground">₹{opening.toFixed(2)}</td>
-                          <td className="text-right font-mono text-muted-foreground">₹{received.toFixed(2)}</td>
-                          <td className="text-right font-mono font-bold text-primary">₹{totalCash.toFixed(2)}</td>
-                          <td className="text-right font-mono text-destructive">₹{totalExpense.toFixed(2)}</td>
+                          <td className="text-right font-mono text-emerald-600">₹{received.toFixed(2)}</td>
+                          <td className="text-right font-mono font-bold text-indigo-600">₹{totalCash.toFixed(2)}</td>
+                          <td className="text-right font-mono text-rose-600">₹{totalExpense.toFixed(2)}</td>
                           <td className="text-right">
                             <div className="flex items-center justify-end gap-2">
                               <Link href={`/report/${report.id}`}>
@@ -238,13 +448,13 @@ export default function Dashboard() {
           ) : !cashSeals || cashSeals.length === 0 ? (
             <Card>
               <CardContent className="text-center py-12">
-                <div className="w-16 h-16 bg-muted rounded-2xl flex items-center justify-center mx-auto mb-6">
-                  <Calculator className="w-8 h-8 text-muted-foreground" />
+                <div className="w-16 h-16 bg-gradient-to-br from-blue-100 to-cyan-100 dark:from-blue-900/30 dark:to-cyan-900/30 rounded-2xl flex items-center justify-center mx-auto mb-6">
+                  <Calculator className="w-8 h-8 text-blue-500" />
                 </div>
                 <h3 className="text-xl font-bold mb-2">No Daily Cash Seal records yet</h3>
                 <p className="text-muted-foreground max-w-sm mx-auto mb-6">Start recording your daily cash seal income and expenses.</p>
                 <Link href="/cash-seal">
-                  <Button data-testid="button-go-cashseal">Create Daily Cash Seal Record</Button>
+                  <Button className="bg-gradient-to-r from-blue-500 to-cyan-600 border-0" data-testid="button-go-cashseal">Create Daily Cash Seal Record</Button>
                 </Link>
               </CardContent>
             </Card>
@@ -283,7 +493,7 @@ export default function Dashboard() {
                           <td className="font-mono text-muted-foreground text-center">#{seal.serialNumber}</td>
                           <td className="font-medium text-foreground">
                             <div className="flex items-center gap-3">
-                              <div className="w-10 h-10 rounded-lg bg-blue-100 text-blue-700 flex items-center justify-center font-bold text-xs shrink-0">
+                              <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-blue-500 to-cyan-500 text-white flex items-center justify-center font-bold text-xs shrink-0 shadow-md shadow-blue-500/20">
                                 {format(new Date(seal.date), "dd")}
                               </div>
                               <div className="flex flex-col min-w-0">
@@ -292,9 +502,9 @@ export default function Dashboard() {
                               </div>
                             </div>
                           </td>
-                          <td className="text-right font-mono text-green-600">₹{income.toFixed(2)}</td>
-                          <td className="text-right font-mono text-destructive">₹{expense.toFixed(2)}</td>
-                          <td className="text-right font-mono font-bold text-primary">₹{balance.toFixed(2)}</td>
+                          <td className="text-right font-mono text-emerald-600 font-semibold">₹{income.toFixed(2)}</td>
+                          <td className="text-right font-mono text-rose-600">₹{expense.toFixed(2)}</td>
+                          <td className="text-right font-mono font-bold text-indigo-600">₹{balance.toFixed(2)}</td>
                           <td className="text-right font-mono text-orange-600">₹{Number(seal.totalGivenToAkbarAli).toFixed(2)}</td>
                         </tr>
                       );
@@ -314,13 +524,13 @@ export default function Dashboard() {
           ) : sortedInventories.length === 0 ? (
             <Card>
               <CardContent className="text-center py-12">
-                <div className="w-16 h-16 bg-muted rounded-2xl flex items-center justify-center mx-auto mb-6">
-                  <ClipboardList className="w-8 h-8 text-muted-foreground" />
+                <div className="w-16 h-16 bg-gradient-to-br from-emerald-100 to-teal-100 dark:from-emerald-900/30 dark:to-teal-900/30 rounded-2xl flex items-center justify-center mx-auto mb-6">
+                  <ClipboardList className="w-8 h-8 text-emerald-500" />
                 </div>
                 <h3 className="text-xl font-bold mb-2">No inventory records yet</h3>
                 <p className="text-muted-foreground max-w-sm mx-auto mb-6">Start tracking your daily kitchen stock and biscuit inventory.</p>
                 <Link href="/inventory">
-                  <Button data-testid="button-create-inventory">Create Inventory Record</Button>
+                  <Button className="bg-gradient-to-r from-emerald-500 to-teal-600 border-0" data-testid="button-create-inventory">Create Inventory Record</Button>
                 </Link>
               </CardContent>
             </Card>
@@ -348,7 +558,7 @@ export default function Dashboard() {
                           <td className="font-mono text-muted-foreground text-center">#{(inv as any).serialNumber}</td>
                           <td className="font-medium text-foreground">
                             <div className="flex items-center gap-3">
-                              <div className="w-10 h-10 rounded-lg bg-green-100 text-green-700 flex items-center justify-center font-bold text-xs shrink-0">
+                              <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-emerald-500 to-teal-500 text-white flex items-center justify-center font-bold text-xs shrink-0 shadow-md shadow-emerald-500/20">
                                 {format(new Date(inv.date), "dd")}
                               </div>
                               <div className="flex flex-col min-w-0">
@@ -383,13 +593,13 @@ export default function Dashboard() {
           ) : !savedMenus || savedMenus.length === 0 ? (
             <Card>
               <CardContent className="text-center py-12">
-                <div className="w-16 h-16 bg-muted rounded-2xl flex items-center justify-center mx-auto mb-6">
-                  <UtensilsCrossed className="w-8 h-8 text-muted-foreground" />
+                <div className="w-16 h-16 bg-gradient-to-br from-violet-100 to-fuchsia-100 dark:from-violet-900/30 dark:to-fuchsia-900/30 rounded-2xl flex items-center justify-center mx-auto mb-6">
+                  <UtensilsCrossed className="w-8 h-8 text-violet-500" />
                 </div>
                 <h3 className="text-xl font-bold mb-2">No saved menus yet</h3>
                 <p className="text-muted-foreground max-w-sm mx-auto mb-6">Create a menu in the Menu Manager and save it to see it here.</p>
                 <Link href="/menu">
-                  <Button data-testid="button-go-menu">Go to Menu Manager</Button>
+                  <Button className="bg-gradient-to-r from-violet-500 to-fuchsia-600 border-0" data-testid="button-go-menu">Go to Menu Manager</Button>
                 </Link>
               </CardContent>
             </Card>
@@ -410,7 +620,7 @@ export default function Dashboard() {
                       <tr key={menu.id} className="group">
                         <td className="font-medium text-foreground">
                           <div className="flex items-center gap-3">
-                            <div className="w-10 h-10 rounded-lg bg-purple-100 text-purple-700 flex items-center justify-center font-bold text-xs shrink-0">
+                            <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-violet-500 to-fuchsia-500 text-white flex items-center justify-center font-bold text-xs shrink-0 shadow-md shadow-violet-500/20">
                               <UtensilsCrossed className="w-5 h-5" />
                             </div>
                             <span className="truncate">{menu.clientName}</span>
@@ -440,7 +650,7 @@ export default function Dashboard() {
                                 <AlertDialogHeader>
                                   <AlertDialogTitle>Delete saved menu?</AlertDialogTitle>
                                   <AlertDialogDescription>
-                                    This will permanently delete the saved menu for {menu.clientName} ({format(new Date(menu.startDate), "dd MMM")} - {format(new Date(menu.endDate), "dd MMM yyyy")}).
+                                    This will permanently delete the saved menu for {menu.clientName}.
                                   </AlertDialogDescription>
                                 </AlertDialogHeader>
                                 <AlertDialogFooter>
@@ -470,8 +680,8 @@ export default function Dashboard() {
           {!purchaseRequests || purchaseRequests.length === 0 ? (
             <Card>
               <CardContent className="text-center py-12">
-                <div className="w-16 h-16 bg-muted rounded-2xl flex items-center justify-center mx-auto mb-6">
-                  <ShoppingCart className="w-8 h-8 text-muted-foreground" />
+                <div className="w-16 h-16 bg-gradient-to-br from-amber-100 to-orange-100 dark:from-amber-900/30 dark:to-orange-900/30 rounded-2xl flex items-center justify-center mx-auto mb-6">
+                  <ShoppingCart className="w-8 h-8 text-amber-500" />
                 </div>
                 <h3 className="text-xl font-bold mb-2">
                   {isAdmin ? "No purchase requests to review" : "No approved purchase requests yet"}
@@ -480,7 +690,7 @@ export default function Dashboard() {
                   {isAdmin ? "Purchase requests from users will appear here for your approval." : "Your purchase requests are pending admin approval."}
                 </p>
                 <Link href="/purchase-request">
-                  <Button data-testid="button-go-purchase">Create Purchase Request</Button>
+                  <Button className="bg-gradient-to-r from-amber-500 to-orange-600 border-0" data-testid="button-go-purchase">Create Purchase Request</Button>
                 </Link>
               </CardContent>
             </Card>
@@ -505,7 +715,7 @@ export default function Dashboard() {
                         <td className="font-mono text-muted-foreground text-center">#{pr.serialNumber}</td>
                         <td className="font-medium text-foreground">
                           <div className="flex items-center gap-3">
-                            <div className="w-10 h-10 rounded-lg bg-amber-100 text-amber-700 flex items-center justify-center font-bold text-xs shrink-0">
+                            <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-amber-500 to-orange-500 text-white flex items-center justify-center font-bold text-xs shrink-0 shadow-md shadow-amber-500/20">
                               <ShoppingCart className="w-5 h-5" />
                             </div>
                             <span className="truncate">{pr.clientName}</span>
@@ -519,10 +729,10 @@ export default function Dashboard() {
                         </td>
                         <td className="text-center font-mono">{pr.items?.length || 0}</td>
                         <td className="text-center">
-                          <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                            pr.status === 'approved' ? 'bg-green-100 text-green-700' :
-                            pr.status === 'rejected' ? 'bg-red-100 text-red-700' :
-                            'bg-yellow-100 text-yellow-700'
+                          <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold shadow-sm ${
+                            pr.status === 'approved' ? 'bg-gradient-to-r from-emerald-400 to-green-500 text-white' :
+                            pr.status === 'rejected' ? 'bg-gradient-to-r from-rose-400 to-red-500 text-white' :
+                            'bg-gradient-to-r from-amber-400 to-yellow-500 text-white'
                           }`}>
                             {pr.status === 'approved' ? 'Approved' : pr.status === 'rejected' ? 'Rejected' : 'Pending'}
                           </span>
@@ -535,7 +745,7 @@ export default function Dashboard() {
                                   <Button
                                     size="sm"
                                     variant="ghost"
-                                    className="h-8 text-primary hover:text-primary hover:bg-primary/10"
+                                    className="h-8 text-indigo-600 hover:text-indigo-700 hover:bg-indigo-50"
                                     data-testid={`button-view-pdf-${pr.id}`}
                                   >
                                     <FileDown className="w-4 h-4 mr-1" />
@@ -609,15 +819,15 @@ export default function Dashboard() {
           {!purchaseInvoices || purchaseInvoices.length === 0 ? (
             <Card>
               <CardContent className="text-center py-12">
-                <div className="w-16 h-16 bg-muted rounded-2xl flex items-center justify-center mx-auto mb-6">
-                  <Receipt className="w-8 h-8 text-muted-foreground" />
+                <div className="w-16 h-16 bg-gradient-to-br from-orange-100 to-red-100 dark:from-orange-900/30 dark:to-red-900/30 rounded-2xl flex items-center justify-center mx-auto mb-6">
+                  <Receipt className="w-8 h-8 text-orange-500" />
                 </div>
                 <h3 className="text-xl font-bold mb-2">No purchase invoices yet</h3>
                 <p className="text-muted-foreground max-w-sm mx-auto mb-6">
                   Create invoices from approved purchase requests with vendor details, pricing and GST.
                 </p>
                 <Link href="/purchase-invoice">
-                  <Button data-testid="button-go-invoice">Create Purchase Invoice</Button>
+                  <Button className="bg-gradient-to-r from-orange-500 to-red-600 border-0" data-testid="button-go-invoice">Create Purchase Invoice</Button>
                 </Link>
               </CardContent>
             </Card>
@@ -643,7 +853,7 @@ export default function Dashboard() {
                         <td className="font-mono text-muted-foreground text-center">#{inv.serialNumber}</td>
                         <td className="font-medium text-foreground">
                           <div className="flex items-center gap-3">
-                            <div className="w-10 h-10 rounded-lg bg-orange-100 text-orange-700 flex items-center justify-center font-bold text-xs shrink-0">
+                            <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-orange-500 to-red-500 text-white flex items-center justify-center font-bold text-xs shrink-0 shadow-md shadow-orange-500/20">
                               <Receipt className="w-5 h-5" />
                             </div>
                             <span className="truncate">{inv.clientName}</span>
@@ -654,11 +864,11 @@ export default function Dashboard() {
                         <td className="text-muted-foreground">
                           {format(new Date(inv.date), "dd MMM yyyy")}
                         </td>
-                        <td className="text-right font-mono font-semibold text-primary">
-                          {Number(inv.grandTotal).toFixed(2)}
+                        <td className="text-right font-mono font-semibold text-indigo-600">
+                          ₹{Number(inv.grandTotal).toFixed(2)}
                         </td>
                         <td className="text-center">
-                          <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${inv.paymentGiven ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400' : 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400'}`} data-testid={`badge-payment-${inv.id}`}>
+                          <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold shadow-sm ${inv.paymentGiven ? 'bg-gradient-to-r from-emerald-400 to-green-500 text-white' : 'bg-gradient-to-r from-rose-400 to-red-500 text-white'}`} data-testid={`badge-payment-${inv.id}`}>
                             {inv.paymentGiven ? 'Paid' : 'Unpaid'}
                           </span>
                         </td>
@@ -668,7 +878,7 @@ export default function Dashboard() {
                               <Button
                                 size="sm"
                                 variant="ghost"
-                                className="h-8 text-primary hover:text-primary hover:bg-primary/10"
+                                className="h-8 text-indigo-600 hover:text-indigo-700 hover:bg-indigo-50"
                                 data-testid={`button-invoice-pdf-${inv.id}`}
                               >
                                 <FileDown className="w-4 h-4 mr-1" />
@@ -722,6 +932,7 @@ export default function Dashboard() {
             </div>
           )}
         </TabsContent>
+
       </Tabs>
     </Layout>
   );
