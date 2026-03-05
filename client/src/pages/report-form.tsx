@@ -11,7 +11,7 @@ import { Separator } from "@/components/ui/separator";
 import { useToast } from "@/hooks/use-toast";
 import { DatePicker } from "@/components/ui/date-picker";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { Loader2, Plus, Trash2, Calculator, Save, ArrowLeft, X } from "lucide-react";
+import { Loader2, Plus, Trash2, Calculator, Save, ArrowLeft, X, CalendarDays, Wallet, IndianRupee, ShoppingBasket, Leaf, TrendingDown, TrendingUp, Banknote } from "lucide-react";
 import { useCreateReport, useUpdateReport, useReport, useItemMaster, useVegetableLastPrices } from "@/hooks/use-reports";
 import { insertDailyReportSchema, insertExpenseItemSchema } from "@shared/schema";
 import {
@@ -112,11 +112,9 @@ function AddUpCalculator({ value, onApply }: { value: number; onApply: (total: n
   );
 }
 
-// Schema for the form
 const formSchema = insertDailyReportSchema.extend({
-  date: z.date(), // Use Date object in form, convert to string for API
+  date: z.date(),
   items: z.array(insertExpenseItemSchema.extend({
-    // Add temporary ID for tracking fields in array
     tempId: z.string().optional(),
     id: z.number().optional()
   })),
@@ -188,7 +186,6 @@ export default function ReportForm() {
     name: "items",
   });
 
-  // Load data for edit mode
   useEffect(() => {
     if (report) {
       form.reset({
@@ -205,12 +202,10 @@ export default function ReportForm() {
     }
   }, [report, form]);
 
-  // Watch values for real-time calculations
   const items = useWatch({ control: form.control, name: "items" });
   const openingBalance = useWatch({ control: form.control, name: "openingBalance" }) || 0;
   const receivedAmount = useWatch({ control: form.control, name: "receivedAmount" }) || 0;
 
-  // Derived calculations
   const totalFixedCost = items
     .filter(i => i.category === 'fixed')
     .reduce((sum, item) => sum + (Number(item.qty) * Number(item.rate)), 0);
@@ -223,7 +218,6 @@ export default function ReportForm() {
   const totalCash = Number(openingBalance) + Number(receivedAmount);
   const balanceInHand = totalCash - grandTotalExpense;
 
-  // Handle row calculation updates
   const handleItemChange = (index: number, field: 'qty' | 'rate', value: string) => {
     const numValue = parseFloat(value) || 0;
     const currentItem = items[index];
@@ -242,7 +236,6 @@ export default function ReportForm() {
         date: format(data.date, 'yyyy-MM-dd'),
         items: data.items.map(item => ({
           ...item,
-          // Recalculate amount one last time to be safe
           amount: Number(item.qty) * Number(item.rate)
         }))
       };
@@ -279,24 +272,25 @@ export default function ReportForm() {
       <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6 sm:space-y-8 pb-32 sm:pb-24">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
           <div className="flex items-center gap-3 sm:gap-4">
-            <Button variant="outline" size="icon" onClick={() => setLocation("/")} type="button" className="shrink-0">
+            <Button variant="outline" size="icon" onClick={() => setLocation("/")} type="button" className="shrink-0 rounded-xl border-indigo-200 hover:bg-indigo-50 dark:border-indigo-800 dark:hover:bg-indigo-900/30">
               <ArrowLeft className="w-4 h-4" />
             </Button>
             <div className="min-w-0">
-              <h1 className="text-lg sm:text-2xl font-bold tracking-tight truncate">
+              <h1 className="text-lg sm:text-2xl font-bold tracking-tight truncate bg-gradient-to-r from-indigo-600 via-purple-600 to-pink-500 bg-clip-text text-transparent">
                 {isEditMode ? "Edit Report" : "Daily Cash Expance"}
               </h1>
-              <p className="text-muted-foreground text-xs sm:text-sm">Fill in the daily expense details.</p>
+              <p className="text-muted-foreground text-xs sm:text-sm">Fill in the daily expense details</p>
             </div>
           </div>
           <div className="flex gap-2 sm:gap-3 ml-12 sm:ml-0">
-             <Button variant="outline" type="button" onClick={() => setLocation("/")} className="text-xs sm:text-sm h-9 sm:h-10">
+             <Button variant="outline" type="button" onClick={() => setLocation("/")} className="text-xs sm:text-sm h-9 sm:h-10 rounded-xl">
                Cancel
              </Button>
              <Button 
                type="submit" 
                disabled={createMutation.isPending || updateMutation.isPending}
-               className="shadow-lg shadow-primary/20 text-xs sm:text-sm h-9 sm:h-10"
+               className="shadow-lg shadow-indigo-500/20 text-xs sm:text-sm h-9 sm:h-10 rounded-xl bg-gradient-to-r from-indigo-500 to-purple-600 hover:from-indigo-600 hover:to-purple-700 border-0"
+               data-testid="button-save-report"
              >
                {(createMutation.isPending || updateMutation.isPending) ? (
                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
@@ -308,38 +302,44 @@ export default function ReportForm() {
           </div>
         </div>
 
-        {/* General Info Card */}
-        <Card className="border-border/50 shadow-sm">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Calculator className="w-5 h-5 text-primary" />
+        <Card className="border-0 shadow-lg overflow-hidden" data-testid="card-general-info">
+          <CardHeader className="bg-gradient-to-r from-blue-500 to-cyan-500 text-white pb-3 pt-4">
+            <CardTitle className="flex items-center gap-2 text-base sm:text-lg">
+              <CalendarDays className="w-5 h-5" />
               General Information
             </CardTitle>
           </CardHeader>
-          <CardContent className="grid md:grid-cols-3 gap-6">
+          <CardContent className="grid md:grid-cols-3 gap-4 sm:gap-6 p-4 sm:p-6 bg-gradient-to-b from-blue-50/50 to-transparent dark:from-blue-950/20">
             <div className="space-y-2">
-              <label className="text-sm font-medium">Date</label>
+              <label className="text-sm font-semibold text-blue-700 dark:text-blue-400 flex items-center gap-1.5">
+                <CalendarDays className="w-3.5 h-3.5" /> Date
+              </label>
               <DatePicker 
                 date={form.watch("date")}
                 setDate={(date) => date && form.setValue("date", date)}
               />
             </div>
             <div className="space-y-2">
-              <label className="text-sm font-medium">Opening Balance (₹)</label>
+              <label className="text-sm font-semibold text-emerald-700 dark:text-emerald-400 flex items-center gap-1.5">
+                <Wallet className="w-3.5 h-3.5" /> Opening Balance (₹)
+              </label>
               <Input 
                 type="number" 
                 step="0.01"
-                className="font-mono"
+                className="font-mono border-emerald-200 focus:border-emerald-400 dark:border-emerald-800"
                 {...form.register("openingBalance", { valueAsNumber: true })}
+                data-testid="input-opening-balance"
               />
             </div>
             <div className="space-y-2">
-              <label className="text-sm font-medium">Received Amount (₹)</label>
+              <label className="text-sm font-semibold text-violet-700 dark:text-violet-400 flex items-center gap-1.5">
+                <Banknote className="w-3.5 h-3.5" /> Received Amount (₹)
+              </label>
               <div className="flex gap-2">
                 <Input 
                   type="number" 
                   step="0.01"
-                  className="font-mono"
+                  className="font-mono border-violet-200 focus:border-violet-400 dark:border-violet-800"
                   {...form.register("receivedAmount", { valueAsNumber: true })}
                   data-testid="input-received-amount"
                 />
@@ -352,13 +352,14 @@ export default function ReportForm() {
           </CardContent>
         </Card>
 
-        {/* Fixed Items Section */}
-        <Card className="border-border/50 shadow-sm">
-          <CardHeader>
-            <CardTitle>Fixed Items</CardTitle>
+        <Card className="border-0 shadow-lg overflow-hidden" data-testid="card-fixed-items">
+          <CardHeader className="bg-gradient-to-r from-amber-500 to-orange-500 text-white pb-3 pt-4">
+            <CardTitle className="flex items-center gap-2 text-base sm:text-lg">
+              <ShoppingBasket className="w-5 h-5" />
+              Fixed Items
+            </CardTitle>
           </CardHeader>
           <CardContent className="p-0">
-            {/* Mobile card layout */}
             <div className="sm:hidden divide-y">
               {fields.map((field, index) => {
                 if (field.category !== 'fixed') return null;
@@ -366,8 +367,11 @@ export default function ReportForm() {
                 return (
                   <div key={field.id} className="p-3 space-y-2">
                     <div className="flex items-center justify-between">
-                      <span className="font-medium text-sm">{fixedIndex}. {field.description}</span>
-                      <span className="text-xs text-muted-foreground font-mono bg-muted/30 px-2 py-0.5 rounded">{field.uom}</span>
+                      <span className="font-medium text-sm flex items-center gap-1.5">
+                        <span className="w-5 h-5 rounded-full bg-gradient-to-br from-amber-400 to-orange-500 text-white text-[10px] flex items-center justify-center font-bold shrink-0">{fixedIndex}</span>
+                        {field.description}
+                      </span>
+                      <span className="text-xs text-orange-600 dark:text-orange-400 font-mono bg-orange-50 dark:bg-orange-900/20 px-2 py-0.5 rounded-full font-semibold">{field.uom}</span>
                     </div>
                     <div className="grid grid-cols-3 gap-2">
                       <div>
@@ -438,7 +442,6 @@ export default function ReportForm() {
                 );
               })}
             </div>
-            {/* Desktop table layout */}
             <div className="hidden sm:block overflow-x-auto">
               <table className="glass-table">
                 <thead>
@@ -457,10 +460,12 @@ export default function ReportForm() {
                     const fixedIndex = fields.slice(0, index).filter(f => f.category === 'fixed').length + 1;
                     return (
                       <tr key={field.id}>
-                        <td className="text-center text-muted-foreground">{fixedIndex}</td>
+                        <td className="text-center">
+                          <span className="w-6 h-6 rounded-full bg-gradient-to-br from-amber-400 to-orange-500 text-white text-[10px] inline-flex items-center justify-center font-bold">{fixedIndex}</span>
+                        </td>
                         <td className="font-medium">{field.description}</td>
-                        <td className="text-muted-foreground text-xs font-mono bg-muted/30 px-2 py-1 rounded">
-                          {field.uom}
+                        <td>
+                          <span className="text-xs text-orange-600 dark:text-orange-400 font-mono bg-orange-50 dark:bg-orange-900/20 px-2 py-1 rounded-full font-semibold">{field.uom}</span>
                         </td>
                         <td>
                           <Input 
@@ -531,22 +536,26 @@ export default function ReportForm() {
                 </tbody>
               </table>
             </div>
-            <div className="p-3 sm:p-4 bg-muted/20 border-t border-border flex justify-end">
-              <div className="text-sm font-medium">
-                Total Fixed: <span className="font-mono ml-2 text-base sm:text-lg">₹{totalFixedCost.toFixed(2)}</span>
+            <div className="p-3 sm:p-4 bg-gradient-to-r from-amber-50 to-orange-50 dark:from-amber-950/20 dark:to-orange-950/20 border-t border-orange-200 dark:border-orange-800/30 flex justify-end">
+              <div className="text-sm font-semibold flex items-center gap-2">
+                <ShoppingBasket className="w-4 h-4 text-orange-500" />
+                Total Fixed: <span className="font-mono ml-1 text-base sm:text-lg text-orange-600 dark:text-orange-400" data-testid="text-total-fixed">₹{totalFixedCost.toFixed(2)}</span>
               </div>
             </div>
           </CardContent>
         </Card>
 
-        {/* Vegetable Items Section */}
-        <Card className="border-border/50 shadow-sm">
-          <CardHeader className="flex flex-row items-center justify-between">
-            <CardTitle>Vegetable Purchase</CardTitle>
+        <Card className="border-0 shadow-lg overflow-hidden" data-testid="card-vegetable-items">
+          <CardHeader className="bg-gradient-to-r from-emerald-500 to-teal-500 text-white pb-3 pt-4 flex flex-row items-center justify-between">
+            <CardTitle className="flex items-center gap-2 text-base sm:text-lg">
+              <Leaf className="w-5 h-5" />
+              Vegetable Purchase
+            </CardTitle>
             <Button 
               type="button" 
               size="sm" 
-              variant="outline"
+              variant="secondary"
+              className="bg-white/20 hover:bg-white/30 text-white border-0 backdrop-blur-sm"
               onClick={() => append({ 
                 reportId: reportId || 0,
                 category: 'vegetable', 
@@ -556,13 +565,13 @@ export default function ReportForm() {
                 rate: 0, 
                 amount: 0 
               })}
+              data-testid="button-add-veg-top"
             >
-              <Plus className="w-4 h-4 mr-2" />
+              <Plus className="w-4 h-4 mr-1" />
               Add Item
             </Button>
           </CardHeader>
           <CardContent className="p-0">
-            {/* Mobile card layout */}
             <div className="sm:hidden divide-y">
               {fields.map((field, index) => {
                 if (field.category !== 'vegetable') return null;
@@ -571,7 +580,7 @@ export default function ReportForm() {
                   <div key={field.id} className="p-3 space-y-2">
                     <div className="flex items-center justify-between gap-2">
                       <div className="flex items-center gap-2 flex-1 min-w-0">
-                        <span className="text-xs text-muted-foreground shrink-0">{vegIndex}.</span>
+                        <span className="w-5 h-5 rounded-full bg-gradient-to-br from-emerald-400 to-teal-500 text-white text-[10px] flex items-center justify-center font-bold shrink-0">{vegIndex}</span>
                         <Select
                           value={items[index]?.description || ''}
                           onValueChange={(val) => {
@@ -694,7 +703,6 @@ export default function ReportForm() {
                 </div>
               )}
             </div>
-            {/* Desktop table layout */}
             <div className="hidden sm:block overflow-x-auto">
               <table className="glass-table">
                 <thead>
@@ -714,7 +722,9 @@ export default function ReportForm() {
                     const vegIndex = fields.slice(0, index).filter(f => f.category === 'vegetable').length + 1;
                     return (
                       <tr key={field.id}>
-                        <td className="text-center text-muted-foreground">{vegIndex}</td>
+                        <td className="text-center">
+                          <span className="w-6 h-6 rounded-full bg-gradient-to-br from-emerald-400 to-teal-500 text-white text-[10px] inline-flex items-center justify-center font-bold">{vegIndex}</span>
+                        </td>
                         <td>
                           <Select
                             value={items[index]?.description || ''}
@@ -841,11 +851,12 @@ export default function ReportForm() {
                 </tbody>
               </table>
             </div>
-            <div className="p-3 sm:p-4 bg-muted/20 border-t border-border flex items-center justify-between">
+            <div className="p-3 sm:p-4 bg-gradient-to-r from-emerald-50 to-teal-50 dark:from-emerald-950/20 dark:to-teal-950/20 border-t border-emerald-200 dark:border-emerald-800/30 flex items-center justify-between">
               <Button
                 type="button"
                 size="sm"
                 variant="outline"
+                className="border-emerald-300 text-emerald-700 hover:bg-emerald-50 dark:border-emerald-700 dark:text-emerald-400"
                 onClick={() => append({
                   reportId: reportId || 0,
                   category: 'vegetable',
@@ -859,28 +870,35 @@ export default function ReportForm() {
               >
                 <Plus className="w-4 h-4 mr-1" /> Add Item
               </Button>
-              <div className="text-sm font-medium">
-                Total Vegetables: <span className="font-mono ml-2 text-base sm:text-lg">₹{totalVegCost.toFixed(2)}</span>
+              <div className="text-sm font-semibold flex items-center gap-2">
+                <Leaf className="w-4 h-4 text-emerald-500" />
+                Total Vegetables: <span className="font-mono ml-1 text-base sm:text-lg text-emerald-600 dark:text-emerald-400" data-testid="text-total-veg">₹{totalVegCost.toFixed(2)}</span>
               </div>
             </div>
           </CardContent>
         </Card>
 
         <div className="fixed bottom-0 left-0 right-0 md:static bg-background/80 backdrop-blur-md md:bg-transparent border-t md:border-0 p-3 sm:p-4 md:p-0 z-10">
-          <Card className="border-primary/20 bg-primary/5 shadow-lg">
-            <CardContent className="p-3 sm:p-6">
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-3 sm:gap-6">
-                <div>
-                  <p className="text-[10px] sm:text-xs text-muted-foreground uppercase tracking-wider font-semibold">Total Expense</p>
-                  <p className="text-lg sm:text-2xl font-bold font-mono text-primary">₹{grandTotalExpense.toFixed(2)}</p>
+          <Card className="border-0 shadow-xl overflow-hidden">
+            <CardContent className="p-0">
+              <div className="grid grid-cols-2 md:grid-cols-4">
+                <div className="p-3 sm:p-5 bg-gradient-to-br from-rose-500 to-pink-600 text-white">
+                  <p className="text-[10px] sm:text-xs uppercase tracking-wider font-semibold text-white/80 flex items-center gap-1">
+                    <TrendingDown className="w-3 h-3" /> Total Expense
+                  </p>
+                  <p className="text-lg sm:text-2xl font-bold font-mono" data-testid="text-total-expense">₹{grandTotalExpense.toFixed(2)}</p>
                 </div>
-                <div>
-                  <p className="text-[10px] sm:text-xs text-muted-foreground uppercase tracking-wider font-semibold">Total Cash</p>
-                  <p className="text-lg sm:text-2xl font-bold font-mono">₹{totalCash.toFixed(2)}</p>
+                <div className="p-3 sm:p-5 bg-gradient-to-br from-blue-500 to-indigo-600 text-white">
+                  <p className="text-[10px] sm:text-xs uppercase tracking-wider font-semibold text-white/80 flex items-center gap-1">
+                    <Wallet className="w-3 h-3" /> Total Cash
+                  </p>
+                  <p className="text-lg sm:text-2xl font-bold font-mono" data-testid="text-total-cash">₹{totalCash.toFixed(2)}</p>
                 </div>
-                <div className="col-span-2 text-right">
-                  <p className="text-[10px] sm:text-xs text-muted-foreground uppercase tracking-wider font-semibold">Balance In Hand</p>
-                  <p className={`text-xl sm:text-3xl font-bold font-mono ${balanceInHand < 0 ? 'text-destructive' : 'text-green-600'}`}>
+                <div className={`p-3 sm:p-5 col-span-2 ${balanceInHand < 0 ? 'bg-gradient-to-br from-red-600 to-rose-700' : 'bg-gradient-to-br from-emerald-500 to-green-600'} text-white`}>
+                  <p className="text-[10px] sm:text-xs uppercase tracking-wider font-semibold text-white/80 flex items-center gap-1">
+                    <TrendingUp className="w-3 h-3" /> Balance In Hand
+                  </p>
+                  <p className="text-xl sm:text-3xl font-bold font-mono" data-testid="text-balance">
                     ₹{balanceInHand.toFixed(2)}
                   </p>
                 </div>
