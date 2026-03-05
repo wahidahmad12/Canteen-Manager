@@ -143,14 +143,20 @@ export default function ReportForm() {
 
   const { toast } = useToast();
   const { data: report, isLoading: isReportLoading } = useReport(reportId);
-  const { data: salesItems = [] } = useItemMaster("sales");
-  const vegetableItems = salesItems.map((item: any) => ({ id: item.id, name: item.itemName }));
+  const { data: salesItems = [] } = useItemMaster();
+  const vegetableItems = salesItems
+    .filter((item: any) => item.itemCategory === 'Vegetable')
+    .map((item: any) => ({ id: item.id, name: item.itemName }));
   const { data: vegLastPrices = [] } = useVegetableLastPrices();
   const createMutation = useCreateReport();
   const updateMutation = useUpdateReport();
 
   const vegPriceMap = new Map(vegLastPrices.map(p => [p.description, p.rate]));
-  const itemMasterRateMap = new Map(salesItems.map((item: any) => [item.itemName, { rate: Number(item.rate) || 0, uom: item.uom || "Kg" }]));
+  const itemMasterRateMap = new Map(
+    salesItems
+      .filter((item: any) => item.itemCategory === 'Vegetable')
+      .map((item: any) => [item.itemName, { rate: Number(item.rate) || 0, uom: item.uom || "Kg" }])
+  );
 
   const [lastEdited, setLastEdited] = useState<Record<number, 'rate' | 'amount'>>({});
 

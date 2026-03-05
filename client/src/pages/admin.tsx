@@ -53,6 +53,7 @@ export default function Admin() {
 
   const UOM_OPTIONS = ["Kg", "Gm", "Ltr", "Ml", "Pcs", "Pkt", "Box", "Dz", "Nos", "Bag", "Tin", "Cyl", "Plats", "Cup", "Set"];
   const GST_RATES = ["0", "5", "12", "18", "28"];
+  const ITEM_CATEGORIES = ["General", "Vegetable", "Fruit", "Grocery", "Spice & Masala", "Dry Fruit", "Sauce & Condiment", "Snack & Ready Food", "Non-Veg"];
 
   const [newItemName, setNewItemName] = useState("");
   const [newItemUom, setNewItemUom] = useState("Kg");
@@ -60,6 +61,7 @@ export default function Admin() {
   const [newItemHsn, setNewItemHsn] = useState("");
   const [newItemGst, setNewItemGst] = useState("0");
   const [newItemType, setNewItemType] = useState("purchase");
+  const [newItemCategory, setNewItemCategory] = useState("General");
   const [editingId, setEditingId] = useState<number | null>(null);
   const [editingName, setEditingName] = useState("");
   const [editingUom, setEditingUom] = useState("Kg");
@@ -67,8 +69,10 @@ export default function Admin() {
   const [editingHsn, setEditingHsn] = useState("");
   const [editingGst, setEditingGst] = useState("0");
   const [editingType, setEditingType] = useState("purchase");
+  const [editingCategory, setEditingCategory] = useState("General");
   const [itemSearchQuery, setItemSearchQuery] = useState("");
   const [itemTypeFilter, setItemTypeFilter] = useState("all");
+  const [itemCategoryFilter, setItemCategoryFilter] = useState("all");
 
   const [currentPin, setCurrentPin] = useState("");
   const [newPin, setNewPin] = useState("");
@@ -128,7 +132,8 @@ export default function Admin() {
         rate: newItemRate, 
         hsnCode: newItemHsn, 
         gstPercent: newItemGst, 
-        itemType: newItemType 
+        itemType: newItemType,
+        itemCategory: newItemCategory 
       });
       setNewItemName("");
       setNewItemUom("Kg");
@@ -136,6 +141,7 @@ export default function Admin() {
       setNewItemHsn("");
       setNewItemGst("0");
       setNewItemType("purchase");
+      setNewItemCategory("General");
       toast({ title: "Success", description: "Item added to Item Master" });
     } catch (e: any) {
       toast({ title: "Error", description: e.message || "Failed to add item", variant: "destructive" });
@@ -152,7 +158,8 @@ export default function Admin() {
         rate: editingRate, 
         hsnCode: editingHsn, 
         gstPercent: editingGst, 
-        itemType: editingType 
+        itemType: editingType,
+        itemCategory: editingCategory 
       });
       setEditingId(null);
       toast({ title: "Success", description: "Item updated" });
@@ -173,7 +180,8 @@ export default function Admin() {
   const filteredItems = (itemMasterList || []).filter((item: any) => {
     const matchesSearch = !itemSearchQuery || item.itemName.toLowerCase().includes(itemSearchQuery.toLowerCase());
     const matchesType = itemTypeFilter === "all" || item.itemType === itemTypeFilter;
-    return matchesSearch && matchesType;
+    const matchesCategory = itemCategoryFilter === "all" || item.itemCategory === itemCategoryFilter;
+    return matchesSearch && matchesType && matchesCategory;
   });
 
   const handleCreateClient = async () => {
@@ -897,7 +905,7 @@ export default function Admin() {
           <CardContent className="p-4 sm:p-6 space-y-4">
             <div className="p-4 rounded-xl bg-gradient-to-br from-blue-50 to-indigo-50 dark:from-blue-950/20 dark:to-indigo-950/20 border border-blue-200 dark:border-blue-800/50 space-y-3">
               <p className="text-xs font-semibold text-blue-600 dark:text-blue-400 uppercase tracking-wide">Add New Item</p>
-              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-7 gap-2">
+              <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 gap-2">
                 <Input 
                   placeholder="Item Name" 
                   value={newItemName}
@@ -905,6 +913,12 @@ export default function Admin() {
                   className="col-span-2 sm:col-span-1 border-blue-200 dark:border-blue-800 focus-visible:ring-blue-400"
                   data-testid="input-new-item-name"
                 />
+                <Select value={newItemCategory} onValueChange={setNewItemCategory}>
+                  <SelectTrigger className="border-blue-200 dark:border-blue-800" data-testid="select-new-item-category"><SelectValue placeholder="Category" /></SelectTrigger>
+                  <SelectContent>
+                    {ITEM_CATEGORIES.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}
+                  </SelectContent>
+                </Select>
                 <Select value={newItemUom} onValueChange={setNewItemUom}>
                   <SelectTrigger className="border-blue-200 dark:border-blue-800" data-testid="select-new-item-uom"><SelectValue /></SelectTrigger>
                   <SelectContent>
@@ -958,6 +972,15 @@ export default function Admin() {
                   data-testid="input-search-items"
                 />
               </div>
+              <Select value={itemCategoryFilter} onValueChange={setItemCategoryFilter}>
+                <SelectTrigger className="w-full sm:w-44 border-blue-200 dark:border-blue-800" data-testid="select-filter-category">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Categories</SelectItem>
+                  {ITEM_CATEGORIES.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}
+                </SelectContent>
+              </Select>
               <Select value={itemTypeFilter} onValueChange={setItemTypeFilter}>
                 <SelectTrigger className="w-full sm:w-40 border-blue-200 dark:border-blue-800" data-testid="select-filter-type">
                   <SelectValue />
@@ -982,6 +1005,7 @@ export default function Admin() {
                     <tr className="bg-blue-50 dark:bg-blue-950/20 border-b border-blue-200 dark:border-blue-800/50">
                       <th className="px-3 py-2.5 text-left text-xs font-semibold text-blue-700 dark:text-blue-400">#</th>
                       <th className="px-3 py-2.5 text-left text-xs font-semibold text-blue-700 dark:text-blue-400">Item Name</th>
+                      <th className="px-3 py-2.5 text-left text-xs font-semibold text-blue-700 dark:text-blue-400">Category</th>
                       <th className="px-3 py-2.5 text-left text-xs font-semibold text-blue-700 dark:text-blue-400">UOM</th>
                       <th className="px-3 py-2.5 text-right text-xs font-semibold text-blue-700 dark:text-blue-400">Rate</th>
                       <th className="px-3 py-2.5 text-left text-xs font-semibold text-blue-700 dark:text-blue-400">HSN</th>
@@ -1001,6 +1025,24 @@ export default function Admin() {
                             <Input value={editingName} onChange={(e) => setEditingName(e.target.value)} className="h-7 text-sm border-blue-300" autoFocus />
                           ) : (
                             <span className="font-semibold">{item.itemName}</span>
+                          )}
+                        </td>
+                        <td className="px-3 py-2">
+                          {editingId === item.id ? (
+                            <Select value={editingCategory} onValueChange={setEditingCategory}>
+                              <SelectTrigger className="h-7 text-sm"><SelectValue /></SelectTrigger>
+                              <SelectContent>{ITEM_CATEGORIES.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}</SelectContent>
+                            </Select>
+                          ) : (
+                            <span className={`text-xs px-2 py-0.5 rounded-full font-semibold ${
+                              item.itemCategory === 'Vegetable' ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400' :
+                              item.itemCategory === 'Fruit' ? 'bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400' :
+                              item.itemCategory === 'Grocery' ? 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400' :
+                              item.itemCategory === 'Spice & Masala' ? 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400' :
+                              item.itemCategory === 'Dry Fruit' ? 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400' :
+                              item.itemCategory === 'Non-Veg' ? 'bg-rose-100 text-rose-700 dark:bg-rose-900/30 dark:text-rose-400' :
+                              'bg-slate-100 text-slate-700 dark:bg-slate-900/30 dark:text-slate-400'
+                            }`}>{item.itemCategory}</span>
                           )}
                         </td>
                         <td className="px-3 py-2">
@@ -1078,6 +1120,7 @@ export default function Admin() {
                                   setEditingHsn(item.hsnCode || "");
                                   setEditingGst(String(Number(item.gstPercent)));
                                   setEditingType(item.itemType);
+                                  setEditingCategory(item.itemCategory || "General");
                                 }}>
                                   <Pencil className="w-3.5 h-3.5" />
                                 </Button>

@@ -46,7 +46,7 @@ Preferred communication style: Simple, everyday language.
   - `daily_reports` — One row per day (date is unique). Stores opening balance, received amount, auto-incrementing reportNumber
   - `expense_items` — Line items belonging to a report. Has category ('fixed' or 'vegetable'), description, UOM, qty, rate, amount. Cascade deletes with parent report
   - `vegetable_items` — Legacy lookup table of predefined vegetable names (superseded by item_master)
-  - `item_master` — Unified item catalog with itemName (unique), uom, rate, hsnCode, gstPercent, itemType (purchase/sales/both). Used for dropdowns in expense reports (sales items), purchase requests (purchase items), and purchase invoices (purchase items with GST auto-fill)
+  - `item_master` — Unified item catalog with itemName (unique), uom, rate, hsnCode, gstPercent, itemType (purchase/sales/both), itemCategory (General/Vegetable/Fruit/Grocery/Spice & Masala/Dry Fruit/Sauce & Condiment/Snack & Ready Food/Non-Veg). Used for dropdowns in expense reports (Vegetable category items show in Vegetable Purchase), purchase requests (purchase items), and purchase invoices (purchase items with GST auto-fill)
   - `cash_seals` — Daily cash seal income/expense records with auto-incrementing serialNumber. Linked to daily_reports via reportId
   - `daily_inventory` — Daily inventory records with auto-incrementing serialNumber
   - `kitchen_stock_items` — Kitchen stock line items (Banana, Dahi, Chicken, Fish, Eggs) linked to daily_inventory

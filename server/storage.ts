@@ -781,7 +781,7 @@ export class DatabaseStorage implements IStorage {
     return await db.select().from(itemMaster).orderBy(itemMaster.itemName);
   }
 
-  async createItemMasterItem(data: { itemName: string; uom?: string; rate?: string; hsnCode?: string; gstPercent?: string; itemType?: string }): Promise<ItemMaster> {
+  async createItemMasterItem(data: { itemName: string; uom?: string; rate?: string; hsnCode?: string; gstPercent?: string; itemType?: string; itemCategory?: string }): Promise<ItemMaster> {
     const [item] = await db.insert(itemMaster).values({
       itemName: data.itemName,
       uom: data.uom || "Kg",
@@ -789,11 +789,12 @@ export class DatabaseStorage implements IStorage {
       hsnCode: data.hsnCode || "",
       gstPercent: data.gstPercent || "0",
       itemType: data.itemType || "purchase",
+      itemCategory: data.itemCategory || "General",
     }).returning();
     return item;
   }
 
-  async updateItemMasterItem(id: number, data: { itemName?: string; uom?: string; rate?: string; hsnCode?: string; gstPercent?: string; itemType?: string }): Promise<ItemMaster> {
+  async updateItemMasterItem(id: number, data: { itemName?: string; uom?: string; rate?: string; hsnCode?: string; gstPercent?: string; itemType?: string; itemCategory?: string }): Promise<ItemMaster> {
     const updateFields: any = {};
     if (data.itemName !== undefined) updateFields.itemName = data.itemName;
     if (data.uom !== undefined) updateFields.uom = data.uom;
@@ -801,6 +802,7 @@ export class DatabaseStorage implements IStorage {
     if (data.hsnCode !== undefined) updateFields.hsnCode = data.hsnCode;
     if (data.gstPercent !== undefined) updateFields.gstPercent = data.gstPercent;
     if (data.itemType !== undefined) updateFields.itemType = data.itemType;
+    if (data.itemCategory !== undefined) updateFields.itemCategory = data.itemCategory;
     const [item] = await db.update(itemMaster).set(updateFields).where(eq(itemMaster.id, id)).returning();
     if (!item) throw new Error("Item not found");
     return item;

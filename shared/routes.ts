@@ -603,6 +603,7 @@ export const api = {
         hsnCode: z.string().default(""),
         gstPercent: z.string().default("0"),
         itemType: z.string().default("purchase"),
+        itemCategory: z.string().default("General"),
       }),
       responses: {
         201: selectItemMasterSchema,
@@ -619,6 +620,7 @@ export const api = {
         hsnCode: z.string().optional(),
         gstPercent: z.string().optional(),
         itemType: z.string().optional(),
+        itemCategory: z.string().optional(),
       }),
       responses: {
         200: selectItemMasterSchema,

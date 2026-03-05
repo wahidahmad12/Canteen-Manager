@@ -181,6 +181,7 @@ export const itemMaster = pgTable("item_master", {
   hsnCode: text("hsn_code").notNull().default(""),
   gstPercent: numeric("gst_percent", { precision: 5, scale: 2 }).default("0"),
   itemType: text("item_type").notNull().default("purchase"),
+  itemCategory: text("item_category").notNull().default("General"),
   createdAt: timestamp("created_at").defaultNow(),
 });
 
