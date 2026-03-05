@@ -561,336 +561,6 @@ export default function ReportForm() {
           </CardContent>
         </Card>
 
-        <Card className="border-0 shadow-lg overflow-hidden" data-testid="card-other-items">
-          <CardHeader className="bg-gradient-to-r from-purple-500 to-violet-500 text-white pb-3 pt-4 flex flex-row items-center justify-between">
-            <CardTitle className="flex items-center gap-2 text-base sm:text-lg">
-              <Package className="w-5 h-5" />
-              Other Item Purchase
-            </CardTitle>
-            <Button 
-              type="button" 
-              size="sm" 
-              variant="secondary"
-              className="bg-white/20 hover:bg-white/30 text-white border-0 backdrop-blur-sm"
-              onClick={() => append({ 
-                reportId: reportId || 0,
-                category: 'other', 
-                description: '', 
-                uom: 'Pcs', 
-                qty: 0, 
-                rate: 0, 
-                amount: 0 
-              })}
-              data-testid="button-add-other-top"
-            >
-              <Plus className="w-4 h-4 mr-1" />
-              Add Item
-            </Button>
-          </CardHeader>
-          <CardContent className="p-0">
-            <div className="sm:hidden divide-y">
-              {fields.map((field, index) => {
-                if (field.category !== 'other') return null;
-                const otherIndex = fields.slice(0, index).filter(f => f.category === 'other').length + 1;
-                return (
-                  <div key={field.id} className="p-3 space-y-2">
-                    <div className="flex items-center justify-between gap-2">
-                      <div className="flex items-center gap-2 flex-1 min-w-0">
-                        <span className="w-5 h-5 rounded-full bg-gradient-to-br from-purple-400 to-violet-500 text-white text-[10px] flex items-center justify-center font-bold shrink-0">{otherIndex}</span>
-                        <Select
-                          value={items[index]?.description || ''}
-                          onValueChange={(val) => {
-                            form.setValue(`items.${index}.description`, val);
-                            const masterInfo = otherItemRateMap.get(val);
-                            if (masterInfo?.rate && !items[index]?.rate) {
-                              form.setValue(`items.${index}.rate`, masterInfo.rate);
-                              const qty = Number(items[index]?.qty) || 0;
-                              form.setValue(`items.${index}.amount`, qty * masterInfo.rate);
-                            }
-                            if (masterInfo?.uom) {
-                              form.setValue(`items.${index}.uom`, masterInfo.uom);
-                            }
-                          }}
-                        >
-                          <SelectTrigger className="h-8 text-sm" data-testid={`select-other-item-${index}`}>
-                            <SelectValue placeholder="Select item" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {otherItems.map((item) => (
-                              <SelectItem key={item.id} value={item.name}>{item.name}</SelectItem>
-                            ))}
-                            {!otherItems.find(v => v.name === items[index]?.description) && items[index]?.description && (
-                              <SelectItem value={items[index]?.description}>{items[index]?.description}</SelectItem>
-                            )}
-                          </SelectContent>
-                        </Select>
-                      </div>
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="icon"
-                        className="h-8 w-8 text-destructive hover:text-destructive hover:bg-destructive/10 shrink-0"
-                        onClick={() => remove(index)}
-                        data-testid={`button-remove-other-${index}`}
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </Button>
-                    </div>
-                    <div className="grid grid-cols-4 gap-2">
-                      <div>
-                        <label className="text-[10px] text-muted-foreground uppercase font-semibold">UoM</label>
-                        <Input
-                          className="h-9 text-center text-sm"
-                          placeholder="Pcs"
-                          data-testid={`input-other-uom-${index}`}
-                          {...form.register(`items.${index}.uom` as const)}
-                        />
-                      </div>
-                      <div>
-                        <label className="text-[10px] text-muted-foreground uppercase font-semibold">Qty</label>
-                        <Input
-                          type="number"
-                          step="any"
-                          inputMode="decimal"
-                          className="h-9 font-mono text-center no-spinner"
-                          placeholder="0"
-                          data-testid={`input-other-qty-${index}`}
-                          value={items[index]?.qty || ''}
-                          onFocus={(e) => e.target.select()}
-                          onChange={(e) => {
-                            const val = parseFloat(e.target.value) || 0;
-                            form.setValue(`items.${index}.qty`, val);
-                            if (lastEdited[index] === 'amount') {
-                              const amt = Number(items[index]?.amount) || 0;
-                              if (val > 0) form.setValue(`items.${index}.rate`, amt / val);
-                            } else {
-                              const rate = Number(items[index]?.rate) || 0;
-                              form.setValue(`items.${index}.amount`, val * rate);
-                            }
-                          }}
-                        />
-                      </div>
-                      <div>
-                        <label className="text-[10px] text-muted-foreground uppercase font-semibold">Rate</label>
-                        <Input
-                          type="number"
-                          step="any"
-                          inputMode="decimal"
-                          className="h-9 font-mono text-center no-spinner"
-                          placeholder="0"
-                          data-testid={`input-other-rate-${index}`}
-                          value={items[index]?.rate || ''}
-                          onFocus={(e) => e.target.select()}
-                          onChange={(e) => {
-                            const val = parseFloat(e.target.value) || 0;
-                            const qty = Number(items[index]?.qty) || 0;
-                            form.setValue(`items.${index}.rate`, val);
-                            setLastEdited(prev => ({ ...prev, [index]: 'rate' }));
-                            form.setValue(`items.${index}.amount`, qty * val);
-                          }}
-                        />
-                      </div>
-                      <div>
-                        <label className="text-[10px] text-muted-foreground uppercase font-semibold">Amt</label>
-                        <Input
-                          type="number"
-                          step="any"
-                          inputMode="decimal"
-                          className="h-9 font-mono text-center no-spinner"
-                          placeholder="0"
-                          data-testid={`input-other-amt-${index}`}
-                          value={items[index]?.amount || ''}
-                          onFocus={(e) => e.target.select()}
-                          onChange={(e) => {
-                            const val = parseFloat(e.target.value) || 0;
-                            const qty = Number(items[index]?.qty) || 0;
-                            form.setValue(`items.${index}.amount`, val);
-                            setLastEdited(prev => ({ ...prev, [index]: 'amount' }));
-                            if (qty > 0) {
-                              form.setValue(`items.${index}.rate`, val / qty);
-                            }
-                          }}
-                        />
-                      </div>
-                    </div>
-                  </div>
-                );
-              })}
-              {fields.filter(f => f.category === 'other').length === 0 && (
-                <div className="text-center py-8 text-muted-foreground italic text-sm">
-                  No other items added yet. Tap "Add Item" to start.
-                </div>
-              )}
-            </div>
-            <div className="hidden sm:block overflow-x-auto">
-              <table className="glass-table">
-                <thead>
-                  <tr>
-                    <th className="w-10">No.</th>
-                    <th>Description</th>
-                    <th className="w-20">UoM</th>
-                    <th className="w-24">Qty</th>
-                    <th className="w-24">Rate (₹)</th>
-                    <th className="w-28 text-right">Amount (₹)</th>
-                    <th className="w-10"></th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {fields.map((field, index) => {
-                    if (field.category !== 'other') return null;
-                    const otherIndex = fields.slice(0, index).filter(f => f.category === 'other').length + 1;
-                    return (
-                      <tr key={field.id}>
-                        <td className="text-center">
-                          <span className="w-6 h-6 rounded-full bg-gradient-to-br from-purple-400 to-violet-500 text-white text-[10px] inline-flex items-center justify-center font-bold">{otherIndex}</span>
-                        </td>
-                        <td>
-                          <Select
-                            value={items[index]?.description || ''}
-                            onValueChange={(val) => {
-                              form.setValue(`items.${index}.description`, val);
-                              const masterInfo = otherItemRateMap.get(val);
-                              if (masterInfo?.rate && !items[index]?.rate) {
-                                form.setValue(`items.${index}.rate`, masterInfo.rate);
-                                const qty = Number(items[index]?.qty) || 0;
-                                form.setValue(`items.${index}.amount`, qty * masterInfo.rate);
-                              }
-                              if (masterInfo?.uom) {
-                                form.setValue(`items.${index}.uom`, masterInfo.uom);
-                              }
-                            }}
-                          >
-                            <SelectTrigger className="h-8" data-testid={`select-other-item-desktop-${index}`}>
-                              <SelectValue placeholder="Select item" />
-                            </SelectTrigger>
-                            <SelectContent>
-                              {otherItems.map((item) => (
-                                <SelectItem key={item.id} value={item.name}>{item.name}</SelectItem>
-                              ))}
-                              {!otherItems.find(v => v.name === items[index]?.description) && items[index]?.description && (
-                                <SelectItem value={items[index]?.description}>{items[index]?.description}</SelectItem>
-                              )}
-                            </SelectContent>
-                          </Select>
-                        </td>
-                        <td>
-                          <Input
-                            className="h-8 text-center text-sm"
-                            placeholder="Pcs"
-                            {...form.register(`items.${index}.uom` as const)}
-                          />
-                        </td>
-                        <td>
-                          <Input 
-                            type="number"
-                            step="any"
-                            className="h-8 font-mono text-right no-spinner"
-                            placeholder="0"
-                            value={items[index]?.qty || ''}
-                            onFocus={(e) => e.target.select()}
-                            onChange={(e) => {
-                              const val = parseFloat(e.target.value) || 0;
-                              form.setValue(`items.${index}.qty`, val);
-                              if (lastEdited[index] === 'amount') {
-                                const amt = Number(items[index]?.amount) || 0;
-                                if (val > 0) form.setValue(`items.${index}.rate`, amt / val);
-                              } else {
-                                const rate = Number(items[index]?.rate) || 0;
-                                form.setValue(`items.${index}.amount`, val * rate);
-                              }
-                            }}
-                          />
-                        </td>
-                        <td>
-                          <Input 
-                            type="number"
-                            step="any"
-                            className="h-8 font-mono text-right no-spinner"
-                            placeholder="0"
-                            key={`other-rate-${field.id}`}
-                            {...form.register(`items.${index}.rate` as const, {
-                              valueAsNumber: true,
-                              onChange: (e) => {
-                                const val = parseFloat(e.target.value) || 0;
-                                const qty = Number(items[index]?.qty) || 0;
-                                setLastEdited(prev => ({ ...prev, [index]: 'rate' }));
-                                form.setValue(`items.${index}.amount`, qty * val);
-                              }
-                            })}
-                          />
-                        </td>
-                        <td className="text-right">
-                          <Input 
-                            type="number"
-                            step="any"
-                            className="h-8 font-mono text-right no-spinner"
-                            placeholder="0"
-                            key={`other-amt-${field.id}`}
-                            {...form.register(`items.${index}.amount` as const, {
-                              valueAsNumber: true,
-                              onChange: (e) => {
-                                const val = parseFloat(e.target.value) || 0;
-                                const qty = Number(items[index]?.qty) || 0;
-                                setLastEdited(prev => ({ ...prev, [index]: 'amount' }));
-                                if (qty > 0) {
-                                  form.setValue(`items.${index}.rate`, val / qty);
-                                }
-                              }
-                            })}
-                          />
-                        </td>
-                        <td>
-                          <Button 
-                            type="button" 
-                            variant="ghost" 
-                            size="icon" 
-                            className="h-8 w-8 text-destructive hover:text-destructive hover:bg-destructive/10"
-                            onClick={() => remove(index)}
-                            data-testid={`button-remove-other-desktop-${index}`}
-                          >
-                            <Trash2 className="w-4 h-4" />
-                          </Button>
-                        </td>
-                      </tr>
-                    );
-                  })}
-                  {fields.filter(f => f.category === 'other').length === 0 && (
-                    <tr>
-                      <td colSpan={7} className="text-center py-8 text-muted-foreground italic">
-                        No other items added yet. Click "Add Item" to start.
-                      </td>
-                    </tr>
-                  )}
-                </tbody>
-              </table>
-            </div>
-            <div className="p-3 sm:p-4 bg-gradient-to-r from-purple-50 to-violet-50 dark:from-purple-950/20 dark:to-violet-950/20 border-t border-purple-200 dark:border-purple-800/30 flex items-center justify-between">
-              <Button
-                type="button"
-                size="sm"
-                variant="outline"
-                className="border-purple-300 text-purple-700 hover:bg-purple-50 dark:border-purple-700 dark:text-purple-400"
-                onClick={() => append({
-                  reportId: reportId || 0,
-                  category: 'other',
-                  description: '',
-                  uom: 'Pcs',
-                  qty: 0,
-                  rate: 0,
-                  amount: 0
-                })}
-                data-testid="button-add-other-bottom"
-              >
-                <Plus className="w-4 h-4 mr-1" /> Add Item
-              </Button>
-              <div className="text-sm font-semibold flex items-center gap-2">
-                <Package className="w-4 h-4 text-purple-500" />
-                Total Other: <span className="font-mono ml-1 text-base sm:text-lg text-purple-600 dark:text-purple-400" data-testid="text-total-other">₹{totalOtherCost.toFixed(2)}</span>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
         <Card className="border-0 shadow-lg overflow-hidden" data-testid="card-vegetable-items">
           <CardHeader className="bg-gradient-to-r from-emerald-500 to-teal-500 text-white pb-3 pt-4 flex flex-row items-center justify-between">
             <CardTitle className="flex items-center gap-2 text-base sm:text-lg">
@@ -1219,6 +889,336 @@ export default function ReportForm() {
               <div className="text-sm font-semibold flex items-center gap-2">
                 <Leaf className="w-4 h-4 text-emerald-500" />
                 Total Vegetables: <span className="font-mono ml-1 text-base sm:text-lg text-emerald-600 dark:text-emerald-400" data-testid="text-total-veg">₹{totalVegCost.toFixed(2)}</span>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card className="border-0 shadow-lg overflow-hidden" data-testid="card-other-items">
+          <CardHeader className="bg-gradient-to-r from-purple-500 to-violet-500 text-white pb-3 pt-4 flex flex-row items-center justify-between">
+            <CardTitle className="flex items-center gap-2 text-base sm:text-lg">
+              <Package className="w-5 h-5" />
+              Other Item Purchase
+            </CardTitle>
+            <Button 
+              type="button" 
+              size="sm" 
+              variant="secondary"
+              className="bg-white/20 hover:bg-white/30 text-white border-0 backdrop-blur-sm"
+              onClick={() => append({ 
+                reportId: reportId || 0,
+                category: 'other', 
+                description: '', 
+                uom: 'Pcs', 
+                qty: 0, 
+                rate: 0, 
+                amount: 0 
+              })}
+              data-testid="button-add-other-top"
+            >
+              <Plus className="w-4 h-4 mr-1" />
+              Add Item
+            </Button>
+          </CardHeader>
+          <CardContent className="p-0">
+            <div className="sm:hidden divide-y">
+              {fields.map((field, index) => {
+                if (field.category !== 'other') return null;
+                const otherIndex = fields.slice(0, index).filter(f => f.category === 'other').length + 1;
+                return (
+                  <div key={field.id} className="p-3 space-y-2">
+                    <div className="flex items-center justify-between gap-2">
+                      <div className="flex items-center gap-2 flex-1 min-w-0">
+                        <span className="w-5 h-5 rounded-full bg-gradient-to-br from-purple-400 to-violet-500 text-white text-[10px] flex items-center justify-center font-bold shrink-0">{otherIndex}</span>
+                        <Select
+                          value={items[index]?.description || ''}
+                          onValueChange={(val) => {
+                            form.setValue(`items.${index}.description`, val);
+                            const masterInfo = otherItemRateMap.get(val);
+                            if (masterInfo?.rate && !items[index]?.rate) {
+                              form.setValue(`items.${index}.rate`, masterInfo.rate);
+                              const qty = Number(items[index]?.qty) || 0;
+                              form.setValue(`items.${index}.amount`, qty * masterInfo.rate);
+                            }
+                            if (masterInfo?.uom) {
+                              form.setValue(`items.${index}.uom`, masterInfo.uom);
+                            }
+                          }}
+                        >
+                          <SelectTrigger className="h-8 text-sm" data-testid={`select-other-item-${index}`}>
+                            <SelectValue placeholder="Select item" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {otherItems.map((item) => (
+                              <SelectItem key={item.id} value={item.name}>{item.name}</SelectItem>
+                            ))}
+                            {!otherItems.find(v => v.name === items[index]?.description) && items[index]?.description && (
+                              <SelectItem value={items[index]?.description}>{items[index]?.description}</SelectItem>
+                            )}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        className="h-8 w-8 text-destructive hover:text-destructive hover:bg-destructive/10 shrink-0"
+                        onClick={() => remove(index)}
+                        data-testid={`button-remove-other-${index}`}
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </Button>
+                    </div>
+                    <div className="grid grid-cols-4 gap-2">
+                      <div>
+                        <label className="text-[10px] text-muted-foreground uppercase font-semibold">UoM</label>
+                        <Input
+                          className="h-9 text-center text-sm"
+                          placeholder="Pcs"
+                          data-testid={`input-other-uom-${index}`}
+                          {...form.register(`items.${index}.uom` as const)}
+                        />
+                      </div>
+                      <div>
+                        <label className="text-[10px] text-muted-foreground uppercase font-semibold">Qty</label>
+                        <Input
+                          type="number"
+                          step="any"
+                          inputMode="decimal"
+                          className="h-9 font-mono text-center no-spinner"
+                          placeholder="0"
+                          data-testid={`input-other-qty-${index}`}
+                          value={items[index]?.qty || ''}
+                          onFocus={(e) => e.target.select()}
+                          onChange={(e) => {
+                            const val = parseFloat(e.target.value) || 0;
+                            form.setValue(`items.${index}.qty`, val);
+                            if (lastEdited[index] === 'amount') {
+                              const amt = Number(items[index]?.amount) || 0;
+                              if (val > 0) form.setValue(`items.${index}.rate`, amt / val);
+                            } else {
+                              const rate = Number(items[index]?.rate) || 0;
+                              form.setValue(`items.${index}.amount`, val * rate);
+                            }
+                          }}
+                        />
+                      </div>
+                      <div>
+                        <label className="text-[10px] text-muted-foreground uppercase font-semibold">Rate</label>
+                        <Input
+                          type="number"
+                          step="any"
+                          inputMode="decimal"
+                          className="h-9 font-mono text-center no-spinner"
+                          placeholder="0"
+                          data-testid={`input-other-rate-${index}`}
+                          value={items[index]?.rate || ''}
+                          onFocus={(e) => e.target.select()}
+                          onChange={(e) => {
+                            const val = parseFloat(e.target.value) || 0;
+                            const qty = Number(items[index]?.qty) || 0;
+                            form.setValue(`items.${index}.rate`, val);
+                            setLastEdited(prev => ({ ...prev, [index]: 'rate' }));
+                            form.setValue(`items.${index}.amount`, qty * val);
+                          }}
+                        />
+                      </div>
+                      <div>
+                        <label className="text-[10px] text-muted-foreground uppercase font-semibold">Amt</label>
+                        <Input
+                          type="number"
+                          step="any"
+                          inputMode="decimal"
+                          className="h-9 font-mono text-center no-spinner"
+                          placeholder="0"
+                          data-testid={`input-other-amt-${index}`}
+                          value={items[index]?.amount || ''}
+                          onFocus={(e) => e.target.select()}
+                          onChange={(e) => {
+                            const val = parseFloat(e.target.value) || 0;
+                            const qty = Number(items[index]?.qty) || 0;
+                            form.setValue(`items.${index}.amount`, val);
+                            setLastEdited(prev => ({ ...prev, [index]: 'amount' }));
+                            if (qty > 0) {
+                              form.setValue(`items.${index}.rate`, val / qty);
+                            }
+                          }}
+                        />
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+              {fields.filter(f => f.category === 'other').length === 0 && (
+                <div className="text-center py-8 text-muted-foreground italic text-sm">
+                  No other items added yet. Tap "Add Item" to start.
+                </div>
+              )}
+            </div>
+            <div className="hidden sm:block overflow-x-auto">
+              <table className="glass-table">
+                <thead>
+                  <tr>
+                    <th className="w-10">No.</th>
+                    <th>Description</th>
+                    <th className="w-20">UoM</th>
+                    <th className="w-24">Qty</th>
+                    <th className="w-24">Rate (₹)</th>
+                    <th className="w-28 text-right">Amount (₹)</th>
+                    <th className="w-10"></th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {fields.map((field, index) => {
+                    if (field.category !== 'other') return null;
+                    const otherIndex = fields.slice(0, index).filter(f => f.category === 'other').length + 1;
+                    return (
+                      <tr key={field.id}>
+                        <td className="text-center">
+                          <span className="w-6 h-6 rounded-full bg-gradient-to-br from-purple-400 to-violet-500 text-white text-[10px] inline-flex items-center justify-center font-bold">{otherIndex}</span>
+                        </td>
+                        <td>
+                          <Select
+                            value={items[index]?.description || ''}
+                            onValueChange={(val) => {
+                              form.setValue(`items.${index}.description`, val);
+                              const masterInfo = otherItemRateMap.get(val);
+                              if (masterInfo?.rate && !items[index]?.rate) {
+                                form.setValue(`items.${index}.rate`, masterInfo.rate);
+                                const qty = Number(items[index]?.qty) || 0;
+                                form.setValue(`items.${index}.amount`, qty * masterInfo.rate);
+                              }
+                              if (masterInfo?.uom) {
+                                form.setValue(`items.${index}.uom`, masterInfo.uom);
+                              }
+                            }}
+                          >
+                            <SelectTrigger className="h-8" data-testid={`select-other-item-desktop-${index}`}>
+                              <SelectValue placeholder="Select item" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {otherItems.map((item) => (
+                                <SelectItem key={item.id} value={item.name}>{item.name}</SelectItem>
+                              ))}
+                              {!otherItems.find(v => v.name === items[index]?.description) && items[index]?.description && (
+                                <SelectItem value={items[index]?.description}>{items[index]?.description}</SelectItem>
+                              )}
+                            </SelectContent>
+                          </Select>
+                        </td>
+                        <td>
+                          <Input
+                            className="h-8 text-center text-sm"
+                            placeholder="Pcs"
+                            {...form.register(`items.${index}.uom` as const)}
+                          />
+                        </td>
+                        <td>
+                          <Input 
+                            type="number"
+                            step="any"
+                            className="h-8 font-mono text-right no-spinner"
+                            placeholder="0"
+                            value={items[index]?.qty || ''}
+                            onFocus={(e) => e.target.select()}
+                            onChange={(e) => {
+                              const val = parseFloat(e.target.value) || 0;
+                              form.setValue(`items.${index}.qty`, val);
+                              if (lastEdited[index] === 'amount') {
+                                const amt = Number(items[index]?.amount) || 0;
+                                if (val > 0) form.setValue(`items.${index}.rate`, amt / val);
+                              } else {
+                                const rate = Number(items[index]?.rate) || 0;
+                                form.setValue(`items.${index}.amount`, val * rate);
+                              }
+                            }}
+                          />
+                        </td>
+                        <td>
+                          <Input 
+                            type="number"
+                            step="any"
+                            className="h-8 font-mono text-right no-spinner"
+                            placeholder="0"
+                            key={`other-rate-${field.id}`}
+                            {...form.register(`items.${index}.rate` as const, {
+                              valueAsNumber: true,
+                              onChange: (e) => {
+                                const val = parseFloat(e.target.value) || 0;
+                                const qty = Number(items[index]?.qty) || 0;
+                                setLastEdited(prev => ({ ...prev, [index]: 'rate' }));
+                                form.setValue(`items.${index}.amount`, qty * val);
+                              }
+                            })}
+                          />
+                        </td>
+                        <td className="text-right">
+                          <Input 
+                            type="number"
+                            step="any"
+                            className="h-8 font-mono text-right no-spinner"
+                            placeholder="0"
+                            key={`other-amt-${field.id}`}
+                            {...form.register(`items.${index}.amount` as const, {
+                              valueAsNumber: true,
+                              onChange: (e) => {
+                                const val = parseFloat(e.target.value) || 0;
+                                const qty = Number(items[index]?.qty) || 0;
+                                setLastEdited(prev => ({ ...prev, [index]: 'amount' }));
+                                if (qty > 0) {
+                                  form.setValue(`items.${index}.rate`, val / qty);
+                                }
+                              }
+                            })}
+                          />
+                        </td>
+                        <td>
+                          <Button 
+                            type="button" 
+                            variant="ghost" 
+                            size="icon" 
+                            className="h-8 w-8 text-destructive hover:text-destructive hover:bg-destructive/10"
+                            onClick={() => remove(index)}
+                            data-testid={`button-remove-other-desktop-${index}`}
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </Button>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                  {fields.filter(f => f.category === 'other').length === 0 && (
+                    <tr>
+                      <td colSpan={7} className="text-center py-8 text-muted-foreground italic">
+                        No other items added yet. Click "Add Item" to start.
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+            <div className="p-3 sm:p-4 bg-gradient-to-r from-purple-50 to-violet-50 dark:from-purple-950/20 dark:to-violet-950/20 border-t border-purple-200 dark:border-purple-800/30 flex items-center justify-between">
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                className="border-purple-300 text-purple-700 hover:bg-purple-50 dark:border-purple-700 dark:text-purple-400"
+                onClick={() => append({
+                  reportId: reportId || 0,
+                  category: 'other',
+                  description: '',
+                  uom: 'Pcs',
+                  qty: 0,
+                  rate: 0,
+                  amount: 0
+                })}
+                data-testid="button-add-other-bottom"
+              >
+                <Plus className="w-4 h-4 mr-1" /> Add Item
+              </Button>
+              <div className="text-sm font-semibold flex items-center gap-2">
+                <Package className="w-4 h-4 text-purple-500" />
+                Total Other: <span className="font-mono ml-1 text-base sm:text-lg text-purple-600 dark:text-purple-400" data-testid="text-total-other">₹{totalOtherCost.toFixed(2)}</span>
               </div>
             </div>
           </CardContent>
