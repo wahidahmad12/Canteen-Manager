@@ -8,7 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { format } from "date-fns";
 import { FileText, Plus, Trash2, Save, Loader2, Store } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import { useCreatePurchaseInvoice, useClientNames, useVendors, useCreateVendor, usePurchaseRequests, usePurchaseInvoice, useUpdatePurchaseInvoice, useLastPurchasePrices } from "@/hooks/use-reports";
+import { useCreatePurchaseInvoice, useClientNames, useVendors, useCreateVendor, usePurchaseRequests, usePurchaseInvoice, useUpdatePurchaseInvoice, useLastPurchasePrices, useItemMaster } from "@/hooks/use-reports";
 import { useLocation, useRoute } from "wouter";
 import { Label } from "@/components/ui/label";
 
@@ -53,6 +53,7 @@ export default function PurchaseInvoice() {
   const createVendorMutation = useCreateVendor();
   const { data: purchaseRequests } = usePurchaseRequests();
   const { data: lastPrices } = useLastPurchasePrices();
+  const { data: purchaseItemMaster } = useItemMaster("purchase");
   const [paymentGiven, setPaymentGiven] = useState(false);
   const [showNewVendor, setShowNewVendor] = useState(false);
 
@@ -184,12 +185,24 @@ export default function PurchaseInvoice() {
     } else if (field === "netAmount") {
       newItems[index].lastEdited = "netAmount";
     }
-    if (field === "itemName" && lastPrices) {
-      const match = lastPrices.find(p => p.itemName.toLowerCase() === String(value).toLowerCase());
-      if (match) {
-        newItems[index].unitPrice = match.unitPrice;
-        newItems[index].gstRate = match.gstRate;
-        newItems[index].lastEdited = "unitPrice";
+    if (field === "itemName") {
+      const nameVal = String(value).toLowerCase();
+      if (lastPrices) {
+        const match = lastPrices.find(p => p.itemName.toLowerCase() === nameVal);
+        if (match) {
+          newItems[index].unitPrice = match.unitPrice;
+          newItems[index].gstRate = match.gstRate;
+          newItems[index].lastEdited = "unitPrice";
+        }
+      }
+      if (purchaseItemMaster) {
+        const masterMatch = purchaseItemMaster.find((p: any) => p.itemName.toLowerCase() === nameVal);
+        if (masterMatch) {
+          if (!newItems[index].gstRate || newItems[index].gstRate === 0) {
+            newItems[index].gstRate = Number(masterMatch.gstPercent) || 0;
+          }
+          newItems[index].uom = masterMatch.uom || newItems[index].uom;
+        }
       }
     }
     newItems[index] = recalcItem(newItems[index]);
@@ -267,6 +280,11 @@ export default function PurchaseInvoice() {
 
   return (
     <Layout>
+      <datalist id="invoice-item-suggestions">
+        {(purchaseItemMaster || []).map((item: any) => (
+          <option key={item.id} value={item.itemName} />
+        ))}
+      </datalist>
       <div className="max-w-6xl mx-auto">
         <Card>
           <CardHeader>
@@ -393,6 +411,7 @@ export default function PurchaseInvoice() {
                           <Input
                             value={item.itemName}
                             onChange={(e) => updateItem(index, "itemName", e.target.value)}
+                            list="invoice-item-suggestions"
                             placeholder="Item name"
                             className="h-8"
                             data-testid={`input-item-name-${index}`}
@@ -503,6 +522,7 @@ export default function PurchaseInvoice() {
                       <Input
                         value={item.itemName}
                         onChange={(e) => updateItem(index, "itemName", e.target.value)}
+                        list="invoice-item-suggestions"
                         placeholder="Enter item name"
                         className="h-9"
                       />

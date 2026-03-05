@@ -4,10 +4,10 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { 
-  useVegetableItems, 
-  useCreateVegetableItem, 
-  useUpdateVegetableItem, 
-  useDeleteVegetableItem,
+  useItemMaster,
+  useCreateItemMasterItem,
+  useUpdateItemMasterItem,
+  useDeleteItemMasterItem,
   useVerifyAdminPin,
   useChangeAdminPin,
   useClientNames,
@@ -23,7 +23,8 @@ import {
   useUpdateVendor,
   useDeleteVendor,
 } from "@/hooks/use-reports";
-import { Loader2, Plus, Pencil, Trash2, Save, X, Lock, KeyRound, Building2, Users, UserPlus, Store } from "lucide-react";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Loader2, Plus, Pencil, Trash2, Save, X, Lock, KeyRound, Building2, Users, UserPlus, Store, Package, Search } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
 export default function Admin() {
@@ -41,16 +42,31 @@ export default function Admin() {
     }
   };
 
-  const { data: vegetables, isLoading } = useVegetableItems();
-  const createMutation = useCreateVegetableItem();
-  const updateMutation = useUpdateVegetableItem();
-  const deleteMutation = useDeleteVegetableItem();
+  const { data: itemMasterList, isLoading } = useItemMaster();
+  const createMutation = useCreateItemMasterItem();
+  const updateMutation = useUpdateItemMasterItem();
+  const deleteMutation = useDeleteItemMasterItem();
   const changePinMutation = useChangeAdminPin();
   const { toast } = useToast();
 
+  const UOM_OPTIONS = ["Kg", "Gm", "Ltr", "Ml", "Pcs", "Pkt", "Box", "Dz", "Nos", "Bag", "Tin", "Cyl", "Plats", "Cup", "Set"];
+  const GST_RATES = ["0", "5", "12", "18", "28"];
+
   const [newItemName, setNewItemName] = useState("");
+  const [newItemUom, setNewItemUom] = useState("Kg");
+  const [newItemRate, setNewItemRate] = useState("0");
+  const [newItemHsn, setNewItemHsn] = useState("");
+  const [newItemGst, setNewItemGst] = useState("0");
+  const [newItemType, setNewItemType] = useState("purchase");
   const [editingId, setEditingId] = useState<number | null>(null);
   const [editingName, setEditingName] = useState("");
+  const [editingUom, setEditingUom] = useState("Kg");
+  const [editingRate, setEditingRate] = useState("0");
+  const [editingHsn, setEditingHsn] = useState("");
+  const [editingGst, setEditingGst] = useState("0");
+  const [editingType, setEditingType] = useState("purchase");
+  const [itemSearchQuery, setItemSearchQuery] = useState("");
+  const [itemTypeFilter, setItemTypeFilter] = useState("all");
 
   const [currentPin, setCurrentPin] = useState("");
   const [newPin, setNewPin] = useState("");
@@ -104,33 +120,59 @@ export default function Admin() {
   const handleCreate = async () => {
     if (!newItemName.trim()) return;
     try {
-      await createMutation.mutateAsync({ name: newItemName });
+      await createMutation.mutateAsync({ 
+        itemName: newItemName.trim(), 
+        uom: newItemUom, 
+        rate: newItemRate, 
+        hsnCode: newItemHsn, 
+        gstPercent: newItemGst, 
+        itemType: newItemType 
+      });
       setNewItemName("");
-      toast({ title: "Success", description: "Vegetable item added" });
-    } catch (e) {
-      toast({ title: "Error", description: "Failed to add item", variant: "destructive" });
+      setNewItemUom("Kg");
+      setNewItemRate("0");
+      setNewItemHsn("");
+      setNewItemGst("0");
+      setNewItemType("purchase");
+      toast({ title: "Success", description: "Item added to Item Master" });
+    } catch (e: any) {
+      toast({ title: "Error", description: e.message || "Failed to add item", variant: "destructive" });
     }
   };
 
   const handleUpdate = async (id: number) => {
     if (!editingName.trim()) return;
     try {
-      await updateMutation.mutateAsync({ id, name: editingName });
+      await updateMutation.mutateAsync({ 
+        id, 
+        itemName: editingName.trim(), 
+        uom: editingUom, 
+        rate: editingRate, 
+        hsnCode: editingHsn, 
+        gstPercent: editingGst, 
+        itemType: editingType 
+      });
       setEditingId(null);
-      toast({ title: "Success", description: "Vegetable item updated" });
-    } catch (e) {
-      toast({ title: "Error", description: "Failed to update item", variant: "destructive" });
+      toast({ title: "Success", description: "Item updated" });
+    } catch (e: any) {
+      toast({ title: "Error", description: e.message || "Failed to update item", variant: "destructive" });
     }
   };
 
   const handleDelete = async (id: number) => {
     try {
       await deleteMutation.mutateAsync(id);
-      toast({ title: "Success", description: "Vegetable item deleted" });
+      toast({ title: "Success", description: "Item deleted" });
     } catch (e) {
       toast({ title: "Error", description: "Failed to delete item", variant: "destructive" });
     }
   };
+
+  const filteredItems = (itemMasterList || []).filter((item: any) => {
+    const matchesSearch = !itemSearchQuery || item.itemName.toLowerCase().includes(itemSearchQuery.toLowerCase());
+    const matchesType = itemTypeFilter === "all" || item.itemType === itemTypeFilter;
+    return matchesSearch && matchesType;
+  });
 
   const handleCreateClient = async () => {
     if (!newClientName.trim()) return;
@@ -782,21 +824,81 @@ export default function Admin() {
 
         <Card>
           <CardHeader>
-            <CardTitle>Manage Vegetables</CardTitle>
+            <CardTitle className="flex items-center gap-2">
+              <Package className="w-5 h-5" />
+              Item Master
+            </CardTitle>
           </CardHeader>
           <CardContent className="space-y-6">
-            <div className="flex gap-2">
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-7 gap-2">
               <Input 
-                placeholder="New vegetable name..." 
+                placeholder="Item Name" 
                 value={newItemName}
                 onChange={(e) => setNewItemName(e.target.value)}
-                onKeyDown={(e) => e.key === 'Enter' && handleCreate()}
-                data-testid="input-new-vegetable"
+                className="col-span-2 sm:col-span-1"
+                data-testid="input-new-item-name"
               />
-              <Button onClick={handleCreate} disabled={createMutation.isPending} data-testid="button-add-vegetable">
-                {createMutation.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4 mr-2" />}
-                Add Item
+              <Select value={newItemUom} onValueChange={setNewItemUom}>
+                <SelectTrigger data-testid="select-new-item-uom"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  {UOM_OPTIONS.map(u => <SelectItem key={u} value={u}>{u}</SelectItem>)}
+                </SelectContent>
+              </Select>
+              <Input 
+                placeholder="Rate" 
+                value={newItemRate}
+                onChange={(e) => setNewItemRate(e.target.value)}
+                inputMode="decimal"
+                data-testid="input-new-item-rate"
+              />
+              <Input 
+                placeholder="HSN Code" 
+                value={newItemHsn}
+                onChange={(e) => setNewItemHsn(e.target.value)}
+                data-testid="input-new-item-hsn"
+              />
+              <Select value={newItemGst} onValueChange={setNewItemGst}>
+                <SelectTrigger data-testid="select-new-item-gst"><SelectValue placeholder="GST %" /></SelectTrigger>
+                <SelectContent>
+                  {GST_RATES.map(g => <SelectItem key={g} value={g}>{g}%</SelectItem>)}
+                </SelectContent>
+              </Select>
+              <Select value={newItemType} onValueChange={setNewItemType}>
+                <SelectTrigger data-testid="select-new-item-type"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="purchase">Purchase</SelectItem>
+                  <SelectItem value="sales">Sales</SelectItem>
+                  <SelectItem value="both">Both</SelectItem>
+                </SelectContent>
+              </Select>
+              <Button onClick={handleCreate} disabled={createMutation.isPending} data-testid="button-add-item">
+                {createMutation.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4 mr-1" />}
+                Add
               </Button>
+            </div>
+
+            <div className="flex flex-col sm:flex-row gap-2">
+              <div className="relative flex-1">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                <Input 
+                  placeholder="Search items..." 
+                  value={itemSearchQuery}
+                  onChange={(e) => setItemSearchQuery(e.target.value)}
+                  className="pl-9"
+                  data-testid="input-search-items"
+                />
+              </div>
+              <Select value={itemTypeFilter} onValueChange={setItemTypeFilter}>
+                <SelectTrigger className="w-full sm:w-40" data-testid="select-filter-type">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Types</SelectItem>
+                  <SelectItem value="purchase">Purchase</SelectItem>
+                  <SelectItem value="sales">Sales</SelectItem>
+                  <SelectItem value="both">Both</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
 
             {isLoading ? (
@@ -804,70 +906,109 @@ export default function Admin() {
                 <Loader2 className="w-8 h-8 animate-spin text-primary" />
               </div>
             ) : (
-              <div className="border rounded-lg overflow-hidden">
+              <div className="border rounded-lg overflow-x-auto">
                 <table className="w-full text-sm">
                   <thead className="bg-muted/50 border-b">
                     <tr>
-                      <th className="px-4 py-3 text-left">Item Name</th>
-                      <th className="px-4 py-3 text-right w-32">Actions</th>
+                      <th className="px-3 py-2 text-left">Item Name</th>
+                      <th className="px-3 py-2 text-left">UOM</th>
+                      <th className="px-3 py-2 text-right">Rate</th>
+                      <th className="px-3 py-2 text-left">HSN</th>
+                      <th className="px-3 py-2 text-right">GST%</th>
+                      <th className="px-3 py-2 text-center">Type</th>
+                      <th className="px-3 py-2 text-right w-24">Actions</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y">
-                    {vegetables?.map((veg) => (
-                      <tr key={veg.id} className="hover:bg-muted/30 transition-colors">
-                        <td className="px-4 py-3">
-                          {editingId === veg.id ? (
-                            <Input 
-                              value={editingName}
-                              onChange={(e) => setEditingName(e.target.value)}
-                              className="h-8"
-                              autoFocus
-                            />
+                    {filteredItems.map((item: any) => (
+                      <tr key={item.id} className="hover:bg-muted/30 transition-colors">
+                        <td className="px-3 py-2">
+                          {editingId === item.id ? (
+                            <Input value={editingName} onChange={(e) => setEditingName(e.target.value)} className="h-7 text-sm" autoFocus />
                           ) : (
-                            veg.name
+                            <span className="font-medium">{item.itemName}</span>
                           )}
                         </td>
-                        <td className="px-4 py-3 text-right">
+                        <td className="px-3 py-2">
+                          {editingId === item.id ? (
+                            <Select value={editingUom} onValueChange={setEditingUom}>
+                              <SelectTrigger className="h-7 text-sm"><SelectValue /></SelectTrigger>
+                              <SelectContent>{UOM_OPTIONS.map(u => <SelectItem key={u} value={u}>{u}</SelectItem>)}</SelectContent>
+                            </Select>
+                          ) : (
+                            item.uom
+                          )}
+                        </td>
+                        <td className="px-3 py-2 text-right">
+                          {editingId === item.id ? (
+                            <Input value={editingRate} onChange={(e) => setEditingRate(e.target.value)} className="h-7 text-sm text-right w-20" inputMode="decimal" />
+                          ) : (
+                            <span className="font-mono">{Number(item.rate).toFixed(2)}</span>
+                          )}
+                        </td>
+                        <td className="px-3 py-2">
+                          {editingId === item.id ? (
+                            <Input value={editingHsn} onChange={(e) => setEditingHsn(e.target.value)} className="h-7 text-sm w-24" />
+                          ) : (
+                            <span className="font-mono text-muted-foreground">{item.hsnCode || '—'}</span>
+                          )}
+                        </td>
+                        <td className="px-3 py-2 text-right">
+                          {editingId === item.id ? (
+                            <Select value={editingGst} onValueChange={setEditingGst}>
+                              <SelectTrigger className="h-7 text-sm w-16"><SelectValue /></SelectTrigger>
+                              <SelectContent>{GST_RATES.map(g => <SelectItem key={g} value={g}>{g}%</SelectItem>)}</SelectContent>
+                            </Select>
+                          ) : (
+                            <span className="font-mono">{Number(item.gstPercent)}%</span>
+                          )}
+                        </td>
+                        <td className="px-3 py-2 text-center">
+                          {editingId === item.id ? (
+                            <Select value={editingType} onValueChange={setEditingType}>
+                              <SelectTrigger className="h-7 text-sm"><SelectValue /></SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="purchase">Purchase</SelectItem>
+                                <SelectItem value="sales">Sales</SelectItem>
+                                <SelectItem value="both">Both</SelectItem>
+                              </SelectContent>
+                            </Select>
+                          ) : (
+                            <span className={`inline-flex px-2 py-0.5 rounded-full text-xs font-medium ${
+                              item.itemType === 'purchase' ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400' :
+                              item.itemType === 'sales' ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400' :
+                              'bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400'
+                            }`}>
+                              {item.itemType === 'purchase' ? 'Purchase' : item.itemType === 'sales' ? 'Sales' : 'Both'}
+                            </span>
+                          )}
+                        </td>
+                        <td className="px-3 py-2 text-right">
                           <div className="flex justify-end gap-1">
-                            {editingId === veg.id ? (
+                            {editingId === item.id ? (
                               <>
-                                <Button 
-                                  size="icon" 
-                                  variant="ghost" 
-                                  className="h-8 w-8 text-green-600"
-                                  onClick={() => handleUpdate(veg.id)}
-                                >
-                                  <Save className="w-4 h-4" />
+                                <Button size="icon" variant="ghost" className="h-7 w-7 text-green-600" onClick={() => handleUpdate(item.id)}>
+                                  <Save className="w-3.5 h-3.5" />
                                 </Button>
-                                <Button 
-                                  size="icon" 
-                                  variant="ghost" 
-                                  className="h-8 w-8 text-muted-foreground"
-                                  onClick={() => setEditingId(null)}
-                                >
-                                  <X className="w-4 h-4" />
+                                <Button size="icon" variant="ghost" className="h-7 w-7 text-muted-foreground" onClick={() => setEditingId(null)}>
+                                  <X className="w-3.5 h-3.5" />
                                 </Button>
                               </>
                             ) : (
                               <>
-                                <Button 
-                                  size="icon" 
-                                  variant="ghost" 
-                                  className="h-8 w-8"
-                                  onClick={() => {
-                                    setEditingId(veg.id);
-                                    setEditingName(veg.name);
-                                  }}
-                                >
-                                  <Pencil className="w-4 h-4" />
+                                <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => {
+                                  setEditingId(item.id);
+                                  setEditingName(item.itemName);
+                                  setEditingUom(item.uom);
+                                  setEditingRate(String(item.rate));
+                                  setEditingHsn(item.hsnCode || "");
+                                  setEditingGst(String(Number(item.gstPercent)));
+                                  setEditingType(item.itemType);
+                                }}>
+                                  <Pencil className="w-3.5 h-3.5" />
                                 </Button>
-                                <Button 
-                                  size="icon" 
-                                  variant="ghost" 
-                                  className="h-8 w-8 text-destructive hover:text-destructive hover:bg-destructive/10"
-                                  onClick={() => handleDelete(veg.id)}
-                                >
-                                  <Trash2 className="w-4 h-4" />
+                                <Button size="icon" variant="ghost" className="h-7 w-7 text-destructive hover:text-destructive hover:bg-destructive/10" onClick={() => handleDelete(item.id)}>
+                                  <Trash2 className="w-3.5 h-3.5" />
                                 </Button>
                               </>
                             )}
@@ -877,6 +1018,9 @@ export default function Admin() {
                     ))}
                   </tbody>
                 </table>
+                <div className="px-3 py-2 text-xs text-muted-foreground border-t bg-muted/30">
+                  {filteredItems.length} items {itemSearchQuery || itemTypeFilter !== 'all' ? '(filtered)' : 'total'}
+                </div>
               </div>
             )}
           </CardContent>

@@ -1,6 +1,6 @@
 
 import { z } from 'zod';
-import { insertDailyReportSchema, insertExpenseItemSchema, selectDailyReportSchema, selectExpenseItemSchema, selectVegetableItemSchema, inventoryWithItemsSchema, selectClientNameSchema, selectSavedMenuSchema, purchaseRequestWithItemsSchema, selectSavedItemNameSchema, selectVendorSchema, purchaseInvoiceWithItemsSchema } from './schema';
+import { insertDailyReportSchema, insertExpenseItemSchema, selectDailyReportSchema, selectExpenseItemSchema, selectVegetableItemSchema, inventoryWithItemsSchema, selectClientNameSchema, selectSavedMenuSchema, purchaseRequestWithItemsSchema, selectSavedItemNameSchema, selectVendorSchema, purchaseInvoiceWithItemsSchema, selectItemMasterSchema } from './schema';
 
 export const errorSchemas = {
   validation: z.object({
@@ -580,6 +580,54 @@ export const api = {
     delete: {
       method: 'DELETE' as const,
       path: '/api/users/:id' as const,
+      responses: {
+        204: z.void(),
+      },
+    },
+  },
+  itemMaster: {
+    list: {
+      method: 'GET' as const,
+      path: '/api/item-master' as const,
+      responses: {
+        200: z.array(selectItemMasterSchema),
+      },
+    },
+    create: {
+      method: 'POST' as const,
+      path: '/api/item-master' as const,
+      input: z.object({
+        itemName: z.string().min(1),
+        uom: z.string().default("Kg"),
+        rate: z.string().default("0"),
+        hsnCode: z.string().default(""),
+        gstPercent: z.string().default("0"),
+        itemType: z.string().default("purchase"),
+      }),
+      responses: {
+        201: selectItemMasterSchema,
+        400: errorSchemas.validation,
+      },
+    },
+    update: {
+      method: 'PUT' as const,
+      path: '/api/item-master/:id' as const,
+      input: z.object({
+        itemName: z.string().min(1).optional(),
+        uom: z.string().optional(),
+        rate: z.string().optional(),
+        hsnCode: z.string().optional(),
+        gstPercent: z.string().optional(),
+        itemType: z.string().optional(),
+      }),
+      responses: {
+        200: selectItemMasterSchema,
+        404: errorSchemas.notFound,
+      },
+    },
+    delete: {
+      method: 'DELETE' as const,
+      path: '/api/item-master/:id' as const,
       responses: {
         204: z.void(),
       },

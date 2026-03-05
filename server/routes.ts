@@ -589,6 +589,53 @@ export async function registerRoutes(
     res.json({ success: true });
   });
 
+  // === ITEM MASTER ROUTES ===
+  app.get(api.itemMaster.list.path, requireAuth, async (req, res) => {
+    const itemType = req.query.type as string | undefined;
+    const items = await storage.getItemMasterItems(itemType);
+    res.json(items);
+  });
+
+  app.post(api.itemMaster.create.path, requireAdmin, async (req, res) => {
+    try {
+      const input = api.itemMaster.create.input.parse(req.body);
+      const item = await storage.createItemMasterItem(input);
+      res.status(201).json(item);
+    } catch (err) {
+      if (err instanceof z.ZodError) {
+        return res.status(400).json({ message: err.errors[0].message, field: err.errors[0].path.join('.') });
+      }
+      if (err instanceof Error && 'code' in (err as any) && (err as any).code === '23505') {
+        return res.status(400).json({ message: 'This item name already exists.' });
+      }
+      throw err;
+    }
+  });
+
+  app.put(api.itemMaster.update.path, requireAdmin, async (req, res) => {
+    try {
+      const input = api.itemMaster.update.input.parse(req.body);
+      const item = await storage.updateItemMasterItem(Number(req.params.id), input);
+      res.json(item);
+    } catch (err) {
+      if (err instanceof z.ZodError) {
+        return res.status(400).json({ message: err.errors[0].message, field: err.errors[0].path.join('.') });
+      }
+      if (err instanceof Error && err.message === "Item not found") {
+        return res.status(404).json({ message: "Item not found" });
+      }
+      if (err instanceof Error && 'code' in (err as any) && (err as any).code === '23505') {
+        return res.status(400).json({ message: 'This item name already exists.' });
+      }
+      throw err;
+    }
+  });
+
+  app.delete(api.itemMaster.delete.path, requireAdmin, async (req, res) => {
+    await storage.deleteItemMasterItem(Number(req.params.id));
+    res.status(204).send();
+  });
+
   return httpServer;
 }
 

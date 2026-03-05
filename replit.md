@@ -44,7 +44,8 @@ Preferred communication style: Simple, everyday language.
 - **Tables**:
   - `daily_reports` — One row per day (date is unique). Stores opening balance, received amount, auto-incrementing reportNumber
   - `expense_items` — Line items belonging to a report. Has category ('fixed' or 'vegetable'), description, UOM, qty, rate, amount. Cascade deletes with parent report
-  - `vegetable_items` — Lookup table of predefined vegetable names for selection dropdowns
+  - `vegetable_items` — Legacy lookup table of predefined vegetable names (superseded by item_master)
+  - `item_master` — Unified item catalog with itemName (unique), uom, rate, hsnCode, gstPercent, itemType (purchase/sales/both). Used for dropdowns in expense reports (sales items), purchase requests (purchase items), and purchase invoices (purchase items with GST auto-fill)
   - `cash_seals` — Daily cash seal income/expense records with auto-incrementing serialNumber. Linked to daily_reports via reportId
   - `daily_inventory` — Daily inventory records with auto-incrementing serialNumber
   - `kitchen_stock_items` — Kitchen stock line items (Banana, Dahi, Chicken, Fish, Eggs) linked to daily_inventory
@@ -71,6 +72,6 @@ Preferred communication style: Simple, everyday language.
 - **Google Fonts** — Loads Inter, DM Sans, Fira Code, Geist Mono, and Architects Daughter font families from Google Fonts CDN
 - **Authentication** — Session-based auth with bcrypt password hashing. Admin creates user accounts grouped by client name. Default admin: username "admin", password "admin123"
 - **Session Storage** — PostgreSQL-backed sessions via connect-pg-simple with 30-day cookie lifetime
-- **Role-based Access** — "admin" role for full access (user management, client management, vegetable management, PIN settings); "user" role for standard operations (reports, cash seals, inventory, menus, purchase requests)
+- **Role-based Access** — "admin" role for full access (user management, client management, Item Master management, PIN settings); "user" role for standard operations (reports, cash seals, inventory, menus, purchase requests)
 - **Permissions** — Available permissions: expense, cashseal, inventory, menu, purchase. Dashboard tabs and navigation are filtered based on user permissions.
 - **Route Protection** — All API routes require authentication; admin-only routes use requireAdmin middleware. Frontend gates /admin route to admin users only

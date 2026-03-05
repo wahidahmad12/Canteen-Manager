@@ -18,6 +18,7 @@ import {
   vendors,
   purchaseInvoices,
   purchaseInvoiceItems,
+  itemMaster,
   type DailyReport, 
   type ExpenseItem,
   type CreateReportRequest,
@@ -35,6 +36,7 @@ import {
   type SavedItemName,
   type Vendor,
   type PurchaseInvoiceWithItems,
+  type ItemMaster,
 } from "@shared/schema";
 import { eq, desc, lt, sql } from "drizzle-orm";
 import bcrypt from "bcryptjs";
@@ -93,6 +95,10 @@ export interface IStorage {
   deletePurchaseInvoice(id: number): Promise<void>;
   getLastPurchasePrices(): Promise<{ itemName: string; unitPrice: number; gstRate: number }[]>;
   getLastVegetablePrices(): Promise<{ description: string; rate: number }[]>;
+  getItemMasterItems(itemType?: string): Promise<ItemMaster[]>;
+  createItemMasterItem(data: { itemName: string; uom?: string; rate?: string; hsnCode?: string; gstPercent?: string; itemType?: string }): Promise<ItemMaster>;
+  updateItemMasterItem(id: number, data: { itemName?: string; uom?: string; rate?: string; hsnCode?: string; gstPercent?: string; itemType?: string }): Promise<ItemMaster>;
+  deleteItemMasterItem(id: number): Promise<void>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -764,6 +770,44 @@ export class DatabaseStorage implements IStorage {
       unitPrice: Number(row.unit_price) || 0,
       gstRate: Number(row.gst_rate) || 0,
     }));
+  }
+
+  async getItemMasterItems(itemType?: string): Promise<ItemMaster[]> {
+    if (itemType) {
+      return await db.select().from(itemMaster)
+        .where(sql`${itemMaster.itemType} = ${itemType} OR ${itemMaster.itemType} = 'both'`)
+        .orderBy(itemMaster.itemName);
+    }
+    return await db.select().from(itemMaster).orderBy(itemMaster.itemName);
+  }
+
+  async createItemMasterItem(data: { itemName: string; uom?: string; rate?: string; hsnCode?: string; gstPercent?: string; itemType?: string }): Promise<ItemMaster> {
+    const [item] = await db.insert(itemMaster).values({
+      itemName: data.itemName,
+      uom: data.uom || "Kg",
+      rate: data.rate || "0",
+      hsnCode: data.hsnCode || "",
+      gstPercent: data.gstPercent || "0",
+      itemType: data.itemType || "purchase",
+    }).returning();
+    return item;
+  }
+
+  async updateItemMasterItem(id: number, data: { itemName?: string; uom?: string; rate?: string; hsnCode?: string; gstPercent?: string; itemType?: string }): Promise<ItemMaster> {
+    const updateFields: any = {};
+    if (data.itemName !== undefined) updateFields.itemName = data.itemName;
+    if (data.uom !== undefined) updateFields.uom = data.uom;
+    if (data.rate !== undefined) updateFields.rate = data.rate;
+    if (data.hsnCode !== undefined) updateFields.hsnCode = data.hsnCode;
+    if (data.gstPercent !== undefined) updateFields.gstPercent = data.gstPercent;
+    if (data.itemType !== undefined) updateFields.itemType = data.itemType;
+    const [item] = await db.update(itemMaster).set(updateFields).where(eq(itemMaster.id, id)).returning();
+    if (!item) throw new Error("Item not found");
+    return item;
+  }
+
+  async deleteItemMasterItem(id: number): Promise<void> {
+    await db.delete(itemMaster).where(eq(itemMaster.id, id));
   }
 }
 

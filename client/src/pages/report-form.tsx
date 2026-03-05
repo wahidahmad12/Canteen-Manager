@@ -12,7 +12,7 @@ import { useToast } from "@/hooks/use-toast";
 import { DatePicker } from "@/components/ui/date-picker";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Loader2, Plus, Trash2, Calculator, Save, ArrowLeft, X } from "lucide-react";
-import { useCreateReport, useUpdateReport, useReport, useVegetableItems, useVegetableLastPrices } from "@/hooks/use-reports";
+import { useCreateReport, useUpdateReport, useReport, useItemMaster, useVegetableLastPrices } from "@/hooks/use-reports";
 import { insertDailyReportSchema, insertExpenseItemSchema } from "@shared/schema";
 import {
   Select,
@@ -145,12 +145,14 @@ export default function ReportForm() {
 
   const { toast } = useToast();
   const { data: report, isLoading: isReportLoading } = useReport(reportId);
-  const { data: vegetableItems = [] } = useVegetableItems();
+  const { data: salesItems = [] } = useItemMaster("sales");
+  const vegetableItems = salesItems.map((item: any) => ({ id: item.id, name: item.itemName }));
   const { data: vegLastPrices = [] } = useVegetableLastPrices();
   const createMutation = useCreateReport();
   const updateMutation = useUpdateReport();
 
   const vegPriceMap = new Map(vegLastPrices.map(p => [p.description, p.rate]));
+  const itemMasterRateMap = new Map(salesItems.map((item: any) => [item.itemName, { rate: Number(item.rate) || 0, uom: item.uom || "Kg" }]));
 
   const [lastEdited, setLastEdited] = useState<Record<number, 'rate' | 'amount'>>({});
 
@@ -575,10 +577,15 @@ export default function ReportForm() {
                           onValueChange={(val) => {
                             form.setValue(`items.${index}.description`, val);
                             const lastRate = vegPriceMap.get(val);
-                            if (lastRate && !items[index]?.rate) {
-                              form.setValue(`items.${index}.rate`, lastRate);
+                            const masterInfo = itemMasterRateMap.get(val);
+                            const rateToUse = lastRate || (masterInfo?.rate) || 0;
+                            if (rateToUse && !items[index]?.rate) {
+                              form.setValue(`items.${index}.rate`, rateToUse);
                               const qty = Number(items[index]?.qty) || 0;
-                              form.setValue(`items.${index}.amount`, qty * lastRate);
+                              form.setValue(`items.${index}.amount`, qty * rateToUse);
+                            }
+                            if (masterInfo?.uom) {
+                              form.setValue(`items.${index}.uom`, masterInfo.uom);
                             }
                           }}
                         >
@@ -714,10 +721,15 @@ export default function ReportForm() {
                             onValueChange={(val) => {
                               form.setValue(`items.${index}.description`, val);
                               const lastRate = vegPriceMap.get(val);
-                              if (lastRate && !items[index]?.rate) {
-                                form.setValue(`items.${index}.rate`, lastRate);
+                              const masterInfo = itemMasterRateMap.get(val);
+                              const rateToUse = lastRate || (masterInfo?.rate) || 0;
+                              if (rateToUse && !items[index]?.rate) {
+                                form.setValue(`items.${index}.rate`, rateToUse);
                                 const qty = Number(items[index]?.qty) || 0;
-                                form.setValue(`items.${index}.amount`, qty * lastRate);
+                                form.setValue(`items.${index}.amount`, qty * rateToUse);
+                              }
+                              if (masterInfo?.uom) {
+                                form.setValue(`items.${index}.uom`, masterInfo.uom);
                               }
                             }}
                           >

@@ -274,6 +274,82 @@ export function useDeleteVegetableItem() {
   });
 }
 
+// === ITEM MASTER HOOKS ===
+
+export function useItemMaster(type?: string) {
+  return useQuery({
+    queryKey: [api.itemMaster.list.path, type],
+    queryFn: async () => {
+      const queryParams = type ? `?type=${type}` : '';
+      const res = await fetch(`${api.itemMaster.list.path}${queryParams}`, { credentials: "include" });
+      if (!res.ok) throw new Error("Failed to fetch item master");
+      return api.itemMaster.list.responses[200].parse(await res.json());
+    },
+  });
+}
+
+export function useCreateItemMasterItem() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (data: { itemName: string; uom?: string; rate?: string; hsnCode?: string; gstPercent?: string; itemType?: string }) => {
+      const res = await fetch(api.itemMaster.create.path, {
+        method: api.itemMaster.create.method,
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify(data),
+      });
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.message || "Failed to create item");
+      }
+      return api.itemMaster.create.responses[201].parse(await res.json());
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: [api.itemMaster.list.path] });
+    },
+  });
+}
+
+export function useUpdateItemMasterItem() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ id, ...data }: { id: number; itemName?: string; uom?: string; rate?: string; hsnCode?: string; gstPercent?: string; itemType?: string }) => {
+      const url = buildUrl(api.itemMaster.update.path, { id });
+      const res = await fetch(url, {
+        method: api.itemMaster.update.method,
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify(data),
+      });
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.message || "Failed to update item");
+      }
+      return api.itemMaster.update.responses[200].parse(await res.json());
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: [api.itemMaster.list.path] });
+    },
+  });
+}
+
+export function useDeleteItemMasterItem() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (id: number) => {
+      const url = buildUrl(api.itemMaster.delete.path, { id });
+      const res = await fetch(url, {
+        method: api.itemMaster.delete.method,
+        credentials: "include",
+      });
+      if (!res.ok) throw new Error("Failed to delete item");
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: [api.itemMaster.list.path] });
+    },
+  });
+}
+
 // === INVENTORY HOOKS ===
 
 export function useInventories(options?: { enabled?: boolean }) {

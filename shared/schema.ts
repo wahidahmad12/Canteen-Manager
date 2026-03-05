@@ -172,6 +172,18 @@ export const purchaseInvoiceItems = pgTable("purchase_invoice_items", {
   netAmount: numeric("net_amount", { precision: 12, scale: 2 }).default("0"),
 });
 
+// Item Master - unified item database
+export const itemMaster = pgTable("item_master", {
+  id: serial("id").primaryKey(),
+  itemName: text("item_name").notNull().unique(),
+  uom: text("uom").notNull().default("Kg"),
+  rate: numeric("rate", { precision: 10, scale: 2 }).default("0"),
+  hsnCode: text("hsn_code").notNull().default(""),
+  gstPercent: numeric("gst_percent", { precision: 5, scale: 2 }).default("0"),
+  itemType: text("item_type").notNull().default("purchase"),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
 // Saved item names for autocomplete in purchase requests and menus
 export const savedItemNames = pgTable("saved_item_names", {
   id: serial("id").primaryKey(),
@@ -308,6 +320,11 @@ export const purchaseRequestWithItemsSchema = selectPurchaseRequestSchema.extend
 export type SavedItemName = typeof savedItemNames.$inferSelect;
 export const insertSavedItemNameSchema = createInsertSchema(savedItemNames).omit({ id: true, createdAt: true });
 export const selectSavedItemNameSchema = createSelectSchema(savedItemNames, { createdAt: z.string().or(z.date()) });
+
+// Item Master types and schemas
+export type ItemMaster = typeof itemMaster.$inferSelect;
+export const insertItemMasterSchema = createInsertSchema(itemMaster).omit({ id: true, createdAt: true });
+export const selectItemMasterSchema = createSelectSchema(itemMaster, { createdAt: z.string().or(z.date()) });
 
 export const ALL_PERMISSIONS = ['expense', 'cashseal', 'inventory', 'menu', 'purchase'] as const;
 export type Permission = typeof ALL_PERMISSIONS[number];

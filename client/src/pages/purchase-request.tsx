@@ -8,7 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { format } from "date-fns";
 import { ShoppingCart, Plus, Trash2, Save, Loader2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import { useCreatePurchaseRequest, useClientNames, useSavedItemNames } from "@/hooks/use-reports";
+import { useCreatePurchaseRequest, useClientNames, useItemMaster } from "@/hooks/use-reports";
 import { useLocation } from "wouter";
 import { Label } from "@/components/ui/label";
 
@@ -30,7 +30,8 @@ export default function PurchaseRequest() {
   const [, navigate] = useLocation();
   const createMutation = useCreatePurchaseRequest();
   const { data: clients } = useClientNames();
-  const { data: savedItems } = useSavedItemNames();
+  const { data: purchaseItems } = useItemMaster("purchase");
+  const savedItems = (purchaseItems || []).map((item: any) => ({ id: item.id, name: item.itemName }));
 
   const addItem = () => {
     setItems([...items, { itemName: "", uom: "Kg", requestQty: 0 }]);
@@ -44,6 +45,12 @@ export default function PurchaseRequest() {
   const updateItem = (index: number, field: keyof PurchaseItem, value: any) => {
     const newItems = [...items];
     newItems[index] = { ...newItems[index], [field]: value };
+    if (field === "itemName" && purchaseItems) {
+      const match = purchaseItems.find((p: any) => p.itemName.toLowerCase() === String(value).toLowerCase());
+      if (match) {
+        newItems[index].uom = match.uom;
+      }
+    }
     setItems(newItems);
   };
 
