@@ -5,7 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { DatePicker } from "@/components/ui/date-picker";
 import { format } from "date-fns";
-import { Calculator, Save } from "lucide-react";
+import { Save, ArrowLeft, CalendarDays, TrendingUp, TrendingDown, Wallet, Loader2, Banknote, Coffee, Sun, Moon, UtensilsCrossed, HandCoins } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useCreateCashSeal } from "@/hooks/use-reports";
 import { useLocation } from "wouter";
@@ -16,7 +16,6 @@ export default function CashSeal() {
   const [, navigate] = useLocation();
   const saveMutation = useCreateCashSeal();
   
-  // Income States
   const [morningQty, setMorningQty] = useState(0);
   const [lunchQty, setLunchQty] = useState(0);
   const [eveningQty, setEveningQty] = useState(0);
@@ -34,21 +33,18 @@ export default function CashSeal() {
   const [eveningCashRate, setEveningCashRate] = useState(0);
   const [eveningCashQty, setEveningCashQty] = useState(0);
 
-  // Expense States
   const [bananaQty, setBananaQty] = useState(0);
   const [dahiBharQty, setDahiBharQty] = useState(0);
   const [dahiBharRate, setDahiBharRate] = useState(0);
   const [otherExpense, setOtherExpense] = useState(0);
   const [akbarAliAmount, setAkbarAliAmount] = useState(0);
 
-  // Constants from image
   const MORNING_RATE = 5;
   const LUNCH_RATE = 20;
   const EVENING_RATE = 10;
   const NIGHT_RATE = 10;
   const BANANA_RATE = 4.5;
 
-  // Totals
   const morningTotal = morningQty * MORNING_RATE;
   const lunchTotal = lunchQty * LUNCH_RATE;
   const eveningTotal = eveningQty * EVENING_RATE;
@@ -95,163 +91,400 @@ export default function CashSeal() {
     }
   };
 
+  const fmt = (n: number) => n.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+
   return (
     <Layout>
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-6 sm:mb-8 gap-3">
-        <h2 className="text-2xl sm:text-3xl font-bold tracking-tight">CASH SEAL KPF</h2>
-        <Button onClick={handleSave} disabled={saveMutation.isPending} className="w-full sm:w-auto">
-          {saveMutation.isPending ? "Saving..." : <><Save className="w-4 h-4 mr-2" /> Save Seal</>}
-        </Button>
-      </div>
+      <div className="space-y-6 pb-32 sm:pb-8">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <div className="flex items-center gap-3 sm:gap-4">
+            <Button variant="outline" size="icon" onClick={() => navigate("/")} type="button" className="shrink-0 rounded-xl border-teal-200 hover:bg-teal-50 dark:border-teal-800 dark:hover:bg-teal-900/30" data-testid="button-back">
+              <ArrowLeft className="w-4 h-4" />
+            </Button>
+            <div className="min-w-0">
+              <h1 className="text-lg sm:text-2xl font-bold tracking-tight bg-gradient-to-r from-teal-600 via-cyan-600 to-blue-500 bg-clip-text text-transparent" data-testid="text-page-title">
+                CASH SEAL KPF
+              </h1>
+              <p className="text-muted-foreground text-xs sm:text-sm">Daily income & expense seal tracking</p>
+            </div>
+          </div>
+          <div className="flex gap-2 sm:gap-3 ml-12 sm:ml-0">
+            <Button variant="outline" type="button" onClick={() => navigate("/")} className="text-xs sm:text-sm h-9 sm:h-10 rounded-xl">
+              Cancel
+            </Button>
+            <Button
+              onClick={handleSave}
+              disabled={saveMutation.isPending}
+              className="shadow-lg shadow-teal-500/20 text-xs sm:text-sm h-9 sm:h-10 rounded-xl bg-gradient-to-r from-teal-500 to-cyan-600 hover:from-teal-600 hover:to-cyan-700 border-0"
+              data-testid="button-save-seal"
+            >
+              {saveMutation.isPending ? (
+                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+              ) : (
+                <Save className="w-4 h-4 mr-2" />
+              )}
+              Save Seal
+            </Button>
+          </div>
+        </div>
 
-      <div className="grid md:grid-cols-2 gap-4 mb-6">
-        <Card className="border-border/50 shadow-sm">
-          <CardContent className="pt-6">
-            <div className="flex items-center gap-4">
-              <label className="text-sm font-medium whitespace-nowrap">Date:</label>
+        <Card className="border-0 shadow-lg overflow-hidden" data-testid="card-date-info">
+          <CardHeader className="bg-gradient-to-r from-slate-600 to-slate-700 text-white pb-3 pt-4">
+            <CardTitle className="flex items-center gap-2 text-base">
+              <CalendarDays className="w-5 h-5" />
+              Date Information
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="grid sm:grid-cols-2 gap-4 p-4 sm:p-6 bg-gradient-to-b from-slate-50/50 to-transparent dark:from-slate-900/20">
+            <div className="space-y-2">
+              <label className="text-sm font-semibold text-slate-600 dark:text-slate-400 flex items-center gap-1.5">
+                <CalendarDays className="w-3.5 h-3.5" /> Date
+              </label>
               <DatePicker date={date} setDate={(d) => d && setDate(d)} />
             </div>
-          </CardContent>
-        </Card>
-        <Card className="border-border/50 shadow-sm">
-          <CardContent className="pt-6">
-            <div className="flex items-center gap-4">
-              <label className="text-sm font-medium whitespace-nowrap">Week Day:</label>
-              <Input value={format(date, "EEEE")} readOnly className="bg-muted" />
+            <div className="space-y-2">
+              <label className="text-sm font-semibold text-cyan-600 dark:text-cyan-400 flex items-center gap-1.5">
+                <Sun className="w-3.5 h-3.5" /> Week Day
+              </label>
+              <Input value={format(date, "EEEE")} readOnly className="bg-cyan-50 dark:bg-cyan-900/20 border-cyan-200 dark:border-cyan-800 font-semibold" />
             </div>
           </CardContent>
         </Card>
-      </div>
 
-      <div className="space-y-6">
-        <Card className="overflow-hidden border-blue-200">
-          <CardHeader className="bg-blue-600 py-2">
-            <CardTitle className="text-center text-white text-lg">INCOME</CardTitle>
+        <Card className="border-0 shadow-lg overflow-hidden" data-testid="card-income">
+          <CardHeader className="bg-gradient-to-r from-emerald-500 to-teal-500 text-white pb-3 pt-4">
+            <CardTitle className="flex items-center gap-2 text-base sm:text-lg">
+              <TrendingUp className="w-5 h-5" />
+              INCOME
+            </CardTitle>
           </CardHeader>
           <CardContent className="p-0">
-            <div className="overflow-x-auto">
-            <table className="w-full border-collapse min-w-[500px]">
-              <thead>
-                <tr className="bg-muted/50 border-b">
-                  <th className="border px-2 sm:px-4 py-2 text-left text-xs sm:text-sm">Name</th>
-                  <th className="border px-2 sm:px-4 py-2 text-center w-16 sm:w-24 text-xs sm:text-sm">Rate</th>
-                  <th className="border px-1 sm:px-4 py-2 text-center w-8 sm:w-12 text-xs sm:text-sm"></th>
-                  <th className="border px-2 sm:px-4 py-2 text-center w-20 sm:w-32 text-xs sm:text-sm">Qty</th>
-                  <th className="border px-1 sm:px-4 py-2 text-center w-8 sm:w-12 text-xs sm:text-sm"></th>
-                  <th className="border px-2 sm:px-4 py-2 text-right w-24 sm:w-40 text-xs sm:text-sm">Total</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y">
-                {[
-                  { name: "MORNING", rate: MORNING_RATE, qty: morningQty, setQty: setMorningQty, total: morningTotal },
-                  { name: "LUNCH", rate: LUNCH_RATE, qty: lunchQty, setQty: setLunchQty, total: lunchTotal },
-                  { name: "EVENING", rate: EVENING_RATE, qty: eveningQty, setQty: setEveningQty, total: eveningTotal },
-                  { name: "NIGHT", rate: NIGHT_RATE, qty: nightQty, setQty: setNightQty, total: nightTotal },
-                ].map((item) => (
-                  <tr key={item.name}>
-                    <td className="border px-4 py-2 font-bold">{item.name}</td>
-                    <td className="border px-4 py-2 text-center">{item.rate}</td>
-                    <td className="border px-4 py-2 text-center text-muted-foreground">X</td>
-                    <td className="border px-2 py-1">
-                      <Input type="number" className="h-8 text-center" value={item.qty || ""} onChange={(e) => item.setQty(Number(e.target.value))} />
-                    </td>
-                    <td className="border px-4 py-2 text-center text-muted-foreground">=</td>
-                    <td className="border px-4 py-2 text-right font-mono bg-muted/20">{item.total.toFixed(2)}</td>
+            <div className="sm:hidden divide-y">
+              {[
+                { name: "MORNING", icon: Coffee, rate: MORNING_RATE, qty: morningQty, setQty: setMorningQty, total: morningTotal, color: "amber" },
+                { name: "LUNCH", icon: UtensilsCrossed, rate: LUNCH_RATE, qty: lunchQty, setQty: setLunchQty, total: lunchTotal, color: "orange" },
+                { name: "EVENING", icon: Sun, rate: EVENING_RATE, qty: eveningQty, setQty: setEveningQty, total: eveningTotal, color: "rose" },
+                { name: "NIGHT", icon: Moon, rate: NIGHT_RATE, qty: nightQty, setQty: setNightQty, total: nightTotal, color: "indigo" },
+              ].map((item, idx) => (
+                <div key={item.name} className="p-3 space-y-2">
+                  <div className="flex items-center justify-between">
+                    <span className="font-semibold text-sm flex items-center gap-1.5">
+                      <span className="w-6 h-6 rounded-full bg-gradient-to-br from-emerald-400 to-teal-500 text-white text-[10px] flex items-center justify-center font-bold shrink-0">{idx + 1}</span>
+                      {item.name}
+                    </span>
+                    <span className="text-xs text-emerald-600 dark:text-emerald-400 font-mono bg-emerald-50 dark:bg-emerald-900/20 px-2 py-0.5 rounded-full font-semibold">Rate: ₹{item.rate}</span>
+                  </div>
+                  <div className="grid grid-cols-3 gap-2 items-end">
+                    <div>
+                      <label className="text-[10px] text-muted-foreground uppercase font-semibold">Qty</label>
+                      <Input type="number" inputMode="numeric" className="h-9 font-mono text-center no-spinner" value={item.qty || ""} onFocus={(e) => e.target.select()} onChange={(e) => item.setQty(Number(e.target.value) || 0)} />
+                    </div>
+                    <div className="text-center text-muted-foreground text-sm py-2">× ₹{item.rate} =</div>
+                    <div>
+                      <label className="text-[10px] text-muted-foreground uppercase font-semibold">Total</label>
+                      <div className="h-9 flex items-center justify-end font-mono font-bold text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-900/20 rounded-md px-2 text-sm">₹{fmt(item.total)}</div>
+                    </div>
+                  </div>
+                </div>
+              ))}
+
+              <div className="px-3 pt-2 pb-1">
+                <p className="text-[10px] text-emerald-600 font-semibold uppercase tracking-wider">Cash Items (custom rate)</p>
+              </div>
+
+              {[
+                { name: "CASH Non Veg", rate: nonVegRate, setRate: setNonVegRate, qty: nonVegQty, setQty: setNonVegQty, total: nonVegTotal },
+                { name: "CASH Veg", rate: vegRate, setRate: setVegRate, qty: vegQty, setQty: setVegQty, total: vegTotal },
+                { name: "Morning CASH", rate: morningCashRate, setRate: setMorningCashRate, qty: morningCashQty, setQty: setMorningCashQty, total: morningCashTotal },
+                { name: "Evening CASH", rate: eveningCashRate, setRate: setEveningCashRate, qty: eveningCashQty, setQty: setEveningCashQty, total: eveningCashTotal },
+              ].map((item, idx) => (
+                <div key={item.name} className="p-3 space-y-2">
+                  <div className="flex items-center gap-1.5">
+                    <span className="w-6 h-6 rounded-full bg-gradient-to-br from-cyan-400 to-blue-500 text-white text-[10px] flex items-center justify-center font-bold shrink-0">{idx + 5}</span>
+                    <span className="font-semibold text-sm">{item.name}</span>
+                  </div>
+                  <div className="grid grid-cols-3 gap-2">
+                    <div>
+                      <label className="text-[10px] text-muted-foreground uppercase font-semibold">Rate ₹</label>
+                      <Input type="number" inputMode="decimal" className="h-9 font-mono text-center no-spinner" placeholder="0" value={item.rate || ""} onFocus={(e) => e.target.select()} onChange={(e) => item.setRate(Number(e.target.value) || 0)} />
+                    </div>
+                    <div>
+                      <label className="text-[10px] text-muted-foreground uppercase font-semibold">Qty</label>
+                      <Input type="number" inputMode="numeric" className="h-9 font-mono text-center no-spinner" value={item.qty || ""} onFocus={(e) => e.target.select()} onChange={(e) => item.setQty(Number(e.target.value) || 0)} />
+                    </div>
+                    <div>
+                      <label className="text-[10px] text-muted-foreground uppercase font-semibold">Total</label>
+                      <div className="h-9 flex items-center justify-end font-mono font-bold text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-900/20 rounded-md px-2 text-sm">₹{fmt(item.total)}</div>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            <div className="hidden sm:block overflow-x-auto">
+              <table className="w-full border-collapse min-w-[500px]">
+                <thead>
+                  <tr className="bg-emerald-50 dark:bg-emerald-950/20 border-b border-emerald-200 dark:border-emerald-800">
+                    <th className="px-3 py-2.5 text-left text-xs font-semibold text-emerald-700 dark:text-emerald-400">#</th>
+                    <th className="px-3 py-2.5 text-left text-xs font-semibold text-emerald-700 dark:text-emerald-400">Name</th>
+                    <th className="px-3 py-2.5 text-center w-24 text-xs font-semibold text-emerald-700 dark:text-emerald-400">Rate</th>
+                    <th className="px-3 py-2.5 text-center w-8 text-xs"></th>
+                    <th className="px-3 py-2.5 text-center w-28 text-xs font-semibold text-emerald-700 dark:text-emerald-400">Qty</th>
+                    <th className="px-3 py-2.5 text-center w-8 text-xs"></th>
+                    <th className="px-3 py-2.5 text-right w-36 text-xs font-semibold text-emerald-700 dark:text-emerald-400">Total</th>
                   </tr>
-                ))}
-                
-                {[
-                  { name: "CASH Non Veg", rate: nonVegRate, setRate: setNonVegRate, qty: nonVegQty, setQty: setNonVegQty, total: nonVegTotal },
-                  { name: "CASH Veg", rate: vegRate, setRate: setVegRate, qty: vegQty, setQty: setVegQty, total: vegTotal },
-                  { name: "Morning CASH", rate: morningCashRate, setRate: setMorningCashRate, qty: morningCashQty, setQty: setMorningCashQty, total: morningCashTotal },
-                  { name: "Evening CASH", rate: eveningCashRate, setRate: setEveningCashRate, qty: eveningCashQty, setQty: setEveningCashQty, total: eveningCashTotal },
-                ].map((item) => (
-                  <tr key={item.name}>
-                    <td className="border px-4 py-2 font-bold">{item.name}</td>
-                    <td className="border px-2 py-1">
-                      <Input type="number" placeholder="Rate" className="h-8 text-center" value={item.rate || ""} onChange={(e) => item.setRate(Number(e.target.value))} />
-                    </td>
-                    <td className="border px-4 py-2 text-center text-muted-foreground">X</td>
-                    <td className="border px-2 py-1">
-                      <Input type="number" className="h-8 text-center" value={item.qty || ""} onChange={(e) => item.setQty(Number(e.target.value))} />
-                    </td>
-                    <td className="border px-4 py-2 text-center text-muted-foreground">=</td>
-                    <td className="border px-4 py-2 text-right font-mono bg-muted/20">{item.total.toFixed(2)}</td>
-                  </tr>
-                ))}
-                <tr className="bg-muted/10 font-bold">
-                  <td colSpan={5} className="border px-4 py-3 text-right text-xs sm:text-sm">Total Income</td>
-                  <td className="border px-4 py-3 text-right text-sm sm:text-lg font-mono">{totalIncome.toFixed(2)}</td>
-                </tr>
-              </tbody>
-            </table>
+                </thead>
+                <tbody>
+                  {[
+                    { name: "MORNING", rate: MORNING_RATE, qty: morningQty, setQty: setMorningQty, total: morningTotal },
+                    { name: "LUNCH", rate: LUNCH_RATE, qty: lunchQty, setQty: setLunchQty, total: lunchTotal },
+                    { name: "EVENING", rate: EVENING_RATE, qty: eveningQty, setQty: setEveningQty, total: eveningTotal },
+                    { name: "NIGHT", rate: NIGHT_RATE, qty: nightQty, setQty: setNightQty, total: nightTotal },
+                  ].map((item, idx) => (
+                    <tr key={item.name} className="border-b hover:bg-emerald-50/50 dark:hover:bg-emerald-950/10">
+                      <td className="px-3 py-2">
+                        <span className="w-6 h-6 rounded-full bg-gradient-to-br from-emerald-400 to-teal-500 text-white text-[10px] inline-flex items-center justify-center font-bold">{idx + 1}</span>
+                      </td>
+                      <td className="px-3 py-2 font-semibold">{item.name}</td>
+                      <td className="px-3 py-2 text-center font-mono">
+                        <span className="bg-emerald-50 dark:bg-emerald-900/20 text-emerald-700 dark:text-emerald-400 px-2 py-0.5 rounded-full text-xs font-semibold">₹{item.rate}</span>
+                      </td>
+                      <td className="px-1 py-2 text-center text-muted-foreground text-xs">×</td>
+                      <td className="px-2 py-1">
+                        <Input type="number" className="h-8 text-center font-mono no-spinner" value={item.qty || ""} onFocus={(e) => e.target.select()} onChange={(e) => item.setQty(Number(e.target.value) || 0)} />
+                      </td>
+                      <td className="px-1 py-2 text-center text-muted-foreground text-xs">=</td>
+                      <td className="px-3 py-2 text-right font-mono font-semibold text-emerald-600 dark:text-emerald-400">₹{fmt(item.total)}</td>
+                    </tr>
+                  ))}
+                  
+                  {[
+                    { name: "CASH Non Veg", rate: nonVegRate, setRate: setNonVegRate, qty: nonVegQty, setQty: setNonVegQty, total: nonVegTotal },
+                    { name: "CASH Veg", rate: vegRate, setRate: setVegRate, qty: vegQty, setQty: setVegQty, total: vegTotal },
+                    { name: "Morning CASH", rate: morningCashRate, setRate: setMorningCashRate, qty: morningCashQty, setQty: setMorningCashQty, total: morningCashTotal },
+                    { name: "Evening CASH", rate: eveningCashRate, setRate: setEveningCashRate, qty: eveningCashQty, setQty: setEveningCashQty, total: eveningCashTotal },
+                  ].map((item, idx) => (
+                    <tr key={item.name} className="border-b hover:bg-cyan-50/50 dark:hover:bg-cyan-950/10">
+                      <td className="px-3 py-2">
+                        <span className="w-6 h-6 rounded-full bg-gradient-to-br from-cyan-400 to-blue-500 text-white text-[10px] inline-flex items-center justify-center font-bold">{idx + 5}</span>
+                      </td>
+                      <td className="px-3 py-2 font-semibold">{item.name}</td>
+                      <td className="px-2 py-1">
+                        <Input type="number" placeholder="Rate" className="h-8 text-center font-mono no-spinner" value={item.rate || ""} onFocus={(e) => e.target.select()} onChange={(e) => item.setRate(Number(e.target.value) || 0)} />
+                      </td>
+                      <td className="px-1 py-2 text-center text-muted-foreground text-xs">×</td>
+                      <td className="px-2 py-1">
+                        <Input type="number" className="h-8 text-center font-mono no-spinner" value={item.qty || ""} onFocus={(e) => e.target.select()} onChange={(e) => item.setQty(Number(e.target.value) || 0)} />
+                      </td>
+                      <td className="px-1 py-2 text-center text-muted-foreground text-xs">=</td>
+                      <td className="px-3 py-2 text-right font-mono font-semibold text-cyan-600 dark:text-cyan-400">₹{fmt(item.total)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+            <div className="p-3 sm:p-4 bg-gradient-to-r from-emerald-50 to-teal-50 dark:from-emerald-950/20 dark:to-teal-950/20 border-t border-emerald-200 dark:border-emerald-800/30 flex justify-end">
+              <div className="text-sm font-semibold flex items-center gap-2">
+                <TrendingUp className="w-4 h-4 text-emerald-500" />
+                Total Income: <span className="font-mono ml-1 text-base sm:text-lg text-emerald-600 dark:text-emerald-400" data-testid="text-total-income">₹{fmt(totalIncome)}</span>
+              </div>
             </div>
           </CardContent>
         </Card>
 
-        <Card className="overflow-hidden border-blue-200">
-          <CardHeader className="bg-blue-600 py-2">
-            <CardTitle className="text-center text-white text-lg">EXPENSE</CardTitle>
+        <Card className="border-0 shadow-lg overflow-hidden" data-testid="card-expense">
+          <CardHeader className="bg-gradient-to-r from-rose-500 to-pink-500 text-white pb-3 pt-4">
+            <CardTitle className="flex items-center gap-2 text-base sm:text-lg">
+              <TrendingDown className="w-5 h-5" />
+              EXPENSE
+            </CardTitle>
           </CardHeader>
           <CardContent className="p-0">
-            <div className="overflow-x-auto">
-            <table className="w-full border-collapse min-w-[400px]">
-              <thead>
-                <tr className="bg-muted/50 border-b">
-                  <th className="border px-2 sm:px-4 py-2 text-left text-xs sm:text-sm">Name</th>
-                  <th className="border px-2 sm:px-4 py-2 text-center w-20 sm:w-24 text-xs sm:text-sm">Qty</th>
-                  <th className="border px-2 sm:px-4 py-2 text-center w-16 sm:w-24 text-xs sm:text-sm">UoM</th>
-                  <th className="border px-2 sm:px-4 py-2 text-center w-20 sm:w-32 text-xs sm:text-sm">Price</th>
-                  <th className="border px-2 sm:px-4 py-2 text-right w-24 sm:w-40 text-xs sm:text-sm">Total</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y">
-                <tr>
-                  <td className="border px-4 py-2 font-bold">Banana</td>
-                  <td className="border px-2 py-1">
-                    <Input type="number" className="h-8 text-center" value={bananaQty || ""} onChange={(e) => setBananaQty(Number(e.target.value))} />
-                  </td>
-                  <td className="border px-4 py-2 text-center">Pcs</td>
-                  <td className="border px-4 py-2 text-center font-mono">{BANANA_RATE}</td>
-                  <td className="border px-4 py-2 text-right font-mono bg-muted/20">{bananaTotal.toFixed(2)}</td>
-                </tr>
-                <tr>
-                  <td className="border px-4 py-2 font-bold">Dahi Bhar</td>
-                  <td className="border px-2 py-1">
-                    <Input type="number" className="h-8 text-center" value={dahiBharQty || ""} onChange={(e) => setDahiBharQty(Number(e.target.value))} />
-                  </td>
-                  <td className="border px-4 py-2 text-center">Pcs</td>
-                  <td className="border px-2 py-1">
-                    <Input type="number" placeholder="Rate" className="h-8 text-center" value={dahiBharRate || ""} onChange={(e) => setDahiBharRate(Number(e.target.value))} />
-                  </td>
-                  <td className="border px-4 py-2 text-right font-mono bg-muted/20">{dahiBharTotal.toFixed(2)}</td>
-                </tr>
-                <tr>
-                  <td className="border px-4 py-2 font-bold">Other Expense</td>
-                  <td className="border px-4 py-2 text-center font-mono">1</td>
-                  <td className="border px-4 py-2 text-center">-</td>
-                  <td className="border px-2 py-1">
-                    <Input type="number" placeholder="Amount" className="h-8 text-center" value={otherExpense || ""} onChange={(e) => setOtherExpense(Number(e.target.value))} />
-                  </td>
-                  <td className="border px-4 py-2 text-right font-mono bg-muted/20">{otherExpense.toFixed(2)}</td>
-                </tr>
-              </tbody>
-            </table>
+            <div className="sm:hidden divide-y">
+              <div className="p-3 space-y-2">
+                <div className="flex items-center justify-between">
+                  <span className="font-semibold text-sm flex items-center gap-1.5">
+                    <span className="w-6 h-6 rounded-full bg-gradient-to-br from-rose-400 to-pink-500 text-white text-[10px] flex items-center justify-center font-bold shrink-0">1</span>
+                    Banana
+                  </span>
+                  <span className="text-xs text-rose-600 dark:text-rose-400 font-mono bg-rose-50 dark:bg-rose-900/20 px-2 py-0.5 rounded-full font-semibold">₹{BANANA_RATE}/pc</span>
+                </div>
+                <div className="grid grid-cols-3 gap-2 items-end">
+                  <div>
+                    <label className="text-[10px] text-muted-foreground uppercase font-semibold">Qty (Pcs)</label>
+                    <Input type="number" inputMode="numeric" className="h-9 font-mono text-center no-spinner" value={bananaQty || ""} onFocus={(e) => e.target.select()} onChange={(e) => setBananaQty(Number(e.target.value) || 0)} />
+                  </div>
+                  <div className="text-center text-muted-foreground text-sm py-2">× ₹{BANANA_RATE} =</div>
+                  <div>
+                    <label className="text-[10px] text-muted-foreground uppercase font-semibold">Total</label>
+                    <div className="h-9 flex items-center justify-end font-mono font-bold text-rose-600 dark:text-rose-400 bg-rose-50 dark:bg-rose-900/20 rounded-md px-2 text-sm">₹{fmt(bananaTotal)}</div>
+                  </div>
+                </div>
+              </div>
+
+              <div className="p-3 space-y-2">
+                <div className="flex items-center gap-1.5">
+                  <span className="w-6 h-6 rounded-full bg-gradient-to-br from-rose-400 to-pink-500 text-white text-[10px] flex items-center justify-center font-bold shrink-0">2</span>
+                  <span className="font-semibold text-sm">Dahi Bhar</span>
+                </div>
+                <div className="grid grid-cols-3 gap-2">
+                  <div>
+                    <label className="text-[10px] text-muted-foreground uppercase font-semibold">Qty (Pcs)</label>
+                    <Input type="number" inputMode="numeric" className="h-9 font-mono text-center no-spinner" value={dahiBharQty || ""} onFocus={(e) => e.target.select()} onChange={(e) => setDahiBharQty(Number(e.target.value) || 0)} />
+                  </div>
+                  <div>
+                    <label className="text-[10px] text-muted-foreground uppercase font-semibold">Rate ₹</label>
+                    <Input type="number" inputMode="decimal" className="h-9 font-mono text-center no-spinner" placeholder="0" value={dahiBharRate || ""} onFocus={(e) => e.target.select()} onChange={(e) => setDahiBharRate(Number(e.target.value) || 0)} />
+                  </div>
+                  <div>
+                    <label className="text-[10px] text-muted-foreground uppercase font-semibold">Total</label>
+                    <div className="h-9 flex items-center justify-end font-mono font-bold text-rose-600 dark:text-rose-400 bg-rose-50 dark:bg-rose-900/20 rounded-md px-2 text-sm">₹{fmt(dahiBharTotal)}</div>
+                  </div>
+                </div>
+              </div>
+
+              <div className="p-3 space-y-2">
+                <div className="flex items-center gap-1.5">
+                  <span className="w-6 h-6 rounded-full bg-gradient-to-br from-rose-400 to-pink-500 text-white text-[10px] flex items-center justify-center font-bold shrink-0">3</span>
+                  <span className="font-semibold text-sm">Other Expense</span>
+                </div>
+                <div className="grid grid-cols-2 gap-2">
+                  <div>
+                    <label className="text-[10px] text-muted-foreground uppercase font-semibold">Amount ₹</label>
+                    <Input type="number" inputMode="decimal" className="h-9 font-mono text-center no-spinner" placeholder="0" value={otherExpense || ""} onFocus={(e) => e.target.select()} onChange={(e) => setOtherExpense(Number(e.target.value) || 0)} />
+                  </div>
+                  <div>
+                    <label className="text-[10px] text-muted-foreground uppercase font-semibold">Total</label>
+                    <div className="h-9 flex items-center justify-end font-mono font-bold text-rose-600 dark:text-rose-400 bg-rose-50 dark:bg-rose-900/20 rounded-md px-2 text-sm">₹{fmt(otherExpense)}</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div className="hidden sm:block overflow-x-auto">
+              <table className="w-full border-collapse min-w-[400px]">
+                <thead>
+                  <tr className="bg-rose-50 dark:bg-rose-950/20 border-b border-rose-200 dark:border-rose-800">
+                    <th className="px-3 py-2.5 text-left text-xs font-semibold text-rose-700 dark:text-rose-400">#</th>
+                    <th className="px-3 py-2.5 text-left text-xs font-semibold text-rose-700 dark:text-rose-400">Name</th>
+                    <th className="px-3 py-2.5 text-center w-24 text-xs font-semibold text-rose-700 dark:text-rose-400">Qty</th>
+                    <th className="px-3 py-2.5 text-center w-20 text-xs font-semibold text-rose-700 dark:text-rose-400">UoM</th>
+                    <th className="px-3 py-2.5 text-center w-28 text-xs font-semibold text-rose-700 dark:text-rose-400">Price</th>
+                    <th className="px-3 py-2.5 text-right w-36 text-xs font-semibold text-rose-700 dark:text-rose-400">Total</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr className="border-b hover:bg-rose-50/50 dark:hover:bg-rose-950/10">
+                    <td className="px-3 py-2">
+                      <span className="w-6 h-6 rounded-full bg-gradient-to-br from-rose-400 to-pink-500 text-white text-[10px] inline-flex items-center justify-center font-bold">1</span>
+                    </td>
+                    <td className="px-3 py-2 font-semibold">Banana</td>
+                    <td className="px-2 py-1">
+                      <Input type="number" className="h-8 text-center font-mono no-spinner" value={bananaQty || ""} onFocus={(e) => e.target.select()} onChange={(e) => setBananaQty(Number(e.target.value) || 0)} />
+                    </td>
+                    <td className="px-3 py-2 text-center">
+                      <span className="text-xs text-rose-600 dark:text-rose-400 font-mono bg-rose-50 dark:bg-rose-900/20 px-2 py-0.5 rounded-full font-semibold">Pcs</span>
+                    </td>
+                    <td className="px-3 py-2 text-center font-mono">
+                      <span className="bg-rose-50 dark:bg-rose-900/20 text-rose-700 dark:text-rose-400 px-2 py-0.5 rounded-full text-xs font-semibold">₹{BANANA_RATE}</span>
+                    </td>
+                    <td className="px-3 py-2 text-right font-mono font-semibold text-rose-600 dark:text-rose-400">₹{fmt(bananaTotal)}</td>
+                  </tr>
+                  <tr className="border-b hover:bg-rose-50/50 dark:hover:bg-rose-950/10">
+                    <td className="px-3 py-2">
+                      <span className="w-6 h-6 rounded-full bg-gradient-to-br from-rose-400 to-pink-500 text-white text-[10px] inline-flex items-center justify-center font-bold">2</span>
+                    </td>
+                    <td className="px-3 py-2 font-semibold">Dahi Bhar</td>
+                    <td className="px-2 py-1">
+                      <Input type="number" className="h-8 text-center font-mono no-spinner" value={dahiBharQty || ""} onFocus={(e) => e.target.select()} onChange={(e) => setDahiBharQty(Number(e.target.value) || 0)} />
+                    </td>
+                    <td className="px-3 py-2 text-center">
+                      <span className="text-xs text-rose-600 dark:text-rose-400 font-mono bg-rose-50 dark:bg-rose-900/20 px-2 py-0.5 rounded-full font-semibold">Pcs</span>
+                    </td>
+                    <td className="px-2 py-1">
+                      <Input type="number" placeholder="Rate" className="h-8 text-center font-mono no-spinner" value={dahiBharRate || ""} onFocus={(e) => e.target.select()} onChange={(e) => setDahiBharRate(Number(e.target.value) || 0)} />
+                    </td>
+                    <td className="px-3 py-2 text-right font-mono font-semibold text-rose-600 dark:text-rose-400">₹{fmt(dahiBharTotal)}</td>
+                  </tr>
+                  <tr className="border-b hover:bg-rose-50/50 dark:hover:bg-rose-950/10">
+                    <td className="px-3 py-2">
+                      <span className="w-6 h-6 rounded-full bg-gradient-to-br from-rose-400 to-pink-500 text-white text-[10px] inline-flex items-center justify-center font-bold">3</span>
+                    </td>
+                    <td className="px-3 py-2 font-semibold">Other Expense</td>
+                    <td className="px-3 py-2 text-center font-mono">1</td>
+                    <td className="px-3 py-2 text-center text-muted-foreground">—</td>
+                    <td className="px-2 py-1">
+                      <Input type="number" placeholder="Amount" className="h-8 text-center font-mono no-spinner" value={otherExpense || ""} onFocus={(e) => e.target.select()} onChange={(e) => setOtherExpense(Number(e.target.value) || 0)} />
+                    </td>
+                    <td className="px-3 py-2 text-right font-mono font-semibold text-rose-600 dark:text-rose-400">₹{fmt(otherExpense)}</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+            <div className="p-3 sm:p-4 bg-gradient-to-r from-rose-50 to-pink-50 dark:from-rose-950/20 dark:to-pink-950/20 border-t border-rose-200 dark:border-rose-800/30 flex justify-end">
+              <div className="text-sm font-semibold flex items-center gap-2">
+                <TrendingDown className="w-4 h-4 text-rose-500" />
+                Total Expense: <span className="font-mono ml-1 text-base sm:text-lg text-rose-600 dark:text-rose-400" data-testid="text-total-expense">₹{fmt(totalExpense)}</span>
+              </div>
             </div>
           </CardContent>
         </Card>
 
-        <div className="grid gap-2 border rounded-lg overflow-hidden bg-card shadow-sm">
-          <div className="flex flex-col sm:flex-row border-b">
-            <div className="flex-1 px-4 py-3 font-bold text-right bg-muted/10 sm:border-r text-sm sm:text-base">Balance (Income - Expense)</div>
-            <div className="w-full sm:w-40 px-4 py-3 text-right font-mono">{balance.toFixed(2)}</div>
-          </div>
-          <div className="flex flex-col sm:flex-row">
-            <div className="flex-1 px-4 py-3 font-bold text-right bg-muted/10 sm:border-r text-sm sm:text-base">Total Amount Given to Akbar Ali</div>
-            <div className="w-full sm:w-40 px-2 py-1">
-              <Input type="number" className="h-full font-mono text-right bg-yellow-50" value={akbarAliAmount || ""} onChange={(e) => setAkbarAliAmount(Number(e.target.value))} />
+        <Card className="border-0 shadow-lg overflow-hidden" data-testid="card-akbar-ali">
+          <CardHeader className="bg-gradient-to-r from-amber-500 to-orange-500 text-white pb-3 pt-4">
+            <CardTitle className="flex items-center gap-2 text-base sm:text-lg">
+              <HandCoins className="w-5 h-5" />
+              Amount Given to Akbar Ali
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="p-4 sm:p-6 bg-gradient-to-b from-amber-50/50 to-transparent dark:from-amber-950/20">
+            <div className="flex items-center gap-3">
+              <Banknote className="w-5 h-5 text-amber-500 shrink-0" />
+              <Input
+                type="number"
+                inputMode="decimal"
+                className="font-mono text-right text-lg border-amber-200 focus:border-amber-400 dark:border-amber-800 no-spinner"
+                placeholder="0.00"
+                value={akbarAliAmount || ""}
+                onFocus={(e) => e.target.select()}
+                onChange={(e) => setAkbarAliAmount(Number(e.target.value) || 0)}
+                data-testid="input-akbar-ali"
+              />
             </div>
-          </div>
+          </CardContent>
+        </Card>
+
+        <div className="fixed bottom-0 left-0 right-0 sm:static bg-background/80 backdrop-blur-md sm:bg-transparent border-t sm:border-0 p-3 sm:p-0 z-10">
+          <Card className="border-0 shadow-xl overflow-hidden">
+            <CardContent className="p-0">
+              <div className="grid grid-cols-2 sm:grid-cols-4">
+                <div className="p-3 sm:p-5 bg-gradient-to-br from-emerald-500 to-teal-600 text-white">
+                  <p className="text-[10px] sm:text-xs uppercase tracking-wider font-semibold text-white/80 flex items-center gap-1">
+                    <TrendingUp className="w-3 h-3" /> Income
+                  </p>
+                  <p className="text-lg sm:text-2xl font-bold font-mono" data-testid="text-summary-income">₹{fmt(totalIncome)}</p>
+                </div>
+                <div className="p-3 sm:p-5 bg-gradient-to-br from-rose-500 to-pink-600 text-white">
+                  <p className="text-[10px] sm:text-xs uppercase tracking-wider font-semibold text-white/80 flex items-center gap-1">
+                    <TrendingDown className="w-3 h-3" /> Expense
+                  </p>
+                  <p className="text-lg sm:text-2xl font-bold font-mono" data-testid="text-summary-expense">₹{fmt(totalExpense)}</p>
+                </div>
+                <div className={`p-3 sm:p-5 ${balance < 0 ? 'bg-gradient-to-br from-red-600 to-rose-700' : 'bg-gradient-to-br from-blue-500 to-indigo-600'} text-white`}>
+                  <p className="text-[10px] sm:text-xs uppercase tracking-wider font-semibold text-white/80 flex items-center gap-1">
+                    <Wallet className="w-3 h-3" /> Balance
+                  </p>
+                  <p className="text-lg sm:text-2xl font-bold font-mono" data-testid="text-summary-balance">₹{fmt(balance)}</p>
+                </div>
+                <div className="p-3 sm:p-5 bg-gradient-to-br from-amber-500 to-orange-600 text-white">
+                  <p className="text-[10px] sm:text-xs uppercase tracking-wider font-semibold text-white/80 flex items-center gap-1">
+                    <HandCoins className="w-3 h-3" /> Akbar Ali
+                  </p>
+                  <p className="text-lg sm:text-2xl font-bold font-mono" data-testid="text-summary-akbar">₹{fmt(akbarAliAmount)}</p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
         </div>
       </div>
     </Layout>
