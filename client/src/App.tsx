@@ -17,6 +17,7 @@ import PurchaseInvoice from "./pages/purchase-invoice";
 import PurchaseInvoicePDF from "./pages/purchase-invoice-pdf";
 import ReportPDF from "./pages/report-pdf";
 import CashSealPDF from "./pages/cash-seal-pdf";
+import InventoryPDF from "./pages/inventory-pdf";
 import VendorReport from "./pages/vendor-report";
 import Login from "./pages/login";
 import { useCurrentUser } from "./hooks/use-reports";
@@ -51,6 +52,7 @@ function AuthenticatedRouter() {
       <Route path="/admin" component={AdminRoute} />
       <Route path="/cash-seal/:id/pdf">{() => <PermRoute perm="cashseal"><CashSealPDF /></PermRoute>}</Route>
       <Route path="/cash-seal">{() => <PermRoute perm="cashseal"><CashSeal /></PermRoute>}</Route>
+      <Route path="/inventory/:id/pdf">{() => <PermRoute perm="inventory"><InventoryPDF /></PermRoute>}</Route>
       <Route path="/inventory">{() => <PermRoute perm="inventory"><DailyInventory /></PermRoute>}</Route>
       <Route path="/menu">{() => <PermRoute perm="menu"><MenuManager /></PermRoute>}</Route>
       <Route path="/purchase-request">{() => <PermRoute perm="purchase"><PurchaseRequest /></PermRoute>}</Route>

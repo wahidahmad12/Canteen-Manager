@@ -625,9 +625,17 @@ export default function Dashboard() {
                               </td>
                               <td className="px-3 py-2.5 text-right font-mono text-xs text-rose-600 font-semibold">{(totalKitchenUsed + totalBiscuitUsed).toFixed(0)} items</td>
                               <td className="px-3 py-2.5 text-right">
-                                <Button size="sm" variant="ghost" className="h-7 text-xs text-orange-600" data-testid={`button-view-inventory-${inv.id}`}>
-                                  View <ArrowRight className="w-3 h-3 ml-1" />
-                                </Button>
+                                <div className="flex items-center justify-end gap-1">
+                                  <Link href={`/inventory/${inv.id}/pdf`}>
+                                    <Button size="sm" variant="ghost" className="h-7 text-xs text-emerald-600" data-testid={`button-pdf-inventory-${inv.id}`}>
+                                      <FileDown className="w-3.5 h-3.5 mr-0.5" />
+                                      <span className="hidden sm:inline">PDF</span>
+                                    </Button>
+                                  </Link>
+                                  <Button size="sm" variant="ghost" className="h-7 text-xs text-orange-600" data-testid={`button-view-inventory-${inv.id}`}>
+                                    View <ArrowRight className="w-3 h-3 ml-1" />
+                                  </Button>
+                                </div>
                               </td>
                             </tr>
                           );
