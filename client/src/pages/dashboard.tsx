@@ -410,6 +410,12 @@ export default function Dashboard() {
                               <td className="px-3 py-2.5 text-right font-mono text-xs text-rose-600 font-semibold">{fmt(totalExpense)}</td>
                               <td className="px-3 py-2.5 text-right">
                                 <div className="flex items-center justify-end gap-1">
+                                  <Link href={`/report/${report.id}/pdf`}>
+                                    <Button size="sm" variant="ghost" className="h-7 text-xs text-emerald-600" data-testid={`button-pdf-report-${report.id}`}>
+                                      <FileDown className="w-3.5 h-3.5 mr-0.5" />
+                                      <span className="hidden sm:inline">PDF</span>
+                                    </Button>
+                                  </Link>
                                   <Link href={`/report/${report.id}`}>
                                     <Button size="sm" variant="ghost" className="h-7 text-xs text-indigo-600" data-testid={`button-view-report-${report.id}`}>
                                       View <ArrowRight className="w-3 h-3 ml-1" />

@@ -11,7 +11,7 @@ import { Separator } from "@/components/ui/separator";
 import { useToast } from "@/hooks/use-toast";
 import { DatePicker } from "@/components/ui/date-picker";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { Loader2, Plus, Trash2, Calculator, Save, ArrowLeft, X, CalendarDays, Wallet, IndianRupee, ShoppingBasket, Leaf, TrendingDown, TrendingUp, Banknote, Package } from "lucide-react";
+import { Loader2, Plus, Trash2, Calculator, Save, ArrowLeft, X, CalendarDays, Wallet, IndianRupee, ShoppingBasket, Leaf, TrendingDown, TrendingUp, Banknote, Package, FileDown } from "lucide-react";
 import { useCreateReport, useUpdateReport, useReport, useItemMaster, useVegetableLastPrices } from "@/hooks/use-reports";
 import { insertDailyReportSchema, insertExpenseItemSchema } from "@shared/schema";
 import {
@@ -299,6 +299,11 @@ export default function ReportForm() {
             </div>
           </div>
           <div className="flex gap-2 sm:gap-3 ml-12 sm:ml-0">
+             {isEditMode && reportId && (
+               <Button variant="outline" type="button" onClick={() => setLocation(`/report/${reportId}/pdf`)} className="text-xs sm:text-sm h-9 sm:h-10 rounded-xl border-emerald-300 text-emerald-700 hover:bg-emerald-50 dark:border-emerald-700 dark:text-emerald-400" data-testid="button-pdf-report">
+                 <FileDown className="w-4 h-4 mr-1" /> PDF
+               </Button>
+             )}
              <Button variant="outline" type="button" onClick={() => setLocation("/")} className="text-xs sm:text-sm h-9 sm:h-10 rounded-xl">
                Cancel
              </Button>
