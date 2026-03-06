@@ -345,10 +345,20 @@ export default function ReportForm() {
                 <Wallet className="w-3.5 h-3.5" /> Opening Balance (₹)
               </label>
               <Input 
-                type="number" 
-                step="0.01"
-                className="font-mono border-emerald-200 focus:border-emerald-400 dark:border-emerald-800"
-                {...form.register("openingBalance", { valueAsNumber: true })}
+                type="text"
+                inputMode="decimal"
+                className="font-mono no-spinner border-emerald-200 focus:border-emerald-400 dark:border-emerald-800"
+                value={openingBalance}
+                onChange={(e) => {
+                  const val = e.target.value;
+                  if (val === '' || val === '-') {
+                    form.setValue("openingBalance", 0);
+                  } else {
+                    const num = parseFloat(val);
+                    if (!isNaN(num)) form.setValue("openingBalance", num);
+                  }
+                }}
+                onFocus={(e) => e.target.select()}
                 data-testid="input-opening-balance"
               />
             </div>
@@ -358,10 +368,20 @@ export default function ReportForm() {
               </label>
               <div className="flex gap-2">
                 <Input 
-                  type="number" 
-                  step="0.01"
-                  className="font-mono border-violet-200 focus:border-violet-400 dark:border-violet-800"
-                  {...form.register("receivedAmount", { valueAsNumber: true })}
+                  type="text"
+                  inputMode="decimal"
+                  className="font-mono no-spinner border-violet-200 focus:border-violet-400 dark:border-violet-800"
+                  value={receivedAmount}
+                  onChange={(e) => {
+                    const val = e.target.value;
+                    if (val === '' || val === '-') {
+                      form.setValue("receivedAmount", 0);
+                    } else {
+                      const num = parseFloat(val);
+                      if (!isNaN(num)) form.setValue("receivedAmount", num);
+                    }
+                  }}
+                  onFocus={(e) => e.target.select()}
                   data-testid="input-received-amount"
                 />
                 <AddUpCalculator
