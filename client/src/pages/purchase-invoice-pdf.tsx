@@ -27,7 +27,7 @@ export default function PurchaseInvoicePDF() {
     return (
       <Layout>
         <div className="flex items-center justify-center min-h-[60vh]">
-          <Loader2 className="w-8 h-8 animate-spin text-primary" />
+          <Loader2 className="w-8 h-8 animate-spin text-blue-500" />
         </div>
       </Layout>
     );
@@ -51,137 +51,151 @@ export default function PurchaseInvoicePDF() {
   const totalGst = allItems.reduce((sum: number, item: any) => sum + Number(item.gstAmount), 0);
   const grandTotal = allItems.reduce((sum: number, item: any) => sum + Number(item.netAmount), 0);
 
+  const fmt = (n: number) => n.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+
   return (
     <Layout>
-      <div className="max-w-4xl mx-auto">
-        <div className="flex items-center justify-between mb-6 print:hidden">
-          <Button variant="ghost" onClick={() => navigate("/")} data-testid="button-back-dashboard">
-            <ArrowLeft className="w-4 h-4 mr-2" /> Back
+      <div className="max-w-4xl mx-auto px-1 sm:px-0">
+        <div className="flex items-center justify-between mb-4 sm:mb-6 print:hidden">
+          <Button variant="ghost" size="sm" onClick={() => navigate("/")} data-testid="button-back-dashboard">
+            <ArrowLeft className="w-4 h-4 mr-1" /> Back
           </Button>
-          <Button onClick={handlePrint} data-testid="button-convert-pdf">
-            <FileDown className="w-4 h-4 mr-2" /> Convert to PDF
+          <Button size="sm" onClick={handlePrint} className="bg-gradient-to-r from-blue-500 to-indigo-600 border-0 text-white shadow-md" data-testid="button-convert-pdf">
+            <FileDown className="w-4 h-4 mr-1" /> Convert to PDF
           </Button>
         </div>
 
-        <div className="bg-white dark:bg-card border rounded-xl p-6 sm:p-8 print:border-0 print:shadow-none print:p-0" id="pdf-content">
-          <div className="text-center mb-8 border-b pb-6">
-            <h1 className="text-2xl font-bold text-foreground print:text-black">DJ Hospitality & Facility Management Pvt Ltd</h1>
-            <p className="text-sm text-muted-foreground print:text-gray-600 mt-1">Purchase Invoice</p>
+        <div className="bg-white dark:bg-card border rounded-xl p-4 sm:p-8 print:border-0 print:shadow-none print:p-0" id="pdf-content">
+          <div className="text-center mb-5 sm:mb-6 pb-4 border-b-2 border-blue-200 dark:border-blue-800 print:border-gray-300">
+            <h1 className="text-lg sm:text-2xl font-bold text-foreground print:text-black leading-tight">DJ Hospitality & Facility Management Pvt Ltd</h1>
+            <p className="text-xs sm:text-sm font-semibold text-blue-600 dark:text-blue-400 print:text-gray-600 mt-1 uppercase tracking-wider">Purchase Invoice</p>
           </div>
 
-          <div className="grid grid-cols-2 gap-4 mb-6 text-sm">
-            <div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 sm:gap-3 mb-5 text-xs sm:text-sm">
+            <div className="flex justify-between sm:justify-start gap-1">
               <span className="text-muted-foreground print:text-gray-500">Invoice No:</span>
-              <span className="ml-2 font-semibold print:text-black">#{inv.serialNumber}</span>
+              <span className="font-bold bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 px-2 py-0.5 rounded print:bg-gray-100 print:text-black">#{inv.serialNumber}</span>
             </div>
-            <div className="text-right">
+            <div className="flex justify-between sm:justify-end gap-1">
               <span className="text-muted-foreground print:text-gray-500">Date:</span>
-              <span className="ml-2 font-semibold print:text-black">{format(new Date(inv.date), "dd MMM yyyy")}</span>
+              <span className="font-semibold print:text-black">{format(new Date(inv.date), "dd MMM yyyy")}</span>
             </div>
-            <div>
-              <span className="text-muted-foreground print:text-gray-500">Client Name:</span>
-              <span className="ml-2 font-semibold print:text-black">{inv.clientName}</span>
+            <div className="flex justify-between sm:justify-start gap-1">
+              <span className="text-muted-foreground print:text-gray-500">Client:</span>
+              <span className="font-semibold print:text-black">{inv.clientName}</span>
             </div>
-            <div className="text-right">
+            <div className="flex justify-between sm:justify-end gap-1">
               <span className="text-muted-foreground print:text-gray-500">Vendor:</span>
-              <span className="ml-2 font-semibold print:text-black">{inv.vendorName}</span>
+              <span className="font-semibold print:text-black">{inv.vendorName}</span>
             </div>
             {inv.vendorInvoiceNo && (
-              <div>
-                <span className="text-muted-foreground print:text-gray-500">Vendor Invoice No:</span>
-                <span className="ml-2 font-semibold print:text-black">{inv.vendorInvoiceNo}</span>
+              <div className="flex justify-between sm:justify-start gap-1">
+                <span className="text-muted-foreground print:text-gray-500">Vendor Inv No:</span>
+                <span className="font-semibold print:text-black">{inv.vendorInvoiceNo}</span>
               </div>
             )}
-            <div className={inv.vendorInvoiceNo ? "text-right" : ""}>
+            <div className={`flex justify-between ${inv.vendorInvoiceNo ? 'sm:justify-end' : 'sm:justify-start'} gap-1`}>
               <span className="text-muted-foreground print:text-gray-500">Payment:</span>
-              <span className={`ml-2 font-semibold ${inv.paymentGiven ? 'text-green-600 print:text-green-700' : 'text-red-600 print:text-red-700'}`}>
-                {inv.paymentGiven ? 'Paid' : 'Unpaid'}
+              <span className={`font-bold px-2 py-0.5 rounded text-xs ${inv.paymentGiven ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300 print:text-green-700' : 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300 print:text-red-700'}`}>
+                {inv.paymentGiven ? 'PAID' : 'UNPAID'}
               </span>
             </div>
           </div>
 
-          <table className="w-full text-sm border-collapse mb-6">
-            <thead>
-              <tr className="bg-muted/50 print:bg-gray-100">
-                <th className="border border-border print:border-gray-300 px-3 py-2 text-left font-semibold w-10">S.No</th>
-                <th className="border border-border print:border-gray-300 px-3 py-2 text-left font-semibold">Item Name</th>
-                <th className="border border-border print:border-gray-300 px-3 py-2 text-center font-semibold w-16">UOM</th>
-                <th className="border border-border print:border-gray-300 px-3 py-2 text-right font-semibold w-16">Qty</th>
-                <th className="border border-border print:border-gray-300 px-3 py-2 text-right font-semibold w-20">Unit Price</th>
-                <th className="border border-border print:border-gray-300 px-3 py-2 text-right font-semibold w-24">Total Price</th>
-                <th className="border border-border print:border-gray-300 px-3 py-2 text-center font-semibold w-16">GST %</th>
-                <th className="border border-border print:border-gray-300 px-3 py-2 text-right font-semibold w-20">GST Amt</th>
-                <th className="border border-border print:border-gray-300 px-3 py-2 text-right font-semibold w-24">Net Amt</th>
-              </tr>
-            </thead>
-            <tbody>
-              {allItems.map((item: any, index: number) => (
-                <tr key={item.id || index}>
-                  <td className="border border-border print:border-gray-300 px-3 py-2 text-center text-muted-foreground">{index + 1}</td>
-                  <td className="border border-border print:border-gray-300 px-3 py-2 font-medium print:text-black">{item.itemName}</td>
-                  <td className="border border-border print:border-gray-300 px-3 py-2 text-center">{item.uom}</td>
-                  <td className="border border-border print:border-gray-300 px-3 py-2 text-right font-mono">{Number(item.qty)}</td>
-                  <td className="border border-border print:border-gray-300 px-3 py-2 text-right font-mono">{Number(item.unitPrice).toFixed(2)}</td>
-                  <td className="border border-border print:border-gray-300 px-3 py-2 text-right font-mono">{Number(item.totalPrice).toFixed(2)}</td>
-                  <td className="border border-border print:border-gray-300 px-3 py-2 text-center">{Number(item.gstRate)}%</td>
-                  <td className="border border-border print:border-gray-300 px-3 py-2 text-right font-mono">{Number(item.gstAmount).toFixed(2)}</td>
-                  <td className="border border-border print:border-gray-300 px-3 py-2 text-right font-mono font-semibold">{Number(item.netAmount).toFixed(2)}</td>
-                </tr>
-              ))}
-            </tbody>
-            <tfoot>
-              <tr className="bg-muted/30 print:bg-gray-50 font-semibold">
-                <td colSpan={5} className="border border-border print:border-gray-300 px-3 py-2 text-right">
-                  Totals:
-                </td>
-                <td className="border border-border print:border-gray-300 px-3 py-2 text-right font-mono">
-                  {totalAmount.toFixed(2)}
-                </td>
-                <td className="border border-border print:border-gray-300 px-3 py-2"></td>
-                <td className="border border-border print:border-gray-300 px-3 py-2 text-right font-mono">
-                  {totalGst.toFixed(2)}
-                </td>
-                <td className="border border-border print:border-gray-300 px-3 py-2 text-right font-mono text-primary print:text-black">
-                  {grandTotal.toFixed(2)}
-                </td>
-              </tr>
-            </tfoot>
-          </table>
+          <div className="sm:hidden space-y-2 mb-4">
+            {allItems.map((item: any, index: number) => (
+              <div key={item.id || index} className="border border-border/60 rounded-lg p-2.5 print:border-gray-300">
+                <div className="flex items-start justify-between gap-2 mb-1.5">
+                  <div className="flex items-center gap-1.5 min-w-0 flex-1">
+                    <span className="w-5 h-5 rounded-full bg-blue-500 text-white text-[9px] flex items-center justify-center font-bold shrink-0">{index + 1}</span>
+                    <p className="text-xs font-medium truncate print:text-black">{item.itemName}</p>
+                  </div>
+                  <span className="text-xs font-bold font-mono shrink-0 print:text-black">{fmt(Number(item.netAmount))}</span>
+                </div>
+                <div className="grid grid-cols-4 gap-1 text-[10px] text-muted-foreground print:text-gray-500">
+                  <span>{Number(item.qty)} {item.uom}</span>
+                  <span>@{fmt(Number(item.unitPrice))}</span>
+                  <span>GST {Number(item.gstRate)}%</span>
+                  <span className="text-right">+{fmt(Number(item.gstAmount))}</span>
+                </div>
+              </div>
+            ))}
+          </div>
 
-          <div className="bg-muted/30 print:bg-gray-50 rounded-lg p-4 mb-6">
-            <div className="grid grid-cols-3 gap-4 text-sm">
-              <div>
-                <span className="text-muted-foreground print:text-gray-500">Sub Total:</span>
-                <span className="ml-2 font-semibold font-mono print:text-black">{totalAmount.toFixed(2)}</span>
-              </div>
-              <div>
-                <span className="text-muted-foreground print:text-gray-500">GST Total:</span>
-                <span className="ml-2 font-semibold font-mono print:text-black">{totalGst.toFixed(2)}</span>
-              </div>
-              <div>
-                <span className="text-muted-foreground print:text-gray-500">Grand Total:</span>
-                <span className="ml-2 font-bold font-mono text-primary print:text-black">{grandTotal.toFixed(2)}</span>
-              </div>
+          <div className="hidden sm:block overflow-x-auto mb-4">
+            <table className="w-full text-xs border-collapse">
+              <thead>
+                <tr className="bg-gray-50 dark:bg-muted/50 print:bg-gray-100">
+                  <th className="border border-border print:border-gray-300 px-2 py-1.5 text-center font-semibold">#</th>
+                  <th className="border border-border print:border-gray-300 px-2 py-1.5 text-left font-semibold">Item Name</th>
+                  <th className="border border-border print:border-gray-300 px-2 py-1.5 text-center font-semibold">UOM</th>
+                  <th className="border border-border print:border-gray-300 px-2 py-1.5 text-right font-semibold">Qty</th>
+                  <th className="border border-border print:border-gray-300 px-2 py-1.5 text-right font-semibold">Unit Price</th>
+                  <th className="border border-border print:border-gray-300 px-2 py-1.5 text-right font-semibold">Total</th>
+                  <th className="border border-border print:border-gray-300 px-2 py-1.5 text-center font-semibold">GST%</th>
+                  <th className="border border-border print:border-gray-300 px-2 py-1.5 text-right font-semibold">GST Amt</th>
+                  <th className="border border-border print:border-gray-300 px-2 py-1.5 text-right font-semibold">Net Amt</th>
+                </tr>
+              </thead>
+              <tbody>
+                {allItems.map((item: any, index: number) => (
+                  <tr key={item.id || index}>
+                    <td className="border border-border print:border-gray-300 px-2 py-1 text-center text-muted-foreground print:text-gray-600">{index + 1}</td>
+                    <td className="border border-border print:border-gray-300 px-2 py-1 font-medium print:text-black">{item.itemName}</td>
+                    <td className="border border-border print:border-gray-300 px-2 py-1 text-center print:text-gray-700">{item.uom}</td>
+                    <td className="border border-border print:border-gray-300 px-2 py-1 text-right font-mono print:text-black">{Number(item.qty)}</td>
+                    <td className="border border-border print:border-gray-300 px-2 py-1 text-right font-mono print:text-black">{fmt(Number(item.unitPrice))}</td>
+                    <td className="border border-border print:border-gray-300 px-2 py-1 text-right font-mono print:text-black">{fmt(Number(item.totalPrice))}</td>
+                    <td className="border border-border print:border-gray-300 px-2 py-1 text-center print:text-gray-700">{Number(item.gstRate)}%</td>
+                    <td className="border border-border print:border-gray-300 px-2 py-1 text-right font-mono print:text-black">{fmt(Number(item.gstAmount))}</td>
+                    <td className="border border-border print:border-gray-300 px-2 py-1 text-right font-mono font-semibold print:text-black">{fmt(Number(item.netAmount))}</td>
+                  </tr>
+                ))}
+              </tbody>
+              <tfoot>
+                <tr className="bg-gray-50 dark:bg-muted/30 print:bg-gray-50 font-semibold">
+                  <td colSpan={5} className="border border-border print:border-gray-300 px-2 py-1.5 text-right print:text-black">Totals:</td>
+                  <td className="border border-border print:border-gray-300 px-2 py-1.5 text-right font-mono print:text-black">{fmt(totalAmount)}</td>
+                  <td className="border border-border print:border-gray-300 px-2 py-1.5"></td>
+                  <td className="border border-border print:border-gray-300 px-2 py-1.5 text-right font-mono print:text-black">{fmt(totalGst)}</td>
+                  <td className="border border-border print:border-gray-300 px-2 py-1.5 text-right font-mono print:text-black">{fmt(grandTotal)}</td>
+                </tr>
+              </tfoot>
+            </table>
+          </div>
+
+          <div className="grid grid-cols-3 gap-2 sm:gap-4 mb-4">
+            <div className="bg-gray-50 dark:bg-muted/30 rounded-lg p-2.5 sm:p-4 text-center print:bg-gray-50 print:border print:border-gray-200">
+              <p className="text-[10px] sm:text-xs text-muted-foreground print:text-gray-500 uppercase tracking-wide font-semibold mb-1">Sub Total</p>
+              <p className="text-xs sm:text-lg font-bold font-mono print:text-black">{fmt(totalAmount)}</p>
+            </div>
+            <div className="bg-amber-50 dark:bg-amber-950/20 rounded-lg p-2.5 sm:p-4 text-center print:bg-gray-50 print:border print:border-gray-200">
+              <p className="text-[10px] sm:text-xs text-muted-foreground print:text-gray-500 uppercase tracking-wide font-semibold mb-1">GST Total</p>
+              <p className="text-xs sm:text-lg font-bold font-mono text-amber-600 print:text-black">{fmt(totalGst)}</p>
+            </div>
+            <div className="bg-blue-50 dark:bg-blue-950/20 rounded-lg p-2.5 sm:p-4 text-center print:bg-gray-50 print:border print:border-gray-200">
+              <p className="text-[10px] sm:text-xs text-muted-foreground print:text-gray-500 uppercase tracking-wide font-semibold mb-1">Grand Total</p>
+              <p className="text-xs sm:text-lg font-bold font-mono text-blue-600 print:text-black">{fmt(grandTotal)}</p>
             </div>
           </div>
 
-          <div className="grid grid-cols-2 gap-8 mt-12 pt-8 border-t print:mt-16">
+          <div className="grid grid-cols-2 gap-6 sm:gap-8 mt-10 sm:mt-12 pt-6 sm:pt-8 border-t print:mt-16">
             <div className="text-center">
               {inv.createdBy && (
-                <p className="font-semibold text-sm print:text-black mb-1">{inv.createdBy}</p>
+                <p className="font-semibold text-xs sm:text-sm print:text-black mb-1">{inv.createdBy}</p>
               )}
-              <div className="border-t border-border print:border-gray-400 pt-2 mt-8">
-                <p className="text-sm text-muted-foreground print:text-gray-500">Prepared By</p>
+              <div className="border-t border-border print:border-gray-400 pt-2 mt-6 sm:mt-8">
+                <p className="text-xs sm:text-sm text-muted-foreground print:text-gray-500">Prepared By</p>
               </div>
             </div>
             <div className="text-center">
-              <div className="border-t border-border print:border-gray-400 pt-2 mt-8">
-                <p className="text-sm text-muted-foreground print:text-gray-500">Authorized Signatory</p>
+              <div className="border-t border-border print:border-gray-400 pt-2 mt-6 sm:mt-8">
+                <p className="text-xs sm:text-sm text-muted-foreground print:text-gray-500">Authorized Signatory</p>
               </div>
             </div>
           </div>
 
-          <div className="text-center mt-8 text-xs text-muted-foreground print:text-gray-400">
+          <div className="text-center mt-6 sm:mt-8 text-[10px] sm:text-xs text-muted-foreground print:text-gray-400">
             Generated on {format(new Date(), "dd MMM yyyy, hh:mm a")}
           </div>
         </div>
