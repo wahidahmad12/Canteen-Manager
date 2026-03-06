@@ -498,6 +498,7 @@ export default function Dashboard() {
                           <th className="px-3 py-2.5 text-right text-xs font-semibold text-rose-700 dark:text-rose-400">Total Expense</th>
                           <th className="px-3 py-2.5 text-right text-xs font-semibold text-blue-700 dark:text-blue-400">Balance</th>
                           <th className="px-3 py-2.5 text-right text-xs font-semibold text-orange-700 dark:text-orange-400">Given to Akbar Ali</th>
+                          <th className="px-3 py-2.5 text-right text-xs font-semibold text-teal-700 dark:text-teal-400">Actions</th>
                         </tr>
                       </thead>
                       <tbody>
@@ -536,6 +537,14 @@ export default function Dashboard() {
                               <td className="px-3 py-2.5 text-right font-mono text-xs text-rose-600">{fmt(expense)}</td>
                               <td className="px-3 py-2.5 text-right font-mono text-xs font-bold text-blue-600">{fmt(balance)}</td>
                               <td className="px-3 py-2.5 text-right font-mono text-xs text-orange-600 font-semibold">{fmt(Number(seal.totalGivenToAkbarAli))}</td>
+                              <td className="px-3 py-2.5 text-right">
+                                <Link href={`/cash-seal/${seal.id}/pdf`}>
+                                  <Button size="sm" variant="ghost" className="h-7 text-xs text-emerald-600" data-testid={`button-pdf-seal-${seal.id}`}>
+                                    <FileDown className="w-3.5 h-3.5 mr-0.5" />
+                                    <span className="hidden sm:inline">PDF</span>
+                                  </Button>
+                                </Link>
+                              </td>
                             </tr>
                           );
                         })}

@@ -253,6 +253,13 @@ export async function registerRoutes(
     res.json(seals);
   });
 
+  app.get('/api/cash-seals/:id', requirePermission('cashseal'), async (req, res) => {
+    const id = Number(req.params.id);
+    const seal = await storage.getCashSeal(id);
+    if (!seal) return res.status(404).json({ message: "Cash seal not found" });
+    res.json(seal);
+  });
+
   app.post(api.cashSeals.create.path, requirePermission('cashseal'), async (req, res) => {
     try {
       const input = api.cashSeals.create.input.parse(req.body);

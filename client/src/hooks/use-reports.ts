@@ -439,6 +439,19 @@ export function useDeleteInventory() {
 
 // === CASH SEAL HOOKS ===
 
+export function useCashSeal(id: number | null) {
+  return useQuery({
+    queryKey: ['/api/cash-seals', id],
+    queryFn: async () => {
+      if (!id) return null;
+      const res = await fetch(`/api/cash-seals/${id}`, { credentials: "include" });
+      if (!res.ok) throw new Error("Failed to fetch cash seal");
+      return res.json();
+    },
+    enabled: !!id,
+  });
+}
+
 export function useCashSeals(options?: { enabled?: boolean }) {
   return useQuery({
     queryKey: [api.cashSeals.list.path],

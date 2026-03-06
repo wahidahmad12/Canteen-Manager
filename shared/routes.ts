@@ -210,6 +210,14 @@ export const api = {
         200: z.array(z.any()),
       },
     },
+    get: {
+      method: 'GET' as const,
+      path: '/api/cash-seals/:id' as const,
+      responses: {
+        200: z.any(),
+        404: errorSchemas.notFound,
+      },
+    },
     create: {
       method: 'POST' as const,
       path: '/api/cash-seals' as const,

@@ -59,6 +59,7 @@ export interface IStorage {
   updateInventory(id: number, data: CreateInventoryRequest): Promise<InventoryWithItems>;
   deleteInventory(id: number): Promise<void>;
   getCashSeals(): Promise<any[]>;
+  getCashSeal(id: number): Promise<any | undefined>;
   getSavedMenus(): Promise<SavedMenu[]>;
   getSavedMenu(id: number): Promise<SavedMenu | undefined>;
   createSavedMenu(data: { clientName: string; startDate: string; endDate: string; menuData: string }): Promise<SavedMenu>;
@@ -340,6 +341,17 @@ export class DatabaseStorage implements IStorage {
       .innerJoin(dailyReports, eq(cashSeals.reportId, dailyReports.id))
       .orderBy(desc(dailyReports.date));
     return seals.map(s => ({ ...s.cashSeal, date: s.report.date }));
+  }
+
+  async getCashSeal(id: number): Promise<any | undefined> {
+    const result = await db.select({
+      cashSeal: cashSeals,
+      report: dailyReports,
+    }).from(cashSeals)
+      .innerJoin(dailyReports, eq(cashSeals.reportId, dailyReports.id))
+      .where(eq(cashSeals.id, id));
+    if (result.length === 0) return undefined;
+    return { ...result[0].cashSeal, date: result[0].report.date };
   }
 
   async createCashSeal(data: any): Promise<any> {
