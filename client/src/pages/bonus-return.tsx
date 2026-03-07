@@ -359,22 +359,22 @@ export default function BonusReturn() {
                             <th colSpan={3} className="px-2 py-1.5 text-center font-bold border border-indigo-200 bg-indigo-50 dark:bg-indigo-950 text-indigo-800 dark:text-indigo-200">Payment</th>
                           </tr>
                           <tr className="border-b-2 border-amber-300">
-                            <th className="px-2 py-2 text-center font-bold border border-amber-200 bg-amber-100 dark:bg-amber-900 text-amber-700 dark:text-amber-300 w-[40px]">S.No</th>
+                            <th className="px-2 py-2 text-left font-bold border border-amber-200 bg-amber-100 dark:bg-amber-900 text-amber-700 dark:text-amber-300 w-[40px]">S.No</th>
                             <th className="px-2 py-2 text-left font-bold border border-amber-200 bg-amber-100 dark:bg-amber-900 text-amber-700 dark:text-amber-300 min-w-[140px]">Name</th>
                             <th className="px-2 py-2 text-left font-bold border border-amber-200 bg-amber-100 dark:bg-amber-900 text-amber-700 dark:text-amber-300 min-w-[140px]">Father's Name</th>
-                            <th className="px-2 py-2 text-center font-bold border border-amber-200 bg-amber-100 dark:bg-amber-900 text-amber-700 dark:text-amber-300">15yr</th>
+                            <th className="px-2 py-2 text-left font-bold border border-amber-200 bg-amber-100 dark:bg-amber-900 text-amber-700 dark:text-amber-300">15yr</th>
                             <th className="px-2 py-2 text-left font-bold border border-amber-200 bg-amber-100 dark:bg-amber-900 text-amber-700 dark:text-amber-300">Designation</th>
-                            <th className="px-2 py-2 text-center font-bold border border-emerald-200 bg-emerald-100 dark:bg-emerald-900 text-emerald-700 dark:text-emerald-300">Days</th>
-                            <th className="px-2 py-2 text-right font-bold border border-emerald-200 bg-emerald-100 dark:bg-emerald-900 text-emerald-700 dark:text-emerald-300">Total Salary</th>
-                            <th className="px-2 py-2 text-right font-bold border border-emerald-200 bg-emerald-100 dark:bg-emerald-900 text-emerald-700 dark:text-emerald-300">Bonus 8.33%</th>
-                            <th className="px-2 py-2 text-center font-bold border border-rose-200 bg-rose-100 dark:bg-rose-900 text-rose-700 dark:text-rose-300">Puja</th>
-                            <th className="px-2 py-2 text-center font-bold border border-rose-200 bg-rose-100 dark:bg-rose-900 text-rose-700 dark:text-rose-300">Interim</th>
-                            <th className="px-2 py-2 text-center font-bold border border-rose-200 bg-rose-100 dark:bg-rose-900 text-rose-700 dark:text-rose-300">Tax</th>
-                            <th className="px-2 py-2 text-center font-bold border border-rose-200 bg-rose-100 dark:bg-rose-900 text-rose-700 dark:text-rose-300">Misc.</th>
-                            <th className="px-2 py-2 text-center font-bold border border-rose-200 bg-rose-100 dark:bg-rose-900 text-rose-700 dark:text-rose-300">Total</th>
-                            <th className="px-2 py-2 text-right font-bold border border-indigo-200 bg-indigo-100 dark:bg-indigo-900 text-indigo-700 dark:text-indigo-300">Net Payable</th>
-                            <th className="px-2 py-2 text-right font-bold border border-indigo-200 bg-indigo-100 dark:bg-indigo-900 text-indigo-700 dark:text-indigo-300">Paid</th>
-                            <th className="px-2 py-2 text-center font-bold border border-indigo-200 bg-indigo-100 dark:bg-indigo-900 text-indigo-700 dark:text-indigo-300">Date Paid</th>
+                            <th className="px-2 py-2 text-left font-bold border border-emerald-200 bg-emerald-100 dark:bg-emerald-900 text-emerald-700 dark:text-emerald-300">Days</th>
+                            <th className="px-2 py-2 text-left font-bold border border-emerald-200 bg-emerald-100 dark:bg-emerald-900 text-emerald-700 dark:text-emerald-300">Total Salary</th>
+                            <th className="px-2 py-2 text-left font-bold border border-emerald-200 bg-emerald-100 dark:bg-emerald-900 text-emerald-700 dark:text-emerald-300">Bonus 8.33%</th>
+                            <th className="px-2 py-2 text-left font-bold border border-rose-200 bg-rose-100 dark:bg-rose-900 text-rose-700 dark:text-rose-300">Puja</th>
+                            <th className="px-2 py-2 text-left font-bold border border-rose-200 bg-rose-100 dark:bg-rose-900 text-rose-700 dark:text-rose-300">Interim</th>
+                            <th className="px-2 py-2 text-left font-bold border border-rose-200 bg-rose-100 dark:bg-rose-900 text-rose-700 dark:text-rose-300">Tax</th>
+                            <th className="px-2 py-2 text-left font-bold border border-rose-200 bg-rose-100 dark:bg-rose-900 text-rose-700 dark:text-rose-300">Misc.</th>
+                            <th className="px-2 py-2 text-left font-bold border border-rose-200 bg-rose-100 dark:bg-rose-900 text-rose-700 dark:text-rose-300">Total</th>
+                            <th className="px-2 py-2 text-left font-bold border border-indigo-200 bg-indigo-100 dark:bg-indigo-900 text-indigo-700 dark:text-indigo-300">Net Payable</th>
+                            <th className="px-2 py-2 text-left font-bold border border-indigo-200 bg-indigo-100 dark:bg-indigo-900 text-indigo-700 dark:text-indigo-300">Paid</th>
+                            <th className="px-2 py-2 text-left font-bold border border-indigo-200 bg-indigo-100 dark:bg-indigo-900 text-indigo-700 dark:text-indigo-300">Date Paid</th>
                           </tr>
                         </thead>
                         <tbody>
@@ -382,34 +382,34 @@ export default function BonusReturn() {
                             const bgClass = idx % 2 === 0 ? "bg-white dark:bg-slate-900" : "bg-amber-50/30 dark:bg-slate-800/40";
                             return (
                               <tr key={row.slNo} className={`${bgClass} hover:bg-amber-50 dark:hover:bg-amber-900/20 transition-colors`} data-testid={`row-bonus-${row.slNo}`}>
-                                <td className="px-2 py-2 text-center border border-slate-200 font-semibold text-amber-600">{row.slNo}</td>
+                                <td className="px-2 py-2 text-left border border-slate-200 font-semibold text-amber-600">{row.slNo}</td>
                                 <td className="px-2 py-2 text-left border border-slate-200 font-bold text-slate-800 dark:text-slate-200">{row.name}</td>
                                 <td className="px-2 py-2 text-left border border-slate-200 text-slate-600 dark:text-slate-400">{row.fatherName}</td>
-                                <td className="px-2 py-2 text-center border border-slate-200">{row.under15}</td>
+                                <td className="px-2 py-2 text-left border border-slate-200">{row.under15}</td>
                                 <td className="px-2 py-2 text-left border border-slate-200">{row.designation}</td>
-                                <td className="px-2 py-2 text-center border border-slate-200 font-semibold text-sky-700 dark:text-sky-400">{row.daysWorked}</td>
-                                <td className="px-2 py-2 text-right border border-slate-200 font-semibold">{row.totalSalary.toLocaleString('en-IN')}</td>
-                                <td className="px-2 py-2 text-right border border-slate-200 font-bold text-emerald-700 dark:text-emerald-400">{row.bonusPayable.toLocaleString('en-IN')}</td>
-                                <td className="px-2 py-2 text-center border border-slate-200 text-slate-400">No</td>
-                                <td className="px-2 py-2 text-center border border-slate-200 text-slate-400">No</td>
-                                <td className="px-2 py-2 text-center border border-slate-200 text-slate-400">No</td>
-                                <td className="px-2 py-2 text-center border border-slate-200 text-slate-400">No</td>
-                                <td className="px-2 py-2 text-center border border-slate-200 text-slate-400">No</td>
-                                <td className="px-2 py-2 text-right border border-slate-200 font-bold text-indigo-700 dark:text-indigo-400">{row.netAmount.toLocaleString('en-IN')}</td>
-                                <td className="px-2 py-2 text-right border border-slate-200 font-bold text-indigo-700 dark:text-indigo-400">{row.actualPaid.toLocaleString('en-IN')}</td>
-                                <td className="px-2 py-2 text-center border border-slate-200">{row.datePaid}</td>
+                                <td className="px-2 py-2 text-left border border-slate-200 font-semibold text-sky-700 dark:text-sky-400">{row.daysWorked}</td>
+                                <td className="px-2 py-2 text-left border border-slate-200 font-semibold">{row.totalSalary.toLocaleString('en-IN')}</td>
+                                <td className="px-2 py-2 text-left border border-slate-200 font-bold text-emerald-700 dark:text-emerald-400">{row.bonusPayable.toLocaleString('en-IN')}</td>
+                                <td className="px-2 py-2 text-left border border-slate-200 text-slate-400">No</td>
+                                <td className="px-2 py-2 text-left border border-slate-200 text-slate-400">No</td>
+                                <td className="px-2 py-2 text-left border border-slate-200 text-slate-400">No</td>
+                                <td className="px-2 py-2 text-left border border-slate-200 text-slate-400">No</td>
+                                <td className="px-2 py-2 text-left border border-slate-200 text-slate-400">No</td>
+                                <td className="px-2 py-2 text-left border border-slate-200 font-bold text-indigo-700 dark:text-indigo-400">{row.netAmount.toLocaleString('en-IN')}</td>
+                                <td className="px-2 py-2 text-left border border-slate-200 font-bold text-indigo-700 dark:text-indigo-400">{row.actualPaid.toLocaleString('en-IN')}</td>
+                                <td className="px-2 py-2 text-left border border-slate-200">{row.datePaid}</td>
                               </tr>
                             );
                           })}
                         </tbody>
                         <tfoot>
                           <tr className="bg-gradient-to-r from-slate-100 to-slate-200 dark:from-slate-700 dark:to-slate-800 font-bold border-t-2 border-amber-400">
-                            <td colSpan={6} className="px-3 py-2 border border-slate-300 text-right text-amber-700 dark:text-amber-300">Total ({bonusRows.length} employees)</td>
-                            <td className="px-2 py-2 text-right border border-slate-300">{bonusRows.reduce((s, r) => s + r.totalSalary, 0).toLocaleString('en-IN')}</td>
-                            <td className="px-2 py-2 text-right border border-slate-300 text-emerald-700 dark:text-emerald-400">{totalBonus.toLocaleString('en-IN')}</td>
+                            <td colSpan={6} className="px-3 py-2 border border-slate-300 text-left text-amber-700 dark:text-amber-300">Total ({bonusRows.length} employees)</td>
+                            <td className="px-2 py-2 text-left border border-slate-300">{bonusRows.reduce((s, r) => s + r.totalSalary, 0).toLocaleString('en-IN')}</td>
+                            <td className="px-2 py-2 text-left border border-slate-300 text-emerald-700 dark:text-emerald-400">{totalBonus.toLocaleString('en-IN')}</td>
                             <td colSpan={5} className="px-2 py-2 border border-slate-300"></td>
-                            <td className="px-2 py-2 text-right border border-slate-300 text-indigo-700 dark:text-indigo-400">{totalBonus.toLocaleString('en-IN')}</td>
-                            <td className="px-2 py-2 text-right border border-slate-300 text-indigo-700 dark:text-indigo-400">{totalBonus.toLocaleString('en-IN')}</td>
+                            <td className="px-2 py-2 text-left border border-slate-300 text-indigo-700 dark:text-indigo-400">{totalBonus.toLocaleString('en-IN')}</td>
+                            <td className="px-2 py-2 text-left border border-slate-300 text-indigo-700 dark:text-indigo-400">{totalBonus.toLocaleString('en-IN')}</td>
                             <td className="px-2 py-2 border border-slate-300"></td>
                           </tr>
                         </tfoot>
@@ -437,45 +437,45 @@ export default function BonusReturn() {
                       </tr>
                       <tr>
                         {["Sl.No", "Name", "Father's Name", "15yr", "Designation", "Days", "Total Salary", "Bonus 8.33%", "Puja", "Interim", "[10A]", "Misc.", "Total Ded.", "Net Payable", "Amt Paid", "Date Paid"].map((h, i) => (
-                          <th key={i} style={{ border: "1px solid #999", padding: "3px 4px", fontWeight: 600, fontSize: "8px", background: i < 5 ? "#ffe0b2" : i < 8 ? "#c8e6c9" : i < 13 ? "#f8bbd0" : "#c5cae9", textAlign: "center" }}>{h}</th>
+                          <th key={i} style={{ border: "1px solid #999", padding: "3px 4px", fontWeight: 600, fontSize: "8px", background: i < 5 ? "#ffe0b2" : i < 8 ? "#c8e6c9" : i < 13 ? "#f8bbd0" : "#c5cae9", textAlign: "left" }}>{h}</th>
                         ))}
                       </tr>
                       <tr>
                         {Array.from({ length: 16 }, (_, i) => (
-                          <th key={i} style={{ border: "1px solid #999", padding: "2px", fontSize: "7px", background: "#f5f5f5", textAlign: "center" }}>{i + 1}</th>
+                          <th key={i} style={{ border: "1px solid #999", padding: "2px", fontSize: "7px", background: "#f5f5f5", textAlign: "left" }}>{i + 1}</th>
                         ))}
                       </tr>
                     </thead>
                     <tbody>
                       {bonusRows.map((row, idx) => (
                         <tr key={row.slNo} style={{ background: idx % 2 === 0 ? "#fff" : "#f5f7ff" }}>
-                          <td style={{ border: "1px solid #bbb", padding: "3px 4px", textAlign: "center", fontWeight: 600, color: "#e65100" }}>{row.slNo}</td>
-                          <td style={{ border: "1px solid #bbb", padding: "3px 4px", fontWeight: 700 }}>{row.name}</td>
-                          <td style={{ border: "1px solid #bbb", padding: "3px 4px", color: "#555" }}>{row.fatherName}</td>
-                          <td style={{ border: "1px solid #bbb", padding: "3px 4px", textAlign: "center" }}>No</td>
-                          <td style={{ border: "1px solid #bbb", padding: "3px 4px" }}>{row.designation}</td>
-                          <td style={{ border: "1px solid #bbb", padding: "3px 4px", textAlign: "center", fontWeight: 600 }}>{row.daysWorked}</td>
-                          <td style={{ border: "1px solid #bbb", padding: "3px 4px", textAlign: "right" }}>{row.totalSalary.toLocaleString('en-IN')}</td>
-                          <td style={{ border: "1px solid #bbb", padding: "3px 4px", textAlign: "right", fontWeight: 700, color: "#2e7d32" }}>{row.bonusPayable.toLocaleString('en-IN')}</td>
-                          <td style={{ border: "1px solid #bbb", padding: "3px 4px", textAlign: "center", color: "#999" }}>No</td>
-                          <td style={{ border: "1px solid #bbb", padding: "3px 4px", textAlign: "center", color: "#999" }}>No</td>
-                          <td style={{ border: "1px solid #bbb", padding: "3px 4px", textAlign: "center", color: "#999" }}>No</td>
-                          <td style={{ border: "1px solid #bbb", padding: "3px 4px", textAlign: "center", color: "#999" }}>No</td>
-                          <td style={{ border: "1px solid #bbb", padding: "3px 4px", textAlign: "center", color: "#999" }}>No</td>
-                          <td style={{ border: "1px solid #bbb", padding: "3px 4px", textAlign: "right", fontWeight: 700, color: "#1a237e" }}>{row.netAmount.toLocaleString('en-IN')}</td>
-                          <td style={{ border: "1px solid #bbb", padding: "3px 4px", textAlign: "right", fontWeight: 700, color: "#1a237e" }}>{row.actualPaid.toLocaleString('en-IN')}</td>
-                          <td style={{ border: "1px solid #bbb", padding: "3px 4px", textAlign: "center" }}>{row.datePaid}</td>
+                          <td style={{ border: "1px solid #bbb", padding: "3px 4px", textAlign: "left", fontWeight: 600, color: "#e65100" }}>{row.slNo}</td>
+                          <td style={{ border: "1px solid #bbb", padding: "3px 4px", textAlign: "left", fontWeight: 700 }}>{row.name}</td>
+                          <td style={{ border: "1px solid #bbb", padding: "3px 4px", textAlign: "left", color: "#555" }}>{row.fatherName}</td>
+                          <td style={{ border: "1px solid #bbb", padding: "3px 4px", textAlign: "left" }}>No</td>
+                          <td style={{ border: "1px solid #bbb", padding: "3px 4px", textAlign: "left" }}>{row.designation}</td>
+                          <td style={{ border: "1px solid #bbb", padding: "3px 4px", textAlign: "left", fontWeight: 600 }}>{row.daysWorked}</td>
+                          <td style={{ border: "1px solid #bbb", padding: "3px 4px", textAlign: "left" }}>{row.totalSalary.toLocaleString('en-IN')}</td>
+                          <td style={{ border: "1px solid #bbb", padding: "3px 4px", textAlign: "left", fontWeight: 700, color: "#2e7d32" }}>{row.bonusPayable.toLocaleString('en-IN')}</td>
+                          <td style={{ border: "1px solid #bbb", padding: "3px 4px", textAlign: "left", color: "#999" }}>No</td>
+                          <td style={{ border: "1px solid #bbb", padding: "3px 4px", textAlign: "left", color: "#999" }}>No</td>
+                          <td style={{ border: "1px solid #bbb", padding: "3px 4px", textAlign: "left", color: "#999" }}>No</td>
+                          <td style={{ border: "1px solid #bbb", padding: "3px 4px", textAlign: "left", color: "#999" }}>No</td>
+                          <td style={{ border: "1px solid #bbb", padding: "3px 4px", textAlign: "left", color: "#999" }}>No</td>
+                          <td style={{ border: "1px solid #bbb", padding: "3px 4px", textAlign: "left", fontWeight: 700, color: "#1a237e" }}>{row.netAmount.toLocaleString('en-IN')}</td>
+                          <td style={{ border: "1px solid #bbb", padding: "3px 4px", textAlign: "left", fontWeight: 700, color: "#1a237e" }}>{row.actualPaid.toLocaleString('en-IN')}</td>
+                          <td style={{ border: "1px solid #bbb", padding: "3px 4px", textAlign: "left" }}>{row.datePaid}</td>
                         </tr>
                       ))}
                     </tbody>
                     <tfoot>
                       <tr style={{ background: "#e0e0e0", fontWeight: "bold" }}>
-                        <td colSpan={6} style={{ border: "1px solid #999", padding: "3px 6px", textAlign: "right", color: "#e65100" }}>Total ({bonusRows.length} employees)</td>
-                        <td style={{ border: "1px solid #999", padding: "3px 6px", textAlign: "right" }}>{bonusRows.reduce((s, r) => s + r.totalSalary, 0).toLocaleString('en-IN')}</td>
-                        <td style={{ border: "1px solid #999", padding: "3px 6px", textAlign: "right", color: "#2e7d32" }}>{totalBonus.toLocaleString('en-IN')}</td>
+                        <td colSpan={6} style={{ border: "1px solid #999", padding: "3px 6px", textAlign: "left", color: "#e65100" }}>Total ({bonusRows.length} employees)</td>
+                        <td style={{ border: "1px solid #999", padding: "3px 6px", textAlign: "left" }}>{bonusRows.reduce((s, r) => s + r.totalSalary, 0).toLocaleString('en-IN')}</td>
+                        <td style={{ border: "1px solid #999", padding: "3px 6px", textAlign: "left", color: "#2e7d32" }}>{totalBonus.toLocaleString('en-IN')}</td>
                         <td colSpan={5} style={{ border: "1px solid #999", padding: "3px" }}></td>
-                        <td style={{ border: "1px solid #999", padding: "3px 6px", textAlign: "right", color: "#1a237e" }}>{totalBonus.toLocaleString('en-IN')}</td>
-                        <td style={{ border: "1px solid #999", padding: "3px 6px", textAlign: "right", color: "#1a237e" }}>{totalBonus.toLocaleString('en-IN')}</td>
+                        <td style={{ border: "1px solid #999", padding: "3px 6px", textAlign: "left", color: "#1a237e" }}>{totalBonus.toLocaleString('en-IN')}</td>
+                        <td style={{ border: "1px solid #999", padding: "3px 6px", textAlign: "left", color: "#1a237e" }}>{totalBonus.toLocaleString('en-IN')}</td>
                         <td style={{ border: "1px solid #999" }}></td>
                       </tr>
                     </tfoot>
