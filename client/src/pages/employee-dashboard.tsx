@@ -119,49 +119,43 @@ export default function EmployeeDashboard() {
     return { present: p, absent: a, holidays: h, weekOff: wo, leave };
   })() : null;
 
-  const handleDownloadSlip = () => {
+  const handleDownloadSlip = async () => {
     if (!salary || !empInfo) return;
-    const pw = window.open('', '_blank');
-    if (!pw) return;
-    pw.document.write(`<!DOCTYPE html><html><head><title>Wage Slip - ${empInfo.name} - ${monthNames[Number(selectedMonth)]} ${selectedYear}</title>
-      <style>
-        @page { size: A4 portrait; margin: 15mm; }
-        body { margin: 0; padding: 20px; font-family: Arial, sans-serif; font-size: 12px; color: #000; }
-        table { width: 100%; border-collapse: collapse; margin-bottom: 10px; }
-        td, th { border: 1px solid #333; padding: 5px 8px; text-align: left; }
-        th { background: #f0f0f0; }
-        .header { text-align: center; margin-bottom: 15px; }
-        .header h3 { margin: 4px 0; }
-        .amount { text-align: right; }
-        .net-pay { text-align: right; font-size: 16px; padding: 10px; }
-        .sig { display: flex; justify-content: space-between; margin-top: 40px; font-size: 11px; }
-      </style>
-    </head><body>
-      <div class="header">
-        <h3>DJ HOSPITALITY & FACILITY MANAGEMENT PVT LTD</h3>
-        <p>7 Crematorium Street, Kolkata - 700014</p>
-        <p style="font-weight:bold;margin-top:10px;font-size:14px">WAGE SLIP - ${monthNames[Number(selectedMonth)].toUpperCase()} ${selectedYear}</p>
-      </div>
-      <table>
-        <tr><td><b>Employee Code</b></td><td>${empInfo.employeeCode}</td><td><b>Name</b></td><td>${empInfo.name}</td></tr>
-        <tr><td><b>Designation</b></td><td>${empInfo.designation}</td><td><b>Company</b></td><td>${empInfo.clientName}</td></tr>
-        <tr><td><b>Days Worked</b></td><td>${salary.daysWorked}</td><td><b>Daily Rate</b></td><td>${fmtAmt(empInfo.dailyRate)}</td></tr>
-      </table>
-      <table>
-        <thead><tr><th colspan="2">Earnings</th><th colspan="2">Deductions</th></tr></thead>
-        <tbody>
-          <tr><td>Basic Wage</td><td class="amount">${fmtAmt(salary.basicWage)}</td><td>PF</td><td class="amount">${fmtAmt(salary.pfDeduction)}</td></tr>
-          <tr><td>DA</td><td class="amount">${fmtAmt(salary.da)}</td><td>ESIC</td><td class="amount">${fmtAmt(salary.esicDeduction)}</td></tr>
-          <tr><td>HRA</td><td class="amount">${fmtAmt(salary.hra)}</td><td>P. Tax</td><td class="amount">${fmtAmt(salary.professionalTax)}</td></tr>
-          <tr><td>Overtime (${salary.overtimeHours}h)</td><td class="amount">${fmtAmt(salary.overtimeAmount)}</td><td><b>Total Deduction</b></td><td class="amount"><b>${fmtAmt(salary.totalDeduction)}</b></td></tr>
-          <tr><td><b>Gross Wage</b></td><td class="amount"><b>${fmtAmt(salary.grossWage)}</b></td><td></td><td></td></tr>
-        </tbody>
-      </table>
-      <table><tr><td class="net-pay"><b>NET PAY: ${fmtAmt(salary.netPay)}</b></td></tr></table>
-      <div class="sig"><div><p>Employee Signature</p></div><div><p>Authorized Signature</p></div></div>
-    </body></html>`);
-    pw.document.close();
-    pw.onload = () => { pw.print(); pw.onafterprint = () => pw.close(); };
+    const html2pdf = (await import('html2pdf.js')).default;
+    const container = document.createElement('div');
+    container.innerHTML = `
+      <div style="padding:20px;font-family:Arial,sans-serif;font-size:12px;color:#000;">
+        <div style="text-align:center;margin-bottom:15px;">
+          <h3 style="margin:4px 0;">DJ HOSPITALITY & FACILITY MANAGEMENT PVT LTD</h3>
+          <p>7 Crematorium Street, Kolkata - 700014</p>
+          <p style="font-weight:bold;margin-top:10px;font-size:14px">WAGE SLIP - ${monthNames[Number(selectedMonth)].toUpperCase()} ${selectedYear}</p>
+        </div>
+        <table style="width:100%;border-collapse:collapse;margin-bottom:10px;">
+          <tr><td style="border:1px solid #333;padding:5px 8px;"><b>Employee Code</b></td><td style="border:1px solid #333;padding:5px 8px;">${empInfo.employeeCode}</td><td style="border:1px solid #333;padding:5px 8px;"><b>Name</b></td><td style="border:1px solid #333;padding:5px 8px;">${empInfo.name}</td></tr>
+          <tr><td style="border:1px solid #333;padding:5px 8px;"><b>Designation</b></td><td style="border:1px solid #333;padding:5px 8px;">${empInfo.designation}</td><td style="border:1px solid #333;padding:5px 8px;"><b>Company</b></td><td style="border:1px solid #333;padding:5px 8px;">${empInfo.clientName}</td></tr>
+          <tr><td style="border:1px solid #333;padding:5px 8px;"><b>Days Worked</b></td><td style="border:1px solid #333;padding:5px 8px;">${salary.daysWorked}</td><td style="border:1px solid #333;padding:5px 8px;"><b>Daily Rate</b></td><td style="border:1px solid #333;padding:5px 8px;">${fmtAmt(empInfo.dailyRate)}</td></tr>
+        </table>
+        <table style="width:100%;border-collapse:collapse;margin-bottom:10px;">
+          <thead><tr><th colspan="2" style="border:1px solid #333;padding:5px 8px;background:#f0f0f0;">Earnings</th><th colspan="2" style="border:1px solid #333;padding:5px 8px;background:#f0f0f0;">Deductions</th></tr></thead>
+          <tbody>
+            <tr><td style="border:1px solid #333;padding:5px 8px;">Basic Wage</td><td style="border:1px solid #333;padding:5px 8px;text-align:right;">${fmtAmt(salary.basicWage)}</td><td style="border:1px solid #333;padding:5px 8px;">PF</td><td style="border:1px solid #333;padding:5px 8px;text-align:right;">${fmtAmt(salary.pfDeduction)}</td></tr>
+            <tr><td style="border:1px solid #333;padding:5px 8px;">DA</td><td style="border:1px solid #333;padding:5px 8px;text-align:right;">${fmtAmt(salary.da)}</td><td style="border:1px solid #333;padding:5px 8px;">ESIC</td><td style="border:1px solid #333;padding:5px 8px;text-align:right;">${fmtAmt(salary.esicDeduction)}</td></tr>
+            <tr><td style="border:1px solid #333;padding:5px 8px;">HRA</td><td style="border:1px solid #333;padding:5px 8px;text-align:right;">${fmtAmt(salary.hra)}</td><td style="border:1px solid #333;padding:5px 8px;">P. Tax</td><td style="border:1px solid #333;padding:5px 8px;text-align:right;">${fmtAmt(salary.professionalTax)}</td></tr>
+            <tr><td style="border:1px solid #333;padding:5px 8px;">Overtime (${salary.overtimeHours}h)</td><td style="border:1px solid #333;padding:5px 8px;text-align:right;">${fmtAmt(salary.overtimeAmount)}</td><td style="border:1px solid #333;padding:5px 8px;"><b>Total Deduction</b></td><td style="border:1px solid #333;padding:5px 8px;text-align:right;"><b>${fmtAmt(salary.totalDeduction)}</b></td></tr>
+            <tr><td style="border:1px solid #333;padding:5px 8px;"><b>Gross Wage</b></td><td style="border:1px solid #333;padding:5px 8px;text-align:right;"><b>${fmtAmt(salary.grossWage)}</b></td><td style="border:1px solid #333;padding:5px 8px;"></td><td style="border:1px solid #333;padding:5px 8px;"></td></tr>
+          </tbody>
+        </table>
+        <table style="width:100%;border-collapse:collapse;margin-bottom:10px;"><tr><td style="border:1px solid #333;padding:10px;text-align:right;font-size:16px;"><b>NET PAY: ${fmtAmt(salary.netPay)}</b></td></tr></table>
+        <div style="display:flex;justify-content:space-between;margin-top:40px;font-size:11px;"><div><p>Employee Signature</p></div><div><p>Authorized Signature</p></div></div>
+      </div>`;
+    const opt = {
+      margin: 10,
+      filename: `WageSlip_${empInfo.name.replace(/\s+/g, '_')}_${monthNames[Number(selectedMonth)]}_${selectedYear}.pdf`,
+      image: { type: 'jpeg', quality: 0.98 },
+      html2canvas: { scale: 2 },
+      jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' },
+    };
+    await html2pdf().set(opt).from(container).save();
   };
 
   return (
