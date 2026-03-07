@@ -107,7 +107,9 @@ export default function BonusReturn() {
         body { margin: 0; padding: 0; font-family: Arial, sans-serif; }
         .cover-letter-page { page: portrait-page; break-after: page; }
         .form-c-page { page: landscape-page; break-before: page; }
-        .form-c-page table { width: 100%; table-layout: auto; font-size: 9px; border-collapse: collapse; }
+        .form-c-page table { width: 100%; table-layout: auto; font-size: 8px; border-collapse: collapse; }
+        .form-c-page table th, .form-c-page table td { padding: 2px 3px !important; }
+        .form-c-page { font-size: 9px; }
         p { margin: 4px 0; }
       </style>
     </head><body>${printArea.innerHTML}</body></html>`);
@@ -508,13 +510,13 @@ export default function BonusReturn() {
                   </div>
 
                   <div className="form-c-page">
-                  <div style={{ textAlign: "center", marginBottom: "10px" }}>
-                    <div style={{ fontSize: "18px", fontWeight: "bold", color: "#1a237e" }}>FORM C</div>
-                    <div style={{ fontSize: "12px" }}>[See rule 4 (c)]</div>
-                    <div style={{ fontSize: "11px", fontWeight: 600, marginTop: "4px" }}>BONUS PAID TO EMPLOYEES FOR THE ACCOUNTING YEAR ENDING ON THE {fyLabel}</div>
-                    <div style={{ fontSize: "11px", fontWeight: 600 }}>Name of the establishment: DJ Hospitality & Facility Management Pvt Ltd, 7 Crematorium Street, Kolkata-700014</div>
-                    <div style={{ fontSize: "11px" }}>Client: {selectedClient}</div>
-                    <div style={{ fontSize: "11px" }}>No. of working days in the year: <u>{workingDays || '____'}</u></div>
+                  <div style={{ textAlign: "center", marginBottom: "6px" }}>
+                    <div style={{ fontSize: "14px", fontWeight: "bold", color: "#1a237e" }}>FORM C</div>
+                    <div style={{ fontSize: "9px" }}>[See rule 4 (c)]</div>
+                    <div style={{ fontSize: "9px", fontWeight: 600, marginTop: "2px" }}>BONUS PAID TO EMPLOYEES FOR THE ACCOUNTING YEAR ENDING ON THE {fyLabel}</div>
+                    <div style={{ fontSize: "9px", fontWeight: 600 }}>Name of the establishment: DJ Hospitality & Facility Management Pvt Ltd, 7 Crematorium Street, Kolkata-700014</div>
+                    <div style={{ fontSize: "9px" }}>Client: {selectedClient}</div>
+                    <div style={{ fontSize: "9px" }}>No. of working days in the year: <u>{workingDays || '____'}</u></div>
                   </div>
                   <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "9px", fontFamily: "Arial, sans-serif" }}>
                     <thead>
@@ -569,11 +571,11 @@ export default function BonusReturn() {
                       </tr>
                     </tfoot>
                   </table>
-                  <div style={{ marginTop: "16px", fontSize: "8px", color: "#666" }}>
+                  <div style={{ marginTop: "6px", fontSize: "7px", color: "#666" }}>
                     <p>[1] Ins. by G.S.R. 1147, dated 23rd August, 1979 (w.e.f. 8-9.1979).</p>
                     <p>[2] Ins. by G.S.R. 1147, dated 23rd August, 1979 (w.e.f. 8-9.1979).</p>
                   </div>
-                  <div style={{ marginTop: "40px", display: "flex", justifyContent: "space-between", fontSize: "10px" }}>
+                  <div style={{ marginTop: "20px", display: "flex", justifyContent: "space-between", fontSize: "9px" }}>
                     <div style={{ textAlign: "center" }}>
                       <div style={{ borderTop: "1px solid #333", width: "160px", paddingTop: "4px" }}>Signature of Contractor</div>
                     </div>
