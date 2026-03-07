@@ -492,10 +492,23 @@ function OvertimeTab({ clientName, employees, empMap }: { clientName: string; em
     onError: (err: Error) => toast({ title: "Error", description: err.message, variant: "destructive" }),
   });
 
+  const calcOtRate = (dailyRate: number) => {
+    return ((dailyRate + dailyRate * 0.05) / 4);
+  };
+
   const calcOtAmount = (hours: string, rate: string) => {
     const h = parseFloat(hours) || 0;
     const r = parseFloat(rate) || 0;
-    return h && r ? (h * r).toFixed(2) : "";
+    return h && r ? String(Math.round(h * r)) : "";
+  };
+
+  const handleEmployeeChange = (empId: string) => {
+    const emp = employees.find((e: any) => String(e.id) === empId);
+    const rate = emp ? calcOtRate(parseFloat(emp.dailyRate) || 0).toFixed(2) : "";
+    setFormData(prev => {
+      const newRate = rate;
+      return { ...prev, employeeId: empId, overtimeRate: newRate, overtimeAmount: calcOtAmount(prev.overtimeHours, newRate) };
+    });
   };
 
   const updateOvertimeHours = (val: string) => {
@@ -555,7 +568,7 @@ function OvertimeTab({ clientName, employees, empMap }: { clientName: string; em
               <div className="space-y-3">
                 <div>
                   <Label>Employee *</Label>
-                  <Select value={formData.employeeId} onValueChange={(v) => setFormData({ ...formData, employeeId: v })}>
+                  <Select value={formData.employeeId} onValueChange={handleEmployeeChange}>
                     <SelectTrigger data-testid="select-overtime-employee"><SelectValue placeholder="Select employee" /></SelectTrigger>
                     <SelectContent>{employees.map((e: any) => <SelectItem key={e.id} value={String(e.id)}>{e.name}</SelectItem>)}</SelectContent>
                   </Select>

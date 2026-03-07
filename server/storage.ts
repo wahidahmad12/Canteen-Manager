@@ -962,8 +962,8 @@ export class DatabaseStorage implements IStorage {
       const esicDeduction = grossWage <= 21000 ? Math.round(grossWage * 0.0075 * 100) / 100 : 0;
       const professionalTax = grossWage > 15000 ? 200 : grossWage > 10000 ? 150 : 0;
       const overtimeHrs = att ? Number(att.overtimeHours) : 0;
-      const overtimeRate = dailyRate / 8 * 2;
-      const overtimeAmount = overtimeHrs * overtimeRate;
+      const overtimeRate = (dailyRate + dailyRate * 0.05) / 4;
+      const overtimeAmount = Math.round(overtimeRate * overtimeHrs);
       const totalDeduction = pfDeduction + esicDeduction + professionalTax;
       const netPay = grossWage + overtimeAmount - totalDeduction;
 
