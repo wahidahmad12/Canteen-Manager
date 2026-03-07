@@ -18,7 +18,7 @@ export default function LeaveWithWagesPage() {
   const { toast } = useToast();
   const { data: user } = useCurrentUser();
   const isAdmin = user?.role === "admin";
-  const clientNames = useClientNames();
+  const { data: clientNames = [] } = useClientNames();
   const [selectedClient, setSelectedClient] = useState("");
   const [selectedEmployeeId, setSelectedEmployeeId] = useState<string>("");
   const [dialogOpen, setDialogOpen] = useState(false);
