@@ -5,7 +5,7 @@ import logoImg from '@assets/logo1_1771660912341.png';
 import { useCurrentUser, useLogout } from '@/hooks/use-reports';
 import { Button } from '@/components/ui/button';
 
-const labourWorksPaths = ['/employee-master', '/muster-roll', '/salary', '/registers', '/form-xiii'];
+const labourWorksPaths = ['/employee-master', '/muster-roll', '/salary', '/registers', '/form-xiii', '/bonus-return'];
 
 export function Layout({ children }: { children: React.ReactNode }) {
   const [location] = useLocation();
@@ -37,6 +37,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
     { href: '/salary', label: 'Salary Register', icon: Wallet },
     { href: '/registers', label: 'Registers', icon: BookOpen },
     { href: '/form-xiii', label: 'Workmen Register', icon: FileText },
+    { href: '/bonus-return', label: 'Bonus Return', icon: FileText },
   ];
 
   const bottomNavItems = [

@@ -696,6 +696,14 @@ export async function registerRoutes(
   });
 
   // === SALARY RECORDS ===
+  app.get("/api/salary/annual", requireAuth, async (req, res) => {
+    const { clientName, fyStart } = req.query;
+    if (!clientName || !fyStart) return res.status(400).json({ message: "clientName and fyStart required" });
+    const startYear = Number(fyStart);
+    const records = await storage.getAnnualSalary(clientName as string, startYear);
+    res.json(records);
+  });
+
   app.get("/api/salary", requireAuth, async (req, res) => {
     const { clientName, month, year } = req.query;
     if (!clientName || !month || !year) return res.status(400).json({ message: "clientName, month, year required" });

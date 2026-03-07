@@ -26,6 +26,7 @@ import WageSlip from "./pages/wage-slip";
 import Registers from "./pages/registers";
 import FormXIII from "./pages/form-xiii";
 import FormXIV from "./pages/form-xiv";
+import BonusReturn from "./pages/bonus-return";
 import Login from "./pages/login";
 import { useCurrentUser } from "./hooks/use-reports";
 import { Loader2 } from "lucide-react";
@@ -77,6 +78,7 @@ function AuthenticatedRouter() {
       <Route path="/registers" component={Registers} />
       <Route path="/form-xiii" component={FormXIII} />
       <Route path="/form-xiv/:id" component={FormXIV} />
+      <Route path="/bonus-return" component={BonusReturn} />
       <Route component={NotFound} />
     </Switch>
   );

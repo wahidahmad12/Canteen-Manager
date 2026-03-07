@@ -1,0 +1,25 @@
+FORM C																
+[See rule 4 (c)]																
+"BONUS PAID TO EMPLOYEES FOR THE ACCOUNTING YEAR ENDING ON THE 1st April, 2024 to 31st March, 2025	"																
+Name of the establishment DJ Hospitality & Facility Management Private Limited, 7 Crematorium Street, Kolkata-700014																
+No. of working days in the year 3532																
+																
+Sl. No.	Name of the employee	Father’s name	Whether he has completed 15 years of age at the beginning of the accounting year	Designation	No. of days worked in the year	Total salary or wage in respect of the accounting year	Amount of bonus payable under section 10 or section 11 as the case may be	Puja bonus or other customary bonus during the accounting year	Interim bonus of bonus paid advance	Deductions			Net Amount Payable (Column 8 minus Column 12)	Amount actually paid	Date on which paid	Signature/thumb impression of the employee
+										[1][Amount of income-tax deducted]	Deduction on account of financial loss, if any, caused by misconduct of employee	[Total sum deducted under columns 9, 10, 10A and 11]				
+1	2	3	4	5	6	7	8	9	10	[2][10A]	11	12	13	14	15	16
+1	AMIT DAS	ADHIR KUMAR DAS	No	Unskilled	314	120726	 10,056 	No	No	No	No	No	 10,056 	 10,056 	26-09-2025	
+2	BABLU ROY	G.ROY	No	Semi skilled	306	129369	 10,776 	No	No	No	No	No	 10,776 	 10,776 	26-09-2025	
+3	BUDHADEB MAJUMDER	SHIPAN MAJUMDER	No	Unskilled	302	116130	 9,674 	No	No	No	No	No	 9,674 	 9,674 	26-09-2025	
+4	JUDHISTHIR HATUYA	BANSHI HATUYA	No	Skilled	280	143226	 11,931 	No	No	No	No	No	 11,931 	 11,931 	26-09-2025	
+5	RAHIM MALLIK	ISLAM MALLIK	No	Skilled	313	160207	 13,345 	No	No	No	No	No	 13,345 	 13,345 	26-09-2025	
+6	RINKU BHATTACHARYA	ANUPAM BHATTACHARYA	No	Skilled	317	162210	 13,512 	No	No	No	No	No	 13,512 	 13,512 	26-09-2025	
+7	SAMIR SARKAR	LT.R.NSARKAR	No	Semi skilled	268	112720	 9,390 	No	No	No	No	No	 9,390 	 9,390 	31-01-2025	
+8	SANJAY PATRA	LATE GURUPADA PATRA	No	Skilled	321	149212	 12,429 	No	No	No	No	No	 12,429 	 12,429 	26-09-2025	
+9	JAYANTA DALUI	SUMIT DALUI	No	Skilled	319	148216	 12,346 	No	No	No	No	No	 12,346 	 12,346 	26-09-2025	
+10	TUMPA NASKAR	DEBABRATA KARAR 	No	Unskilled	313	120337	 10,024 	No	No	No	No	No	 10,024 	 10,024 	26-09-2025	
+11	AKBAR ALI	KAUSER ALI	No	Skilled	307	146591	 12,211 	No	No	No	No	No	 12,211 	 12,211 	26-09-2025	
+12	KAMALESH SARDER	ABHIRAM SARDER	No	Semi skilled	311	131388	 10,945 	No	No	No	No	No	 10,945 	 10,945 	26-09-2025	
+13	SAIED HOSEN MALLIK	RAFIK MALLIK	No	Unskilled	313	120331	 10,024 	No	No	No	No	No	 10,024 	 10,024 	26-09-2025	
+																
+[1] 	Ins. by G.S.R. 1147, dated 23rd August, 1979 (w.e.f. 8-9.1979).															
+[1] 	Ins. by G.S.R. 1147, dated 23rd August, 1979 (w.e.f. 8-9.1979).															

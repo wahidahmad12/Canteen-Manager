@@ -126,6 +126,7 @@ export interface IStorage {
   saveSalaryRecord(data: any): Promise<SalaryRecord>;
   deleteSalaryRecord(id: number): Promise<void>;
   generateSalary(clientName: string, month: number, year: number): Promise<SalaryRecord[]>;
+  getAnnualSalary(clientName: string, fyStartYear: number): Promise<SalaryRecord[]>;
   getFines(clientName?: string): Promise<Fine[]>;
   createFine(data: any): Promise<Fine>;
   deleteFine(id: number): Promise<void>;
@@ -993,6 +994,16 @@ export class DatabaseStorage implements IStorage {
       results.push(record);
     }
     return results;
+  }
+
+  async getAnnualSalary(clientName: string, fyStartYear: number): Promise<SalaryRecord[]> {
+    const results = await db.select().from(salaryRecords)
+      .where(eq(salaryRecords.clientName, clientName));
+    return results.filter(r => {
+      const m = r.month;
+      const y = r.year;
+      return (y === fyStartYear && m >= 4) || (y === fyStartYear + 1 && m <= 3);
+    });
   }
 
   // === FINES ===

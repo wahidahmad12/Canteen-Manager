@@ -33,6 +33,7 @@ Preferred communication style: Simple, everyday language.
   - `/registers` — Combined registers page with tabs for Fines (XXI), Advances (XXII), Overtime (XXIII), Damage/Loss (XX)
   - `/form-xiii` — Workmen Register (Form XIII) printable list of workers by company
   - `/form-xiv/:id` — Employment Card (Form XIV) individual worker card
+  - `/bonus-return` — Bonus Return (Form C) client-wise annual bonus calculation (8.33% of gross salary)
 
 ### Backend
 - **Framework**: Express 5 on Node.js with TypeScript (run via tsx)
