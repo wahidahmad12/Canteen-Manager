@@ -563,13 +563,123 @@ function OvertimeTab({ clientName, employees, empMap, filterMonth, filterYear }:
   const handlePrint = () => {
     const printWin = window.open("", "_blank");
     if (!printWin) return;
-    const rows = filtered.map((o: any, i: number) => `
-      <tr><td>${i + 1}</td><td>${empMap.get(o.employeeId) || o.employeeId}</td><td>${o.date}</td><td>${o.normalHours || ""}</td><td>${o.overtimeHours || ""}</td><td>${o.overtimeRate ? fmt(o.overtimeRate) : ""}</td><td>${o.overtimeAmount ? fmt(o.overtimeAmount) : ""}</td></tr>
-    `).join("");
-    const period = filterMonth && filterMonth !== "all" && filterYear ? ` - ${MONTHS[parseInt(filterMonth) - 1]} ${filterYear}` : filterYear ? ` - ${filterYear}` : "";
-    printWin.document.write(`<html><head><title>Form XXIII - Overtime</title><style>body{font-family:sans-serif;padding:20px}table{width:100%;border-collapse:collapse}th,td{border:1px solid #ccc;padding:6px 10px;text-align:left;font-size:13px}th{background:#f5f5f5}</style></head><body>
-      <h2>Register of Overtime (Form XXIII) - ${clientName}${period}</h2>
-      <table><thead><tr><th>#</th><th>Employee</th><th>Date</th><th>Normal Hrs</th><th>OT Hrs</th><th>OT Rate</th><th>OT Amount</th></tr></thead><tbody>${rows}</tbody></table>
+
+    const empFullMap = new Map<number, any>();
+    employees.forEach((e: any) => empFullMap.set(e.id, e));
+
+    const period = filterMonth && filterMonth !== "all" && filterYear ? `${MONTHS[parseInt(filterMonth) - 1]} ${filterYear}` : filterYear ? filterYear : "";
+
+    const formatDate = (d: string) => {
+      if (!d) return "";
+      const dt = new Date(d);
+      const dd = String(dt.getDate()).padStart(2, "0");
+      const mm = String(dt.getMonth() + 1).padStart(2, "0");
+      return `${dd}-${mm}-${dt.getFullYear()}`;
+    };
+
+    const splitRsP = (val: any) => {
+      const n = parseFloat(val) || 0;
+      const rs = Math.floor(n);
+      const p = ((n - rs) * 100).toFixed(0).padStart(2, "0");
+      return { rs, p };
+    };
+
+    const rows = filtered.map((o: any, i: number) => {
+      const emp = empFullMap.get(o.employeeId);
+      const name = emp?.name || o.employeeId;
+      const father = emp?.fatherName || "";
+      const sex = emp?.gender === "Female" ? "F" : "M";
+      const desg = emp?.designation || "";
+      const dailyRate = parseFloat(emp?.dailyRate || "0");
+      const normalRate = splitRsP(dailyRate);
+      const otRate = splitRsP(o.overtimeRate);
+      const otEarnings = splitRsP(o.overtimeAmount);
+      return `<tr>
+        <td>${i + 1}</td>
+        <td style="text-align:left;white-space:nowrap">${name}</td>
+        <td style="text-align:left;white-space:nowrap">${father}</td>
+        <td>${sex}</td>
+        <td style="text-align:left;white-space:nowrap">${desg}</td>
+        <td>${formatDate(o.date)}</td>
+        <td>${o.overtimeHours || ""}</td>
+        <td>${normalRate.rs}</td><td>${normalRate.p}</td>
+        <td>${otRate.rs}</td><td>${otRate.p}</td>
+        <td>${otEarnings.rs}</td><td>${otEarnings.p}</td>
+        <td></td>
+        <td></td>
+      </tr>`;
+    }).join("");
+
+    printWin.document.write(`<html><head><title>Form XXIII - Register of Overtime</title>
+    <style>
+      @page { size: landscape; margin: 10mm; }
+      * { margin: 0; padding: 0; box-sizing: border-box; }
+      body { font-family: Arial, sans-serif; font-size: 11px; padding: 10px; }
+      .header-title { text-align: left; font-size: 11px; font-weight: bold; margin-bottom: 2px; }
+      .header-main { text-align: center; font-size: 16px; font-weight: bold; margin-bottom: 4px; text-decoration: underline; }
+      .header-rule { text-align: center; font-size: 9px; margin-bottom: 8px; }
+      .info-table { width: 100%; border-collapse: collapse; margin-bottom: 8px; font-size: 10px; }
+      .info-table td { padding: 2px 6px; vertical-align: top; }
+      .info-label { font-weight: bold; white-space: nowrap; }
+      .info-val { font-weight: normal; }
+      table.main { width: 100%; border-collapse: collapse; font-size: 9px; }
+      table.main th, table.main td { border: 1px solid #000; padding: 3px 4px; text-align: center; vertical-align: middle; }
+      table.main th { background: #f0f0f0; font-weight: bold; font-size: 8px; }
+      table.main td { font-size: 9px; }
+      .col-num-row th { font-size: 8px; font-weight: normal; font-style: italic; }
+      .sub-head { font-size: 7px; font-weight: normal; }
+    </style></head><body>
+      <div class="header-title">FORM XXIII</div>
+      <div class="header-main">REGISTER OF OVERTIME</div>
+      <div class="header-rule">[Prescribed Under Rule 78 (2)(a)/78(a)(i) of the West Bengal / Central Contract Labour ( Regulation &amp; Abolition) Rules, 1972/1971]</div>
+
+      <table class="info-table">
+        <tr>
+          <td class="info-label" style="width:22%">Name and Address of the Contractor</td>
+          <td class="info-val" style="width:28%">DJ HOSPITALITY &amp; FACILITY MANAGEMENT PVT LTD<br/>7 Crimatorium Street, Kolkata- 700014</td>
+          <td class="info-label" style="width:22%">Name and address of the establishment in /<br/>Under which contract is carried on</td>
+          <td class="info-val" style="width:28%">${clientName}</td>
+        </tr>
+        <tr>
+          <td class="info-label">Nature and location of Work</td>
+          <td class="info-val">Canteen</td>
+          <td class="info-label">Name and address of the Principal Employer</td>
+          <td class="info-val">${clientName}</td>
+        </tr>
+      </table>
+
+      ${period ? `<div style="text-align:center;font-weight:bold;font-size:11px;margin-bottom:6px;">Period: ${period}</div>` : ""}
+
+      <table class="main">
+        <thead>
+          <tr>
+            <th rowspan="2" style="width:35px">Serial<br/>No</th>
+            <th rowspan="2" style="min-width:110px">Name of the<br/>Workman</th>
+            <th rowspan="2" style="min-width:110px">Father's /<br/>Husband's Name</th>
+            <th rowspan="2" style="width:30px">Sex</th>
+            <th rowspan="2" style="min-width:80px">Designation/<br/>Nature of<br/>Employ-<br/>ment</th>
+            <th rowspan="2" style="width:65px">Date on Which<br/>Overtime<br/>Worked</th>
+            <th rowspan="2" style="width:60px">Total Overtime<br/>Worked or<br/>Production in<br/>case of<br/>Piecerated</th>
+            <th colspan="2">Normal Rate of<br/>Wages</th>
+            <th colspan="2">Overtime Rate of<br/>Wages</th>
+            <th colspan="2">Overtime Earnings</th>
+            <th rowspan="2" style="width:70px">Date on which<br/>overtime wages<br/>paid</th>
+            <th rowspan="2" style="width:50px">Remarks</th>
+          </tr>
+          <tr>
+            <th>Rs.</th><th>P.</th>
+            <th>Rs.</th><th>P.</th>
+            <th>Rs.</th><th>P.</th>
+          </tr>
+          <tr class="col-num-row">
+            <th>1</th><th>2</th><th>3</th><th>4</th><th>5</th><th>6</th><th>7</th>
+            <th colspan="2">8</th><th colspan="2">9</th><th colspan="2">10</th><th>11</th><th>12</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${rows || '<tr><td colspan="15" style="padding:20px;text-align:center">No overtime records found</td></tr>'}
+        </tbody>
+      </table>
     </body></html>`);
     printWin.document.close();
     printWin.print();
