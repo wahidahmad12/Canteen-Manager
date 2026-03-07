@@ -18,13 +18,15 @@ const MONTHS = [
   "July", "August", "September", "October", "November", "December",
 ];
 
-const STATUS_CODES = ["P", "A", "H", "WO", "PH", "CL", "SL", "EL", ""] as const;
+const STATUS_CODES = ["P", "A", "H", "HP", "HD", "WO", "PH", "CL", "SL", "EL", ""] as const;
 type StatusCode = (typeof STATUS_CODES)[number];
 
 const STATUS_COLORS: Record<string, string> = {
   P: "bg-emerald-100 text-emerald-800 dark:bg-emerald-900/40 dark:text-emerald-300",
   A: "bg-red-100 text-red-800 dark:bg-red-900/40 dark:text-red-300",
   H: "bg-yellow-100 text-yellow-800 dark:bg-yellow-900/40 dark:text-yellow-300",
+  HP: "bg-teal-100 text-teal-800 dark:bg-teal-900/40 dark:text-teal-300",
+  HD: "bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-300",
   WO: "bg-blue-100 text-blue-800 dark:bg-blue-900/40 dark:text-blue-300",
   PH: "bg-purple-100 text-purple-800 dark:bg-purple-900/40 dark:text-purple-300",
   CL: "bg-orange-100 text-orange-800 dark:bg-orange-900/40 dark:text-orange-300",
@@ -96,21 +98,34 @@ export default function MusterRoll() {
       }
     });
 
-    const otMap: Record<number, number> = {};
     records.forEach((rec: any) => {
       if (map[rec.employeeId]) {
         for (let d = 1; d <= 31; d++) {
           const val = rec[`day${d}`] || "";
           map[rec.employeeId][`day${d}`] = val as StatusCode;
         }
-        otMap[rec.employeeId] = Number(rec.overtimeHours) || 0;
       }
     });
 
     setAttendanceData(map);
-    setOvertimeData(otMap);
+
+    try {
+      const otRes = await fetch(`/api/overtime?clientName=${encodeURIComponent(clientName)}`, { credentials: 'include' });
+      const otRecords = await otRes.json();
+      const otMap: Record<number, number> = {};
+      (otRecords || []).forEach((ot: any) => {
+        const d = new Date(ot.date);
+        if (d.getMonth() + 1 === monthNum && d.getFullYear() === yearNum) {
+          otMap[ot.employeeId] = (otMap[ot.employeeId] || 0) + (Number(ot.overtimeHours) || 0);
+        }
+      });
+      setOvertimeData(otMap);
+    } catch {
+      setOvertimeData({});
+    }
+
     setLoaded(true);
-  }, [clientName, refetchEmployees, refetchAttendance, toast]);
+  }, [clientName, monthNum, yearNum, refetchEmployees, refetchAttendance, toast]);
 
   const handleCellClick = useCallback((employeeId: number, dayKey: string) => {
     setAttendanceData(prev => {
@@ -122,14 +137,20 @@ export default function MusterRoll() {
 
   const calcTotals = useCallback((empData: Record<string, StatusCode>) => {
     let present = 0;
+    let holidays = 0;
+    let holidayPresent = 0;
+    let halfDay = 0;
     let absent = 0;
     for (let d = 1; d <= daysInMonth; d++) {
       const val = empData[`day${d}`];
       if (val === "P") present += 1;
-      if (val === "H") present += 0.5;
-      if (val === "A") absent += 1;
+      else if (val === "H") holidays += 1;
+      else if (val === "HP") holidayPresent += 1;
+      else if (val === "HD") halfDay += 1;
+      else if (val === "A") absent += 1;
     }
-    return { totalPresent: present, totalAbsent: absent };
+    const totalPaidDays = present + holidays + holidayPresent + (halfDay * 0.5);
+    return { present, holidays, holidayPresent, halfDay, totalPaidDays, absent };
   }, [daysInMonth]);
 
   const saveMutation = useMutation({
@@ -137,14 +158,14 @@ export default function MusterRoll() {
       const emps = employees || [];
       const promises = emps.map((emp) => {
         const empData = attendanceData[emp.id] || {};
-        const { totalPresent, totalAbsent } = calcTotals(empData);
+        const totals = calcTotals(empData);
         const payload: any = {
           employeeId: emp.id,
           clientName,
           month: monthNum,
           year: yearNum,
-          totalPresent,
-          totalAbsent,
+          totalPresent: totals.totalPaidDays,
+          totalAbsent: totals.absent,
           overtimeHours: overtimeData[emp.id] || 0,
           remarks: "",
         };
@@ -212,7 +233,9 @@ export default function MusterRoll() {
     instrWs.addRow(["Valid Codes:"]).font = { bold: true };
     instrWs.addRow(["P  = Present (Full Day)"]);
     instrWs.addRow(["A  = Absent"]);
-    instrWs.addRow(["H  = Half Day (counts as 0.5)"]);
+    instrWs.addRow(["H  = Holiday"]);
+    instrWs.addRow(["HP = Holiday Present"]);
+    instrWs.addRow(["HD = Half Day (counts as 0.5)"]);
     instrWs.addRow(["WO = Weekly Off"]);
     instrWs.addRow(["PH = Public Holiday"]);
     instrWs.addRow(["CL = Casual Leave"]);
@@ -262,7 +285,7 @@ export default function MusterRoll() {
 
       const newData: AttendanceMap = { ...attendanceData };
       let imported = 0;
-      const validCodes = ["P", "A", "H", "WO", "PH", "CL", "SL", "EL"];
+      const validCodes = ["P", "A", "H", "HP", "HD", "WO", "PH", "CL", "SL", "EL"];
 
       ws.eachRow((row, rowNum) => {
         if (rowNum === 1) return;
@@ -302,7 +325,7 @@ export default function MusterRoll() {
     const ws = workbook.addWorksheet("Muster Roll");
 
     const monthName = MONTHS[monthNum - 1];
-    const totalCols = 3 + daysInMonth + 2;
+    const totalCols = 3 + daysInMonth + 7;
     const titleRow = ws.addRow(["Muster Roll (Form XVI)"]);
     titleRow.getCell(1).font = { bold: true, size: 16 };
     ws.mergeCells(1, 1, 1, totalCols);
@@ -317,7 +340,7 @@ export default function MusterRoll() {
 
     const headers = ["Sl.No", "Emp Name", "Designation"];
     for (let d = 1; d <= daysInMonth; d++) headers.push(String(d));
-    headers.push("Present", "Absent", "OT Hrs");
+    headers.push("Present", "Holidays", "Hol. Present", "Half Day", "Total Paid", "Absent", "OT Hrs");
     const headerRow = ws.addRow(headers);
     headerRow.eachCell((cell) => {
       cell.font = { bold: true, size: 9 };
@@ -329,12 +352,12 @@ export default function MusterRoll() {
 
     employees.forEach((emp: any, idx: number) => {
       const empData = attendanceData[emp.id] || {};
-      const { totalPresent, totalAbsent } = calcTotals(empData);
+      const totals = calcTotals(empData);
       const rowData: (string | number)[] = [idx + 1, emp.name, emp.designation || "-"];
       for (let d = 1; d <= daysInMonth; d++) {
         rowData.push(empData[`day${d}`] || "");
       }
-      rowData.push(totalPresent, totalAbsent, overtimeData[emp.id] || 0);
+      rowData.push(totals.present, totals.holidays, totals.holidayPresent, totals.halfDay, totals.totalPaidDays, totals.absent, overtimeData[emp.id] || 0);
       const r = ws.addRow(rowData);
       r.eachCell((cell, colNumber) => {
         cell.border = { top: { style: "thin" }, bottom: { style: "thin" }, left: { style: "thin" }, right: { style: "thin" } };
@@ -345,6 +368,8 @@ export default function MusterRoll() {
           if (val === "P") cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFD1FAE5" } };
           else if (val === "A") cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFFEE2E2" } };
           else if (val === "H" || val === "WO" || val === "PH") cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFFEF3C7" } };
+          else if (val === "HP") cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFCCFBF1" } };
+          else if (val === "HD") cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFFEF3C7" } };
         }
       });
     });
@@ -352,7 +377,9 @@ export default function MusterRoll() {
     ws.getColumn(1).width = 6;
     ws.getColumn(2).width = 22;
     ws.getColumn(3).width = 16;
-    for (let i = 4; i <= 3 + daysInMonth + 2; i++) ws.getColumn(i).width = 5;
+    for (let i = 4; i <= 3 + daysInMonth; i++) ws.getColumn(i).width = 5;
+    const summaryStart = 4 + daysInMonth;
+    for (let i = summaryStart; i < summaryStart + 7; i++) ws.getColumn(i).width = 10;
 
     const buffer = await workbook.xlsx.writeBuffer();
     const blob = new Blob([buffer], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
@@ -525,6 +552,18 @@ export default function MusterRoll() {
                         <th className="px-2 py-2 text-center font-semibold min-w-[50px] bg-emerald-50 dark:bg-emerald-950/20">
                           Present
                         </th>
+                        <th className="px-2 py-2 text-center font-semibold min-w-[50px] bg-yellow-50 dark:bg-yellow-950/20">
+                          Holidays
+                        </th>
+                        <th className="px-2 py-2 text-center font-semibold min-w-[50px] bg-teal-50 dark:bg-teal-950/20">
+                          Hol. Present
+                        </th>
+                        <th className="px-2 py-2 text-center font-semibold min-w-[50px] bg-amber-50 dark:bg-amber-950/20">
+                          Half Day
+                        </th>
+                        <th className="px-2 py-2 text-center font-semibold min-w-[55px] bg-indigo-50 dark:bg-indigo-950/20">
+                          Total Paid
+                        </th>
                         <th className="px-2 py-2 text-center font-semibold min-w-[50px] bg-red-50 dark:bg-red-950/20">
                           Absent
                         </th>
@@ -536,7 +575,7 @@ export default function MusterRoll() {
                     <tbody>
                       {employees.map((emp, empIdx) => {
                         const empData = attendanceData[emp.id] || {};
-                        const { totalPresent, totalAbsent } = calcTotals(empData);
+                        const totals = calcTotals(empData);
                         return (
                           <tr key={emp.id} className={`border-b last:border-0 ${empIdx % 2 === 0 ? "" : "bg-muted/20"}`} data-testid={`row-employee-${emp.id}`}>
                             <td className="sticky left-0 z-10 bg-card px-3 py-1.5 font-medium whitespace-nowrap border-r">
@@ -564,22 +603,25 @@ export default function MusterRoll() {
                               );
                             })}
                             <td className="px-2 py-1.5 text-center font-bold bg-emerald-50 dark:bg-emerald-950/20 text-emerald-700 dark:text-emerald-300" data-testid={`total-present-${emp.id}`}>
-                              {totalPresent}
+                              {totals.present}
+                            </td>
+                            <td className="px-2 py-1.5 text-center font-bold bg-yellow-50 dark:bg-yellow-950/20 text-yellow-700 dark:text-yellow-300">
+                              {totals.holidays}
+                            </td>
+                            <td className="px-2 py-1.5 text-center font-bold bg-teal-50 dark:bg-teal-950/20 text-teal-700 dark:text-teal-300">
+                              {totals.holidayPresent}
+                            </td>
+                            <td className="px-2 py-1.5 text-center font-bold bg-amber-50 dark:bg-amber-950/20 text-amber-700 dark:text-amber-300">
+                              {totals.halfDay}
+                            </td>
+                            <td className="px-2 py-1.5 text-center font-bold bg-indigo-50 dark:bg-indigo-950/20 text-indigo-700 dark:text-indigo-300" data-testid={`total-paid-${emp.id}`}>
+                              {totals.totalPaidDays}
                             </td>
                             <td className="px-2 py-1.5 text-center font-bold bg-red-50 dark:bg-red-950/20 text-red-700 dark:text-red-300" data-testid={`total-absent-${emp.id}`}>
-                              {totalAbsent}
+                              {totals.absent}
                             </td>
-                            <td className="px-1 py-1 text-center bg-cyan-50 dark:bg-cyan-950/20">
-                              <input
-                                type="number"
-                                min="0"
-                                step="0.5"
-                                className="w-14 h-7 text-center text-xs font-bold rounded border border-cyan-300 dark:border-cyan-700 bg-white dark:bg-slate-800 text-cyan-800 dark:text-cyan-300"
-                                value={overtimeData[emp.id] || ""}
-                                onChange={(e) => setOvertimeData(prev => ({ ...prev, [emp.id]: Number(e.target.value) || 0 }))}
-                                placeholder="0"
-                                data-testid={`ot-hours-${emp.id}`}
-                              />
+                            <td className="px-2 py-1.5 text-center font-bold bg-cyan-50 dark:bg-cyan-950/20 text-cyan-700 dark:text-cyan-300" data-testid={`ot-hours-${emp.id}`}>
+                              {overtimeData[emp.id] || 0}
                             </td>
                           </tr>
                         );
