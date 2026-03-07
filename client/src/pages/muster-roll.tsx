@@ -635,19 +635,27 @@ export default function MusterRoll() {
         )}
 
         {loaded && !isLoadingData && employees && employees.length > 0 && (
-          <div className="flex justify-between items-center gap-4 no-print flex-wrap">
-            <div className="flex gap-2 flex-wrap">
-              {Object.entries(STATUS_COLORS).map(([code, cls]) => (
-                <div key={code} className={`inline-flex items-center gap-1 px-2 py-1 rounded text-[10px] font-bold ${cls}`}>
-                  {code}
-                </div>
-              ))}
+          <>
+            <div className="flex flex-wrap gap-3 px-4 py-3 bg-muted/30 rounded-lg border text-[11px]" data-testid="legend-codes">
+              <span className="font-semibold mr-1">Codes:</span>
+              <span><strong className="text-emerald-700 dark:text-emerald-400">P</strong> = Present</span>
+              <span><strong className="text-yellow-700 dark:text-yellow-400">H</strong> = Holiday</span>
+              <span><strong className="text-teal-700 dark:text-teal-400">P/HL</strong> = Holiday Present</span>
+              <span><strong className="text-amber-700 dark:text-amber-400">HD</strong> = Half Day</span>
+              <span><strong className="text-red-700 dark:text-red-400">A</strong> = Absent</span>
+              <span><strong className="text-blue-700 dark:text-blue-400">WO</strong> = Weekly Off</span>
+              <span><strong className="text-purple-700 dark:text-purple-400">PH</strong> = Public Holiday</span>
+              <span><strong className="text-orange-700 dark:text-orange-400">CL</strong> = Casual Leave</span>
+              <span><strong className="text-orange-700 dark:text-orange-400">SL</strong> = Sick Leave</span>
+              <span><strong className="text-orange-700 dark:text-orange-400">EL</strong> = Earned Leave</span>
             </div>
-            <Button onClick={() => saveMutation.mutate()} disabled={saveMutation.isPending} data-testid="button-save-bottom">
-              {saveMutation.isPending ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Save className="w-4 h-4 mr-2" />}
-              Save All
-            </Button>
-          </div>
+            <div className="flex justify-end no-print">
+              <Button onClick={() => saveMutation.mutate()} disabled={saveMutation.isPending} data-testid="button-save-bottom">
+                {saveMutation.isPending ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Save className="w-4 h-4 mr-2" />}
+                Save All
+              </Button>
+            </div>
+          </>
         )}
       </div>
     </Layout>
