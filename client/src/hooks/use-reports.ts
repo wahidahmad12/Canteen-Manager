@@ -60,7 +60,7 @@ export function useUsers() {
 export function useCreateUser() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: async (data: { username: string; password: string; displayName: string; role: string; clientName: string | null; permissions?: string[] }) => {
+    mutationFn: async (data: { username: string; password: string; displayName: string; role: string; clientName: string | null; permissions?: string[]; employeeId?: number | null }) => {
       const res = await fetch(api.users.create.path, {
         method: "POST",
         headers: { "Content-Type": "application/json" },

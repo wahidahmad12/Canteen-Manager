@@ -106,12 +106,17 @@ export default function Admin() {
   const createUserMutation = useCreateUser();
   const updateUserMutation = useUpdateUser();
   const deleteUserMutation = useDeleteUser();
+  const [userCreateType, setUserCreateType] = useState<'work' | 'employee'>('work');
   const [newUsername, setNewUsername] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [newDisplayName, setNewDisplayName] = useState("");
   const [newUserRole, setNewUserRole] = useState("user");
   const [newUserClient, setNewUserClient] = useState("");
   const [newUserPerms, setNewUserPerms] = useState<string[]>(['expense', 'cashseal', 'inventory', 'menu', 'purchase']);
+  const [selectedEmployeeId, setSelectedEmployeeId] = useState<number | null>(null);
+  const [empUserPerms, setEmpUserPerms] = useState<string[]>([]);
+  const [employeeList, setEmployeeList] = useState<any[]>([]);
+  const [empListLoading, setEmpListLoading] = useState(false);
   const [editingUserId, setEditingUserId] = useState<number | null>(null);
   const [editUserDisplayName, setEditUserDisplayName] = useState("");
   const [editUserPassword, setEditUserPassword] = useState("");
@@ -255,6 +260,49 @@ export default function Admin() {
       toast({ title: "Success", description: "Vendor deleted" });
     } catch (e: any) {
       toast({ title: "Error", description: e.message || "Failed to delete vendor", variant: "destructive" });
+    }
+  };
+
+  const loadEmployees = async () => {
+    setEmpListLoading(true);
+    try {
+      const res = await fetch('/api/employees', { credentials: 'include' });
+      const data = await res.json();
+      const existingEmpIds = (userList || []).map((u: any) => u.employeeId).filter(Boolean);
+      setEmployeeList((data || []).filter((e: any) => e.isActive && !existingEmpIds.includes(e.id)));
+    } catch { setEmployeeList([]); }
+    setEmpListLoading(false);
+  };
+
+  const handleCreateEmployeeUser = async () => {
+    if (!selectedEmployeeId) return;
+    const emp = employeeList.find((e: any) => e.id === selectedEmployeeId);
+    if (!emp) return;
+    const mobile = emp.mobile || emp.phone || '';
+    if (!mobile || mobile.length < 4) {
+      toast({ title: "Error", description: "Employee has no valid mobile number", variant: "destructive" });
+      return;
+    }
+    const namePart = (emp.name || '').slice(0, 3).toLowerCase();
+    const mobilePart = mobile.slice(-4);
+    const username = mobile;
+    const password = `${namePart}@${mobilePart}`;
+    try {
+      await createUserMutation.mutateAsync({
+        username,
+        password,
+        displayName: emp.name,
+        role: 'employee',
+        clientName: emp.clientName || null,
+        permissions: empUserPerms,
+        employeeId: emp.id,
+      });
+      setSelectedEmployeeId(null);
+      setEmpUserPerms([]);
+      toast({ title: "Success", description: `Employee user created. Username: ${username}, Password: ${password}` });
+      loadEmployees();
+    } catch (e: any) {
+      toast({ title: "Error", description: e.message || "Failed to create employee user", variant: "destructive" });
     }
   };
 
@@ -752,75 +800,173 @@ export default function Admin() {
             <CardContent className="p-4 sm:p-6 space-y-4">
               <div className="p-4 rounded-xl bg-gradient-to-br from-violet-50 to-purple-50 dark:from-violet-950/20 dark:to-purple-950/20 border border-violet-200 dark:border-violet-800/50 space-y-3">
                 <p className="text-xs font-semibold text-violet-600 dark:text-violet-400 uppercase tracking-wide">Create New User</p>
-                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-5 gap-2">
-                  <Input
-                    placeholder="Username"
-                    value={newUsername}
-                    onChange={(e) => setNewUsername(e.target.value)}
-                    className="border-violet-200 dark:border-violet-800 focus-visible:ring-violet-400"
-                    data-testid="input-new-username"
-                  />
-                  <Input
-                    placeholder="Display Name"
-                    value={newDisplayName}
-                    onChange={(e) => setNewDisplayName(e.target.value)}
-                    className="border-violet-200 dark:border-violet-800 focus-visible:ring-violet-400"
-                    data-testid="input-new-displayname"
-                  />
-                  <Input
-                    type="password"
-                    placeholder="Password"
-                    value={newPassword}
-                    onChange={(e) => setNewPassword(e.target.value)}
-                    className="border-violet-200 dark:border-violet-800 focus-visible:ring-violet-400"
-                    data-testid="input-new-password"
-                  />
-                  <select
-                    className="flex h-10 w-full rounded-md border border-violet-200 dark:border-violet-800 bg-background px-3 py-2 text-sm focus:ring-2 focus:ring-violet-400 focus:outline-none"
-                    value={newUserRole}
-                    onChange={(e) => setNewUserRole(e.target.value)}
-                    data-testid="select-new-role"
+                <div className="flex gap-2 mb-2">
+                  <button
+                    onClick={() => setUserCreateType('work')}
+                    data-testid="button-work-user-tab"
+                    className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+                      userCreateType === 'work'
+                        ? 'bg-violet-500 text-white shadow-md'
+                        : 'bg-white dark:bg-gray-800 text-violet-600 dark:text-violet-400 border border-violet-200 dark:border-violet-700 hover:bg-violet-50 dark:hover:bg-violet-950/30'
+                    }`}
                   >
-                    <option value="user">User</option>
-                    <option value="admin">Admin</option>
-                  </select>
-                  <select
-                    className="flex h-10 w-full rounded-md border border-violet-200 dark:border-violet-800 bg-background px-3 py-2 text-sm focus:ring-2 focus:ring-violet-400 focus:outline-none"
-                    value={newUserClient}
-                    onChange={(e) => setNewUserClient(e.target.value)}
-                    data-testid="select-new-client"
+                    <User className="w-4 h-4 inline mr-1.5" />
+                    Work User
+                  </button>
+                  <button
+                    onClick={() => { setUserCreateType('employee'); loadEmployees(); }}
+                    data-testid="button-employee-user-tab"
+                    className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+                      userCreateType === 'employee'
+                        ? 'bg-violet-500 text-white shadow-md'
+                        : 'bg-white dark:bg-gray-800 text-violet-600 dark:text-violet-400 border border-violet-200 dark:border-violet-700 hover:bg-violet-50 dark:hover:bg-violet-950/30'
+                    }`}
                   >
-                    <option value="">No Client</option>
-                    {clients?.map((c) => (
-                      <option key={c.id} value={c.name}>{c.name}</option>
-                    ))}
-                  </select>
+                    <Users className="w-4 h-4 inline mr-1.5" />
+                    Employee User
+                  </button>
                 </div>
-                <div className="space-y-2">
-                  <p className="text-xs font-semibold text-violet-600 dark:text-violet-400">Permissions</p>
-                  <div className="flex flex-wrap gap-2">
-                    {Object.entries(permissionLabels).map(([key, label]) => (
-                      <label key={key} className={`flex items-center gap-2 text-xs cursor-pointer px-3 py-1.5 rounded-full border transition-colors ${
-                        newUserPerms.includes(key) 
-                          ? 'bg-violet-100 dark:bg-violet-900/30 border-violet-400 dark:border-violet-600 text-violet-700 dark:text-violet-300 font-semibold' 
-                          : 'bg-background border-border text-muted-foreground hover:bg-violet-50 dark:hover:bg-violet-950/20'
-                      }`}>
-                        <input
-                          type="checkbox"
-                          checked={newUserPerms.includes(key)}
-                          onChange={() => togglePerm(key)}
-                          className="rounded border-input sr-only"
-                          data-testid={`checkbox-perm-${key}`}
-                        />
-                        {label}
-                      </label>
-                    ))}
-                  </div>
-                </div>
-                <Button onClick={handleCreateUser} disabled={createUserMutation.isPending} className="bg-gradient-to-r from-violet-500 to-purple-500 hover:from-violet-600 hover:to-purple-600 border-0 shadow-md" data-testid="button-create-user">
-                  {createUserMutation.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <UserPlus className="w-4 h-4 mr-2" />}
-                  Create User
-                </Button>
+
+                {userCreateType === 'work' && (
+                  <>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-5 gap-2">
+                      <Input
+                        placeholder="Username"
+                        value={newUsername}
+                        onChange={(e) => setNewUsername(e.target.value)}
+                        className="border-violet-200 dark:border-violet-800 focus-visible:ring-violet-400"
+                        data-testid="input-new-username"
+                      />
+                      <Input
+                        placeholder="Display Name"
+                        value={newDisplayName}
+                        onChange={(e) => setNewDisplayName(e.target.value)}
+                        className="border-violet-200 dark:border-violet-800 focus-visible:ring-violet-400"
+                        data-testid="input-new-displayname"
+                      />
+                      <Input
+                        type="password"
+                        placeholder="Password"
+                        value={newPassword}
+                        onChange={(e) => setNewPassword(e.target.value)}
+                        className="border-violet-200 dark:border-violet-800 focus-visible:ring-violet-400"
+                        data-testid="input-new-password"
+                      />
+                      <select
+                        className="flex h-10 w-full rounded-md border border-violet-200 dark:border-violet-800 bg-background px-3 py-2 text-sm focus:ring-2 focus:ring-violet-400 focus:outline-none"
+                        value={newUserRole}
+                        onChange={(e) => setNewUserRole(e.target.value)}
+                        data-testid="select-new-role"
+                      >
+                        <option value="user">User</option>
+                        <option value="admin">Admin</option>
+                      </select>
+                      <select
+                        className="flex h-10 w-full rounded-md border border-violet-200 dark:border-violet-800 bg-background px-3 py-2 text-sm focus:ring-2 focus:ring-violet-400 focus:outline-none"
+                        value={newUserClient}
+                        onChange={(e) => setNewUserClient(e.target.value)}
+                        data-testid="select-new-client"
+                      >
+                        <option value="">No Client</option>
+                        {clients?.map((c) => (
+                          <option key={c.id} value={c.name}>{c.name}</option>
+                        ))}
+                      </select>
+                    </div>
+                    <div className="space-y-2">
+                      <p className="text-xs font-semibold text-violet-600 dark:text-violet-400">Permissions</p>
+                      <div className="flex flex-wrap gap-2">
+                        {Object.entries(permissionLabels).map(([key, label]) => (
+                          <label key={key} className={`flex items-center gap-2 text-xs cursor-pointer px-3 py-1.5 rounded-full border transition-colors ${
+                            newUserPerms.includes(key) 
+                              ? 'bg-violet-100 dark:bg-violet-900/30 border-violet-400 dark:border-violet-600 text-violet-700 dark:text-violet-300 font-semibold' 
+                              : 'bg-background border-border text-muted-foreground hover:bg-violet-50 dark:hover:bg-violet-950/20'
+                          }`}>
+                            <input
+                              type="checkbox"
+                              checked={newUserPerms.includes(key)}
+                              onChange={() => togglePerm(key)}
+                              className="rounded border-input sr-only"
+                              data-testid={`checkbox-perm-${key}`}
+                            />
+                            {label}
+                          </label>
+                        ))}
+                      </div>
+                    </div>
+                    <Button onClick={handleCreateUser} disabled={createUserMutation.isPending} className="bg-gradient-to-r from-violet-500 to-purple-500 hover:from-violet-600 hover:to-purple-600 border-0 shadow-md" data-testid="button-create-user">
+                      {createUserMutation.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <UserPlus className="w-4 h-4 mr-2" />}
+                      Create Work User
+                    </Button>
+                  </>
+                )}
+
+                {userCreateType === 'employee' && (
+                  <>
+                    <p className="text-xs text-muted-foreground">Select an employee from Employee Master. Login will be auto-generated: Username = Mobile Number, Password = first 3 letters of name + @ + last 4 digits of mobile.</p>
+                    {empListLoading ? (
+                      <div className="flex justify-center py-4"><Loader2 className="w-6 h-6 animate-spin text-violet-500" /></div>
+                    ) : employeeList.length === 0 ? (
+                      <p className="text-sm text-muted-foreground py-2">No employees available (all already have user accounts or none found).</p>
+                    ) : (
+                      <>
+                        <select
+                          className="flex h-10 w-full rounded-md border border-violet-200 dark:border-violet-800 bg-background px-3 py-2 text-sm focus:ring-2 focus:ring-violet-400 focus:outline-none"
+                          value={selectedEmployeeId || ''}
+                          onChange={(e) => setSelectedEmployeeId(e.target.value ? Number(e.target.value) : null)}
+                          data-testid="select-employee-user"
+                        >
+                          <option value="">Select Employee...</option>
+                          {employeeList.map((emp: any) => (
+                            <option key={emp.id} value={emp.id}>
+                              {emp.name} — {emp.clientName || 'No Client'} — {emp.mobile || 'No Mobile'}
+                            </option>
+                          ))}
+                        </select>
+                        {selectedEmployeeId && (() => {
+                          const emp = employeeList.find((e: any) => e.id === selectedEmployeeId);
+                          if (!emp) return null;
+                          const mobile = emp.mobile || '';
+                          const namePart = (emp.name || '').slice(0, 3).toLowerCase();
+                          const mobilePart = mobile.slice(-4);
+                          return (
+                            <div className="p-3 rounded-lg bg-white dark:bg-gray-900 border border-violet-200 dark:border-violet-700 text-sm space-y-1">
+                              <p><span className="font-semibold text-violet-600 dark:text-violet-400">Name:</span> {emp.name}</p>
+                              <p><span className="font-semibold text-violet-600 dark:text-violet-400">Client:</span> {emp.clientName || '—'}</p>
+                              <p><span className="font-semibold text-violet-600 dark:text-violet-400">Username:</span> {mobile || 'No mobile!'}</p>
+                              <p><span className="font-semibold text-violet-600 dark:text-violet-400">Password:</span> {mobile ? `${namePart}@${mobilePart}` : 'N/A'}</p>
+                            </div>
+                          );
+                        })()}
+                        <div className="space-y-2">
+                          <p className="text-xs font-semibold text-violet-600 dark:text-violet-400">Permissions</p>
+                          <div className="flex flex-wrap gap-2">
+                            {Object.entries(permissionLabels).map(([key, label]) => (
+                              <label key={key} className={`flex items-center gap-2 text-xs cursor-pointer px-3 py-1.5 rounded-full border transition-colors ${
+                                empUserPerms.includes(key) 
+                                  ? 'bg-violet-100 dark:bg-violet-900/30 border-violet-400 dark:border-violet-600 text-violet-700 dark:text-violet-300 font-semibold' 
+                                  : 'bg-background border-border text-muted-foreground hover:bg-violet-50 dark:hover:bg-violet-950/20'
+                              }`}>
+                                <input
+                                  type="checkbox"
+                                  checked={empUserPerms.includes(key)}
+                                  onChange={() => setEmpUserPerms(prev => prev.includes(key) ? prev.filter(p => p !== key) : [...prev, key])}
+                                  className="rounded border-input sr-only"
+                                  data-testid={`checkbox-emp-perm-${key}`}
+                                />
+                                {label}
+                              </label>
+                            ))}
+                          </div>
+                        </div>
+                        <Button onClick={handleCreateEmployeeUser} disabled={createUserMutation.isPending || !selectedEmployeeId} className="bg-gradient-to-r from-violet-500 to-purple-500 hover:from-violet-600 hover:to-purple-600 border-0 shadow-md" data-testid="button-create-employee-user">
+                          {createUserMutation.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <UserPlus className="w-4 h-4 mr-2" />}
+                          Create Employee User
+                        </Button>
+                      </>
+                    )}
+                  </>
+                )}
               </div>
 
               {usersLoading ? (
@@ -857,6 +1003,7 @@ export default function Admin() {
                                 <select className="flex h-8 w-full rounded-md border bg-background px-2 py-1 text-xs" value={editUserRole} onChange={(e) => setEditUserRole(e.target.value)} data-testid="select-edit-role">
                                   <option value="user">User</option>
                                   <option value="admin">Admin</option>
+                                  <option value="employee">Employee</option>
                                 </select>
                               </td>
                               <td className="px-3 py-2">
@@ -904,7 +1051,7 @@ export default function Admin() {
                                   ? 'bg-gradient-to-r from-amber-100 to-yellow-100 dark:from-amber-900/30 dark:to-yellow-900/30 text-amber-700 dark:text-amber-400' 
                                   : 'bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400'
                               }`}>
-                                {u.role === 'admin' ? <><Crown className="w-3 h-3 inline mr-0.5" /> Admin</> : <><User className="w-3 h-3 inline mr-0.5" /> User</>}
+                                {u.role === 'admin' ? <><Crown className="w-3 h-3 inline mr-0.5" /> Admin</> : u.role === 'employee' ? <><Users className="w-3 h-3 inline mr-0.5" /> Employee</> : <><User className="w-3 h-3 inline mr-0.5" /> User</>}
                               </span>
                             </td>
                             <td className="px-3 py-2.5 text-muted-foreground text-xs">{u.clientName || '—'}</td>
@@ -1007,7 +1154,7 @@ export default function Admin() {
                                 ? 'bg-gradient-to-r from-amber-100 to-yellow-100 dark:from-amber-900/30 dark:to-yellow-900/30 text-amber-700 dark:text-amber-400' 
                                 : 'bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400'
                             }`}>
-                              {u.role === 'admin' ? <Crown className="w-3 h-3 inline mr-0.5" /> : <User className="w-3 h-3 inline mr-0.5" />} {u.role}
+                              {u.role === 'admin' ? <Crown className="w-3 h-3 inline mr-0.5" /> : u.role === 'employee' ? <Users className="w-3 h-3 inline mr-0.5" /> : <User className="w-3 h-3 inline mr-0.5" />} {u.role}
                             </span>
                             {u.username !== 'admin' && (
                               <>

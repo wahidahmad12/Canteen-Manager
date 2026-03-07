@@ -579,6 +579,7 @@ export const api = {
         role: z.string().default("user"),
         clientName: z.string().nullable().default(null),
         permissions: z.array(z.string()).default(['expense', 'cashseal', 'inventory', 'menu']),
+        employeeId: z.number().nullable().optional(),
       }),
       responses: {
         201: z.any(),

@@ -89,7 +89,7 @@ export interface IStorage {
   getUsers(): Promise<SafeUser[]>;
   getUserById(id: number): Promise<User | undefined>;
   getUserByUsername(username: string): Promise<User | undefined>;
-  createUser(data: { username: string; password: string; displayName: string; role: string; clientName: string | null; permissions?: string[] }): Promise<SafeUser>;
+  createUser(data: { username: string; password: string; displayName: string; role: string; clientName: string | null; permissions?: string[]; employeeId?: number | null }): Promise<SafeUser>;
   updateUser(id: number, data: { displayName?: string; password?: string; role?: string; clientName?: string | null; permissions?: string[] }): Promise<SafeUser>;
   deleteUser(id: number): Promise<void>;
   seedAdminUser(): Promise<void>;
@@ -533,6 +533,7 @@ export class DatabaseStorage implements IStorage {
       role: users.role,
       clientName: users.clientName,
       permissions: users.permissions,
+      employeeId: users.employeeId,
       isActive: users.isActive,
       createdAt: users.createdAt,
     }).from(users).orderBy(users.username);
@@ -549,7 +550,7 @@ export class DatabaseStorage implements IStorage {
     return user;
   }
 
-  async createUser(data: { username: string; password: string; displayName: string; role: string; clientName: string | null; permissions?: string[] }): Promise<SafeUser> {
+  async createUser(data: { username: string; password: string; displayName: string; role: string; clientName: string | null; permissions?: string[]; employeeId?: number | null }): Promise<SafeUser> {
     const passwordHash = await bcrypt.hash(data.password, 10);
     const [user] = await db.insert(users).values({
       username: data.username,
@@ -558,6 +559,7 @@ export class DatabaseStorage implements IStorage {
       role: data.role,
       clientName: data.clientName,
       permissions: data.permissions || ['expense', 'cashseal', 'inventory', 'menu'],
+      employeeId: data.employeeId || null,
     }).returning();
     const { passwordHash: _, ...safeUser } = user;
     return safeUser as SafeUser;
