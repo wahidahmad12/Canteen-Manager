@@ -930,21 +930,25 @@ export async function registerRoutes(
 
 // Helper to seed some initial data
 async function seedDatabase() {
-  await storage.seedAdminUser();
+  try {
+    await storage.seedAdminUser();
 
-  const vegetableNames = [
-    "Potato", "Onion", "Tomato", "Green Chilli", "Ginger", "Garlic", 
-    "Cabbage", "Cauliflower", "Spinach", "Carrot", "Beans", "Lady Finger",
-    "Brinjal", "Capsicum", "Bottle Gourd", "Bitter Gourd"
-  ];
-  await storage.seedVegetableItems(vegetableNames);
+    const vegetableNames = [
+      "Potato", "Onion", "Tomato", "Green Chilli", "Ginger", "Garlic", 
+      "Cabbage", "Cauliflower", "Spinach", "Carrot", "Beans", "Lady Finger",
+      "Brinjal", "Capsicum", "Bottle Gourd", "Bitter Gourd"
+    ];
+    await storage.seedVegetableItems(vegetableNames);
 
-  const defaultClients = [
-    "Unichem Laboratories Ltd",
-    "Hindustan Unilever Limited",
-    "United Breweries Limited",
-  ];
-  await storage.seedClientNames(defaultClients);
+    const defaultClients = [
+      "Unichem Laboratories Ltd",
+      "Hindustan Unilever Limited",
+      "United Breweries Limited",
+    ];
+    await storage.seedClientNames(defaultClients);
+  } catch (err: any) {
+    console.error("seedDatabase failed (DB may be temporarily unavailable):", err.message);
+  }
 }
 
 // Run seeder
