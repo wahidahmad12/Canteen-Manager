@@ -498,15 +498,23 @@ export default function SalaryRegister() {
   return (
     <Layout>
       <div className="space-y-6">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 print:hidden">
           <div>
             <h1 className="text-xl sm:text-2xl font-bold tracking-tight" data-testid="text-salary-title">Salary Register (Form XVII)</h1>
             <p className="text-muted-foreground mt-1 text-xs sm:text-sm">Monthly salary register for all employees</p>
           </div>
+          {loaded && salaries && salaries.length > 0 && clientName && (
+            <div className="text-center hidden sm:block">
+              <div className="text-lg font-bold">Salary</div>
+              <div className="text-sm text-muted-foreground">{clientName}</div>
+              <div className="text-base font-semibold">{MONTHS[Number(month) - 1]} {year}</div>
+            </div>
+          )}
           {loaded && salaries && salaries.length > 0 && (
             <div className="flex gap-2">
               <Button
                 variant="outline"
+                size="sm"
                 onClick={handleDownloadAllJpeg}
                 disabled={downloading}
                 data-testid="button-download-all-jpeg"
@@ -514,7 +522,7 @@ export default function SalaryRegister() {
                 {downloading ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <ImageDown className="w-4 h-4 mr-2" />}
                 {downloading ? "Downloading..." : "Download All JPEG"}
               </Button>
-              <Button variant="outline" onClick={() => {
+              <Button variant="outline" size="sm" onClick={() => {
                 const style = document.createElement("style");
                 style.id = "salary-print-override";
                 style.textContent = "@page { size: A3 landscape; margin: 0.4cm; }";
@@ -666,151 +674,144 @@ export default function SalaryRegister() {
               </Card>
             </div>
 
-            <Card className="print:hidden">
-              <CardHeader className="pb-3">
-                <CardTitle className="text-base flex items-center gap-2">
-                  <FileText className="w-5 h-5" />
-                  Salary Register - {clientName} - {MONTHS[Number(month) - 1]} {year}
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="p-0">
-                <div className="overflow-x-auto">
-                  <table className="text-xs whitespace-nowrap border-collapse" data-testid="table-salary-register" style={{ minWidth: "2600px" }}>
-                    <thead>
-                      <tr className="bg-muted/70 border-b">
-                        <th className="px-2 py-2 text-center font-semibold border-r sticky left-0 bg-muted/70 z-10">Sl.No.</th>
-                        <th className="px-2 py-2 text-left font-semibold border-r sticky left-[40px] bg-muted/70 z-10">Emp ID</th>
-                        <th className="px-2 py-2 text-left font-semibold border-r sticky left-[120px] bg-muted/70 z-10 min-w-[140px]">Emp Name</th>
-                        <th className="px-2 py-2 text-left font-semibold border-r">Skills</th>
-                        <th className="px-2 py-2 text-center font-semibold border-r">PRS DAYS</th>
-                        <th className="px-2 py-2 text-center font-semibold border-r">Half Day</th>
-                        <th className="px-2 py-2 text-center font-semibold border-r">Holiday Working</th>
-                        <th className="px-2 py-2 text-center font-semibold border-r">LEAVE</th>
-                        <th className="px-2 py-2 text-center font-semibold border-r">HOLIDAYS</th>
-                        <th className="px-2 py-2 text-center font-semibold border-r bg-blue-50 dark:bg-blue-900/20">Paid Days</th>
-                        <th className="px-2 py-2 text-center font-semibold border-r">OT HRS</th>
-                        <th className="px-2 py-2 text-right font-semibold border-r">Basic Rate</th>
-                        <th className="px-2 py-2 text-right font-semibold border-r">Basic Wages</th>
-                        <th className="px-2 py-2 text-right font-semibold border-r">HRA 5%</th>
-                        <th className="px-2 py-2 text-right font-semibold border-r">Fixed HRA</th>
-                        <th className="px-2 py-2 text-right font-semibold border-r">OT Allow</th>
-                        <th className="px-2 py-2 text-right font-semibold border-r bg-green-50 dark:bg-green-900/20">Total Gross</th>
-                        <th className="px-2 py-2 text-right font-semibold border-r">PF Deduction @12%</th>
-                        <th className="px-2 py-2 text-right font-semibold border-r">ESIC @.75%</th>
-                        <th className="px-2 py-2 text-right font-semibold border-r">P-TAX</th>
-                        <th className="px-2 py-2 text-right font-semibold border-r">LWF</th>
-                        <th className="px-2 py-2 text-right font-semibold border-r bg-red-50 dark:bg-red-900/20">Total Dedu</th>
-                        <th className="px-2 py-2 text-right font-semibold border-r bg-emerald-50 dark:bg-emerald-900/20">Net Salary</th>
-                        <th className="px-2 py-2 text-center font-semibold border-r">Leave Balance</th>
-                        <th className="px-2 py-2 text-right font-semibold border-r">Leave Encash Amt.</th>
-                        <th className="px-2 py-2 text-right font-semibold border-r">Advance</th>
-                        <th className="px-2 py-2 text-right font-semibold border-r bg-blue-50 dark:bg-blue-900/20">Pay In Account</th>
-                        <th className="px-2 py-2 text-right font-semibold border-r">PF @13%</th>
-                        <th className="px-2 py-2 text-right font-semibold border-r">ESIC @3.25%</th>
-                        <th className="px-2 py-2 text-right font-semibold border-r">Bonus @8.33%</th>
-                        <th className="px-2 py-2 text-right font-semibold border-r bg-orange-50 dark:bg-orange-900/20">Total</th>
-                        <th className="px-2 py-2 text-right font-semibold border-r">Service Charges @12%</th>
-                        <th className="px-2 py-2 text-right font-semibold border-r bg-purple-50 dark:bg-purple-900/20">Total</th>
-                        <th className="px-2 py-2 text-right font-semibold border-r">GST 18%</th>
-                        <th className="px-2 py-2 text-right font-semibold bg-amber-50 dark:bg-amber-900/20">Total</th>
-                        <th className="px-2 py-2 text-center font-semibold">Slip</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {salaries.map((s, idx) => {
-                        const r = rows[idx];
-                        return (
-                          <tr key={s.id} className="border-b last:border-0 hover:bg-muted/30 transition-colors" data-testid={`row-salary-${s.id}`}>
-                            <td className="px-2 py-1.5 text-center text-muted-foreground border-r sticky left-0 bg-background z-10">{idx + 1}</td>
-                            <td className="px-2 py-1.5 text-left border-r sticky left-[40px] bg-background z-10 font-mono text-[10px]">{r.emp?.employeeCode || "-"}</td>
-                            <td className="px-2 py-1.5 text-left border-r sticky left-[120px] bg-background z-10 font-medium">{r.emp?.name || `#${s.employeeId}`}</td>
-                            <td className="px-2 py-1.5 text-left border-r text-[10px]">{r.skills}</td>
-                            <td className="px-2 py-1.5 text-center border-r">{r.prsDays}</td>
-                            <td className="px-2 py-1.5 text-center border-r">{r.halfDay}</td>
-                            <td className="px-2 py-1.5 text-center border-r">{r.holidayWorking}</td>
-                            <td className="px-2 py-1.5 text-center border-r">{r.leave}</td>
-                            <td className="px-2 py-1.5 text-center border-r">{r.holidays}</td>
-                            <td className="px-2 py-1.5 text-center border-r font-semibold bg-blue-50/50 dark:bg-blue-900/10">{fmtDec(r.paidDays)}</td>
-                            <td className="px-2 py-1.5 text-center border-r">{r.otHrs}</td>
-                            <td className="px-2 py-1.5 text-right border-r">{fmtDec(r.basicRate)}</td>
-                            <td className="px-2 py-1.5 text-right border-r">{fmt(r.basicWage)}</td>
-                            <td className="px-2 py-1.5 text-right border-r">{fmt(r.hra5)}</td>
-                            <td className="px-2 py-1.5 text-right border-r">{fmtDec(r.fixedHRA)}</td>
-                            <td className="px-2 py-1.5 text-right border-r">{r.otAllow ? fmt(r.otAllow) : "-"}</td>
-                            <td className="px-2 py-1.5 text-right border-r font-semibold bg-green-50/50 dark:bg-green-900/10">{fmt(r.totalGross)}</td>
-                            <td className="px-2 py-1.5 text-right border-r">{fmt(r.pfDed)}</td>
-                            <td className="px-2 py-1.5 text-right border-r">{fmtDec(r.esicDed)}</td>
-                            <td className="px-2 py-1.5 text-right border-r">{fmt(r.pTax)}</td>
-                            <td className="px-2 py-1.5 text-right border-r">{r.lwf ? fmt(r.lwf) : ""}</td>
-                            <td className="px-2 py-1.5 text-right border-r font-semibold text-red-600 dark:text-red-400 bg-red-50/50 dark:bg-red-900/10">{fmt(r.totalDedu)}</td>
-                            <td className="px-2 py-1.5 text-right border-r font-bold text-emerald-600 dark:text-emerald-400 bg-emerald-50/50 dark:bg-emerald-900/10">{fmt(r.netSalary)}</td>
-                            <td className="px-2 py-1.5 text-center border-r">{r.leaveBalance}</td>
-                            <td className="px-2 py-1.5 text-right border-r">{fmt(r.leaveEncash)}</td>
-                            <td className="px-2 py-1.5 text-right border-r">{fmt(r.advance)}</td>
-                            <td className="px-2 py-1.5 text-right border-r font-semibold bg-blue-50/50 dark:bg-blue-900/10">{fmt(r.payInAccount)}</td>
-                            <td className="px-2 py-1.5 text-right border-r">{fmt(r.pfEmployer)}</td>
-                            <td className="px-2 py-1.5 text-right border-r">{fmt(r.esicEmployer)}</td>
-                            <td className="px-2 py-1.5 text-right border-r">{fmt(r.bonus)}</td>
-                            <td className="px-2 py-1.5 text-right border-r font-semibold bg-orange-50/50 dark:bg-orange-900/10">{fmt(r.employerTotal)}</td>
-                            <td className="px-2 py-1.5 text-right border-r">{fmt(r.serviceCharge)}</td>
-                            <td className="px-2 py-1.5 text-right border-r font-semibold bg-purple-50/50 dark:bg-purple-900/10">{fmt(r.afterService)}</td>
-                            <td className="px-2 py-1.5 text-right border-r">{fmt(r.gst)}</td>
-                            <td className="px-2 py-1.5 text-right font-bold bg-amber-50/50 dark:bg-amber-900/10">{fmt(r.finalTotal)}</td>
-                            <td className="px-2 py-1.5 text-center">
-                              <Link href={`/salary/${s.id}/slip`}>
-                                <Button variant="ghost" size="icon" className="h-6 w-6" data-testid={`button-view-slip-${s.id}`}>
-                                  <ArrowRight className="w-3.5 h-3.5" />
-                                </Button>
-                              </Link>
-                            </td>
-                          </tr>
-                        );
-                      })}
-                    </tbody>
-                    <tfoot>
-                      <tr className="bg-muted/70 font-bold border-t-2">
-                        <td className="px-2 py-2 border-r sticky left-0 bg-muted/70 z-10"></td>
-                        <td className="px-2 py-2 border-r sticky left-[40px] bg-muted/70 z-10"></td>
-                        <td className="px-2 py-2 border-r sticky left-[120px] bg-muted/70 z-10">Total</td>
-                        <td className="px-2 py-2 border-r"></td>
-                        <td className="px-2 py-2 text-center border-r">{totals.prsDays}</td>
-                        <td className="px-2 py-2 text-center border-r">{totals.halfDay}</td>
-                        <td className="px-2 py-2 text-center border-r">{totals.holidayWorking}</td>
-                        <td className="px-2 py-2 text-center border-r">{totals.leave}</td>
-                        <td className="px-2 py-2 text-center border-r">{totals.holidays}</td>
-                        <td className="px-2 py-2 text-center border-r">{fmtDec(totals.paidDays)}</td>
-                        <td className="px-2 py-2 text-center border-r">{totals.otHrs}</td>
-                        <td className="px-2 py-2 text-right border-r">{fmt(totals.basicRate || 0)}</td>
-                        <td className="px-2 py-2 text-right border-r">{fmt(totals.basicWage)}</td>
-                        <td className="px-2 py-2 text-right border-r">{fmt(totals.hra5)}</td>
-                        <td className="px-2 py-2 text-right border-r">{fmtDec(totals.fixedHRA)}</td>
-                        <td className="px-2 py-2 text-right border-r">{fmt(totals.otAllow)}</td>
-                        <td className="px-2 py-2 text-right border-r">{fmt(totals.totalGross)}</td>
-                        <td className="px-2 py-2 text-right border-r">{fmt(totals.pfDed)}</td>
-                        <td className="px-2 py-2 text-right border-r">{fmt(totals.esicDed)}</td>
-                        <td className="px-2 py-2 text-right border-r">{fmt(totals.pTax)}</td>
-                        <td className="px-2 py-2 text-right border-r">{fmt(totals.lwf)}</td>
-                        <td className="px-2 py-2 text-right border-r text-red-600">{fmt(totals.totalDedu)}</td>
-                        <td className="px-2 py-2 text-right border-r text-emerald-600">{fmt(totals.netSalary)}</td>
-                        <td className="px-2 py-2 text-center border-r">{totals.leaveBalance}</td>
-                        <td className="px-2 py-2 text-right border-r">{fmt(totals.leaveEncash)}</td>
-                        <td className="px-2 py-2 text-right border-r">{fmt(totals.advance)}</td>
-                        <td className="px-2 py-2 text-right border-r">{fmt(totals.payInAccount)}</td>
-                        <td className="px-2 py-2 text-right border-r">{fmt(totals.pfEmployer)}</td>
-                        <td className="px-2 py-2 text-right border-r">{fmt(totals.esicEmployer)}</td>
-                        <td className="px-2 py-2 text-right border-r">{fmt(totals.bonus)}</td>
-                        <td className="px-2 py-2 text-right border-r">{fmt(totals.employerTotal)}</td>
-                        <td className="px-2 py-2 text-right border-r">{fmt(totals.serviceCharge)}</td>
-                        <td className="px-2 py-2 text-right border-r">{fmt(totals.afterService)}</td>
-                        <td className="px-2 py-2 text-right border-r">{fmt(totals.gst)}</td>
-                        <td className="px-2 py-2 text-right">{fmt(totals.finalTotal)}</td>
-                        <td className="px-2 py-2"></td>
-                      </tr>
-                    </tfoot>
-                  </table>
-                </div>
-              </CardContent>
-            </Card>
+            <div className="print:hidden border rounded-lg overflow-hidden">
+              <div className="overflow-x-auto">
+                <table className="w-full text-[11px] whitespace-nowrap border-collapse salary-screen-table" data-testid="table-salary-register" style={{ minWidth: "2600px" }}>
+                  <thead>
+                    <tr className="bg-slate-100 dark:bg-slate-800 border-b-2 border-slate-300">
+                      <th className="px-2 py-2 text-center font-bold border border-slate-300 sticky left-0 bg-slate-100 dark:bg-slate-800 z-10 w-[36px]">Sl. No.</th>
+                      <th className="px-2 py-2 text-left font-bold border border-slate-300 sticky left-[36px] bg-slate-100 dark:bg-slate-800 z-10 w-[80px]">Emp ID</th>
+                      <th className="px-2 py-2 text-left font-bold border border-slate-300 sticky left-[116px] bg-slate-100 dark:bg-slate-800 z-10 min-w-[150px]">Emp Name</th>
+                      <th className="px-2 py-2 text-left font-bold border border-slate-300 min-w-[80px]">Skills</th>
+                      <th className="px-2 py-2 text-center font-bold border border-slate-300">PRS DAYS</th>
+                      <th className="px-2 py-2 text-center font-bold border border-slate-300">Half Day</th>
+                      <th className="px-2 py-2 text-center font-bold border border-slate-300">Holiday Working</th>
+                      <th className="px-2 py-2 text-center font-bold border border-slate-300">LEAVE</th>
+                      <th className="px-2 py-2 text-center font-bold border border-slate-300">HOLIDAYS</th>
+                      <th className="px-2 py-2 text-center font-bold border border-slate-300">Paid Days</th>
+                      <th className="px-2 py-2 text-center font-bold border border-slate-300">OT HRS</th>
+                      <th className="px-2 py-2 text-right font-bold border border-slate-300">Basic Rate</th>
+                      <th className="px-2 py-2 text-right font-bold border border-slate-300">Basic wages</th>
+                      <th className="px-2 py-2 text-right font-bold border border-slate-300">HRA 5%</th>
+                      <th className="px-2 py-2 text-right font-bold border border-slate-300">Fixed HRA</th>
+                      <th className="px-2 py-2 text-right font-bold border border-slate-300">OT Allow</th>
+                      <th className="px-2 py-2 text-right font-bold border border-slate-300">Total Gross</th>
+                      <th className="px-2 py-2 text-right font-bold border border-slate-300">PF Deduction @12%</th>
+                      <th className="px-2 py-2 text-right font-bold border border-slate-300">ESIC @.75%</th>
+                      <th className="px-2 py-2 text-right font-bold border border-slate-300">P-TAX</th>
+                      <th className="px-2 py-2 text-right font-bold border border-slate-300">LWF</th>
+                      <th className="px-2 py-2 text-right font-bold border border-slate-300">Total Dedu</th>
+                      <th className="px-2 py-2 text-right font-bold border border-slate-300">Net Salary</th>
+                      <th className="px-2 py-2 text-center font-bold border border-slate-300">Leave Balance</th>
+                      <th className="px-2 py-2 text-right font-bold border border-slate-300">Leave Encash Amt.</th>
+                      <th className="px-2 py-2 text-right font-bold border border-slate-300">Advance</th>
+                      <th className="px-2 py-2 text-right font-bold border border-slate-300">Pay In Account</th>
+                      <th className="px-2 py-2 text-right font-bold border border-slate-300">PF @13%</th>
+                      <th className="px-2 py-2 text-right font-bold border border-slate-300">ESIC @3.25%</th>
+                      <th className="px-2 py-2 text-right font-bold border border-slate-300">Bonus @8.33%</th>
+                      <th className="px-2 py-2 text-right font-bold border border-slate-300">Total</th>
+                      <th className="px-2 py-2 text-right font-bold border border-slate-300">Service Charges @12%</th>
+                      <th className="px-2 py-2 text-right font-bold border border-slate-300">Total</th>
+                      <th className="px-2 py-2 text-right font-bold border border-slate-300">GST 18%</th>
+                      <th className="px-2 py-2 text-right font-bold border border-slate-300">Total</th>
+                      <th className="px-2 py-2 text-center font-bold border border-slate-300 w-[40px]">Slip</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {salaries.map((s, idx) => {
+                      const r = rows[idx];
+                      const bgClass = idx % 2 === 0 ? "bg-white dark:bg-slate-900" : "bg-slate-50 dark:bg-slate-800/50";
+                      return (
+                        <tr key={s.id} className={`${bgClass} hover:bg-blue-50/50 dark:hover:bg-blue-900/20`} data-testid={`row-salary-${s.id}`}>
+                          <td className={`px-2 py-1.5 text-center border border-slate-200 sticky left-0 ${bgClass} z-10`}>{idx + 1}</td>
+                          <td className={`px-2 py-1.5 text-left border border-slate-200 sticky left-[36px] ${bgClass} z-10 font-mono text-[10px]`}>{r.emp?.employeeCode || "-"}</td>
+                          <td className={`px-2 py-1.5 text-left border border-slate-200 sticky left-[116px] ${bgClass} z-10 font-medium`}>{r.emp?.name || `#${s.employeeId}`}</td>
+                          <td className="px-2 py-1.5 text-left border border-slate-200 text-[10px]">{r.skills}</td>
+                          <td className="px-2 py-1.5 text-center border border-slate-200">{r.prsDays}</td>
+                          <td className="px-2 py-1.5 text-center border border-slate-200">{r.halfDay}</td>
+                          <td className="px-2 py-1.5 text-center border border-slate-200">{r.holidayWorking}</td>
+                          <td className="px-2 py-1.5 text-center border border-slate-200">{r.leave}</td>
+                          <td className="px-2 py-1.5 text-center border border-slate-200">{r.holidays}</td>
+                          <td className="px-2 py-1.5 text-right border border-slate-200">{fmtDec(r.paidDays)}</td>
+                          <td className="px-2 py-1.5 text-center border border-slate-200">{r.otHrs}</td>
+                          <td className="px-2 py-1.5 text-right border border-slate-200 font-semibold">{fmtDec(r.basicRate)}</td>
+                          <td className="px-2 py-1.5 text-right border border-slate-200">{fmt(r.basicWage)}</td>
+                          <td className="px-2 py-1.5 text-right border border-slate-200">{fmt(r.hra5)}</td>
+                          <td className="px-2 py-1.5 text-right border border-slate-200">{fmtDec(r.fixedHRA)}</td>
+                          <td className="px-2 py-1.5 text-right border border-slate-200">{r.otAllow ? fmt(r.otAllow) : "-"}</td>
+                          <td className="px-2 py-1.5 text-right border border-slate-200 font-semibold">{fmt(r.totalGross)}</td>
+                          <td className="px-2 py-1.5 text-right border border-slate-200">{fmt(r.pfDed)}</td>
+                          <td className="px-2 py-1.5 text-right border border-slate-200">{fmtDec(r.esicDed)}</td>
+                          <td className="px-2 py-1.5 text-right border border-slate-200">{r.pTax ? fmt(r.pTax) : "-"}</td>
+                          <td className="px-2 py-1.5 text-right border border-slate-200">{r.lwf ? fmt(r.lwf) : ""}</td>
+                          <td className="px-2 py-1.5 text-right border border-slate-200 font-semibold">{fmt(r.totalDedu)}</td>
+                          <td className="px-2 py-1.5 text-right border border-slate-200 font-bold">{fmt(r.netSalary)}</td>
+                          <td className="px-2 py-1.5 text-center border border-slate-200">{r.leaveBalance}</td>
+                          <td className="px-2 py-1.5 text-right border border-slate-200">{fmt(r.leaveEncash)}</td>
+                          <td className="px-2 py-1.5 text-right border border-slate-200">{fmt(r.advance)}</td>
+                          <td className="px-2 py-1.5 text-right border border-slate-200 font-semibold">{fmt(r.payInAccount)}</td>
+                          <td className="px-2 py-1.5 text-right border border-slate-200">{fmt(r.pfEmployer)}</td>
+                          <td className="px-2 py-1.5 text-right border border-slate-200">{fmt(r.esicEmployer)}</td>
+                          <td className="px-2 py-1.5 text-right border border-slate-200">{fmt(r.bonus)}</td>
+                          <td className="px-2 py-1.5 text-right border border-slate-200 font-semibold">{fmt(r.employerTotal)}</td>
+                          <td className="px-2 py-1.5 text-right border border-slate-200">{fmt(r.serviceCharge)}</td>
+                          <td className="px-2 py-1.5 text-right border border-slate-200 font-semibold">{fmt(r.afterService)}</td>
+                          <td className="px-2 py-1.5 text-right border border-slate-200">{fmt(r.gst)}</td>
+                          <td className="px-2 py-1.5 text-right border border-slate-200 font-bold">{fmt(r.finalTotal)}</td>
+                          <td className="px-2 py-1.5 text-center border border-slate-200">
+                            <Link href={`/salary/${s.id}/slip`}>
+                              <Button variant="ghost" size="icon" className="h-5 w-5" data-testid={`button-view-slip-${s.id}`}>
+                                <ArrowRight className="w-3 h-3" />
+                              </Button>
+                            </Link>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                  <tfoot>
+                    <tr className="bg-slate-200 dark:bg-slate-700 font-bold border-t-2 border-slate-400">
+                      <td className="px-2 py-2 border border-slate-300 sticky left-0 bg-slate-200 dark:bg-slate-700 z-10"></td>
+                      <td className="px-2 py-2 border border-slate-300 sticky left-[36px] bg-slate-200 dark:bg-slate-700 z-10"></td>
+                      <td className="px-2 py-2 border border-slate-300 sticky left-[116px] bg-slate-200 dark:bg-slate-700 z-10"></td>
+                      <td className="px-2 py-2 border border-slate-300"></td>
+                      <td className="px-2 py-2 text-center border border-slate-300">{totals.prsDays}</td>
+                      <td className="px-2 py-2 text-center border border-slate-300">{totals.halfDay}</td>
+                      <td className="px-2 py-2 text-center border border-slate-300">{totals.holidayWorking}</td>
+                      <td className="px-2 py-2 text-center border border-slate-300">{totals.leave}</td>
+                      <td className="px-2 py-2 text-center border border-slate-300">{totals.holidays}</td>
+                      <td className="px-2 py-2 text-right border border-slate-300">{fmtDec(totals.paidDays)}</td>
+                      <td className="px-2 py-2 text-center border border-slate-300">{totals.otHrs}</td>
+                      <td className="px-2 py-2 text-right border border-slate-300">{fmt(totals.basicRate)}</td>
+                      <td className="px-2 py-2 text-right border border-slate-300">{fmt(totals.basicWage)}</td>
+                      <td className="px-2 py-2 text-right border border-slate-300">{fmt(totals.hra5)}</td>
+                      <td className="px-2 py-2 text-right border border-slate-300">{fmtDec(totals.fixedHRA)}</td>
+                      <td className="px-2 py-2 text-right border border-slate-300">{fmt(totals.otAllow)}</td>
+                      <td className="px-2 py-2 text-right border border-slate-300">{fmt(totals.totalGross)}</td>
+                      <td className="px-2 py-2 text-right border border-slate-300">{fmt(totals.pfDed)}</td>
+                      <td className="px-2 py-2 text-right border border-slate-300">{fmt(totals.esicDed)}</td>
+                      <td className="px-2 py-2 text-right border border-slate-300">{fmt(totals.pTax)}</td>
+                      <td className="px-2 py-2 text-right border border-slate-300">{fmt(totals.lwf)}</td>
+                      <td className="px-2 py-2 text-right border border-slate-300">{fmt(totals.totalDedu)}</td>
+                      <td className="px-2 py-2 text-right border border-slate-300">{fmt(totals.netSalary)}</td>
+                      <td className="px-2 py-2 text-center border border-slate-300">{totals.leaveBalance}</td>
+                      <td className="px-2 py-2 text-right border border-slate-300">{fmt(totals.leaveEncash)}</td>
+                      <td className="px-2 py-2 text-right border border-slate-300">{fmt(totals.advance)}</td>
+                      <td className="px-2 py-2 text-right border border-slate-300">{fmt(totals.payInAccount)}</td>
+                      <td className="px-2 py-2 text-right border border-slate-300">{fmt(totals.pfEmployer)}</td>
+                      <td className="px-2 py-2 text-right border border-slate-300">{fmt(totals.esicEmployer)}</td>
+                      <td className="px-2 py-2 text-right border border-slate-300">{fmt(totals.bonus)}</td>
+                      <td className="px-2 py-2 text-right border border-slate-300">{fmt(totals.employerTotal)}</td>
+                      <td className="px-2 py-2 text-right border border-slate-300">{fmt(totals.serviceCharge)}</td>
+                      <td className="px-2 py-2 text-right border border-slate-300">{fmt(totals.afterService)}</td>
+                      <td className="px-2 py-2 text-right border border-slate-300">{fmt(totals.gst)}</td>
+                      <td className="px-2 py-2 text-right border border-slate-300">{fmt(totals.finalTotal)}</td>
+                      <td className="px-2 py-2 border border-slate-300"></td>
+                    </tr>
+                  </tfoot>
+                </table>
+              </div>
+            </div>
 
             <div id="salary-print-area" className="hidden print:block">
               <div style={{ textAlign: "center", marginBottom: "8px" }}>
