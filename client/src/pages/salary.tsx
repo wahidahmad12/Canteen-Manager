@@ -394,17 +394,80 @@ export default function SalaryRegister() {
     },
   });
 
-  const totals = useMemo(() => {
-    if (!salaries || salaries.length === 0) return { basic: 0, gross: 0, deductions: 0, netPay: 0, count: 0 };
-    let basic = 0, gross = 0, deductions = 0, netPay = 0;
-    salaries.forEach((s) => {
-      basic += Number(s.basicWage) || 0;
-      gross += Number(s.grossWage) || 0;
-      deductions += Number(s.totalDeduction) || 0;
-      netPay += Number(s.netPay) || 0;
-    });
-    return { basic, gross, deductions, netPay, count: salaries.length };
-  }, [salaries]);
+  const computeRow = useCallback((s: SalaryRecord) => {
+    const n = (v: string | undefined | null) => Number(v) || 0;
+    const emp = employeeMap.get(s.employeeId);
+    const att = attendanceList?.find((a) => a.employeeId === s.employeeId);
+    let prsDays = 0, halfDay = 0, holidayWorking = 0, leave = 0, holidays = 0;
+    if (att) {
+      for (let i = 1; i <= 31; i++) {
+        const val = (att as any)[`day${i}`] as string;
+        if (!val) continue;
+        if (val === "P") prsDays++;
+        else if (val === "HD") halfDay++;
+        else if (val === "A") leave++;
+        else if (val === "H" || val === "WO" || val === "PH") holidays++;
+        else if (val === "CL" || val === "SL" || val === "EL") leave++;
+        else if (val === "HW") holidayWorking++;
+      }
+    }
+    if (prsDays === 0) prsDays = n(att?.totalPresent) || n(s.daysWorked);
+    const paidDays = n(s.daysWorked);
+    const otHrs = n(s.overtimeHours);
+    const basicRate = n(emp?.dailyRate);
+    const basicWage = n(s.basicWage);
+    const hra5 = Math.round(basicWage * 0.05);
+    const fixedHRA = n(s.hra);
+    const otAllow = n(s.overtimeAmount);
+    const totalGross = n(s.grossWage);
+    const pfDed = n(s.pfDeduction);
+    const esicDed = n(s.esicDeduction);
+    const pTax = n(s.professionalTax);
+    const lwf = n(s.otherDeduction);
+    const totalDedu = n(s.totalDeduction);
+    const netSalary = n(s.netPay);
+    const advance = n(s.advanceDeduction);
+    const payInAccount = netSalary - advance;
+    const pfEmployer = Math.round(basicWage * 0.13);
+    const esicEmployer = Math.round(totalGross * 0.0325);
+    const bonus = Math.round(basicWage * 0.0833);
+    const employerTotal = pfEmployer + esicEmployer + bonus;
+    const serviceBase = totalGross + employerTotal;
+    const serviceCharge = Math.round(serviceBase * 0.12);
+    const afterService = serviceBase + serviceCharge;
+    const gst = Math.round(serviceCharge * 0.18);
+    const finalTotal = afterService + gst;
+    return {
+      emp, prsDays, halfDay, holidayWorking, leave, holidays, paidDays, otHrs,
+      basicRate, basicWage, hra5, fixedHRA, otAllow, totalGross,
+      pfDed, esicDed, pTax, lwf, totalDedu, netSalary,
+      leaveBalance: 0, leaveEncash: 0, advance, payInAccount,
+      pfEmployer, esicEmployer, bonus, employerTotal,
+      serviceCharge, afterService, gst, finalTotal,
+    };
+  }, [employeeMap, attendanceList]);
+
+  const { rows, totals } = useMemo(() => {
+    if (!salaries || salaries.length === 0) return { rows: [] as ReturnType<typeof computeRow>[], totals: null };
+    const rs = salaries.map(computeRow);
+    const sum = (fn: (r: ReturnType<typeof computeRow>) => number) => rs.reduce((a, r) => a + fn(r), 0);
+    return {
+      rows: rs,
+      totals: {
+        count: rs.length,
+        prsDays: sum(r => r.prsDays), halfDay: sum(r => r.halfDay), holidayWorking: sum(r => r.holidayWorking),
+        leave: sum(r => r.leave), holidays: sum(r => r.holidays), paidDays: sum(r => r.paidDays), otHrs: sum(r => r.otHrs),
+        basicWage: sum(r => r.basicWage), hra5: sum(r => r.hra5), fixedHRA: sum(r => r.fixedHRA),
+        otAllow: sum(r => r.otAllow), totalGross: sum(r => r.totalGross),
+        pfDed: sum(r => r.pfDed), esicDed: sum(r => r.esicDed), pTax: sum(r => r.pTax), lwf: sum(r => r.lwf),
+        totalDedu: sum(r => r.totalDedu), netSalary: sum(r => r.netSalary),
+        leaveBalance: 0, leaveEncash: 0, advance: sum(r => r.advance), payInAccount: sum(r => r.payInAccount),
+        pfEmployer: sum(r => r.pfEmployer), esicEmployer: sum(r => r.esicEmployer), bonus: sum(r => r.bonus),
+        employerTotal: sum(r => r.employerTotal), serviceCharge: sum(r => r.serviceCharge),
+        afterService: sum(r => r.afterService), gst: sum(r => r.gst), finalTotal: sum(r => r.finalTotal),
+      },
+    };
+  }, [salaries, computeRow]);
 
   const handleLoad = () => {
     if (!clientName) {
@@ -512,7 +575,7 @@ export default function SalaryRegister() {
           </div>
         )}
 
-        {loaded && salaries && salaries.length > 0 && (
+        {loaded && salaries && salaries.length > 0 && totals && (
           <>
             <div className="grid grid-cols-2 lg:grid-cols-5 gap-3 sm:gap-4 print:hidden">
               <Card data-testid="card-total-employees">
@@ -528,19 +591,6 @@ export default function SalaryRegister() {
                   </div>
                 </CardContent>
               </Card>
-              <Card data-testid="card-total-basic">
-                <CardContent className="p-4">
-                  <div className="flex items-center gap-3">
-                    <div className="p-2 bg-green-100 dark:bg-green-900/30 rounded-lg">
-                      <IndianRupee className="w-5 h-5 text-green-600 dark:text-green-400" />
-                    </div>
-                    <div>
-                      <p className="text-xs text-muted-foreground">Total Basic</p>
-                      <p className="text-lg font-bold" data-testid="text-total-basic">{fmt(totals.basic)}</p>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
               <Card data-testid="card-total-gross">
                 <CardContent className="p-4">
                   <div className="flex items-center gap-3">
@@ -549,7 +599,7 @@ export default function SalaryRegister() {
                     </div>
                     <div>
                       <p className="text-xs text-muted-foreground">Total Gross</p>
-                      <p className="text-lg font-bold" data-testid="text-total-gross">{fmt(totals.gross)}</p>
+                      <p className="text-lg font-bold" data-testid="text-total-gross">{fmt(totals.totalGross)}</p>
                     </div>
                   </div>
                 </CardContent>
@@ -562,7 +612,7 @@ export default function SalaryRegister() {
                     </div>
                     <div>
                       <p className="text-xs text-muted-foreground">Total Deductions</p>
-                      <p className="text-lg font-bold" data-testid="text-total-deductions">{fmt(totals.deductions)}</p>
+                      <p className="text-lg font-bold" data-testid="text-total-deductions">{fmt(totals.totalDedu)}</p>
                     </div>
                   </div>
                 </CardContent>
@@ -574,99 +624,173 @@ export default function SalaryRegister() {
                       <IndianRupee className="w-5 h-5 text-emerald-600 dark:text-emerald-400" />
                     </div>
                     <div>
-                      <p className="text-xs text-muted-foreground">Total Net Pay</p>
-                      <p className="text-lg font-bold" data-testid="text-total-net-pay">{fmt(totals.netPay)}</p>
+                      <p className="text-xs text-muted-foreground">Net Pay</p>
+                      <p className="text-lg font-bold" data-testid="text-total-net-pay">{fmt(totals.netSalary)}</p>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+              <Card data-testid="card-final-total">
+                <CardContent className="p-4">
+                  <div className="flex items-center gap-3">
+                    <div className="p-2 bg-orange-100 dark:bg-orange-900/30 rounded-lg">
+                      <IndianRupee className="w-5 h-5 text-orange-600 dark:text-orange-400" />
+                    </div>
+                    <div>
+                      <p className="text-xs text-muted-foreground">Final Total</p>
+                      <p className="text-lg font-bold" data-testid="text-final-total">{fmt(totals.finalTotal)}</p>
                     </div>
                   </div>
                 </CardContent>
               </Card>
             </div>
 
-            <div className="hidden md:block print:block">
-              <Card>
-                <CardHeader className="pb-3">
-                  <CardTitle className="text-base flex items-center gap-2">
-                    <FileText className="w-5 h-5" />
-                    Salary Register - {clientName} - {MONTHS[Number(month) - 1]} {year}
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="p-0">
-                  <div className="overflow-x-auto">
-                    <table className="w-full text-sm" data-testid="table-salary-register">
-                      <thead>
-                        <tr className="bg-muted/50 border-b">
-                          <th className="px-3 py-2.5 text-left text-xs font-semibold">S.No</th>
-                          <th className="px-3 py-2.5 text-left text-xs font-semibold">Employee Name</th>
-                          <th className="px-3 py-2.5 text-right text-xs font-semibold">Days</th>
-                          <th className="px-3 py-2.5 text-right text-xs font-semibold">Basic</th>
-                          <th className="px-3 py-2.5 text-right text-xs font-semibold">DA</th>
-                          <th className="px-3 py-2.5 text-right text-xs font-semibold">HRA</th>
-                          <th className="px-3 py-2.5 text-right text-xs font-semibold">Gross</th>
-                          <th className="px-3 py-2.5 text-right text-xs font-semibold">PF</th>
-                          <th className="px-3 py-2.5 text-right text-xs font-semibold">ESIC</th>
-                          <th className="px-3 py-2.5 text-right text-xs font-semibold">PT</th>
-                          <th className="px-3 py-2.5 text-right text-xs font-semibold">Other Ded</th>
-                          <th className="px-3 py-2.5 text-right text-xs font-semibold">Total Ded</th>
-                          <th className="px-3 py-2.5 text-right text-xs font-semibold">Net Pay</th>
-                          <th className="px-3 py-2.5 text-center text-xs font-semibold print:hidden">Action</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {salaries.map((s, idx) => {
-                          const emp = employeeMap.get(s.employeeId);
-                          const otherDed = (Number(s.advanceDeduction) || 0) + (Number(s.fineDeduction) || 0) + (Number(s.otherDeduction) || 0);
-                          return (
-                            <tr key={s.id} className="border-b last:border-0 hover:bg-muted/30 transition-colors" data-testid={`row-salary-${s.id}`}>
-                              <td className="px-3 py-2.5 text-muted-foreground">{idx + 1}</td>
-                              <td className="px-3 py-2.5 font-medium">{emp?.name || `Employee #${s.employeeId}`}</td>
-                              <td className="px-3 py-2.5 text-right">{Number(s.daysWorked) || 0}</td>
-                              <td className="px-3 py-2.5 text-right">{fmt(Number(s.basicWage) || 0)}</td>
-                              <td className="px-3 py-2.5 text-right">{fmt(Number(s.da) || 0)}</td>
-                              <td className="px-3 py-2.5 text-right">{fmt(Number(s.hra) || 0)}</td>
-                              <td className="px-3 py-2.5 text-right font-medium">{fmt(Number(s.grossWage) || 0)}</td>
-                              <td className="px-3 py-2.5 text-right">{fmt(Number(s.pfDeduction) || 0)}</td>
-                              <td className="px-3 py-2.5 text-right">{fmt(Number(s.esicDeduction) || 0)}</td>
-                              <td className="px-3 py-2.5 text-right">{fmt(Number(s.professionalTax) || 0)}</td>
-                              <td className="px-3 py-2.5 text-right">{fmt(otherDed)}</td>
-                              <td className="px-3 py-2.5 text-right text-red-600 dark:text-red-400">{fmt(Number(s.totalDeduction) || 0)}</td>
-                              <td className="px-3 py-2.5 text-right font-bold text-emerald-600 dark:text-emerald-400">{fmt(Number(s.netPay) || 0)}</td>
-                              <td className="px-3 py-2.5 text-center print:hidden">
-                                <Link href={`/salary/${s.id}/slip`}>
-                                  <Button variant="ghost" size="icon" data-testid={`button-view-slip-${s.id}`}>
-                                    <ArrowRight className="w-4 h-4" />
-                                  </Button>
-                                </Link>
-                              </td>
-                            </tr>
-                          );
-                        })}
-                      </tbody>
-                      <tfoot>
-                        <tr className="bg-muted/50 font-bold border-t-2">
-                          <td className="px-3 py-2.5" colSpan={2}>Total</td>
-                          <td className="px-3 py-2.5 text-right">{salaries.reduce((sum, s) => sum + (Number(s.daysWorked) || 0), 0)}</td>
-                          <td className="px-3 py-2.5 text-right">{fmt(totals.basic)}</td>
-                          <td className="px-3 py-2.5 text-right">{fmt(salaries.reduce((sum, s) => sum + (Number(s.da) || 0), 0))}</td>
-                          <td className="px-3 py-2.5 text-right">{fmt(salaries.reduce((sum, s) => sum + (Number(s.hra) || 0), 0))}</td>
-                          <td className="px-3 py-2.5 text-right">{fmt(totals.gross)}</td>
-                          <td className="px-3 py-2.5 text-right">{fmt(salaries.reduce((sum, s) => sum + (Number(s.pfDeduction) || 0), 0))}</td>
-                          <td className="px-3 py-2.5 text-right">{fmt(salaries.reduce((sum, s) => sum + (Number(s.esicDeduction) || 0), 0))}</td>
-                          <td className="px-3 py-2.5 text-right">{fmt(salaries.reduce((sum, s) => sum + (Number(s.professionalTax) || 0), 0))}</td>
-                          <td className="px-3 py-2.5 text-right">{fmt(salaries.reduce((sum, s) => sum + (Number(s.advanceDeduction) || 0) + (Number(s.fineDeduction) || 0) + (Number(s.otherDeduction) || 0), 0))}</td>
-                          <td className="px-3 py-2.5 text-right text-red-600 dark:text-red-400">{fmt(totals.deductions)}</td>
-                          <td className="px-3 py-2.5 text-right text-emerald-600 dark:text-emerald-400">{fmt(totals.netPay)}</td>
-                          <td className="px-3 py-2.5 print:hidden"></td>
-                        </tr>
-                      </tfoot>
-                    </table>
-                  </div>
-                </CardContent>
-              </Card>
-            </div>
+            <Card className="print:shadow-none">
+              <CardHeader className="pb-3">
+                <CardTitle className="text-base flex items-center gap-2">
+                  <FileText className="w-5 h-5" />
+                  Salary Register - {clientName} - {MONTHS[Number(month) - 1]} {year}
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="p-0">
+                <div className="overflow-x-auto">
+                  <table className="text-xs whitespace-nowrap border-collapse" data-testid="table-salary-register" style={{ minWidth: "2400px" }}>
+                    <thead>
+                      <tr className="bg-muted/70 border-b">
+                        <th className="px-2 py-2 text-center font-semibold border-r sticky left-0 bg-muted/70 z-10">Sl.No.</th>
+                        <th className="px-2 py-2 text-left font-semibold border-r sticky left-[40px] bg-muted/70 z-10">Emp ID</th>
+                        <th className="px-2 py-2 text-left font-semibold border-r sticky left-[120px] bg-muted/70 z-10 min-w-[140px]">Emp Name</th>
+                        <th className="px-2 py-2 text-center font-semibold border-r">PRS DAYS</th>
+                        <th className="px-2 py-2 text-center font-semibold border-r">Half Day</th>
+                        <th className="px-2 py-2 text-center font-semibold border-r">Holiday Working</th>
+                        <th className="px-2 py-2 text-center font-semibold border-r">LEAVE</th>
+                        <th className="px-2 py-2 text-center font-semibold border-r">HOLIDAYS</th>
+                        <th className="px-2 py-2 text-center font-semibold border-r bg-blue-50 dark:bg-blue-900/20">Paid Days</th>
+                        <th className="px-2 py-2 text-center font-semibold border-r">OT HRS</th>
+                        <th className="px-2 py-2 text-right font-semibold border-r">Basic Rate</th>
+                        <th className="px-2 py-2 text-right font-semibold border-r">Basic Wages</th>
+                        <th className="px-2 py-2 text-right font-semibold border-r">HRA 5%</th>
+                        <th className="px-2 py-2 text-right font-semibold border-r">Fixed HRA</th>
+                        <th className="px-2 py-2 text-right font-semibold border-r">OT Allow</th>
+                        <th className="px-2 py-2 text-right font-semibold border-r bg-green-50 dark:bg-green-900/20">Total Gross</th>
+                        <th className="px-2 py-2 text-right font-semibold border-r">PF @12%</th>
+                        <th className="px-2 py-2 text-right font-semibold border-r">ESIC @.75%</th>
+                        <th className="px-2 py-2 text-right font-semibold border-r">P-TAX</th>
+                        <th className="px-2 py-2 text-right font-semibold border-r">LWF</th>
+                        <th className="px-2 py-2 text-right font-semibold border-r bg-red-50 dark:bg-red-900/20">Total Dedu</th>
+                        <th className="px-2 py-2 text-right font-semibold border-r bg-emerald-50 dark:bg-emerald-900/20">Net Salary</th>
+                        <th className="px-2 py-2 text-center font-semibold border-r">Leave Balance</th>
+                        <th className="px-2 py-2 text-right font-semibold border-r">Leave Encash Amt.</th>
+                        <th className="px-2 py-2 text-right font-semibold border-r">Advance</th>
+                        <th className="px-2 py-2 text-right font-semibold border-r bg-blue-50 dark:bg-blue-900/20">Pay In Account</th>
+                        <th className="px-2 py-2 text-right font-semibold border-r">PF @13%</th>
+                        <th className="px-2 py-2 text-right font-semibold border-r">ESIC @3.25%</th>
+                        <th className="px-2 py-2 text-right font-semibold border-r">Bonus @8.33%</th>
+                        <th className="px-2 py-2 text-right font-semibold border-r bg-orange-50 dark:bg-orange-900/20">Total</th>
+                        <th className="px-2 py-2 text-right font-semibold border-r">Service Charges @12%</th>
+                        <th className="px-2 py-2 text-right font-semibold border-r bg-purple-50 dark:bg-purple-900/20">Total</th>
+                        <th className="px-2 py-2 text-right font-semibold border-r">GST 18%</th>
+                        <th className="px-2 py-2 text-right font-semibold bg-amber-50 dark:bg-amber-900/20">Total</th>
+                        <th className="px-2 py-2 text-center font-semibold print:hidden">Slip</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {salaries.map((s, idx) => {
+                        const r = rows[idx];
+                        return (
+                          <tr key={s.id} className="border-b last:border-0 hover:bg-muted/30 transition-colors" data-testid={`row-salary-${s.id}`}>
+                            <td className="px-2 py-1.5 text-center text-muted-foreground border-r sticky left-0 bg-background z-10">{idx + 1}</td>
+                            <td className="px-2 py-1.5 text-left border-r sticky left-[40px] bg-background z-10 font-mono text-[10px]">{r.emp?.employeeCode || "-"}</td>
+                            <td className="px-2 py-1.5 text-left border-r sticky left-[120px] bg-background z-10 font-medium">{r.emp?.name || `#${s.employeeId}`}</td>
+                            <td className="px-2 py-1.5 text-center border-r">{r.prsDays}</td>
+                            <td className="px-2 py-1.5 text-center border-r">{r.halfDay}</td>
+                            <td className="px-2 py-1.5 text-center border-r">{r.holidayWorking}</td>
+                            <td className="px-2 py-1.5 text-center border-r">{r.leave}</td>
+                            <td className="px-2 py-1.5 text-center border-r">{r.holidays}</td>
+                            <td className="px-2 py-1.5 text-center border-r font-semibold bg-blue-50/50 dark:bg-blue-900/10">{r.paidDays}</td>
+                            <td className="px-2 py-1.5 text-center border-r">{r.otHrs}</td>
+                            <td className="px-2 py-1.5 text-right border-r">{fmt(r.basicRate)}</td>
+                            <td className="px-2 py-1.5 text-right border-r">{fmt(r.basicWage)}</td>
+                            <td className="px-2 py-1.5 text-right border-r">{fmt(r.hra5)}</td>
+                            <td className="px-2 py-1.5 text-right border-r">{fmt(r.fixedHRA)}</td>
+                            <td className="px-2 py-1.5 text-right border-r">{fmt(r.otAllow)}</td>
+                            <td className="px-2 py-1.5 text-right border-r font-semibold bg-green-50/50 dark:bg-green-900/10">{fmt(r.totalGross)}</td>
+                            <td className="px-2 py-1.5 text-right border-r">{fmt(r.pfDed)}</td>
+                            <td className="px-2 py-1.5 text-right border-r">{fmt(r.esicDed)}</td>
+                            <td className="px-2 py-1.5 text-right border-r">{fmt(r.pTax)}</td>
+                            <td className="px-2 py-1.5 text-right border-r">{fmt(r.lwf)}</td>
+                            <td className="px-2 py-1.5 text-right border-r font-semibold text-red-600 dark:text-red-400 bg-red-50/50 dark:bg-red-900/10">{fmt(r.totalDedu)}</td>
+                            <td className="px-2 py-1.5 text-right border-r font-bold text-emerald-600 dark:text-emerald-400 bg-emerald-50/50 dark:bg-emerald-900/10">{fmt(r.netSalary)}</td>
+                            <td className="px-2 py-1.5 text-center border-r">{r.leaveBalance}</td>
+                            <td className="px-2 py-1.5 text-right border-r">{fmt(r.leaveEncash)}</td>
+                            <td className="px-2 py-1.5 text-right border-r">{fmt(r.advance)}</td>
+                            <td className="px-2 py-1.5 text-right border-r font-semibold bg-blue-50/50 dark:bg-blue-900/10">{fmt(r.payInAccount)}</td>
+                            <td className="px-2 py-1.5 text-right border-r">{fmt(r.pfEmployer)}</td>
+                            <td className="px-2 py-1.5 text-right border-r">{fmt(r.esicEmployer)}</td>
+                            <td className="px-2 py-1.5 text-right border-r">{fmt(r.bonus)}</td>
+                            <td className="px-2 py-1.5 text-right border-r font-semibold bg-orange-50/50 dark:bg-orange-900/10">{fmt(r.employerTotal)}</td>
+                            <td className="px-2 py-1.5 text-right border-r">{fmt(r.serviceCharge)}</td>
+                            <td className="px-2 py-1.5 text-right border-r font-semibold bg-purple-50/50 dark:bg-purple-900/10">{fmt(r.afterService)}</td>
+                            <td className="px-2 py-1.5 text-right border-r">{fmt(r.gst)}</td>
+                            <td className="px-2 py-1.5 text-right font-bold bg-amber-50/50 dark:bg-amber-900/10">{fmt(r.finalTotal)}</td>
+                            <td className="px-2 py-1.5 text-center print:hidden">
+                              <Link href={`/salary/${s.id}/slip`}>
+                                <Button variant="ghost" size="icon" className="h-6 w-6" data-testid={`button-view-slip-${s.id}`}>
+                                  <ArrowRight className="w-3.5 h-3.5" />
+                                </Button>
+                              </Link>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                    <tfoot>
+                      <tr className="bg-muted/70 font-bold border-t-2">
+                        <td className="px-2 py-2 border-r sticky left-0 bg-muted/70 z-10" colSpan={1}></td>
+                        <td className="px-2 py-2 border-r sticky left-[40px] bg-muted/70 z-10"></td>
+                        <td className="px-2 py-2 border-r sticky left-[120px] bg-muted/70 z-10">Total</td>
+                        <td className="px-2 py-2 text-center border-r">{totals.prsDays}</td>
+                        <td className="px-2 py-2 text-center border-r">{totals.halfDay}</td>
+                        <td className="px-2 py-2 text-center border-r">{totals.holidayWorking}</td>
+                        <td className="px-2 py-2 text-center border-r">{totals.leave}</td>
+                        <td className="px-2 py-2 text-center border-r">{totals.holidays}</td>
+                        <td className="px-2 py-2 text-center border-r">{totals.paidDays}</td>
+                        <td className="px-2 py-2 text-center border-r">{totals.otHrs}</td>
+                        <td className="px-2 py-2 text-right border-r"></td>
+                        <td className="px-2 py-2 text-right border-r">{fmt(totals.basicWage)}</td>
+                        <td className="px-2 py-2 text-right border-r">{fmt(totals.hra5)}</td>
+                        <td className="px-2 py-2 text-right border-r">{fmt(totals.fixedHRA)}</td>
+                        <td className="px-2 py-2 text-right border-r">{fmt(totals.otAllow)}</td>
+                        <td className="px-2 py-2 text-right border-r">{fmt(totals.totalGross)}</td>
+                        <td className="px-2 py-2 text-right border-r">{fmt(totals.pfDed)}</td>
+                        <td className="px-2 py-2 text-right border-r">{fmt(totals.esicDed)}</td>
+                        <td className="px-2 py-2 text-right border-r">{fmt(totals.pTax)}</td>
+                        <td className="px-2 py-2 text-right border-r">{fmt(totals.lwf)}</td>
+                        <td className="px-2 py-2 text-right border-r text-red-600 dark:text-red-400">{fmt(totals.totalDedu)}</td>
+                        <td className="px-2 py-2 text-right border-r text-emerald-600 dark:text-emerald-400">{fmt(totals.netSalary)}</td>
+                        <td className="px-2 py-2 text-center border-r">{totals.leaveBalance}</td>
+                        <td className="px-2 py-2 text-right border-r">{fmt(totals.leaveEncash)}</td>
+                        <td className="px-2 py-2 text-right border-r">{fmt(totals.advance)}</td>
+                        <td className="px-2 py-2 text-right border-r">{fmt(totals.payInAccount)}</td>
+                        <td className="px-2 py-2 text-right border-r">{fmt(totals.pfEmployer)}</td>
+                        <td className="px-2 py-2 text-right border-r">{fmt(totals.esicEmployer)}</td>
+                        <td className="px-2 py-2 text-right border-r">{fmt(totals.bonus)}</td>
+                        <td className="px-2 py-2 text-right border-r">{fmt(totals.employerTotal)}</td>
+                        <td className="px-2 py-2 text-right border-r">{fmt(totals.serviceCharge)}</td>
+                        <td className="px-2 py-2 text-right border-r">{fmt(totals.afterService)}</td>
+                        <td className="px-2 py-2 text-right border-r">{fmt(totals.gst)}</td>
+                        <td className="px-2 py-2 text-right">{fmt(totals.finalTotal)}</td>
+                        <td className="px-2 py-2 print:hidden"></td>
+                      </tr>
+                    </tfoot>
+                  </table>
+                </div>
+              </CardContent>
+            </Card>
 
             <div className="md:hidden print:hidden space-y-3">
               {salaries.map((s, idx) => {
-                const emp = employeeMap.get(s.employeeId);
+                const r = rows[idx];
                 return (
                   <Link key={s.id} href={`/salary/${s.id}/slip`}>
                     <Card className="hover-elevate" data-testid={`card-salary-mobile-${s.id}`}>
@@ -674,22 +798,26 @@ export default function SalaryRegister() {
                         <div className="flex items-center justify-between mb-2">
                           <div className="flex items-center gap-2">
                             <Badge variant="secondary" className="text-xs">{idx + 1}</Badge>
-                            <span className="font-medium text-sm">{emp?.name || `Employee #${s.employeeId}`}</span>
+                            <span className="font-medium text-sm">{r.emp?.name || `#${s.employeeId}`}</span>
                           </div>
                           <ArrowRight className="w-4 h-4 text-muted-foreground" />
                         </div>
-                        <div className="grid grid-cols-3 gap-2 text-xs">
+                        <div className="grid grid-cols-4 gap-2 text-xs">
                           <div>
                             <p className="text-muted-foreground">Days</p>
-                            <p className="font-medium">{Number(s.daysWorked) || 0}</p>
+                            <p className="font-medium">{r.paidDays}</p>
                           </div>
                           <div>
                             <p className="text-muted-foreground">Gross</p>
-                            <p className="font-medium">{fmt(Number(s.grossWage) || 0)}</p>
+                            <p className="font-medium">{fmt(r.totalGross)}</p>
                           </div>
                           <div>
                             <p className="text-muted-foreground">Net Pay</p>
-                            <p className="font-bold text-emerald-600 dark:text-emerald-400">{fmt(Number(s.netPay) || 0)}</p>
+                            <p className="font-bold text-emerald-600 dark:text-emerald-400">{fmt(r.netSalary)}</p>
+                          </div>
+                          <div>
+                            <p className="text-muted-foreground">Final</p>
+                            <p className="font-bold">{fmt(r.finalTotal)}</p>
                           </div>
                         </div>
                       </CardContent>
