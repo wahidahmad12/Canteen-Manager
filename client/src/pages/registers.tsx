@@ -36,10 +36,27 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
-import { Plus, Trash2, Printer, Loader2, Gavel, Banknote, Clock, AlertTriangle } from "lucide-react";
+import { Plus, Trash2, Printer, Loader2, Gavel, Banknote, Clock, AlertTriangle, Calendar } from "lucide-react";
 
 const fmt = (n: number) =>
   "\u20B9" + Number(n).toLocaleString("en-IN", { minimumFractionDigits: 0, maximumFractionDigits: 2 });
+
+const MONTHS = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
+
+function filterByMonth(records: any[] | undefined, month: string, year: string): any[] {
+  if (!records) return [];
+  const m = month && month !== "all" ? parseInt(month) : 0;
+  const y = year ? parseInt(year) : 0;
+  if (!m && !y) return records;
+  return records.filter((r: any) => {
+    if (!r.date) return false;
+    const d = new Date(r.date);
+    if (m && y) return d.getMonth() + 1 === m && d.getFullYear() === y;
+    if (m) return d.getMonth() + 1 === m;
+    if (y) return d.getFullYear() === y;
+    return true;
+  });
+}
 
 function useEmployees(clientName: string) {
   return useQuery({
@@ -53,7 +70,7 @@ function useEmployees(clientName: string) {
   });
 }
 
-function FinesTab({ clientName, employees, empMap }: { clientName: string; employees: any[]; empMap: Map<number, string> }) {
+function FinesTab({ clientName, employees, empMap, filterMonth, filterYear }: { clientName: string; employees: any[]; empMap: Map<number, string>; filterMonth: string; filterYear: string }) {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [open, setOpen] = useState(false);
@@ -107,14 +124,17 @@ function FinesTab({ clientName, employees, empMap }: { clientName: string; emplo
     });
   };
 
+  const filtered = useMemo(() => filterByMonth(fines, filterMonth, filterYear), [fines, filterMonth, filterYear]);
+
   const handlePrint = () => {
     const printWin = window.open("", "_blank");
     if (!printWin) return;
-    const rows = (fines || []).map((f: any, i: number) => `
+    const rows = filtered.map((f: any, i: number) => `
       <tr><td>${i + 1}</td><td>${empMap.get(f.employeeId) || f.employeeId}</td><td>${f.date}</td><td>${fmt(f.amount)}</td><td>${f.reason || ""}</td><td>${f.realized || ""}</td></tr>
     `).join("");
+    const period = filterMonth && filterMonth !== "all" && filterYear ? ` - ${MONTHS[parseInt(filterMonth) - 1]} ${filterYear}` : filterYear ? ` - ${filterYear}` : "";
     printWin.document.write(`<html><head><title>Form XXI - Fines</title><style>body{font-family:sans-serif;padding:20px}table{width:100%;border-collapse:collapse}th,td{border:1px solid #ccc;padding:6px 10px;text-align:left;font-size:13px}th{background:#f5f5f5}</style></head><body>
-      <h2>Register of Fines (Form XXI) - ${clientName}</h2>
+      <h2>Register of Fines (Form XXI) - ${clientName}${period}</h2>
       <table><thead><tr><th>#</th><th>Employee</th><th>Date</th><th>Amount</th><th>Reason</th><th>Realized</th></tr></thead><tbody>${rows}</tbody></table>
     </body></html>`);
     printWin.document.close();
@@ -128,7 +148,7 @@ function FinesTab({ clientName, employees, empMap }: { clientName: string; emplo
       <div className="flex items-center justify-between gap-2 flex-wrap">
         <h3 className="text-sm font-semibold text-muted-foreground" data-testid="text-fines-title">Form XXI - Register of Fines</h3>
         <div className="flex gap-2">
-          <Button variant="outline" size="sm" onClick={handlePrint} data-testid="button-print-fines" disabled={!fines?.length}>
+          <Button variant="outline" size="sm" onClick={handlePrint} data-testid="button-print-fines" disabled={!filtered.length}>
             <Printer className="w-4 h-4 mr-1" /> Print
           </Button>
           <Dialog open={open} onOpenChange={setOpen}>
@@ -170,8 +190,8 @@ function FinesTab({ clientName, employees, empMap }: { clientName: string; emplo
         </div>
       </div>
 
-      {!fines?.length ? (
-        <Card><CardContent className="py-10 text-center text-muted-foreground">No fines recorded</CardContent></Card>
+      {!filtered.length ? (
+        <Card><CardContent className="py-10 text-center text-muted-foreground">No fines recorded{filterMonth && filterMonth !== "all" ? " for this month" : ""}</CardContent></Card>
       ) : (
         <>
           <div className="hidden md:block">
@@ -190,7 +210,7 @@ function FinesTab({ clientName, employees, empMap }: { clientName: string; emplo
                     </tr>
                   </thead>
                   <tbody>
-                    {fines.map((f: any, i: number) => (
+                    {filtered.map((f: any, i: number) => (
                       <tr key={f.id} className="border-b last:border-0" data-testid={`row-fine-${f.id}`}>
                         <td className="px-3 py-2.5">{i + 1}</td>
                         <td className="px-3 py-2.5 font-medium">{empMap.get(f.employeeId) || f.employeeId}</td>
@@ -217,7 +237,7 @@ function FinesTab({ clientName, employees, empMap }: { clientName: string; emplo
             </Card>
           </div>
           <div className="md:hidden space-y-3">
-            {fines.map((f: any, i: number) => (
+            {filtered.map((f: any, i: number) => (
               <Card key={f.id} data-testid={`card-fine-${f.id}`}>
                 <CardContent className="p-4 space-y-2">
                   <div className="flex items-start justify-between gap-2">
@@ -250,7 +270,7 @@ function FinesTab({ clientName, employees, empMap }: { clientName: string; emplo
   );
 }
 
-function AdvancesTab({ clientName, employees, empMap }: { clientName: string; employees: any[]; empMap: Map<number, string> }) {
+function AdvancesTab({ clientName, employees, empMap, filterMonth, filterYear }: { clientName: string; employees: any[]; empMap: Map<number, string>; filterMonth: string; filterYear: string }) {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [open, setOpen] = useState(false);
@@ -302,14 +322,17 @@ function AdvancesTab({ clientName, employees, empMap }: { clientName: string; em
     });
   };
 
+  const filtered = useMemo(() => filterByMonth(advances, filterMonth, filterYear), [advances, filterMonth, filterYear]);
+
   const handlePrint = () => {
     const printWin = window.open("", "_blank");
     if (!printWin) return;
-    const rows = (advances || []).map((a: any, i: number) => `
+    const rows = filtered.map((a: any, i: number) => `
       <tr><td>${i + 1}</td><td>${empMap.get(a.employeeId) || a.employeeId}</td><td>${a.date}</td><td>${fmt(a.amount)}</td><td>${a.purpose || ""}</td><td>${a.installments || ""}</td><td>${a.recoveredAmount ? fmt(a.recoveredAmount) : ""}</td></tr>
     `).join("");
+    const period = filterMonth && filterMonth !== "all" && filterYear ? ` - ${MONTHS[parseInt(filterMonth) - 1]} ${filterYear}` : filterYear ? ` - ${filterYear}` : "";
     printWin.document.write(`<html><head><title>Form XXII - Advances</title><style>body{font-family:sans-serif;padding:20px}table{width:100%;border-collapse:collapse}th,td{border:1px solid #ccc;padding:6px 10px;text-align:left;font-size:13px}th{background:#f5f5f5}</style></head><body>
-      <h2>Register of Advances (Form XXII) - ${clientName}</h2>
+      <h2>Register of Advances (Form XXII) - ${clientName}${period}</h2>
       <table><thead><tr><th>#</th><th>Employee</th><th>Date</th><th>Amount</th><th>Purpose</th><th>Installments</th><th>Recovered</th></tr></thead><tbody>${rows}</tbody></table>
     </body></html>`);
     printWin.document.close();
@@ -323,7 +346,7 @@ function AdvancesTab({ clientName, employees, empMap }: { clientName: string; em
       <div className="flex items-center justify-between gap-2 flex-wrap">
         <h3 className="text-sm font-semibold text-muted-foreground" data-testid="text-advances-title">Form XXII - Register of Advances</h3>
         <div className="flex gap-2">
-          <Button variant="outline" size="sm" onClick={handlePrint} data-testid="button-print-advances" disabled={!advances?.length}>
+          <Button variant="outline" size="sm" onClick={handlePrint} data-testid="button-print-advances" disabled={!filtered.length}>
             <Printer className="w-4 h-4 mr-1" /> Print
           </Button>
           <Dialog open={open} onOpenChange={setOpen}>
@@ -371,8 +394,8 @@ function AdvancesTab({ clientName, employees, empMap }: { clientName: string; em
         </div>
       </div>
 
-      {!advances?.length ? (
-        <Card><CardContent className="py-10 text-center text-muted-foreground">No advances recorded</CardContent></Card>
+      {!filtered.length ? (
+        <Card><CardContent className="py-10 text-center text-muted-foreground">No advances recorded{filterMonth && filterMonth !== "all" ? " for this month" : ""}</CardContent></Card>
       ) : (
         <>
           <div className="hidden md:block">
@@ -392,7 +415,7 @@ function AdvancesTab({ clientName, employees, empMap }: { clientName: string; em
                     </tr>
                   </thead>
                   <tbody>
-                    {advances.map((a: any, i: number) => (
+                    {filtered.map((a: any, i: number) => (
                       <tr key={a.id} className="border-b last:border-0" data-testid={`row-advance-${a.id}`}>
                         <td className="px-3 py-2.5">{i + 1}</td>
                         <td className="px-3 py-2.5 font-medium">{empMap.get(a.employeeId) || a.employeeId}</td>
@@ -420,7 +443,7 @@ function AdvancesTab({ clientName, employees, empMap }: { clientName: string; em
             </Card>
           </div>
           <div className="md:hidden space-y-3">
-            {advances.map((a: any) => (
+            {filtered.map((a: any) => (
               <Card key={a.id} data-testid={`card-advance-${a.id}`}>
                 <CardContent className="p-4 space-y-2">
                   <div className="flex items-start justify-between gap-2">
@@ -456,7 +479,7 @@ function AdvancesTab({ clientName, employees, empMap }: { clientName: string; em
   );
 }
 
-function OvertimeTab({ clientName, employees, empMap }: { clientName: string; employees: any[]; empMap: Map<number, string> }) {
+function OvertimeTab({ clientName, employees, empMap, filterMonth, filterYear }: { clientName: string; employees: any[]; empMap: Map<number, string>; filterMonth: string; filterYear: string }) {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [open, setOpen] = useState(false);
@@ -535,14 +558,17 @@ function OvertimeTab({ clientName, employees, empMap }: { clientName: string; em
     });
   };
 
+  const filtered = useMemo(() => filterByMonth(overtime, filterMonth, filterYear), [overtime, filterMonth, filterYear]);
+
   const handlePrint = () => {
     const printWin = window.open("", "_blank");
     if (!printWin) return;
-    const rows = (overtime || []).map((o: any, i: number) => `
+    const rows = filtered.map((o: any, i: number) => `
       <tr><td>${i + 1}</td><td>${empMap.get(o.employeeId) || o.employeeId}</td><td>${o.date}</td><td>${o.normalHours || ""}</td><td>${o.overtimeHours || ""}</td><td>${o.overtimeRate ? fmt(o.overtimeRate) : ""}</td><td>${o.overtimeAmount ? fmt(o.overtimeAmount) : ""}</td></tr>
     `).join("");
+    const period = filterMonth && filterMonth !== "all" && filterYear ? ` - ${MONTHS[parseInt(filterMonth) - 1]} ${filterYear}` : filterYear ? ` - ${filterYear}` : "";
     printWin.document.write(`<html><head><title>Form XXIII - Overtime</title><style>body{font-family:sans-serif;padding:20px}table{width:100%;border-collapse:collapse}th,td{border:1px solid #ccc;padding:6px 10px;text-align:left;font-size:13px}th{background:#f5f5f5}</style></head><body>
-      <h2>Register of Overtime (Form XXIII) - ${clientName}</h2>
+      <h2>Register of Overtime (Form XXIII) - ${clientName}${period}</h2>
       <table><thead><tr><th>#</th><th>Employee</th><th>Date</th><th>Normal Hrs</th><th>OT Hrs</th><th>OT Rate</th><th>OT Amount</th></tr></thead><tbody>${rows}</tbody></table>
     </body></html>`);
     printWin.document.close();
@@ -556,7 +582,7 @@ function OvertimeTab({ clientName, employees, empMap }: { clientName: string; em
       <div className="flex items-center justify-between gap-2 flex-wrap">
         <h3 className="text-sm font-semibold text-muted-foreground" data-testid="text-overtime-title">Form XXIII - Register of Overtime</h3>
         <div className="flex gap-2">
-          <Button variant="outline" size="sm" onClick={handlePrint} data-testid="button-print-overtime" disabled={!overtime?.length}>
+          <Button variant="outline" size="sm" onClick={handlePrint} data-testid="button-print-overtime" disabled={!filtered.length}>
             <Printer className="w-4 h-4 mr-1" /> Print
           </Button>
           <Dialog open={open} onOpenChange={setOpen}>
@@ -606,8 +632,8 @@ function OvertimeTab({ clientName, employees, empMap }: { clientName: string; em
         </div>
       </div>
 
-      {!overtime?.length ? (
-        <Card><CardContent className="py-10 text-center text-muted-foreground">No overtime records</CardContent></Card>
+      {!filtered.length ? (
+        <Card><CardContent className="py-10 text-center text-muted-foreground">No overtime records{filterMonth && filterMonth !== "all" ? " for this month" : ""}</CardContent></Card>
       ) : (
         <>
           <div className="hidden md:block">
@@ -628,7 +654,7 @@ function OvertimeTab({ clientName, employees, empMap }: { clientName: string; em
                       </tr>
                     </thead>
                     <tbody>
-                      {overtime.map((o: any, i: number) => (
+                      {filtered.map((o: any, i: number) => (
                         <tr key={o.id} className="border-b last:border-0" data-testid={`row-overtime-${o.id}`}>
                           <td className="px-3 py-2.5">{i + 1}</td>
                           <td className="px-3 py-2.5 font-medium">{empMap.get(o.employeeId) || o.employeeId}</td>
@@ -657,7 +683,7 @@ function OvertimeTab({ clientName, employees, empMap }: { clientName: string; em
             </Card>
           </div>
           <div className="md:hidden space-y-3">
-            {overtime.map((o: any) => (
+            {filtered.map((o: any) => (
               <Card key={o.id} data-testid={`card-overtime-${o.id}`}>
                 <CardContent className="p-4 space-y-2">
                   <div className="flex items-start justify-between gap-2">
@@ -693,7 +719,7 @@ function OvertimeTab({ clientName, employees, empMap }: { clientName: string; em
   );
 }
 
-function DamageTab({ clientName, employees, empMap }: { clientName: string; employees: any[]; empMap: Map<number, string> }) {
+function DamageTab({ clientName, employees, empMap, filterMonth, filterYear }: { clientName: string; employees: any[]; empMap: Map<number, string>; filterMonth: string; filterYear: string }) {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [open, setOpen] = useState(false);
@@ -743,14 +769,17 @@ function DamageTab({ clientName, employees, empMap }: { clientName: string; empl
     });
   };
 
+  const filtered = useMemo(() => filterByMonth(deductions, filterMonth, filterYear), [deductions, filterMonth, filterYear]);
+
   const handlePrint = () => {
     const printWin = window.open("", "_blank");
     if (!printWin) return;
-    const rows = (deductions || []).map((d: any, i: number) => `
+    const rows = filtered.map((d: any, i: number) => `
       <tr><td>${i + 1}</td><td>${empMap.get(d.employeeId) || d.employeeId}</td><td>${d.date}</td><td>${fmt(d.amount)}</td><td>${d.description || ""}</td></tr>
     `).join("");
+    const period = filterMonth && filterMonth !== "all" && filterYear ? ` - ${MONTHS[parseInt(filterMonth) - 1]} ${filterYear}` : filterYear ? ` - ${filterYear}` : "";
     printWin.document.write(`<html><head><title>Form XX - Damage/Loss</title><style>body{font-family:sans-serif;padding:20px}table{width:100%;border-collapse:collapse}th,td{border:1px solid #ccc;padding:6px 10px;text-align:left;font-size:13px}th{background:#f5f5f5}</style></head><body>
-      <h2>Register of Damage/Loss Deductions (Form XX) - ${clientName}</h2>
+      <h2>Register of Damage/Loss Deductions (Form XX) - ${clientName}${period}</h2>
       <table><thead><tr><th>#</th><th>Employee</th><th>Date</th><th>Amount</th><th>Description</th></tr></thead><tbody>${rows}</tbody></table>
     </body></html>`);
     printWin.document.close();
@@ -764,7 +793,7 @@ function DamageTab({ clientName, employees, empMap }: { clientName: string; empl
       <div className="flex items-center justify-between gap-2 flex-wrap">
         <h3 className="text-sm font-semibold text-muted-foreground" data-testid="text-damage-title">Form XX - Register of Damage/Loss Deductions</h3>
         <div className="flex gap-2">
-          <Button variant="outline" size="sm" onClick={handlePrint} data-testid="button-print-damage" disabled={!deductions?.length}>
+          <Button variant="outline" size="sm" onClick={handlePrint} data-testid="button-print-damage" disabled={!filtered.length}>
             <Printer className="w-4 h-4 mr-1" /> Print
           </Button>
           <Dialog open={open} onOpenChange={setOpen}>
@@ -802,8 +831,8 @@ function DamageTab({ clientName, employees, empMap }: { clientName: string; empl
         </div>
       </div>
 
-      {!deductions?.length ? (
-        <Card><CardContent className="py-10 text-center text-muted-foreground">No damage/loss deductions recorded</CardContent></Card>
+      {!filtered.length ? (
+        <Card><CardContent className="py-10 text-center text-muted-foreground">No damage/loss deductions recorded{filterMonth && filterMonth !== "all" ? " for this month" : ""}</CardContent></Card>
       ) : (
         <>
           <div className="hidden md:block">
@@ -821,7 +850,7 @@ function DamageTab({ clientName, employees, empMap }: { clientName: string; empl
                     </tr>
                   </thead>
                   <tbody>
-                    {deductions.map((d: any, i: number) => (
+                    {filtered.map((d: any, i: number) => (
                       <tr key={d.id} className="border-b last:border-0" data-testid={`row-damage-${d.id}`}>
                         <td className="px-3 py-2.5">{i + 1}</td>
                         <td className="px-3 py-2.5 font-medium">{empMap.get(d.employeeId) || d.employeeId}</td>
@@ -847,7 +876,7 @@ function DamageTab({ clientName, employees, empMap }: { clientName: string; empl
             </Card>
           </div>
           <div className="md:hidden space-y-3">
-            {deductions.map((d: any) => (
+            {filtered.map((d: any) => (
               <Card key={d.id} data-testid={`card-damage-${d.id}`}>
                 <CardContent className="p-4 space-y-2">
                   <div className="flex items-start justify-between gap-2">
@@ -880,7 +909,10 @@ function DamageTab({ clientName, employees, empMap }: { clientName: string; empl
 }
 
 export default function RegistersPage() {
+  const now = new Date();
   const [selectedClient, setSelectedClient] = useState("");
+  const [filterMonth, setFilterMonth] = useState(String(now.getMonth() + 1));
+  const [filterYear, setFilterYear] = useState(String(now.getFullYear()));
   const { data: clients } = useClientNames();
 
   const clientNames = useMemo(() => {
@@ -910,18 +942,56 @@ export default function RegistersPage() {
           </div>
         </div>
 
-        <div className="max-w-xs">
-          <Label className="text-xs font-medium text-muted-foreground mb-1 block">Client Name</Label>
-          <Select value={selectedClient} onValueChange={setSelectedClient}>
-            <SelectTrigger data-testid="select-client-name">
-              <SelectValue placeholder="Select client" />
-            </SelectTrigger>
-            <SelectContent>
-              {clientNames.map((name: string) => (
-                <SelectItem key={name} value={name}>{name}</SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 items-end">
+          <div>
+            <Label className="text-xs font-medium text-muted-foreground mb-1 block">Client Name</Label>
+            <Select value={selectedClient} onValueChange={setSelectedClient}>
+              <SelectTrigger data-testid="select-client-name">
+                <SelectValue placeholder="Select client" />
+              </SelectTrigger>
+              <SelectContent>
+                {clientNames.map((name: string) => (
+                  <SelectItem key={name} value={name}>{name}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <div>
+            <Label className="text-xs font-medium text-muted-foreground mb-1 block">Month</Label>
+            <Select value={filterMonth} onValueChange={setFilterMonth}>
+              <SelectTrigger data-testid="select-filter-month">
+                <SelectValue placeholder="All Months" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Months</SelectItem>
+                {MONTHS.map((m, i) => (
+                  <SelectItem key={i + 1} value={String(i + 1)}>{m}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <div>
+            <Label className="text-xs font-medium text-muted-foreground mb-1 block">Year</Label>
+            <Input
+              type="number"
+              value={filterYear}
+              onChange={(e) => setFilterYear(e.target.value)}
+              min={2020}
+              max={2099}
+              data-testid="input-filter-year"
+            />
+          </div>
+          <div>
+            <Button
+              variant="outline"
+              size="sm"
+              className="w-full"
+              onClick={() => { setFilterMonth("all"); setFilterYear(""); }}
+              data-testid="button-clear-filter"
+            >
+              Clear Filter
+            </Button>
+          </div>
         </div>
 
         {!selectedClient ? (
@@ -954,16 +1024,16 @@ export default function RegistersPage() {
             </div>
 
             <TabsContent value="fines">
-              <FinesTab clientName={selectedClient} employees={employees || []} empMap={empMap} />
+              <FinesTab clientName={selectedClient} employees={employees || []} empMap={empMap} filterMonth={filterMonth} filterYear={filterYear} />
             </TabsContent>
             <TabsContent value="advances">
-              <AdvancesTab clientName={selectedClient} employees={employees || []} empMap={empMap} />
+              <AdvancesTab clientName={selectedClient} employees={employees || []} empMap={empMap} filterMonth={filterMonth} filterYear={filterYear} />
             </TabsContent>
             <TabsContent value="overtime">
-              <OvertimeTab clientName={selectedClient} employees={employees || []} empMap={empMap} />
+              <OvertimeTab clientName={selectedClient} employees={employees || []} empMap={empMap} filterMonth={filterMonth} filterYear={filterYear} />
             </TabsContent>
             <TabsContent value="damage">
-              <DamageTab clientName={selectedClient} employees={employees || []} empMap={empMap} />
+              <DamageTab clientName={selectedClient} employees={employees || []} empMap={empMap} filterMonth={filterMonth} filterYear={filterYear} />
             </TabsContent>
           </Tabs>
         )}
