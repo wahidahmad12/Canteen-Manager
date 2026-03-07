@@ -144,4 +144,48 @@
     margin: 1.5cm;
     size: A4;
   }
+  #salary-print-area {
+    display: block !important;
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+  }
+}
+
+.salary-print-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 8px;
+  font-family: Arial, sans-serif;
+  color: #000;
+}
+.salary-print-table th,
+.salary-print-table td {
+  border: 1px solid #999;
+  padding: 2px 4px;
+  white-space: nowrap;
+}
+.salary-print-table thead tr {
+  background: #d9e2f3 !important;
+  -webkit-print-color-adjust: exact;
+  print-color-adjust: exact;
+}
+.salary-print-table thead th {
+  font-weight: 600;
+  text-align: center;
+  font-size: 7.5px;
+  vertical-align: bottom;
+  padding: 3px 3px;
+}
+.salary-print-table tbody tr:nth-child(even) {
+  background: #f0f8f0 !important;
+  -webkit-print-color-adjust: exact;
+  print-color-adjust: exact;
+}
+.salary-print-table tfoot tr {
+  background: #e8e8e8 !important;
+  -webkit-print-color-adjust: exact;
+  print-color-adjust: exact;
+  font-weight: bold;
 }

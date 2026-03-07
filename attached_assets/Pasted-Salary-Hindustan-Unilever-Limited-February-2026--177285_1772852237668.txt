@@ -1,0 +1,18 @@
+Salary 																						
+Hindustan Unilever Limited																						
+February 2026																						
+Sl. No.	Emp ID	Emp Name	Skills	PRS DAYS	Half Day	Holiday Working	LEAVE	HOLIDAYS	 Paid Days 	OT HRS	Basic Rate	 Basic wages	 HRA 5%	Fixed HRA	OT Allow	 Total Gross	PF Deduction @12%	ESIC @.75%	 P-TAX 	 LWF  	Total Dedu	Net Salary
+1	KPF00143 	BABLU ROY	Semi skilled	24	0	0	0	0	 24.00 	0	439.00	 10,536 	 527 	738.46	 -   	 11,801 	 1,264 	 89.00 	 110 		 1,463 	 10,338 
+2	KPF00146 	Judhisthir Hatuya	Highly Skilled	19	0	0	0	0	 19.00 	0	532.00	 10,108 	 505 	292.31	 -   	 10,905 	 1,213 	 82.00 	 110 		 1,405 	 9,500 
+3	KPF00142 	AMIT DAS	Unskilled	24	0	0	0	0	 24.00 	0	399.00	 9,576 	 479 	553.85	 -   	 10,609 	 1,149 	 80.00 	 110 		 1,339 	 9,270 
+4	KPF00148 	RINKU BHATTACHARYA	Highly Skilled	24	0	0	0	0	 24.00 	0	532.00	 12,768 	 638 	369.23	 -   	 13,775 	 1,532 	 104.00 	 110 		 1,746 	 12,029 
+5	KPF00147 	RAHIM MALLIK	Highly Skilled	22	0	0	0	0	 22.00 	0	532.00	 11,704 	 585 	676.92	 -   	 12,966 	 1,404 	 98.00 	 110 		 1,612 	 11,354 
+6	KPF00150 	SANJAY PATRA	Skilled	24	0	0	0	0	 24.00 	0	483.00	 11,592 	 580 	369.23	 -   	 12,541 	 1,391 	 95.00 	 110 		 1,596 	 10,945 
+7	KPF00144 	BUDHADEB MAJUMDER	Unskilled	24	0	0	0	0	 24.00 	0	399.00	 9,576 	 479 	553.85	 -   	 10,609 	 1,149 	 80.00 	 110 		 1,339 	 9,270 
+8	KPF00253 	JAYANTA DALUI	Skilled	23	0	0	0	0	 23.00 	0	483.00	 11,109 	 555 	353.85	 -   	 12,018 	 1,333 	 91.00 	 110 		 1,534 	 10,484 
+9	KPF00252 	TUMPA NASKAR	Unskilled	24	0	0	0	0	 24.00 	0	399.00	 9,576 	 479 	184.62	 -   	 10,240 	 1,149 	 77.00 	 110 		 1,336 	 8,904 
+10	KPF00307 	AKBAR ALI	Skilled	24	0	0	0	0	 24.00 	2	483.00	 11,592 	 580 	184.62	 254 	 12,611 	 1,391 	 95.00 	 110 		 1,596 	 11,015 
+11	KPF00603	KAMALESH SARDER	Semi skilled	22	0	0	0	0	 22.00 	2	439.00	 9,658 	 483 	169.23	 230 	 10,540 	 1,159 	 80.00 	 110 		 1,349 	 9,191 
+12	KPF00318 	SAIED HOSEN MALLIK	Unskilled	23	0	0	0	0	 23.00 	0	399.00	 9,177 	 459 	176.92	 -   	 9,813 	 1,101 	 74.00 	 -   		 1,175 	 8,638 
+13	KPF01533	SAOKAT MALLIK		22	0	0	0	0	 22.00 	5	399.00	 8,778 	 439 	169.23	 524 	 9,910 	 1,053 	 75.00 	 -   		 1,128 	 8,782 
+				277	0	0	0	0	 277.00 	4	5519	126972	6349	4623.076923	 484 	138428	15235	1045	1210	0	17490	 1,20,938 

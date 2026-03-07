@@ -20,7 +20,20 @@ const MONTHS = [
   "July", "August", "September", "October", "November", "December",
 ];
 
-const fmt = (n: number) => "\u20B9" + n.toLocaleString("en-IN", { minimumFractionDigits: 0, maximumFractionDigits: 0 });
+const fmt = (n: number) => n.toLocaleString("en-IN", { minimumFractionDigits: 0, maximumFractionDigits: 0 });
+const fmtR = (n: number) => "\u20B9" + fmt(n);
+const fmtDec = (n: number) => n.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+
+function getSkillLevel(designation?: string): string {
+  if (!designation) return "";
+  const d = designation.toLowerCase();
+  if (d.includes("supervisor") || d.includes("incharge") || d.includes("manager")) return "Highly Skilled";
+  if (d.includes("head cook")) return "Skilled";
+  if (d.includes("cook")) return "Skilled";
+  if (d.includes("helper")) return "Unskilled";
+  if (d.includes("semi")) return "Semi skilled";
+  return "Unskilled";
+}
 
 interface SalaryRecord {
   id: number;
@@ -437,8 +450,9 @@ export default function SalaryRegister() {
     const afterService = serviceBase + serviceCharge;
     const gst = Math.round(serviceCharge * 0.18);
     const finalTotal = afterService + gst;
+    const skills = getSkillLevel(emp?.designation);
     return {
-      emp, prsDays, halfDay, holidayWorking, leave, holidays, paidDays, otHrs,
+      emp, skills, prsDays, halfDay, holidayWorking, leave, holidays, paidDays, otHrs,
       basicRate, basicWage, hra5, fixedHRA, otAllow, totalGross,
       pfDed, esicDed, pTax, lwf, totalDedu, netSalary,
       leaveBalance: 0, leaveEncash: 0, advance, payInAccount,
@@ -457,7 +471,7 @@ export default function SalaryRegister() {
         count: rs.length,
         prsDays: sum(r => r.prsDays), halfDay: sum(r => r.halfDay), holidayWorking: sum(r => r.holidayWorking),
         leave: sum(r => r.leave), holidays: sum(r => r.holidays), paidDays: sum(r => r.paidDays), otHrs: sum(r => r.otHrs),
-        basicWage: sum(r => r.basicWage), hra5: sum(r => r.hra5), fixedHRA: sum(r => r.fixedHRA),
+        basicRate: sum(r => r.basicRate), basicWage: sum(r => r.basicWage), hra5: sum(r => r.hra5), fixedHRA: sum(r => r.fixedHRA),
         otAllow: sum(r => r.otAllow), totalGross: sum(r => r.totalGross),
         pfDed: sum(r => r.pfDed), esicDed: sum(r => r.esicDed), pTax: sum(r => r.pTax), lwf: sum(r => r.lwf),
         totalDedu: sum(r => r.totalDedu), netSalary: sum(r => r.netSalary),
@@ -500,7 +514,14 @@ export default function SalaryRegister() {
                 {downloading ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <ImageDown className="w-4 h-4 mr-2" />}
                 {downloading ? "Downloading..." : "Download All JPEG"}
               </Button>
-              <Button variant="outline" onClick={() => window.print()} data-testid="button-print-salary">
+              <Button variant="outline" onClick={() => {
+                const style = document.createElement("style");
+                style.id = "salary-print-override";
+                style.textContent = "@page { size: A3 landscape; margin: 0.4cm; }";
+                document.head.appendChild(style);
+                window.print();
+                setTimeout(() => style.remove(), 1000);
+              }} data-testid="button-print-salary">
                 <Printer className="w-4 h-4 mr-2" />
                 Print
               </Button>
@@ -599,7 +620,7 @@ export default function SalaryRegister() {
                     </div>
                     <div>
                       <p className="text-xs text-muted-foreground">Total Gross</p>
-                      <p className="text-lg font-bold" data-testid="text-total-gross">{fmt(totals.totalGross)}</p>
+                      <p className="text-lg font-bold" data-testid="text-total-gross">{fmtR(totals.totalGross)}</p>
                     </div>
                   </div>
                 </CardContent>
@@ -612,7 +633,7 @@ export default function SalaryRegister() {
                     </div>
                     <div>
                       <p className="text-xs text-muted-foreground">Total Deductions</p>
-                      <p className="text-lg font-bold" data-testid="text-total-deductions">{fmt(totals.totalDedu)}</p>
+                      <p className="text-lg font-bold" data-testid="text-total-deductions">{fmtR(totals.totalDedu)}</p>
                     </div>
                   </div>
                 </CardContent>
@@ -625,7 +646,7 @@ export default function SalaryRegister() {
                     </div>
                     <div>
                       <p className="text-xs text-muted-foreground">Net Pay</p>
-                      <p className="text-lg font-bold" data-testid="text-total-net-pay">{fmt(totals.netSalary)}</p>
+                      <p className="text-lg font-bold" data-testid="text-total-net-pay">{fmtR(totals.netSalary)}</p>
                     </div>
                   </div>
                 </CardContent>
@@ -638,14 +659,14 @@ export default function SalaryRegister() {
                     </div>
                     <div>
                       <p className="text-xs text-muted-foreground">Final Total</p>
-                      <p className="text-lg font-bold" data-testid="text-final-total">{fmt(totals.finalTotal)}</p>
+                      <p className="text-lg font-bold" data-testid="text-final-total">{fmtR(totals.finalTotal)}</p>
                     </div>
                   </div>
                 </CardContent>
               </Card>
             </div>
 
-            <Card className="print:shadow-none">
+            <Card className="print:hidden">
               <CardHeader className="pb-3">
                 <CardTitle className="text-base flex items-center gap-2">
                   <FileText className="w-5 h-5" />
@@ -654,12 +675,13 @@ export default function SalaryRegister() {
               </CardHeader>
               <CardContent className="p-0">
                 <div className="overflow-x-auto">
-                  <table className="text-xs whitespace-nowrap border-collapse" data-testid="table-salary-register" style={{ minWidth: "2400px" }}>
+                  <table className="text-xs whitespace-nowrap border-collapse" data-testid="table-salary-register" style={{ minWidth: "2600px" }}>
                     <thead>
                       <tr className="bg-muted/70 border-b">
                         <th className="px-2 py-2 text-center font-semibold border-r sticky left-0 bg-muted/70 z-10">Sl.No.</th>
                         <th className="px-2 py-2 text-left font-semibold border-r sticky left-[40px] bg-muted/70 z-10">Emp ID</th>
                         <th className="px-2 py-2 text-left font-semibold border-r sticky left-[120px] bg-muted/70 z-10 min-w-[140px]">Emp Name</th>
+                        <th className="px-2 py-2 text-left font-semibold border-r">Skills</th>
                         <th className="px-2 py-2 text-center font-semibold border-r">PRS DAYS</th>
                         <th className="px-2 py-2 text-center font-semibold border-r">Half Day</th>
                         <th className="px-2 py-2 text-center font-semibold border-r">Holiday Working</th>
@@ -673,7 +695,7 @@ export default function SalaryRegister() {
                         <th className="px-2 py-2 text-right font-semibold border-r">Fixed HRA</th>
                         <th className="px-2 py-2 text-right font-semibold border-r">OT Allow</th>
                         <th className="px-2 py-2 text-right font-semibold border-r bg-green-50 dark:bg-green-900/20">Total Gross</th>
-                        <th className="px-2 py-2 text-right font-semibold border-r">PF @12%</th>
+                        <th className="px-2 py-2 text-right font-semibold border-r">PF Deduction @12%</th>
                         <th className="px-2 py-2 text-right font-semibold border-r">ESIC @.75%</th>
                         <th className="px-2 py-2 text-right font-semibold border-r">P-TAX</th>
                         <th className="px-2 py-2 text-right font-semibold border-r">LWF</th>
@@ -691,7 +713,7 @@ export default function SalaryRegister() {
                         <th className="px-2 py-2 text-right font-semibold border-r bg-purple-50 dark:bg-purple-900/20">Total</th>
                         <th className="px-2 py-2 text-right font-semibold border-r">GST 18%</th>
                         <th className="px-2 py-2 text-right font-semibold bg-amber-50 dark:bg-amber-900/20">Total</th>
-                        <th className="px-2 py-2 text-center font-semibold print:hidden">Slip</th>
+                        <th className="px-2 py-2 text-center font-semibold">Slip</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -702,23 +724,24 @@ export default function SalaryRegister() {
                             <td className="px-2 py-1.5 text-center text-muted-foreground border-r sticky left-0 bg-background z-10">{idx + 1}</td>
                             <td className="px-2 py-1.5 text-left border-r sticky left-[40px] bg-background z-10 font-mono text-[10px]">{r.emp?.employeeCode || "-"}</td>
                             <td className="px-2 py-1.5 text-left border-r sticky left-[120px] bg-background z-10 font-medium">{r.emp?.name || `#${s.employeeId}`}</td>
+                            <td className="px-2 py-1.5 text-left border-r text-[10px]">{r.skills}</td>
                             <td className="px-2 py-1.5 text-center border-r">{r.prsDays}</td>
                             <td className="px-2 py-1.5 text-center border-r">{r.halfDay}</td>
                             <td className="px-2 py-1.5 text-center border-r">{r.holidayWorking}</td>
                             <td className="px-2 py-1.5 text-center border-r">{r.leave}</td>
                             <td className="px-2 py-1.5 text-center border-r">{r.holidays}</td>
-                            <td className="px-2 py-1.5 text-center border-r font-semibold bg-blue-50/50 dark:bg-blue-900/10">{r.paidDays}</td>
+                            <td className="px-2 py-1.5 text-center border-r font-semibold bg-blue-50/50 dark:bg-blue-900/10">{fmtDec(r.paidDays)}</td>
                             <td className="px-2 py-1.5 text-center border-r">{r.otHrs}</td>
-                            <td className="px-2 py-1.5 text-right border-r">{fmt(r.basicRate)}</td>
+                            <td className="px-2 py-1.5 text-right border-r">{fmtDec(r.basicRate)}</td>
                             <td className="px-2 py-1.5 text-right border-r">{fmt(r.basicWage)}</td>
                             <td className="px-2 py-1.5 text-right border-r">{fmt(r.hra5)}</td>
-                            <td className="px-2 py-1.5 text-right border-r">{fmt(r.fixedHRA)}</td>
-                            <td className="px-2 py-1.5 text-right border-r">{fmt(r.otAllow)}</td>
+                            <td className="px-2 py-1.5 text-right border-r">{fmtDec(r.fixedHRA)}</td>
+                            <td className="px-2 py-1.5 text-right border-r">{r.otAllow ? fmt(r.otAllow) : "-"}</td>
                             <td className="px-2 py-1.5 text-right border-r font-semibold bg-green-50/50 dark:bg-green-900/10">{fmt(r.totalGross)}</td>
                             <td className="px-2 py-1.5 text-right border-r">{fmt(r.pfDed)}</td>
-                            <td className="px-2 py-1.5 text-right border-r">{fmt(r.esicDed)}</td>
+                            <td className="px-2 py-1.5 text-right border-r">{fmtDec(r.esicDed)}</td>
                             <td className="px-2 py-1.5 text-right border-r">{fmt(r.pTax)}</td>
-                            <td className="px-2 py-1.5 text-right border-r">{fmt(r.lwf)}</td>
+                            <td className="px-2 py-1.5 text-right border-r">{r.lwf ? fmt(r.lwf) : ""}</td>
                             <td className="px-2 py-1.5 text-right border-r font-semibold text-red-600 dark:text-red-400 bg-red-50/50 dark:bg-red-900/10">{fmt(r.totalDedu)}</td>
                             <td className="px-2 py-1.5 text-right border-r font-bold text-emerald-600 dark:text-emerald-400 bg-emerald-50/50 dark:bg-emerald-900/10">{fmt(r.netSalary)}</td>
                             <td className="px-2 py-1.5 text-center border-r">{r.leaveBalance}</td>
@@ -733,7 +756,7 @@ export default function SalaryRegister() {
                             <td className="px-2 py-1.5 text-right border-r font-semibold bg-purple-50/50 dark:bg-purple-900/10">{fmt(r.afterService)}</td>
                             <td className="px-2 py-1.5 text-right border-r">{fmt(r.gst)}</td>
                             <td className="px-2 py-1.5 text-right font-bold bg-amber-50/50 dark:bg-amber-900/10">{fmt(r.finalTotal)}</td>
-                            <td className="px-2 py-1.5 text-center print:hidden">
+                            <td className="px-2 py-1.5 text-center">
                               <Link href={`/salary/${s.id}/slip`}>
                                 <Button variant="ghost" size="icon" className="h-6 w-6" data-testid={`button-view-slip-${s.id}`}>
                                   <ArrowRight className="w-3.5 h-3.5" />
@@ -746,28 +769,29 @@ export default function SalaryRegister() {
                     </tbody>
                     <tfoot>
                       <tr className="bg-muted/70 font-bold border-t-2">
-                        <td className="px-2 py-2 border-r sticky left-0 bg-muted/70 z-10" colSpan={1}></td>
+                        <td className="px-2 py-2 border-r sticky left-0 bg-muted/70 z-10"></td>
                         <td className="px-2 py-2 border-r sticky left-[40px] bg-muted/70 z-10"></td>
                         <td className="px-2 py-2 border-r sticky left-[120px] bg-muted/70 z-10">Total</td>
+                        <td className="px-2 py-2 border-r"></td>
                         <td className="px-2 py-2 text-center border-r">{totals.prsDays}</td>
                         <td className="px-2 py-2 text-center border-r">{totals.halfDay}</td>
                         <td className="px-2 py-2 text-center border-r">{totals.holidayWorking}</td>
                         <td className="px-2 py-2 text-center border-r">{totals.leave}</td>
                         <td className="px-2 py-2 text-center border-r">{totals.holidays}</td>
-                        <td className="px-2 py-2 text-center border-r">{totals.paidDays}</td>
+                        <td className="px-2 py-2 text-center border-r">{fmtDec(totals.paidDays)}</td>
                         <td className="px-2 py-2 text-center border-r">{totals.otHrs}</td>
-                        <td className="px-2 py-2 text-right border-r"></td>
+                        <td className="px-2 py-2 text-right border-r">{fmt(totals.basicRate || 0)}</td>
                         <td className="px-2 py-2 text-right border-r">{fmt(totals.basicWage)}</td>
                         <td className="px-2 py-2 text-right border-r">{fmt(totals.hra5)}</td>
-                        <td className="px-2 py-2 text-right border-r">{fmt(totals.fixedHRA)}</td>
+                        <td className="px-2 py-2 text-right border-r">{fmtDec(totals.fixedHRA)}</td>
                         <td className="px-2 py-2 text-right border-r">{fmt(totals.otAllow)}</td>
                         <td className="px-2 py-2 text-right border-r">{fmt(totals.totalGross)}</td>
                         <td className="px-2 py-2 text-right border-r">{fmt(totals.pfDed)}</td>
                         <td className="px-2 py-2 text-right border-r">{fmt(totals.esicDed)}</td>
                         <td className="px-2 py-2 text-right border-r">{fmt(totals.pTax)}</td>
                         <td className="px-2 py-2 text-right border-r">{fmt(totals.lwf)}</td>
-                        <td className="px-2 py-2 text-right border-r text-red-600 dark:text-red-400">{fmt(totals.totalDedu)}</td>
-                        <td className="px-2 py-2 text-right border-r text-emerald-600 dark:text-emerald-400">{fmt(totals.netSalary)}</td>
+                        <td className="px-2 py-2 text-right border-r text-red-600">{fmt(totals.totalDedu)}</td>
+                        <td className="px-2 py-2 text-right border-r text-emerald-600">{fmt(totals.netSalary)}</td>
                         <td className="px-2 py-2 text-center border-r">{totals.leaveBalance}</td>
                         <td className="px-2 py-2 text-right border-r">{fmt(totals.leaveEncash)}</td>
                         <td className="px-2 py-2 text-right border-r">{fmt(totals.advance)}</td>
@@ -780,13 +804,107 @@ export default function SalaryRegister() {
                         <td className="px-2 py-2 text-right border-r">{fmt(totals.afterService)}</td>
                         <td className="px-2 py-2 text-right border-r">{fmt(totals.gst)}</td>
                         <td className="px-2 py-2 text-right">{fmt(totals.finalTotal)}</td>
-                        <td className="px-2 py-2 print:hidden"></td>
+                        <td className="px-2 py-2"></td>
                       </tr>
                     </tfoot>
                   </table>
                 </div>
               </CardContent>
             </Card>
+
+            <div id="salary-print-area" className="hidden print:block">
+              <div style={{ textAlign: "center", marginBottom: "8px" }}>
+                <div style={{ fontSize: "18px", fontWeight: "bold" }}>Salary</div>
+                <div style={{ fontSize: "13px" }}>{clientName}</div>
+                <div style={{ fontSize: "16px", fontWeight: "bold" }}>{MONTHS[Number(month) - 1]} {year}</div>
+              </div>
+              <table className="salary-print-table">
+                <thead>
+                  <tr>
+                    <th>Sl. No.</th>
+                    <th>Emp ID</th>
+                    <th className="text-left">Emp Name</th>
+                    <th className="text-left">Skills</th>
+                    <th>PRS DAYS</th>
+                    <th>Half Day</th>
+                    <th>Holiday Working</th>
+                    <th>LEAVE</th>
+                    <th>HOLIDAYS</th>
+                    <th>Paid Days</th>
+                    <th>OT HRS</th>
+                    <th>Basic Rate</th>
+                    <th>Basic wages</th>
+                    <th>HRA 5%</th>
+                    <th>Fixed HRA</th>
+                    <th>OT Allow</th>
+                    <th>Total Gross</th>
+                    <th>PF Deduction @12%</th>
+                    <th>ESIC @.75%</th>
+                    <th>P-TAX</th>
+                    <th>LWF</th>
+                    <th>Total Dedu</th>
+                    <th>Net Salary</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {salaries.map((s, idx) => {
+                    const r = rows[idx];
+                    const even = idx % 2 === 0;
+                    return (
+                      <tr key={s.id} style={{ background: even ? "#ffffff" : "#f0f8f0" }}>
+                        <td className="text-center">{idx + 1}</td>
+                        <td className="text-left" style={{ fontSize: "7px" }}>{r.emp?.employeeCode || "-"}</td>
+                        <td className="text-left" style={{ fontWeight: 500 }}>{r.emp?.name || "-"}</td>
+                        <td className="text-left">{r.skills}</td>
+                        <td className="text-center">{r.prsDays}</td>
+                        <td className="text-center">{r.halfDay}</td>
+                        <td className="text-center">{r.holidayWorking}</td>
+                        <td className="text-center">{r.leave}</td>
+                        <td className="text-center">{r.holidays}</td>
+                        <td className="text-right">{fmtDec(r.paidDays)}</td>
+                        <td className="text-center">{r.otHrs}</td>
+                        <td className="text-right" style={{ fontWeight: "bold" }}>{fmtDec(r.basicRate)}</td>
+                        <td className="text-right">{fmt(r.basicWage)}</td>
+                        <td className="text-right">{fmt(r.hra5)}</td>
+                        <td className="text-right">{fmtDec(r.fixedHRA)}</td>
+                        <td className="text-right">{r.otAllow ? fmt(r.otAllow) : "-"}</td>
+                        <td className="text-right" style={{ fontWeight: "bold" }}>{fmt(r.totalGross)}</td>
+                        <td className="text-right">{fmt(r.pfDed)}</td>
+                        <td className="text-right">{fmtDec(r.esicDed)}</td>
+                        <td className="text-right">{r.pTax ? fmt(r.pTax) : "-"}</td>
+                        <td className="text-right">{r.lwf ? fmt(r.lwf) : "-"}</td>
+                        <td className="text-right">{fmt(r.totalDedu)}</td>
+                        <td className="text-right" style={{ fontWeight: "bold" }}>{fmt(r.netSalary)}</td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+                <tfoot>
+                  <tr style={{ fontWeight: "bold", background: "#e8e8e8" }}>
+                    <td colSpan={4}></td>
+                    <td className="text-center">{totals.prsDays}</td>
+                    <td className="text-center">{totals.halfDay}</td>
+                    <td className="text-center">{totals.holidayWorking}</td>
+                    <td className="text-center">{totals.leave}</td>
+                    <td className="text-center">{totals.holidays}</td>
+                    <td className="text-right">{fmtDec(totals.paidDays)}</td>
+                    <td className="text-center">{totals.otHrs}</td>
+                    <td className="text-right">{fmt(totals.basicRate || 0)}</td>
+                    <td className="text-right">{fmt(totals.basicWage)}</td>
+                    <td className="text-right">{fmt(totals.hra5)}</td>
+                    <td className="text-right">{fmtDec(totals.fixedHRA)}</td>
+                    <td className="text-right">{fmt(totals.otAllow)}</td>
+                    <td className="text-right">{fmt(totals.totalGross)}</td>
+                    <td className="text-right">{fmt(totals.pfDed)}</td>
+                    <td className="text-right">{fmt(totals.esicDed)}</td>
+                    <td className="text-right">{fmt(totals.pTax)}</td>
+                    <td className="text-right">{fmt(totals.lwf)}</td>
+                    <td className="text-right">{fmt(totals.totalDedu)}</td>
+                    <td className="text-right">{fmt(totals.netSalary)}</td>
+                  </tr>
+                </tfoot>
+              </table>
+            </div>
 
             <div className="md:hidden print:hidden space-y-3">
               {salaries.map((s, idx) => {
