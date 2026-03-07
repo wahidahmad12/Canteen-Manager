@@ -16,6 +16,7 @@ import {
   useDeleteClientName,
   useUsers,
   useCreateUser,
+  useUpdateUser,
   useDeleteUser,
   useCurrentUser,
   useVendors,
@@ -103,6 +104,7 @@ export default function Admin() {
   const { data: currentUser } = useCurrentUser();
   const { data: userList, isLoading: usersLoading } = useUsers();
   const createUserMutation = useCreateUser();
+  const updateUserMutation = useUpdateUser();
   const deleteUserMutation = useDeleteUser();
   const [newUsername, setNewUsername] = useState("");
   const [newPassword, setNewPassword] = useState("");
@@ -110,6 +112,12 @@ export default function Admin() {
   const [newUserRole, setNewUserRole] = useState("user");
   const [newUserClient, setNewUserClient] = useState("");
   const [newUserPerms, setNewUserPerms] = useState<string[]>(['expense', 'cashseal', 'inventory', 'menu', 'purchase']);
+  const [editingUserId, setEditingUserId] = useState<number | null>(null);
+  const [editUserDisplayName, setEditUserDisplayName] = useState("");
+  const [editUserPassword, setEditUserPassword] = useState("");
+  const [editUserRole, setEditUserRole] = useState("user");
+  const [editUserClient, setEditUserClient] = useState("");
+  const [editUserPerms, setEditUserPerms] = useState<string[]>([]);
 
   const permissionLabels: Record<string, string> = {
     expense: 'Daily Cash Expance',
@@ -270,6 +278,46 @@ export default function Admin() {
     } catch (e: any) {
       toast({ title: "Error", description: e.message || "Failed to create user", variant: "destructive" });
     }
+  };
+
+  const startEditUser = (u: any) => {
+    setEditingUserId(u.id);
+    setEditUserDisplayName(u.displayName || "");
+    setEditUserPassword("");
+    setEditUserRole(u.role || "user");
+    setEditUserClient(u.clientName || "");
+    setEditUserPerms(u.role === 'admin' ? Object.keys(permissionLabels) : (u.permissions || []));
+  };
+
+  const cancelEditUser = () => {
+    setEditingUserId(null);
+    setEditUserDisplayName("");
+    setEditUserPassword("");
+    setEditUserRole("user");
+    setEditUserClient("");
+    setEditUserPerms([]);
+  };
+
+  const handleUpdateUser = async () => {
+    if (!editingUserId || !editUserDisplayName.trim()) return;
+    try {
+      const data: any = {
+        displayName: editUserDisplayName.trim(),
+        role: editUserRole,
+        clientName: editUserClient || null,
+        permissions: editUserPerms,
+      };
+      if (editUserPassword.trim()) data.password = editUserPassword.trim();
+      await updateUserMutation.mutateAsync({ id: editingUserId, data });
+      cancelEditUser();
+      toast({ title: "Success", description: "User updated" });
+    } catch (e: any) {
+      toast({ title: "Error", description: e.message || "Failed to update user", variant: "destructive" });
+    }
+  };
+
+  const toggleEditPerm = (key: string) => {
+    setEditUserPerms(prev => prev.includes(key) ? prev.filter(p => p !== key) : [...prev, key]);
   };
 
   const handleDeleteUser = async (id: number) => {
@@ -795,6 +843,54 @@ export default function Admin() {
                       </thead>
                       <tbody>
                         {userList?.map((u, idx) => (
+                          editingUserId === u.id ? (
+                            <tr key={u.id} className="bg-violet-50 dark:bg-violet-950/20">
+                              <td className="px-3 py-2">
+                                <span className="w-6 h-6 rounded-full bg-gradient-to-br from-violet-400 to-purple-500 text-white text-[10px] inline-flex items-center justify-center font-bold">{idx + 1}</span>
+                              </td>
+                              <td className="px-3 py-2 font-semibold font-mono text-sm">{u.username}</td>
+                              <td className="px-3 py-2">
+                                <Input value={editUserDisplayName} onChange={(e) => setEditUserDisplayName(e.target.value)} className="h-8 text-sm" data-testid="input-edit-displayname" />
+                              </td>
+                              <td className="px-3 py-2">
+                                <select className="flex h-8 w-full rounded-md border bg-background px-2 py-1 text-xs" value={editUserRole} onChange={(e) => setEditUserRole(e.target.value)} data-testid="select-edit-role">
+                                  <option value="user">User</option>
+                                  <option value="admin">Admin</option>
+                                </select>
+                              </td>
+                              <td className="px-3 py-2">
+                                <select className="flex h-8 w-full rounded-md border bg-background px-2 py-1 text-xs" value={editUserClient} onChange={(e) => setEditUserClient(e.target.value)} data-testid="select-edit-client">
+                                  <option value="">No Client</option>
+                                  {clients?.map((c) => (<option key={c.id} value={c.name}>{c.name}</option>))}
+                                </select>
+                              </td>
+                              <td className="px-3 py-2" colSpan={2}>
+                                <div className="space-y-2">
+                                  <Input placeholder="New password (leave blank to keep)" value={editUserPassword} onChange={(e) => setEditUserPassword(e.target.value)} type="password" className="h-8 text-sm" data-testid="input-edit-password" />
+                                  <div className="flex flex-wrap gap-1">
+                                    {Object.entries(permissionLabels).map(([key, label]) => (
+                                      <label key={key} className={`flex items-center gap-1 text-[10px] cursor-pointer px-2 py-1 rounded-full border transition-colors ${
+                                        editUserPerms.includes(key)
+                                          ? 'bg-violet-100 dark:bg-violet-900/30 border-violet-400 text-violet-700 font-semibold'
+                                          : 'bg-background border-border text-muted-foreground'
+                                      }`}>
+                                        <input type="checkbox" checked={editUserPerms.includes(key)} onChange={() => toggleEditPerm(key)} className="sr-only" />
+                                        {label}
+                                      </label>
+                                    ))}
+                                  </div>
+                                  <div className="flex gap-1">
+                                    <Button size="sm" className="h-7 text-xs bg-green-600 hover:bg-green-700" onClick={handleUpdateUser} disabled={updateUserMutation.isPending} data-testid="button-save-user">
+                                      {updateUserMutation.isPending ? <Loader2 className="w-3 h-3 animate-spin" /> : <Save className="w-3 h-3 mr-1" />} Save
+                                    </Button>
+                                    <Button size="sm" variant="outline" className="h-7 text-xs" onClick={cancelEditUser} data-testid="button-cancel-edit-user">
+                                      <X className="w-3 h-3 mr-1" /> Cancel
+                                    </Button>
+                                  </div>
+                                </div>
+                              </td>
+                            </tr>
+                          ) : (
                           <tr key={u.id} className="border-b last:border-0 hover:bg-violet-50/50 dark:hover:bg-violet-950/10 transition-colors">
                             <td className="px-3 py-2.5">
                               <span className="w-6 h-6 rounded-full bg-gradient-to-br from-violet-400 to-purple-500 text-white text-[10px] inline-flex items-center justify-center font-bold">{idx + 1}</span>
@@ -822,19 +918,31 @@ export default function Admin() {
                             </td>
                             <td className="px-3 py-2.5 text-right">
                               {u.username !== 'admin' && (
-                                <Button
-                                  size="icon"
-                                  variant="ghost"
-                                  className="h-8 w-8 text-destructive hover:text-destructive hover:bg-destructive/10"
-                                  onClick={() => handleDeleteUser(u.id)}
-                                  disabled={deleteUserMutation.isPending}
-                                  data-testid={`button-delete-user-${u.id}`}
-                                >
-                                  <Trash2 className="w-4 h-4" />
-                                </Button>
+                                <div className="flex items-center justify-end gap-1">
+                                  <Button
+                                    size="icon"
+                                    variant="ghost"
+                                    className="h-8 w-8 text-blue-600 hover:text-blue-700 hover:bg-blue-50"
+                                    onClick={() => startEditUser(u)}
+                                    data-testid={`button-edit-user-${u.id}`}
+                                  >
+                                    <Pencil className="w-4 h-4" />
+                                  </Button>
+                                  <Button
+                                    size="icon"
+                                    variant="ghost"
+                                    className="h-8 w-8 text-destructive hover:text-destructive hover:bg-destructive/10"
+                                    onClick={() => handleDeleteUser(u.id)}
+                                    disabled={deleteUserMutation.isPending}
+                                    data-testid={`button-delete-user-${u.id}`}
+                                  >
+                                    <Trash2 className="w-4 h-4" />
+                                  </Button>
+                                </div>
                               )}
                             </td>
                           </tr>
+                          )
                         ))}
                       </tbody>
                     </table>
@@ -843,6 +951,47 @@ export default function Admin() {
                   <div className="md:hidden space-y-3">
                     {userList?.map((u, idx) => (
                       <div key={u.id} className="border border-violet-200 dark:border-violet-800/50 rounded-xl p-3 space-y-2 hover:bg-violet-50/50 dark:hover:bg-violet-950/10" data-testid={`mobile-user-card-${u.id}`}>
+                        {editingUserId === u.id ? (
+                          <div className="space-y-2">
+                            <div className="flex items-center gap-2">
+                              <span className="w-7 h-7 rounded-full bg-gradient-to-br from-violet-400 to-purple-500 text-white text-[11px] flex items-center justify-center font-bold">{idx + 1}</span>
+                              <div className="text-xs text-muted-foreground font-mono">@{u.username}</div>
+                            </div>
+                            <Input placeholder="Display Name" value={editUserDisplayName} onChange={(e) => setEditUserDisplayName(e.target.value)} className="h-9 text-sm" data-testid="input-edit-displayname-mobile" />
+                            <Input placeholder="New password (leave blank to keep)" value={editUserPassword} onChange={(e) => setEditUserPassword(e.target.value)} type="password" className="h-9 text-sm" data-testid="input-edit-password-mobile" />
+                            <div className="grid grid-cols-2 gap-2">
+                              <select className="flex h-9 w-full rounded-md border bg-background px-2 py-1 text-sm" value={editUserRole} onChange={(e) => setEditUserRole(e.target.value)}>
+                                <option value="user">User</option>
+                                <option value="admin">Admin</option>
+                              </select>
+                              <select className="flex h-9 w-full rounded-md border bg-background px-2 py-1 text-sm" value={editUserClient} onChange={(e) => setEditUserClient(e.target.value)}>
+                                <option value="">No Client</option>
+                                {clients?.map((c) => (<option key={c.id} value={c.name}>{c.name}</option>))}
+                              </select>
+                            </div>
+                            <div className="flex flex-wrap gap-1">
+                              {Object.entries(permissionLabels).map(([key, label]) => (
+                                <label key={key} className={`flex items-center gap-1 text-[10px] cursor-pointer px-2 py-1 rounded-full border transition-colors ${
+                                  editUserPerms.includes(key)
+                                    ? 'bg-violet-100 dark:bg-violet-900/30 border-violet-400 text-violet-700 font-semibold'
+                                    : 'bg-background border-border text-muted-foreground'
+                                }`}>
+                                  <input type="checkbox" checked={editUserPerms.includes(key)} onChange={() => toggleEditPerm(key)} className="sr-only" />
+                                  {label}
+                                </label>
+                              ))}
+                            </div>
+                            <div className="flex gap-2">
+                              <Button size="sm" className="h-8 text-xs bg-green-600 hover:bg-green-700 flex-1" onClick={handleUpdateUser} disabled={updateUserMutation.isPending} data-testid="button-save-user-mobile">
+                                {updateUserMutation.isPending ? <Loader2 className="w-3 h-3 animate-spin" /> : <Save className="w-3 h-3 mr-1" />} Save
+                              </Button>
+                              <Button size="sm" variant="outline" className="h-8 text-xs flex-1" onClick={cancelEditUser} data-testid="button-cancel-edit-user-mobile">
+                                <X className="w-3 h-3 mr-1" /> Cancel
+                              </Button>
+                            </div>
+                          </div>
+                        ) : (
+                        <>
                         <div className="flex items-center justify-between">
                           <div className="flex items-center gap-2">
                             <span className="w-7 h-7 rounded-full bg-gradient-to-br from-violet-400 to-purple-500 text-white text-[11px] flex items-center justify-center font-bold">{idx + 1}</span>
@@ -860,16 +1009,27 @@ export default function Admin() {
                               {u.role === 'admin' ? <Crown className="w-3 h-3 inline mr-0.5" /> : <User className="w-3 h-3 inline mr-0.5" />} {u.role}
                             </span>
                             {u.username !== 'admin' && (
-                              <Button
-                                size="icon"
-                                variant="ghost"
-                                className="h-7 w-7 text-destructive hover:text-destructive hover:bg-destructive/10"
-                                onClick={() => handleDeleteUser(u.id)}
-                                disabled={deleteUserMutation.isPending}
-                                data-testid={`button-delete-user-mobile-${u.id}`}
-                              >
-                                <Trash2 className="w-3.5 h-3.5" />
-                              </Button>
+                              <>
+                                <Button
+                                  size="icon"
+                                  variant="ghost"
+                                  className="h-7 w-7 text-blue-600 hover:text-blue-700 hover:bg-blue-50"
+                                  onClick={() => startEditUser(u)}
+                                  data-testid={`button-edit-user-mobile-${u.id}`}
+                                >
+                                  <Pencil className="w-3.5 h-3.5" />
+                                </Button>
+                                <Button
+                                  size="icon"
+                                  variant="ghost"
+                                  className="h-7 w-7 text-destructive hover:text-destructive hover:bg-destructive/10"
+                                  onClick={() => handleDeleteUser(u.id)}
+                                  disabled={deleteUserMutation.isPending}
+                                  data-testid={`button-delete-user-mobile-${u.id}`}
+                                >
+                                  <Trash2 className="w-3.5 h-3.5" />
+                                </Button>
+                              </>
                             )}
                           </div>
                         </div>
@@ -885,6 +1045,8 @@ export default function Admin() {
                             </span>
                           ))}
                         </div>
+                        </>
+                        )}
                       </div>
                     ))}
                   </div>

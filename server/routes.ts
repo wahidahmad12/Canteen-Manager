@@ -174,6 +174,23 @@ export async function registerRoutes(
     }
   });
 
+  app.patch(api.users.update.path, requireAdmin, async (req, res) => {
+    try {
+      const id = Number(req.params.id);
+      const existing = await storage.getUserById(id);
+      if (!existing) return res.status(404).json({ message: "User not found" });
+      if (existing.username === 'admin') return res.status(403).json({ message: "Cannot edit the admin account" });
+      const input = api.users.update.input.parse(req.body);
+      const user = await storage.updateUser(id, input);
+      res.json(user);
+    } catch (err) {
+      if (err instanceof z.ZodError) {
+        return res.status(400).json({ message: err.errors[0].message });
+      }
+      throw err;
+    }
+  });
+
   app.delete(api.users.delete.path, requireAdmin, async (req, res) => {
     await storage.deleteUser(Number(req.params.id));
     res.status(204).send();

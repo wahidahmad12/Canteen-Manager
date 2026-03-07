@@ -585,6 +585,20 @@ export const api = {
         400: errorSchemas.validation,
       },
     },
+    update: {
+      method: 'PATCH' as const,
+      path: '/api/users/:id' as const,
+      input: z.object({
+        displayName: z.string().min(1).optional(),
+        password: z.string().min(4).optional(),
+        role: z.string().optional(),
+        clientName: z.string().nullable().optional(),
+        permissions: z.array(z.string()).optional(),
+      }),
+      responses: {
+        200: z.any(),
+      },
+    },
     delete: {
       method: 'DELETE' as const,
       path: '/api/users/:id' as const,

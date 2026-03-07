@@ -90,6 +90,7 @@ export interface IStorage {
   getUserById(id: number): Promise<User | undefined>;
   getUserByUsername(username: string): Promise<User | undefined>;
   createUser(data: { username: string; password: string; displayName: string; role: string; clientName: string | null; permissions?: string[] }): Promise<SafeUser>;
+  updateUser(id: number, data: { displayName?: string; password?: string; role?: string; clientName?: string | null; permissions?: string[] }): Promise<SafeUser>;
   deleteUser(id: number): Promise<void>;
   seedAdminUser(): Promise<void>;
   getPurchaseRequests(): Promise<PurchaseRequestWithItems[]>;
@@ -558,6 +559,19 @@ export class DatabaseStorage implements IStorage {
       permissions: data.permissions || ['expense', 'cashseal', 'inventory', 'menu'],
     }).returning();
     const { passwordHash: _, ...safeUser } = user;
+    return safeUser as SafeUser;
+  }
+
+  async updateUser(id: number, data: { displayName?: string; password?: string; role?: string; clientName?: string | null; permissions?: string[] }): Promise<SafeUser> {
+    const updates: any = {};
+    if (data.displayName !== undefined) updates.displayName = data.displayName;
+    if (data.role !== undefined) updates.role = data.role;
+    if (data.clientName !== undefined) updates.clientName = data.clientName;
+    if (data.permissions !== undefined) updates.permissions = data.permissions;
+    if (data.password) updates.passwordHash = await bcrypt.hash(data.password, 10);
+    const result = await db.update(users).set(updates).where(eq(users.id, id)).returning();
+    if (!result.length) throw new Error("User not found");
+    const { passwordHash: _, ...safeUser } = result[0];
     return safeUser as SafeUser;
   }
 
