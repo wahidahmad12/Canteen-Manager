@@ -946,16 +946,24 @@ export async function registerRoutes(
     const actualDaysWorked = totalDaysInYear - (weeklyOffs + paidHolidays + leavesAvailed + absences);
     const leaveEarned = Math.floor(actualDaysWorked / 20);
 
-    const { employees, employeeWageRates } = await import("@shared/schema");
-    const wageRateRec = await db.select().from(employeeWageRates).where(
-      and(eq(employeeWageRates.employeeId, employeeId), eq(employeeWageRates.calendarYear, year))
-    );
-    let dailyRate = 0;
-    if (wageRateRec.length > 0) {
-      dailyRate = Number(wageRateRec[0].dailyRate || 0);
-    } else {
-      const empRows = await db.select().from(employees).where(eq(employees.id, employeeId));
-      dailyRate = empRows.length > 0 ? Number(empRows[0].dailyRate || 0) : 0;
+    const { employees, skillWageRates: swrTable } = await import("@shared/schema");
+    const empRows = await db.select().from(employees).where(eq(employees.id, employeeId));
+    const empSkill = empRows.length > 0 ? (empRows[0].skills || "") : "";
+    let dailyRate = empRows.length > 0 ? Number(empRows[0].dailyRate || 0) : 0;
+
+    const monthsWithRates: number[] = [];
+    let totalSkillRate = 0;
+    for (let m = 1; m <= 12; m++) {
+      const sr = await db.select().from(swrTable).where(
+        and(eq(swrTable.skillCategory, empSkill), eq(swrTable.month, m), eq(swrTable.year, year))
+      );
+      if (sr.length > 0) {
+        totalSkillRate += Number(sr[0].dailyRate);
+        monthsWithRates.push(m);
+      }
+    }
+    if (monthsWithRates.length > 0) {
+      dailyRate = Math.round((totalSkillRate / monthsWithRates.length) * 100) / 100;
     }
     const amountOfWages = 0;
 
@@ -1022,6 +1030,47 @@ export async function registerRoutes(
 
   app.delete("/api/employee-wage-rates/:id", requireAdmin, async (req, res) => {
     await storage.deleteEmployeeWageRate(Number(req.params.id));
+    res.status(204).send();
+  });
+
+  // === SKILL WAGE RATES (Month/Year-wise by Skill Category) ===
+  app.get("/api/skill-wage-rates", requireAdmin, async (req, res) => {
+    const year = req.query.year ? Number(req.query.year) : undefined;
+    const rates = await storage.getSkillWageRates(year);
+    res.json(rates);
+  });
+
+  app.get("/api/skill-wage-rates/lookup", requireAuth, async (req, res) => {
+    const { skillCategory, month, year } = req.query;
+    if (!skillCategory || !month || !year) return res.status(400).json({ error: "skillCategory, month, year required" });
+    const rate = await storage.getSkillWageRate(String(skillCategory), Number(month), Number(year));
+    res.json(rate || null);
+  });
+
+  app.post("/api/skill-wage-rates", requireAdmin, async (req, res) => {
+    const { insertSkillWageRateSchema } = await import("@shared/schema");
+    const parsed = insertSkillWageRateSchema.safeParse(req.body);
+    if (!parsed.success) return res.status(400).json({ error: parsed.error.flatten() });
+    const rec = await storage.createOrUpdateSkillWageRate(parsed.data);
+    res.json(rec);
+  });
+
+  app.post("/api/skill-wage-rates/bulk", requireAdmin, async (req, res) => {
+    const { rates } = req.body;
+    if (!Array.isArray(rates)) return res.status(400).json({ error: "rates array required" });
+    const { insertSkillWageRateSchema } = await import("@shared/schema");
+    const results = [];
+    for (const r of rates) {
+      const parsed = insertSkillWageRateSchema.safeParse(r);
+      if (!parsed.success) continue;
+      const rec = await storage.createOrUpdateSkillWageRate(parsed.data);
+      results.push(rec);
+    }
+    res.json(results);
+  });
+
+  app.delete("/api/skill-wage-rates/:id", requireAdmin, async (req, res) => {
+    await storage.deleteSkillWageRate(Number(req.params.id));
     res.status(204).send();
   });
 

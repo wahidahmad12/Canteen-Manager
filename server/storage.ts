@@ -28,6 +28,7 @@ import {
   damageDeductions,
   leaveWithWages,
   employeeWageRates,
+  skillWageRates,
   type DailyReport, 
   type ExpenseItem,
   type CreateReportRequest,
@@ -55,6 +56,7 @@ import {
   type DamageDeduction,
   type LeaveWithWages,
   type EmployeeWageRate,
+  type SkillWageRate,
 } from "@shared/schema";
 import { eq, desc, lt, and, sql } from "drizzle-orm";
 import bcrypt from "bcryptjs";
@@ -155,6 +157,10 @@ export interface IStorage {
   createEmployeeWageRate(data: any): Promise<EmployeeWageRate>;
   updateEmployeeWageRate(id: number, data: any): Promise<EmployeeWageRate>;
   deleteEmployeeWageRate(id: number): Promise<void>;
+  getSkillWageRates(year?: number): Promise<SkillWageRate[]>;
+  getSkillWageRate(skillCategory: string, month: number, year: number): Promise<SkillWageRate | undefined>;
+  createOrUpdateSkillWageRate(data: any): Promise<SkillWageRate>;
+  deleteSkillWageRate(id: number): Promise<void>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -993,7 +999,8 @@ export class DatabaseStorage implements IStorage {
     for (const emp of activeEmps) {
       const att = attendanceRecords.find(a => a.employeeId === emp.id);
       const daysWorked = att ? Number(att.totalPresent) : 0;
-      const dailyRate = Number(emp.dailyRate) || 0;
+      const skillRate = await this.getSkillWageRate(emp.skills || "", month, year);
+      const dailyRate = skillRate ? Number(skillRate.dailyRate) : (Number(emp.dailyRate) || 0);
       const basicWage = daysWorked * dailyRate;
       const da = 0;
       const hra5 = Math.round(basicWage * 0.05 * 100) / 100;
@@ -1150,6 +1157,32 @@ export class DatabaseStorage implements IStorage {
   }
   async deleteEmployeeWageRate(id: number): Promise<void> {
     await db.delete(employeeWageRates).where(eq(employeeWageRates.id, id));
+  }
+
+  // === SKILL WAGE RATES (Month/Year-wise by Skill Category) ===
+  async getSkillWageRates(year?: number): Promise<SkillWageRate[]> {
+    if (year) {
+      return await db.select().from(skillWageRates).where(eq(skillWageRates.year, year)).orderBy(skillWageRates.skillCategory, skillWageRates.month);
+    }
+    return await db.select().from(skillWageRates).orderBy(desc(skillWageRates.year), skillWageRates.month, skillWageRates.skillCategory);
+  }
+  async getSkillWageRate(skillCategory: string, month: number, year: number): Promise<SkillWageRate | undefined> {
+    const [rec] = await db.select().from(skillWageRates).where(
+      and(eq(skillWageRates.skillCategory, skillCategory), eq(skillWageRates.month, month), eq(skillWageRates.year, year))
+    );
+    return rec;
+  }
+  async createOrUpdateSkillWageRate(data: any): Promise<SkillWageRate> {
+    const existing = await this.getSkillWageRate(data.skillCategory, data.month, data.year);
+    if (existing) {
+      const [rec] = await db.update(skillWageRates).set({ dailyRate: data.dailyRate, remarks: data.remarks || "" }).where(eq(skillWageRates.id, existing.id)).returning();
+      return rec;
+    }
+    const [rec] = await db.insert(skillWageRates).values(data).returning();
+    return rec;
+  }
+  async deleteSkillWageRate(id: number): Promise<void> {
+    await db.delete(skillWageRates).where(eq(skillWageRates.id, id));
   }
 }
 

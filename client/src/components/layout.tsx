@@ -1,11 +1,11 @@
 import { useState, useEffect } from 'react';
 import { Link, useLocation } from 'wouter';
-import { LayoutDashboard, FilePlus, Settings, Calculator, ClipboardList, UtensilsCrossed, ShoppingCart, LogOut, User, Menu, X, Users, CalendarDays, Wallet, FileText, BookOpen, HardHat, ChevronDown, ChevronRight } from 'lucide-react';
+import { LayoutDashboard, FilePlus, Settings, Calculator, ClipboardList, UtensilsCrossed, ShoppingCart, LogOut, User, Menu, X, Users, CalendarDays, Wallet, FileText, BookOpen, HardHat, ChevronDown, ChevronRight, IndianRupee } from 'lucide-react';
 import logoImg from '@assets/logo1_1771660912341.png';
 import { useCurrentUser, useLogout } from '@/hooks/use-reports';
 import { Button } from '@/components/ui/button';
 
-const labourWorksPaths = ['/employee-master', '/muster-roll', '/salary', '/registers', '/form-xiii', '/bonus-return', '/half-yearly-return', '/leave-with-wages'];
+const labourWorksPaths = ['/employee-master', '/muster-roll', '/salary', '/skill-wage-rates', '/registers', '/form-xiii', '/bonus-return', '/half-yearly-return', '/leave-with-wages'];
 
 export function Layout({ children }: { children: React.ReactNode }) {
   const [location] = useLocation();
@@ -35,6 +35,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
     ...(user?.role === 'admin' ? [{ href: '/employee-master', label: 'Employee Master', icon: Users }] : []),
     { href: '/muster-roll', label: 'Muster Roll', icon: CalendarDays },
     { href: '/salary', label: 'Salary Register', icon: Wallet },
+    ...(user?.role === 'admin' ? [{ href: '/skill-wage-rates', label: 'Base Wage Rates', icon: IndianRupee }] : []),
     { href: '/registers', label: 'Registers', icon: BookOpen },
     { href: '/form-xiii', label: 'Workmen Register', icon: FileText },
     { href: '/bonus-return', label: 'Bonus Return', icon: FileText },

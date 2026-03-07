@@ -355,6 +355,16 @@ export const employeeWageRates = pgTable("employee_wage_rates", {
   createdAt: timestamp("created_at").defaultNow(),
 });
 
+export const skillWageRates = pgTable("skill_wage_rates", {
+  id: serial("id").primaryKey(),
+  skillCategory: text("skill_category").notNull(),
+  month: integer("month").notNull(),
+  year: integer("year").notNull(),
+  dailyRate: numeric("daily_rate", { precision: 10, scale: 2 }).notNull().default("0"),
+  remarks: text("remarks").default(""),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
 // Saved item names for autocomplete in purchase requests and menus
 export const savedItemNames = pgTable("saved_item_names", {
   id: serial("id").primaryKey(),
@@ -597,5 +607,11 @@ export const selectLeaveWithWagesSchema = createSelectSchema(leaveWithWages, { c
 export type EmployeeWageRate = typeof employeeWageRates.$inferSelect;
 export const insertEmployeeWageRateSchema = createInsertSchema(employeeWageRates).omit({ id: true, createdAt: true });
 export const selectEmployeeWageRateSchema = createSelectSchema(employeeWageRates, { createdAt: z.string().or(z.date()) });
+
+export type SkillWageRate = typeof skillWageRates.$inferSelect;
+export const insertSkillWageRateSchema = createInsertSchema(skillWageRates).omit({ id: true, createdAt: true });
+export const selectSkillWageRateSchema = createSelectSchema(skillWageRates, { createdAt: z.string().or(z.date()) });
+
+export const SKILL_CATEGORIES = ["Unskilled", "Semi Skilled", "Skilled", "High Skilled"] as const;
 
 export const ALL_PAYROLL_PERMISSIONS = [...ALL_PERMISSIONS, 'salary'] as const;

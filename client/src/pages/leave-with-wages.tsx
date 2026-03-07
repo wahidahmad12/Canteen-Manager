@@ -12,7 +12,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useClientNames, useCurrentUser } from "@/hooks/use-reports";
 import { ArrowLeft, Plus, Printer, Trash2, Pencil, Loader2, FileText, Building2, Users } from "lucide-react";
 import { Link } from "wouter";
-import type { Employee, LeaveWithWages, EmployeeWageRate } from "@shared/schema";
+import type { Employee, LeaveWithWages } from "@shared/schema";
 
 export default function LeaveWithWagesPage() {
   const { toast } = useToast();
@@ -51,33 +51,6 @@ export default function LeaveWithWagesPage() {
   });
 
   const selectedEmployee = employees.find(e => String(e.id) === selectedEmployeeId);
-
-  const { data: wageRates = [] } = useQuery<EmployeeWageRate[]>({
-    queryKey: ["/api/employee-wage-rates", selectedEmployeeId],
-    queryFn: () => fetch(`/api/employee-wage-rates?employeeId=${selectedEmployeeId}`, { credentials: "include" }).then(r => r.json()),
-    enabled: !!selectedEmployeeId,
-  });
-
-  const [wageRateForm, setWageRateForm] = useState({ year: new Date().getFullYear(), dailyRate: "", effectiveFrom: "" });
-  const [wageRateDialogOpen, setWageRateDialogOpen] = useState(false);
-
-  const wageRateMutation = useMutation({
-    mutationFn: (data: any) => apiRequest("POST", "/api/employee-wage-rates", data),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/employee-wage-rates", selectedEmployeeId] });
-      setWageRateDialogOpen(false);
-      toast({ title: "Wage rate saved" });
-    },
-    onError: (e: any) => toast({ title: "Error", description: e.message, variant: "destructive" }),
-  });
-
-  const deleteWageRateMutation = useMutation({
-    mutationFn: (id: number) => apiRequest("DELETE", `/api/employee-wage-rates/${id}`),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/employee-wage-rates", selectedEmployeeId] });
-      toast({ title: "Wage rate deleted" });
-    },
-  });
 
   const { data: leaveRecords = [], isLoading } = useQuery<LeaveWithWages[]>({
     queryKey: ["/api/leave-with-wages", selectedEmployeeId],
@@ -265,63 +238,6 @@ export default function LeaveWithWagesPage() {
             </div>
           </CardContent>
         </Card>
-
-        {selectedEmployee && isAdmin && (
-          <Card className="no-print">
-            <CardHeader className="pb-2 pt-3">
-              <div className="flex items-center justify-between">
-                <CardTitle className="text-sm">Year-wise Base Wage Rates - {selectedEmployee.name}</CardTitle>
-                <Dialog open={wageRateDialogOpen} onOpenChange={setWageRateDialogOpen}>
-                  <DialogTrigger asChild>
-                    <Button size="sm" variant="outline" onClick={() => setWageRateForm({ year: new Date().getFullYear(), dailyRate: selectedEmployee.dailyRate || "0", effectiveFrom: "" })} data-testid="button-add-wage-rate">
-                      <Plus className="w-3.5 h-3.5 mr-1" /> Add Rate
-                    </Button>
-                  </DialogTrigger>
-                  <DialogContent className="max-w-sm">
-                    <DialogHeader><DialogTitle>Set Year-wise Wage Rate</DialogTitle></DialogHeader>
-                    <div className="space-y-3">
-                      <div className="space-y-1">
-                        <Label className="text-xs">Calendar Year</Label>
-                        <Input type="number" value={wageRateForm.year} onChange={e => setWageRateForm({ ...wageRateForm, year: Number(e.target.value) })} data-testid="input-wage-year" />
-                      </div>
-                      <div className="space-y-1">
-                        <Label className="text-xs">Daily Rate (₹)</Label>
-                        <Input value={wageRateForm.dailyRate} onChange={e => setWageRateForm({ ...wageRateForm, dailyRate: e.target.value })} data-testid="input-wage-daily-rate" />
-                      </div>
-                      <div className="space-y-1">
-                        <Label className="text-xs">Effective From (e.g. Apr 2025)</Label>
-                        <Input value={wageRateForm.effectiveFrom} onChange={e => setWageRateForm({ ...wageRateForm, effectiveFrom: e.target.value })} placeholder="Apr 2025" data-testid="input-wage-effective" />
-                      </div>
-                    </div>
-                    <DialogFooter>
-                      <Button onClick={() => wageRateMutation.mutate({ employeeId: Number(selectedEmployeeId), calendarYear: wageRateForm.year, dailyRate: wageRateForm.dailyRate, effectiveFrom: wageRateForm.effectiveFrom })} disabled={wageRateMutation.isPending} data-testid="button-save-wage-rate">
-                        {wageRateMutation.isPending && <Loader2 className="w-4 h-4 mr-1 animate-spin" />} Save
-                      </Button>
-                    </DialogFooter>
-                  </DialogContent>
-                </Dialog>
-              </div>
-            </CardHeader>
-            <CardContent className="pt-0 pb-3 px-4">
-              {wageRates.length === 0 ? (
-                <p className="text-xs text-muted-foreground">No year-wise rates set. Current rate from Employee Master: ₹{selectedEmployee.dailyRate}/day</p>
-              ) : (
-                <div className="flex flex-wrap gap-2">
-                  {wageRates.map(wr => (
-                    <div key={wr.id} className="flex items-center gap-1.5 border rounded-md px-2.5 py-1.5 text-xs bg-muted/30" data-testid={`wage-rate-${wr.id}`}>
-                      <span className="font-semibold">{wr.calendarYear}:</span>
-                      <span>₹{wr.dailyRate}/day</span>
-                      {wr.effectiveFrom && <span className="text-muted-foreground">({wr.effectiveFrom})</span>}
-                      <Button variant="ghost" size="icon" className="h-5 w-5 ml-1" onClick={() => deleteWageRateMutation.mutate(wr.id)} data-testid={`button-delete-wage-${wr.id}`}>
-                        <Trash2 className="w-3 h-3 text-destructive" />
-                      </Button>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </CardContent>
-          </Card>
-        )}
 
         {selectedEmployee && (
           <>
