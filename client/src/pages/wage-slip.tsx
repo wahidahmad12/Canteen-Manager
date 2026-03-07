@@ -209,23 +209,47 @@ export default function WageSlip() {
     } catch { return d; }
   };
 
+  const handlePrint = () => {
+    const prevTitle = document.title;
+    document.title = `Wage Slip - ${employee?.name || "Employee"} - ${MONTHS[salary.month - 1]} ${salary.year}`;
+    window.print();
+    setTimeout(() => { document.title = prevTitle; }, 500);
+  };
+
+  const C = {
+    headerGrad: "linear-gradient(135deg, #1a237e 0%, #283593 30%, #3949ab 60%, #5c6bc0 100%)",
+    periodGrad: "linear-gradient(135deg, #0d47a1 0%, #1565c0 50%, #1976d2 100%)",
+    infoLabelBg: "#e8eaf6",
+    infoLabelColor: "#283593",
+    attLabelBg: "#e3f2fd",
+    attLabelColor: "#0d47a1",
+    attValColor: "#1565c0",
+    earnLabelBg: "#e8f5e9",
+    earnLabelColor: "#1b5e20",
+    earnValColor: "#2e7d32",
+    dedLabelBg: "#fce4ec",
+    dedLabelColor: "#b71c1c",
+    dedValColor: "#c62828",
+    totalBg: "#fff3e0",
+    totalColor: "#e65100",
+    netBg: "linear-gradient(135deg, #1b5e20 0%, #2e7d32 50%, #43a047 100%)",
+    netColor: "#ffffff",
+    wordsBg: "#f3e5f5",
+    wordsColor: "#4a148c",
+    sigBg: "#fafafa",
+  };
+
   return (
     <>
       <style>{`
         @media print {
           .no-print { display: none !important; }
-          body { background: white !important; color: black !important; -webkit-print-color-adjust: exact; margin: 0; padding: 0; }
-          .wage-slip-container { box-shadow: none !important; max-width: 100% !important; margin: 0 !important; }
-          .wage-slip-container * { color: black !important; }
+          body { background: white !important; margin: 0; padding: 0; }
+          * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; color-adjust: exact !important; }
+          .wage-slip-container { box-shadow: none !important; max-width: 100% !important; margin: 0 !important; border-radius: 0 !important; }
         }
-        .slip-table { width: 100%; border-collapse: collapse; font-size: 13px; }
-        .slip-table td, .slip-table th { border: 1px solid #333; padding: 4px 8px; }
-        .slip-label { font-weight: 600; background: #f9f9f9; white-space: nowrap; }
-        @media (prefers-color-scheme: dark) {
-          .slip-label { background: transparent; }
-        }
-        .dark .slip-label { background: transparent; }
-        .slip-val { font-weight: 500; }
+        .ws-table { width: 100%; border-collapse: collapse; font-size: 13px; font-family: 'Inter', 'Segoe UI', Arial, sans-serif; }
+        .ws-table td, .ws-table th { border: 1px solid #90a4ae; padding: 5px 8px; }
       `}</style>
 
       <div className="min-h-screen bg-muted/20 p-4 sm:p-8">
@@ -237,159 +261,167 @@ export default function WageSlip() {
                 Back to Salary Register
               </Button>
             </Link>
-            <Button onClick={() => window.print()} data-testid="button-print-slip">
+            <Button onClick={handlePrint} data-testid="button-print-slip">
               <Printer className="w-4 h-4 mr-2" />
               Print Wage Slip
             </Button>
           </div>
 
-          <div className="wage-slip-container bg-white dark:bg-card border-2 border-black dark:border-border shadow-lg">
-            <table className="slip-table">
+          <div className="wage-slip-container bg-white dark:bg-card border-2 border-indigo-400 dark:border-indigo-700 shadow-2xl rounded-xl overflow-hidden">
+            <table className="ws-table">
               <tbody>
                 <tr>
-                  <td colSpan={8} style={{ textAlign: "center", padding: "8px" }}>
-                    <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: "12px" }}>
-                      <img src={logoPath} alt="DJ Logo" style={{ width: "50px", height: "50px" }} />
+                  <td colSpan={8} style={{ background: C.headerGrad, color: "#fff", textAlign: "center", padding: "14px 8px 10px", border: "none" }}>
+                    <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: "14px" }}>
+                      <img src={logoPath} alt="DJ Logo" style={{ width: "54px", height: "54px", borderRadius: "8px", border: "2px solid rgba(255,255,255,0.4)", background: "#fff", padding: "2px" }} />
                       <div>
-                        <div style={{ fontSize: "16px", fontWeight: "bold" }} data-testid="text-company-header">DJ HOSPITALITY & FACILITY MANAGEMENT PVT LTD</div>
-                        <div style={{ fontSize: "10px" }}>Regd. & Head Office: 730, Tin Made, Sodiem Siolim, Mapusa Bardez, North Goa-403502, India</div>
-                        <div style={{ fontSize: "10px" }}>Branch Office: 7 Crimatorium Street, Kolkata- 700014</div>
+                        <div style={{ fontSize: "17px", fontWeight: 800, letterSpacing: "0.5px", textShadow: "1px 1px 2px rgba(0,0,0,0.3)" }} data-testid="text-company-header">DJ HOSPITALITY & FACILITY MANAGEMENT PVT LTD</div>
+                        <div style={{ fontSize: "10px", opacity: 0.85, marginTop: "2px" }}>Regd. & Head Office: 730, Tin Made, Sodiem Siolim, Mapusa Bardez, North Goa-403502, India</div>
+                        <div style={{ fontSize: "10px", opacity: 0.85 }}>Branch Office: 7 Crimatorium Street, Kolkata- 700014</div>
                       </div>
                     </div>
-                    <div style={{ fontWeight: "bold", fontSize: "14px", marginTop: "4px" }}>Form - XIX Wages Slip</div>
-                    <div style={{ fontSize: "11px" }}>[See rule 78(1)(b)]</div>
+                    <div style={{ marginTop: "8px", fontSize: "15px", fontWeight: 700, letterSpacing: "1px", background: "rgba(255,255,255,0.15)", display: "inline-block", padding: "3px 20px", borderRadius: "4px" }}>
+                      Form - XIX Wages Slip
+                    </div>
+                    <div style={{ fontSize: "10px", opacity: 0.7, marginTop: "2px" }}>[See rule 78(1)(b)]</div>
                   </td>
                 </tr>
 
                 <tr>
-                  <td colSpan={8} style={{ textAlign: "center", padding: "10px", fontSize: "20px", fontWeight: "bold" }} data-testid="text-slip-period">
-                    {MONTHS[salary.month - 1]}-{salary.year}
+                  <td colSpan={8} style={{ background: C.periodGrad, color: "#fff", textAlign: "center", padding: "10px", fontSize: "20px", fontWeight: 800, letterSpacing: "2px", border: "none", textShadow: "1px 1px 3px rgba(0,0,0,0.3)" }} data-testid="text-slip-period">
+                    {MONTHS[salary.month - 1].toUpperCase()} - {salary.year}
                   </td>
                 </tr>
 
                 <tr>
-                  <td className="slip-label" colSpan={2}>Company Name</td>
-                  <td className="slip-val" colSpan={6} data-testid="text-company-name"><strong>{salary.clientName}</strong></td>
+                  <td style={{ background: C.infoLabelBg, color: C.infoLabelColor, fontWeight: 700 }} colSpan={2}>Company Name</td>
+                  <td style={{ fontWeight: 700, fontSize: "14px", color: "#1a237e" }} colSpan={6} data-testid="text-company-name">{salary.clientName}</td>
                 </tr>
                 <tr>
-                  <td className="slip-label" colSpan={2}>Location of work</td>
-                  <td className="slip-val" colSpan={6}>Khidirpur Factory, 1, Transport depot Rd, Goragacha Rood, Kolkata - 700110</td>
+                  <td style={{ background: C.infoLabelBg, color: C.infoLabelColor, fontWeight: 600 }} colSpan={2}>Location of work</td>
+                  <td colSpan={6} style={{ fontSize: "12px" }}>Khidirpur Factory, 1, Transport depot Rd, Goragacha Rood, Kolkata - 700110</td>
                 </tr>
                 <tr>
-                  <td className="slip-label" colSpan={2}>Name:</td>
-                  <td className="slip-val" colSpan={6} style={{ fontSize: "15px", fontWeight: "bold" }} data-testid="text-employee-name">{employee?.name || "-"}</td>
-                </tr>
-
-                <tr>
-                  <td className="slip-label" colSpan={2}>Father's / Husband's :</td>
-                  <td className="slip-val" colSpan={2} data-testid="text-father-name">{employee?.fatherName || "-"}</td>
-                  <td className="slip-label">Skills:</td>
-                  <td className="slip-val" colSpan={3}>{employee?.designation || "Unskilled"}</td>
-                </tr>
-                <tr>
-                  <td className="slip-label" colSpan={2}>Date Of Birth</td>
-                  <td className="slip-val" colSpan={2} data-testid="text-dob">{formatDate(employee?.dob)}</td>
-                  <td className="slip-label">Joining Date :</td>
-                  <td className="slip-val" colSpan={3} data-testid="text-joining-date">{formatDate(employee?.joiningDate)}</td>
-                </tr>
-                <tr>
-                  <td className="slip-label" colSpan={2}>ESIC No.:</td>
-                  <td className="slip-val" colSpan={2} data-testid="text-esic-no">{employee?.esicNo || "-"}</td>
-                  <td className="slip-label">UAN:</td>
-                  <td className="slip-val" colSpan={3} data-testid="text-uan-no">{employee?.uanNo || "-"}</td>
-                </tr>
-                <tr>
-                  <td className="slip-label" colSpan={2}>PF No.:</td>
-                  <td className="slip-val" colSpan={2} data-testid="text-pf-no">{employee?.pfNo || "-"}</td>
-                  <td className="slip-label">Mobile No:</td>
-                  <td className="slip-val" colSpan={3} data-testid="text-mobile">{employee?.mobile || "-"}</td>
+                  <td style={{ background: C.infoLabelBg, color: C.infoLabelColor, fontWeight: 700 }} colSpan={2}>Name:</td>
+                  <td colSpan={6} style={{ fontSize: "16px", fontWeight: 800, color: "#1a237e" }} data-testid="text-employee-name">{employee?.name || "-"}</td>
                 </tr>
 
                 <tr>
-                  <td className="slip-label">Bank Name:</td>
-                  <td className="slip-val" colSpan={3} data-testid="text-bank-name">{employee?.bankName || "-"}</td>
-                  <td className="slip-label">IFSC Code :</td>
-                  <td className="slip-val" colSpan={3} data-testid="text-ifsc">{employee?.ifscCode || "-"}</td>
+                  <td style={{ background: C.infoLabelBg, color: C.infoLabelColor, fontWeight: 600 }} colSpan={2}>Father's / Husband's :</td>
+                  <td colSpan={2} data-testid="text-father-name">{employee?.fatherName || "-"}</td>
+                  <td style={{ background: C.infoLabelBg, color: C.infoLabelColor, fontWeight: 600 }}>Skills:</td>
+                  <td colSpan={3}>{employee?.designation || "Unskilled"}</td>
                 </tr>
                 <tr>
-                  <td className="slip-label">Bank Account No.:</td>
-                  <td className="slip-val" colSpan={3} data-testid="text-account-no">{employee?.accountNo || "-"}</td>
-                  <td className="slip-label">Pay. Date:</td>
-                  <td className="slip-val" colSpan={3} data-testid="text-paid-on">{salary.paidOn ? formatDate(salary.paidOn) : "-"}</td>
-                </tr>
-
-                <tr>
-                  <td className="slip-label">PRS DAYS</td>
-                  <td className="slip-val" style={{ textAlign: "right" }} data-testid="text-prs-days">{prsDays}</td>
-                  <td className="slip-label" colSpan={2}>Basic Rate</td>
-                  <td className="slip-val" style={{ textAlign: "right" }} data-testid="text-basic-rate">{basicRate}</td>
-                  <td className="slip-label" colSpan={2}>ESIC @ 0.75%</td>
-                  <td className="slip-val" style={{ textAlign: "right" }} data-testid="text-esic-ded">{esicDed}</td>
+                  <td style={{ background: C.infoLabelBg, color: C.infoLabelColor, fontWeight: 600 }} colSpan={2}>Date Of Birth</td>
+                  <td colSpan={2} data-testid="text-dob">{formatDate(employee?.dob)}</td>
+                  <td style={{ background: C.infoLabelBg, color: C.infoLabelColor, fontWeight: 600 }}>Joining Date :</td>
+                  <td colSpan={3} data-testid="text-joining-date">{formatDate(employee?.joiningDate)}</td>
                 </tr>
                 <tr>
-                  <td className="slip-label">Half Day</td>
-                  <td className="slip-val" style={{ textAlign: "right" }}>{halfDay}</td>
-                  <td className="slip-label" colSpan={2}>Basic</td>
-                  <td className="slip-val" style={{ textAlign: "right" }} data-testid="text-basic">{basic}</td>
-                  <td className="slip-label" colSpan={2}>P-TAX</td>
-                  <td className="slip-val" style={{ textAlign: "right" }} data-testid="text-ptax">{pTax}</td>
+                  <td style={{ background: "#ede7f6", color: "#4a148c", fontWeight: 600 }} colSpan={2}>ESIC No.:</td>
+                  <td colSpan={2} style={{ fontFamily: "monospace", fontSize: "12px", color: "#4a148c" }} data-testid="text-esic-no">{employee?.esicNo || "-"}</td>
+                  <td style={{ background: "#ede7f6", color: "#4a148c", fontWeight: 600 }}>UAN:</td>
+                  <td colSpan={3} style={{ fontFamily: "monospace", fontSize: "12px", color: "#4a148c" }} data-testid="text-uan-no">{employee?.uanNo || "-"}</td>
                 </tr>
                 <tr>
-                  <td className="slip-label">Extra Work</td>
-                  <td className="slip-val" style={{ textAlign: "right" }}>{extraWork}</td>
-                  <td className="slip-label" colSpan={2}>HRA 5%</td>
-                  <td className="slip-val" style={{ textAlign: "right" }}>{hra5}</td>
-                  <td className="slip-label" colSpan={2}>LWF</td>
-                  <td className="slip-val" style={{ textAlign: "right" }}>{lwf}</td>
-                </tr>
-                <tr>
-                  <td className="slip-label">LEAVE</td>
-                  <td className="slip-val" style={{ textAlign: "right" }}>{leave}</td>
-                  <td className="slip-label" colSpan={2}>Fixed HRA</td>
-                  <td className="slip-val" style={{ textAlign: "right" }}>{fixedHRA}</td>
-                  <td className="slip-label" colSpan={2}>Total Dedu</td>
-                  <td className="slip-val" style={{ textAlign: "right", fontWeight: "bold" }} data-testid="text-total-deductions">{totalDedu}</td>
-                </tr>
-                <tr>
-                  <td className="slip-label">HOLIDAYS</td>
-                  <td className="slip-val" style={{ textAlign: "right" }}>{holidays}</td>
-                  <td className="slip-label" colSpan={2}>OT Allow</td>
-                  <td className="slip-val" style={{ textAlign: "right" }}>{n(salary.overtimeAmount)}</td>
-                  <td className="slip-label" colSpan={2} style={{ fontSize: "11px" }}>Leave Balance {salary.year}</td>
-                  <td className="slip-val" style={{ textAlign: "right" }}>0</td>
-                </tr>
-                <tr>
-                  <td className="slip-label">Paid Days</td>
-                  <td className="slip-val" style={{ textAlign: "right", fontWeight: "bold" }} data-testid="text-paid-days">{paidDays}</td>
-                  <td className="slip-label" colSpan={2}>Total Gross</td>
-                  <td className="slip-val" style={{ textAlign: "right", fontWeight: "bold" }} data-testid="text-total-gross">{totalGross}</td>
-                  <td className="slip-label" colSpan={2} style={{ fontSize: "10px" }}>Leave Encashment Amt. {salary.year}</td>
-                  <td className="slip-val" style={{ textAlign: "right" }}>0</td>
-                </tr>
-                <tr>
-                  <td className="slip-label">OT HRS</td>
-                  <td className="slip-val" style={{ textAlign: "right" }}>{otHrs}</td>
-                  <td className="slip-label" colSpan={2}>PF Deduction @12%</td>
-                  <td className="slip-val" style={{ textAlign: "right" }} data-testid="text-pf-ded">{pfDed}</td>
-                  <td className="slip-label" colSpan={2} style={{ fontWeight: "bold" }}>Net Salary</td>
-                  <td className="slip-val" style={{ textAlign: "right", fontWeight: "bold", fontSize: "15px" }} data-testid="text-net-pay">{netSalary}</td>
+                  <td style={{ background: "#ede7f6", color: "#4a148c", fontWeight: 600 }} colSpan={2}>PF No.:</td>
+                  <td colSpan={2} style={{ fontFamily: "monospace", fontSize: "12px", color: "#4a148c" }} data-testid="text-pf-no">{employee?.pfNo || "-"}</td>
+                  <td style={{ background: "#ede7f6", color: "#4a148c", fontWeight: 600 }}>Mobile No:</td>
+                  <td colSpan={3} data-testid="text-mobile">{employee?.mobile || "-"}</td>
                 </tr>
 
                 <tr>
-                  <td className="slip-label" colSpan={2} style={{ fontWeight: "bold" }}>Net Salary in Word</td>
-                  <td className="slip-val" colSpan={6} style={{ fontWeight: "bold" }} data-testid="text-net-pay-words">
+                  <td style={{ background: "#e0f2f1", color: "#004d40", fontWeight: 600 }}>Bank Name:</td>
+                  <td colSpan={3} style={{ color: "#00695c" }} data-testid="text-bank-name">{employee?.bankName || "-"}</td>
+                  <td style={{ background: "#e0f2f1", color: "#004d40", fontWeight: 600 }}>IFSC Code :</td>
+                  <td colSpan={3} style={{ fontFamily: "monospace", fontSize: "12px", color: "#00695c" }} data-testid="text-ifsc">{employee?.ifscCode || "-"}</td>
+                </tr>
+                <tr>
+                  <td style={{ background: "#e0f2f1", color: "#004d40", fontWeight: 600 }}>Bank Account No.:</td>
+                  <td colSpan={3} style={{ fontFamily: "monospace", fontSize: "12px", color: "#00695c" }} data-testid="text-account-no">{employee?.accountNo || "-"}</td>
+                  <td style={{ background: "#e0f2f1", color: "#004d40", fontWeight: 600 }}>Pay. Date:</td>
+                  <td colSpan={3} data-testid="text-paid-on">{salary.paidOn ? formatDate(salary.paidOn) : "-"}</td>
+                </tr>
+
+                <tr>
+                  <td colSpan={2} style={{ background: C.attLabelBg, color: C.attLabelColor, fontWeight: 800, textAlign: "center", fontSize: "12px", letterSpacing: "1px" }}>ATTENDANCE</td>
+                  <td colSpan={3} style={{ background: C.earnLabelBg, color: C.earnLabelColor, fontWeight: 800, textAlign: "center", fontSize: "12px", letterSpacing: "1px" }}>EARNINGS (₹)</td>
+                  <td colSpan={3} style={{ background: C.dedLabelBg, color: C.dedLabelColor, fontWeight: 800, textAlign: "center", fontSize: "12px", letterSpacing: "1px" }}>DEDUCTIONS (₹)</td>
+                </tr>
+
+                <tr>
+                  <td style={{ background: C.attLabelBg, color: C.attLabelColor, fontWeight: 600 }}>PRS DAYS</td>
+                  <td style={{ textAlign: "right", fontWeight: 700, color: C.attValColor }} data-testid="text-prs-days">{prsDays}</td>
+                  <td style={{ background: C.earnLabelBg, color: C.earnLabelColor, fontWeight: 600 }} colSpan={2}>Basic Rate</td>
+                  <td style={{ textAlign: "right", fontWeight: 700, color: C.earnValColor }} data-testid="text-basic-rate">{basicRate}</td>
+                  <td style={{ background: C.dedLabelBg, color: C.dedLabelColor, fontWeight: 600 }} colSpan={2}>ESIC @ 0.75%</td>
+                  <td style={{ textAlign: "right", fontWeight: 700, color: C.dedValColor }} data-testid="text-esic-ded">{esicDed}</td>
+                </tr>
+                <tr>
+                  <td style={{ background: C.attLabelBg, color: C.attLabelColor, fontWeight: 600 }}>Half Day</td>
+                  <td style={{ textAlign: "right", fontWeight: 700, color: C.attValColor }}>{halfDay}</td>
+                  <td style={{ background: C.earnLabelBg, color: C.earnLabelColor, fontWeight: 600 }} colSpan={2}>Basic</td>
+                  <td style={{ textAlign: "right", fontWeight: 700, color: C.earnValColor }} data-testid="text-basic">{basic}</td>
+                  <td style={{ background: C.dedLabelBg, color: C.dedLabelColor, fontWeight: 600 }} colSpan={2}>P-TAX</td>
+                  <td style={{ textAlign: "right", fontWeight: 700, color: C.dedValColor }} data-testid="text-ptax">{pTax}</td>
+                </tr>
+                <tr>
+                  <td style={{ background: C.attLabelBg, color: C.attLabelColor, fontWeight: 600 }}>Extra Work</td>
+                  <td style={{ textAlign: "right", fontWeight: 700, color: C.attValColor }}>{extraWork}</td>
+                  <td style={{ background: C.earnLabelBg, color: C.earnLabelColor, fontWeight: 600 }} colSpan={2}>HRA 5%</td>
+                  <td style={{ textAlign: "right", fontWeight: 700, color: C.earnValColor }}>{hra5}</td>
+                  <td style={{ background: C.dedLabelBg, color: C.dedLabelColor, fontWeight: 600 }} colSpan={2}>LWF</td>
+                  <td style={{ textAlign: "right", fontWeight: 700, color: C.dedValColor }}>{lwf}</td>
+                </tr>
+                <tr>
+                  <td style={{ background: C.attLabelBg, color: C.attLabelColor, fontWeight: 600 }}>LEAVE</td>
+                  <td style={{ textAlign: "right", fontWeight: 700, color: C.attValColor }}>{leave}</td>
+                  <td style={{ background: C.earnLabelBg, color: C.earnLabelColor, fontWeight: 600 }} colSpan={2}>Fixed HRA</td>
+                  <td style={{ textAlign: "right", fontWeight: 700, color: C.earnValColor }}>{fixedHRA}</td>
+                  <td style={{ background: C.dedLabelBg, color: C.dedLabelColor, fontWeight: 600, fontSize: "11px" }} colSpan={2}>Total Dedu</td>
+                  <td style={{ textAlign: "right", fontWeight: 800, color: "#fff", background: "#c62828", fontSize: "14px" }} data-testid="text-total-deductions">{totalDedu}</td>
+                </tr>
+                <tr>
+                  <td style={{ background: C.attLabelBg, color: C.attLabelColor, fontWeight: 600 }}>HOLIDAYS</td>
+                  <td style={{ textAlign: "right", fontWeight: 700, color: C.attValColor }}>{holidays}</td>
+                  <td style={{ background: C.earnLabelBg, color: C.earnLabelColor, fontWeight: 600 }} colSpan={2}>OT Allow</td>
+                  <td style={{ textAlign: "right", fontWeight: 700, color: C.earnValColor }}>{n(salary.overtimeAmount)}</td>
+                  <td style={{ background: "#fff8e1", color: "#e65100", fontWeight: 600, fontSize: "11px" }} colSpan={2}>Leave Balance {salary.year}</td>
+                  <td style={{ textAlign: "right", fontWeight: 700, color: "#e65100" }}>0</td>
+                </tr>
+                <tr>
+                  <td style={{ background: C.attLabelBg, color: C.attLabelColor, fontWeight: 700 }}>Paid Days</td>
+                  <td style={{ textAlign: "right", fontWeight: 800, color: "#fff", background: "#0d47a1", fontSize: "14px" }} data-testid="text-paid-days">{paidDays}</td>
+                  <td style={{ background: C.earnLabelBg, color: C.earnLabelColor, fontWeight: 700 }} colSpan={2}>Total Gross</td>
+                  <td style={{ textAlign: "right", fontWeight: 800, color: "#fff", background: "#2e7d32", fontSize: "14px" }} data-testid="text-total-gross">{totalGross}</td>
+                  <td style={{ background: "#fff8e1", color: "#e65100", fontWeight: 600, fontSize: "10px" }} colSpan={2}>Leave Encashment Amt. {salary.year}</td>
+                  <td style={{ textAlign: "right", fontWeight: 700, color: "#e65100" }}>0</td>
+                </tr>
+                <tr>
+                  <td style={{ background: C.attLabelBg, color: C.attLabelColor, fontWeight: 600 }}>OT HRS</td>
+                  <td style={{ textAlign: "right", fontWeight: 700, color: C.attValColor }}>{otHrs}</td>
+                  <td style={{ background: C.earnLabelBg, color: C.earnLabelColor, fontWeight: 600 }} colSpan={2}>PF Deduction @12%</td>
+                  <td style={{ textAlign: "right", fontWeight: 700, color: C.dedValColor }} data-testid="text-pf-ded">{pfDed}</td>
+                  <td style={{ background: C.netBg, color: C.netColor, fontWeight: 800, fontSize: "13px", letterSpacing: "1px" }} colSpan={2}>NET SALARY</td>
+                  <td style={{ background: C.netBg, color: C.netColor, textAlign: "right", fontWeight: 900, fontSize: "18px", letterSpacing: "0.5px", textShadow: "1px 1px 2px rgba(0,0,0,0.3)" }} data-testid="text-net-pay">₹{netSalary.toLocaleString("en-IN")}</td>
+                </tr>
+
+                <tr>
+                  <td style={{ background: C.wordsBg, color: C.wordsColor, fontWeight: 700 }} colSpan={2}>Net Salary in Words</td>
+                  <td style={{ background: C.wordsBg, color: C.wordsColor, fontWeight: 700, fontStyle: "italic", fontSize: "13px" }} colSpan={6} data-testid="text-net-pay-words">
                     {numberToWords(netSalary)}
                   </td>
                 </tr>
 
                 <tr>
-                  <td colSpan={8} style={{ height: "60px", verticalAlign: "bottom", padding: "8px" }}>
+                  <td colSpan={8} style={{ height: "70px", verticalAlign: "bottom", padding: "10px 16px", background: C.sigBg }}>
                     <div style={{ display: "flex", justifyContent: "space-between" }}>
                       <div style={{ textAlign: "center" }}>
-                        <div style={{ borderTop: "1px solid #333", paddingTop: "4px", minWidth: "180px" }}>Prepared By Signature</div>
+                        <div style={{ borderTop: "2px solid #283593", paddingTop: "6px", minWidth: "180px", fontSize: "11px", fontWeight: 600, color: "#283593" }}>Prepared By Signature</div>
                       </div>
                       <div style={{ textAlign: "center" }}>
-                        <div style={{ borderTop: "1px solid #333", paddingTop: "4px", minWidth: "180px" }}>Approved By Signature and Stamp</div>
+                        <div style={{ borderTop: "2px solid #283593", paddingTop: "6px", minWidth: "180px", fontSize: "11px", fontWeight: 600, color: "#283593" }}>Approved By Signature and Stamp</div>
                       </div>
                     </div>
                   </td>
