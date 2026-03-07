@@ -307,41 +307,41 @@ export default function WageSlip() {
                 </tr>
 
                 <tr>
-                  <td style={{ background: C.infoLabelBg, color: C.infoLabelColor, fontWeight: 600, textAlign: "right" }} colSpan={2}>Father's / Husband's :</td>
+                  <td style={{ background: C.infoLabelBg, color: C.infoLabelColor, fontWeight: 600, whiteSpace: "nowrap" }} colSpan={2}>Father's / Husband's :</td>
                   <td colSpan={2} data-testid="text-father-name">{employee?.fatherName || "-"}</td>
-                  <td style={{ background: C.infoLabelBg, color: C.infoLabelColor, fontWeight: 600, textAlign: "right" }} colSpan={2}>Skills:</td>
-                  <td colSpan={2}>{employee?.designation || "Unskilled"}</td>
+                  <td style={{ background: C.infoLabelBg, color: C.infoLabelColor, fontWeight: 600, whiteSpace: "nowrap" }}>Skills:</td>
+                  <td colSpan={3}>{employee?.designation || "Unskilled"}</td>
                 </tr>
                 <tr>
-                  <td style={{ background: C.infoLabelBg, color: C.infoLabelColor, fontWeight: 600, textAlign: "right" }} colSpan={2}>Date Of Birth</td>
+                  <td style={{ background: C.infoLabelBg, color: C.infoLabelColor, fontWeight: 600, whiteSpace: "nowrap" }} colSpan={2}>Date Of Birth</td>
                   <td colSpan={2} data-testid="text-dob">{formatDate(employee?.dob)}</td>
-                  <td style={{ background: C.infoLabelBg, color: C.infoLabelColor, fontWeight: 600, textAlign: "right" }} colSpan={2}>Joining Date :</td>
-                  <td colSpan={2} data-testid="text-joining-date">{formatDate(employee?.joiningDate)}</td>
+                  <td style={{ background: C.infoLabelBg, color: C.infoLabelColor, fontWeight: 600, whiteSpace: "nowrap" }}>Joining Date :</td>
+                  <td colSpan={3} data-testid="text-joining-date">{formatDate(employee?.joiningDate)}</td>
                 </tr>
                 <tr>
-                  <td style={{ background: "#ede7f6", color: "#4a148c", fontWeight: 600, textAlign: "right" }} colSpan={2}>ESIC No.:</td>
+                  <td style={{ background: "#ede7f6", color: "#4a148c", fontWeight: 600, whiteSpace: "nowrap" }} colSpan={2}>ESIC No.:</td>
                   <td colSpan={2} style={{ fontFamily: "monospace", fontSize: "12px", color: "#4a148c" }} data-testid="text-esic-no">{employee?.esicNo || "-"}</td>
-                  <td style={{ background: "#ede7f6", color: "#4a148c", fontWeight: 600, textAlign: "right" }} colSpan={2}>UAN:</td>
-                  <td colSpan={2} style={{ fontFamily: "monospace", fontSize: "12px", color: "#4a148c" }} data-testid="text-uan-no">{employee?.uanNo || "-"}</td>
+                  <td style={{ background: "#ede7f6", color: "#4a148c", fontWeight: 600, whiteSpace: "nowrap" }}>UAN:</td>
+                  <td colSpan={3} style={{ fontFamily: "monospace", fontSize: "12px", color: "#4a148c" }} data-testid="text-uan-no">{employee?.uanNo || "-"}</td>
                 </tr>
                 <tr>
-                  <td style={{ background: "#ede7f6", color: "#4a148c", fontWeight: 600, textAlign: "right" }} colSpan={2}>PF No.:</td>
+                  <td style={{ background: "#ede7f6", color: "#4a148c", fontWeight: 600, whiteSpace: "nowrap" }} colSpan={2}>PF No.:</td>
                   <td colSpan={2} style={{ fontFamily: "monospace", fontSize: "12px", color: "#4a148c" }} data-testid="text-pf-no">{employee?.pfNo || "-"}</td>
-                  <td style={{ background: "#ede7f6", color: "#4a148c", fontWeight: 600, textAlign: "right" }} colSpan={2}>Mobile No:</td>
-                  <td colSpan={2} data-testid="text-mobile">{employee?.mobile || "-"}</td>
+                  <td style={{ background: "#ede7f6", color: "#4a148c", fontWeight: 600, whiteSpace: "nowrap" }}>Mobile No:</td>
+                  <td colSpan={3} data-testid="text-mobile">{employee?.mobile || "-"}</td>
                 </tr>
 
                 <tr>
-                  <td style={{ background: "#e0f2f1", color: "#004d40", fontWeight: 600, textAlign: "right" }} colSpan={2}>Bank Name:</td>
+                  <td style={{ background: "#e0f2f1", color: "#004d40", fontWeight: 600, whiteSpace: "nowrap" }} colSpan={2}>Bank Name:</td>
                   <td colSpan={2} style={{ color: "#00695c" }} data-testid="text-bank-name">{employee?.bankName || "-"}</td>
-                  <td style={{ background: "#e0f2f1", color: "#004d40", fontWeight: 600, textAlign: "right" }} colSpan={2}>IFSC Code :</td>
-                  <td colSpan={2} style={{ fontFamily: "monospace", fontSize: "12px", color: "#00695c" }} data-testid="text-ifsc">{employee?.ifscCode || "-"}</td>
+                  <td style={{ background: "#e0f2f1", color: "#004d40", fontWeight: 600, whiteSpace: "nowrap" }}>IFSC Code :</td>
+                  <td colSpan={3} style={{ fontFamily: "monospace", fontSize: "12px", color: "#00695c" }} data-testid="text-ifsc">{employee?.ifscCode || "-"}</td>
                 </tr>
                 <tr>
-                  <td style={{ background: "#e0f2f1", color: "#004d40", fontWeight: 600, textAlign: "right" }} colSpan={2}>Bank Account No.:</td>
+                  <td style={{ background: "#e0f2f1", color: "#004d40", fontWeight: 600, whiteSpace: "nowrap" }} colSpan={2}>Bank Account No.:</td>
                   <td colSpan={2} style={{ fontFamily: "monospace", fontSize: "12px", color: "#00695c" }} data-testid="text-account-no">{employee?.accountNo || "-"}</td>
-                  <td style={{ background: "#e0f2f1", color: "#004d40", fontWeight: 600, textAlign: "right" }} colSpan={2}>Pay. Date:</td>
-                  <td colSpan={2} data-testid="text-paid-on">{salary.paidOn ? formatDate(salary.paidOn) : "-"}</td>
+                  <td style={{ background: "#e0f2f1", color: "#004d40", fontWeight: 600, whiteSpace: "nowrap" }}>Pay. Date:</td>
+                  <td colSpan={3} data-testid="text-paid-on">{salary.paidOn ? formatDate(salary.paidOn) : "-"}</td>
                 </tr>
 
                 <tr>
