@@ -92,26 +92,31 @@ export default function BonusReturn() {
   const totalBonus = bonusRows.reduce((s, r) => s + r.netAmount, 0);
 
   const handlePrint = () => {
+    const printArea = document.getElementById('bonus-print-area');
+    if (!printArea) return;
     const prevTitle = document.title;
     document.title = `Form C - Bonus Return - ${selectedClient} - FY ${fyStart}-${fyEnd}`;
-    const style = document.createElement("style");
-    style.id = "bonus-print";
-    style.textContent = `
-      @media print {
+
+    const printWindow = window.open('', '_blank');
+    if (!printWindow) { document.title = prevTitle; return; }
+
+    printWindow.document.write(`<!DOCTYPE html><html><head><title>${document.title}</title>
+      <style>
         @page portrait-page { size: A4 portrait; margin: 20mm; }
         @page landscape-page { size: A4 landscape; margin: 8mm; }
-        body * { display: none !important; }
-        #bonus-print-area { display: block !important; position: static !important; }
-        #bonus-print-area * { visibility: visible !important; }
-        .no-print { display: none !important; }
-        .cover-letter-page { page: portrait-page; break-after: page; display: block !important; }
-        .form-c-page { page: landscape-page; break-before: page; display: block !important; }
-        .form-c-page table { width: 100%; table-layout: auto; }
-      }
-    `;
-    document.head.appendChild(style);
-    window.print();
-    setTimeout(() => { style.remove(); document.title = prevTitle; }, 500);
+        body { margin: 0; padding: 0; font-family: Arial, sans-serif; }
+        .cover-letter-page { page: portrait-page; break-after: page; }
+        .form-c-page { page: landscape-page; break-before: page; }
+        .form-c-page table { width: 100%; table-layout: auto; font-size: 9px; border-collapse: collapse; }
+        p { margin: 4px 0; }
+      </style>
+    </head><body>${printArea.innerHTML}</body></html>`);
+    printWindow.document.close();
+    printWindow.onload = () => {
+      printWindow.print();
+      printWindow.onafterprint = () => printWindow.close();
+    };
+    document.title = prevTitle;
   };
 
   const handleExportExcel = async () => {
