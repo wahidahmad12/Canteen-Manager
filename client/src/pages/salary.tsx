@@ -659,9 +659,9 @@ export default function SalaryRegister() {
             <th rowspan="2" style="width:50px">Total</th>
             <th colspan="4">DEDUCTIONS</th>
             <th rowspan="2" style="width:55px">Net<br/>Amount<br/>Paid</th>
-            <th rowspan="3" style="width:80px">Signature /Thumb-impression of<br/>Workman</th>
-            <th rowspan="3" style="width:70px">Initials of contractor or<br/>his representative</th>
-            <th rowspan="3" style="width:55px">E.P.F.<br/>Differenc<br/>e<br/>between<br/>10%,<br/>12% &amp; 8<br/>1/3 % (if<br/>Any)</th>
+            <th rowspan="3" style="width:70px">Signature /<br/>Thumb-impression<br/>of Workman</th>
+            <th rowspan="3" style="width:60px">Initials of<br/>contractor or<br/>his representative</th>
+            <th rowspan="3" style="width:50px">E.P.F.<br/>Diff.<br/>12%</th>
           </tr>
           <tr>
             <th>Paid<br/>Days</th>
