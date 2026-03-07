@@ -288,7 +288,7 @@ export default function EmployeeDashboard() {
             <td style="background:${C.earnLabelBg};color:${C.earnLabelColor};font-weight:600;border:${b};${cp}" colspan="2">HRA 5%</td>
             <td style="text-align:right;font-weight:700;color:${C.earnValColor};border:${b};${cp}">${Math.round(basic * 0.05)}</td>
             <td style="background:${C.dedLabelBg};color:${C.dedLabelColor};font-weight:600;border:${b};${cp}" colspan="2">LWF</td>
-            <td style="text-align:right;font-weight:700;color:${C.dedValColor};border:${b};${cp}">0</td>
+            <td style="text-align:right;font-weight:700;color:${C.dedValColor};border:${b};${cp}">${nv(salary.lwf)}</td>
           </tr>
           <tr>
             <td style="background:${C.attLabelBg};color:${C.attLabelColor};font-weight:600;border:${b};${cp}">HOLIDAYS</td>

@@ -259,6 +259,7 @@ export const salaryRecords = pgTable("salary_records", {
   professionalTax: numeric("professional_tax", { precision: 12, scale: 2 }).default("0"),
   advanceDeduction: numeric("advance_deduction", { precision: 12, scale: 2 }).default("0"),
   fineDeduction: numeric("fine_deduction", { precision: 12, scale: 2 }).default("0"),
+  lwf: numeric("lwf", { precision: 12, scale: 2 }).default("0"),
   otherDeduction: numeric("other_deduction", { precision: 12, scale: 2 }).default("0"),
   totalDeduction: numeric("total_deduction", { precision: 12, scale: 2 }).default("0"),
   netPay: numeric("net_pay", { precision: 12, scale: 2 }).default("0"),

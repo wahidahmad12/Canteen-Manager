@@ -137,7 +137,7 @@ function buildSlipHTML(salary: SalaryRecord, employee: Employee | undefined, att
   const pfDed = n(salary.pfDeduction);
   const esicDed = n(salary.esicDeduction);
   const pTax = n(salary.professionalTax);
-  const lwf = n(salary.otherDeduction);
+  const lwf = n(salary.lwf);
   const totalDedu = n(salary.totalDeduction);
   const netSalary = n(salary.netPay);
   const otHrs = n(salary.overtimeHours);
@@ -436,7 +436,7 @@ export default function SalaryRegister() {
     const pfDed = n(s.pfDeduction);
     const esicDed = n(s.esicDeduction);
     const pTax = n(s.professionalTax);
-    const lwf = n(s.otherDeduction);
+    const lwf = n(s.lwf);
     const totalDedu = n(s.totalDeduction);
     const netSalary = n(s.netPay);
     const advance = n(s.advanceDeduction);

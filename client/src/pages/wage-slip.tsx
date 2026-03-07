@@ -181,7 +181,7 @@ export default function WageSlip() {
   const pfDed = n(salary.pfDeduction);
   const esicDed = n(salary.esicDeduction);
   const pTax = n(salary.professionalTax);
-  const lwf = n(salary.otherDeduction);
+  const lwf = n(salary.lwf);
   const totalDedu = n(salary.totalDeduction);
   const netSalary = n(salary.netPay);
   const otHrs = n(salary.overtimeHours);
