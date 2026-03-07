@@ -99,10 +99,12 @@ export default function BonusReturn() {
     style.textContent = `
       @media print {
         @page { size: A3 landscape; margin: 8mm; }
+        @page:first { size: A4 portrait; margin: 20mm; }
         body * { visibility: hidden !important; }
         #bonus-print-area, #bonus-print-area * { visibility: visible !important; }
-        #bonus-print-area { position: fixed; top: 0; left: 0; width: 100%; }
+        #bonus-print-area { position: absolute; top: 0; left: 0; width: 100%; }
         .no-print { display: none !important; }
+        .cover-letter-page { page-break-after: always; }
       }
     `;
     document.head.appendChild(style);
@@ -470,7 +472,7 @@ export default function BonusReturn() {
                 </div>
 
                 <div id="bonus-print-area" className="hidden print:block">
-                  <div style={{ fontFamily: "Georgia, 'Times New Roman', serif", fontSize: "12px", lineHeight: 1.6, marginBottom: "30px", pageBreakAfter: "always" }}>
+                  <div className="cover-letter-page" style={{ fontFamily: "Georgia, 'Times New Roman', serif", fontSize: "14px", lineHeight: 1.8 }}>
                     <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "20px" }}>
                       <div style={{ fontWeight: 600 }}>Ref. {refNumber || '___________'}</div>
                       <div>Date: {letterDate ? letterDate.split('-').reverse().join('-') : '___/___/______'}</div>
