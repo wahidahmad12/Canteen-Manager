@@ -141,6 +141,132 @@ function FinesTab({ clientName, employees, empMap, filterMonth, filterYear }: { 
     printWin.print();
   };
 
+  const handleGovPrint = () => {
+    const printWin = window.open("", "_blank");
+    if (!printWin) return;
+
+    const empFullMap = new Map<number, any>();
+    employees.forEach((e: any) => empFullMap.set(e.id, e));
+
+    const period = filterMonth && filterMonth !== "all" && filterYear ? `${MONTHS[parseInt(filterMonth) - 1]} ${filterYear}` : filterYear ? filterYear : "";
+
+    const formatDate = (d: string) => {
+      if (!d) return "";
+      const dt = new Date(d);
+      const dd = String(dt.getDate()).padStart(2, "0");
+      const mm = String(dt.getMonth() + 1).padStart(2, "0");
+      return `${dd}-${mm}-${dt.getFullYear()}`;
+    };
+
+    const rows = filtered.map((f: any, i: number) => {
+      const emp = empFullMap.get(f.employeeId);
+      return `<tr>
+        <td>${i + 1}</td>
+        <td style="text-align:left;white-space:nowrap">${emp?.name || ""}</td>
+        <td style="text-align:left;white-space:nowrap">${emp?.fatherName || ""}</td>
+        <td style="text-align:left;white-space:nowrap">${emp?.designation || ""}</td>
+        <td style="text-align:left">${f.reason || ""}</td>
+        <td>${formatDate(f.date)}</td>
+        <td></td>
+        <td></td>
+        <td></td>
+        <td style="text-align:right">${fmt(f.amount)}</td>
+        <td>${f.realized || ""}</td>
+        <td></td>
+      </tr>`;
+    }).join("");
+
+    const monthNum = filterMonth && filterMonth !== "all" ? parseInt(filterMonth) : null;
+    const periodDisplay = monthNum && filterYear ? `${MONTHS[monthNum - 1]} ${filterYear} (${monthNum})` : period;
+
+    printWin.document.write(`<html><head><title>Form XXI - Register of Fines</title>
+    <style>
+      @page { size: landscape; margin: 10mm; }
+      * { margin: 0; padding: 0; box-sizing: border-box; }
+      body { font-family: Arial, sans-serif; font-size: 10px; padding: 10px; }
+      .header-title { text-align: left; font-size: 11px; font-weight: bold; margin-bottom: 2px; }
+      .header-main { text-align: center; font-size: 16px; font-weight: bold; margin-bottom: 2px; }
+      .header-rule { text-align: center; font-size: 9px; margin-bottom: 8px; }
+      .info-table { width: 100%; border-collapse: collapse; margin-bottom: 6px; font-size: 10px; }
+      .info-table td { padding: 2px 6px; vertical-align: top; }
+      .info-label { font-weight: bold; white-space: nowrap; }
+      .period-label { font-size: 14px; font-weight: bold; }
+      table.main { width: 100%; border-collapse: collapse; font-size: 9px; table-layout: auto; }
+      table.main th, table.main td { border: 1px solid #000; padding: 4px 6px; text-align: center; vertical-align: middle; height: 28px; }
+      table.main th { background: #f0f0f0; font-weight: bold; font-size: 8px; }
+      table.main td { font-size: 9px; }
+      .col-num-row th { font-size: 8px; font-weight: normal; font-style: italic; }
+      .footnote { font-size: 8px; margin-top: 12px; font-style: italic; }
+    </style></head><body>
+      <div class="header-title">FORM XXI</div>
+      <div class="header-main">Register of Fines</div>
+      <div class="header-rule">1[See rule 78 (1) a) (ii)]</div>
+
+      <table class="info-table">
+        <tr>
+          <td class="info-label" style="width:22%">Name and Address of the Contractor</td>
+          <td style="width:28%">DJ HOSPITALITY &amp; FACILITY MANAGEMENT PVT LTD</td>
+          <td class="info-label" style="width:22%">Name and address of the establishment in /</td>
+          <td style="width:28%">${clientName}</td>
+        </tr>
+        <tr>
+          <td></td>
+          <td>7 Crimatorium Street, Kolkata- 700014</td>
+          <td class="info-label">Under which contract is carried on</td>
+          <td></td>
+        </tr>
+        <tr>
+          <td class="info-label">Nature and location of Work</td>
+          <td>Canteen</td>
+          <td class="info-label">Name and address of the Principal Employer</td>
+          <td>${clientName}</td>
+        </tr>
+        <tr>
+          <td></td>
+          <td></td>
+          <td></td>
+          <td></td>
+        </tr>
+        <tr>
+          <td></td>
+          <td></td>
+          <td class="info-label">For The Month of</td>
+          <td class="period-label">${periodDisplay}</td>
+        </tr>
+      </table>
+
+      <table class="main">
+        <thead>
+          <tr>
+            <th>Sl. No.</th>
+            <th>Name of<br/>workmen</th>
+            <th>Father's /<br/>Husband's name</th>
+            <th>Designation /<br/>Nature of<br/>employment</th>
+            <th>Act/Omission for<br/>which fine imposed</th>
+            <th>Date of<br/>offence</th>
+            <th>Whether workmen<br/>showed against fine</th>
+            <th>Name of person in whose<br/>presence employer's<br/>explanation was heard</th>
+            <th>Wage period and<br/>wages payable</th>
+            <th>Amount of<br/>fine imposed</th>
+            <th>Date on which<br/>fine realised</th>
+            <th>Remarks</th>
+          </tr>
+          <tr class="col-num-row">
+            <th>1</th><th>2</th><th>3</th><th>4</th><th>5</th><th>6</th>
+            <th>7</th><th>8</th><th>9</th><th>10</th><th>11</th><th>12</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${rows || '<tr><td colspan="12" style="padding:20px;text-align:center">No fines recorded</td></tr>'}
+        </tbody>
+      </table>
+
+      <div class="footnote">* Substituted for the brackets, words, figures and letter "[See Rule 78(2) (d)]" by GSR948 dated 12-7-1978, w.e.f. 22-7-1978.</div>
+    </body></html>`);
+    printWin.document.close();
+    printWin.print();
+  };
+
   if (isLoading) return <div className="flex justify-center py-10"><Loader2 className="w-6 h-6 animate-spin" /></div>;
 
   return (
@@ -150,6 +276,9 @@ function FinesTab({ clientName, employees, empMap, filterMonth, filterYear }: { 
         <div className="flex gap-2">
           <Button variant="outline" size="sm" onClick={handlePrint} data-testid="button-print-fines" disabled={!filtered.length}>
             <Printer className="w-4 h-4 mr-1" /> Print
+          </Button>
+          <Button variant="outline" size="sm" onClick={handleGovPrint} data-testid="button-gov-print-fines" disabled={!filtered.length}>
+            <Printer className="w-4 h-4 mr-1" /> Form XXI Print
           </Button>
           <Dialog open={open} onOpenChange={setOpen}>
             <DialogTrigger asChild>
