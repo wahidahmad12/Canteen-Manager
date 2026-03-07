@@ -332,14 +332,14 @@ export default function WageSlip() {
                 </tr>
 
                 <tr>
-                  <td style={{ background: "#e0f2f1", color: "#004d40", fontWeight: 600 }}>Bank Name:</td>
-                  <td colSpan={3} style={{ color: "#00695c" }} data-testid="text-bank-name">{employee?.bankName || "-"}</td>
+                  <td style={{ background: "#e0f2f1", color: "#004d40", fontWeight: 600 }} colSpan={2}>Bank Name:</td>
+                  <td colSpan={2} style={{ color: "#00695c" }} data-testid="text-bank-name">{employee?.bankName || "-"}</td>
                   <td style={{ background: "#e0f2f1", color: "#004d40", fontWeight: 600 }}>IFSC Code :</td>
                   <td colSpan={3} style={{ fontFamily: "monospace", fontSize: "12px", color: "#00695c" }} data-testid="text-ifsc">{employee?.ifscCode || "-"}</td>
                 </tr>
                 <tr>
-                  <td style={{ background: "#e0f2f1", color: "#004d40", fontWeight: 600 }}>Bank Account No.:</td>
-                  <td colSpan={3} style={{ fontFamily: "monospace", fontSize: "12px", color: "#00695c" }} data-testid="text-account-no">{employee?.accountNo || "-"}</td>
+                  <td style={{ background: "#e0f2f1", color: "#004d40", fontWeight: 600 }} colSpan={2}>Bank Account No.:</td>
+                  <td colSpan={2} style={{ fontFamily: "monospace", fontSize: "12px", color: "#00695c" }} data-testid="text-account-no">{employee?.accountNo || "-"}</td>
                   <td style={{ background: "#e0f2f1", color: "#004d40", fontWeight: 600 }}>Pay. Date:</td>
                   <td colSpan={3} data-testid="text-paid-on">{salary.paidOn ? formatDate(salary.paidOn) : "-"}</td>
                 </tr>
