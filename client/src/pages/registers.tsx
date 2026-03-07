@@ -819,6 +819,21 @@ function OvertimeTab({ clientName, employees, empMap, filterMonth, filterYear }:
   const handlePrint = () => {
     const printWin = window.open("", "_blank");
     if (!printWin) return;
+    const rows = filtered.map((o: any, i: number) => `
+      <tr><td>${i + 1}</td><td>${empMap.get(o.employeeId) || o.employeeId}</td><td>${o.date}</td><td>${o.normalHours || ""}</td><td>${o.overtimeHours || ""}</td><td>${o.overtimeRate ? fmt(o.overtimeRate) : ""}</td><td>${o.overtimeAmount ? fmt(o.overtimeAmount) : ""}</td></tr>
+    `).join("");
+    const period = filterMonth && filterMonth !== "all" && filterYear ? ` - ${MONTHS[parseInt(filterMonth) - 1]} ${filterYear}` : filterYear ? ` - ${filterYear}` : "";
+    printWin.document.write(`<html><head><title>Form XXIII - Overtime</title><style>body{font-family:sans-serif;padding:20px}table{width:100%;border-collapse:collapse}th,td{border:1px solid #ccc;padding:6px 10px;text-align:left;font-size:13px}th{background:#f5f5f5}</style></head><body>
+      <h2>Register of Overtime (Form XXIII) - ${clientName}${period}</h2>
+      <table><thead><tr><th>#</th><th>Employee</th><th>Date</th><th>Normal Hrs</th><th>OT Hrs</th><th>OT Rate</th><th>OT Amount</th></tr></thead><tbody>${rows}</tbody></table>
+    </body></html>`);
+    printWin.document.close();
+    printWin.print();
+  };
+
+  const handleGovPrint = () => {
+    const printWin = window.open("", "_blank");
+    if (!printWin) return;
 
     const empFullMap = new Map<number, any>();
     employees.forEach((e: any) => empFullMap.set(e.id, e));
@@ -878,8 +893,9 @@ function OvertimeTab({ clientName, employees, empMap, filterMonth, filterYear }:
       .info-table td { padding: 2px 6px; vertical-align: top; }
       .info-label { font-weight: bold; white-space: nowrap; }
       .info-val { font-weight: normal; }
+      .period-label { font-size: 14px; font-weight: bold; }
       table.main { width: 100%; border-collapse: collapse; font-size: 9px; }
-      table.main th, table.main td { border: 1px solid #000; padding: 3px 4px; text-align: center; vertical-align: middle; }
+      table.main th, table.main td { border: 1px solid #000; padding: 3px 4px; text-align: center; vertical-align: middle; height: 28px; }
       table.main th { background: #f0f0f0; font-weight: bold; font-size: 8px; }
       table.main td { font-size: 9px; }
       .col-num-row th { font-size: 8px; font-weight: normal; font-style: italic; }
@@ -893,8 +909,14 @@ function OvertimeTab({ clientName, employees, empMap, filterMonth, filterYear }:
         <tr>
           <td class="info-label" style="width:22%">Name and Address of the Contractor</td>
           <td class="info-val" style="width:28%">DJ HOSPITALITY &amp; FACILITY MANAGEMENT PVT LTD<br/>7 Crimatorium Street, Kolkata- 700014</td>
-          <td class="info-label" style="width:22%">Name and address of the establishment in /<br/>Under which contract is carried on</td>
+          <td class="info-label" style="width:22%">Name and address of the establishment in /</td>
           <td class="info-val" style="width:28%">${clientName}</td>
+        </tr>
+        <tr>
+          <td></td>
+          <td></td>
+          <td class="info-label">Under which contract is carried on</td>
+          <td></td>
         </tr>
         <tr>
           <td class="info-label">Nature and location of Work</td>
@@ -902,25 +924,35 @@ function OvertimeTab({ clientName, employees, empMap, filterMonth, filterYear }:
           <td class="info-label">Name and address of the Principal Employer</td>
           <td class="info-val">${clientName}</td>
         </tr>
+        <tr>
+          <td></td>
+          <td></td>
+          <td></td>
+          <td class="info-val">JL No. 284 (Kendua Panchayat) Howrah</td>
+        </tr>
+        <tr>
+          <td></td>
+          <td></td>
+          <td class="info-label">For The Month of</td>
+          <td class="period-label">${period}</td>
+        </tr>
       </table>
-
-      ${period ? `<div style="text-align:center;font-weight:bold;font-size:11px;margin-bottom:6px;">Period: ${period}</div>` : ""}
 
       <table class="main">
         <thead>
           <tr>
-            <th rowspan="2" style="width:35px">Serial<br/>No</th>
-            <th rowspan="2" style="min-width:110px">Name of the<br/>Workman</th>
-            <th rowspan="2" style="min-width:110px">Father's /<br/>Husband's Name</th>
-            <th rowspan="2" style="width:30px">Sex</th>
-            <th rowspan="2" style="min-width:80px">Designation/<br/>Nature of<br/>Employ-<br/>ment</th>
-            <th rowspan="2" style="width:65px">Date on Which<br/>Overtime<br/>Worked</th>
-            <th rowspan="2" style="width:60px">Total Overtime<br/>Worked or<br/>Production in<br/>case of<br/>Piecerated</th>
+            <th rowspan="2">Serial<br/>No</th>
+            <th rowspan="2">Name of the<br/>Workman</th>
+            <th rowspan="2">Father's /<br/>Husband's Name</th>
+            <th rowspan="2">Sex</th>
+            <th rowspan="2">Designation/<br/>Nature of<br/>Employment</th>
+            <th rowspan="2">Date on Which<br/>Overtime<br/>Worked</th>
+            <th rowspan="2">Total Overtime<br/>Worked or<br/>Production in<br/>case of<br/>Piecerated</th>
             <th colspan="2">Normal Rate of<br/>Wages</th>
             <th colspan="2">Overtime Rate of<br/>Wages</th>
             <th colspan="2">Overtime Earnings</th>
-            <th rowspan="2" style="width:70px">Date on which<br/>overtime wages<br/>paid</th>
-            <th rowspan="2" style="width:50px">Remarks</th>
+            <th rowspan="2">Date on which<br/>overtime wages<br/>paid</th>
+            <th rowspan="2">Remarks</th>
           </tr>
           <tr>
             <th>Rs.</th><th>P.</th>
@@ -933,7 +965,7 @@ function OvertimeTab({ clientName, employees, empMap, filterMonth, filterYear }:
           </tr>
         </thead>
         <tbody>
-          ${rows || Array.from({length: 8}, () => `<tr>${Array.from({length: 12}, () => '<td style="height:28px">&nbsp;</td>').join('')}</tr>`).join('')}
+          ${rows || Array.from({length: 8}, () => `<tr>${Array.from({length: 15}, () => '<td style="height:28px">&nbsp;</td>').join('')}</tr>`).join('')}
         </tbody>
       </table>
     </body></html>`);
@@ -948,8 +980,11 @@ function OvertimeTab({ clientName, employees, empMap, filterMonth, filterYear }:
       <div className="flex items-center justify-between gap-2 flex-wrap">
         <h3 className="text-sm font-semibold text-muted-foreground" data-testid="text-overtime-title">Form XXIII - Register of Overtime</h3>
         <div className="flex gap-2">
-          <Button variant="outline" size="sm" onClick={handlePrint} data-testid="button-print-overtime">
+          <Button variant="outline" size="sm" onClick={handlePrint} data-testid="button-print-overtime" disabled={!filtered.length}>
             <Printer className="w-4 h-4 mr-1" /> Print
+          </Button>
+          <Button variant="outline" size="sm" onClick={handleGovPrint} data-testid="button-gov-print-overtime">
+            <Printer className="w-4 h-4 mr-1" /> Form XXIII Print
           </Button>
           <Dialog open={open} onOpenChange={setOpen}>
             <DialogTrigger asChild>
