@@ -600,13 +600,6 @@ export default function SalaryRegister() {
             <h1 className="text-xl sm:text-2xl font-bold tracking-tight" data-testid="text-salary-title">Salary Register (Form XVII)</h1>
             <p className="text-muted-foreground mt-1 text-xs sm:text-sm">Monthly salary register for all employees</p>
           </div>
-          {loaded && salaries && salaries.length > 0 && clientName && (
-            <div className="text-center hidden sm:block">
-              <div className="text-lg font-bold">Salary</div>
-              <div className="text-sm text-muted-foreground">{clientName}</div>
-              <div className="text-base font-semibold">{MONTHS[Number(month) - 1]} {year}</div>
-            </div>
-          )}
           {loaded && salaries && salaries.length > 0 && (
             <div className="flex gap-2 flex-wrap">
               <Button
