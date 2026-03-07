@@ -603,10 +603,11 @@ export default function SalaryRegister() {
       .info-table td { padding: 2px 6px; vertical-align: top; }
       .info-label { font-weight: bold; white-space: nowrap; }
       .period-label { font-size: 16px; font-weight: bold; }
-      table.main { width: 100%; border-collapse: collapse; font-size: 8px; }
-      table.main th, table.main td { border: 1px solid #000; padding: 2px 4px; text-align: center; vertical-align: middle; height: 28px; }
-      table.main th { background: #f0f0f0; font-weight: bold; font-size: 7px; }
-      table.main td { font-size: 8px; }
+      table.main { width: 100%; border-collapse: collapse; font-size: 8px; table-layout: auto; }
+      table.main th, table.main td { border: 1px solid #000; padding: 3px 5px; text-align: center; vertical-align: middle; height: 28px; white-space: nowrap; }
+      table.main th { background: #f0f0f0; font-weight: bold; font-size: 7.5px; white-space: normal; }
+      table.main td { font-size: 8.5px; }
+      table.main td.wrap { white-space: normal; }
     </style></head><body>
       <div class="header-title">FORM XVII</div>
       <div class="header-main">REGISTER OF WAGES</div>
@@ -648,20 +649,20 @@ export default function SalaryRegister() {
       <table class="main">
         <thead>
           <tr>
-            <th rowspan="3" style="width:30px">Serial<br/>No</th>
-            <th rowspan="3" style="min-width:110px">Name of the<br/>Workman</th>
-            <th rowspan="3" style="width:55px">Serial No<br/>in the<br/>register<br/>of<br/>workman</th>
-            <th rowspan="3" style="min-width:80px">Designatio<br/>n / Nature<br/>of Work<br/>Done</th>
+            <th rowspan="3">Serial<br/>No</th>
+            <th rowspan="3">Name of the<br/>Workman</th>
+            <th rowspan="3">Serial No<br/>in the<br/>register of<br/>workman</th>
+            <th rowspan="3">Designation /<br/>Nature of<br/>Work Done</th>
             <th colspan="2">No. of Days<br/>Worked</th>
-            <th rowspan="3" style="width:40px">Units Of<br/>Work<br/>Down</th>
-            <th rowspan="3" style="width:55px">Daily rate<br/>of wages /<br/>Piece rate</th>
+            <th rowspan="3">Units Of<br/>Work<br/>Down</th>
+            <th rowspan="3">Daily rate<br/>of wages /<br/>Piece rate</th>
             <th colspan="5">AMOUNT OF WAGES EARNED</th>
-            <th rowspan="2" style="width:50px">Total</th>
+            <th rowspan="2">Total</th>
             <th colspan="4">DEDUCTIONS</th>
-            <th rowspan="2" style="width:55px">Net<br/>Amount<br/>Paid</th>
-            <th rowspan="3" style="width:70px">Signature /<br/>Thumb-impression<br/>of Workman</th>
-            <th rowspan="3" style="width:60px">Initials of<br/>contractor or<br/>his representative</th>
-            <th rowspan="3" style="width:50px">E.P.F.<br/>Diff.<br/>12%</th>
+            <th rowspan="2">Net<br/>Amount<br/>Paid</th>
+            <th rowspan="3">Signature /<br/>Thumb-impression<br/>of Workman</th>
+            <th rowspan="3">Initials of<br/>contractor or<br/>his representative</th>
+            <th rowspan="3">E.P.F.<br/>Diff.<br/>12%</th>
           </tr>
           <tr>
             <th>Paid<br/>Days</th>
