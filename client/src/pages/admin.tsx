@@ -125,6 +125,7 @@ export default function Admin() {
     inventory: 'Daily Inventory',
     menu: 'Menu Manager',
     purchase: 'Purchase Request',
+    labour: 'Labour Works',
   };
 
   const togglePerm = (perm: string) => {
