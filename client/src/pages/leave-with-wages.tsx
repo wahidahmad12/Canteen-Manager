@@ -270,8 +270,10 @@ export default function LeaveWithWagesPage() {
                                   try {
                                     const res = await fetch(`/api/leave-with-wages/yearly-present?employeeId=${selectedEmployeeId}&year=${formData.calendarYear}`, { credentials: "include" });
                                     const data = await res.json();
-                                    setFormData(prev => ({ ...prev, daysLeaveEarned: String(data.leaveEarned), actualDaysWorked: String(data.actualDaysWorked), rateOfWagesRs: String(data.dailyRate), rateOfWagesP: "0", amountOfWagesRs: String(data.amountOfWages), amountOfWagesP: "0" }));
-                                    toast({ title: `Worked: ${data.actualDaysWorked}d, Leave: ${data.leaveEarned}, Rate: ${data.dailyRate}, Amt: ${data.amountOfWages}` });
+                                    const enjoyed = Number(formData.leaveEnjoyed || 0);
+                                    const amt = Math.round(data.dailyRate * enjoyed);
+                                    setFormData(prev => ({ ...prev, daysLeaveEarned: String(data.leaveEarned), actualDaysWorked: String(data.actualDaysWorked), rateOfWagesRs: String(data.dailyRate), rateOfWagesP: "0", amountOfWagesRs: String(amt), amountOfWagesP: "0" }));
+                                    toast({ title: `Worked: ${data.actualDaysWorked}d, Leave: ${data.leaveEarned}, Rate: ₹${data.dailyRate}/day` });
                                   } catch { toast({ title: "Failed to fetch attendance", variant: "destructive" }); }
                                 }}>Auto</Button>
                               </div>
@@ -300,7 +302,7 @@ export default function LeaveWithWagesPage() {
                           <div className="grid grid-cols-2 gap-3">
                             <div className="space-y-1">
                               <Label className="text-xs">Leave Enjoyed (Col 6)</Label>
-                              <Input value={formData.leaveEnjoyed} onChange={e => setFormData({ ...formData, leaveEnjoyed: e.target.value })} data-testid="input-col6-enjoyed" />
+                              <Input value={formData.leaveEnjoyed} onChange={e => { const val = e.target.value; const amt = Math.round(Number(formData.rateOfWagesRs || 0) * Number(val || 0)); setFormData({ ...formData, leaveEnjoyed: val, amountOfWagesRs: String(amt), amountOfWagesP: "0" }); }} data-testid="input-col6-enjoyed" />
                             </div>
                             <div className="space-y-1">
                               <Label className="text-xs">Other Absence (Col 7)</Label>

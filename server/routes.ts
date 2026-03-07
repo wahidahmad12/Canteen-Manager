@@ -949,7 +949,7 @@ export async function registerRoutes(
     const { employees } = await import("@shared/schema");
     const empRows = await db.select().from(employees).where(eq(employees.id, employeeId));
     const dailyRate = empRows.length > 0 ? Number(empRows[0].dailyRate || 0) : 0;
-    const amountOfWages = Math.round(dailyRate * leaveEarned);
+    const amountOfWages = 0;
 
     res.json({ totalDaysInYear, weeklyOffs, paidHolidays, leavesAvailed, absences, actualDaysWorked, totalPresent, leaveEarned, dailyRate, amountOfWages });
   });
