@@ -532,6 +532,7 @@ export class DatabaseStorage implements IStorage {
       displayName: users.displayName,
       role: users.role,
       clientName: users.clientName,
+      permissions: users.permissions,
       isActive: users.isActive,
       createdAt: users.createdAt,
     }).from(users).orderBy(users.username);
