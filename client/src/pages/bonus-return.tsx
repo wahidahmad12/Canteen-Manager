@@ -103,14 +103,15 @@ export default function BonusReturn() {
     printWindow.document.write(`<!DOCTYPE html><html><head><title>${document.title}</title>
       <style>
         @page portrait-page { size: A4 portrait; margin: 20mm; }
-        @page landscape-page { size: A4 landscape; margin: 8mm; }
+        @page landscape-page { size: A4 landscape; margin: 6mm; }
         body { margin: 0; padding: 0; font-family: Arial, sans-serif; }
         .cover-letter-page { page: portrait-page; break-after: page; }
         .form-c-page { page: landscape-page; break-before: page; }
-        .form-c-page table { width: 100%; table-layout: auto; font-size: 8px; border-collapse: collapse; }
-        .form-c-page table th, .form-c-page table td { padding: 2px 3px !important; }
-        .form-c-page { font-size: 9px; }
-        p { margin: 4px 0; }
+        .form-c-page table { width: 100%; table-layout: fixed; font-size: 7px; border-collapse: collapse; }
+        .form-c-page table th, .form-c-page table td { padding: 1px 2px !important; line-height: 1.2; overflow: hidden; word-wrap: break-word; }
+        .form-c-page table thead { display: table-header-group; }
+        .form-c-page { font-size: 8px; }
+        p { margin: 2px 0; }
       </style>
     </head><body>${printArea.innerHTML}</body></html>`);
     printWindow.document.close();
@@ -510,63 +511,62 @@ export default function BonusReturn() {
                   </div>
 
                   <div className="form-c-page">
-                  <div style={{ textAlign: "center", marginBottom: "6px" }}>
-                    <div style={{ fontSize: "14px", fontWeight: "bold", color: "#1a237e" }}>FORM C</div>
-                    <div style={{ fontSize: "9px" }}>[See rule 4 (c)]</div>
-                    <div style={{ fontSize: "9px", fontWeight: 600, marginTop: "2px" }}>BONUS PAID TO EMPLOYEES FOR THE ACCOUNTING YEAR ENDING ON THE {fyLabel}</div>
-                    <div style={{ fontSize: "9px", fontWeight: 600 }}>Name of the establishment: DJ Hospitality & Facility Management Pvt Ltd, 7 Crematorium Street, Kolkata-700014</div>
-                    <div style={{ fontSize: "9px" }}>Client: {selectedClient}</div>
-                    <div style={{ fontSize: "9px" }}>No. of working days in the year: <u>{workingDays || '____'}</u></div>
+                  <div style={{ textAlign: "center", marginBottom: "4px" }}>
+                    <div style={{ fontSize: "12px", fontWeight: "bold", color: "#1a237e" }}>FORM C</div>
+                    <div style={{ fontSize: "8px" }}>[See rule 4 (c)]</div>
+                    <div style={{ fontSize: "8px", fontWeight: 600, marginTop: "1px" }}>BONUS PAID TO EMPLOYEES FOR THE ACCOUNTING YEAR ENDING ON THE {fyLabel}</div>
+                    <div style={{ fontSize: "8px", fontWeight: 600 }}>Name of the establishment: DJ Hospitality & Facility Management Pvt Ltd, 7 Crematorium Street, Kolkata-700014</div>
+                    <div style={{ fontSize: "8px" }}>Client: {selectedClient} | No. of working days: <u>{workingDays || '____'}</u></div>
                   </div>
-                  <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "9px", fontFamily: "Arial, sans-serif" }}>
+                  <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "7px", fontFamily: "Arial, sans-serif" }}>
                     <thead>
                       <tr>
-                        <th colSpan={5} style={{ background: "#fff3e0", color: "#e65100", fontWeight: 700, border: "1px solid #999", padding: "3px", fontSize: "9px" }}>Employee Details</th>
-                        <th colSpan={3} style={{ background: "#e8f5e9", color: "#1b5e20", fontWeight: 700, border: "1px solid #999", padding: "3px", fontSize: "9px" }}>Salary & Bonus</th>
-                        <th colSpan={5} style={{ background: "#fce4ec", color: "#b71c1c", fontWeight: 700, border: "1px solid #999", padding: "3px", fontSize: "9px" }}>Deductions</th>
-                        <th colSpan={3} style={{ background: "#e8eaf6", color: "#1a237e", fontWeight: 700, border: "1px solid #999", padding: "3px", fontSize: "9px" }}>Payment</th>
+                        <th colSpan={5} style={{ background: "#fff3e0", color: "#e65100", fontWeight: 700, border: "1px solid #999", padding: "2px", fontSize: "7px" }}>Employee Details</th>
+                        <th colSpan={3} style={{ background: "#e8f5e9", color: "#1b5e20", fontWeight: 700, border: "1px solid #999", padding: "2px", fontSize: "7px" }}>Salary & Bonus</th>
+                        <th colSpan={5} style={{ background: "#fce4ec", color: "#b71c1c", fontWeight: 700, border: "1px solid #999", padding: "2px", fontSize: "7px" }}>Deductions</th>
+                        <th colSpan={3} style={{ background: "#e8eaf6", color: "#1a237e", fontWeight: 700, border: "1px solid #999", padding: "2px", fontSize: "7px" }}>Payment</th>
                       </tr>
                       <tr>
                         {["Sl.No", "Name", "Father's Name", "15yr", "Designation", "Days", "Total Salary", "Bonus 8.33%", "Puja", "Interim", "[10A]", "Misc.", "Total Ded.", "Net Payable", "Amt Paid", "Date Paid"].map((h, i) => (
-                          <th key={i} style={{ border: "1px solid #999", padding: "3px 4px", fontWeight: 600, fontSize: "8px", background: i < 5 ? "#ffe0b2" : i < 8 ? "#c8e6c9" : i < 13 ? "#f8bbd0" : "#c5cae9", textAlign: "left" }}>{h}</th>
+                          <th key={i} style={{ border: "1px solid #999", padding: "1px 2px", fontWeight: 600, fontSize: "7px", background: i < 5 ? "#ffe0b2" : i < 8 ? "#c8e6c9" : i < 13 ? "#f8bbd0" : "#c5cae9", textAlign: "left" }}>{h}</th>
                         ))}
                       </tr>
                       <tr>
                         {Array.from({ length: 16 }, (_, i) => (
-                          <th key={i} style={{ border: "1px solid #999", padding: "2px", fontSize: "7px", background: "#f5f5f5", textAlign: "left" }}>{i + 1}</th>
+                          <th key={i} style={{ border: "1px solid #999", padding: "1px", fontSize: "6px", background: "#f5f5f5", textAlign: "left" }}>{i + 1}</th>
                         ))}
                       </tr>
                     </thead>
                     <tbody>
                       {bonusRows.map((row, idx) => (
                         <tr key={row.slNo} style={{ background: idx % 2 === 0 ? "#fff" : "#f5f7ff" }}>
-                          <td style={{ border: "1px solid #bbb", padding: "3px 4px", textAlign: "left", fontWeight: 600, color: "#e65100" }}>{row.slNo}</td>
-                          <td style={{ border: "1px solid #bbb", padding: "3px 4px", textAlign: "left", fontWeight: 700 }}>{row.name}</td>
-                          <td style={{ border: "1px solid #bbb", padding: "3px 4px", textAlign: "left", color: "#555" }}>{row.fatherName}</td>
-                          <td style={{ border: "1px solid #bbb", padding: "3px 4px", textAlign: "left" }}>No</td>
-                          <td style={{ border: "1px solid #bbb", padding: "3px 4px", textAlign: "left" }}>{row.designation}</td>
-                          <td style={{ border: "1px solid #bbb", padding: "3px 4px", textAlign: "left", fontWeight: 600 }}>{row.daysWorked}</td>
-                          <td style={{ border: "1px solid #bbb", padding: "3px 4px", textAlign: "left" }}>{row.totalSalary.toLocaleString('en-IN')}</td>
-                          <td style={{ border: "1px solid #bbb", padding: "3px 4px", textAlign: "left", fontWeight: 700, color: "#2e7d32" }}>{row.bonusPayable.toLocaleString('en-IN')}</td>
-                          <td style={{ border: "1px solid #bbb", padding: "3px 4px", textAlign: "left", color: "#999" }}>No</td>
-                          <td style={{ border: "1px solid #bbb", padding: "3px 4px", textAlign: "left", color: "#999" }}>No</td>
-                          <td style={{ border: "1px solid #bbb", padding: "3px 4px", textAlign: "left", color: "#999" }}>No</td>
-                          <td style={{ border: "1px solid #bbb", padding: "3px 4px", textAlign: "left", color: "#999" }}>No</td>
-                          <td style={{ border: "1px solid #bbb", padding: "3px 4px", textAlign: "left", color: "#999" }}>No</td>
-                          <td style={{ border: "1px solid #bbb", padding: "3px 4px", textAlign: "left", fontWeight: 700, color: "#1a237e" }}>{row.netAmount.toLocaleString('en-IN')}</td>
-                          <td style={{ border: "1px solid #bbb", padding: "3px 4px", textAlign: "left", fontWeight: 700, color: "#1a237e" }}>{row.actualPaid.toLocaleString('en-IN')}</td>
-                          <td style={{ border: "1px solid #bbb", padding: "3px 4px", textAlign: "left" }}>{row.datePaid}</td>
+                          <td style={{ border: "1px solid #bbb", padding: "1px 2px", textAlign: "left", fontWeight: 600, color: "#e65100" }}>{row.slNo}</td>
+                          <td style={{ border: "1px solid #bbb", padding: "1px 2px", textAlign: "left", fontWeight: 700 }}>{row.name}</td>
+                          <td style={{ border: "1px solid #bbb", padding: "1px 2px", textAlign: "left", color: "#555" }}>{row.fatherName}</td>
+                          <td style={{ border: "1px solid #bbb", padding: "1px 2px", textAlign: "left" }}>No</td>
+                          <td style={{ border: "1px solid #bbb", padding: "1px 2px", textAlign: "left" }}>{row.designation}</td>
+                          <td style={{ border: "1px solid #bbb", padding: "1px 2px", textAlign: "left", fontWeight: 600 }}>{row.daysWorked}</td>
+                          <td style={{ border: "1px solid #bbb", padding: "1px 2px", textAlign: "left" }}>{row.totalSalary.toLocaleString('en-IN')}</td>
+                          <td style={{ border: "1px solid #bbb", padding: "1px 2px", textAlign: "left", fontWeight: 700, color: "#2e7d32" }}>{row.bonusPayable.toLocaleString('en-IN')}</td>
+                          <td style={{ border: "1px solid #bbb", padding: "1px 2px", textAlign: "left", color: "#999" }}>No</td>
+                          <td style={{ border: "1px solid #bbb", padding: "1px 2px", textAlign: "left", color: "#999" }}>No</td>
+                          <td style={{ border: "1px solid #bbb", padding: "1px 2px", textAlign: "left", color: "#999" }}>No</td>
+                          <td style={{ border: "1px solid #bbb", padding: "1px 2px", textAlign: "left", color: "#999" }}>No</td>
+                          <td style={{ border: "1px solid #bbb", padding: "1px 2px", textAlign: "left", color: "#999" }}>No</td>
+                          <td style={{ border: "1px solid #bbb", padding: "1px 2px", textAlign: "left", fontWeight: 700, color: "#1a237e" }}>{row.netAmount.toLocaleString('en-IN')}</td>
+                          <td style={{ border: "1px solid #bbb", padding: "1px 2px", textAlign: "left", fontWeight: 700, color: "#1a237e" }}>{row.actualPaid.toLocaleString('en-IN')}</td>
+                          <td style={{ border: "1px solid #bbb", padding: "1px 2px", textAlign: "left" }}>{row.datePaid}</td>
                         </tr>
                       ))}
                     </tbody>
                     <tfoot>
                       <tr style={{ background: "#e0e0e0", fontWeight: "bold" }}>
-                        <td colSpan={6} style={{ border: "1px solid #999", padding: "3px 6px", textAlign: "left", color: "#e65100" }}>Total ({bonusRows.length} employees)</td>
-                        <td style={{ border: "1px solid #999", padding: "3px 6px", textAlign: "left" }}>{bonusRows.reduce((s, r) => s + r.totalSalary, 0).toLocaleString('en-IN')}</td>
-                        <td style={{ border: "1px solid #999", padding: "3px 6px", textAlign: "left", color: "#2e7d32" }}>{totalBonus.toLocaleString('en-IN')}</td>
-                        <td colSpan={5} style={{ border: "1px solid #999", padding: "3px" }}></td>
-                        <td style={{ border: "1px solid #999", padding: "3px 6px", textAlign: "left", color: "#1a237e" }}>{totalBonus.toLocaleString('en-IN')}</td>
-                        <td style={{ border: "1px solid #999", padding: "3px 6px", textAlign: "left", color: "#1a237e" }}>{totalBonus.toLocaleString('en-IN')}</td>
+                        <td colSpan={6} style={{ border: "1px solid #999", padding: "1px 2px", textAlign: "left", color: "#e65100" }}>Total ({bonusRows.length} employees)</td>
+                        <td style={{ border: "1px solid #999", padding: "1px 2px", textAlign: "left" }}>{bonusRows.reduce((s, r) => s + r.totalSalary, 0).toLocaleString('en-IN')}</td>
+                        <td style={{ border: "1px solid #999", padding: "1px 2px", textAlign: "left", color: "#2e7d32" }}>{totalBonus.toLocaleString('en-IN')}</td>
+                        <td colSpan={5} style={{ border: "1px solid #999", padding: "1px" }}></td>
+                        <td style={{ border: "1px solid #999", padding: "1px 2px", textAlign: "left", color: "#1a237e" }}>{totalBonus.toLocaleString('en-IN')}</td>
+                        <td style={{ border: "1px solid #999", padding: "1px 2px", textAlign: "left", color: "#1a237e" }}>{totalBonus.toLocaleString('en-IN')}</td>
                         <td style={{ border: "1px solid #999" }}></td>
                       </tr>
                     </tfoot>
