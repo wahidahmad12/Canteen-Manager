@@ -149,6 +149,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
         <nav className="p-4 space-y-1 flex-1 overflow-y-auto">
           {mainNavItems.map(item => renderNavLink(item))}
 
+          {user?.role === 'admin' && (
           <div className="pt-1">
             <button
               onClick={() => setLabourOpen(!labourOpen)}
@@ -175,6 +176,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
               </div>
             )}
           </div>
+          )}
 
           {bottomNavItems.map(item => renderNavLink(item))}
         </nav>
