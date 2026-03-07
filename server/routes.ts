@@ -802,10 +802,17 @@ export async function registerRoutes(
   });
 
   app.post("/api/salary/generate", requireAdmin, async (req, res) => {
-    const { clientName, month, year } = req.body;
+    const { clientName, month, year, paidOn } = req.body;
     if (!clientName || !month || !year) return res.status(400).json({ message: "clientName, month, year required" });
-    const records = await storage.generateSalary(clientName, Number(month), Number(year));
+    const records = await storage.generateSalary(clientName, Number(month), Number(year), paidOn || undefined);
     res.json(records);
+  });
+
+  app.put("/api/salary/paid-date", requireAdmin, async (req, res) => {
+    const { clientName, month, year, paidOn } = req.body;
+    if (!clientName || !month || !year) return res.status(400).json({ message: "clientName, month, year required" });
+    const updated = await storage.updateSalaryPaidDate(clientName, Number(month), Number(year), paidOn || null);
+    res.json({ updated });
   });
 
   app.put("/api/salary/:id", requireAdmin, async (req, res) => {

@@ -126,7 +126,8 @@ export interface IStorage {
   getSalaryRecord(id: number): Promise<SalaryRecord | undefined>;
   saveSalaryRecord(data: any): Promise<SalaryRecord>;
   deleteSalaryRecord(id: number): Promise<void>;
-  generateSalary(clientName: string, month: number, year: number): Promise<SalaryRecord[]>;
+  generateSalary(clientName: string, month: number, year: number, paidOn?: string): Promise<SalaryRecord[]>;
+  updateSalaryPaidDate(clientName: string, month: number, year: number, paidOn: string | null): Promise<number>;
   getAnnualSalary(clientName: string, fyStartYear: number): Promise<SalaryRecord[]>;
   getFines(clientName?: string): Promise<Fine[]>;
   createFine(data: any): Promise<Fine>;
@@ -961,7 +962,14 @@ export class DatabaseStorage implements IStorage {
     await db.delete(salaryRecords).where(eq(salaryRecords.id, id));
   }
 
-  async generateSalary(clientName: string, month: number, year: number): Promise<SalaryRecord[]> {
+  async updateSalaryPaidDate(clientName: string, month: number, year: number, paidOn: string | null): Promise<number> {
+    const result = await db.update(salaryRecords)
+      .set({ paidOn })
+      .where(and(eq(salaryRecords.clientName, clientName), eq(salaryRecords.month, month), eq(salaryRecords.year, year)));
+    return result.rowCount || 0;
+  }
+
+  async generateSalary(clientName: string, month: number, year: number, paidOn?: string): Promise<SalaryRecord[]> {
     const emps = await this.getEmployees(clientName);
     const activeEmps = emps.filter(e => e.isActive);
     const attendanceRecords = await this.getAttendance(clientName, month, year);
@@ -1022,6 +1030,7 @@ export class DatabaseStorage implements IStorage {
         overtimeHours: String(overtimeHrs),
         overtimeRate: String(overtimeRate),
         overtimeAmount: String(overtimeAmount),
+        ...(paidOn ? { paidOn } : {}),
       });
       results.push(record);
     }

@@ -1,4 +1,4 @@
-import { useState, useMemo, useRef, useCallback } from "react";
+import { useState, useMemo, useRef, useCallback, useEffect } from "react";
 import { Link } from "wouter";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Loader2, Printer, FileText, Users, IndianRupee, TrendingDown, Wallet, ArrowRight, Download, ImageDown, FileSpreadsheet } from "lucide-react";
@@ -6,6 +6,7 @@ import { Layout } from "@/components/layout";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
@@ -319,6 +320,7 @@ export default function SalaryRegister() {
   const [month, setMonth] = useState(String(now.getMonth() + 1));
   const [year, setYear] = useState(String(now.getFullYear()));
   const [loaded, setLoaded] = useState(false);
+  const [salaryPaidDate, setSalaryPaidDate] = useState("");
 
   const queryKey = ["/api/salary", clientName, month, year];
 
@@ -427,12 +429,26 @@ export default function SalaryRegister() {
 
   const generateMutation = useMutation({
     mutationFn: async () => {
-      const res = await apiRequest("POST", "/api/salary/generate", { clientName, month: Number(month), year: Number(year) });
+      const res = await apiRequest("POST", "/api/salary/generate", { clientName, month: Number(month), year: Number(year), paidOn: salaryPaidDate || undefined });
       return res.json();
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey });
       toast({ title: "Salary Generated", description: "Salary records have been generated from attendance data." });
+    },
+    onError: (err: Error) => {
+      toast({ title: "Error", description: err.message, variant: "destructive" });
+    },
+  });
+
+  const updatePaidDateMutation = useMutation({
+    mutationFn: async () => {
+      const res = await apiRequest("PUT", "/api/salary/paid-date", { clientName, month: Number(month), year: Number(year), paidOn: salaryPaidDate || null });
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey });
+      toast({ title: "Paid Date Updated", description: "Salary paid date has been updated for all records." });
     },
     onError: (err: Error) => {
       toast({ title: "Error", description: err.message, variant: "destructive" });
@@ -612,12 +628,26 @@ export default function SalaryRegister() {
     toast({ title: "Excel Downloaded", description: `Salary Register exported to Excel.` });
   }, [salaries, rows, totals, clientName, month, year, toast]);
 
+  useEffect(() => {
+    if (salaries && salaries.length > 0 && !salaryPaidDate) {
+      const existing = salaries.find(s => s.paidOn);
+      if (existing?.paidOn) setSalaryPaidDate(existing.paidOn);
+    }
+  }, [salaries]);
+
   const handleLoad = () => {
     if (!clientName) {
       toast({ title: "Select Client", description: "Please select a client name first.", variant: "destructive" });
       return;
     }
+    if (!salaryPaidDate) {
+      toast({ title: "Enter Salary Paid Date", description: "Please select the salary paid date before loading.", variant: "destructive" });
+      return;
+    }
     setLoaded(true);
+    if (salaryPaidDate) {
+      updatePaidDateMutation.mutate();
+    }
   };
 
   const years = Array.from({ length: 5 }, (_, i) => String(now.getFullYear() - 2 + i));
@@ -672,7 +702,7 @@ export default function SalaryRegister() {
 
         <Card data-testid="card-salary-filters">
           <CardContent className="p-4 sm:p-6">
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4 items-end">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-6 gap-4 items-end">
               <div className="space-y-2">
                 <Label>Client Name</Label>
                 <Select value={clientName} onValueChange={(v) => { setClientName(v); setLoaded(false); }}>
@@ -711,6 +741,15 @@ export default function SalaryRegister() {
                     ))}
                   </SelectContent>
                 </Select>
+              </div>
+              <div className="space-y-2">
+                <Label>Salary Paid Date</Label>
+                <Input
+                  type="date"
+                  value={salaryPaidDate}
+                  onChange={(e) => { setSalaryPaidDate(e.target.value); setLoaded(false); }}
+                  data-testid="input-salary-paid-date"
+                />
               </div>
               <Button onClick={handleLoad} data-testid="button-load-salary">
                 <Download className="w-4 h-4 mr-2" />
