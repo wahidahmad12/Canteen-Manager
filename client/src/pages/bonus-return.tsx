@@ -99,7 +99,7 @@ export default function BonusReturn() {
     style.textContent = `
       @media print {
         @page portrait-page { size: A4 portrait; margin: 20mm; }
-        @page landscape-page { size: A3 landscape; margin: 8mm; }
+        @page landscape-page { size: A4 landscape; margin: 8mm; }
         body * { visibility: hidden !important; }
         #bonus-print-area, #bonus-print-area * { visibility: visible !important; }
         #bonus-print-area { position: absolute; top: 0; left: 0; width: 100%; }
