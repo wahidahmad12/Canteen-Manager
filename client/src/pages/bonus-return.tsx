@@ -91,35 +91,47 @@ export default function BonusReturn() {
 
   const totalBonus = bonusRows.reduce((s, r) => s + r.netAmount, 0);
 
-  const handlePrint = () => {
-    const printArea = document.getElementById('bonus-print-area');
-    if (!printArea) return;
-    const prevTitle = document.title;
-    document.title = `Form C - Bonus Return - ${selectedClient} - FY ${fyStart}-${fyEnd}`;
-
+  const handlePrintCover = () => {
+    const coverArea = document.getElementById('bonus-cover-print');
+    if (!coverArea) return;
+    const title = `Cover Letter - Bonus Return - ${selectedClient} - FY ${fyStart}-${fyEnd}`;
     const printWindow = window.open('', '_blank');
-    if (!printWindow) { document.title = prevTitle; return; }
-
-    printWindow.document.write(`<!DOCTYPE html><html><head><title>${document.title}</title>
+    if (!printWindow) return;
+    printWindow.document.write(`<!DOCTYPE html><html><head><title>${title}</title>
       <style>
-        @page portrait-page { size: A4 portrait; margin: 20mm; }
-        @page landscape-page { size: A4 landscape; margin: 6mm; }
-        body { margin: 0; padding: 0; font-family: Arial, sans-serif; }
-        .cover-letter-page { page: portrait-page; break-after: page; }
-        .form-c-page { page: landscape-page; break-before: page; }
-        .form-c-page table { width: 100%; table-layout: fixed; font-size: 7px; border-collapse: collapse; }
-        .form-c-page table th, .form-c-page table td { padding: 1px 2px !important; line-height: 1.2; overflow: hidden; word-wrap: break-word; }
-        .form-c-page table thead { display: table-header-group; }
-        .form-c-page { font-size: 8px; }
-        p { margin: 2px 0; }
+        @page { size: A4 portrait; margin: 20mm; }
+        body { margin: 0; padding: 0; font-family: Georgia, 'Times New Roman', serif; font-size: 14px; line-height: 1.8; }
+        p { margin: 4px 0; }
       </style>
-    </head><body>${printArea.innerHTML}</body></html>`);
+    </head><body>${coverArea.innerHTML}</body></html>`);
     printWindow.document.close();
     printWindow.onload = () => {
       printWindow.print();
       printWindow.onafterprint = () => printWindow.close();
     };
-    document.title = prevTitle;
+  };
+
+  const handlePrintFormC = () => {
+    const formArea = document.getElementById('bonus-formc-print');
+    if (!formArea) return;
+    const title = `Form C - Bonus Return - ${selectedClient} - FY ${fyStart}-${fyEnd}`;
+    const printWindow = window.open('', '_blank');
+    if (!printWindow) return;
+    printWindow.document.write(`<!DOCTYPE html><html><head><title>${title}</title>
+      <style>
+        @page { size: A4 landscape; margin: 6mm; }
+        body { margin: 0; padding: 0; font-family: Arial, sans-serif; font-size: 8px; }
+        table { width: 100%; table-layout: fixed; font-size: 7px; border-collapse: collapse; }
+        table th, table td { padding: 1px 2px; line-height: 1.2; overflow: hidden; word-wrap: break-word; }
+        table thead { display: table-header-group; }
+        p { margin: 2px 0; }
+      </style>
+    </head><body>${formArea.innerHTML}</body></html>`);
+    printWindow.document.close();
+    printWindow.onload = () => {
+      printWindow.print();
+      printWindow.onafterprint = () => printWindow.close();
+    };
   };
 
   const handleExportExcel = async () => {
@@ -251,8 +263,11 @@ export default function BonusReturn() {
               <Button onClick={handleExportExcel} variant="outline" size="sm" className="gap-2" data-testid="button-export-excel">
                 <Download className="w-4 h-4" /> Excel
               </Button>
-              <Button onClick={handlePrint} variant="outline" size="sm" className="gap-2" data-testid="button-print">
-                <Printer className="w-4 h-4" /> Print / PDF
+              <Button onClick={handlePrintCover} variant="outline" size="sm" className="gap-2" data-testid="button-print-cover">
+                <Printer className="w-4 h-4" /> Cover Letter
+              </Button>
+              <Button onClick={handlePrintFormC} variant="outline" size="sm" className="gap-2" data-testid="button-print-formc">
+                <Printer className="w-4 h-4" /> Form C
               </Button>
             </div>
           )}
@@ -481,36 +496,35 @@ export default function BonusReturn() {
                   </div>
                 </div>
 
-                <div id="bonus-print-area" className="hidden print:block">
-                  <div className="cover-letter-page" style={{ fontFamily: "Georgia, 'Times New Roman', serif", fontSize: "14px", lineHeight: 1.8 }}>
-                    <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "20px" }}>
-                      <div style={{ fontWeight: 600 }}>Ref. {refNumber || '___________'}</div>
-                      <div>Date: {letterDate ? letterDate.split('-').reverse().join('-') : '___/___/______'}</div>
-                    </div>
-                    <div style={{ marginBottom: "16px" }}>
-                      <p style={{ margin: "2px 0" }}>To</p>
-                      <p style={{ margin: "2px 0", fontWeight: 600 }}>The Labour Commissioner</p>
-                      <p style={{ margin: "2px 0" }}>Office of the Labour Commissioner,</p>
-                      <p style={{ margin: "2px 0" }}>6, Church Lane 3rd floor</p>
-                      <p style={{ margin: "2px 0" }}>Kolkata - 700001</p>
-                    </div>
-                    <div style={{ marginBottom: "16px" }}>
-                      <p><span style={{ fontWeight: 600 }}>Sub:</span> Annual Bonus Return for the year ending 31st March {fyEnd}</p>
-                    </div>
-                    <div style={{ marginBottom: "16px" }}>
-                      <p style={{ margin: "4px 0" }}>Dear Sir,</p>
-                      <p style={{ margin: "4px 0" }}>Please find enclosed the following return pertaining to our establishment <span style={{ fontWeight: 600 }}>DJ Hospitality & Facility Management Pvt Ltd</span>, 7 Crematorium Street, Kolkata- 700014</p>
-                      <p style={{ margin: "8px 0", fontWeight: 600 }}>Form - D Under the payment of Bonus Act.</p>
-                    </div>
-                    <div style={{ marginTop: "60px" }}>
-                      <p style={{ margin: "2px 0" }}>Your Faithfully</p>
-                      <p style={{ margin: "30px 0 2px 0", fontWeight: 600 }}>Wahid Ahmad</p>
-                      <p style={{ margin: "2px 0" }}>Zonal Manager & Partner</p>
-                      <p style={{ margin: "2px 0", fontWeight: 600 }}>DJ Hospitality & Facility Management Pvt Ltd.</p>
-                    </div>
+                <div id="bonus-cover-print" className="hidden">
+                  <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "20px" }}>
+                    <div style={{ fontWeight: 600 }}>Ref. {refNumber || '___________'}</div>
+                    <div>Date: {letterDate ? letterDate.split('-').reverse().join('-') : '___/___/______'}</div>
                   </div>
+                  <div style={{ marginBottom: "16px" }}>
+                    <p style={{ margin: "2px 0" }}>To</p>
+                    <p style={{ margin: "2px 0", fontWeight: 600 }}>The Labour Commissioner</p>
+                    <p style={{ margin: "2px 0" }}>Office of the Labour Commissioner,</p>
+                    <p style={{ margin: "2px 0" }}>6, Church Lane 3rd floor</p>
+                    <p style={{ margin: "2px 0" }}>Kolkata - 700001</p>
+                  </div>
+                  <div style={{ marginBottom: "16px" }}>
+                    <p><span style={{ fontWeight: 600 }}>Sub:</span> Annual Bonus Return for the year ending 31st March {fyEnd}</p>
+                  </div>
+                  <div style={{ marginBottom: "16px" }}>
+                    <p style={{ margin: "4px 0" }}>Dear Sir,</p>
+                    <p style={{ margin: "4px 0" }}>Please find enclosed the following return pertaining to our establishment <span style={{ fontWeight: 600 }}>DJ Hospitality & Facility Management Pvt Ltd</span>, 7 Crematorium Street, Kolkata- 700014</p>
+                    <p style={{ margin: "8px 0", fontWeight: 600 }}>Form - D Under the payment of Bonus Act.</p>
+                  </div>
+                  <div style={{ marginTop: "60px" }}>
+                    <p style={{ margin: "2px 0" }}>Your Faithfully</p>
+                    <p style={{ margin: "30px 0 2px 0", fontWeight: 600 }}>Wahid Ahmad</p>
+                    <p style={{ margin: "2px 0" }}>Zonal Manager & Partner</p>
+                    <p style={{ margin: "2px 0", fontWeight: 600 }}>DJ Hospitality & Facility Management Pvt Ltd.</p>
+                  </div>
+                </div>
 
-                  <div className="form-c-page">
+                <div id="bonus-formc-print" className="hidden">
                   <div style={{ textAlign: "center", marginBottom: "4px" }}>
                     <div style={{ fontSize: "12px", fontWeight: "bold", color: "#1a237e" }}>FORM C</div>
                     <div style={{ fontSize: "8px" }}>[See rule 4 (c)]</div>
@@ -582,7 +596,6 @@ export default function BonusReturn() {
                     <div style={{ textAlign: "center" }}>
                       <div style={{ borderTop: "1px solid #333", width: "160px", paddingTop: "4px" }}>Principal Employer</div>
                     </div>
-                  </div>
                   </div>
                 </div>
               </>
