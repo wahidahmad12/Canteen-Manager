@@ -14,7 +14,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [labourOpen, setLabourOpen] = useState(() => labourWorksPaths.some(p => location.startsWith(p)));
 
-  const perms = user?.role === 'admin' ? ['expense', 'cashseal', 'inventory', 'menu', 'purchase'] : (user?.permissions || []);
+  const perms = user?.role === 'admin' ? ['expense', 'cashseal', 'inventory', 'menu', 'purchase', 'labour'] : (user?.permissions || []);
 
   useEffect(() => {
     if (labourWorksPaths.some(p => location.startsWith(p))) {
