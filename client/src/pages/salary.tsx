@@ -393,6 +393,96 @@ export default function SalaryRegister() {
     }
   }, [salaries, employees, employeeMap, attendanceList, toast, month, year]);
 
+  const generateMutation = useMutation({
+    mutationFn: async () => {
+      const res = await apiRequest("POST", "/api/salary/generate", { clientName, month: Number(month), year: Number(year) });
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey });
+      toast({ title: "Salary Generated", description: "Salary records have been generated from attendance data." });
+    },
+    onError: (err: Error) => {
+      toast({ title: "Error", description: err.message, variant: "destructive" });
+    },
+  });
+
+  const computeRow = useCallback((s: SalaryRecord) => {
+    const n = (v: string | undefined | null) => Number(v) || 0;
+    const emp = employeeMap.get(s.employeeId);
+    const att = attendanceList?.find((a) => a.employeeId === s.employeeId);
+    let prsDays = 0, halfDay = 0, holidayWorking = 0, leave = 0, holidays = 0;
+    if (att) {
+      for (let i = 1; i <= 31; i++) {
+        const val = (att as any)[`day${i}`] as string;
+        if (!val) continue;
+        if (val === "P") prsDays++;
+        else if (val === "HD") halfDay++;
+        else if (val === "A") leave++;
+        else if (val === "H" || val === "WO" || val === "PH") holidays++;
+        else if (val === "CL" || val === "SL" || val === "EL") leave++;
+        else if (val === "HW") holidayWorking++;
+      }
+    }
+    if (prsDays === 0) prsDays = n(att?.totalPresent) || n(s.daysWorked);
+    const paidDays = n(s.daysWorked);
+    const otHrs = n(s.overtimeHours);
+    const basicRate = n(emp?.dailyRate);
+    const basicWage = n(s.basicWage);
+    const hra5 = Math.round(basicWage * 0.05);
+    const fixedHRA = n(s.hra);
+    const otAllow = n(s.overtimeAmount);
+    const totalGross = n(s.grossWage);
+    const pfDed = n(s.pfDeduction);
+    const esicDed = n(s.esicDeduction);
+    const pTax = n(s.professionalTax);
+    const lwf = n(s.otherDeduction);
+    const totalDedu = n(s.totalDeduction);
+    const netSalary = n(s.netPay);
+    const advance = n(s.advanceDeduction);
+    const payInAccount = netSalary - advance;
+    const pfEmployer = Math.round(basicWage * 0.13);
+    const esicEmployer = Math.round(totalGross * 0.0325);
+    const bonus = Math.round(basicWage * 0.0833);
+    const employerTotal = pfEmployer + esicEmployer + bonus;
+    const serviceBase = totalGross + employerTotal;
+    const serviceCharge = Math.round(serviceBase * 0.12);
+    const afterService = serviceBase + serviceCharge;
+    const gst = Math.round(serviceCharge * 0.18);
+    const finalTotal = afterService + gst;
+    const skills = getSkillLevel(emp?.designation);
+    return {
+      emp, skills, prsDays, halfDay, holidayWorking, leave, holidays, paidDays, otHrs,
+      basicRate, basicWage, hra5, fixedHRA, otAllow, totalGross,
+      pfDed, esicDed, pTax, lwf, totalDedu, netSalary,
+      leaveBalance: 0, leaveEncash: 0, advance, payInAccount,
+      pfEmployer, esicEmployer, bonus, employerTotal,
+      serviceCharge, afterService, gst, finalTotal,
+    };
+  }, [employeeMap, attendanceList]);
+
+  const { rows, totals } = useMemo(() => {
+    if (!salaries || salaries.length === 0) return { rows: [] as ReturnType<typeof computeRow>[], totals: null };
+    const rs = salaries.map(computeRow);
+    const sum = (fn: (r: ReturnType<typeof computeRow>) => number) => rs.reduce((a, r) => a + fn(r), 0);
+    return {
+      rows: rs,
+      totals: {
+        count: rs.length,
+        prsDays: sum(r => r.prsDays), halfDay: sum(r => r.halfDay), holidayWorking: sum(r => r.holidayWorking),
+        leave: sum(r => r.leave), holidays: sum(r => r.holidays), paidDays: sum(r => r.paidDays), otHrs: sum(r => r.otHrs),
+        basicRate: sum(r => r.basicRate), basicWage: sum(r => r.basicWage), hra5: sum(r => r.hra5), fixedHRA: sum(r => r.fixedHRA),
+        otAllow: sum(r => r.otAllow), totalGross: sum(r => r.totalGross),
+        pfDed: sum(r => r.pfDed), esicDed: sum(r => r.esicDed), pTax: sum(r => r.pTax), lwf: sum(r => r.lwf),
+        totalDedu: sum(r => r.totalDedu), netSalary: sum(r => r.netSalary),
+        leaveBalance: 0, leaveEncash: 0, advance: sum(r => r.advance), payInAccount: sum(r => r.payInAccount),
+        pfEmployer: sum(r => r.pfEmployer), esicEmployer: sum(r => r.esicEmployer), bonus: sum(r => r.bonus),
+        employerTotal: sum(r => r.employerTotal), serviceCharge: sum(r => r.serviceCharge),
+        afterService: sum(r => r.afterService), gst: sum(r => r.gst), finalTotal: sum(r => r.finalTotal),
+      },
+    };
+  }, [salaries, computeRow]);
+
   const handleExportExcel = useCallback(async () => {
     if (!salaries || salaries.length === 0 || rows.length === 0) return;
     const ExcelJS = await import("exceljs");
@@ -489,96 +579,6 @@ export default function SalaryRegister() {
     URL.revokeObjectURL(link.href);
     toast({ title: "Excel Downloaded", description: `Salary Register exported to Excel.` });
   }, [salaries, rows, totals, clientName, month, year, toast]);
-
-  const generateMutation = useMutation({
-    mutationFn: async () => {
-      const res = await apiRequest("POST", "/api/salary/generate", { clientName, month: Number(month), year: Number(year) });
-      return res.json();
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey });
-      toast({ title: "Salary Generated", description: "Salary records have been generated from attendance data." });
-    },
-    onError: (err: Error) => {
-      toast({ title: "Error", description: err.message, variant: "destructive" });
-    },
-  });
-
-  const computeRow = useCallback((s: SalaryRecord) => {
-    const n = (v: string | undefined | null) => Number(v) || 0;
-    const emp = employeeMap.get(s.employeeId);
-    const att = attendanceList?.find((a) => a.employeeId === s.employeeId);
-    let prsDays = 0, halfDay = 0, holidayWorking = 0, leave = 0, holidays = 0;
-    if (att) {
-      for (let i = 1; i <= 31; i++) {
-        const val = (att as any)[`day${i}`] as string;
-        if (!val) continue;
-        if (val === "P") prsDays++;
-        else if (val === "HD") halfDay++;
-        else if (val === "A") leave++;
-        else if (val === "H" || val === "WO" || val === "PH") holidays++;
-        else if (val === "CL" || val === "SL" || val === "EL") leave++;
-        else if (val === "HW") holidayWorking++;
-      }
-    }
-    if (prsDays === 0) prsDays = n(att?.totalPresent) || n(s.daysWorked);
-    const paidDays = n(s.daysWorked);
-    const otHrs = n(s.overtimeHours);
-    const basicRate = n(emp?.dailyRate);
-    const basicWage = n(s.basicWage);
-    const hra5 = Math.round(basicWage * 0.05);
-    const fixedHRA = n(s.hra);
-    const otAllow = n(s.overtimeAmount);
-    const totalGross = n(s.grossWage);
-    const pfDed = n(s.pfDeduction);
-    const esicDed = n(s.esicDeduction);
-    const pTax = n(s.professionalTax);
-    const lwf = n(s.otherDeduction);
-    const totalDedu = n(s.totalDeduction);
-    const netSalary = n(s.netPay);
-    const advance = n(s.advanceDeduction);
-    const payInAccount = netSalary - advance;
-    const pfEmployer = Math.round(basicWage * 0.13);
-    const esicEmployer = Math.round(totalGross * 0.0325);
-    const bonus = Math.round(basicWage * 0.0833);
-    const employerTotal = pfEmployer + esicEmployer + bonus;
-    const serviceBase = totalGross + employerTotal;
-    const serviceCharge = Math.round(serviceBase * 0.12);
-    const afterService = serviceBase + serviceCharge;
-    const gst = Math.round(serviceCharge * 0.18);
-    const finalTotal = afterService + gst;
-    const skills = getSkillLevel(emp?.designation);
-    return {
-      emp, skills, prsDays, halfDay, holidayWorking, leave, holidays, paidDays, otHrs,
-      basicRate, basicWage, hra5, fixedHRA, otAllow, totalGross,
-      pfDed, esicDed, pTax, lwf, totalDedu, netSalary,
-      leaveBalance: 0, leaveEncash: 0, advance, payInAccount,
-      pfEmployer, esicEmployer, bonus, employerTotal,
-      serviceCharge, afterService, gst, finalTotal,
-    };
-  }, [employeeMap, attendanceList]);
-
-  const { rows, totals } = useMemo(() => {
-    if (!salaries || salaries.length === 0) return { rows: [] as ReturnType<typeof computeRow>[], totals: null };
-    const rs = salaries.map(computeRow);
-    const sum = (fn: (r: ReturnType<typeof computeRow>) => number) => rs.reduce((a, r) => a + fn(r), 0);
-    return {
-      rows: rs,
-      totals: {
-        count: rs.length,
-        prsDays: sum(r => r.prsDays), halfDay: sum(r => r.halfDay), holidayWorking: sum(r => r.holidayWorking),
-        leave: sum(r => r.leave), holidays: sum(r => r.holidays), paidDays: sum(r => r.paidDays), otHrs: sum(r => r.otHrs),
-        basicRate: sum(r => r.basicRate), basicWage: sum(r => r.basicWage), hra5: sum(r => r.hra5), fixedHRA: sum(r => r.fixedHRA),
-        otAllow: sum(r => r.otAllow), totalGross: sum(r => r.totalGross),
-        pfDed: sum(r => r.pfDed), esicDed: sum(r => r.esicDed), pTax: sum(r => r.pTax), lwf: sum(r => r.lwf),
-        totalDedu: sum(r => r.totalDedu), netSalary: sum(r => r.netSalary),
-        leaveBalance: 0, leaveEncash: 0, advance: sum(r => r.advance), payInAccount: sum(r => r.payInAccount),
-        pfEmployer: sum(r => r.pfEmployer), esicEmployer: sum(r => r.esicEmployer), bonus: sum(r => r.bonus),
-        employerTotal: sum(r => r.employerTotal), serviceCharge: sum(r => r.serviceCharge),
-        afterService: sum(r => r.afterService), gst: sum(r => r.gst), finalTotal: sum(r => r.finalTotal),
-      },
-    };
-  }, [salaries, computeRow]);
 
   const handleLoad = () => {
     if (!clientName) {
