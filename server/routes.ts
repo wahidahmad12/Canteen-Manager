@@ -133,7 +133,23 @@ export async function registerRoutes(
     );
     const record = records.find((r: any) => r.employeeId === employeeId);
     if (!record) return res.status(404).json({ message: "No salary record" });
-    res.json(record);
+    const otRecords = await storage.getOvertimeRecords(req.session.clientName || "");
+    const empOt = otRecords.filter(ot => {
+      if (ot.employeeId !== employeeId) return false;
+      const d = new Date(ot.date);
+      return d.getMonth() + 1 === Number(month) && d.getFullYear() === Number(year);
+    });
+    let otHours = 0, otAmount = 0;
+    for (const ot of empOt) {
+      otHours += Number(ot.overtimeHours) || 0;
+      otAmount += Number(ot.overtimeAmount) || 0;
+    }
+    const result = {
+      ...record,
+      overtimeHours: String(Math.round(otHours * 100) / 100),
+      overtimeAmount: String(Math.round(otAmount)),
+    };
+    res.json(result);
   });
 
   // === USER MANAGEMENT ROUTES (admin only) ===
