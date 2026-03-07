@@ -146,19 +146,31 @@ export default function SkillWageRatesPage() {
                   </div>
                 </CardHeader>
                 <CardContent className="pb-3 pt-0">
-                  <div className="grid grid-cols-4 sm:grid-cols-6 md:grid-cols-12 gap-2">
-                    {MONTHS.map(m => (
-                      <div key={m.value} className="space-y-0.5">
-                        <Label className="text-[10px] text-muted-foreground">{m.label}</Label>
-                        <Input
-                          className="h-8 text-xs px-2"
-                          placeholder="₹"
-                          value={rates[skill]?.[m.value] || ""}
-                          onChange={e => updateRate(skill, m.value, e.target.value)}
-                          data-testid={`input-rate-${skill}-${m.value}`}
-                        />
-                      </div>
-                    ))}
+                  <div className="overflow-x-auto">
+                    <table className="w-full border-collapse">
+                      <thead>
+                        <tr>
+                          {MONTHS.map(m => (
+                            <th key={m.value} className="text-center text-xs font-medium text-muted-foreground px-1 pb-1" style={{ minWidth: 70 }}>{m.label}</th>
+                          ))}
+                        </tr>
+                      </thead>
+                      <tbody>
+                        <tr>
+                          {MONTHS.map(m => (
+                            <td key={m.value} className="px-1 py-0.5">
+                              <Input
+                                className="text-center text-sm"
+                                placeholder="0"
+                                value={rates[skill]?.[m.value] || ""}
+                                onChange={e => updateRate(skill, m.value, e.target.value)}
+                                data-testid={`input-rate-${skill}-${m.value}`}
+                              />
+                            </td>
+                          ))}
+                        </tr>
+                      </tbody>
+                    </table>
                   </div>
                 </CardContent>
               </Card>
