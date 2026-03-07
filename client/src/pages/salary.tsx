@@ -604,7 +604,7 @@ export default function SalaryRegister() {
       .info-label { font-weight: bold; white-space: nowrap; }
       .period-label { font-size: 16px; font-weight: bold; }
       table.main { width: 100%; border-collapse: collapse; font-size: 8px; }
-      table.main th, table.main td { border: 1px solid #000; padding: 2px 4px; text-align: center; vertical-align: middle; }
+      table.main th, table.main td { border: 1px solid #000; padding: 2px 4px; text-align: center; vertical-align: middle; height: 28px; }
       table.main th { background: #f0f0f0; font-weight: bold; font-size: 7px; }
       table.main td { font-size: 8px; }
     </style></head><body>
