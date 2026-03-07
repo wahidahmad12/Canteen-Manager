@@ -904,6 +904,21 @@ export async function registerRoutes(
     }
   });
 
+  app.get("/api/leave-with-wages/yearly-present", requireAuth, async (req, res) => {
+    const employeeId = Number(req.query.employeeId);
+    const year = Number(req.query.year);
+    if (!employeeId || !year) return res.status(400).json({ error: "employeeId and year required" });
+    const { attendance } = await import("@shared/schema");
+    const { eq, and } = await import("drizzle-orm");
+    const { db } = await import("./db");
+    const records = await db.select().from(attendance).where(
+      and(eq(attendance.employeeId, employeeId), eq(attendance.year, year))
+    );
+    const totalPresent = records.reduce((sum, r) => sum + Number(r.totalPresent || 0), 0);
+    const leaveEarned = Math.floor(totalPresent / 20);
+    res.json({ totalPresent, leaveEarned });
+  });
+
   app.post("/api/leave-with-wages", requireAdmin, async (req, res) => {
     const { insertLeaveWithWagesSchema } = await import("@shared/schema");
     const parsed = insertLeaveWithWagesSchema.safeParse(req.body);

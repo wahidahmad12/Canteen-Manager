@@ -263,8 +263,18 @@ export default function LeaveWithWagesPage() {
                               <Input type="number" value={formData.calendarYear} onChange={e => setFormData({ ...formData, calendarYear: Number(e.target.value) })} data-testid="input-year" />
                             </div>
                             <div className="space-y-1">
-                              <Label className="text-xs">Leave Earned (Col 2)</Label>
-                              <Input value={formData.daysLeaveEarned} onChange={e => setFormData({ ...formData, daysLeaveEarned: e.target.value })} data-testid="input-leave-earned" />
+                              <Label className="text-xs">Leave Earned (Col 2) = Days/20</Label>
+                              <div className="flex gap-1">
+                                <Input value={formData.daysLeaveEarned} onChange={e => setFormData({ ...formData, daysLeaveEarned: e.target.value })} data-testid="input-leave-earned" />
+                                <Button type="button" variant="outline" size="sm" className="shrink-0 text-xs px-2" data-testid="button-auto-calc" onClick={async () => {
+                                  try {
+                                    const res = await fetch(`/api/leave-with-wages/yearly-present?employeeId=${selectedEmployeeId}&year=${formData.calendarYear}`, { credentials: "include" });
+                                    const data = await res.json();
+                                    setFormData(prev => ({ ...prev, daysLeaveEarned: String(data.leaveEarned), actualDaysWorked: String(data.totalPresent) }));
+                                    toast({ title: `Present: ${data.totalPresent} days, Leave Earned: ${data.leaveEarned}` });
+                                  } catch { toast({ title: "Failed to fetch attendance", variant: "destructive" }); }
+                                }}>Auto</Button>
+                              </div>
                             </div>
                           </div>
                           <div className="grid grid-cols-2 gap-3">
@@ -300,7 +310,7 @@ export default function LeaveWithWagesPage() {
                           <div className="grid grid-cols-2 gap-3">
                             <div className="space-y-1">
                               <Label className="text-xs">Actual Days Worked (Col 8)</Label>
-                              <Input value={formData.actualDaysWorked} onChange={e => setFormData({ ...formData, actualDaysWorked: e.target.value })} data-testid="input-days-worked" />
+                              <Input value={formData.actualDaysWorked} onChange={e => setFormData({ ...formData, actualDaysWorked: e.target.value })} data-testid="input-days-worked" className="bg-muted/30" />
                             </div>
                             <div className="space-y-1">
                               <Label className="text-xs">Leave Allowed Date (Col 9)</Label>
