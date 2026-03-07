@@ -54,7 +54,7 @@ export default function FormXIII() {
               </SelectTrigger>
               <SelectContent>
                 {clientNames.map(c => (
-                  <SelectItem key={c} value={c}>{c}</SelectItem>
+                  <SelectItem key={c.id} value={c.name}>{c.name}</SelectItem>
                 ))}
               </SelectContent>
             </Select>
