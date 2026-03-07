@@ -98,13 +98,15 @@ export default function BonusReturn() {
     style.id = "bonus-print";
     style.textContent = `
       @media print {
-        @page { size: A3 landscape; margin: 8mm; }
-        @page:first { size: A4 portrait; margin: 20mm; }
+        @page portrait-page { size: A4 portrait; margin: 20mm; }
+        @page landscape-page { size: A3 landscape; margin: 8mm; }
         body * { visibility: hidden !important; }
         #bonus-print-area, #bonus-print-area * { visibility: visible !important; }
         #bonus-print-area { position: absolute; top: 0; left: 0; width: 100%; }
         .no-print { display: none !important; }
-        .cover-letter-page { page-break-after: always; }
+        .cover-letter-page { page: portrait-page; page-break-after: always; }
+        .form-c-page { page: landscape-page; }
+        .form-c-page table { width: 100%; table-layout: auto; }
       }
     `;
     document.head.appendChild(style);
@@ -500,6 +502,7 @@ export default function BonusReturn() {
                     </div>
                   </div>
 
+                  <div className="form-c-page">
                   <div style={{ textAlign: "center", marginBottom: "10px" }}>
                     <div style={{ fontSize: "18px", fontWeight: "bold", color: "#1a237e" }}>FORM C</div>
                     <div style={{ fontSize: "12px" }}>[See rule 4 (c)]</div>
@@ -572,6 +575,7 @@ export default function BonusReturn() {
                     <div style={{ textAlign: "center" }}>
                       <div style={{ borderTop: "1px solid #333", width: "160px", paddingTop: "4px" }}>Principal Employer</div>
                     </div>
+                  </div>
                   </div>
                 </div>
               </>
