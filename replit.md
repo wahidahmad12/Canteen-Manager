@@ -34,6 +34,7 @@ Preferred communication style: Simple, everyday language.
   - `/form-xiii` — Workmen Register (Form XIII) printable list of workers by company
   - `/form-xiv/:id` — Employment Card (Form XIV) individual worker card
   - `/bonus-return` — Bonus Return (Form C) client-wise annual bonus calculation (8.33% of gross salary)
+  - `/half-yearly-return` — Half-Yearly Return (Form XXIV) Rule 82(1) with cover letter and form, auto-calculated from salary records, separate print buttons for cover letter (A4 portrait) and Form XXIV (A4 portrait)
 
 ### Backend
 - **Framework**: Express 5 on Node.js with TypeScript (run via tsx)

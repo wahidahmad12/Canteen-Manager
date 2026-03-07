@@ -705,8 +705,18 @@ export async function registerRoutes(
   });
 
   app.get("/api/salary", requireAuth, async (req, res) => {
-    const { clientName, month, year } = req.query;
-    if (!clientName || !month || !year) return res.status(400).json({ message: "clientName, month, year required" });
+    const { clientName, month, year, months: monthsParam } = req.query;
+    if (!clientName || !year) return res.status(400).json({ message: "clientName, year required" });
+    if (monthsParam) {
+      const monthsList = (monthsParam as string).split(',').map(Number);
+      const allRecords = [];
+      for (const m of monthsList) {
+        const records = await storage.getSalaryRecords(clientName as string, m, Number(year));
+        allRecords.push(...records);
+      }
+      return res.json(allRecords);
+    }
+    if (!month) return res.status(400).json({ message: "month required" });
     const records = await storage.getSalaryRecords(clientName as string, Number(month), Number(year));
     res.json(records);
   });

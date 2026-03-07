@@ -27,6 +27,7 @@ import Registers from "./pages/registers";
 import FormXIII from "./pages/form-xiii";
 import FormXIV from "./pages/form-xiv";
 import BonusReturn from "./pages/bonus-return";
+import HalfYearlyReturn from "./pages/half-yearly-return";
 import Login from "./pages/login";
 import { useCurrentUser } from "./hooks/use-reports";
 import { Loader2 } from "lucide-react";
@@ -79,6 +80,7 @@ function AuthenticatedRouter() {
       <Route path="/form-xiii" component={FormXIII} />
       <Route path="/form-xiv/:id" component={FormXIV} />
       <Route path="/bonus-return" component={BonusReturn} />
+      <Route path="/half-yearly-return" component={HalfYearlyReturn} />
       <Route component={NotFound} />
     </Switch>
   );
