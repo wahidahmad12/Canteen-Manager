@@ -211,6 +211,7 @@ export const employees = pgTable("employees", {
   joiningDate: date("joining_date"),
   leavingDate: date("leaving_date"),
   leavingReason: text("leaving_reason").default(""),
+  mobile: text("mobile").default(""),
   isActive: boolean("is_active").notNull().default(true),
   createdAt: timestamp("created_at").defaultNow(),
 });

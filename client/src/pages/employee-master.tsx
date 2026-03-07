@@ -38,6 +38,7 @@ interface Employee {
   joiningDate: string | null;
   leavingDate: string | null;
   leavingReason: string | null;
+  mobile: string | null;
   isActive: boolean;
   createdAt: string | null;
 }
@@ -64,6 +65,7 @@ const emptyForm = {
   joiningDate: "",
   leavingDate: "",
   leavingReason: "",
+  mobile: "",
   isActive: true,
 };
 
@@ -176,6 +178,7 @@ export default function EmployeeMaster() {
       joiningDate: emp.joiningDate || "",
       leavingDate: emp.leavingDate || "",
       leavingReason: emp.leavingReason || "",
+      mobile: emp.mobile || "",
       isActive: emp.isActive,
     });
     setDialogOpen(true);
@@ -532,6 +535,10 @@ export default function EmployeeMaster() {
                 <MapPin className="w-4 h-4" /> Address
               </h3>
               <Textarea value={form.address} onChange={e => setField("address", e.target.value)} rows={2} data-testid="input-address" />
+              <div className="mt-3">
+                <Label htmlFor="mobile">Mobile No.</Label>
+                <Input id="mobile" value={form.mobile} onChange={e => setField("mobile", e.target.value)} inputMode="tel" data-testid="input-mobile" />
+              </div>
             </div>
 
             <div>
