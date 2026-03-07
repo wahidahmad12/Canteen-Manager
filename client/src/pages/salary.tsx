@@ -147,126 +147,158 @@ function buildSlipHTML(salary: SalaryRecord, employee: Employee | undefined, att
   if (attendance) { for (let i = 1; i <= 31; i++) { const val = attendance[`day${i}`]; if (val === "H" || val === "WO" || val === "PH") holidays++; } }
   const paidDays = n(salary.daysWorked);
 
-  return `<div style="width:800px;background:white;padding:0;font-family:Arial,sans-serif;">
-    <table style="width:100%;border-collapse:collapse;font-size:13px;color:#000;">
+  const C = {
+    headerGrad: "linear-gradient(135deg, #1a237e 0%, #283593 30%, #3949ab 60%, #5c6bc0 100%)",
+    periodGrad: "linear-gradient(135deg, #0d47a1 0%, #1565c0 50%, #1976d2 100%)",
+    infoLabelBg: "#e8eaf6", infoLabelColor: "#283593",
+    attLabelBg: "#e3f2fd", attLabelColor: "#0d47a1", attValColor: "#1565c0",
+    earnLabelBg: "#e8f5e9", earnLabelColor: "#1b5e20", earnValColor: "#2e7d32",
+    dedLabelBg: "#fce4ec", dedLabelColor: "#b71c1c", dedValColor: "#c62828",
+    netBg: "linear-gradient(135deg, #1b5e20 0%, #2e7d32 50%, #43a047 100%)",
+    wordsBg: "#f3e5f5", wordsColor: "#4a148c",
+  };
+  const b = "1px solid #90a4ae";
+  const cp = "padding:5px 8px";
+
+  return `<div style="width:800px;background:white;padding:0;font-family:'Inter','Segoe UI',Arial,sans-serif;">
+    <table style="width:100%;border-collapse:collapse;font-size:13px;">
       <tbody>
-        <tr><td colspan="8" style="border:1px solid #333;text-align:center;padding:8px;">
-          <div style="display:flex;align-items:center;justify-content:center;gap:12px;">
-            <img src="${logoSrc}" crossorigin="anonymous" style="width:50px;height:50px;" />
+        <tr><td colspan="8" style="background:${C.headerGrad};color:#fff;text-align:center;padding:14px 8px 10px;border:none;">
+          <div style="display:flex;align-items:center;justify-content:center;gap:14px;">
+            <img src="${logoSrc}" crossorigin="anonymous" style="width:54px;height:54px;border-radius:8px;border:2px solid rgba(255,255,255,0.4);background:#fff;padding:2px;" />
             <div>
-              <div style="font-size:16px;font-weight:bold;">DJ HOSPITALITY &amp; FACILITY MANAGEMENT PVT LTD</div>
-              <div style="font-size:10px;">Regd. &amp; Head Office: 730, Tin Made, Sodiem Siolim, Mapusa Bardez, North Goa-403502, India</div>
-              <div style="font-size:10px;">Branch Office: 7 Crimatorium Street, Kolkata- 700014</div>
+              <div style="font-size:17px;font-weight:800;letter-spacing:0.5px;text-shadow:1px 1px 2px rgba(0,0,0,0.3);">DJ HOSPITALITY &amp; FACILITY MANAGEMENT PVT LTD</div>
+              <div style="font-size:10px;opacity:0.85;margin-top:2px;">Regd. &amp; Head Office: 730, Tin Made, Sodiem Siolim, Mapusa Bardez, North Goa-403502, India</div>
+              <div style="font-size:10px;opacity:0.85;">Branch Office: 7 Crimatorium Street, Kolkata- 700014</div>
             </div>
           </div>
-          <div style="font-weight:bold;font-size:14px;margin-top:4px;">Form - XIX Wages Slip</div>
-          <div style="font-size:11px;">[See rule 78(1)(b)]</div>
+          <div style="margin-top:8px;font-size:15px;font-weight:700;letter-spacing:1px;background:rgba(255,255,255,0.15);display:inline-block;padding:3px 20px;border-radius:4px;">Form - XIX Wages Slip</div>
+          <div style="font-size:10px;opacity:0.7;margin-top:2px;">[See rule 78(1)(b)]</div>
         </td></tr>
-        <tr><td colspan="8" style="border:1px solid #333;text-align:center;padding:10px;font-size:20px;font-weight:bold;">${MONTHS[salary.month - 1]}-${salary.year}</td></tr>
-        <tr><td colspan="2" style="border:1px solid #333;padding:4px 8px;font-weight:600;background:#f9f9f9;">Company Name</td><td colspan="6" style="border:1px solid #333;padding:4px 8px;font-weight:bold;">${esc(salary.clientName)}</td></tr>
-        <tr><td colspan="2" style="border:1px solid #333;padding:4px 8px;font-weight:600;background:#f9f9f9;">Location of work</td><td colspan="6" style="border:1px solid #333;padding:4px 8px;">Khidirpur Factory, 1, Transport depot Rd, Goragacha Rood, Kolkata - 700110</td></tr>
-        <tr><td colspan="2" style="border:1px solid #333;padding:4px 8px;font-weight:600;background:#f9f9f9;">Name:</td><td colspan="6" style="border:1px solid #333;padding:4px 8px;font-size:15px;font-weight:bold;">${esc(employee?.name)}</td></tr>
+
+        <tr><td colspan="8" style="background:${C.periodGrad};color:#fff;text-align:center;padding:10px;font-size:20px;font-weight:800;letter-spacing:2px;border:none;text-shadow:1px 1px 3px rgba(0,0,0,0.3);">${MONTHS[salary.month - 1].toUpperCase()} - ${salary.year}</td></tr>
+
+        <tr><td colspan="2" style="background:${C.infoLabelBg};color:${C.infoLabelColor};font-weight:700;border:${b};${cp}">Company Name</td><td colspan="6" style="font-weight:700;font-size:14px;color:#1a237e;border:${b};${cp}">${esc(salary.clientName)}</td></tr>
+        <tr><td colspan="2" style="background:${C.infoLabelBg};color:${C.infoLabelColor};font-weight:600;border:${b};${cp}">Location of work</td><td colspan="6" style="font-size:12px;border:${b};${cp}">Khidirpur Factory, 1, Transport depot Rd, Goragacha Rood, Kolkata - 700110</td></tr>
+        <tr><td colspan="2" style="background:${C.infoLabelBg};color:${C.infoLabelColor};font-weight:700;border:${b};${cp}">Name:</td><td colspan="6" style="font-size:16px;font-weight:800;color:#1a237e;border:${b};${cp}">${esc(employee?.name)}</td></tr>
+
         <tr>
-          <td colspan="2" style="border:1px solid #333;padding:4px 8px;font-weight:600;background:#f9f9f9;">Father's / Husband's :</td>
-          <td colspan="2" style="border:1px solid #333;padding:4px 8px;">${esc(employee?.fatherName)}</td>
-          <td style="border:1px solid #333;padding:4px 8px;font-weight:600;background:#f9f9f9;">Skills:</td>
-          <td colspan="3" style="border:1px solid #333;padding:4px 8px;">${esc(employee?.designation) || "Unskilled"}</td>
+          <td colspan="2" style="background:${C.infoLabelBg};color:${C.infoLabelColor};font-weight:600;white-space:nowrap;border:${b};${cp}">Father's / Husband's :</td>
+          <td colspan="3" style="border:${b};${cp}">${esc(employee?.fatherName)}</td>
+          <td style="background:${C.infoLabelBg};color:${C.infoLabelColor};font-weight:600;white-space:nowrap;border:${b};${cp}">Skills:</td>
+          <td colspan="2" style="border:${b};${cp}">${esc(employee?.designation) || "Unskilled"}</td>
         </tr>
         <tr>
-          <td colspan="2" style="border:1px solid #333;padding:4px 8px;font-weight:600;background:#f9f9f9;">Date Of Birth</td>
-          <td colspan="2" style="border:1px solid #333;padding:4px 8px;">${formatDateStr(employee?.dob)}</td>
-          <td style="border:1px solid #333;padding:4px 8px;font-weight:600;background:#f9f9f9;">Joining Date :</td>
-          <td colspan="3" style="border:1px solid #333;padding:4px 8px;">${formatDateStr(employee?.joiningDate)}</td>
+          <td colspan="2" style="background:${C.infoLabelBg};color:${C.infoLabelColor};font-weight:600;white-space:nowrap;border:${b};${cp}">Date Of Birth</td>
+          <td colspan="3" style="border:${b};${cp}">${formatDateStr(employee?.dob)}</td>
+          <td style="background:${C.infoLabelBg};color:${C.infoLabelColor};font-weight:600;white-space:nowrap;border:${b};${cp}">Joining Date :</td>
+          <td colspan="2" style="border:${b};${cp}">${formatDateStr(employee?.joiningDate)}</td>
         </tr>
         <tr>
-          <td colspan="2" style="border:1px solid #333;padding:4px 8px;font-weight:600;background:#f9f9f9;">ESIC No.:</td>
-          <td colspan="2" style="border:1px solid #333;padding:4px 8px;">${esc(employee?.esicNo)}</td>
-          <td style="border:1px solid #333;padding:4px 8px;font-weight:600;background:#f9f9f9;">UAN:</td>
-          <td colspan="3" style="border:1px solid #333;padding:4px 8px;">${esc(employee?.uanNo)}</td>
+          <td colspan="2" style="background:#ede7f6;color:#4a148c;font-weight:600;white-space:nowrap;border:${b};${cp}">ESIC No.:</td>
+          <td colspan="3" style="font-family:monospace;font-size:12px;color:#4a148c;border:${b};${cp}">${esc(employee?.esicNo)}</td>
+          <td style="background:#ede7f6;color:#4a148c;font-weight:600;white-space:nowrap;border:${b};${cp}">UAN:</td>
+          <td colspan="2" style="font-family:monospace;font-size:12px;color:#4a148c;border:${b};${cp}">${esc(employee?.uanNo)}</td>
         </tr>
         <tr>
-          <td colspan="2" style="border:1px solid #333;padding:4px 8px;font-weight:600;background:#f9f9f9;">PF No.:</td>
-          <td colspan="2" style="border:1px solid #333;padding:4px 8px;">${esc(employee?.pfNo)}</td>
-          <td style="border:1px solid #333;padding:4px 8px;font-weight:600;background:#f9f9f9;">Mobile No:</td>
-          <td colspan="3" style="border:1px solid #333;padding:4px 8px;">${esc(employee?.mobile)}</td>
+          <td colspan="2" style="background:#ede7f6;color:#4a148c;font-weight:600;white-space:nowrap;border:${b};${cp}">PF No.:</td>
+          <td colspan="3" style="font-family:monospace;font-size:12px;color:#4a148c;border:${b};${cp}">${esc(employee?.pfNo)}</td>
+          <td style="background:#ede7f6;color:#4a148c;font-weight:600;white-space:nowrap;border:${b};${cp}">Mobile No:</td>
+          <td colspan="2" style="border:${b};${cp}">${esc(employee?.mobile)}</td>
         </tr>
         <tr>
-          <td style="border:1px solid #333;padding:4px 8px;font-weight:600;background:#f9f9f9;">Bank Name:</td>
-          <td colspan="3" style="border:1px solid #333;padding:4px 8px;">${esc(employee?.bankName)}</td>
-          <td style="border:1px solid #333;padding:4px 8px;font-weight:600;background:#f9f9f9;">IFSC Code :</td>
-          <td colspan="3" style="border:1px solid #333;padding:4px 8px;">${esc(employee?.ifscCode)}</td>
+          <td colspan="2" style="background:#e0f2f1;color:#004d40;font-weight:600;white-space:nowrap;border:${b};${cp}">Bank Name:</td>
+          <td colspan="3" style="color:#00695c;border:${b};${cp}">${esc(employee?.bankName)}</td>
+          <td style="background:#e0f2f1;color:#004d40;font-weight:600;white-space:nowrap;border:${b};${cp}">IFSC Code :</td>
+          <td colspan="2" style="font-family:monospace;font-size:12px;color:#00695c;border:${b};${cp}">${esc(employee?.ifscCode)}</td>
         </tr>
         <tr>
-          <td style="border:1px solid #333;padding:4px 8px;font-weight:600;background:#f9f9f9;">Bank Account No.:</td>
-          <td colspan="3" style="border:1px solid #333;padding:4px 8px;">${esc(employee?.accountNo)}</td>
-          <td style="border:1px solid #333;padding:4px 8px;font-weight:600;background:#f9f9f9;">Pay. Date:</td>
-          <td colspan="3" style="border:1px solid #333;padding:4px 8px;">${salary.paidOn ? formatDateStr(salary.paidOn) : "-"}</td>
+          <td colspan="2" style="background:#e0f2f1;color:#004d40;font-weight:600;white-space:nowrap;border:${b};${cp}">Bank Account No.:</td>
+          <td colspan="3" style="font-family:monospace;font-size:12px;color:#00695c;border:${b};${cp}">${esc(employee?.accountNo)}</td>
+          <td style="background:#e0f2f1;color:#004d40;font-weight:600;white-space:nowrap;border:${b};${cp}">Pay. Date:</td>
+          <td colspan="2" style="border:${b};${cp}">${salary.paidOn ? formatDateStr(salary.paidOn) : "-"}</td>
+        </tr>
+
+        <tr>
+          <td colspan="2" style="background:${C.attLabelBg};color:${C.attLabelColor};font-weight:800;text-align:center;font-size:12px;letter-spacing:1px;border:${b};${cp}">ATTENDANCE</td>
+          <td colspan="3" style="background:${C.earnLabelBg};color:${C.earnLabelColor};font-weight:800;text-align:center;font-size:12px;letter-spacing:1px;border:${b};${cp}">EARNINGS (₹)</td>
+          <td colspan="3" style="background:${C.dedLabelBg};color:${C.dedLabelColor};font-weight:800;text-align:center;font-size:12px;letter-spacing:1px;border:${b};${cp}">DEDUCTIONS (₹)</td>
+        </tr>
+
+        <tr>
+          <td style="background:${C.attLabelBg};color:${C.attLabelColor};font-weight:600;border:${b};${cp}">PRS DAYS</td>
+          <td style="text-align:right;font-weight:700;color:${C.attValColor};border:${b};${cp}">${prsDays}</td>
+          <td style="background:${C.earnLabelBg};color:${C.earnLabelColor};font-weight:600;border:${b};${cp}" colspan="2">Basic Rate</td>
+          <td style="text-align:right;font-weight:700;color:${C.earnValColor};border:${b};${cp}">${basicRate}</td>
+          <td style="background:${C.dedLabelBg};color:${C.dedLabelColor};font-weight:600;border:${b};${cp}" colspan="2">ESIC @ 0.75%</td>
+          <td style="text-align:right;font-weight:700;color:${C.dedValColor};border:${b};${cp}">${esicDed}</td>
         </tr>
         <tr>
-          <td style="border:1px solid #333;padding:4px 8px;font-weight:600;background:#f9f9f9;">PRS DAYS</td>
-          <td style="border:1px solid #333;padding:4px 8px;text-align:right;">${prsDays}</td>
-          <td colspan="2" style="border:1px solid #333;padding:4px 8px;font-weight:600;background:#f9f9f9;">Basic Rate</td>
-          <td style="border:1px solid #333;padding:4px 8px;text-align:right;">${basicRate}</td>
-          <td colspan="2" style="border:1px solid #333;padding:4px 8px;font-weight:600;background:#f9f9f9;">ESIC @ 0.75%</td>
-          <td style="border:1px solid #333;padding:4px 8px;text-align:right;">${esicDed}</td>
+          <td style="background:${C.attLabelBg};color:${C.attLabelColor};font-weight:600;border:${b};${cp}">Half Day</td>
+          <td style="text-align:right;font-weight:700;color:${C.attValColor};border:${b};${cp}">0</td>
+          <td style="background:${C.earnLabelBg};color:${C.earnLabelColor};font-weight:600;border:${b};${cp}" colspan="2">Basic</td>
+          <td style="text-align:right;font-weight:700;color:${C.earnValColor};border:${b};${cp}">${basic}</td>
+          <td style="background:${C.dedLabelBg};color:${C.dedLabelColor};font-weight:600;border:${b};${cp}" colspan="2">P-TAX</td>
+          <td style="text-align:right;font-weight:700;color:${C.dedValColor};border:${b};${cp}">${pTax}</td>
         </tr>
         <tr>
-          <td style="border:1px solid #333;padding:4px 8px;font-weight:600;background:#f9f9f9;">Half Day</td>
-          <td style="border:1px solid #333;padding:4px 8px;text-align:right;">0</td>
-          <td colspan="2" style="border:1px solid #333;padding:4px 8px;font-weight:600;background:#f9f9f9;">Basic</td>
-          <td style="border:1px solid #333;padding:4px 8px;text-align:right;">${basic}</td>
-          <td colspan="2" style="border:1px solid #333;padding:4px 8px;font-weight:600;background:#f9f9f9;">P-TAX</td>
-          <td style="border:1px solid #333;padding:4px 8px;text-align:right;">${pTax}</td>
+          <td style="background:${C.attLabelBg};color:${C.attLabelColor};font-weight:600;border:${b};${cp}">Extra Work</td>
+          <td style="text-align:right;font-weight:700;color:${C.attValColor};border:${b};${cp}">0</td>
+          <td style="background:${C.earnLabelBg};color:${C.earnLabelColor};font-weight:600;border:${b};${cp}" colspan="2">DA</td>
+          <td style="text-align:right;font-weight:700;color:${C.earnValColor};border:${b};${cp}">${n(salary.da)}</td>
+          <td style="background:${C.dedLabelBg};color:${C.dedLabelColor};font-weight:600;border:${b};${cp}" colspan="2">PF @12%</td>
+          <td style="text-align:right;font-weight:700;color:${C.dedValColor};border:${b};${cp}">${pfDed}</td>
         </tr>
         <tr>
-          <td style="border:1px solid #333;padding:4px 8px;font-weight:600;background:#f9f9f9;">Extra Work</td>
-          <td style="border:1px solid #333;padding:4px 8px;text-align:right;">0</td>
-          <td colspan="2" style="border:1px solid #333;padding:4px 8px;font-weight:600;background:#f9f9f9;">HRA 5%</td>
-          <td style="border:1px solid #333;padding:4px 8px;text-align:right;">${hra5}</td>
-          <td colspan="2" style="border:1px solid #333;padding:4px 8px;font-weight:600;background:#f9f9f9;">LWF</td>
-          <td style="border:1px solid #333;padding:4px 8px;text-align:right;">${lwf}</td>
+          <td style="background:${C.attLabelBg};color:${C.attLabelColor};font-weight:600;border:${b};${cp}">LEAVE</td>
+          <td style="text-align:right;font-weight:700;color:${C.attValColor};border:${b};${cp}">${leave}</td>
+          <td style="background:${C.earnLabelBg};color:${C.earnLabelColor};font-weight:600;border:${b};${cp}" colspan="2">HRA 5%</td>
+          <td style="text-align:right;font-weight:700;color:${C.earnValColor};border:${b};${cp}">${hra5}</td>
+          <td style="background:${C.dedLabelBg};color:${C.dedLabelColor};font-weight:600;border:${b};${cp}" colspan="2">LWF</td>
+          <td style="text-align:right;font-weight:700;color:${C.dedValColor};border:${b};${cp}">${lwf}</td>
         </tr>
         <tr>
-          <td style="border:1px solid #333;padding:4px 8px;font-weight:600;background:#f9f9f9;">LEAVE</td>
-          <td style="border:1px solid #333;padding:4px 8px;text-align:right;">${leave}</td>
-          <td colspan="2" style="border:1px solid #333;padding:4px 8px;font-weight:600;background:#f9f9f9;">Fixed HRA</td>
-          <td style="border:1px solid #333;padding:4px 8px;text-align:right;">${fixedHRA}</td>
-          <td colspan="2" style="border:1px solid #333;padding:4px 8px;font-weight:600;background:#f9f9f9;">Total Dedu</td>
-          <td style="border:1px solid #333;padding:4px 8px;text-align:right;font-weight:bold;">${totalDedu}</td>
+          <td style="background:${C.attLabelBg};color:${C.attLabelColor};font-weight:600;border:${b};${cp}">HOLIDAYS</td>
+          <td style="text-align:right;font-weight:700;color:${C.attValColor};border:${b};${cp}">${holidays}</td>
+          <td style="background:${C.earnLabelBg};color:${C.earnLabelColor};font-weight:600;border:${b};${cp}" colspan="2">Fixed HRA</td>
+          <td style="text-align:right;font-weight:700;color:${C.earnValColor};border:${b};${cp}">${fixedHRA}</td>
+          <td style="background:${C.dedLabelBg};color:${C.dedLabelColor};font-weight:600;font-size:11px;border:${b};${cp}" colspan="2">Total Dedu</td>
+          <td style="text-align:right;font-weight:800;color:#fff;background:#c62828;font-size:14px;border:${b};${cp}">${totalDedu}</td>
         </tr>
         <tr>
-          <td style="border:1px solid #333;padding:4px 8px;font-weight:600;background:#f9f9f9;">HOLIDAYS</td>
-          <td style="border:1px solid #333;padding:4px 8px;text-align:right;">${holidays}</td>
-          <td colspan="2" style="border:1px solid #333;padding:4px 8px;font-weight:600;background:#f9f9f9;">OT Allow</td>
-          <td style="border:1px solid #333;padding:4px 8px;text-align:right;">${n(salary.overtimeAmount)}</td>
-          <td colspan="2" style="border:1px solid #333;padding:4px 8px;font-weight:600;background:#f9f9f9;font-size:11px;">Leave Balance ${salary.year}</td>
-          <td style="border:1px solid #333;padding:4px 8px;text-align:right;">0</td>
+          <td style="background:${C.attLabelBg};color:${C.attLabelColor};font-weight:700;border:${b};${cp}">Paid Days</td>
+          <td style="text-align:right;font-weight:800;color:#fff;background:#0d47a1;font-size:14px;border:${b};${cp}">${paidDays}</td>
+          <td style="background:${C.earnLabelBg};color:${C.earnLabelColor};font-weight:600;border:${b};${cp}" colspan="2">OT Allow</td>
+          <td style="text-align:right;font-weight:700;color:${C.earnValColor};border:${b};${cp}">${n(salary.overtimeAmount)}</td>
+          <td style="background:#fff8e1;color:#e65100;font-weight:600;font-size:11px;border:${b};${cp}" colspan="2">Leave Balance ${salary.year}</td>
+          <td style="text-align:right;font-weight:700;color:#e65100;border:${b};${cp}">0</td>
         </tr>
         <tr>
-          <td style="border:1px solid #333;padding:4px 8px;font-weight:600;background:#f9f9f9;">Paid Days</td>
-          <td style="border:1px solid #333;padding:4px 8px;text-align:right;font-weight:bold;">${paidDays}</td>
-          <td colspan="2" style="border:1px solid #333;padding:4px 8px;font-weight:600;background:#f9f9f9;">Total Gross</td>
-          <td style="border:1px solid #333;padding:4px 8px;text-align:right;font-weight:bold;">${totalGross}</td>
-          <td colspan="2" style="border:1px solid #333;padding:4px 8px;font-weight:600;background:#f9f9f9;font-size:10px;">Leave Encashment Amt. ${salary.year}</td>
-          <td style="border:1px solid #333;padding:4px 8px;text-align:right;">0</td>
+          <td style="background:${C.attLabelBg};color:${C.attLabelColor};font-weight:600;border:${b};${cp}">OT HRS</td>
+          <td style="text-align:right;font-weight:700;color:${C.attValColor};border:${b};${cp}">${otHrs}</td>
+          <td style="background:${C.earnLabelBg};color:${C.earnLabelColor};font-weight:700;border:${b};${cp}" colspan="2">Total Gross</td>
+          <td style="text-align:right;font-weight:800;color:#fff;background:#2e7d32;font-size:14px;border:${b};${cp}">${totalGross}</td>
+          <td style="background:#fff8e1;color:#e65100;font-weight:600;font-size:10px;border:${b};${cp}" colspan="2">Leave Encashment Amt. ${salary.year}</td>
+          <td style="text-align:right;font-weight:700;color:#e65100;border:${b};${cp}">0</td>
         </tr>
         <tr>
-          <td style="border:1px solid #333;padding:4px 8px;font-weight:600;background:#f9f9f9;">OT HRS</td>
-          <td style="border:1px solid #333;padding:4px 8px;text-align:right;">${otHrs}</td>
-          <td colspan="2" style="border:1px solid #333;padding:4px 8px;font-weight:600;background:#f9f9f9;">PF Deduction @12%</td>
-          <td style="border:1px solid #333;padding:4px 8px;text-align:right;">${pfDed}</td>
-          <td colspan="2" style="border:1px solid #333;padding:4px 8px;font-weight:bold;background:#f9f9f9;">Net Salary</td>
-          <td style="border:1px solid #333;padding:4px 8px;text-align:right;font-weight:bold;font-size:15px;">${netSalary}</td>
+          <td style="background:${C.attLabelBg};border:${b};${cp}"></td>
+          <td style="border:${b};${cp}"></td>
+          <td style="background:${C.earnLabelBg};border:${b};${cp}" colspan="2"></td>
+          <td style="border:${b};${cp}"></td>
+          <td style="background:${C.netBg};color:#fff;font-weight:800;font-size:13px;letter-spacing:1px;border:${b};${cp}" colspan="2">NET SALARY</td>
+          <td style="background:${C.netBg};color:#fff;text-align:right;font-weight:900;font-size:18px;letter-spacing:0.5px;text-shadow:1px 1px 2px rgba(0,0,0,0.3);border:${b};${cp}">₹${netSalary.toLocaleString("en-IN")}</td>
+        </tr>
+
+        <tr>
+          <td colspan="2" style="background:${C.wordsBg};color:${C.wordsColor};font-weight:700;border:${b};${cp}">Net Salary in Words</td>
+          <td colspan="6" style="background:${C.wordsBg};color:${C.wordsColor};font-weight:700;font-style:italic;font-size:13px;border:${b};${cp}">${numberToWords(netSalary)}</td>
         </tr>
         <tr>
-          <td colspan="2" style="border:1px solid #333;padding:4px 8px;font-weight:bold;background:#f9f9f9;">Net Salary in Word</td>
-          <td colspan="6" style="border:1px solid #333;padding:4px 8px;font-weight:bold;">${numberToWords(netSalary)}</td>
-        </tr>
-        <tr>
-          <td colspan="8" style="border:1px solid #333;height:60px;vertical-align:bottom;padding:8px;">
+          <td colspan="8" style="height:70px;vertical-align:bottom;padding:10px 16px;background:#fafafa;border:${b};">
             <div style="display:flex;justify-content:space-between;">
-              <div style="text-align:center;"><div style="border-top:1px solid #333;padding-top:4px;min-width:180px;">Prepared By Signature</div></div>
-              <div style="text-align:center;"><div style="border-top:1px solid #333;padding-top:4px;min-width:180px;">Approved By Signature and Stamp</div></div>
+              <div style="text-align:center;"><div style="border-top:2px solid #283593;padding-top:6px;min-width:180px;font-size:11px;font-weight:600;color:#283593;">Prepared By Signature</div></div>
+              <div style="text-align:center;"><div style="border-top:2px solid #283593;padding-top:6px;min-width:180px;font-size:11px;font-weight:600;color:#283593;">Approved By Signature and Stamp</div></div>
             </div>
           </td>
         </tr>
