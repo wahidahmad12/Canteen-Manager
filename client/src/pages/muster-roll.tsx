@@ -397,14 +397,77 @@ export default function MusterRoll() {
     <Layout>
       <style>{`
         @media print {
-          nav, aside, header, .no-print { display: none !important; }
-          main { padding: 0 !important; }
-          .print-table { font-size: 9px !important; }
-          .print-table th, .print-table td { padding: 2px 3px !important; }
+          @page { size: landscape; margin: 8mm; }
+          body { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
+          nav, aside, header, .no-print, .print-hide, [data-sidebar], .sidebar-wrapper { display: none !important; }
+          main { padding: 0 !important; margin: 0 !important; max-width: 100% !important; }
+          .print-hide { display: none !important; }
+          .print-full { overflow: visible !important; max-height: none !important; }
+          .print-title-block { display: block !important; }
+          .print-table { font-size: 7.5pt !important; border-collapse: collapse !important; width: 100% !important; }
+          .print-table th, .print-table td { 
+            padding: 2px 2px !important; 
+            border: 1px solid #333 !important;
+            text-align: center !important;
+          }
+          .print-table th { 
+            background: #e8f5e9 !important; 
+            font-weight: bold !important; 
+            font-size: 7pt !important;
+          }
+          .print-table td.emp-name { 
+            text-align: left !important; 
+            font-weight: 600 !important; 
+            white-space: nowrap !important;
+            font-size: 7pt !important;
+            padding-left: 4px !important;
+          }
+          .print-table .day-cell { min-width: 18px !important; width: 18px !important; font-size: 7pt !important; font-weight: bold !important; }
+          .print-table .summary-present { background: #c8e6c9 !important; font-weight: bold !important; }
+          .print-table .summary-holiday { background: #fff9c4 !important; font-weight: bold !important; }
+          .print-table .summary-hp { background: #b2dfdb !important; font-weight: bold !important; }
+          .print-table .summary-hd { background: #ffe0b2 !important; font-weight: bold !important; }
+          .print-table .summary-paid { background: #c5cae9 !important; font-weight: bold !important; }
+          .print-table .summary-absent { background: #ffcdd2 !important; font-weight: bold !important; }
+          .print-table .summary-ot { background: #b2ebf2 !important; font-weight: bold !important; }
+          .print-table .cell-P { background: #e8f5e9 !important; }
+          .print-table .cell-A { background: #ffebee !important; }
+          .print-table .cell-H { background: #fff8e1 !important; }
+          .print-table .cell-PHL { background: #e0f2f1 !important; }
+          .print-table .cell-HD { background: #fff3e0 !important; }
+          .print-table .cell-WO, .print-table .cell-PH { background: #e3f2fd !important; }
+          .print-legend { 
+            margin-top: 8px !important; 
+            font-size: 7.5pt !important; 
+            border: 1px solid #666 !important;
+            padding: 4px 8px !important;
+            display: flex !important;
+            flex-wrap: wrap !important;
+            gap: 6px 14px !important;
+          }
+          .print-legend strong { font-weight: bold !important; }
+          .sticky { position: static !important; }
+          [class*="Card"], [class*="card"] { border: none !important; box-shadow: none !important; border-radius: 0 !important; }
+          .print-table button { 
+            all: unset !important;
+            font-size: 7pt !important;
+            font-weight: bold !important;
+            text-align: center !important;
+            display: block !important;
+            width: 100% !important;
+          }
+          .print-table td { vertical-align: middle !important; }
+          .print-table tr:nth-child(even) { background: #fafafa !important; }
+          .print-sign-block { 
+            display: flex !important; 
+            justify-content: space-between !important;
+            margin-top: 20px !important;
+            font-size: 9pt !important;
+          }
         }
       `}</style>
       <div className="space-y-6">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 print-hide">
           <div>
             <h1 className="text-xl sm:text-2xl font-bold tracking-tight" data-testid="text-muster-roll-title">
               Muster Roll (Form XVI)
@@ -521,15 +584,23 @@ export default function MusterRoll() {
         )}
 
         {loaded && !isLoadingData && employees && (
-          <Card>
-            <CardHeader className="pb-3 pt-4">
+          <Card className="print-full">
+            <CardHeader className="pb-3 pt-4 print-hide">
               <CardTitle className="text-sm font-semibold flex items-center gap-2">
                 <Users className="w-4 h-4" />
                 Attendance - {MONTHS[monthNum - 1]} {yearNum}
                 <Badge variant="secondary" className="ml-auto">{employees.length} Employees</Badge>
               </CardTitle>
             </CardHeader>
-            <CardContent className="p-0">
+            <div className="hidden print-title-block" style={{ marginBottom: '6px' }}>
+              <div style={{ textAlign: 'center', borderBottom: '2px solid #333', paddingBottom: '4px', marginBottom: '4px' }}>
+                <h2 style={{ fontSize: '14pt', fontWeight: 'bold', margin: '0' }}>MUSTER ROLL (Form XVI)</h2>
+                <p style={{ fontSize: '10pt', margin: '2px 0 0 0' }}>
+                  <strong>{clientName}</strong> &mdash; {MONTHS[monthNum - 1]} {yearNum}
+                </p>
+              </div>
+            </div>
+            <CardContent className="p-0 print-full">
               {employees.length === 0 ? (
                 <div className="text-center py-16">
                   <ClipboardList className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
@@ -537,38 +608,41 @@ export default function MusterRoll() {
                   <p className="text-muted-foreground text-sm">No employees are registered for this client.</p>
                 </div>
               ) : (
-                <div className="overflow-x-auto">
+                <div className="overflow-x-auto print-full">
                   <table className="w-full text-xs print-table" data-testid="table-attendance">
                     <thead>
                       <tr className="border-b bg-muted/50">
-                        <th className="sticky left-0 z-10 bg-muted/90 backdrop-blur-sm px-3 py-2 text-left font-semibold min-w-[140px]">
-                          Employee
+                        <th className="sticky left-0 z-10 bg-muted/90 backdrop-blur-sm px-2 py-2 text-center font-semibold min-w-[30px]">
+                          Sl.
+                        </th>
+                        <th className="sticky left-[30px] z-10 bg-muted/90 backdrop-blur-sm px-3 py-2 text-left font-semibold min-w-[140px]">
+                          Employee Name
                         </th>
                         {Array.from({ length: daysInMonth }, (_, i) => (
-                          <th key={i} className="px-1 py-2 text-center font-semibold min-w-[36px]">
+                          <th key={i} className="px-1 py-2 text-center font-semibold min-w-[36px] day-cell">
                             {i + 1}
                           </th>
                         ))}
-                        <th className="px-2 py-2 text-center font-semibold min-w-[50px] bg-emerald-50 dark:bg-emerald-950/20">
-                          Present
+                        <th className="px-2 py-2 text-center font-semibold min-w-[40px] bg-emerald-50 dark:bg-emerald-950/20 summary-present">
+                          P
                         </th>
-                        <th className="px-2 py-2 text-center font-semibold min-w-[50px] bg-yellow-50 dark:bg-yellow-950/20">
-                          Holidays
+                        <th className="px-2 py-2 text-center font-semibold min-w-[40px] bg-yellow-50 dark:bg-yellow-950/20 summary-holiday">
+                          H
                         </th>
-                        <th className="px-2 py-2 text-center font-semibold min-w-[50px] bg-teal-50 dark:bg-teal-950/20">
-                          Hol. Present
+                        <th className="px-2 py-2 text-center font-semibold min-w-[40px] bg-teal-50 dark:bg-teal-950/20 summary-hp">
+                          P/HL
                         </th>
-                        <th className="px-2 py-2 text-center font-semibold min-w-[50px] bg-amber-50 dark:bg-amber-950/20">
-                          Half Day
+                        <th className="px-2 py-2 text-center font-semibold min-w-[40px] bg-amber-50 dark:bg-amber-950/20 summary-hd">
+                          HD
                         </th>
-                        <th className="px-2 py-2 text-center font-semibold min-w-[55px] bg-indigo-50 dark:bg-indigo-950/20">
-                          Total Paid
+                        <th className="px-2 py-2 text-center font-semibold min-w-[45px] bg-indigo-50 dark:bg-indigo-950/20 summary-paid">
+                          Paid
                         </th>
-                        <th className="px-2 py-2 text-center font-semibold min-w-[50px] bg-red-50 dark:bg-red-950/20">
-                          Absent
+                        <th className="px-2 py-2 text-center font-semibold min-w-[40px] bg-red-50 dark:bg-red-950/20 summary-absent">
+                          A
                         </th>
-                        <th className="px-2 py-2 text-center font-semibold min-w-[60px] bg-cyan-50 dark:bg-cyan-950/20">
-                          OT Hrs
+                        <th className="px-2 py-2 text-center font-semibold min-w-[45px] bg-cyan-50 dark:bg-cyan-950/20 summary-ot">
+                          OT
                         </th>
                       </tr>
                     </thead>
@@ -578,7 +652,10 @@ export default function MusterRoll() {
                         const totals = calcTotals(empData);
                         return (
                           <tr key={emp.id} className={`border-b last:border-0 ${empIdx % 2 === 0 ? "" : "bg-muted/20"}`} data-testid={`row-employee-${emp.id}`}>
-                            <td className="sticky left-0 z-10 bg-card px-3 py-1.5 font-medium whitespace-nowrap border-r">
+                            <td className="sticky left-0 z-10 bg-card px-2 py-1.5 text-center font-medium border-r text-[10px]">
+                              {empIdx + 1}
+                            </td>
+                            <td className="sticky left-[30px] z-10 bg-card px-3 py-1.5 font-medium whitespace-nowrap border-r emp-name">
                               <div className="flex flex-col">
                                 <span className="truncate max-w-[130px]">{emp.name}</span>
                                 {emp.designation && <span className="text-[10px] text-muted-foreground">{emp.designation}</span>}
@@ -588,8 +665,9 @@ export default function MusterRoll() {
                               const dayKey = `day${i + 1}`;
                               const status = (empData[dayKey] || "") as StatusCode;
                               const colorClass = status ? STATUS_COLORS[status] || "" : "";
+                              const printClass = status ? `cell-${status.replace('/', '')}` : '';
                               return (
-                                <td key={i} className="px-0.5 py-1 text-center">
+                                <td key={i} className={`px-0.5 py-1 text-center day-cell ${printClass}`}>
                                   <button
                                     type="button"
                                     onClick={() => handleCellClick(emp.id, dayKey)}
@@ -602,25 +680,25 @@ export default function MusterRoll() {
                                 </td>
                               );
                             })}
-                            <td className="px-2 py-1.5 text-center font-bold bg-emerald-50 dark:bg-emerald-950/20 text-emerald-700 dark:text-emerald-300" data-testid={`total-present-${emp.id}`}>
+                            <td className="px-2 py-1.5 text-center font-bold bg-emerald-50 dark:bg-emerald-950/20 text-emerald-700 dark:text-emerald-300 summary-present" data-testid={`total-present-${emp.id}`}>
                               {totals.present}
                             </td>
-                            <td className="px-2 py-1.5 text-center font-bold bg-yellow-50 dark:bg-yellow-950/20 text-yellow-700 dark:text-yellow-300">
+                            <td className="px-2 py-1.5 text-center font-bold bg-yellow-50 dark:bg-yellow-950/20 text-yellow-700 dark:text-yellow-300 summary-holiday">
                               {totals.holidays}
                             </td>
-                            <td className="px-2 py-1.5 text-center font-bold bg-teal-50 dark:bg-teal-950/20 text-teal-700 dark:text-teal-300">
+                            <td className="px-2 py-1.5 text-center font-bold bg-teal-50 dark:bg-teal-950/20 text-teal-700 dark:text-teal-300 summary-hp">
                               {totals.holidayPresent}
                             </td>
-                            <td className="px-2 py-1.5 text-center font-bold bg-amber-50 dark:bg-amber-950/20 text-amber-700 dark:text-amber-300">
+                            <td className="px-2 py-1.5 text-center font-bold bg-amber-50 dark:bg-amber-950/20 text-amber-700 dark:text-amber-300 summary-hd">
                               {totals.halfDay}
                             </td>
-                            <td className="px-2 py-1.5 text-center font-bold bg-indigo-50 dark:bg-indigo-950/20 text-indigo-700 dark:text-indigo-300" data-testid={`total-paid-${emp.id}`}>
+                            <td className="px-2 py-1.5 text-center font-bold bg-indigo-50 dark:bg-indigo-950/20 text-indigo-700 dark:text-indigo-300 summary-paid" data-testid={`total-paid-${emp.id}`}>
                               {totals.totalPaidDays}
                             </td>
-                            <td className="px-2 py-1.5 text-center font-bold bg-red-50 dark:bg-red-950/20 text-red-700 dark:text-red-300" data-testid={`total-absent-${emp.id}`}>
+                            <td className="px-2 py-1.5 text-center font-bold bg-red-50 dark:bg-red-950/20 text-red-700 dark:text-red-300 summary-absent" data-testid={`total-absent-${emp.id}`}>
                               {totals.absent}
                             </td>
-                            <td className="px-2 py-1.5 text-center font-bold bg-cyan-50 dark:bg-cyan-950/20 text-cyan-700 dark:text-cyan-300" data-testid={`ot-hours-${emp.id}`}>
+                            <td className="px-2 py-1.5 text-center font-bold bg-cyan-50 dark:bg-cyan-950/20 text-cyan-700 dark:text-cyan-300 summary-ot" data-testid={`ot-hours-${emp.id}`}>
                               {overtimeData[emp.id] || 0}
                             </td>
                           </tr>
@@ -636,7 +714,7 @@ export default function MusterRoll() {
 
         {loaded && !isLoadingData && employees && employees.length > 0 && (
           <>
-            <div className="flex flex-wrap gap-3 px-4 py-3 bg-muted/30 rounded-lg border text-[11px]" data-testid="legend-codes">
+            <div className="flex flex-wrap gap-3 px-4 py-3 bg-muted/30 rounded-lg border text-[11px] print-legend" data-testid="legend-codes">
               <span className="font-semibold mr-1">Codes:</span>
               <span><strong className="text-emerald-700 dark:text-emerald-400">P</strong> = Present</span>
               <span><strong className="text-yellow-700 dark:text-yellow-400">H</strong> = Holiday</span>
@@ -648,6 +726,11 @@ export default function MusterRoll() {
               <span><strong className="text-orange-700 dark:text-orange-400">CL</strong> = Casual Leave</span>
               <span><strong className="text-orange-700 dark:text-orange-400">SL</strong> = Sick Leave</span>
               <span><strong className="text-orange-700 dark:text-orange-400">EL</strong> = Earned Leave</span>
+            </div>
+            <div className="hidden print-sign-block">
+              <div><p>_________________________</p><p style={{ marginTop: '4px' }}>Prepared By</p></div>
+              <div><p>_________________________</p><p style={{ marginTop: '4px' }}>Checked By</p></div>
+              <div><p>_________________________</p><p style={{ marginTop: '4px' }}>Authorized Signatory</p></div>
             </div>
             <div className="flex justify-end no-print">
               <Button onClick={() => saveMutation.mutate()} disabled={saveMutation.isPending} data-testid="button-save-bottom">
