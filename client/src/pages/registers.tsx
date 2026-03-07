@@ -492,6 +492,20 @@ function OvertimeTab({ clientName, employees, empMap }: { clientName: string; em
     onError: (err: Error) => toast({ title: "Error", description: err.message, variant: "destructive" }),
   });
 
+  const calcOtAmount = (hours: string, rate: string) => {
+    const h = parseFloat(hours) || 0;
+    const r = parseFloat(rate) || 0;
+    return h && r ? (h * r).toFixed(2) : "";
+  };
+
+  const updateOvertimeHours = (val: string) => {
+    setFormData(prev => ({ ...prev, overtimeHours: val, overtimeAmount: calcOtAmount(val, prev.overtimeRate) }));
+  };
+
+  const updateOvertimeRate = (val: string) => {
+    setFormData(prev => ({ ...prev, overtimeRate: val, overtimeAmount: calcOtAmount(prev.overtimeHours, val) }));
+  };
+
   const handleSubmit = () => {
     if (!formData.employeeId || !formData.date) {
       toast({ title: "Please fill required fields", variant: "destructive" });
@@ -557,17 +571,17 @@ function OvertimeTab({ clientName, employees, empMap }: { clientName: string; em
                   </div>
                   <div>
                     <Label>Overtime Hours</Label>
-                    <Input inputMode="decimal" placeholder="0" value={formData.overtimeHours} onChange={(e) => setFormData({ ...formData, overtimeHours: e.target.value })} data-testid="input-overtime-hours" />
+                    <Input inputMode="decimal" placeholder="0" value={formData.overtimeHours} onChange={(e) => updateOvertimeHours(e.target.value)} data-testid="input-overtime-hours" />
                   </div>
                 </div>
                 <div className="grid grid-cols-2 gap-3">
                   <div>
                     <Label>OT Rate</Label>
-                    <Input inputMode="decimal" placeholder="0.00" value={formData.overtimeRate} onChange={(e) => setFormData({ ...formData, overtimeRate: e.target.value })} data-testid="input-overtime-rate" />
+                    <Input inputMode="decimal" placeholder="0.00" value={formData.overtimeRate} onChange={(e) => updateOvertimeRate(e.target.value)} data-testid="input-overtime-rate" />
                   </div>
                   <div>
                     <Label>OT Amount</Label>
-                    <Input inputMode="decimal" placeholder="0.00" value={formData.overtimeAmount} onChange={(e) => setFormData({ ...formData, overtimeAmount: e.target.value })} data-testid="input-overtime-amount" />
+                    <Input inputMode="decimal" placeholder="0.00" value={formData.overtimeAmount} readOnly className="bg-muted" data-testid="input-overtime-amount" />
                   </div>
                 </div>
                 <Button className="w-full" onClick={handleSubmit} disabled={createMutation.isPending} data-testid="button-submit-overtime">
