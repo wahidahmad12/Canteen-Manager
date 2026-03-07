@@ -257,7 +257,7 @@ function FinesTab({ clientName, employees, empMap, filterMonth, filterYear }: { 
           </tr>
         </thead>
         <tbody>
-          ${rows || '<tr><td colspan="12" style="padding:20px;text-align:center">No fines recorded</td></tr>'}
+          ${rows || Array.from({length: 8}, (_, i) => `<tr>${Array.from({length: 12}, () => '<td style="height:28px">&nbsp;</td>').join('')}</tr>`).join('')}
         </tbody>
       </table>
 
@@ -277,7 +277,7 @@ function FinesTab({ clientName, employees, empMap, filterMonth, filterYear }: { 
           <Button variant="outline" size="sm" onClick={handlePrint} data-testid="button-print-fines" disabled={!filtered.length}>
             <Printer className="w-4 h-4 mr-1" /> Print
           </Button>
-          <Button variant="outline" size="sm" onClick={handleGovPrint} data-testid="button-gov-print-fines" disabled={!filtered.length}>
+          <Button variant="outline" size="sm" onClick={handleGovPrint} data-testid="button-gov-print-fines">
             <Printer className="w-4 h-4 mr-1" /> Form XXI Print
           </Button>
           <Dialog open={open} onOpenChange={setOpen}>
@@ -582,7 +582,7 @@ function AdvancesTab({ clientName, employees, empMap, filterMonth, filterYear }:
           </tr>
         </thead>
         <tbody>
-          ${rows || '<tr><td colspan="11" style="padding:20px;text-align:center">No advances recorded</td></tr>'}
+          ${rows || Array.from({length: 8}, () => `<tr>${Array.from({length: 11}, () => '<td style="height:28px">&nbsp;</td>').join('')}</tr>`).join('')}
         </tbody>
       </table>
 
@@ -602,7 +602,7 @@ function AdvancesTab({ clientName, employees, empMap, filterMonth, filterYear }:
           <Button variant="outline" size="sm" onClick={handlePrint} data-testid="button-print-advances" disabled={!filtered.length}>
             <Printer className="w-4 h-4 mr-1" /> Print
           </Button>
-          <Button variant="outline" size="sm" onClick={handleGovPrint} data-testid="button-gov-print-advances" disabled={!filtered.length}>
+          <Button variant="outline" size="sm" onClick={handleGovPrint} data-testid="button-gov-print-advances">
             <Printer className="w-4 h-4 mr-1" /> Form XXII Print
           </Button>
           <Dialog open={open} onOpenChange={setOpen}>
@@ -933,7 +933,7 @@ function OvertimeTab({ clientName, employees, empMap, filterMonth, filterYear }:
           </tr>
         </thead>
         <tbody>
-          ${rows || '<tr><td colspan="15" style="padding:20px;text-align:center">No overtime records found</td></tr>'}
+          ${rows || Array.from({length: 8}, () => `<tr>${Array.from({length: 12}, () => '<td style="height:28px">&nbsp;</td>').join('')}</tr>`).join('')}
         </tbody>
       </table>
     </body></html>`);
@@ -948,7 +948,7 @@ function OvertimeTab({ clientName, employees, empMap, filterMonth, filterYear }:
       <div className="flex items-center justify-between gap-2 flex-wrap">
         <h3 className="text-sm font-semibold text-muted-foreground" data-testid="text-overtime-title">Form XXIII - Register of Overtime</h3>
         <div className="flex gap-2">
-          <Button variant="outline" size="sm" onClick={handlePrint} data-testid="button-print-overtime" disabled={!filtered.length}>
+          <Button variant="outline" size="sm" onClick={handlePrint} data-testid="button-print-overtime">
             <Printer className="w-4 h-4 mr-1" /> Print
           </Button>
           <Dialog open={open} onOpenChange={setOpen}>
@@ -1272,7 +1272,7 @@ function DamageTab({ clientName, employees, empMap, filterMonth, filterYear }: {
           </tr>
         </thead>
         <tbody>
-          ${rows || '<tr><td colspan="13" style="padding:20px;text-align:center">No deductions recorded</td></tr>'}
+          ${rows || Array.from({length: 8}, () => `<tr>${Array.from({length: 13}, () => '<td style="height:28px">&nbsp;</td>').join('')}</tr>`).join('')}
         </tbody>
       </table>
     </body></html>`);
@@ -1290,7 +1290,7 @@ function DamageTab({ clientName, employees, empMap, filterMonth, filterYear }: {
           <Button variant="outline" size="sm" onClick={handlePrint} data-testid="button-print-damage" disabled={!filtered.length}>
             <Printer className="w-4 h-4 mr-1" /> Print
           </Button>
-          <Button variant="outline" size="sm" onClick={handleGovPrint} data-testid="button-gov-print-damage" disabled={!filtered.length}>
+          <Button variant="outline" size="sm" onClick={handleGovPrint} data-testid="button-gov-print-damage">
             <Printer className="w-4 h-4 mr-1" /> Form XX Print
           </Button>
           <Dialog open={open} onOpenChange={setOpen}>
