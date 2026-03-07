@@ -369,40 +369,48 @@ export default function WageSlip() {
                 <tr>
                   <td style={{ background: C.attLabelBg, color: C.attLabelColor, fontWeight: 600 }}>Extra Work</td>
                   <td style={{ textAlign: "right", fontWeight: 700, color: C.attValColor }}>{extraWork}</td>
+                  <td style={{ background: C.earnLabelBg, color: C.earnLabelColor, fontWeight: 600 }} colSpan={2}>DA</td>
+                  <td style={{ textAlign: "right", fontWeight: 700, color: C.earnValColor }}>{n(salary.da)}</td>
+                  <td style={{ background: C.dedLabelBg, color: C.dedLabelColor, fontWeight: 600 }} colSpan={2}>PF @12%</td>
+                  <td style={{ textAlign: "right", fontWeight: 700, color: C.dedValColor }} data-testid="text-pf-ded">{pfDed}</td>
+                </tr>
+                <tr>
+                  <td style={{ background: C.attLabelBg, color: C.attLabelColor, fontWeight: 600 }}>LEAVE</td>
+                  <td style={{ textAlign: "right", fontWeight: 700, color: C.attValColor }}>{leave}</td>
                   <td style={{ background: C.earnLabelBg, color: C.earnLabelColor, fontWeight: 600 }} colSpan={2}>HRA 5%</td>
                   <td style={{ textAlign: "right", fontWeight: 700, color: C.earnValColor }}>{hra5}</td>
                   <td style={{ background: C.dedLabelBg, color: C.dedLabelColor, fontWeight: 600 }} colSpan={2}>LWF</td>
                   <td style={{ textAlign: "right", fontWeight: 700, color: C.dedValColor }}>{lwf}</td>
                 </tr>
                 <tr>
-                  <td style={{ background: C.attLabelBg, color: C.attLabelColor, fontWeight: 600 }}>LEAVE</td>
-                  <td style={{ textAlign: "right", fontWeight: 700, color: C.attValColor }}>{leave}</td>
+                  <td style={{ background: C.attLabelBg, color: C.attLabelColor, fontWeight: 600 }}>HOLIDAYS</td>
+                  <td style={{ textAlign: "right", fontWeight: 700, color: C.attValColor }}>{holidays}</td>
                   <td style={{ background: C.earnLabelBg, color: C.earnLabelColor, fontWeight: 600 }} colSpan={2}>Fixed HRA</td>
                   <td style={{ textAlign: "right", fontWeight: 700, color: C.earnValColor }}>{fixedHRA}</td>
                   <td style={{ background: C.dedLabelBg, color: C.dedLabelColor, fontWeight: 600, fontSize: "11px" }} colSpan={2}>Total Dedu</td>
                   <td style={{ textAlign: "right", fontWeight: 800, color: "#fff", background: "#c62828", fontSize: "14px" }} data-testid="text-total-deductions">{totalDedu}</td>
                 </tr>
                 <tr>
-                  <td style={{ background: C.attLabelBg, color: C.attLabelColor, fontWeight: 600 }}>HOLIDAYS</td>
-                  <td style={{ textAlign: "right", fontWeight: 700, color: C.attValColor }}>{holidays}</td>
+                  <td style={{ background: C.attLabelBg, color: C.attLabelColor, fontWeight: 700 }}>Paid Days</td>
+                  <td style={{ textAlign: "right", fontWeight: 800, color: "#fff", background: "#0d47a1", fontSize: "14px" }} data-testid="text-paid-days">{paidDays}</td>
                   <td style={{ background: C.earnLabelBg, color: C.earnLabelColor, fontWeight: 600 }} colSpan={2}>OT Allow</td>
                   <td style={{ textAlign: "right", fontWeight: 700, color: C.earnValColor }}>{n(salary.overtimeAmount)}</td>
                   <td style={{ background: "#fff8e1", color: "#e65100", fontWeight: 600, fontSize: "11px" }} colSpan={2}>Leave Balance {salary.year}</td>
                   <td style={{ textAlign: "right", fontWeight: 700, color: "#e65100" }}>0</td>
                 </tr>
                 <tr>
-                  <td style={{ background: C.attLabelBg, color: C.attLabelColor, fontWeight: 700 }}>Paid Days</td>
-                  <td style={{ textAlign: "right", fontWeight: 800, color: "#fff", background: "#0d47a1", fontSize: "14px" }} data-testid="text-paid-days">{paidDays}</td>
+                  <td style={{ background: C.attLabelBg, color: C.attLabelColor, fontWeight: 600 }}>OT HRS</td>
+                  <td style={{ textAlign: "right", fontWeight: 700, color: C.attValColor }}>{otHrs}</td>
                   <td style={{ background: C.earnLabelBg, color: C.earnLabelColor, fontWeight: 700 }} colSpan={2}>Total Gross</td>
                   <td style={{ textAlign: "right", fontWeight: 800, color: "#fff", background: "#2e7d32", fontSize: "14px" }} data-testid="text-total-gross">{totalGross}</td>
                   <td style={{ background: "#fff8e1", color: "#e65100", fontWeight: 600, fontSize: "10px" }} colSpan={2}>Leave Encashment Amt. {salary.year}</td>
                   <td style={{ textAlign: "right", fontWeight: 700, color: "#e65100" }}>0</td>
                 </tr>
                 <tr>
-                  <td style={{ background: C.attLabelBg, color: C.attLabelColor, fontWeight: 600 }}>OT HRS</td>
-                  <td style={{ textAlign: "right", fontWeight: 700, color: C.attValColor }}>{otHrs}</td>
-                  <td style={{ background: C.earnLabelBg, color: C.earnLabelColor, fontWeight: 600 }} colSpan={2}>PF Deduction @12%</td>
-                  <td style={{ textAlign: "right", fontWeight: 700, color: C.dedValColor }} data-testid="text-pf-ded">{pfDed}</td>
+                  <td style={{ background: C.attLabelBg, color: C.attLabelColor, fontWeight: 600 }}></td>
+                  <td style={{ textAlign: "right", fontWeight: 700, color: C.attValColor }}></td>
+                  <td style={{ background: C.earnLabelBg, color: C.earnLabelColor, fontWeight: 600 }} colSpan={2}></td>
+                  <td style={{ textAlign: "right", fontWeight: 700, color: C.earnValColor }}></td>
                   <td style={{ background: C.netBg, color: C.netColor, fontWeight: 800, fontSize: "13px", letterSpacing: "1px" }} colSpan={2}>NET SALARY</td>
                   <td style={{ background: C.netBg, color: C.netColor, textAlign: "right", fontWeight: 900, fontSize: "18px", letterSpacing: "0.5px", textShadow: "1px 1px 2px rgba(0,0,0,0.3)" }} data-testid="text-net-pay">₹{netSalary.toLocaleString("en-IN")}</td>
                 </tr>
