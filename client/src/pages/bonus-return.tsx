@@ -33,6 +33,8 @@ export default function BonusReturn() {
   const [fyStartYear, setFyStartYear] = useState(String(defaultFYStart));
   const [bonusDate, setBonusDate] = useState('');
   const [workingDays, setWorkingDays] = useState('');
+  const [refNumber, setRefNumber] = useState('');
+  const [letterDate, setLetterDate] = useState('');
 
   const fyStart = Number(fyStartYear);
   const fyEnd = fyStart + 1;
@@ -294,6 +296,25 @@ export default function BonusReturn() {
                   data-testid="input-bonus-date"
                 />
               </div>
+              <div className="space-y-2 min-w-[180px]">
+                <Label className="text-xs font-semibold text-amber-700 dark:text-amber-300">Ref. Number</Label>
+                <Input
+                  type="text"
+                  value={refNumber}
+                  onChange={e => setRefNumber(e.target.value)}
+                  placeholder="e.g. DJ/KOL/25/0261"
+                  data-testid="input-ref-number"
+                />
+              </div>
+              <div className="space-y-2 min-w-[140px]">
+                <Label className="text-xs font-semibold text-amber-700 dark:text-amber-300">Letter Date</Label>
+                <Input
+                  type="date"
+                  value={letterDate}
+                  onChange={e => setLetterDate(e.target.value)}
+                  data-testid="input-letter-date"
+                />
+              </div>
               {selectedClient && bonusRows.length > 0 && (
                 <Badge variant="secondary" className="text-xs bg-amber-100 text-amber-700 dark:bg-amber-900 dark:text-amber-300 h-8">
                   <Users className="w-3 h-3 mr-1" /> {bonusRows.length} Employees &bull; Total Bonus: ₹{totalBonus.toLocaleString('en-IN')}
@@ -318,6 +339,36 @@ export default function BonusReturn() {
               </Card>
             ) : (
               <>
+                <Card className="no-print border-2 border-indigo-200 shadow-lg">
+                  <CardContent className="p-6 space-y-4" style={{ fontFamily: "Georgia, 'Times New Roman', serif" }}>
+                    <div className="flex justify-between items-start text-sm">
+                      <div className="font-semibold text-indigo-800 dark:text-indigo-300">Ref. {refNumber || '___________'}</div>
+                      <div className="text-right text-slate-700 dark:text-slate-300">Date: {letterDate ? letterDate.split('-').reverse().join('-') : '___/___/______'}</div>
+                    </div>
+                    <div className="space-y-1 text-sm text-slate-800 dark:text-slate-200">
+                      <p>To</p>
+                      <p className="font-semibold">The Labour Commissioner</p>
+                      <p>Office of the Labour Commissioner,</p>
+                      <p>6, Church Lane 3rd floor</p>
+                      <p>Kolkata - 700001</p>
+                    </div>
+                    <div className="text-sm text-slate-800 dark:text-slate-200">
+                      <p><span className="font-semibold">Sub:</span> Annual Bonus Return for the year ending 31st March {fyEnd}</p>
+                    </div>
+                    <div className="text-sm text-slate-800 dark:text-slate-200 space-y-2">
+                      <p>Dear Sir,</p>
+                      <p>Please find enclosed the following return pertaining to our establishment <span className="font-semibold">DJ Hospitality & Facility Management Pvt Ltd</span>, 7 Crematorium Street, Kolkata- 700014</p>
+                      <p className="font-semibold mt-2">Form - D Under the payment of Bonus Act.</p>
+                    </div>
+                    <div className="text-sm text-slate-800 dark:text-slate-200 mt-8 space-y-1">
+                      <p>Your Faithfully</p>
+                      <p className="font-semibold mt-4">Wahid Ahmad</p>
+                      <p>Zonal Manager & Partner</p>
+                      <p className="font-semibold">DJ Hospitality & Facility Management Pvt Ltd.</p>
+                    </div>
+                  </CardContent>
+                </Card>
+
                 <div className="sm:hidden no-print space-y-3">
                   {bonusRows.map(row => (
                     <Card key={row.slNo} className="border-l-4 border-l-amber-500">
@@ -419,6 +470,34 @@ export default function BonusReturn() {
                 </div>
 
                 <div id="bonus-print-area" className="hidden print:block">
+                  <div style={{ fontFamily: "Georgia, 'Times New Roman', serif", fontSize: "12px", lineHeight: 1.6, marginBottom: "30px", pageBreakAfter: "always" }}>
+                    <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "20px" }}>
+                      <div style={{ fontWeight: 600 }}>Ref. {refNumber || '___________'}</div>
+                      <div>Date: {letterDate ? letterDate.split('-').reverse().join('-') : '___/___/______'}</div>
+                    </div>
+                    <div style={{ marginBottom: "16px" }}>
+                      <p style={{ margin: "2px 0" }}>To</p>
+                      <p style={{ margin: "2px 0", fontWeight: 600 }}>The Labour Commissioner</p>
+                      <p style={{ margin: "2px 0" }}>Office of the Labour Commissioner,</p>
+                      <p style={{ margin: "2px 0" }}>6, Church Lane 3rd floor</p>
+                      <p style={{ margin: "2px 0" }}>Kolkata - 700001</p>
+                    </div>
+                    <div style={{ marginBottom: "16px" }}>
+                      <p><span style={{ fontWeight: 600 }}>Sub:</span> Annual Bonus Return for the year ending 31st March {fyEnd}</p>
+                    </div>
+                    <div style={{ marginBottom: "16px" }}>
+                      <p style={{ margin: "4px 0" }}>Dear Sir,</p>
+                      <p style={{ margin: "4px 0" }}>Please find enclosed the following return pertaining to our establishment <span style={{ fontWeight: 600 }}>DJ Hospitality & Facility Management Pvt Ltd</span>, 7 Crematorium Street, Kolkata- 700014</p>
+                      <p style={{ margin: "8px 0", fontWeight: 600 }}>Form - D Under the payment of Bonus Act.</p>
+                    </div>
+                    <div style={{ marginTop: "60px" }}>
+                      <p style={{ margin: "2px 0" }}>Your Faithfully</p>
+                      <p style={{ margin: "30px 0 2px 0", fontWeight: 600 }}>Wahid Ahmad</p>
+                      <p style={{ margin: "2px 0" }}>Zonal Manager & Partner</p>
+                      <p style={{ margin: "2px 0", fontWeight: 600 }}>DJ Hospitality & Facility Management Pvt Ltd.</p>
+                    </div>
+                  </div>
+
                   <div style={{ textAlign: "center", marginBottom: "10px" }}>
                     <div style={{ fontSize: "18px", fontWeight: "bold", color: "#1a237e" }}>FORM C</div>
                     <div style={{ fontSize: "12px" }}>[See rule 4 (c)]</div>
