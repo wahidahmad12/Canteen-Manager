@@ -640,10 +640,6 @@ export default function SalaryRegister() {
       toast({ title: "Select Client", description: "Please select a client name first.", variant: "destructive" });
       return;
     }
-    if (!salaryPaidDate) {
-      toast({ title: "Enter Salary Paid Date", description: "Please select the salary paid date before loading.", variant: "destructive" });
-      return;
-    }
     setLoaded(true);
     if (salaryPaidDate) {
       updatePaidDateMutation.mutate();
