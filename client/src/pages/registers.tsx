@@ -890,8 +890,8 @@ export default function RegistersPage() {
               <SelectValue placeholder="Select client" />
             </SelectTrigger>
             <SelectContent>
-              {clientNames.map((c: any) => (
-                <SelectItem key={c.id} value={c.name}>{c.name}</SelectItem>
+              {clientNames.map((name: string) => (
+                <SelectItem key={name} value={name}>{name}</SelectItem>
               ))}
             </SelectContent>
           </Select>
