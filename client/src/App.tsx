@@ -28,6 +28,7 @@ import FormXIII from "./pages/form-xiii";
 import FormXIV from "./pages/form-xiv";
 import BonusReturn from "./pages/bonus-return";
 import HalfYearlyReturn from "./pages/half-yearly-return";
+import LeaveWithWages from "./pages/leave-with-wages";
 import EmployeeDashboard from "./pages/employee-dashboard";
 import Login from "./pages/login";
 import { useCurrentUser } from "./hooks/use-reports";
@@ -82,6 +83,7 @@ function AuthenticatedRouter() {
       <Route path="/form-xiv/:id" component={FormXIV} />
       <Route path="/bonus-return" component={BonusReturn} />
       <Route path="/half-yearly-return" component={HalfYearlyReturn} />
+      <Route path="/leave-with-wages" component={LeaveWithWages} />
       <Route component={NotFound} />
     </Switch>
   );

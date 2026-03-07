@@ -889,6 +889,42 @@ export async function registerRoutes(
     res.status(204).send();
   });
 
+  // === LEAVE WITH WAGES (Form 15) ===
+  app.get("/api/leave-with-wages", requireAuth, async (req, res) => {
+    const employeeId = req.query.employeeId ? Number(req.query.employeeId) : undefined;
+    const clientName = req.query.clientName as string | undefined;
+    if (employeeId) {
+      const records = await storage.getLeaveWithWages(employeeId);
+      res.json(records);
+    } else if (clientName) {
+      const records = await storage.getLeaveWithWagesByClient(clientName);
+      res.json(records);
+    } else {
+      res.json([]);
+    }
+  });
+
+  app.post("/api/leave-with-wages", requireAdmin, async (req, res) => {
+    const { insertLeaveWithWagesSchema } = await import("@shared/schema");
+    const parsed = insertLeaveWithWagesSchema.safeParse(req.body);
+    if (!parsed.success) return res.status(400).json({ error: parsed.error.message });
+    const record = await storage.createLeaveWithWages(parsed.data);
+    res.status(201).json(record);
+  });
+
+  app.put("/api/leave-with-wages/:id", requireAdmin, async (req, res) => {
+    const { insertLeaveWithWagesSchema } = await import("@shared/schema");
+    const parsed = insertLeaveWithWagesSchema.partial().safeParse(req.body);
+    if (!parsed.success) return res.status(400).json({ error: parsed.error.message });
+    const record = await storage.updateLeaveWithWages(Number(req.params.id), parsed.data);
+    res.json(record);
+  });
+
+  app.delete("/api/leave-with-wages/:id", requireAdmin, async (req, res) => {
+    await storage.deleteLeaveWithWages(Number(req.params.id));
+    res.status(204).send();
+  });
+
   return httpServer;
 }
 

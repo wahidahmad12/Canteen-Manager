@@ -26,6 +26,7 @@ import {
   advances,
   overtimeRegister,
   damageDeductions,
+  leaveWithWages,
   type DailyReport, 
   type ExpenseItem,
   type CreateReportRequest,
@@ -51,6 +52,7 @@ import {
   type Advance,
   type OvertimeRecord,
   type DamageDeduction,
+  type LeaveWithWages,
 } from "@shared/schema";
 import { eq, desc, lt, and, sql } from "drizzle-orm";
 import bcrypt from "bcryptjs";
@@ -141,6 +143,11 @@ export interface IStorage {
   getDamageDeductions(clientName?: string): Promise<DamageDeduction[]>;
   createDamageDeduction(data: any): Promise<DamageDeduction>;
   deleteDamageDeduction(id: number): Promise<void>;
+  getLeaveWithWages(employeeId: number): Promise<LeaveWithWages[]>;
+  getLeaveWithWagesByClient(clientName: string): Promise<LeaveWithWages[]>;
+  createLeaveWithWages(data: any): Promise<LeaveWithWages>;
+  updateLeaveWithWages(id: number, data: any): Promise<LeaveWithWages>;
+  deleteLeaveWithWages(id: number): Promise<void>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -1097,6 +1104,25 @@ export class DatabaseStorage implements IStorage {
   }
   async deleteDamageDeduction(id: number): Promise<void> {
     await db.delete(damageDeductions).where(eq(damageDeductions.id, id));
+  }
+
+  // === LEAVE WITH WAGES (Form 15) ===
+  async getLeaveWithWages(employeeId: number): Promise<LeaveWithWages[]> {
+    return await db.select().from(leaveWithWages).where(eq(leaveWithWages.employeeId, employeeId)).orderBy(leaveWithWages.calendarYear);
+  }
+  async getLeaveWithWagesByClient(clientName: string): Promise<LeaveWithWages[]> {
+    return await db.select().from(leaveWithWages).where(eq(leaveWithWages.clientName, clientName)).orderBy(leaveWithWages.calendarYear);
+  }
+  async createLeaveWithWages(data: any): Promise<LeaveWithWages> {
+    const [rec] = await db.insert(leaveWithWages).values(data).returning();
+    return rec;
+  }
+  async updateLeaveWithWages(id: number, data: any): Promise<LeaveWithWages> {
+    const [rec] = await db.update(leaveWithWages).set(data).where(eq(leaveWithWages.id, id)).returning();
+    return rec;
+  }
+  async deleteLeaveWithWages(id: number): Promise<void> {
+    await db.delete(leaveWithWages).where(eq(leaveWithWages.id, id));
   }
 }
 

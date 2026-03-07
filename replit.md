@@ -35,6 +35,7 @@ Preferred communication style: Simple, everyday language.
   - `/form-xiv/:id` — Employment Card (Form XIV) individual worker card
   - `/bonus-return` — Bonus Return (Form C) client-wise annual bonus calculation (8.33% of gross salary)
   - `/half-yearly-return` — Half-Yearly Return (Form XXIV) Rule 82(1) with cover letter and form, auto-calculated from salary records, separate print buttons for cover letter (A4 portrait) and Form XXIV (A4 portrait)
+  - `/leave-with-wages` — Register of Leave With Wages (Form No. 15) per employee, government format print (A3 landscape), CRUD for yearly leave records
 
 ### Backend
 - **Framework**: Express 5 on Node.js with TypeScript (run via tsx)
@@ -74,6 +75,7 @@ Preferred communication style: Simple, everyday language.
   - `advances` — Advance register (Form XXII) linked to employees
   - `overtime_register` — Overtime register (Form XXIII) linked to employees
   - `damage_deductions` — Damage/Loss register (Form XX) linked to employees
+  - `leave_with_wages` — Register of Leave With Wages (Form No. 15, Rule 88 WB Factories Rule 1958) per employee per calendar year, tracking leave earned, brought forward, absences, days worked, leave allowed, wages rate/amount, payment date
 - **Storage Layer**: `server/storage.ts` implements `IStorage` interface with `DatabaseStorage` class, abstracting all DB operations
 
 ### Key Design Decisions

@@ -320,6 +320,31 @@ export const damageDeductions = pgTable("damage_deductions", {
   createdAt: timestamp("created_at").defaultNow(),
 });
 
+// Register of Leave With Wages (Form No. 15)
+export const leaveWithWages = pgTable("leave_with_wages", {
+  id: serial("id").primaryKey(),
+  employeeId: integer("employee_id").notNull().references(() => employees.id, { onDelete: 'cascade' }),
+  clientName: text("client_name").notNull(),
+  calendarYear: integer("calendar_year").notNull(),
+  daysLeaveEarned: numeric("days_leave_earned", { precision: 6, scale: 1 }).default("0"),
+  daysLeaveBroughtForward: numeric("days_leave_brought_forward", { precision: 6, scale: 1 }).default("0"),
+  layOffDays: numeric("lay_off_days", { precision: 6, scale: 1 }).default("0"),
+  maternityLeaveDays: numeric("maternity_leave_days", { precision: 6, scale: 1 }).default("0"),
+  leaveEarned: numeric("leave_earned", { precision: 6, scale: 1 }).default("0"),
+  leaveEnjoyed: numeric("leave_enjoyed", { precision: 6, scale: 1 }).default("0"),
+  otherAbsenceDays: numeric("other_absence_days", { precision: 6, scale: 1 }).default("0"),
+  actualDaysWorked: numeric("actual_days_worked", { precision: 6, scale: 1 }).default("0"),
+  leaveAllowedDate: text("leave_allowed_date").default("NA"),
+  leaveAllowedDays: text("leave_allowed_days").default("NA"),
+  rateOfWagesRs: numeric("rate_of_wages_rs", { precision: 10, scale: 2 }).default("0"),
+  rateOfWagesP: numeric("rate_of_wages_p", { precision: 4, scale: 0 }).default("0"),
+  amountOfWagesRs: numeric("amount_of_wages_rs", { precision: 10, scale: 2 }).default("0"),
+  amountOfWagesP: numeric("amount_of_wages_p", { precision: 4, scale: 0 }).default("0"),
+  dateOfPayment: text("date_of_payment").default(""),
+  remarks: text("remarks").default(""),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
 // Saved item names for autocomplete in purchase requests and menus
 export const savedItemNames = pgTable("saved_item_names", {
   id: serial("id").primaryKey(),
@@ -554,5 +579,9 @@ export const selectOvertimeSchema = createSelectSchema(overtimeRegister, { date:
 export type DamageDeduction = typeof damageDeductions.$inferSelect;
 export const insertDamageDeductionSchema = createInsertSchema(damageDeductions).omit({ id: true, createdAt: true });
 export const selectDamageDeductionSchema = createSelectSchema(damageDeductions, { date: z.string(), createdAt: z.string().or(z.date()) });
+
+export type LeaveWithWages = typeof leaveWithWages.$inferSelect;
+export const insertLeaveWithWagesSchema = createInsertSchema(leaveWithWages).omit({ id: true, createdAt: true });
+export const selectLeaveWithWagesSchema = createSelectSchema(leaveWithWages, { createdAt: z.string().or(z.date()) });
 
 export const ALL_PAYROLL_PERMISSIONS = [...ALL_PERMISSIONS, 'salary'] as const;
