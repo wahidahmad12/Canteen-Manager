@@ -626,8 +626,10 @@ export default function SalaryRegister() {
                 style.id = "salary-print-override";
                 style.textContent = "@page { size: A3 landscape; margin: 0.4cm; }";
                 document.head.appendChild(style);
+                const prevTitle = document.title;
+                document.title = `Salary Register (Form XVII) ${MONTHS[Number(month) - 1]} ${year}`;
                 window.print();
-                setTimeout(() => style.remove(), 1000);
+                setTimeout(() => { style.remove(); document.title = prevTitle; }, 1000);
               }} data-testid="button-print-salary">
                 <Printer className="w-4 h-4 mr-2" />
                 Print
