@@ -187,6 +187,108 @@ export default function MusterRoll() {
 
   const handlePrint = () => window.print();
 
+  const handleGovPrint = () => {
+    if (!employees || employees.length === 0) return;
+    const printWin = window.open("", "_blank");
+    if (!printWin) return;
+
+    const rows = employees.map((emp: any, idx: number) => {
+      const empData = attendanceData[emp.id] || {};
+      const totals = calcTotals(empData);
+      const dayCells = Array.from({ length: daysInMonth }, (_, i) => {
+        const val = empData[`day${i + 1}`] || "";
+        return `<td>${val}</td>`;
+      }).join("");
+      const sex = emp.gender === "Female" ? "F" : "M";
+      return `<tr>
+        <td>${idx + 1}</td>
+        <td style="text-align:left;white-space:nowrap">${emp.name || ""}</td>
+        <td style="text-align:left;white-space:nowrap">${emp.fatherName || ""}</td>
+        <td>${sex}</td>
+        ${dayCells}
+        <td style="font-weight:bold">${totals.totalPaidDays}</td>
+        <td></td>
+      </tr>`;
+    }).join("");
+
+    printWin.document.write(`<html><head><title>Form XVI - Muster Roll</title>
+    <style>
+      @page { size: landscape; margin: 8mm; }
+      * { margin: 0; padding: 0; box-sizing: border-box; }
+      body { font-family: Arial, sans-serif; font-size: 10px; padding: 8px; }
+      .header-title { text-align: left; font-size: 11px; font-weight: bold; margin-bottom: 2px; }
+      .header-main { text-align: center; font-size: 18px; font-weight: bold; margin-bottom: 4px; }
+      .header-rule { text-align: center; font-size: 9px; margin-bottom: 8px; }
+      .info-table { width: 100%; border-collapse: collapse; margin-bottom: 6px; font-size: 10px; }
+      .info-table td { padding: 2px 6px; vertical-align: top; }
+      .info-label { font-weight: bold; white-space: nowrap; }
+      table.main { width: 100%; border-collapse: collapse; font-size: 8px; }
+      table.main th, table.main td { border: 1px solid #000; padding: 2px 3px; text-align: center; vertical-align: middle; }
+      table.main th { background: #f0f0f0; font-weight: bold; font-size: 7px; }
+      table.main td { font-size: 8px; }
+      .period-label { font-size: 14px; font-weight: bold; }
+    </style></head><body>
+      <div class="header-title">Form XVI</div>
+      <div class="header-main">MUSTER ROLL</div>
+      <div class="header-rule">[Prescribed Under Rule 78 (2)(a)/78(a)(i) of the West Bengal / Central Contract Labour ( Regulation &amp; Abolition) Rules, 1972/1971]</div>
+
+      <table class="info-table">
+        <tr>
+          <td class="info-label" style="width:22%">Name and Address of the Contractor</td>
+          <td style="width:28%">DJ HOSPITALITY &amp; FACILITY MANAGEMENT PVT LTD</td>
+          <td class="info-label" style="width:22%">Name and address of the establishment in /</td>
+          <td style="width:28%">${clientName}</td>
+        </tr>
+        <tr>
+          <td></td>
+          <td>7 Crimatorium Street, Kolkata- 700014</td>
+          <td class="info-label">Under which contract is carried on</td>
+          <td></td>
+        </tr>
+        <tr>
+          <td class="info-label">Nature and location of Work</td>
+          <td>Canteen</td>
+          <td class="info-label">Name and address of the Principal Employer</td>
+          <td>${clientName}</td>
+        </tr>
+        <tr>
+          <td></td>
+          <td></td>
+          <td></td>
+          <td></td>
+        </tr>
+        <tr>
+          <td></td>
+          <td></td>
+          <td class="info-label">For the Month of</td>
+          <td class="period-label">${MONTHS[monthNum - 1]} ${yearNum}</td>
+        </tr>
+      </table>
+
+      <table class="main">
+        <thead>
+          <tr>
+            <th rowspan="2" style="width:30px">Serial<br/>No</th>
+            <th rowspan="2" style="min-width:100px">Name of the Workman</th>
+            <th rowspan="2" style="min-width:100px">Father's /Husband's Name</th>
+            <th rowspan="2" style="width:25px">Sex</th>
+            <th colspan="${daysInMonth}">DATE</th>
+            <th rowspan="2" style="width:30px">Total</th>
+            <th rowspan="2" style="width:40px">Remarks</th>
+          </tr>
+          <tr>
+            ${Array.from({ length: daysInMonth }, (_, i) => `<th style="min-width:18px">${i + 1}</th>`).join("")}
+          </tr>
+        </thead>
+        <tbody>
+          ${rows || '<tr><td colspan="' + (daysInMonth + 6) + '" style="padding:20px;text-align:center">No records found</td></tr>'}
+        </tbody>
+      </table>
+    </body></html>`);
+    printWin.document.close();
+    printWin.print();
+  };
+
   const handleDownloadFormat = async () => {
     if (!employees || employees.length === 0) {
       toast({ title: "No data", description: "Load employees first before downloading format.", variant: "destructive" });
@@ -530,6 +632,10 @@ export default function MusterRoll() {
               <Button variant="outline" onClick={handlePrint} data-testid="button-print">
                 <Printer className="w-4 h-4 mr-2" />
                 Print
+              </Button>
+              <Button variant="outline" onClick={handleGovPrint} data-testid="button-gov-print">
+                <Printer className="w-4 h-4 mr-2" />
+                Form XVI Print
               </Button>
               <Button onClick={() => saveMutation.mutate()} disabled={saveMutation.isPending} data-testid="button-save-all">
                 {saveMutation.isPending ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Save className="w-4 h-4 mr-2" />}
