@@ -1,34 +1,49 @@
 import { useState, useEffect } from 'react';
 import { Link, useLocation } from 'wouter';
-import { LayoutDashboard, FilePlus, Settings, Calculator, ClipboardList, UtensilsCrossed, ShoppingCart, LogOut, User, Menu, X, Users, CalendarDays, Wallet, FileText, BookOpen } from 'lucide-react';
+import { LayoutDashboard, FilePlus, Settings, Calculator, ClipboardList, UtensilsCrossed, ShoppingCart, LogOut, User, Menu, X, Users, CalendarDays, Wallet, FileText, BookOpen, HardHat, ChevronDown, ChevronRight } from 'lucide-react';
 import logoImg from '@assets/logo1_1771660912341.png';
 import { useCurrentUser, useLogout } from '@/hooks/use-reports';
 import { Button } from '@/components/ui/button';
+
+const labourWorksPaths = ['/employee-master', '/muster-roll', '/salary', '/registers', '/form-xiii'];
 
 export function Layout({ children }: { children: React.ReactNode }) {
   const [location] = useLocation();
   const { data: user } = useCurrentUser();
   const logoutMutation = useLogout();
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [labourOpen, setLabourOpen] = useState(() => labourWorksPaths.some(p => location.startsWith(p)));
 
   const perms = user?.role === 'admin' ? ['expense', 'cashseal', 'inventory', 'menu', 'purchase'] : (user?.permissions || []);
 
-  const navItems = [
+  useEffect(() => {
+    if (labourWorksPaths.some(p => location.startsWith(p))) {
+      setLabourOpen(true);
+    }
+  }, [location]);
+
+  const mainNavItems = [
     { href: '/', label: 'Dashboard', icon: LayoutDashboard, perm: null },
     { href: '/new', label: 'Daily Cash Expance', icon: FilePlus, perm: 'expense' },
     { href: '/cash-seal', label: 'Daily Cash Seal', icon: Calculator, perm: 'cashseal' },
     { href: '/inventory', label: 'Daily Inventory', icon: ClipboardList, perm: 'inventory' },
     { href: '/menu', label: 'Menu Manager', icon: UtensilsCrossed, perm: 'menu' },
     { href: '/purchase-request', label: 'Purchase Request', icon: ShoppingCart, perm: 'purchase' },
-    { href: '/muster-roll', label: 'Muster Roll', icon: CalendarDays, perm: null },
-    { href: '/salary', label: 'Salary Register', icon: Wallet, perm: null },
-    { href: '/registers', label: 'Registers', icon: BookOpen, perm: null },
-    { href: '/form-xiii', label: 'Workmen Register', icon: FileText, perm: null },
-    ...(user?.role === 'admin' ? [
-      { href: '/employee-master', label: 'Employee Master', icon: Users, perm: null },
-      { href: '/admin', label: 'Admin', icon: Settings, perm: null },
-    ] : []),
   ].filter(item => item.perm === null || perms.includes(item.perm));
+
+  const labourSubItems = [
+    ...(user?.role === 'admin' ? [{ href: '/employee-master', label: 'Employee Master', icon: Users }] : []),
+    { href: '/muster-roll', label: 'Muster Roll', icon: CalendarDays },
+    { href: '/salary', label: 'Salary Register', icon: Wallet },
+    { href: '/registers', label: 'Registers', icon: BookOpen },
+    { href: '/form-xiii', label: 'Workmen Register', icon: FileText },
+  ];
+
+  const bottomNavItems = [
+    ...(user?.role === 'admin' ? [{ href: '/admin', label: 'Admin', icon: Settings, perm: null }] : []),
+  ];
+
+  const isLabourActive = labourWorksPaths.some(p => location.startsWith(p));
 
   const closeSidebar = () => setSidebarOpen(false);
 
@@ -40,6 +55,29 @@ export function Layout({ children }: { children: React.ReactNode }) {
     }
     return () => { document.body.style.overflow = ''; };
   }, [sidebarOpen]);
+
+  const renderNavLink = (item: { href: string; label: string; icon: any }, indent = false) => {
+    const isActive = location === item.href;
+    const Icon = item.icon;
+    return (
+      <Link
+        key={item.href}
+        href={item.href}
+        onClick={closeSidebar}
+        className={`
+          flex items-center gap-3 px-4 py-2.5 rounded-lg text-sm font-medium transition-all duration-200
+          ${indent ? 'ml-4 pl-4' : ''}
+          ${isActive
+            ? 'bg-primary text-primary-foreground shadow-md shadow-primary/20'
+            : 'text-muted-foreground hover:bg-muted hover:text-foreground'
+          }
+        `}
+      >
+        <Icon className="w-4 h-4" />
+        {item.label}
+      </Link>
+    );
+  };
 
   return (
     <div className="min-h-screen bg-muted/20 flex flex-col md:flex-row">
@@ -106,28 +144,37 @@ export function Layout({ children }: { children: React.ReactNode }) {
           </Button>
         </div>
         
-        <nav className="p-4 space-y-2 flex-1 overflow-y-auto">
-          {navItems.map(item => {
-            const isActive = location === item.href;
-            const Icon = item.icon;
-            return (
-              <Link 
-                key={item.href} 
-                href={item.href}
-                onClick={closeSidebar}
-                className={`
-                  flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-medium transition-all duration-200
-                  ${isActive 
-                    ? 'bg-primary text-primary-foreground shadow-md shadow-primary/20' 
-                    : 'text-muted-foreground hover:bg-muted hover:text-foreground'
-                  }
-                `}
-              >
-                <Icon className="w-4 h-4" />
-                {item.label}
-              </Link>
-            );
-          })}
+        <nav className="p-4 space-y-1 flex-1 overflow-y-auto">
+          {mainNavItems.map(item => renderNavLink(item))}
+
+          <div className="pt-1">
+            <button
+              onClick={() => setLabourOpen(!labourOpen)}
+              data-testid="button-labour-works-menu"
+              className={`
+                w-full flex items-center gap-3 px-4 py-2.5 rounded-lg text-sm font-medium transition-all duration-200
+                ${isLabourActive
+                  ? 'bg-primary/10 text-primary'
+                  : 'text-muted-foreground hover:bg-muted hover:text-foreground'
+                }
+              `}
+            >
+              <HardHat className="w-4 h-4" />
+              <span className="flex-1 text-left">Labour Works</span>
+              {labourOpen
+                ? <ChevronDown className="w-4 h-4" />
+                : <ChevronRight className="w-4 h-4" />
+              }
+            </button>
+
+            {labourOpen && (
+              <div className="mt-1 space-y-0.5 border-l-2 border-border ml-6">
+                {labourSubItems.map(item => renderNavLink(item, true))}
+              </div>
+            )}
+          </div>
+
+          {bottomNavItems.map(item => renderNavLink(item))}
         </nav>
 
         {user && (
