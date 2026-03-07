@@ -553,9 +553,9 @@ export default function SalaryRegister() {
         <td style="text-align:right">${fDec(r.basicRate)}</td>
         <td style="text-align:right">${f(r.basicWage)}</td>
         <td style="text-align:right">${f(0)}</td>
-        <td style="text-align:right">${r.otAllow ? f(r.otAllow) : ""}</td>
-        <td style="text-align:right">${r.hra5 ? f(r.hra5) : ""}</td>
-        <td style="text-align:right">${r.fixedHRA ? f(r.fixedHRA) : ""}</td>
+        <td style="text-align:right">${r.otAllow ? f(r.otAllow) : "0"}</td>
+        <td style="text-align:right">${r.fixedHRA ? f(r.fixedHRA) : "0"}</td>
+        <td style="text-align:right">${r.hra5 ? f(r.hra5) : "0"}</td>
         <td style="text-align:right;font-weight:bold">${f(r.totalGross)}</td>
         <td style="text-align:right">${f(r.pfDed)}</td>
         <td style="text-align:right">${f(r.esicDed)}</td>
@@ -576,8 +576,8 @@ export default function SalaryRegister() {
       <td style="text-align:right">${f(totals.basicWage)}</td>
       <td style="text-align:right">${f(0)}</td>
       <td style="text-align:right">${f(totals.otAllow)}</td>
-      <td style="text-align:right">${f(totals.hra5)}</td>
       <td style="text-align:right">${f(totals.fixedHRA)}</td>
+      <td style="text-align:right">${f(totals.hra5)}</td>
       <td style="text-align:right">${f(totals.totalGross)}</td>
       <td style="text-align:right">${f(totals.pfDed)}</td>
       <td style="text-align:right">${f(totals.esicDed)}</td>
@@ -665,8 +665,8 @@ export default function SalaryRegister() {
             <th>Basic<br/>Wages</th>
             <th>Dearness<br/>allowance<br/>es</th>
             <th>Overtime</th>
-            <th>Other<br/>Cash<br/>Payment<br/>(Nature<br/>of<br/>payment<br/>to be<br/>mention<br/>ed)</th>
-            <th>House<br/>Rent<br/>Allowance</th>
+            <th>Other<br/>Cash<br/>Payment<br/>(Nature<br/>of<br/>payment<br/>to be<br/>indicat<br/>ed)</th>
+            <th>House<br/>Rent<br/>Allowan<br/>ce</th>
             <th>Provident<br/>Fund</th>
             <th>Employee<br/>'s Share of<br/>the<br/>Contributi<br/>on (E.S.I.)</th>
             <th>Professio<br/>nal Tax</th>
