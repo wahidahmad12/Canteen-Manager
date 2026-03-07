@@ -397,57 +397,64 @@ export default function MusterRoll() {
     <Layout>
       <style>{`
         @media print {
-          @page { size: landscape; margin: 8mm; }
+          @page { size: landscape; margin: 6mm; }
           body { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
           nav, aside, header, .no-print, .print-hide, [data-sidebar], .sidebar-wrapper { display: none !important; }
           main { padding: 0 !important; margin: 0 !important; max-width: 100% !important; }
-          .print-hide { display: none !important; }
           .print-full { overflow: visible !important; max-height: none !important; }
           .print-title-block { display: block !important; }
+
           .print-table { font-size: 7.5pt !important; border-collapse: collapse !important; width: 100% !important; }
           .print-table th, .print-table td { 
             padding: 2px 2px !important; 
-            border: 1px solid #333 !important;
+            border: 1px solid #555 !important;
             text-align: center !important;
           }
+          .print-table thead tr { background: #1565c0 !important; }
           .print-table th { 
-            background: #e8f5e9 !important; 
+            background: #1565c0 !important; 
+            color: #fff !important;
             font-weight: bold !important; 
             font-size: 7pt !important;
+            border-color: #0d47a1 !important;
           }
           .print-table td.emp-name { 
             text-align: left !important; 
-            font-weight: 600 !important; 
+            font-weight: 700 !important; 
             white-space: nowrap !important;
             font-size: 7pt !important;
             padding-left: 4px !important;
+            background: #e3f2fd !important;
           }
           .print-table .day-cell { min-width: 18px !important; width: 18px !important; font-size: 7pt !important; font-weight: bold !important; }
-          .print-table .summary-present { background: #c8e6c9 !important; font-weight: bold !important; }
-          .print-table .summary-holiday { background: #fff9c4 !important; font-weight: bold !important; }
-          .print-table .summary-hp { background: #b2dfdb !important; font-weight: bold !important; }
-          .print-table .summary-hd { background: #ffe0b2 !important; font-weight: bold !important; }
-          .print-table .summary-paid { background: #c5cae9 !important; font-weight: bold !important; }
-          .print-table .summary-absent { background: #ffcdd2 !important; font-weight: bold !important; }
-          .print-table .summary-ot { background: #b2ebf2 !important; font-weight: bold !important; }
-          .print-table .cell-P { background: #e8f5e9 !important; }
-          .print-table .cell-A { background: #ffebee !important; }
-          .print-table .cell-H { background: #fff8e1 !important; }
-          .print-table .cell-PHL { background: #e0f2f1 !important; }
-          .print-table .cell-HD { background: #fff3e0 !important; }
-          .print-table .cell-WO, .print-table .cell-PH { background: #e3f2fd !important; }
-          .print-legend { 
-            margin-top: 8px !important; 
-            font-size: 7.5pt !important; 
-            border: 1px solid #666 !important;
-            padding: 4px 8px !important;
-            display: flex !important;
-            flex-wrap: wrap !important;
-            gap: 6px 14px !important;
-          }
-          .print-legend strong { font-weight: bold !important; }
-          .sticky { position: static !important; }
-          [class*="Card"], [class*="card"] { border: none !important; box-shadow: none !important; border-radius: 0 !important; }
+
+          .print-table th.summary-present { background: #2e7d32 !important; color: #fff !important; }
+          .print-table th.summary-holiday { background: #f9a825 !important; color: #fff !important; }
+          .print-table th.summary-hp { background: #00897b !important; color: #fff !important; }
+          .print-table th.summary-hd { background: #ef6c00 !important; color: #fff !important; }
+          .print-table th.summary-paid { background: #283593 !important; color: #fff !important; }
+          .print-table th.summary-absent { background: #c62828 !important; color: #fff !important; }
+          .print-table th.summary-ot { background: #00838f !important; color: #fff !important; }
+
+          .print-table td.summary-present { background: #a5d6a7 !important; color: #1b5e20 !important; font-weight: bold !important; }
+          .print-table td.summary-holiday { background: #fff176 !important; color: #f57f17 !important; font-weight: bold !important; }
+          .print-table td.summary-hp { background: #80cbc4 !important; color: #004d40 !important; font-weight: bold !important; }
+          .print-table td.summary-hd { background: #ffcc80 !important; color: #e65100 !important; font-weight: bold !important; }
+          .print-table td.summary-paid { background: #9fa8da !important; color: #1a237e !important; font-weight: bold !important; }
+          .print-table td.summary-absent { background: #ef9a9a !important; color: #b71c1c !important; font-weight: bold !important; }
+          .print-table td.summary-ot { background: #80deea !important; color: #006064 !important; font-weight: bold !important; }
+
+          .print-table .cell-P { background: #c8e6c9 !important; color: #1b5e20 !important; }
+          .print-table .cell-A { background: #ffcdd2 !important; color: #b71c1c !important; }
+          .print-table .cell-H { background: #fff9c4 !important; color: #f57f17 !important; }
+          .print-table .cell-PHL { background: #b2dfdb !important; color: #004d40 !important; }
+          .print-table .cell-HD { background: #ffe0b2 !important; color: #e65100 !important; }
+          .print-table .cell-WO { background: #bbdefb !important; color: #0d47a1 !important; }
+          .print-table .cell-PH { background: #e1bee7 !important; color: #6a1b9a !important; }
+          .print-table .cell-CL, .print-table .cell-SL, .print-table .cell-EL { background: #ffccbc !important; color: #bf360c !important; }
+
+          .print-table td:first-child { background: #e8eaf6 !important; font-weight: bold !important; color: #283593 !important; }
+
           .print-table button { 
             all: unset !important;
             font-size: 7pt !important;
@@ -455,14 +462,32 @@ export default function MusterRoll() {
             text-align: center !important;
             display: block !important;
             width: 100% !important;
+            color: inherit !important;
           }
           .print-table td { vertical-align: middle !important; }
-          .print-table tr:nth-child(even) { background: #fafafa !important; }
+          .print-table tr:nth-child(even) td:not(.emp-name):not(.summary-present):not(.summary-holiday):not(.summary-hp):not(.summary-hd):not(.summary-paid):not(.summary-absent):not(.summary-ot):not(:first-child):not([class*="cell-"]) { background: #f5f5f5 !important; }
+
+          .print-legend { 
+            margin-top: 8px !important; 
+            font-size: 7.5pt !important; 
+            border: 2px solid #1565c0 !important;
+            padding: 5px 10px !important;
+            display: flex !important;
+            flex-wrap: wrap !important;
+            gap: 6px 14px !important;
+            background: #e3f2fd !important;
+            border-radius: 0 !important;
+          }
+          .print-legend strong { font-weight: bold !important; }
+          .sticky { position: static !important; }
+          [class*="Card"], [class*="card"] { border: none !important; box-shadow: none !important; border-radius: 0 !important; }
+
           .print-sign-block { 
             display: flex !important; 
             justify-content: space-between !important;
-            margin-top: 20px !important;
+            margin-top: 24px !important;
             font-size: 9pt !important;
+            font-weight: 600 !important;
           }
         }
       `}</style>
@@ -592,11 +617,11 @@ export default function MusterRoll() {
                 <Badge variant="secondary" className="ml-auto">{employees.length} Employees</Badge>
               </CardTitle>
             </CardHeader>
-            <div className="hidden print-title-block" style={{ marginBottom: '6px' }}>
-              <div style={{ textAlign: 'center', borderBottom: '2px solid #333', paddingBottom: '4px', marginBottom: '4px' }}>
-                <h2 style={{ fontSize: '14pt', fontWeight: 'bold', margin: '0' }}>MUSTER ROLL (Form XVI)</h2>
-                <p style={{ fontSize: '10pt', margin: '2px 0 0 0' }}>
-                  <strong>{clientName}</strong> &mdash; {MONTHS[monthNum - 1]} {yearNum}
+            <div className="hidden print-title-block" style={{ marginBottom: '8px' }}>
+              <div style={{ textAlign: 'center', background: '#1565c0', color: '#fff', padding: '8px 12px', borderRadius: '4px', marginBottom: '6px' }}>
+                <h2 style={{ fontSize: '14pt', fontWeight: 'bold', margin: '0', letterSpacing: '1px' }}>MUSTER ROLL (Form XVI)</h2>
+                <p style={{ fontSize: '10pt', margin: '3px 0 0 0', color: '#bbdefb' }}>
+                  <strong style={{ color: '#fff' }}>{clientName}</strong> &mdash; {MONTHS[monthNum - 1]} {yearNum}
                 </p>
               </div>
             </div>
