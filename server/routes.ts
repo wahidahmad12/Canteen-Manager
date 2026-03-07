@@ -914,9 +914,39 @@ export async function registerRoutes(
     const records = await db.select().from(attendance).where(
       and(eq(attendance.employeeId, employeeId), eq(attendance.year, year))
     );
-    const totalPresent = records.reduce((sum, r) => sum + Number(r.totalPresent || 0), 0);
-    const leaveEarned = Math.floor(totalPresent / 20);
-    res.json({ totalPresent, leaveEarned });
+
+    let totalDaysInYear = 0;
+    let weeklyOffs = 0;
+    let paidHolidays = 0;
+    let leavesAvailed = 0;
+    let absences = 0;
+    let totalPresent = 0;
+
+    for (const rec of records) {
+      const daysInMonth = new Date(year, rec.month, 0).getDate();
+      for (let d = 1; d <= daysInMonth; d++) {
+        const val = (rec as any)[`day${d}`] as string | null;
+        if (!val) continue;
+        totalDaysInYear++;
+        const upper = val.toUpperCase().trim();
+        if (upper === "P" || upper === "H") {
+          totalPresent++;
+        } else if (upper === "WO") {
+          weeklyOffs++;
+        } else if (upper === "PH") {
+          paidHolidays++;
+        } else if (upper === "CL" || upper === "SL" || upper === "EL") {
+          leavesAvailed++;
+        } else if (upper === "A") {
+          absences++;
+        }
+      }
+    }
+
+    const actualDaysWorked = totalDaysInYear - (weeklyOffs + paidHolidays + leavesAvailed + absences);
+    const leaveEarned = Math.floor(actualDaysWorked / 20);
+
+    res.json({ totalDaysInYear, weeklyOffs, paidHolidays, leavesAvailed, absences, actualDaysWorked, totalPresent, leaveEarned });
   });
 
   app.post("/api/leave-with-wages", requireAdmin, async (req, res) => {
