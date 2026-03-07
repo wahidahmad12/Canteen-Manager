@@ -61,7 +61,7 @@ export default function SkillWageRatesPage() {
     }
   };
 
-  const fillAllMonths = (skill: string) => {
+  const fillJanToJun = (skill: string) => {
     const firstVal = rates[skill]?.[1];
     if (!firstVal) {
       toast({ title: "Enter Jan rate first", variant: "destructive" });
@@ -69,8 +69,23 @@ export default function SkillWageRatesPage() {
     }
     setRates(prev => {
       const updated = { ...prev[skill] };
-      for (let m = 2; m <= 12; m++) {
-        if (!updated[m]) updated[m] = firstVal;
+      for (let m = 2; m <= 6; m++) {
+        updated[m] = firstVal;
+      }
+      return { ...prev, [skill]: updated };
+    });
+  };
+
+  const fillJulToDec = (skill: string) => {
+    const julVal = rates[skill]?.[7];
+    if (!julVal) {
+      toast({ title: "Enter Jul rate first", variant: "destructive" });
+      return;
+    }
+    setRates(prev => {
+      const updated = { ...prev[skill] };
+      for (let m = 8; m <= 12; m++) {
+        updated[m] = julVal;
       }
       return { ...prev, [skill]: updated };
     });
@@ -140,9 +155,14 @@ export default function SkillWageRatesPage() {
                 <CardHeader className="pb-2 pt-3">
                   <div className="flex items-center justify-between">
                     <CardTitle className="text-sm font-semibold">{skill}</CardTitle>
-                    <Button variant="outline" size="sm" className="text-xs h-7" onClick={() => fillAllMonths(skill)} data-testid={`button-fill-${skill}`}>
-                      Fill All from Jan
-                    </Button>
+                    <div className="flex gap-2">
+                      <Button variant="outline" size="sm" onClick={() => fillJanToJun(skill)} data-testid={`button-fill-jan-jun-${skill}`}>
+                        Fill Jan–Jun
+                      </Button>
+                      <Button variant="outline" size="sm" onClick={() => fillJulToDec(skill)} data-testid={`button-fill-jul-dec-${skill}`}>
+                        Fill Jul–Dec
+                      </Button>
+                    </div>
                   </div>
                 </CardHeader>
                 <CardContent className="pb-3 pt-0">
