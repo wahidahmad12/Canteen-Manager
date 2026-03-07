@@ -549,6 +549,7 @@ export default function SalaryRegister() {
         <td>${emp?.employeeCode || ""}</td>
         <td style="text-align:left;white-space:nowrap">${emp?.designation || ""}</td>
         <td>${r.paidDays}</td>
+        <td>${r.otHrs || ""}</td>
         <td></td>
         <td style="text-align:right">${fDec(r.basicRate)}</td>
         <td style="text-align:right">${f(r.basicWage)}</td>
@@ -571,6 +572,7 @@ export default function SalaryRegister() {
     const totalRow = totals ? `<tr style="font-weight:bold;background:#f0f0f0">
       <td colspan="4" style="text-align:right;font-weight:bold">TOTAL</td>
       <td>${totals.paidDays}</td>
+      <td>${totals.otHrs || ""}</td>
       <td></td>
       <td></td>
       <td style="text-align:right">${f(totals.basicWage)}</td>
@@ -650,7 +652,7 @@ export default function SalaryRegister() {
             <th rowspan="3" style="min-width:110px">Name of the<br/>Workman</th>
             <th rowspan="3" style="width:55px">Serial No<br/>in the<br/>register<br/>of<br/>workman</th>
             <th rowspan="3" style="min-width:80px">Designatio<br/>n / Nature<br/>of Work<br/>Done</th>
-            <th rowspan="3" style="width:40px">No. of Days<br/>Worked</th>
+            <th colspan="2">No. of Days<br/>Worked</th>
             <th rowspan="3" style="width:40px">Units Of<br/>Work<br/>Down</th>
             <th rowspan="3" style="width:55px">Daily rate<br/>of wages /<br/>Piece rate</th>
             <th colspan="5">AMOUNT OF WAGES EARNED</th>
@@ -662,6 +664,8 @@ export default function SalaryRegister() {
             <th rowspan="3" style="width:55px">E.P.F.<br/>Differenc<br/>e<br/>between<br/>10%,<br/>12% &amp; 8<br/>1/3 % (if<br/>Any)</th>
           </tr>
           <tr>
+            <th>Paid<br/>Days</th>
+            <th>OT<br/>HRS</th>
             <th>Basic<br/>Wages</th>
             <th>Dearness<br/>allowance<br/>es</th>
             <th>Overtime</th>
@@ -686,7 +690,7 @@ export default function SalaryRegister() {
             <th>Rs.</th>
           </tr>
           <tr style="font-size:7px;font-style:italic">
-            <th>1</th><th>2</th><th>3</th><th>4</th><th>5</th><th>6</th><th>7</th>
+            <th>1</th><th>2</th><th>3</th><th>4</th><th>5(a)</th><th>5(b)</th><th>6</th><th>7</th>
             <th>8</th><th>9</th><th>10</th><th>11</th><th>12</th><th>13</th>
             <th>14(a)</th><th>14(b)</th><th>14(c)</th><th>14(d)</th><th>15</th>
             <th>16</th><th>17</th><th>18</th>
