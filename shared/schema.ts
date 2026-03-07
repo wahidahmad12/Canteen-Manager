@@ -185,6 +185,135 @@ export const itemMaster = pgTable("item_master", {
   createdAt: timestamp("created_at").defaultNow(),
 });
 
+// === SALARY & PAYROLL TABLES ===
+
+// Employee Master
+export const employees = pgTable("employees", {
+  id: serial("id").primaryKey(),
+  employeeCode: text("employee_code").notNull().unique(),
+  name: text("name").notNull(),
+  fatherName: text("father_name").default(""),
+  designation: text("designation").default(""),
+  department: text("department").default(""),
+  clientName: text("client_name").notNull(),
+  esicNo: text("esic_no").default(""),
+  pfNo: text("pf_no").default(""),
+  uanNo: text("uan_no").default(""),
+  aadhaarNo: text("aadhaar_no").default(""),
+  panNo: text("pan_no").default(""),
+  bankName: text("bank_name").default(""),
+  accountNo: text("account_no").default(""),
+  ifscCode: text("ifsc_code").default(""),
+  dailyRate: numeric("daily_rate", { precision: 10, scale: 2 }).default("0"),
+  gender: text("gender").default("Male"),
+  dob: date("dob"),
+  address: text("address").default(""),
+  joiningDate: date("joining_date"),
+  leavingDate: date("leaving_date"),
+  leavingReason: text("leaving_reason").default(""),
+  isActive: boolean("is_active").notNull().default(true),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+// Attendance / Muster Roll (Form XVI)
+export const attendance = pgTable("attendance", {
+  id: serial("id").primaryKey(),
+  employeeId: integer("employee_id").notNull().references(() => employees.id, { onDelete: 'cascade' }),
+  clientName: text("client_name").notNull(),
+  month: integer("month").notNull(),
+  year: integer("year").notNull(),
+  day1: text("day1"), day2: text("day2"), day3: text("day3"), day4: text("day4"), day5: text("day5"),
+  day6: text("day6"), day7: text("day7"), day8: text("day8"), day9: text("day9"), day10: text("day10"),
+  day11: text("day11"), day12: text("day12"), day13: text("day13"), day14: text("day14"), day15: text("day15"),
+  day16: text("day16"), day17: text("day17"), day18: text("day18"), day19: text("day19"), day20: text("day20"),
+  day21: text("day21"), day22: text("day22"), day23: text("day23"), day24: text("day24"), day25: text("day25"),
+  day26: text("day26"), day27: text("day27"), day28: text("day28"), day29: text("day29"), day30: text("day30"),
+  day31: text("day31"),
+  totalPresent: numeric("total_present", { precision: 5, scale: 1 }).default("0"),
+  totalAbsent: numeric("total_absent", { precision: 5, scale: 1 }).default("0"),
+  overtimeHours: numeric("overtime_hours", { precision: 6, scale: 2 }).default("0"),
+  remarks: text("remarks").default(""),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+// Salary Records / Register of Wages (Form XVII)
+export const salaryRecords = pgTable("salary_records", {
+  id: serial("id").primaryKey(),
+  employeeId: integer("employee_id").notNull().references(() => employees.id, { onDelete: 'cascade' }),
+  clientName: text("client_name").notNull(),
+  month: integer("month").notNull(),
+  year: integer("year").notNull(),
+  daysWorked: numeric("days_worked", { precision: 5, scale: 1 }).default("0"),
+  basicWage: numeric("basic_wage", { precision: 12, scale: 2 }).default("0"),
+  da: numeric("da", { precision: 12, scale: 2 }).default("0"),
+  hra: numeric("hra", { precision: 12, scale: 2 }).default("0"),
+  otherAllowance: numeric("other_allowance", { precision: 12, scale: 2 }).default("0"),
+  grossWage: numeric("gross_wage", { precision: 12, scale: 2 }).default("0"),
+  pfDeduction: numeric("pf_deduction", { precision: 12, scale: 2 }).default("0"),
+  esicDeduction: numeric("esic_deduction", { precision: 12, scale: 2 }).default("0"),
+  professionalTax: numeric("professional_tax", { precision: 12, scale: 2 }).default("0"),
+  advanceDeduction: numeric("advance_deduction", { precision: 12, scale: 2 }).default("0"),
+  fineDeduction: numeric("fine_deduction", { precision: 12, scale: 2 }).default("0"),
+  otherDeduction: numeric("other_deduction", { precision: 12, scale: 2 }).default("0"),
+  totalDeduction: numeric("total_deduction", { precision: 12, scale: 2 }).default("0"),
+  netPay: numeric("net_pay", { precision: 12, scale: 2 }).default("0"),
+  overtimeHours: numeric("overtime_hours", { precision: 6, scale: 2 }).default("0"),
+  overtimeRate: numeric("overtime_rate", { precision: 10, scale: 2 }).default("0"),
+  overtimeAmount: numeric("overtime_amount", { precision: 12, scale: 2 }).default("0"),
+  paymentMode: text("payment_mode").default("Bank Transfer"),
+  paidOn: date("paid_on"),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+// Register of Fines (Form XXI)
+export const fines = pgTable("fines", {
+  id: serial("id").primaryKey(),
+  employeeId: integer("employee_id").notNull().references(() => employees.id, { onDelete: 'cascade' }),
+  clientName: text("client_name").notNull(),
+  date: date("date").notNull(),
+  amount: numeric("amount", { precision: 10, scale: 2 }).default("0"),
+  reason: text("reason").default(""),
+  realized: boolean("realized").notNull().default(false),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+// Register of Advances (Form XXII)
+export const advances = pgTable("advances", {
+  id: serial("id").primaryKey(),
+  employeeId: integer("employee_id").notNull().references(() => employees.id, { onDelete: 'cascade' }),
+  clientName: text("client_name").notNull(),
+  date: date("date").notNull(),
+  amount: numeric("amount", { precision: 10, scale: 2 }).default("0"),
+  purpose: text("purpose").default(""),
+  installments: integer("installments").default(1),
+  recoveredAmount: numeric("recovered_amount", { precision: 10, scale: 2 }).default("0"),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+// Register of Overtime (Form XXIII)
+export const overtimeRegister = pgTable("overtime_register", {
+  id: serial("id").primaryKey(),
+  employeeId: integer("employee_id").notNull().references(() => employees.id, { onDelete: 'cascade' }),
+  clientName: text("client_name").notNull(),
+  date: date("date").notNull(),
+  normalHours: numeric("normal_hours", { precision: 5, scale: 2 }).default("8"),
+  overtimeHours: numeric("overtime_hours", { precision: 5, scale: 2 }).default("0"),
+  overtimeRate: numeric("overtime_rate", { precision: 10, scale: 2 }).default("0"),
+  overtimeAmount: numeric("overtime_amount", { precision: 12, scale: 2 }).default("0"),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+// Register of Deductions for Damage or Loss (Form XX)
+export const damageDeductions = pgTable("damage_deductions", {
+  id: serial("id").primaryKey(),
+  employeeId: integer("employee_id").notNull().references(() => employees.id, { onDelete: 'cascade' }),
+  clientName: text("client_name").notNull(),
+  date: date("date").notNull(),
+  amount: numeric("amount", { precision: 10, scale: 2 }).default("0"),
+  description: text("description").default(""),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
 // Saved item names for autocomplete in purchase requests and menus
 export const savedItemNames = pgTable("saved_item_names", {
   id: serial("id").primaryKey(),
@@ -377,3 +506,46 @@ export const selectPurchaseInvoiceItemSchema = createSelectSchema(purchaseInvoic
 export const purchaseInvoiceWithItemsSchema = selectPurchaseInvoiceSchema.extend({
   items: z.array(selectPurchaseInvoiceItemSchema),
 });
+
+// === SALARY & PAYROLL TYPES ===
+
+export type Employee = typeof employees.$inferSelect;
+export const insertEmployeeSchema = createInsertSchema(employees).omit({ id: true, createdAt: true });
+export const selectEmployeeSchema = createSelectSchema(employees, {
+  dob: z.string().nullable(),
+  joiningDate: z.string().nullable(),
+  leavingDate: z.string().nullable(),
+  createdAt: z.string().or(z.date()),
+});
+export type InsertEmployee = z.infer<typeof insertEmployeeSchema>;
+
+export type Attendance = typeof attendance.$inferSelect;
+export const insertAttendanceSchema = createInsertSchema(attendance).omit({ id: true, createdAt: true });
+export const selectAttendanceSchema = createSelectSchema(attendance, {
+  createdAt: z.string().or(z.date()),
+});
+
+export type SalaryRecord = typeof salaryRecords.$inferSelect;
+export const insertSalaryRecordSchema = createInsertSchema(salaryRecords).omit({ id: true, createdAt: true });
+export const selectSalaryRecordSchema = createSelectSchema(salaryRecords, {
+  paidOn: z.string().nullable(),
+  createdAt: z.string().or(z.date()),
+});
+
+export type Fine = typeof fines.$inferSelect;
+export const insertFineSchema = createInsertSchema(fines).omit({ id: true, createdAt: true });
+export const selectFineSchema = createSelectSchema(fines, { date: z.string(), createdAt: z.string().or(z.date()) });
+
+export type Advance = typeof advances.$inferSelect;
+export const insertAdvanceSchema = createInsertSchema(advances).omit({ id: true, createdAt: true });
+export const selectAdvanceSchema = createSelectSchema(advances, { date: z.string(), createdAt: z.string().or(z.date()) });
+
+export type OvertimeRecord = typeof overtimeRegister.$inferSelect;
+export const insertOvertimeSchema = createInsertSchema(overtimeRegister).omit({ id: true, createdAt: true });
+export const selectOvertimeSchema = createSelectSchema(overtimeRegister, { date: z.string(), createdAt: z.string().or(z.date()) });
+
+export type DamageDeduction = typeof damageDeductions.$inferSelect;
+export const insertDamageDeductionSchema = createInsertSchema(damageDeductions).omit({ id: true, createdAt: true });
+export const selectDamageDeductionSchema = createSelectSchema(damageDeductions, { date: z.string(), createdAt: z.string().or(z.date()) });
+
+export const ALL_PAYROLL_PERMISSIONS = [...ALL_PERMISSIONS, 'salary'] as const;

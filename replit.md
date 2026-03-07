@@ -2,7 +2,7 @@
 
 ## Overview
 
-A daily expense reporting application for DJ KPF with multi-user authentication. Admin creates user accounts grouped by client name. Features include daily expense reports, Cash Seal tracking, daily inventory management, and Menu Manager with 2-week lunch schedules.
+A daily expense reporting application for DJ KPF with multi-user authentication. Admin creates user accounts grouped by client name. Features include daily expense reports, Cash Seal tracking, daily inventory management, Menu Manager with 2-week lunch schedules, and a Salary & Payroll Management system with Employee Master, Muster Roll (attendance), Salary Register, Wage Slips, and Indian government labour form registers (Form XIII–XXIII).
 
 ## User Preferences
 
@@ -26,6 +26,13 @@ Preferred communication style: Simple, everyday language.
   - `/menu` — Menu Manager (2-week lunch menu schedule with client selection)
   - `/admin` — PIN-protected admin panel for Item Master management, vendor/client/user management
   - `/vendor-report` — Vendor Payment Report with date filters, vendor/client filters, group by vendor/client, summary cards, PDF export (admin only)
+  - `/employee-master` — Employee Master CRUD (admin only) with all worker details, government IDs, bank info
+  - `/muster-roll` — Muster Roll (Form XVI) monthly attendance grid with day-by-day P/A/H/WO/PH/CL/SL/EL tracking
+  - `/salary` — Salary Register (Form XVII) with auto-generation from attendance, summary cards
+  - `/salary/:id/slip` — Wage Slip (Form XIX) printable individual pay slip
+  - `/registers` — Combined registers page with tabs for Fines (XXI), Advances (XXII), Overtime (XXIII), Damage/Loss (XX)
+  - `/form-xiii` — Workmen Register (Form XIII) printable list of workers by company
+  - `/form-xiv/:id` — Employment Card (Form XIV) individual worker card
 
 ### Backend
 - **Framework**: Express 5 on Node.js with TypeScript (run via tsx)
@@ -58,6 +65,13 @@ Preferred communication style: Simple, everyday language.
   - `purchase_invoices` — Purchase invoice headers with serialNumber, purchaseRequestId (optional link), clientName, vendorName, vendorInvoiceNo, date, totalAmount, totalGst, grandTotal, paymentGiven (boolean), createdBy
   - `purchase_invoice_items` — Invoice line items: itemName, uom, qty, unitPrice, totalPrice, gstRate, gstAmount, netAmount. Cascade deletes with parent invoice
   - `users` — User accounts with username (unique), passwordHash (bcrypt), displayName, role (admin/user), clientName (nullable), isActive flag
+  - `employees` — Employee Master with employeeCode (unique), name, fatherName, designation, department, clientName, government IDs (ESIC, PF, UAN, Aadhaar, PAN), bank details, dailyRate, joiningDate, leavingDate, isActive
+  - `attendance` — Monthly attendance records with day1-day31 columns (P/A/H/WO/PH/CL/SL/EL), unique on (employeeId, month, year)
+  - `salary_records` — Monthly salary with basicWage, DA, HRA, gross, PF/ESIC/PT deductions, netPay, overtime. Unique on (employeeId, month, year)
+  - `fines` — Fine register (Form XXI) linked to employees
+  - `advances` — Advance register (Form XXII) linked to employees
+  - `overtime_register` — Overtime register (Form XXIII) linked to employees
+  - `damage_deductions` — Damage/Loss register (Form XX) linked to employees
 - **Storage Layer**: `server/storage.ts` implements `IStorage` interface with `DatabaseStorage` class, abstracting all DB operations
 
 ### Key Design Decisions

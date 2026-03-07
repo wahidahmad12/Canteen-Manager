@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Link, useLocation } from 'wouter';
-import { LayoutDashboard, FilePlus, Settings, Calculator, ClipboardList, UtensilsCrossed, ShoppingCart, LogOut, User, Menu, X } from 'lucide-react';
+import { LayoutDashboard, FilePlus, Settings, Calculator, ClipboardList, UtensilsCrossed, ShoppingCart, LogOut, User, Menu, X, Users, CalendarDays, Wallet, FileText, BookOpen } from 'lucide-react';
 import logoImg from '@assets/logo1_1771660912341.png';
 import { useCurrentUser, useLogout } from '@/hooks/use-reports';
 import { Button } from '@/components/ui/button';
@@ -20,7 +20,14 @@ export function Layout({ children }: { children: React.ReactNode }) {
     { href: '/inventory', label: 'Daily Inventory', icon: ClipboardList, perm: 'inventory' },
     { href: '/menu', label: 'Menu Manager', icon: UtensilsCrossed, perm: 'menu' },
     { href: '/purchase-request', label: 'Purchase Request', icon: ShoppingCart, perm: 'purchase' },
-    ...(user?.role === 'admin' ? [{ href: '/admin', label: 'Admin', icon: Settings, perm: null }] : []),
+    { href: '/muster-roll', label: 'Muster Roll', icon: CalendarDays, perm: null },
+    { href: '/salary', label: 'Salary Register', icon: Wallet, perm: null },
+    { href: '/registers', label: 'Registers', icon: BookOpen, perm: null },
+    { href: '/form-xiii', label: 'Workmen Register', icon: FileText, perm: null },
+    ...(user?.role === 'admin' ? [
+      { href: '/employee-master', label: 'Employee Master', icon: Users, perm: null },
+      { href: '/admin', label: 'Admin', icon: Settings, perm: null },
+    ] : []),
   ].filter(item => item.perm === null || perms.includes(item.perm));
 
   const closeSidebar = () => setSidebarOpen(false);

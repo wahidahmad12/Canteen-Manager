@@ -643,6 +643,153 @@ export async function registerRoutes(
     res.status(204).send();
   });
 
+  // === EMPLOYEE MASTER ===
+  app.get("/api/employees", requireAuth, async (req, res) => {
+    const clientName = req.query.clientName as string | undefined;
+    const employees = await storage.getEmployees(clientName);
+    res.json(employees);
+  });
+
+  app.get("/api/employees/:id", requireAuth, async (req, res) => {
+    const emp = await storage.getEmployee(Number(req.params.id));
+    if (!emp) return res.status(404).json({ message: "Employee not found" });
+    res.json(emp);
+  });
+
+  app.post("/api/employees", requireAdmin, async (req, res) => {
+    try {
+      const emp = await storage.createEmployee(req.body);
+      res.status(201).json(emp);
+    } catch (err: any) {
+      if (err.code === '23505') return res.status(400).json({ message: "Employee code already exists" });
+      throw err;
+    }
+  });
+
+  app.put("/api/employees/:id", requireAdmin, async (req, res) => {
+    try {
+      const emp = await storage.updateEmployee(Number(req.params.id), req.body);
+      res.json(emp);
+    } catch (err: any) {
+      if (err.message === "Employee not found") return res.status(404).json({ message: err.message });
+      if (err.code === '23505') return res.status(400).json({ message: "Employee code already exists" });
+      throw err;
+    }
+  });
+
+  app.delete("/api/employees/:id", requireAdmin, async (req, res) => {
+    await storage.deleteEmployee(Number(req.params.id));
+    res.status(204).send();
+  });
+
+  // === ATTENDANCE / MUSTER ROLL ===
+  app.get("/api/attendance", requireAuth, async (req, res) => {
+    const { clientName, month, year } = req.query;
+    if (!clientName || !month || !year) return res.status(400).json({ message: "clientName, month, year required" });
+    const records = await storage.getAttendance(clientName as string, Number(month), Number(year));
+    res.json(records);
+  });
+
+  app.post("/api/attendance", requireAuth, async (req, res) => {
+    const record = await storage.saveAttendance(req.body);
+    res.json(record);
+  });
+
+  // === SALARY RECORDS ===
+  app.get("/api/salary", requireAuth, async (req, res) => {
+    const { clientName, month, year } = req.query;
+    if (!clientName || !month || !year) return res.status(400).json({ message: "clientName, month, year required" });
+    const records = await storage.getSalaryRecords(clientName as string, Number(month), Number(year));
+    res.json(records);
+  });
+
+  app.get("/api/salary/:id", requireAuth, async (req, res) => {
+    const record = await storage.getSalaryRecord(Number(req.params.id));
+    if (!record) return res.status(404).json({ message: "Salary record not found" });
+    res.json(record);
+  });
+
+  app.post("/api/salary/generate", requireAdmin, async (req, res) => {
+    const { clientName, month, year } = req.body;
+    if (!clientName || !month || !year) return res.status(400).json({ message: "clientName, month, year required" });
+    const records = await storage.generateSalary(clientName, Number(month), Number(year));
+    res.json(records);
+  });
+
+  app.put("/api/salary/:id", requireAdmin, async (req, res) => {
+    const record = await storage.saveSalaryRecord({ ...req.body, id: Number(req.params.id) });
+    res.json(record);
+  });
+
+  app.delete("/api/salary/:id", requireAdmin, async (req, res) => {
+    await storage.deleteSalaryRecord(Number(req.params.id));
+    res.status(204).send();
+  });
+
+  // === FINES ===
+  app.get("/api/fines", requireAuth, async (req, res) => {
+    const records = await storage.getFines(req.query.clientName as string | undefined);
+    res.json(records);
+  });
+
+  app.post("/api/fines", requireAdmin, async (req, res) => {
+    const record = await storage.createFine(req.body);
+    res.status(201).json(record);
+  });
+
+  app.delete("/api/fines/:id", requireAdmin, async (req, res) => {
+    await storage.deleteFine(Number(req.params.id));
+    res.status(204).send();
+  });
+
+  // === ADVANCES ===
+  app.get("/api/advances", requireAuth, async (req, res) => {
+    const records = await storage.getAdvances(req.query.clientName as string | undefined);
+    res.json(records);
+  });
+
+  app.post("/api/advances", requireAdmin, async (req, res) => {
+    const record = await storage.createAdvance(req.body);
+    res.status(201).json(record);
+  });
+
+  app.delete("/api/advances/:id", requireAdmin, async (req, res) => {
+    await storage.deleteAdvance(Number(req.params.id));
+    res.status(204).send();
+  });
+
+  // === OVERTIME REGISTER ===
+  app.get("/api/overtime", requireAuth, async (req, res) => {
+    const records = await storage.getOvertimeRecords(req.query.clientName as string | undefined);
+    res.json(records);
+  });
+
+  app.post("/api/overtime", requireAdmin, async (req, res) => {
+    const record = await storage.createOvertimeRecord(req.body);
+    res.status(201).json(record);
+  });
+
+  app.delete("/api/overtime/:id", requireAdmin, async (req, res) => {
+    await storage.deleteOvertimeRecord(Number(req.params.id));
+    res.status(204).send();
+  });
+
+  // === DAMAGE DEDUCTIONS ===
+  app.get("/api/damage-deductions", requireAuth, async (req, res) => {
+    const records = await storage.getDamageDeductions(req.query.clientName as string | undefined);
+    res.json(records);
+  });
+
+  app.post("/api/damage-deductions", requireAdmin, async (req, res) => {
+    const record = await storage.createDamageDeduction(req.body);
+    res.status(201).json(record);
+  });
+
+  app.delete("/api/damage-deductions/:id", requireAdmin, async (req, res) => {
+    await storage.deleteDamageDeduction(Number(req.params.id));
+    res.status(204).send();
+  });
+
   return httpServer;
 }
 

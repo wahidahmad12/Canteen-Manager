@@ -19,6 +19,13 @@ import {
   purchaseInvoices,
   purchaseInvoiceItems,
   itemMaster,
+  employees,
+  attendance,
+  salaryRecords,
+  fines,
+  advances,
+  overtimeRegister,
+  damageDeductions,
   type DailyReport, 
   type ExpenseItem,
   type CreateReportRequest,
@@ -37,8 +44,15 @@ import {
   type Vendor,
   type PurchaseInvoiceWithItems,
   type ItemMaster,
+  type Employee,
+  type Attendance,
+  type SalaryRecord,
+  type Fine,
+  type Advance,
+  type OvertimeRecord,
+  type DamageDeduction,
 } from "@shared/schema";
-import { eq, desc, lt, sql } from "drizzle-orm";
+import { eq, desc, lt, and, sql } from "drizzle-orm";
 import bcrypt from "bcryptjs";
 
 export interface IStorage {
@@ -100,6 +114,30 @@ export interface IStorage {
   createItemMasterItem(data: { itemName: string; uom?: string; rate?: string; hsnCode?: string; gstPercent?: string; itemType?: string }): Promise<ItemMaster>;
   updateItemMasterItem(id: number, data: { itemName?: string; uom?: string; rate?: string; hsnCode?: string; gstPercent?: string; itemType?: string }): Promise<ItemMaster>;
   deleteItemMasterItem(id: number): Promise<void>;
+  getEmployees(clientName?: string): Promise<Employee[]>;
+  getEmployee(id: number): Promise<Employee | undefined>;
+  createEmployee(data: any): Promise<Employee>;
+  updateEmployee(id: number, data: any): Promise<Employee>;
+  deleteEmployee(id: number): Promise<void>;
+  getAttendance(clientName: string, month: number, year: number): Promise<Attendance[]>;
+  saveAttendance(data: any): Promise<Attendance>;
+  getSalaryRecords(clientName: string, month: number, year: number): Promise<SalaryRecord[]>;
+  getSalaryRecord(id: number): Promise<SalaryRecord | undefined>;
+  saveSalaryRecord(data: any): Promise<SalaryRecord>;
+  deleteSalaryRecord(id: number): Promise<void>;
+  generateSalary(clientName: string, month: number, year: number): Promise<SalaryRecord[]>;
+  getFines(clientName?: string): Promise<Fine[]>;
+  createFine(data: any): Promise<Fine>;
+  deleteFine(id: number): Promise<void>;
+  getAdvances(clientName?: string): Promise<Advance[]>;
+  createAdvance(data: any): Promise<Advance>;
+  deleteAdvance(id: number): Promise<void>;
+  getOvertimeRecords(clientName?: string): Promise<OvertimeRecord[]>;
+  createOvertimeRecord(data: any): Promise<OvertimeRecord>;
+  deleteOvertimeRecord(id: number): Promise<void>;
+  getDamageDeductions(clientName?: string): Promise<DamageDeduction[]>;
+  createDamageDeduction(data: any): Promise<DamageDeduction>;
+  deleteDamageDeduction(id: number): Promise<void>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -822,6 +860,191 @@ export class DatabaseStorage implements IStorage {
 
   async deleteItemMasterItem(id: number): Promise<void> {
     await db.delete(itemMaster).where(eq(itemMaster.id, id));
+  }
+
+  // === EMPLOYEE MASTER ===
+  async getEmployees(clientName?: string): Promise<Employee[]> {
+    if (clientName) {
+      return await db.select().from(employees).where(eq(employees.clientName, clientName)).orderBy(employees.name);
+    }
+    return await db.select().from(employees).orderBy(employees.name);
+  }
+
+  async getEmployee(id: number): Promise<Employee | undefined> {
+    const [emp] = await db.select().from(employees).where(eq(employees.id, id));
+    return emp;
+  }
+
+  async createEmployee(data: any): Promise<Employee> {
+    const [emp] = await db.insert(employees).values(data).returning();
+    return emp;
+  }
+
+  async updateEmployee(id: number, data: any): Promise<Employee> {
+    const updateFields: any = {};
+    for (const key of Object.keys(data)) {
+      if (data[key] !== undefined) updateFields[key] = data[key];
+    }
+    const [emp] = await db.update(employees).set(updateFields).where(eq(employees.id, id)).returning();
+    if (!emp) throw new Error("Employee not found");
+    return emp;
+  }
+
+  async deleteEmployee(id: number): Promise<void> {
+    await db.delete(employees).where(eq(employees.id, id));
+  }
+
+  // === ATTENDANCE / MUSTER ROLL ===
+  async getAttendance(clientName: string, month: number, year: number): Promise<Attendance[]> {
+    return await db.select().from(attendance)
+      .where(and(eq(attendance.clientName, clientName), eq(attendance.month, month), eq(attendance.year, year)));
+  }
+
+  async saveAttendance(data: any): Promise<Attendance> {
+    const existing = await db.select().from(attendance)
+      .where(and(eq(attendance.employeeId, data.employeeId), eq(attendance.month, data.month), eq(attendance.year, data.year)));
+    if (existing.length > 0) {
+      const [updated] = await db.update(attendance).set(data)
+        .where(eq(attendance.id, existing[0].id)).returning();
+      return updated;
+    }
+    const [created] = await db.insert(attendance).values(data).returning();
+    return created;
+  }
+
+  // === SALARY RECORDS ===
+  async getSalaryRecords(clientName: string, month: number, year: number): Promise<SalaryRecord[]> {
+    return await db.select().from(salaryRecords)
+      .where(and(eq(salaryRecords.clientName, clientName), eq(salaryRecords.month, month), eq(salaryRecords.year, year)));
+  }
+
+  async getSalaryRecord(id: number): Promise<SalaryRecord | undefined> {
+    const [record] = await db.select().from(salaryRecords).where(eq(salaryRecords.id, id));
+    return record;
+  }
+
+  async saveSalaryRecord(data: any): Promise<SalaryRecord> {
+    if (data.id) {
+      const { id, ...updateData } = data;
+      const [updated] = await db.update(salaryRecords).set(updateData).where(eq(salaryRecords.id, id)).returning();
+      return updated;
+    }
+    const existing = await db.select().from(salaryRecords)
+      .where(and(eq(salaryRecords.employeeId, data.employeeId), eq(salaryRecords.month, data.month), eq(salaryRecords.year, data.year)));
+    if (existing.length > 0) {
+      const [updated] = await db.update(salaryRecords).set(data).where(eq(salaryRecords.id, existing[0].id)).returning();
+      return updated;
+    }
+    const [created] = await db.insert(salaryRecords).values(data).returning();
+    return created;
+  }
+
+  async deleteSalaryRecord(id: number): Promise<void> {
+    await db.delete(salaryRecords).where(eq(salaryRecords.id, id));
+  }
+
+  async generateSalary(clientName: string, month: number, year: number): Promise<SalaryRecord[]> {
+    const emps = await this.getEmployees(clientName);
+    const activeEmps = emps.filter(e => e.isActive);
+    const attendanceRecords = await this.getAttendance(clientName, month, year);
+    const results: SalaryRecord[] = [];
+
+    for (const emp of activeEmps) {
+      const att = attendanceRecords.find(a => a.employeeId === emp.id);
+      const daysWorked = att ? Number(att.totalPresent) : 0;
+      const dailyRate = Number(emp.dailyRate) || 0;
+      const basicWage = daysWorked * dailyRate;
+      const da = 0;
+      const hra = 0;
+      const otherAllowance = 0;
+      const grossWage = basicWage + da + hra + otherAllowance;
+      const pfDeduction = Math.round(basicWage * 0.12 * 100) / 100;
+      const esicDeduction = grossWage <= 21000 ? Math.round(grossWage * 0.0075 * 100) / 100 : 0;
+      const professionalTax = grossWage > 15000 ? 200 : grossWage > 10000 ? 150 : 0;
+      const overtimeHrs = att ? Number(att.overtimeHours) : 0;
+      const overtimeRate = dailyRate / 8 * 2;
+      const overtimeAmount = overtimeHrs * overtimeRate;
+      const totalDeduction = pfDeduction + esicDeduction + professionalTax;
+      const netPay = grossWage + overtimeAmount - totalDeduction;
+
+      const record = await this.saveSalaryRecord({
+        employeeId: emp.id,
+        clientName,
+        month,
+        year,
+        daysWorked: String(daysWorked),
+        basicWage: String(basicWage),
+        da: String(da),
+        hra: String(hra),
+        otherAllowance: String(otherAllowance),
+        grossWage: String(grossWage),
+        pfDeduction: String(pfDeduction),
+        esicDeduction: String(esicDeduction),
+        professionalTax: String(professionalTax),
+        advanceDeduction: "0",
+        fineDeduction: "0",
+        otherDeduction: "0",
+        totalDeduction: String(totalDeduction),
+        netPay: String(netPay),
+        overtimeHours: String(overtimeHrs),
+        overtimeRate: String(overtimeRate),
+        overtimeAmount: String(overtimeAmount),
+      });
+      results.push(record);
+    }
+    return results;
+  }
+
+  // === FINES ===
+  async getFines(clientName?: string): Promise<Fine[]> {
+    if (clientName) return await db.select().from(fines).where(eq(fines.clientName, clientName)).orderBy(desc(fines.date));
+    return await db.select().from(fines).orderBy(desc(fines.date));
+  }
+  async createFine(data: any): Promise<Fine> {
+    const [fine] = await db.insert(fines).values(data).returning();
+    return fine;
+  }
+  async deleteFine(id: number): Promise<void> {
+    await db.delete(fines).where(eq(fines.id, id));
+  }
+
+  // === ADVANCES ===
+  async getAdvances(clientName?: string): Promise<Advance[]> {
+    if (clientName) return await db.select().from(advances).where(eq(advances.clientName, clientName)).orderBy(desc(advances.date));
+    return await db.select().from(advances).orderBy(desc(advances.date));
+  }
+  async createAdvance(data: any): Promise<Advance> {
+    const [adv] = await db.insert(advances).values(data).returning();
+    return adv;
+  }
+  async deleteAdvance(id: number): Promise<void> {
+    await db.delete(advances).where(eq(advances.id, id));
+  }
+
+  // === OVERTIME ===
+  async getOvertimeRecords(clientName?: string): Promise<OvertimeRecord[]> {
+    if (clientName) return await db.select().from(overtimeRegister).where(eq(overtimeRegister.clientName, clientName)).orderBy(desc(overtimeRegister.date));
+    return await db.select().from(overtimeRegister).orderBy(desc(overtimeRegister.date));
+  }
+  async createOvertimeRecord(data: any): Promise<OvertimeRecord> {
+    const [ot] = await db.insert(overtimeRegister).values(data).returning();
+    return ot;
+  }
+  async deleteOvertimeRecord(id: number): Promise<void> {
+    await db.delete(overtimeRegister).where(eq(overtimeRegister.id, id));
+  }
+
+  // === DAMAGE DEDUCTIONS ===
+  async getDamageDeductions(clientName?: string): Promise<DamageDeduction[]> {
+    if (clientName) return await db.select().from(damageDeductions).where(eq(damageDeductions.clientName, clientName)).orderBy(desc(damageDeductions.date));
+    return await db.select().from(damageDeductions).orderBy(desc(damageDeductions.date));
+  }
+  async createDamageDeduction(data: any): Promise<DamageDeduction> {
+    const [dd] = await db.insert(damageDeductions).values(data).returning();
+    return dd;
+  }
+  async deleteDamageDeduction(id: number): Promise<void> {
+    await db.delete(damageDeductions).where(eq(damageDeductions.id, id));
   }
 }
 

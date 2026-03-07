@@ -19,6 +19,13 @@ import ReportPDF from "./pages/report-pdf";
 import CashSealPDF from "./pages/cash-seal-pdf";
 import InventoryPDF from "./pages/inventory-pdf";
 import VendorReport from "./pages/vendor-report";
+import EmployeeMaster from "./pages/employee-master";
+import MusterRoll from "./pages/muster-roll";
+import Salary from "./pages/salary";
+import WageSlip from "./pages/wage-slip";
+import Registers from "./pages/registers";
+import FormXIII from "./pages/form-xiii";
+import FormXIV from "./pages/form-xiv";
 import Login from "./pages/login";
 import { useCurrentUser } from "./hooks/use-reports";
 import { Loader2 } from "lucide-react";
@@ -63,6 +70,13 @@ function AuthenticatedRouter() {
       <Route path="/purchase-invoice/:id/edit">{() => <PermRoute perm="purchase"><PurchaseInvoice /></PermRoute>}</Route>
       <Route path="/purchase-invoice/:id/pdf">{() => <PermRoute perm="purchase"><PurchaseInvoicePDF /></PermRoute>}</Route>
       <Route path="/vendor-report">{() => <AdminOnlyRoute><VendorReport /></AdminOnlyRoute>}</Route>
+      <Route path="/employee-master">{() => <AdminOnlyRoute><EmployeeMaster /></AdminOnlyRoute>}</Route>
+      <Route path="/muster-roll" component={MusterRoll} />
+      <Route path="/salary" component={Salary} />
+      <Route path="/salary/:id/slip" component={WageSlip} />
+      <Route path="/registers" component={Registers} />
+      <Route path="/form-xiii" component={FormXIII} />
+      <Route path="/form-xiv/:id" component={FormXIV} />
       <Route component={NotFound} />
     </Switch>
   );
