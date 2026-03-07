@@ -914,7 +914,6 @@ export default function SalaryRegister() {
 
             <div id="salary-print-area" className="hidden print:block">
               <div style={{ textAlign: "center", marginBottom: "8px" }}>
-                <div style={{ fontSize: "18px", fontWeight: "bold" }}>Salary</div>
                 <div style={{ fontSize: "13px" }}>{clientName}</div>
                 <div style={{ fontSize: "16px", fontWeight: "bold" }}>{MONTHS[Number(month) - 1]} {year}</div>
               </div>
