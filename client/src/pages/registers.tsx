@@ -273,16 +273,16 @@ function FinesTab({ clientName, employees, empMap, filterMonth, filterYear }: { 
     <div className="space-y-4">
       <div className="flex items-center justify-between gap-2 flex-wrap">
         <h3 className="text-sm font-semibold text-muted-foreground" data-testid="text-fines-title">Form XXI - Register of Fines</h3>
-        <div className="flex gap-2">
+        <div className="flex gap-2 flex-wrap">
           <Button variant="outline" size="sm" onClick={handlePrint} data-testid="button-print-fines" disabled={!filtered.length}>
             <Printer className="w-4 h-4 mr-1" /> Print
           </Button>
           <Button variant="outline" size="sm" onClick={handleGovPrint} data-testid="button-gov-print-fines">
-            <Printer className="w-4 h-4 mr-1" /> Form XXI Print
+            <Printer className="w-4 h-4 mr-1" /> Form XXI
           </Button>
           <Dialog open={open} onOpenChange={setOpen}>
             <DialogTrigger asChild>
-              <Button size="sm" data-testid="button-add-fine"><Plus className="w-4 h-4 mr-1" /> Add Fine</Button>
+              <Button size="sm" data-testid="button-add-fine"><Plus className="w-4 h-4 mr-1" /> Add</Button>
             </DialogTrigger>
             <DialogContent>
               <DialogHeader><DialogTitle>Add Fine</DialogTitle></DialogHeader>
@@ -598,16 +598,16 @@ function AdvancesTab({ clientName, employees, empMap, filterMonth, filterYear }:
     <div className="space-y-4">
       <div className="flex items-center justify-between gap-2 flex-wrap">
         <h3 className="text-sm font-semibold text-muted-foreground" data-testid="text-advances-title">Form XXII - Register of Advances</h3>
-        <div className="flex gap-2">
+        <div className="flex gap-2 flex-wrap">
           <Button variant="outline" size="sm" onClick={handlePrint} data-testid="button-print-advances" disabled={!filtered.length}>
             <Printer className="w-4 h-4 mr-1" /> Print
           </Button>
           <Button variant="outline" size="sm" onClick={handleGovPrint} data-testid="button-gov-print-advances">
-            <Printer className="w-4 h-4 mr-1" /> Form XXII Print
+            <Printer className="w-4 h-4 mr-1" /> Form XXII
           </Button>
           <Dialog open={open} onOpenChange={setOpen}>
             <DialogTrigger asChild>
-              <Button size="sm" data-testid="button-add-advance"><Plus className="w-4 h-4 mr-1" /> Add Advance</Button>
+              <Button size="sm" data-testid="button-add-advance"><Plus className="w-4 h-4 mr-1" /> Add</Button>
             </DialogTrigger>
             <DialogContent>
               <DialogHeader><DialogTitle>Add Advance</DialogTitle></DialogHeader>
@@ -979,16 +979,16 @@ function OvertimeTab({ clientName, employees, empMap, filterMonth, filterYear }:
     <div className="space-y-4">
       <div className="flex items-center justify-between gap-2 flex-wrap">
         <h3 className="text-sm font-semibold text-muted-foreground" data-testid="text-overtime-title">Form XXIII - Register of Overtime</h3>
-        <div className="flex gap-2">
+        <div className="flex gap-2 flex-wrap">
           <Button variant="outline" size="sm" onClick={handlePrint} data-testid="button-print-overtime" disabled={!filtered.length}>
             <Printer className="w-4 h-4 mr-1" /> Print
           </Button>
           <Button variant="outline" size="sm" onClick={handleGovPrint} data-testid="button-gov-print-overtime">
-            <Printer className="w-4 h-4 mr-1" /> Form XXIII Print
+            <Printer className="w-4 h-4 mr-1" /> Form XXIII
           </Button>
           <Dialog open={open} onOpenChange={setOpen}>
             <DialogTrigger asChild>
-              <Button size="sm" data-testid="button-add-overtime"><Plus className="w-4 h-4 mr-1" /> Add Overtime</Button>
+              <Button size="sm" data-testid="button-add-overtime"><Plus className="w-4 h-4 mr-1" /> Add</Button>
             </DialogTrigger>
             <DialogContent>
               <DialogHeader><DialogTitle>Add Overtime Record</DialogTitle></DialogHeader>
@@ -1321,16 +1321,16 @@ function DamageTab({ clientName, employees, empMap, filterMonth, filterYear }: {
     <div className="space-y-4">
       <div className="flex items-center justify-between gap-2 flex-wrap">
         <h3 className="text-sm font-semibold text-muted-foreground" data-testid="text-damage-title">Form XX - Register of Damage/Loss Deductions</h3>
-        <div className="flex gap-2">
+        <div className="flex gap-2 flex-wrap">
           <Button variant="outline" size="sm" onClick={handlePrint} data-testid="button-print-damage" disabled={!filtered.length}>
             <Printer className="w-4 h-4 mr-1" /> Print
           </Button>
           <Button variant="outline" size="sm" onClick={handleGovPrint} data-testid="button-gov-print-damage">
-            <Printer className="w-4 h-4 mr-1" /> Form XX Print
+            <Printer className="w-4 h-4 mr-1" /> Form XX
           </Button>
           <Dialog open={open} onOpenChange={setOpen}>
             <DialogTrigger asChild>
-              <Button size="sm" data-testid="button-add-damage"><Plus className="w-4 h-4 mr-1" /> Add Deduction</Button>
+              <Button size="sm" data-testid="button-add-damage"><Plus className="w-4 h-4 mr-1" /> Add</Button>
             </DialogTrigger>
             <DialogContent>
               <DialogHeader><DialogTitle>Add Damage/Loss Deduction</DialogTitle></DialogHeader>

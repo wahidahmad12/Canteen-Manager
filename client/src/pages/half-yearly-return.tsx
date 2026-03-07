@@ -202,8 +202,8 @@ export default function HalfYearlyReturn() {
 
         <Card className="no-print border-blue-200 shadow-sm">
           <CardContent className="p-4">
-            <div className="flex flex-wrap gap-4 items-end">
-              <div className="space-y-2 min-w-[200px]">
+            <div className="grid grid-cols-2 sm:flex sm:flex-wrap gap-3 items-end">
+              <div className="space-y-2 col-span-2 sm:col-span-1 sm:min-w-[200px]">
                 <Label className="text-xs font-semibold text-blue-700 dark:text-blue-300 flex items-center gap-1">
                   <Building2 className="w-3.5 h-3.5" /> Company / Client
                 </Label>
@@ -216,7 +216,7 @@ export default function HalfYearlyReturn() {
                   </SelectContent>
                 </Select>
               </div>
-              <div className="space-y-2 min-w-[120px]">
+              <div className="space-y-2 sm:min-w-[120px]">
                 <Label className="text-xs font-semibold text-blue-700 dark:text-blue-300">Year</Label>
                 <Select value={selectedYear} onValueChange={setSelectedYear}>
                   <SelectTrigger data-testid="select-year"><SelectValue /></SelectTrigger>
@@ -227,7 +227,7 @@ export default function HalfYearlyReturn() {
                   </SelectContent>
                 </Select>
               </div>
-              <div className="space-y-2 min-w-[160px]">
+              <div className="space-y-2 sm:min-w-[160px]">
                 <Label className="text-xs font-semibold text-blue-700 dark:text-blue-300">Half Year</Label>
                 <Select value={halfYear} onValueChange={setHalfYear}>
                   <SelectTrigger data-testid="select-half"><SelectValue /></SelectTrigger>
@@ -237,11 +237,11 @@ export default function HalfYearlyReturn() {
                   </SelectContent>
                 </Select>
               </div>
-              <div className="space-y-2 min-w-[160px]">
+              <div className="space-y-2 sm:min-w-[160px]">
                 <Label className="text-xs font-semibold text-blue-700 dark:text-blue-300">Ref. Number</Label>
                 <Input value={refNumber} onChange={e => setRefNumber(e.target.value)} placeholder="DJ/KOL/25/00030" data-testid="input-ref" />
               </div>
-              <div className="space-y-2 min-w-[140px]">
+              <div className="space-y-2 sm:min-w-[140px]">
                 <Label className="text-xs font-semibold text-blue-700 dark:text-blue-300">Letter Date</Label>
                 <Input type="date" value={letterDate} onChange={e => setLetterDate(e.target.value)} data-testid="input-letter-date" />
               </div>

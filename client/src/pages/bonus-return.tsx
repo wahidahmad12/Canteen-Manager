@@ -275,8 +275,8 @@ export default function BonusReturn() {
 
         <Card className="no-print border-amber-200 shadow-sm">
           <CardContent className="p-4">
-            <div className="flex flex-col sm:flex-row gap-4 items-end flex-wrap">
-              <div className="space-y-2 min-w-[200px]">
+            <div className="grid grid-cols-2 sm:flex sm:flex-wrap gap-3 items-end">
+              <div className="space-y-2 col-span-2 sm:col-span-1 sm:min-w-[200px]">
                 <Label className="text-xs font-semibold text-amber-700 dark:text-amber-300 flex items-center gap-1">
                   <Building2 className="w-3.5 h-3.5" /> Company / Client
                 </Label>
@@ -291,8 +291,8 @@ export default function BonusReturn() {
                   </SelectContent>
                 </Select>
               </div>
-              <div className="space-y-2 min-w-[140px]">
-                <Label className="text-xs font-semibold text-amber-700 dark:text-amber-300">Accounting Year (Start)</Label>
+              <div className="space-y-2 sm:min-w-[140px]">
+                <Label className="text-xs font-semibold text-amber-700 dark:text-amber-300">Accounting Year</Label>
                 <Select value={fyStartYear} onValueChange={setFyStartYear}>
                   <SelectTrigger data-testid="select-fy">
                     <SelectValue />

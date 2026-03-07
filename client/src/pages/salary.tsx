@@ -835,15 +835,15 @@ export default function SalaryRegister() {
             <p className="text-muted-foreground mt-1 text-xs sm:text-sm">Monthly salary register for all employees</p>
           </div>
           {loaded && salaries && salaries.length > 0 && (
-            <div className="flex gap-2 flex-wrap">
+            <div className="flex flex-wrap gap-2 w-full sm:w-auto">
               <Button
                 variant="outline"
                 size="sm"
                 onClick={handleExportExcel}
                 data-testid="button-export-excel-salary"
               >
-                <FileSpreadsheet className="w-4 h-4 mr-2" />
-                Export Excel
+                <FileSpreadsheet className="w-4 h-4 mr-1" />
+                Export<span className="hidden sm:inline"> Excel</span>
               </Button>
               <Button
                 variant="outline"
@@ -852,8 +852,8 @@ export default function SalaryRegister() {
                 disabled={downloading}
                 data-testid="button-download-all-jpeg"
               >
-                {downloading ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <ImageDown className="w-4 h-4 mr-2" />}
-                {downloading ? "Downloading..." : "Download All JPEG"}
+                {downloading ? <Loader2 className="w-4 h-4 mr-1 animate-spin" /> : <ImageDown className="w-4 h-4 mr-1" />}
+                {downloading ? "Wait..." : <><span className="hidden sm:inline">Download All </span>JPEG</>}
               </Button>
               <Button variant="outline" size="sm" onClick={() => {
                 const style = document.createElement("style");
@@ -869,8 +869,8 @@ export default function SalaryRegister() {
                 Print
               </Button>
               <Button variant="outline" size="sm" onClick={handleGovPrint} data-testid="button-gov-print-salary">
-                <Printer className="w-4 h-4 mr-2" />
-                Form XVII Print
+                <Printer className="w-4 h-4 mr-1" />
+                Form XVII
               </Button>
             </div>
           )}
@@ -878,7 +878,7 @@ export default function SalaryRegister() {
 
         <Card data-testid="card-salary-filters">
           <CardContent className="p-4 sm:p-6">
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-6 gap-4 items-end">
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 items-end">
               <div className="space-y-2">
                 <Label>Client Name</Label>
                 <Select value={clientName} onValueChange={(v) => { setClientName(v); setLoaded(false); }}>

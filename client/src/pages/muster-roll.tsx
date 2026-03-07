@@ -608,14 +608,14 @@ export default function MusterRoll() {
             <p className="text-muted-foreground mt-1 text-xs sm:text-sm">Monthly Attendance Register</p>
           </div>
           {loaded && (
-            <div className="flex gap-2 no-print flex-wrap">
-              <Button variant="outline" onClick={handleDownloadFormat} data-testid="button-download-format">
-                <Download className="w-4 h-4 mr-2" />
-                Download Format
+            <div className="flex flex-wrap gap-2 no-print w-full sm:w-auto">
+              <Button variant="outline" size="sm" onClick={handleDownloadFormat} data-testid="button-download-format">
+                <Download className="w-4 h-4 mr-1" />
+                Format
               </Button>
-              <Button variant="outline" onClick={() => fileInputRef.current?.click()} data-testid="button-import-excel">
-                <Upload className="w-4 h-4 mr-2" />
-                Import Excel
+              <Button variant="outline" size="sm" onClick={() => fileInputRef.current?.click()} data-testid="button-import-excel">
+                <Upload className="w-4 h-4 mr-1" />
+                Import
               </Button>
               <input
                 ref={fileInputRef}
@@ -625,20 +625,20 @@ export default function MusterRoll() {
                 onChange={handleImportExcel}
                 data-testid="input-import-file"
               />
-              <Button variant="outline" onClick={handleExportExcel} data-testid="button-export-excel-muster">
-                <FileSpreadsheet className="w-4 h-4 mr-2" />
-                Export Excel
+              <Button variant="outline" size="sm" onClick={handleExportExcel} data-testid="button-export-excel-muster">
+                <FileSpreadsheet className="w-4 h-4 mr-1" />
+                Export
               </Button>
-              <Button variant="outline" onClick={handlePrint} data-testid="button-print">
-                <Printer className="w-4 h-4 mr-2" />
+              <Button variant="outline" size="sm" onClick={handlePrint} data-testid="button-print">
+                <Printer className="w-4 h-4 mr-1" />
                 Print
               </Button>
-              <Button variant="outline" onClick={handleGovPrint} data-testid="button-gov-print">
-                <Printer className="w-4 h-4 mr-2" />
-                Form XVI Print
+              <Button variant="outline" size="sm" onClick={handleGovPrint} data-testid="button-gov-print">
+                <Printer className="w-4 h-4 mr-1" />
+                Form XVI
               </Button>
-              <Button onClick={() => saveMutation.mutate()} disabled={saveMutation.isPending} data-testid="button-save-all">
-                {saveMutation.isPending ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Save className="w-4 h-4 mr-2" />}
+              <Button size="sm" onClick={() => saveMutation.mutate()} disabled={saveMutation.isPending} data-testid="button-save-all">
+                {saveMutation.isPending ? <Loader2 className="w-4 h-4 mr-1 animate-spin" /> : <Save className="w-4 h-4 mr-1" />}
                 Save All
               </Button>
             </div>
@@ -653,7 +653,7 @@ export default function MusterRoll() {
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 items-end">
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 items-end">
               <div className="space-y-2">
                 <Label htmlFor="client-select">Client Name</Label>
                 <Select value={clientName} onValueChange={setClientName} data-testid="select-client">
