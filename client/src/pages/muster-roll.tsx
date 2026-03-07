@@ -18,14 +18,14 @@ const MONTHS = [
   "July", "August", "September", "October", "November", "December",
 ];
 
-const STATUS_CODES = ["P", "A", "H", "HP", "HD", "WO", "PH", "CL", "SL", "EL", ""] as const;
+const STATUS_CODES = ["P", "A", "H", "P/HL", "HD", "WO", "PH", "CL", "SL", "EL", ""] as const;
 type StatusCode = (typeof STATUS_CODES)[number];
 
 const STATUS_COLORS: Record<string, string> = {
   P: "bg-emerald-100 text-emerald-800 dark:bg-emerald-900/40 dark:text-emerald-300",
   A: "bg-red-100 text-red-800 dark:bg-red-900/40 dark:text-red-300",
   H: "bg-yellow-100 text-yellow-800 dark:bg-yellow-900/40 dark:text-yellow-300",
-  HP: "bg-teal-100 text-teal-800 dark:bg-teal-900/40 dark:text-teal-300",
+  "P/HL": "bg-teal-100 text-teal-800 dark:bg-teal-900/40 dark:text-teal-300",
   HD: "bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-300",
   WO: "bg-blue-100 text-blue-800 dark:bg-blue-900/40 dark:text-blue-300",
   PH: "bg-purple-100 text-purple-800 dark:bg-purple-900/40 dark:text-purple-300",
@@ -145,7 +145,7 @@ export default function MusterRoll() {
       const val = empData[`day${d}`];
       if (val === "P") present += 1;
       else if (val === "H") holidays += 1;
-      else if (val === "HP") holidayPresent += 1;
+      else if (val === "P/HL") holidayPresent += 1;
       else if (val === "HD") halfDay += 1;
       else if (val === "A") absent += 1;
     }
@@ -234,7 +234,7 @@ export default function MusterRoll() {
     instrWs.addRow(["P  = Present (Full Day)"]);
     instrWs.addRow(["A  = Absent"]);
     instrWs.addRow(["H  = Holiday"]);
-    instrWs.addRow(["HP = Holiday Present"]);
+    instrWs.addRow(["P/HL = Holiday Present"]);
     instrWs.addRow(["HD = Half Day (counts as 0.5)"]);
     instrWs.addRow(["WO = Weekly Off"]);
     instrWs.addRow(["PH = Public Holiday"]);
@@ -285,7 +285,7 @@ export default function MusterRoll() {
 
       const newData: AttendanceMap = { ...attendanceData };
       let imported = 0;
-      const validCodes = ["P", "A", "H", "HP", "HD", "WO", "PH", "CL", "SL", "EL"];
+      const validCodes = ["P", "A", "H", "P/HL", "HD", "WO", "PH", "CL", "SL", "EL"];
 
       ws.eachRow((row, rowNum) => {
         if (rowNum === 1) return;
@@ -368,7 +368,7 @@ export default function MusterRoll() {
           if (val === "P") cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFD1FAE5" } };
           else if (val === "A") cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFFEE2E2" } };
           else if (val === "H" || val === "WO" || val === "PH") cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFFEF3C7" } };
-          else if (val === "HP") cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFCCFBF1" } };
+          else if (val === "P/HL") cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFCCFBF1" } };
           else if (val === "HD") cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFFEF3C7" } };
         }
       });
@@ -593,7 +593,7 @@ export default function MusterRoll() {
                                   <button
                                     type="button"
                                     onClick={() => handleCellClick(emp.id, dayKey)}
-                                    className={`w-8 h-7 rounded text-[10px] font-bold cursor-pointer transition-colors ${colorClass || "bg-muted/30 text-muted-foreground"}`}
+                                    className={`w-9 h-7 rounded text-[9px] font-bold cursor-pointer transition-colors ${colorClass || "bg-muted/30 text-muted-foreground"}`}
                                     data-testid={`cell-${emp.id}-day${i + 1}`}
                                     title={`Day ${i + 1}: ${status || "Not set"} - Click to change`}
                                   >
