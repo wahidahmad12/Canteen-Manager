@@ -270,8 +270,8 @@ export default function LeaveWithWagesPage() {
                                   try {
                                     const res = await fetch(`/api/leave-with-wages/yearly-present?employeeId=${selectedEmployeeId}&year=${formData.calendarYear}`, { credentials: "include" });
                                     const data = await res.json();
-                                    setFormData(prev => ({ ...prev, daysLeaveEarned: String(data.leaveEarned), actualDaysWorked: String(data.actualDaysWorked) }));
-                                    toast({ title: `Days Worked: ${data.actualDaysWorked} (${data.totalDaysInYear} - ${data.weeklyOffs}WO - ${data.paidHolidays}PH - ${data.leavesAvailed}L - ${data.absences}A), Leave: ${data.leaveEarned}` });
+                                    setFormData(prev => ({ ...prev, daysLeaveEarned: String(data.leaveEarned), actualDaysWorked: String(data.actualDaysWorked), rateOfWagesRs: String(data.dailyRate), rateOfWagesP: "0", amountOfWagesRs: String(data.amountOfWages), amountOfWagesP: "0" }));
+                                    toast({ title: `Worked: ${data.actualDaysWorked}d, Leave: ${data.leaveEarned}, Rate: ${data.dailyRate}, Amt: ${data.amountOfWages}` });
                                   } catch { toast({ title: "Failed to fetch attendance", variant: "destructive" }); }
                                 }}>Auto</Button>
                               </div>

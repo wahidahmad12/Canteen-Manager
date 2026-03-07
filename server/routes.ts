@@ -946,7 +946,12 @@ export async function registerRoutes(
     const actualDaysWorked = totalDaysInYear - (weeklyOffs + paidHolidays + leavesAvailed + absences);
     const leaveEarned = Math.floor(actualDaysWorked / 20);
 
-    res.json({ totalDaysInYear, weeklyOffs, paidHolidays, leavesAvailed, absences, actualDaysWorked, totalPresent, leaveEarned });
+    const { employees } = await import("@shared/schema");
+    const empRows = await db.select().from(employees).where(eq(employees.id, employeeId));
+    const dailyRate = empRows.length > 0 ? Number(empRows[0].dailyRate || 0) : 0;
+    const amountOfWages = Math.round(dailyRate * leaveEarned);
+
+    res.json({ totalDaysInYear, weeklyOffs, paidHolidays, leavesAvailed, absences, actualDaysWorked, totalPresent, leaveEarned, dailyRate, amountOfWages });
   });
 
   app.post("/api/leave-with-wages", requireAdmin, async (req, res) => {
