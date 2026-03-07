@@ -72,6 +72,26 @@ function fmtAmt(n: string | number) {
   return '₹' + v.toLocaleString('en-IN');
 }
 
+function numberToWords(num: number): string {
+  if (num === 0) return "Zero Only";
+  const ones = ["", "One", "Two", "Three", "Four", "Five", "Six", "Seven", "Eight", "Nine",
+    "Ten", "Eleven", "Twelve", "Thirteen", "Fourteen", "Fifteen", "Sixteen", "Seventeen", "Eighteen", "Nineteen"];
+  const tens = ["", "", "Twenty", "Thirty", "Forty", "Fifty", "Sixty", "Seventy", "Eighty", "Ninety"];
+  const scales = ["", "Thousand", "Lakh", "Crore"];
+  const n2 = Math.floor(Math.abs(num));
+  if (n2 === 0) return "Zero Only";
+  const groups: number[] = [];
+  let remaining = n2;
+  groups.push(remaining % 1000);
+  remaining = Math.floor(remaining / 1000);
+  while (remaining > 0) { groups.push(remaining % 100); remaining = Math.floor(remaining / 100); }
+  function twoDigit(x: number): string { if (x < 20) return ones[x]; return tens[Math.floor(x / 10)] + (x % 10 ? " " + ones[x % 10] : ""); }
+  function threeDigit(x: number): string { if (x === 0) return ""; if (x < 100) return twoDigit(x); return ones[Math.floor(x / 100)] + " Hundred" + (x % 100 ? " " + twoDigit(x % 100) : ""); }
+  const parts: string[] = [];
+  for (let i = groups.length - 1; i >= 0; i--) { const g = groups[i]; if (g === 0) continue; const word = i === 0 ? threeDigit(g) : twoDigit(g); parts.push(word + (scales[i] ? " " + scales[i] : "")); }
+  return "Rupees " + parts.join(" ") + " Only";
+}
+
 export default function EmployeeDashboard() {
   const { data: user } = useCurrentUser();
   const logoutMutation = useLogout();
@@ -122,32 +142,195 @@ export default function EmployeeDashboard() {
   const handleDownloadSlip = async () => {
     if (!salary || !empInfo) return;
     const html2pdf = (await import('html2pdf.js')).default;
+
+    const nv = (v: string | number | null | undefined) => Number(v) || 0;
+    const basicRate = nv(empInfo.dailyRate);
+    const basic = nv(salary.basicWage);
+    const fixedHRA = nv(salary.hra);
+    const otAllow = nv(salary.overtimeAmount);
+    const totalGross = nv(salary.grossWage);
+    const esicDed = nv(salary.esicDeduction);
+    const pTax = nv(salary.professionalTax);
+    const pfDed = nv(salary.pfDeduction);
+    const totalDedu = nv(salary.totalDeduction);
+    const netSalary = nv(salary.netPay);
+    const otHrs = nv(salary.overtimeHours);
+    const paidDays = nv(salary.daysWorked);
+
+    let prsDays = paidDays, holidays = 0, leave = 0;
+    if (attendance) {
+      prsDays = nv(attendance.totalPresent) || paidDays;
+      leave = nv(attendance.totalAbsent);
+      for (let i = 1; i <= 31; i++) {
+        const val = attendance[`day${i}`];
+        if (val === "H" || val === "WO" || val === "PH") holidays++;
+      }
+    }
+
+    const formatDt = (d: string | null | undefined) => {
+      if (!d) return "-";
+      try { return new Date(d).toLocaleDateString("en-IN", { day: "2-digit", month: "2-digit", year: "numeric" }); } catch { return d; }
+    };
+
+    const C = {
+      headerGrad: "linear-gradient(135deg, #1a237e 0%, #283593 30%, #3949ab 60%, #5c6bc0 100%)",
+      periodGrad: "linear-gradient(135deg, #0d47a1 0%, #1565c0 50%, #1976d2 100%)",
+      infoLabelBg: "#e8eaf6", infoLabelColor: "#283593",
+      attLabelBg: "#e3f2fd", attLabelColor: "#0d47a1", attValColor: "#1565c0",
+      earnLabelBg: "#e8f5e9", earnLabelColor: "#1b5e20", earnValColor: "#2e7d32",
+      dedLabelBg: "#fce4ec", dedLabelColor: "#b71c1c", dedValColor: "#c62828",
+      netBg: "linear-gradient(135deg, #1b5e20 0%, #2e7d32 50%, #43a047 100%)",
+      wordsBg: "#f3e5f5", wordsColor: "#4a148c",
+    };
+    const b = "1px solid #90a4ae";
+    const cp = "padding:5px 8px;";
+
     const container = document.createElement('div');
     container.innerHTML = `
-      <div style="padding:20px;font-family:Arial,sans-serif;font-size:12px;color:#000;">
-        <div style="text-align:center;margin-bottom:15px;">
-          <h3 style="margin:4px 0;">DJ HOSPITALITY & FACILITY MANAGEMENT PVT LTD</h3>
-          <p>7 Crematorium Street, Kolkata - 700014</p>
-          <p style="font-weight:bold;margin-top:10px;font-size:14px">WAGE SLIP - ${monthNames[Number(selectedMonth)].toUpperCase()} ${selectedYear}</p>
-        </div>
-        <table style="width:100%;border-collapse:collapse;margin-bottom:10px;">
-          <tr><td style="border:1px solid #333;padding:5px 8px;"><b>Employee Code</b></td><td style="border:1px solid #333;padding:5px 8px;">${empInfo.employeeCode}</td><td style="border:1px solid #333;padding:5px 8px;"><b>Name</b></td><td style="border:1px solid #333;padding:5px 8px;">${empInfo.name}</td></tr>
-          <tr><td style="border:1px solid #333;padding:5px 8px;"><b>Designation</b></td><td style="border:1px solid #333;padding:5px 8px;">${empInfo.designation}</td><td style="border:1px solid #333;padding:5px 8px;"><b>Company</b></td><td style="border:1px solid #333;padding:5px 8px;">${empInfo.clientName}</td></tr>
-          <tr><td style="border:1px solid #333;padding:5px 8px;"><b>Days Worked</b></td><td style="border:1px solid #333;padding:5px 8px;">${salary.daysWorked}</td><td style="border:1px solid #333;padding:5px 8px;"><b>Daily Rate</b></td><td style="border:1px solid #333;padding:5px 8px;">${fmtAmt(empInfo.dailyRate)}</td></tr>
-        </table>
-        <table style="width:100%;border-collapse:collapse;margin-bottom:10px;">
-          <thead><tr><th colspan="2" style="border:1px solid #333;padding:5px 8px;background:#f0f0f0;">Earnings</th><th colspan="2" style="border:1px solid #333;padding:5px 8px;background:#f0f0f0;">Deductions</th></tr></thead>
-          <tbody>
-            <tr><td style="border:1px solid #333;padding:5px 8px;">Basic Wage</td><td style="border:1px solid #333;padding:5px 8px;text-align:right;">${fmtAmt(salary.basicWage)}</td><td style="border:1px solid #333;padding:5px 8px;">PF</td><td style="border:1px solid #333;padding:5px 8px;text-align:right;">${fmtAmt(salary.pfDeduction)}</td></tr>
-            <tr><td style="border:1px solid #333;padding:5px 8px;">DA</td><td style="border:1px solid #333;padding:5px 8px;text-align:right;">${fmtAmt(salary.da)}</td><td style="border:1px solid #333;padding:5px 8px;">ESIC</td><td style="border:1px solid #333;padding:5px 8px;text-align:right;">${fmtAmt(salary.esicDeduction)}</td></tr>
-            <tr><td style="border:1px solid #333;padding:5px 8px;">HRA</td><td style="border:1px solid #333;padding:5px 8px;text-align:right;">${fmtAmt(salary.hra)}</td><td style="border:1px solid #333;padding:5px 8px;">P. Tax</td><td style="border:1px solid #333;padding:5px 8px;text-align:right;">${fmtAmt(salary.professionalTax)}</td></tr>
-            <tr><td style="border:1px solid #333;padding:5px 8px;">Overtime (${salary.overtimeHours}h)</td><td style="border:1px solid #333;padding:5px 8px;text-align:right;">${fmtAmt(salary.overtimeAmount)}</td><td style="border:1px solid #333;padding:5px 8px;"><b>Total Deduction</b></td><td style="border:1px solid #333;padding:5px 8px;text-align:right;"><b>${fmtAmt(salary.totalDeduction)}</b></td></tr>
-            <tr><td style="border:1px solid #333;padding:5px 8px;"><b>Gross Wage</b></td><td style="border:1px solid #333;padding:5px 8px;text-align:right;"><b>${fmtAmt(salary.grossWage)}</b></td><td style="border:1px solid #333;padding:5px 8px;"></td><td style="border:1px solid #333;padding:5px 8px;"></td></tr>
-          </tbody>
-        </table>
-        <table style="width:100%;border-collapse:collapse;margin-bottom:10px;"><tr><td style="border:1px solid #333;padding:10px;text-align:right;font-size:16px;"><b>NET PAY: ${fmtAmt(salary.netPay)}</b></td></tr></table>
-        <div style="display:flex;justify-content:space-between;margin-top:40px;font-size:11px;"><div><p>Employee Signature</p></div><div><p>Authorized Signature</p></div></div>
-      </div>`;
+      <table style="width:100%;border-collapse:collapse;font-size:13px;font-family:Inter,Segoe UI,Arial,sans-serif;">
+        <tbody>
+          <tr>
+            <td colspan="8" style="background:${C.headerGrad};color:#fff;text-align:center;padding:14px 8px 10px;border:none;">
+              <div style="font-size:17px;font-weight:800;letter-spacing:0.5px;">DJ HOSPITALITY & FACILITY MANAGEMENT PVT LTD</div>
+              <div style="font-size:10px;opacity:0.85;margin-top:2px;">Regd. & Head Office: 730, Tin Made, Sodiem Siolim, Mapusa Bardez, North Goa-403502, India</div>
+              <div style="font-size:10px;opacity:0.85;">Branch Office: 7 Crimatorium Street, Kolkata- 700014</div>
+              <div style="margin-top:8px;font-size:15px;font-weight:700;letter-spacing:1px;background:rgba(255,255,255,0.15);display:inline-block;padding:3px 20px;border-radius:4px;">Form - XIX Wages Slip</div>
+              <div style="font-size:10px;opacity:0.7;margin-top:2px;">[See rule 78(1)(b)]</div>
+            </td>
+          </tr>
+          <tr>
+            <td colspan="8" style="background:${C.periodGrad};color:#fff;text-align:center;padding:10px;font-size:20px;font-weight:800;letter-spacing:2px;border:none;">
+              ${monthNames[Number(selectedMonth)].toUpperCase()} - ${selectedYear}
+            </td>
+          </tr>
+          <tr>
+            <td style="background:${C.infoLabelBg};color:${C.infoLabelColor};font-weight:700;border:${b};${cp}" colspan="2">Company Name</td>
+            <td style="font-weight:700;font-size:14px;color:#1a237e;border:${b};${cp}" colspan="6">${empInfo.clientName}</td>
+          </tr>
+          <tr>
+            <td style="background:${C.infoLabelBg};color:${C.infoLabelColor};font-weight:600;border:${b};${cp}" colspan="2">Location of work</td>
+            <td colspan="6" style="font-size:12px;border:${b};${cp}">Khidirpur Factory, 1, Transport depot Rd, Goragacha Rood, Kolkata - 700110</td>
+          </tr>
+          <tr>
+            <td style="background:${C.infoLabelBg};color:${C.infoLabelColor};font-weight:700;border:${b};${cp}" colspan="2">Name:</td>
+            <td colspan="6" style="font-size:16px;font-weight:800;color:#1a237e;border:${b};${cp}">${empInfo.name}</td>
+          </tr>
+          <tr>
+            <td style="background:${C.infoLabelBg};color:${C.infoLabelColor};font-weight:600;white-space:nowrap;border:${b};${cp}" colspan="2">Father's / Husband's :</td>
+            <td colspan="3" style="border:${b};${cp}">${empInfo.fatherName || "-"}</td>
+            <td style="background:${C.infoLabelBg};color:${C.infoLabelColor};font-weight:600;white-space:nowrap;border:${b};${cp}">Skills:</td>
+            <td colspan="2" style="border:${b};${cp}">${empInfo.designation || "Unskilled"}</td>
+          </tr>
+          <tr>
+            <td style="background:${C.infoLabelBg};color:${C.infoLabelColor};font-weight:600;white-space:nowrap;border:${b};${cp}" colspan="2">Date Of Birth</td>
+            <td colspan="3" style="border:${b};${cp}">${formatDt(empInfo.dob)}</td>
+            <td style="background:${C.infoLabelBg};color:${C.infoLabelColor};font-weight:600;white-space:nowrap;border:${b};${cp}">Joining Date :</td>
+            <td colspan="2" style="border:${b};${cp}">${formatDt(empInfo.joiningDate)}</td>
+          </tr>
+          <tr>
+            <td style="background:#ede7f6;color:#4a148c;font-weight:600;white-space:nowrap;border:${b};${cp}" colspan="2">ESIC No.:</td>
+            <td colspan="3" style="font-family:monospace;font-size:12px;color:#4a148c;border:${b};${cp}">${empInfo.esicNo || "-"}</td>
+            <td style="background:#ede7f6;color:#4a148c;font-weight:600;white-space:nowrap;border:${b};${cp}">UAN:</td>
+            <td colspan="2" style="font-family:monospace;font-size:12px;color:#4a148c;border:${b};${cp}">${empInfo.uanNo || "-"}</td>
+          </tr>
+          <tr>
+            <td style="background:#ede7f6;color:#4a148c;font-weight:600;white-space:nowrap;border:${b};${cp}" colspan="2">PF No.:</td>
+            <td colspan="3" style="font-family:monospace;font-size:12px;color:#4a148c;border:${b};${cp}">${empInfo.pfNo || "-"}</td>
+            <td style="background:#ede7f6;color:#4a148c;font-weight:600;white-space:nowrap;border:${b};${cp}">Mobile No:</td>
+            <td colspan="2" style="border:${b};${cp}">${empInfo.mobile || "-"}</td>
+          </tr>
+          <tr>
+            <td style="background:#e0f2f1;color:#004d40;font-weight:600;white-space:nowrap;border:${b};${cp}" colspan="2">Bank Name:</td>
+            <td colspan="3" style="color:#00695c;border:${b};${cp}">${empInfo.bankName || "-"}</td>
+            <td style="background:#e0f2f1;color:#004d40;font-weight:600;white-space:nowrap;border:${b};${cp}">IFSC Code :</td>
+            <td colspan="2" style="font-family:monospace;font-size:12px;color:#00695c;border:${b};${cp}">${empInfo.ifscCode || "-"}</td>
+          </tr>
+          <tr>
+            <td style="background:#e0f2f1;color:#004d40;font-weight:600;white-space:nowrap;border:${b};${cp}" colspan="2">Bank Account No.:</td>
+            <td colspan="3" style="font-family:monospace;font-size:12px;color:#00695c;border:${b};${cp}">${empInfo.accountNo || "-"}</td>
+            <td style="background:#e0f2f1;color:#004d40;font-weight:600;white-space:nowrap;border:${b};${cp}">Pay. Date:</td>
+            <td colspan="2" style="border:${b};${cp}">-</td>
+          </tr>
+
+          <tr>
+            <td colspan="2" style="background:${C.attLabelBg};color:${C.attLabelColor};font-weight:800;text-align:center;font-size:12px;letter-spacing:1px;border:${b};${cp}">ATTENDANCE</td>
+            <td colspan="3" style="background:${C.earnLabelBg};color:${C.earnLabelColor};font-weight:800;text-align:center;font-size:12px;letter-spacing:1px;border:${b};${cp}">EARNINGS (₹)</td>
+            <td colspan="3" style="background:${C.dedLabelBg};color:${C.dedLabelColor};font-weight:800;text-align:center;font-size:12px;letter-spacing:1px;border:${b};${cp}">DEDUCTIONS (₹)</td>
+          </tr>
+
+          <tr>
+            <td style="background:${C.attLabelBg};color:${C.attLabelColor};font-weight:600;border:${b};${cp}">PRS DAYS</td>
+            <td style="text-align:right;font-weight:700;color:${C.attValColor};border:${b};${cp}">${prsDays}</td>
+            <td style="background:${C.earnLabelBg};color:${C.earnLabelColor};font-weight:600;border:${b};${cp}" colspan="2">Basic Rate</td>
+            <td style="text-align:right;font-weight:700;color:${C.earnValColor};border:${b};${cp}">${basicRate}</td>
+            <td style="background:${C.dedLabelBg};color:${C.dedLabelColor};font-weight:600;border:${b};${cp}" colspan="2">ESIC @ 0.75%</td>
+            <td style="text-align:right;font-weight:700;color:${C.dedValColor};border:${b};${cp}">${esicDed}</td>
+          </tr>
+          <tr>
+            <td style="background:${C.attLabelBg};color:${C.attLabelColor};font-weight:600;border:${b};${cp}">Half Day</td>
+            <td style="text-align:right;font-weight:700;color:${C.attValColor};border:${b};${cp}">0</td>
+            <td style="background:${C.earnLabelBg};color:${C.earnLabelColor};font-weight:600;border:${b};${cp}" colspan="2">Basic</td>
+            <td style="text-align:right;font-weight:700;color:${C.earnValColor};border:${b};${cp}">${basic}</td>
+            <td style="background:${C.dedLabelBg};color:${C.dedLabelColor};font-weight:600;border:${b};${cp}" colspan="2">P-TAX</td>
+            <td style="text-align:right;font-weight:700;color:${C.dedValColor};border:${b};${cp}">${pTax}</td>
+          </tr>
+          <tr>
+            <td style="background:${C.attLabelBg};color:${C.attLabelColor};font-weight:600;border:${b};${cp}">Extra Work</td>
+            <td style="text-align:right;font-weight:700;color:${C.attValColor};border:${b};${cp}">0</td>
+            <td style="background:${C.earnLabelBg};color:${C.earnLabelColor};font-weight:600;border:${b};${cp}" colspan="2">HRA 5%</td>
+            <td style="text-align:right;font-weight:700;color:${C.earnValColor};border:${b};${cp}">${Math.round(basic * 0.05)}</td>
+            <td style="background:${C.dedLabelBg};color:${C.dedLabelColor};font-weight:600;border:${b};${cp}" colspan="2">LWF</td>
+            <td style="text-align:right;font-weight:700;color:${C.dedValColor};border:${b};${cp}">0</td>
+          </tr>
+          <tr>
+            <td style="background:${C.attLabelBg};color:${C.attLabelColor};font-weight:600;border:${b};${cp}">LEAVE</td>
+            <td style="text-align:right;font-weight:700;color:${C.attValColor};border:${b};${cp}">${leave}</td>
+            <td style="background:${C.earnLabelBg};color:${C.earnLabelColor};font-weight:600;border:${b};${cp}" colspan="2">Fixed HRA</td>
+            <td style="text-align:right;font-weight:700;color:${C.earnValColor};border:${b};${cp}">${fixedHRA}</td>
+            <td style="background:${C.dedLabelBg};color:${C.dedLabelColor};font-weight:600;font-size:11px;border:${b};${cp}" colspan="2">Total Dedu</td>
+            <td style="text-align:right;font-weight:800;color:#fff;background:#c62828;font-size:14px;border:${b};${cp}">${totalDedu}</td>
+          </tr>
+          <tr>
+            <td style="background:${C.attLabelBg};color:${C.attLabelColor};font-weight:600;border:${b};${cp}">HOLIDAYS</td>
+            <td style="text-align:right;font-weight:700;color:${C.attValColor};border:${b};${cp}">${holidays}</td>
+            <td style="background:${C.earnLabelBg};color:${C.earnLabelColor};font-weight:600;border:${b};${cp}" colspan="2">OT Allow</td>
+            <td style="text-align:right;font-weight:700;color:${C.earnValColor};border:${b};${cp}">${otAllow}</td>
+            <td style="background:#fff8e1;color:#e65100;font-weight:600;font-size:11px;border:${b};${cp}" colspan="2">Leave Balance ${selectedYear}</td>
+            <td style="text-align:right;font-weight:700;color:#e65100;border:${b};${cp}">0</td>
+          </tr>
+          <tr>
+            <td style="background:${C.attLabelBg};color:${C.attLabelColor};font-weight:700;border:${b};${cp}">Paid Days</td>
+            <td style="text-align:right;font-weight:800;color:#fff;background:#0d47a1;font-size:14px;border:${b};${cp}">${paidDays}</td>
+            <td style="background:${C.earnLabelBg};color:${C.earnLabelColor};font-weight:700;border:${b};${cp}" colspan="2">Total Gross</td>
+            <td style="text-align:right;font-weight:800;color:#fff;background:#2e7d32;font-size:14px;border:${b};${cp}">${totalGross}</td>
+            <td style="background:#fff8e1;color:#e65100;font-weight:600;font-size:10px;border:${b};${cp}" colspan="2">Leave Encashment Amt. ${selectedYear}</td>
+            <td style="text-align:right;font-weight:700;color:#e65100;border:${b};${cp}">0</td>
+          </tr>
+          <tr>
+            <td style="background:${C.attLabelBg};color:${C.attLabelColor};font-weight:600;border:${b};${cp}">OT HRS</td>
+            <td style="text-align:right;font-weight:700;color:${C.attValColor};border:${b};${cp}">${otHrs}</td>
+            <td style="background:${C.earnLabelBg};color:${C.earnLabelColor};font-weight:600;border:${b};${cp}" colspan="2">PF Deduction @12%</td>
+            <td style="text-align:right;font-weight:700;color:${C.dedValColor};border:${b};${cp}">${pfDed}</td>
+            <td style="background:${C.netBg};color:#fff;font-weight:800;font-size:13px;letter-spacing:1px;border:${b};${cp}" colspan="2">NET SALARY</td>
+            <td style="background:${C.netBg};color:#fff;text-align:right;font-weight:900;font-size:18px;letter-spacing:0.5px;border:${b};${cp}">₹${netSalary.toLocaleString("en-IN")}</td>
+          </tr>
+
+          <tr>
+            <td style="background:${C.wordsBg};color:${C.wordsColor};font-weight:700;border:${b};${cp}" colspan="2">Net Salary in Words</td>
+            <td style="background:${C.wordsBg};color:${C.wordsColor};font-weight:700;font-style:italic;font-size:13px;border:${b};${cp}" colspan="6">${numberToWords(netSalary)}</td>
+          </tr>
+
+          <tr>
+            <td colspan="8" style="height:70px;vertical-align:bottom;padding:10px 16px;background:#fafafa;border:${b};">
+              <div style="display:flex;justify-content:space-between;">
+                <div style="text-align:center;"><div style="border-top:2px solid #283593;padding-top:6px;min-width:180px;font-size:11px;font-weight:600;color:#283593;">Prepared By Signature</div></div>
+                <div style="text-align:center;"><div style="border-top:2px solid #283593;padding-top:6px;min-width:180px;font-size:11px;font-weight:600;color:#283593;">Approved By Signature and Stamp</div></div>
+              </div>
+            </td>
+          </tr>
+        </tbody>
+      </table>`;
+
     const opt = {
       margin: 10,
       filename: `WageSlip_${empInfo.name.replace(/\s+/g, '_')}_${monthNames[Number(selectedMonth)]}_${selectedYear}.pdf`,
