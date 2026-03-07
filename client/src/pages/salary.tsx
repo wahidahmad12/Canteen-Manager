@@ -553,9 +553,9 @@ export default function SalaryRegister() {
         <td style="text-align:right">${fDec(r.basicRate)}</td>
         <td style="text-align:right">${f(r.basicWage)}</td>
         <td style="text-align:right">${f(0)}</td>
-        <td style="text-align:right">${r.otAllow ? f(r.otAllow) : "0"}</td>
-        <td style="text-align:right">${r.fixedHRA ? f(r.fixedHRA) : "0"}</td>
-        <td style="text-align:right">${r.hra5 ? f(r.hra5) : "0"}</td>
+        <td style="text-align:right">${f(r.otAllow)}</td>
+        <td style="text-align:right">${f(r.fixedHRA)}</td>
+        <td style="text-align:right">${f(r.hra5)}</td>
         <td style="text-align:right;font-weight:bold">${f(r.totalGross)}</td>
         <td style="text-align:right">${f(r.pfDed)}</td>
         <td style="text-align:right">${f(r.esicDed)}</td>
