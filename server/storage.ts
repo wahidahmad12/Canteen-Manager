@@ -948,6 +948,7 @@ export class DatabaseStorage implements IStorage {
     const emps = await this.getEmployees(clientName);
     const activeEmps = emps.filter(e => e.isActive);
     const attendanceRecords = await this.getAttendance(clientName, month, year);
+    const allOtRecords = await this.getOvertimeRecords(clientName);
     const results: SalaryRecord[] = [];
 
     for (const emp of activeEmps) {
@@ -963,9 +964,20 @@ export class DatabaseStorage implements IStorage {
       const pfDeduction = Math.round(basicWage * 0.12 * 100) / 100;
       const esicDeduction = grossWage <= 21000 ? Math.round(grossWage * 0.0075 * 100) / 100 : 0;
       const professionalTax = grossWage > 15000 ? 200 : grossWage > 10000 ? 150 : 0;
-      const overtimeHrs = att ? Number(att.overtimeHours) : 0;
-      const overtimeRate = (dailyRate + dailyRate * 0.05) / 4;
-      const overtimeAmount = Math.round(overtimeRate * overtimeHrs);
+      const empOtRecords = allOtRecords.filter(ot => {
+        if (ot.employeeId !== emp.id) return false;
+        const d = new Date(ot.date);
+        return d.getMonth() + 1 === month && d.getFullYear() === year;
+      });
+      let overtimeHrs = 0;
+      let overtimeAmount = 0;
+      for (const ot of empOtRecords) {
+        overtimeHrs += Number(ot.overtimeHours) || 0;
+        overtimeAmount += Number(ot.overtimeAmount) || 0;
+      }
+      overtimeHrs = Math.round(overtimeHrs * 100) / 100;
+      overtimeAmount = Math.round(overtimeAmount);
+      const overtimeRate = overtimeHrs > 0 ? Math.round((overtimeAmount / overtimeHrs) * 100) / 100 : (dailyRate + dailyRate * 0.05) / 4;
       const totalDeduction = pfDeduction + esicDeduction + professionalTax;
       const netPay = grossWage + overtimeAmount - totalDeduction;
 

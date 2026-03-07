@@ -116,8 +116,7 @@ export default function EmployeeDashboard() {
       else if (val === 'WO') wo++;
       else if (['CL', 'SL', 'EL', 'PH'].includes(val)) leave++;
     }
-    const ot = Number(attendance.overtimeHours) || 0;
-    return { present: p, absent: a, holidays: h, weekOff: wo, leave, overtime: ot };
+    return { present: p, absent: a, holidays: h, weekOff: wo, leave };
   })() : null;
 
   const handleDownloadSlip = () => {
@@ -328,7 +327,7 @@ export default function EmployeeDashboard() {
                   <p className="text-xs text-purple-600">Leave</p>
                 </div>
                 <div className="bg-cyan-50 dark:bg-cyan-950/30 rounded-lg p-3 text-center">
-                  <p className="text-2xl font-bold text-cyan-700 dark:text-cyan-400" data-testid="text-attendance-ot">{attendanceSummary.overtime}h</p>
+                  <p className="text-2xl font-bold text-cyan-700 dark:text-cyan-400" data-testid="text-attendance-ot">{salary ? (salary.overtimeHours || '0') : '0'}h</p>
                   <p className="text-xs text-cyan-600">Overtime</p>
                 </div>
               </div>
