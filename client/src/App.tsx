@@ -28,6 +28,7 @@ import FormXIII from "./pages/form-xiii";
 import FormXIV from "./pages/form-xiv";
 import BonusReturn from "./pages/bonus-return";
 import HalfYearlyReturn from "./pages/half-yearly-return";
+import EmployeeDashboard from "./pages/employee-dashboard";
 import Login from "./pages/login";
 import { useCurrentUser } from "./hooks/use-reports";
 import { Loader2 } from "lucide-react";
@@ -99,6 +100,10 @@ function AppContent() {
 
   if (!user) {
     return <Login />;
+  }
+
+  if (user.role === 'employee') {
+    return <EmployeeDashboard />;
   }
 
   return <AuthenticatedRouter />;

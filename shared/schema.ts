@@ -336,6 +336,7 @@ export const users = pgTable("users", {
   role: text("role").notNull().default("user"),
   clientName: text("client_name"),
   permissions: text("permissions").array().notNull().default(sql`ARRAY['expense','cashseal','inventory','menu']::text[]`),
+  employeeId: integer("employee_id"),
   isActive: boolean("is_active").notNull().default(true),
   createdAt: timestamp("created_at").defaultNow(),
 });

@@ -19,7 +19,7 @@ export function useCurrentUser() {
     queryFn: async () => {
       const res = await fetch(api.auth.me.path, { credentials: "include" });
       if (!res.ok) return null;
-      return res.json() as Promise<{ id: number; username: string; displayName: string; role: string; clientName: string | null; permissions: string[] }>;
+      return res.json() as Promise<{ id: number; username: string; displayName: string; role: string; clientName: string | null; permissions: string[]; employeeId: number | null }>;
     },
     retry: false,
     staleTime: 5 * 60 * 1000,

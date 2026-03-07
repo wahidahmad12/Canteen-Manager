@@ -65,7 +65,8 @@ export async function registerRoutes(
       req.session.clientName = user.clientName;
       req.session.displayName = user.displayName;
       req.session.permissions = user.permissions;
-      res.json({ id: user.id, username: user.username, displayName: user.displayName, role: user.role, clientName: user.clientName, permissions: user.permissions });
+      req.session.employeeId = user.employeeId;
+      res.json({ id: user.id, username: user.username, displayName: user.displayName, role: user.role, clientName: user.clientName, permissions: user.permissions, employeeId: user.employeeId });
     } catch (err) {
       if (err instanceof z.ZodError) {
         return res.status(400).json({ message: err.errors[0].message });
@@ -92,7 +93,47 @@ export async function registerRoutes(
       clientName: req.session.clientName,
       username: req.session.username || "",
       permissions: req.session.permissions || [],
+      employeeId: req.session.employeeId || null,
     });
+  });
+
+  // === EMPLOYEE SELF-SERVICE ROUTES ===
+  app.get("/api/employee/me", requireAuth, async (req, res) => {
+    const employeeId = req.session.employeeId;
+    if (!employeeId) return res.status(404).json({ message: "No linked employee" });
+    const emp = await storage.getEmployee(employeeId);
+    if (!emp) return res.status(404).json({ message: "Employee not found" });
+    res.json(emp);
+  });
+
+  app.get("/api/employee/me/attendance", requireAuth, async (req, res) => {
+    const employeeId = req.session.employeeId;
+    if (!employeeId) return res.status(404).json({ message: "No linked employee" });
+    const { month, year } = req.query;
+    if (!month || !year) return res.status(400).json({ message: "month and year required" });
+    const records = await storage.getAttendance(
+      req.session.clientName || "",
+      Number(month),
+      Number(year)
+    );
+    const record = records.find((r: any) => r.employeeId === employeeId);
+    if (!record) return res.status(404).json({ message: "No attendance record" });
+    res.json(record);
+  });
+
+  app.get("/api/employee/me/salary", requireAuth, async (req, res) => {
+    const employeeId = req.session.employeeId;
+    if (!employeeId) return res.status(404).json({ message: "No linked employee" });
+    const { month, year } = req.query;
+    if (!month || !year) return res.status(400).json({ message: "month and year required" });
+    const records = await storage.getSalaryRecords(
+      req.session.clientName || "",
+      Number(month),
+      Number(year)
+    );
+    const record = records.find((r: any) => r.employeeId === employeeId);
+    if (!record) return res.status(404).json({ message: "No salary record" });
+    res.json(record);
   });
 
   // === USER MANAGEMENT ROUTES (admin only) ===

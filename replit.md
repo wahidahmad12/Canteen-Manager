@@ -87,8 +87,8 @@ Preferred communication style: Simple, everyday language.
 
 - **PostgreSQL** — Primary database hosted on **Google Cloud SQL** (PostgreSQL 16). Connected via `GOOGLE_DATABASE_URL` environment variable (falls back to `DATABASE_URL` if not set). SSL is enabled with `rejectUnauthorized: false` for Google Cloud. The database name is `djpkf` on host `34.100.151.246`
 - **Google Fonts** — Loads Inter, DM Sans, Fira Code, Geist Mono, and Architects Daughter font families from Google Fonts CDN
-- **Authentication** — Session-based auth with bcrypt password hashing. Admin creates user accounts grouped by client name. Default admin: username "admin", password "admin123"
+- **Authentication** — Session-based auth with bcrypt password hashing. Admin creates user accounts grouped by client name. Default admin: username "admin", password "admin123". Employee login: username=mobile number, password=first 3 letters of name (lowercase) + @ + last 4 digits of mobile (e.g. wah@5612)
 - **Session Storage** — PostgreSQL-backed sessions via connect-pg-simple with 30-day cookie lifetime
-- **Role-based Access** — "admin" role for full access (user management, client management, Item Master management, PIN settings); "user" role for standard operations (reports, cash seals, inventory, menus, purchase requests)
+- **Role-based Access** — "admin" role for full access; "user" role for standard operations; "employee" role for self-service dashboard (view own attendance, salary, print wage slip)
 - **Permissions** — Available permissions: expense, cashseal, inventory, menu, purchase. Dashboard tabs and navigation are filtered based on user permissions.
 - **Route Protection** — All API routes require authentication; admin-only routes use requireAdmin middleware. Frontend gates /admin route to admin users only

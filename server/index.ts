@@ -23,6 +23,7 @@ declare module "express-session" {
     clientName: string | null;
     displayName: string;
     permissions: string[];
+    employeeId: number | null;
   }
 }
 
