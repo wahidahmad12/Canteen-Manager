@@ -1,4 +1,4 @@
-import { useState, useCallback, useMemo } from "react";
+import { useState, useCallback, useMemo, useRef } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { Layout } from "@/components/layout";
 import { Button } from "@/components/ui/button";
@@ -11,7 +11,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/hooks/use-toast";
 import { useClientNames } from "@/hooks/use-reports";
 import { apiRequest, queryClient } from "@/lib/queryClient";
-import { Loader2, Download, Printer, Save, ClipboardList, Calendar, Users, FileSpreadsheet } from "lucide-react";
+import { Loader2, Download, Printer, Save, ClipboardList, Calendar, Users, FileSpreadsheet, Upload } from "lucide-react";
 
 const MONTHS = [
   "January", "February", "March", "April", "May", "June",
@@ -52,6 +52,7 @@ export default function MusterRoll() {
   const [year, setYear] = useState(String(new Date().getFullYear()));
   const [loaded, setLoaded] = useState(false);
   const [attendanceData, setAttendanceData] = useState<AttendanceMap>({});
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const monthNum = parseInt(month);
   const yearNum = parseInt(year);
@@ -161,6 +162,135 @@ export default function MusterRoll() {
 
   const handlePrint = () => window.print();
 
+  const handleDownloadFormat = async () => {
+    if (!employees || employees.length === 0) {
+      toast({ title: "No data", description: "Load employees first before downloading format.", variant: "destructive" });
+      return;
+    }
+    const ExcelJS = await import("exceljs");
+    const wb = new ExcelJS.Workbook();
+    const ws = wb.addWorksheet("Attendance Format");
+
+    const headerRow = ["Sl. No.", "Employee Name"];
+    for (let d = 1; d <= daysInMonth; d++) headerRow.push(String(d));
+    const hr = ws.addRow(headerRow);
+    hr.font = { bold: true, size: 11 };
+    hr.alignment = { horizontal: "center", vertical: "middle" };
+    hr.eachCell((cell) => {
+      cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFD9E1F2" } };
+      cell.border = { top: { style: "thin" }, bottom: { style: "thin" }, left: { style: "thin" }, right: { style: "thin" } };
+    });
+
+    ws.getColumn(1).width = 8;
+    ws.getColumn(2).width = 28;
+    for (let d = 1; d <= daysInMonth; d++) ws.getColumn(d + 2).width = 5;
+
+    employees.forEach((emp, idx) => {
+      const row = ws.addRow([idx + 1, emp.name]);
+      row.getCell(1).alignment = { horizontal: "center" };
+      row.getCell(2).font = { size: 10 };
+      row.eachCell((cell) => {
+        cell.border = { top: { style: "thin" }, bottom: { style: "thin" }, left: { style: "thin" }, right: { style: "thin" } };
+      });
+      for (let d = 1; d <= daysInMonth; d++) {
+        const c = row.getCell(d + 2);
+        c.border = { top: { style: "thin" }, bottom: { style: "thin" }, left: { style: "thin" }, right: { style: "thin" } };
+        c.alignment = { horizontal: "center" };
+      }
+    });
+
+    const instrWs = wb.addWorksheet("Instructions");
+    instrWs.getColumn(1).width = 60;
+    instrWs.addRow(["MUSTER ROLL - ATTENDANCE FORMAT INSTRUCTIONS"]).font = { bold: true, size: 14 };
+    instrWs.addRow([""]);
+    instrWs.addRow(["Fill attendance codes in the day columns (1, 2, 3... etc.) for each employee."]);
+    instrWs.addRow([""]);
+    instrWs.addRow(["Valid Codes:"]).font = { bold: true };
+    instrWs.addRow(["P  = Present (Full Day)"]);
+    instrWs.addRow(["A  = Absent"]);
+    instrWs.addRow(["H  = Half Day (counts as 0.5)"]);
+    instrWs.addRow(["WO = Weekly Off"]);
+    instrWs.addRow(["PH = Public Holiday"]);
+    instrWs.addRow(["CL = Casual Leave"]);
+    instrWs.addRow(["SL = Sick Leave"]);
+    instrWs.addRow(["EL = Earned Leave"]);
+    instrWs.addRow([""]);
+    instrWs.addRow(["IMPORTANT: Do NOT change employee names or row order."]).font = { bold: true, color: { argb: "FFFF0000" } };
+    instrWs.addRow(["Leave cells empty for future days."]);
+
+    const buf = await wb.xlsx.writeBuffer();
+    const blob = new Blob([buf], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `Muster_Roll_Format_${clientName}_${MONTHS[monthNum - 1]}_${year}.xlsx`;
+    a.click();
+    URL.revokeObjectURL(url);
+    toast({ title: "Downloaded", description: "Fill in attendance codes and import back." });
+  };
+
+  const handleImportExcel = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (fileInputRef.current) fileInputRef.current.value = "";
+
+    if (!employees || employees.length === 0) {
+      toast({ title: "No data", description: "Load employees first before importing.", variant: "destructive" });
+      return;
+    }
+
+    try {
+      const ExcelJS = await import("exceljs");
+      const wb = new ExcelJS.Workbook();
+      const arrayBuf = await file.arrayBuffer();
+      await wb.xlsx.load(arrayBuf);
+
+      const ws = wb.getWorksheet("Attendance Format") || wb.getWorksheet(1);
+      if (!ws) {
+        toast({ title: "Error", description: "No worksheet found in file.", variant: "destructive" });
+        return;
+      }
+
+      const empNameMap: Record<string, number> = {};
+      employees.forEach((emp) => {
+        empNameMap[emp.name.trim().toUpperCase()] = emp.id;
+      });
+
+      const newData: AttendanceMap = { ...attendanceData };
+      let imported = 0;
+      const validCodes = ["P", "A", "H", "WO", "PH", "CL", "SL", "EL"];
+
+      ws.eachRow((row, rowNum) => {
+        if (rowNum === 1) return;
+        const nameCell = row.getCell(2).value;
+        if (!nameCell) return;
+        const name = String(nameCell).trim().toUpperCase();
+        const empId = empNameMap[name];
+        if (empId === undefined) return;
+
+        if (!newData[empId]) newData[empId] = {};
+        for (let d = 1; d <= daysInMonth; d++) {
+          const cellVal = row.getCell(d + 2).value;
+          const code = cellVal ? String(cellVal).trim().toUpperCase() : "";
+          if (code && validCodes.includes(code)) {
+            newData[empId][`day${d}`] = code as StatusCode;
+          } else if (code === "") {
+            newData[empId][`day${d}`] = "" as StatusCode;
+          }
+        }
+        imported++;
+      });
+
+      setAttendanceData(newData);
+      toast({
+        title: "Imported",
+        description: `${imported} employee attendance records imported. Click "Save All" to save.`,
+      });
+    } catch (err: any) {
+      toast({ title: "Import Error", description: err.message || "Failed to read Excel file.", variant: "destructive" });
+    }
+  };
+
   const handleExportExcel = async () => {
     if (!employees || employees.length === 0) return;
     const ExcelJS = await import("exceljs");
@@ -252,6 +382,22 @@ export default function MusterRoll() {
           </div>
           {loaded && (
             <div className="flex gap-2 no-print flex-wrap">
+              <Button variant="outline" onClick={handleDownloadFormat} data-testid="button-download-format">
+                <Download className="w-4 h-4 mr-2" />
+                Download Format
+              </Button>
+              <Button variant="outline" onClick={() => fileInputRef.current?.click()} data-testid="button-import-excel">
+                <Upload className="w-4 h-4 mr-2" />
+                Import Excel
+              </Button>
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept=".xlsx,.xls"
+                className="hidden"
+                onChange={handleImportExcel}
+                data-testid="input-import-file"
+              />
               <Button variant="outline" onClick={handleExportExcel} data-testid="button-export-excel-muster">
                 <FileSpreadsheet className="w-4 h-4 mr-2" />
                 Export Excel
