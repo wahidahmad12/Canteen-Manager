@@ -531,6 +531,177 @@ export default function SalaryRegister() {
     };
   }, [salaries, computeRow]);
 
+  const handleGovPrint = useCallback(() => {
+    if (!salaries || salaries.length === 0 || rows.length === 0) return;
+    const printWin = window.open("", "_blank");
+    if (!printWin) return;
+
+    const f = (n: number) => n.toLocaleString("en-IN", { minimumFractionDigits: 0, maximumFractionDigits: 0 });
+    const fDec = (n: number) => n.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+
+    const dataRows = salaries.map((s, idx) => {
+      const r = rows[idx];
+      if (!r) return "";
+      const emp = r.emp;
+      return `<tr>
+        <td>${idx + 1}</td>
+        <td style="text-align:left;white-space:nowrap">${emp?.name || ""}</td>
+        <td>${emp?.employeeCode || ""}</td>
+        <td style="text-align:left;white-space:nowrap">${emp?.designation || ""}</td>
+        <td>${r.paidDays}</td>
+        <td></td>
+        <td style="text-align:right">${fDec(r.basicRate)}</td>
+        <td style="text-align:right">${f(r.basicWage)}</td>
+        <td style="text-align:right">${f(0)}</td>
+        <td style="text-align:right">${r.otAllow ? f(r.otAllow) : ""}</td>
+        <td style="text-align:right">${r.hra5 ? f(r.hra5) : ""}</td>
+        <td style="text-align:right">${r.fixedHRA ? f(r.fixedHRA) : ""}</td>
+        <td style="text-align:right;font-weight:bold">${f(r.totalGross)}</td>
+        <td style="text-align:right">${f(r.pfDed)}</td>
+        <td style="text-align:right">${f(r.esicDed)}</td>
+        <td style="text-align:right">${f(r.pTax)}</td>
+        <td style="text-align:right;font-weight:bold">${f(r.totalDedu)}</td>
+        <td style="text-align:right;font-weight:bold">${f(r.netSalary)}</td>
+        <td></td>
+        <td></td>
+        <td></td>
+      </tr>`;
+    }).join("");
+
+    const totalRow = totals ? `<tr style="font-weight:bold;background:#f0f0f0">
+      <td colspan="4" style="text-align:right;font-weight:bold">TOTAL</td>
+      <td>${totals.paidDays}</td>
+      <td></td>
+      <td></td>
+      <td style="text-align:right">${f(totals.basicWage)}</td>
+      <td style="text-align:right">${f(0)}</td>
+      <td style="text-align:right">${f(totals.otAllow)}</td>
+      <td style="text-align:right">${f(totals.hra5)}</td>
+      <td style="text-align:right">${f(totals.fixedHRA)}</td>
+      <td style="text-align:right">${f(totals.totalGross)}</td>
+      <td style="text-align:right">${f(totals.pfDed)}</td>
+      <td style="text-align:right">${f(totals.esicDed)}</td>
+      <td style="text-align:right">${f(totals.pTax)}</td>
+      <td style="text-align:right">${f(totals.totalDedu)}</td>
+      <td style="text-align:right">${f(totals.netSalary)}</td>
+      <td></td>
+      <td></td>
+      <td></td>
+    </tr>` : "";
+
+    printWin.document.write(`<html><head><title>Form XVII - Register of Wages</title>
+    <style>
+      @page { size: A3 landscape; margin: 8mm; }
+      * { margin: 0; padding: 0; box-sizing: border-box; }
+      body { font-family: Arial, sans-serif; font-size: 10px; padding: 8px; }
+      .header-title { text-align: left; font-size: 11px; font-weight: bold; margin-bottom: 2px; }
+      .header-main { text-align: center; font-size: 18px; font-weight: bold; margin-bottom: 4px; }
+      .header-rule { text-align: center; font-size: 9px; margin-bottom: 8px; }
+      .info-table { width: 100%; border-collapse: collapse; margin-bottom: 6px; font-size: 10px; }
+      .info-table td { padding: 2px 6px; vertical-align: top; }
+      .info-label { font-weight: bold; white-space: nowrap; }
+      .period-label { font-size: 16px; font-weight: bold; }
+      table.main { width: 100%; border-collapse: collapse; font-size: 8px; }
+      table.main th, table.main td { border: 1px solid #000; padding: 2px 4px; text-align: center; vertical-align: middle; }
+      table.main th { background: #f0f0f0; font-weight: bold; font-size: 7px; }
+      table.main td { font-size: 8px; }
+    </style></head><body>
+      <div class="header-title">FORM XVII</div>
+      <div class="header-main">REGISTER OF WAGES</div>
+      <div class="header-rule">[Prescribed Under Rule 78 (2)(a)/78(a)(i) of the West Bengal / Central Contract Labour ( Regulation &amp; Abolition) Rules, 1972/1971]</div>
+
+      <table class="info-table">
+        <tr>
+          <td class="info-label" style="width:22%">Name and Address of the Contractor</td>
+          <td style="width:28%">DJ HOSPITALITY &amp; FACILITY MANAGEMENT PVT LTD</td>
+          <td class="info-label" style="width:22%">Name and address of the establishment in /</td>
+          <td style="width:28%">${clientName}</td>
+        </tr>
+        <tr>
+          <td></td>
+          <td>7 Crimatorium Street, Kolkata- 700014</td>
+          <td class="info-label">Under which contract is carried on</td>
+          <td></td>
+        </tr>
+        <tr>
+          <td class="info-label">Nature and location of Work</td>
+          <td>Canteen</td>
+          <td class="info-label">Name and address of the Principal Employer</td>
+          <td>${clientName}</td>
+        </tr>
+        <tr>
+          <td></td>
+          <td></td>
+          <td></td>
+          <td></td>
+        </tr>
+        <tr>
+          <td></td>
+          <td></td>
+          <td class="info-label">For The Month of</td>
+          <td class="period-label">${MONTHS[Number(month) - 1]} ${year}</td>
+        </tr>
+      </table>
+
+      <table class="main">
+        <thead>
+          <tr>
+            <th rowspan="3" style="width:30px">Serial<br/>No</th>
+            <th rowspan="3" style="min-width:110px">Name of the<br/>Workman</th>
+            <th rowspan="3" style="width:55px">Serial No<br/>in the<br/>register<br/>of<br/>workman</th>
+            <th rowspan="3" style="min-width:80px">Designatio<br/>n / Nature<br/>of Work<br/>Done</th>
+            <th rowspan="3" style="width:40px">No. of Days<br/>Worked</th>
+            <th rowspan="3" style="width:40px">Units Of<br/>Work<br/>Down</th>
+            <th rowspan="3" style="width:55px">Daily rate<br/>of wages /<br/>Piece rate</th>
+            <th colspan="5">AMOUNT OF WAGES EARNED</th>
+            <th rowspan="2" style="width:50px">Total</th>
+            <th colspan="4">DEDUCTIONS</th>
+            <th rowspan="2" style="width:55px">Net<br/>Amount<br/>Paid</th>
+            <th rowspan="3" style="width:80px">Signature /Thumb-impression of<br/>Workman</th>
+            <th rowspan="3" style="width:70px">Initials of contractor or<br/>his representative</th>
+            <th rowspan="3" style="width:55px">E.P.F.<br/>Differenc<br/>e<br/>between<br/>10%,<br/>12% &amp; 8<br/>1/3 % (if<br/>Any)</th>
+          </tr>
+          <tr>
+            <th>Basic<br/>Wages</th>
+            <th>Dearness<br/>allowance<br/>es</th>
+            <th>Overtime</th>
+            <th>Other<br/>Cash<br/>Payment<br/>(Nature<br/>of<br/>payment<br/>to be<br/>mention<br/>ed)</th>
+            <th>House<br/>Rent<br/>Allowance</th>
+            <th>Provident<br/>Fund</th>
+            <th>Employee<br/>'s Share of<br/>the<br/>Contributi<br/>on (E.S.I.)</th>
+            <th>Professio<br/>nal Tax</th>
+            <th>Total<br/>Deducti<br/>on</th>
+          </tr>
+          <tr>
+            <th>Rs.</th>
+            <th>Rs.</th>
+            <th>Rs.</th>
+            <th>Rs.</th>
+            <th>Rs.</th>
+            <th>Rs.</th>
+            <th>Rs.</th>
+            <th>Rs.</th>
+            <th>Rs.</th>
+            <th>Rs.</th>
+            <th>Rs.</th>
+          </tr>
+          <tr style="font-size:7px;font-style:italic">
+            <th>1</th><th>2</th><th>3</th><th>4</th><th>5</th><th>6</th><th>7</th>
+            <th>8</th><th>9</th><th>10</th><th>11</th><th>12</th><th>13</th>
+            <th>14(a)</th><th>14(b)</th><th>14(c)</th><th>14(d)</th><th>15</th>
+            <th>16</th><th>17</th><th>18</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${dataRows}
+          ${totalRow}
+        </tbody>
+      </table>
+    </body></html>`);
+    printWin.document.close();
+    printWin.print();
+  }, [salaries, rows, totals, clientName, month, year]);
+
   const handleExportExcel = useCallback(async () => {
     if (!salaries || salaries.length === 0 || rows.length === 0) return;
     const ExcelJS = await import("exceljs");
@@ -691,6 +862,10 @@ export default function SalaryRegister() {
               }} data-testid="button-print-salary">
                 <Printer className="w-4 h-4 mr-2" />
                 Print
+              </Button>
+              <Button variant="outline" size="sm" onClick={handleGovPrint} data-testid="button-gov-print-salary">
+                <Printer className="w-4 h-4 mr-2" />
+                Form XVII Print
               </Button>
             </div>
           )}
