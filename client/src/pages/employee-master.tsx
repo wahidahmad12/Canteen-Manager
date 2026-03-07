@@ -35,6 +35,9 @@ interface Employee {
   gender: string | null;
   dob: string | null;
   address: string | null;
+  permanentAddress: string | null;
+  localAddress: string | null;
+  skills: string | null;
   joiningDate: string | null;
   leavingDate: string | null;
   leavingReason: string | null;
@@ -62,6 +65,9 @@ const emptyForm = {
   gender: "Male",
   dob: "",
   address: "",
+  permanentAddress: "",
+  localAddress: "",
+  skills: "",
   joiningDate: "",
   leavingDate: "",
   leavingReason: "",
@@ -175,6 +181,9 @@ export default function EmployeeMaster() {
       gender: emp.gender || "Male",
       dob: emp.dob || "",
       address: emp.address || "",
+      permanentAddress: emp.permanentAddress || "",
+      localAddress: emp.localAddress || "",
+      skills: emp.skills || "",
       joiningDate: emp.joiningDate || "",
       leavingDate: emp.leavingDate || "",
       leavingReason: emp.leavingReason || "",
@@ -532,12 +541,29 @@ export default function EmployeeMaster() {
 
             <div>
               <h3 className="text-sm font-semibold mb-3 flex items-center gap-2">
-                <MapPin className="w-4 h-4" /> Address
+                <MapPin className="w-4 h-4" /> Address & Contact
               </h3>
-              <Textarea value={form.address} onChange={e => setField("address", e.target.value)} rows={2} data-testid="input-address" />
-              <div className="mt-3">
-                <Label htmlFor="mobile">Mobile No.</Label>
-                <Input id="mobile" value={form.mobile} onChange={e => setField("mobile", e.target.value)} inputMode="tel" data-testid="input-mobile" />
+              <div className="space-y-3">
+                <div>
+                  <Label htmlFor="permanentAddress">Permanent Address</Label>
+                  <Textarea id="permanentAddress" value={form.permanentAddress} onChange={e => setField("permanentAddress", e.target.value)} rows={2} data-testid="input-permanent-address" />
+                </div>
+                <div>
+                  <Label htmlFor="localAddress">Local Address</Label>
+                  <Textarea id="localAddress" value={form.localAddress} onChange={e => setField("localAddress", e.target.value)} rows={2} data-testid="input-local-address" />
+                </div>
+                <div>
+                  <Label htmlFor="address">Address (Legacy)</Label>
+                  <Textarea id="address" value={form.address} onChange={e => setField("address", e.target.value)} rows={2} data-testid="input-address" />
+                </div>
+                <div>
+                  <Label htmlFor="skills">Skills</Label>
+                  <Input id="skills" value={form.skills} onChange={e => setField("skills", e.target.value)} placeholder="e.g. Cooking, Cleaning, Housekeeping" data-testid="input-skills" />
+                </div>
+                <div>
+                  <Label htmlFor="mobile">Mobile No.</Label>
+                  <Input id="mobile" value={form.mobile} onChange={e => setField("mobile", e.target.value)} inputMode="tel" data-testid="input-mobile" />
+                </div>
               </div>
             </div>
 
