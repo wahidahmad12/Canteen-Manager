@@ -957,13 +957,9 @@ export class DatabaseStorage implements IStorage {
       const dailyRate = Number(emp.dailyRate) || 0;
       const basicWage = daysWorked * dailyRate;
       const da = 0;
+      const hra5 = Math.round(basicWage * 0.05 * 100) / 100;
       const fixedHraAmount = Number(emp.fixedHra) || 0;
-      const hra = fixedHraAmount > 0 ? Math.round((fixedHraAmount / 26) * daysWorked * 100) / 100 : 0;
-      const otherAllowance = 0;
-      const grossWage = basicWage + da + hra + otherAllowance;
-      const pfDeduction = Math.round(basicWage * 0.12 * 100) / 100;
-      const esicDeduction = grossWage <= 21000 ? Math.round(grossWage * 0.0075 * 100) / 100 : 0;
-      const professionalTax = grossWage > 15000 ? 200 : grossWage > 10000 ? 150 : 0;
+      const fixedHra = fixedHraAmount > 0 ? Math.round((fixedHraAmount / 26) * daysWorked * 100) / 100 : 0;
       const empOtRecords = allOtRecords.filter(ot => {
         if (ot.employeeId !== emp.id) return false;
         const d = new Date(ot.date);
@@ -978,8 +974,12 @@ export class DatabaseStorage implements IStorage {
       overtimeHrs = Math.round(overtimeHrs * 100) / 100;
       overtimeAmount = Math.round(overtimeAmount);
       const overtimeRate = overtimeHrs > 0 ? Math.round((overtimeAmount / overtimeHrs) * 100) / 100 : (dailyRate + dailyRate * 0.05) / 4;
+      const grossWage = basicWage + hra5 + fixedHra + overtimeAmount + da;
+      const pfDeduction = Math.round(basicWage * 0.12 * 100) / 100;
+      const esicDeduction = grossWage <= 21000 ? Math.round(grossWage * 0.0075 * 100) / 100 : 0;
+      const professionalTax = grossWage > 15000 ? 200 : grossWage > 10000 ? 150 : 0;
       const totalDeduction = pfDeduction + esicDeduction + professionalTax;
-      const netPay = grossWage + overtimeAmount - totalDeduction;
+      const netPay = grossWage - totalDeduction;
 
       const record = await this.saveSalaryRecord({
         employeeId: emp.id,
@@ -989,8 +989,8 @@ export class DatabaseStorage implements IStorage {
         daysWorked: String(daysWorked),
         basicWage: String(basicWage),
         da: String(da),
-        hra: String(hra),
-        otherAllowance: String(otherAllowance),
+        hra: String(fixedHra),
+        otherAllowance: String(hra5),
         grossWage: String(grossWage),
         pfDeduction: String(pfDeduction),
         esicDeduction: String(esicDeduction),
