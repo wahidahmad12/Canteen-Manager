@@ -116,7 +116,8 @@ export default function EmployeeDashboard() {
       else if (val === 'WO') wo++;
       else if (['CL', 'SL', 'EL', 'PH'].includes(val)) leave++;
     }
-    return { present: p, absent: a, holidays: h, weekOff: wo, leave };
+    const ot = Number(attendance.overtimeHours) || 0;
+    return { present: p, absent: a, holidays: h, weekOff: wo, leave, overtime: ot };
   })() : null;
 
   const handleDownloadSlip = () => {
@@ -305,7 +306,7 @@ export default function EmployeeDashboard() {
           </CardHeader>
           <CardContent>
             {attendanceSummary ? (
-              <div className="grid grid-cols-2 sm:grid-cols-5 gap-3 mb-4">
+              <div className="grid grid-cols-3 sm:grid-cols-6 gap-3 mb-4">
                 <div className="bg-green-50 dark:bg-green-950/30 rounded-lg p-3 text-center">
                   <p className="text-2xl font-bold text-green-700 dark:text-green-400" data-testid="text-present">{attendanceSummary.present}</p>
                   <p className="text-xs text-green-600">Present</p>
@@ -325,6 +326,10 @@ export default function EmployeeDashboard() {
                 <div className="bg-purple-50 dark:bg-purple-950/30 rounded-lg p-3 text-center">
                   <p className="text-2xl font-bold text-purple-700 dark:text-purple-400">{attendanceSummary.leave}</p>
                   <p className="text-xs text-purple-600">Leave</p>
+                </div>
+                <div className="bg-cyan-50 dark:bg-cyan-950/30 rounded-lg p-3 text-center">
+                  <p className="text-2xl font-bold text-cyan-700 dark:text-cyan-400" data-testid="text-attendance-ot">{attendanceSummary.overtime}h</p>
+                  <p className="text-xs text-cyan-600">Overtime</p>
                 </div>
               </div>
             ) : (
