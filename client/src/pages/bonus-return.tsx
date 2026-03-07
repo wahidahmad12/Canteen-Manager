@@ -83,7 +83,7 @@ export default function BonusReturn() {
       totalDeductions: 'No',
       netAmount: bonusAmount,
       actualPaid: bonusAmount,
-      datePaid: bonusDate || '-',
+      datePaid: bonusDate ? bonusDate.split('-').reverse().join('-') : '-',
     };
   }).filter(r => r.totalSalary > 0);
 
