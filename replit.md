@@ -25,10 +25,10 @@ Preferred communication style: Simple, everyday language.
   - `/inventory` — Daily Inventory (Kitchen Stock + Biscuits)
   - `/menu` — Menu Manager (2-week lunch menu schedule with client selection)
   - `/admin` — PIN-protected admin panel for Item Master management, vendor/client/user management
-  - `/vendor-report` — Vendor Payment Report with date filters, vendor/client filters, group by vendor/client, summary cards, PDF export (admin only)
+  - `/vendor-report` — Vendor Payment Report with date filters, vendor/client filters, group by vendor/client, summary cards, PDF export, Excel export (admin only)
   - `/employee-master` — Employee Master CRUD (admin only) with all worker details, government IDs, bank info
-  - `/muster-roll` — Muster Roll (Form XVI) monthly attendance grid with day-by-day P/A/H/WO/PH/CL/SL/EL tracking
-  - `/salary` — Salary Register (Form XVII) with auto-generation from attendance, summary cards
+  - `/muster-roll` — Muster Roll (Form XVI) monthly attendance grid with day-by-day P/A/H/WO/PH/CL/SL/EL tracking, Excel export with color-coded attendance cells
+  - `/salary` — Salary Register (Form XVII) with auto-generation from attendance, summary cards, Excel export with all 35 columns
   - `/salary/:id/slip` — Wage Slip (Form XIX) printable individual pay slip
   - `/registers` — Combined registers page with tabs for Fines (XXI), Advances (XXII), Overtime (XXIII), Damage/Loss (XX)
   - `/form-xiii` — Workmen Register (Form XIII) printable list of workers by company

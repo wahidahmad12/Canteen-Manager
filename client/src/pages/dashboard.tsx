@@ -1,6 +1,6 @@
 import { Link } from "wouter";
 import { useMemo } from "react";
-import { Plus, Loader2, FileText, ArrowRight, Calculator, ClipboardList, UtensilsCrossed, ShoppingCart, Trash2, Check, FileDown, Pencil, Receipt, BarChart3, IndianRupee, TrendingUp, TrendingDown, Wallet, CreditCard, DollarSign, Store } from "lucide-react";
+import { Plus, Loader2, FileText, ArrowRight, Calculator, ClipboardList, UtensilsCrossed, ShoppingCart, Trash2, Check, FileDown, Pencil, Receipt, BarChart3, IndianRupee, TrendingUp, TrendingDown, Wallet, CreditCard, DollarSign, Store, FileSpreadsheet } from "lucide-react";
 import { useReports, useDeleteReport, useInventories, useCashSeals, useSavedMenus, useDeleteSavedMenu, usePurchaseRequests, useDeletePurchaseRequest, useUpdatePurchaseRequest, useCurrentUser, usePurchaseInvoices, useDeletePurchaseInvoice } from "@/hooks/use-reports";
 import { format } from "date-fns";
 import { Layout } from "@/components/layout";
@@ -159,6 +159,86 @@ export default function Dashboard() {
   const sortedInventories = inventories ? [...inventories].sort((a, b) =>
     new Date(b.date).getTime() - new Date(a.date).getTime()
   ) : [];
+
+  const handleExportReportsExcel = async () => {
+    if (!sortedReports.length) return;
+    const ExcelJS = await import("exceljs");
+    const workbook = new ExcelJS.Workbook();
+    const ws = workbook.addWorksheet("Expense Reports");
+
+    const titleRow = ws.addRow(["Daily Cash Expense Reports"]);
+    titleRow.getCell(1).font = { bold: true, size: 16 };
+    ws.mergeCells("A1:H1");
+    titleRow.alignment = { horizontal: "center" };
+    ws.addRow([]);
+
+    const headerRow = ws.addRow(["Report No.", "Date", "Opening Balance", "Received Amount", "Total Cash", "Total Expense", "Balance", "Item Count"]);
+    headerRow.eachCell((cell) => {
+      cell.font = { bold: true, size: 10, color: { argb: "FFFFFFFF" } };
+      cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FF6366F1" } };
+      cell.border = { top: { style: "thin" }, bottom: { style: "thin" }, left: { style: "thin" }, right: { style: "thin" } };
+      cell.alignment = { horizontal: "center" };
+    });
+
+    sortedReports.forEach((report: any) => {
+      const opening = Number(report.openingBalance) || 0;
+      const received = Number(report.receivedAmount) || 0;
+      const totalCash = opening + received;
+      const totalExpense = report.items?.reduce((sum: number, item: any) => sum + (Number(item.amount) || 0), 0) || 0;
+      const r = ws.addRow([
+        report.reportNumber, format(new Date(report.date), "dd/MM/yyyy"),
+        opening, received, totalCash, totalExpense, totalCash - totalExpense,
+        report.items?.length || 0
+      ]);
+      r.eachCell((cell) => {
+        cell.border = { top: { style: "thin" }, bottom: { style: "thin" }, left: { style: "thin" }, right: { style: "thin" } };
+        cell.font = { size: 10 };
+      });
+    });
+
+    ws.addRow([]);
+    ws.addRow([]);
+
+    sortedReports.forEach((report: any) => {
+      if (!report.items || report.items.length === 0) return;
+      const rHeader = ws.addRow([`Report #${report.reportNumber} - ${format(new Date(report.date), "dd/MM/yyyy")}`]);
+      rHeader.getCell(1).font = { bold: true, size: 11 };
+      ws.mergeCells(`A${rHeader.number}:G${rHeader.number}`);
+
+      const itemHeader = ws.addRow(["", "Category", "Description", "UOM", "Qty", "Rate", "Amount"]);
+      itemHeader.eachCell((cell) => {
+        cell.font = { bold: true, size: 9 };
+        cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFE0E7FF" } };
+        cell.border = { top: { style: "thin" }, bottom: { style: "thin" }, left: { style: "thin" }, right: { style: "thin" } };
+      });
+
+      report.items.forEach((item: any) => {
+        const r = ws.addRow(["", item.category, item.description, item.uom, Number(item.qty), Number(item.rate), Number(item.amount)]);
+        r.eachCell((cell) => {
+          cell.border = { top: { style: "thin" }, bottom: { style: "thin" }, left: { style: "thin" }, right: { style: "thin" } };
+          cell.font = { size: 9 };
+        });
+      });
+      ws.addRow([]);
+    });
+
+    ws.getColumn(1).width = 12;
+    ws.getColumn(2).width = 14;
+    ws.getColumn(3).width = 30;
+    ws.getColumn(4).width = 10;
+    ws.getColumn(5).width = 10;
+    ws.getColumn(6).width = 12;
+    ws.getColumn(7).width = 14;
+    ws.getColumn(8).width = 12;
+
+    const buffer = await workbook.xlsx.writeBuffer();
+    const blob = new Blob([buffer], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
+    const link = document.createElement("a");
+    link.download = `ExpenseReports_${format(new Date(), "yyyy-MM-dd")}.xlsx`;
+    link.href = URL.createObjectURL(blob);
+    link.click();
+    URL.revokeObjectURL(link.href);
+  };
 
   return (
     <Layout>
@@ -364,7 +444,13 @@ export default function Dashboard() {
                   <CardTitle className="flex items-center gap-2 text-base">
                     <FileText className="w-5 h-5" />
                     Expense Reports
-                    <span className="ml-auto text-sm font-normal bg-white/20 px-2.5 py-0.5 rounded-full">{sortedReports.length}</span>
+                    <span className="ml-auto flex items-center gap-2">
+                      <Button variant="ghost" size="sm" className="h-7 text-white/90 hover:text-white hover:bg-white/20 text-xs" onClick={handleExportReportsExcel} data-testid="button-export-excel-reports">
+                        <FileSpreadsheet className="w-3.5 h-3.5 mr-1" />
+                        Excel
+                      </Button>
+                      <span className="text-sm font-normal bg-white/20 px-2.5 py-0.5 rounded-full">{sortedReports.length}</span>
+                    </span>
                   </CardTitle>
                 </CardHeader>
                 <CardContent className="p-0">

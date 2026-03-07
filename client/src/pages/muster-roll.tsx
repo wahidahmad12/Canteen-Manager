@@ -11,7 +11,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/hooks/use-toast";
 import { useClientNames } from "@/hooks/use-reports";
 import { apiRequest, queryClient } from "@/lib/queryClient";
-import { Loader2, Download, Printer, Save, ClipboardList, Calendar, Users } from "lucide-react";
+import { Loader2, Download, Printer, Save, ClipboardList, Calendar, Users, FileSpreadsheet } from "lucide-react";
 
 const MONTHS = [
   "January", "February", "March", "April", "May", "June",
@@ -161,6 +161,75 @@ export default function MusterRoll() {
 
   const handlePrint = () => window.print();
 
+  const handleExportExcel = async () => {
+    if (!employees || employees.length === 0) return;
+    const ExcelJS = await import("exceljs");
+    const workbook = new ExcelJS.Workbook();
+    const ws = workbook.addWorksheet("Muster Roll");
+
+    const monthName = MONTHS[monthNum - 1];
+    const totalCols = 3 + daysInMonth + 2;
+    const titleRow = ws.addRow(["Muster Roll (Form XVI)"]);
+    titleRow.getCell(1).font = { bold: true, size: 16 };
+    ws.mergeCells(1, 1, 1, totalCols);
+    titleRow.alignment = { horizontal: "center" };
+
+    const sub1 = ws.addRow([`${clientName} - ${monthName} ${year}`]);
+    sub1.getCell(1).font = { bold: true, size: 12 };
+    ws.mergeCells(2, 1, 2, totalCols);
+    sub1.alignment = { horizontal: "center" };
+
+    ws.addRow([]);
+
+    const headers = ["Sl.No", "Emp Name", "Designation"];
+    for (let d = 1; d <= daysInMonth; d++) headers.push(String(d));
+    headers.push("Present", "Absent");
+    const headerRow = ws.addRow(headers);
+    headerRow.eachCell((cell) => {
+      cell.font = { bold: true, size: 9 };
+      cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FF10B981" } };
+      cell.font = { bold: true, size: 9, color: { argb: "FFFFFFFF" } };
+      cell.border = { top: { style: "thin" }, bottom: { style: "thin" }, left: { style: "thin" }, right: { style: "thin" } };
+      cell.alignment = { horizontal: "center" };
+    });
+
+    employees.forEach((emp: any, idx: number) => {
+      const empData = attendanceData[emp.id] || {};
+      const { totalPresent, totalAbsent } = calcTotals(empData);
+      const rowData: (string | number)[] = [idx + 1, emp.name, emp.designation || "-"];
+      for (let d = 1; d <= daysInMonth; d++) {
+        rowData.push(empData[`day${d}`] || "");
+      }
+      rowData.push(totalPresent, totalAbsent);
+      const r = ws.addRow(rowData);
+      r.eachCell((cell, colNumber) => {
+        cell.border = { top: { style: "thin" }, bottom: { style: "thin" }, left: { style: "thin" }, right: { style: "thin" } };
+        cell.font = { size: 9 };
+        if (colNumber > 3 && colNumber <= 3 + daysInMonth) {
+          cell.alignment = { horizontal: "center" };
+          const val = String(cell.value);
+          if (val === "P") cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFD1FAE5" } };
+          else if (val === "A") cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFFEE2E2" } };
+          else if (val === "H" || val === "WO" || val === "PH") cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFFEF3C7" } };
+        }
+      });
+    });
+
+    ws.getColumn(1).width = 6;
+    ws.getColumn(2).width = 22;
+    ws.getColumn(3).width = 16;
+    for (let i = 4; i <= 3 + daysInMonth + 2; i++) ws.getColumn(i).width = 5;
+
+    const buffer = await workbook.xlsx.writeBuffer();
+    const blob = new Blob([buffer], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
+    const link = document.createElement("a");
+    link.download = `MusterRoll_${clientName.replace(/\s+/g, "_")}_${monthName}_${year}.xlsx`;
+    link.href = URL.createObjectURL(blob);
+    link.click();
+    URL.revokeObjectURL(link.href);
+    toast({ title: "Excel Downloaded", description: "Muster Roll exported to Excel." });
+  };
+
   const isLoadingData = employeesLoading || attendanceLoading;
 
   return (
@@ -183,6 +252,10 @@ export default function MusterRoll() {
           </div>
           {loaded && (
             <div className="flex gap-2 no-print flex-wrap">
+              <Button variant="outline" onClick={handleExportExcel} data-testid="button-export-excel-muster">
+                <FileSpreadsheet className="w-4 h-4 mr-2" />
+                Export Excel
+              </Button>
               <Button variant="outline" onClick={handlePrint} data-testid="button-print">
                 <Printer className="w-4 h-4 mr-2" />
                 Print

@@ -1,7 +1,7 @@
 import { useState, useMemo, useRef, useCallback } from "react";
 import { Link } from "wouter";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { Loader2, Printer, FileText, Users, IndianRupee, TrendingDown, Wallet, ArrowRight, Download, ImageDown } from "lucide-react";
+import { Loader2, Printer, FileText, Users, IndianRupee, TrendingDown, Wallet, ArrowRight, Download, ImageDown, FileSpreadsheet } from "lucide-react";
 import { Layout } from "@/components/layout";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -393,6 +393,103 @@ export default function SalaryRegister() {
     }
   }, [salaries, employees, employeeMap, attendanceList, toast, month, year]);
 
+  const handleExportExcel = useCallback(async () => {
+    if (!salaries || salaries.length === 0 || rows.length === 0) return;
+    const ExcelJS = await import("exceljs");
+    const workbook = new ExcelJS.Workbook();
+    const ws = workbook.addWorksheet("Salary Register");
+
+    const monthName = MONTHS[Number(month) - 1];
+    const title = ws.addRow(["Salary Register (Form XVII)"]);
+    title.getCell(1).font = { bold: true, size: 16 };
+    ws.mergeCells("A1:AI1");
+    title.alignment = { horizontal: "center" };
+
+    const sub1 = ws.addRow([clientName]);
+    sub1.getCell(1).font = { bold: true, size: 13 };
+    ws.mergeCells("A2:AI2");
+    sub1.alignment = { horizontal: "center" };
+
+    const sub2 = ws.addRow([`${monthName} ${year}`]);
+    sub2.getCell(1).font = { bold: true, size: 12 };
+    ws.mergeCells("A3:AI3");
+    sub2.alignment = { horizontal: "center" };
+
+    ws.addRow([]);
+
+    const headers = [
+      "Sl. No.", "Emp ID", "Emp Name", "Skills", "PRS DAYS", "Half Day",
+      "Holiday Working", "LEAVE", "HOLIDAYS", "Paid Days", "OT HRS",
+      "Basic Rate", "Basic Wages", "HRA 5%", "Fixed HRA", "OT Allow",
+      "Total Gross", "PF Deduction @12%", "ESIC @.75%", "P-TAX", "LWF",
+      "Total Dedu", "Net Salary", "Leave Balance", "Leave Encash Amt.",
+      "Advance", "Pay In Account", "PF @13%", "ESIC @3.25%", "Bonus @8.33%",
+      "Total", "Service Charges @12%", "Total", "GST 18%", "Total"
+    ];
+    const headerRow = ws.addRow(headers);
+    headerRow.eachCell((cell) => {
+      cell.font = { bold: true, size: 9 };
+      cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFD9E2F3" } };
+      cell.border = { top: { style: "thin" }, bottom: { style: "thin" }, left: { style: "thin" }, right: { style: "thin" } };
+      cell.alignment = { horizontal: "center", vertical: "middle", wrapText: true };
+    });
+
+    rows.forEach((r, idx) => {
+      const row = ws.addRow([
+        idx + 1, r.emp?.employeeCode || "-", r.emp?.name || "-", r.skills,
+        r.prsDays, r.halfDay, r.holidayWorking, r.leave, r.holidays,
+        r.paidDays, r.otHrs, r.basicRate, r.basicWage, r.hra5, r.fixedHRA,
+        r.otAllow || 0, r.totalGross, r.pfDed, r.esicDed, r.pTax, r.lwf || 0,
+        r.totalDedu, r.netSalary, r.leaveBalance, r.leaveEncash,
+        r.advance, r.payInAccount, r.pfEmployer, r.esicEmployer, r.bonus,
+        r.employerTotal, r.serviceCharge, r.afterService, r.gst, r.finalTotal
+      ]);
+      row.eachCell((cell) => {
+        cell.border = { top: { style: "thin" }, bottom: { style: "thin" }, left: { style: "thin" }, right: { style: "thin" } };
+        cell.font = { size: 9 };
+      });
+      if (idx % 2 === 1) {
+        row.eachCell((cell) => {
+          cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFF0F8F0" } };
+        });
+      }
+    });
+
+    if (totals) {
+      const tr = ws.addRow([
+        "", "", "Total", "",
+        totals.prsDays, totals.halfDay, totals.holidayWorking, totals.leave,
+        totals.holidays, totals.paidDays, totals.otHrs, totals.basicRate,
+        totals.basicWage, totals.hra5, totals.fixedHRA, totals.otAllow,
+        totals.totalGross, totals.pfDed, totals.esicDed, totals.pTax, totals.lwf,
+        totals.totalDedu, totals.netSalary, totals.leaveBalance, totals.leaveEncash,
+        totals.advance, totals.payInAccount, totals.pfEmployer, totals.esicEmployer,
+        totals.bonus, totals.employerTotal, totals.serviceCharge, totals.afterService,
+        totals.gst, totals.finalTotal
+      ]);
+      tr.eachCell((cell) => {
+        cell.font = { bold: true, size: 9 };
+        cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFE8E8E8" } };
+        cell.border = { top: { style: "thin" }, bottom: { style: "thin" }, left: { style: "thin" }, right: { style: "thin" } };
+      });
+    }
+
+    ws.getColumn(1).width = 6;
+    ws.getColumn(2).width = 12;
+    ws.getColumn(3).width = 22;
+    ws.getColumn(4).width = 14;
+    for (let i = 5; i <= 35; i++) ws.getColumn(i).width = 13;
+
+    const buffer = await workbook.xlsx.writeBuffer();
+    const blob = new Blob([buffer], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
+    const link = document.createElement("a");
+    link.download = `SalaryRegister_${clientName.replace(/\s+/g, "_")}_${monthName}_${year}.xlsx`;
+    link.href = URL.createObjectURL(blob);
+    link.click();
+    URL.revokeObjectURL(link.href);
+    toast({ title: "Excel Downloaded", description: `Salary Register exported to Excel.` });
+  }, [salaries, rows, totals, clientName, month, year, toast]);
+
   const generateMutation = useMutation({
     mutationFn: async () => {
       const res = await apiRequest("POST", "/api/salary/generate", { clientName, month: Number(month), year: Number(year) });
@@ -511,7 +608,16 @@ export default function SalaryRegister() {
             </div>
           )}
           {loaded && salaries && salaries.length > 0 && (
-            <div className="flex gap-2">
+            <div className="flex gap-2 flex-wrap">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleExportExcel}
+                data-testid="button-export-excel-salary"
+              >
+                <FileSpreadsheet className="w-4 h-4 mr-2" />
+                Export Excel
+              </Button>
               <Button
                 variant="outline"
                 size="sm"

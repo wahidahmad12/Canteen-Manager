@@ -6,7 +6,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { DatePicker } from "@/components/ui/date-picker";
 import { usePurchaseInvoices, useVendors, useClientNames } from "@/hooks/use-reports";
 import { format, startOfMonth, endOfMonth, subMonths, startOfYear } from "date-fns";
-import { Loader2, FileDown, ArrowLeft, BarChart3, Filter, Receipt, IndianRupee, Check, CreditCard, TrendingUp, TrendingDown, Wallet, Store, Building2 } from "lucide-react";
+import { Loader2, FileDown, ArrowLeft, BarChart3, Filter, Receipt, IndianRupee, Check, CreditCard, TrendingUp, TrendingDown, Wallet, Store, Building2, FileSpreadsheet } from "lucide-react";
 import { useLocation } from "wouter";
 import { Label } from "@/components/ui/label";
 
@@ -163,6 +163,84 @@ export default function VendorReport() {
     document.title = originalTitle;
   };
 
+  const handleExportExcel = async () => {
+    if (summaryData.length === 0) return;
+    const ExcelJS = await import("exceljs");
+    const workbook = new ExcelJS.Workbook();
+    const ws = workbook.addWorksheet("Vendor Report");
+
+    const dateRange = fromDate && toDate
+      ? `${format(fromDate, "dd-MM-yyyy")} to ${format(toDate, "dd-MM-yyyy")}`
+      : "All Dates";
+
+    const titleRow = ws.addRow(["Vendor Payment Report"]);
+    titleRow.getCell(1).font = { bold: true, size: 16 };
+    ws.mergeCells("A1:I1");
+    titleRow.alignment = { horizontal: "center" };
+
+    const dateRow = ws.addRow([`Period: ${dateRange}`]);
+    dateRow.getCell(1).font = { size: 11 };
+    ws.mergeCells("A2:I2");
+    dateRow.alignment = { horizontal: "center" };
+
+    ws.addRow([]);
+
+    const groupLabel = groupBy === "vendor" ? "Vendor Name" : "Client Name";
+    const headers = [groupLabel, "Invoices", "Total Bill", "GST", "Grand Total", "Paid", "Balance", "Paid Count", "Unpaid Count"];
+    const headerRow = ws.addRow(headers);
+    headerRow.eachCell((cell) => {
+      cell.font = { bold: true, size: 10 };
+      cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FF6366F1" } };
+      cell.font = { bold: true, size: 10, color: { argb: "FFFFFFFF" } };
+      cell.border = { top: { style: "thin" }, bottom: { style: "thin" }, left: { style: "thin" }, right: { style: "thin" } };
+      cell.alignment = { horizontal: "center" };
+    });
+
+    summaryData.forEach((row, idx) => {
+      const name = groupBy === "vendor" ? row.vendorName : row.clientName;
+      const r = ws.addRow([
+        name, row.invoiceCount, row.totalBillAmount, row.totalGst,
+        row.grandTotal, row.totalPaid, row.totalBalance, row.paidCount, row.unpaidCount
+      ]);
+      r.eachCell((cell) => {
+        cell.border = { top: { style: "thin" }, bottom: { style: "thin" }, left: { style: "thin" }, right: { style: "thin" } };
+        cell.font = { size: 10 };
+      });
+      if (idx % 2 === 1) {
+        r.eachCell((cell) => {
+          cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFF5F3FF" } };
+        });
+      }
+    });
+
+    const totRow = ws.addRow([
+      "Total", grandTotals.invoiceCount, grandTotals.totalBillAmount, grandTotals.totalGst,
+      grandTotals.grandTotal, grandTotals.totalPaid, grandTotals.totalBalance,
+      grandTotals.paidCount, grandTotals.unpaidCount
+    ]);
+    totRow.eachCell((cell) => {
+      cell.font = { bold: true, size: 10 };
+      cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFE8E8E8" } };
+      cell.border = { top: { style: "thin" }, bottom: { style: "thin" }, left: { style: "thin" }, right: { style: "thin" } };
+    });
+
+    ws.getColumn(1).width = 30;
+    ws.getColumn(2).width = 10;
+    for (let i = 3; i <= 9; i++) ws.getColumn(i).width = 16;
+
+    [3, 4, 5, 6, 7].forEach(col => {
+      ws.getColumn(col).numFmt = '#,##0.00';
+    });
+
+    const buffer = await workbook.xlsx.writeBuffer();
+    const blob = new Blob([buffer], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
+    const link = document.createElement("a");
+    link.download = `VendorReport_${dateRange.replace(/\s+/g, "_")}.xlsx`;
+    link.href = URL.createObjectURL(blob);
+    link.click();
+    URL.revokeObjectURL(link.href);
+  };
+
   const uniqueVendors = useMemo(() => {
     if (!invoices) return [];
     const names = new Set(invoices.map((inv: any) => inv.vendorName));
@@ -316,10 +394,16 @@ export default function VendorReport() {
               {filteredInvoices.length} invoice{filteredInvoices.length !== 1 ? "s" : ""} found
             </span>
           </p>
-          <Button onClick={handlePrint} variant="outline" size="sm" className="rounded-xl border-violet-300 text-violet-700 hover:bg-violet-50 dark:border-violet-700 dark:text-violet-400" data-testid="button-print-pdf">
-            <FileDown className="w-4 h-4 mr-2" />
-            Convert to PDF
-          </Button>
+          <div className="flex gap-2">
+            <Button onClick={handleExportExcel} variant="outline" size="sm" className="rounded-xl border-violet-300 text-violet-700 hover:bg-violet-50 dark:border-violet-700 dark:text-violet-400" data-testid="button-export-excel-vendor">
+              <FileSpreadsheet className="w-4 h-4 mr-2" />
+              Export Excel
+            </Button>
+            <Button onClick={handlePrint} variant="outline" size="sm" className="rounded-xl border-violet-300 text-violet-700 hover:bg-violet-50 dark:border-violet-700 dark:text-violet-400" data-testid="button-print-pdf">
+              <FileDown className="w-4 h-4 mr-2" />
+              Convert to PDF
+            </Button>
+          </div>
         </div>
 
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 print:grid-cols-4" data-testid="summary-cards">
