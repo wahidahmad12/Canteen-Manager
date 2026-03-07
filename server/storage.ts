@@ -27,6 +27,7 @@ import {
   overtimeRegister,
   damageDeductions,
   leaveWithWages,
+  employeeWageRates,
   type DailyReport, 
   type ExpenseItem,
   type CreateReportRequest,
@@ -53,6 +54,7 @@ import {
   type OvertimeRecord,
   type DamageDeduction,
   type LeaveWithWages,
+  type EmployeeWageRate,
 } from "@shared/schema";
 import { eq, desc, lt, and, sql } from "drizzle-orm";
 import bcrypt from "bcryptjs";
@@ -148,6 +150,11 @@ export interface IStorage {
   createLeaveWithWages(data: any): Promise<LeaveWithWages>;
   updateLeaveWithWages(id: number, data: any): Promise<LeaveWithWages>;
   deleteLeaveWithWages(id: number): Promise<void>;
+  getEmployeeWageRates(employeeId: number): Promise<EmployeeWageRate[]>;
+  getEmployeeWageRate(employeeId: number, year: number): Promise<EmployeeWageRate | undefined>;
+  createEmployeeWageRate(data: any): Promise<EmployeeWageRate>;
+  updateEmployeeWageRate(id: number, data: any): Promise<EmployeeWageRate>;
+  deleteEmployeeWageRate(id: number): Promise<void>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -1123,6 +1130,26 @@ export class DatabaseStorage implements IStorage {
   }
   async deleteLeaveWithWages(id: number): Promise<void> {
     await db.delete(leaveWithWages).where(eq(leaveWithWages.id, id));
+  }
+
+  // === EMPLOYEE WAGE RATES (Year-wise) ===
+  async getEmployeeWageRates(employeeId: number): Promise<EmployeeWageRate[]> {
+    return await db.select().from(employeeWageRates).where(eq(employeeWageRates.employeeId, employeeId)).orderBy(desc(employeeWageRates.calendarYear));
+  }
+  async getEmployeeWageRate(employeeId: number, year: number): Promise<EmployeeWageRate | undefined> {
+    const [rec] = await db.select().from(employeeWageRates).where(and(eq(employeeWageRates.employeeId, employeeId), eq(employeeWageRates.calendarYear, year)));
+    return rec;
+  }
+  async createEmployeeWageRate(data: any): Promise<EmployeeWageRate> {
+    const [rec] = await db.insert(employeeWageRates).values(data).returning();
+    return rec;
+  }
+  async updateEmployeeWageRate(id: number, data: any): Promise<EmployeeWageRate> {
+    const [rec] = await db.update(employeeWageRates).set(data).where(eq(employeeWageRates.id, id)).returning();
+    return rec;
+  }
+  async deleteEmployeeWageRate(id: number): Promise<void> {
+    await db.delete(employeeWageRates).where(eq(employeeWageRates.id, id));
   }
 }
 

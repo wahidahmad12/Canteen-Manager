@@ -946,9 +946,17 @@ export async function registerRoutes(
     const actualDaysWorked = totalDaysInYear - (weeklyOffs + paidHolidays + leavesAvailed + absences);
     const leaveEarned = Math.floor(actualDaysWorked / 20);
 
-    const { employees } = await import("@shared/schema");
-    const empRows = await db.select().from(employees).where(eq(employees.id, employeeId));
-    const dailyRate = empRows.length > 0 ? Number(empRows[0].dailyRate || 0) : 0;
+    const { employees, employeeWageRates } = await import("@shared/schema");
+    const wageRateRec = await db.select().from(employeeWageRates).where(
+      and(eq(employeeWageRates.employeeId, employeeId), eq(employeeWageRates.calendarYear, year))
+    );
+    let dailyRate = 0;
+    if (wageRateRec.length > 0) {
+      dailyRate = Number(wageRateRec[0].dailyRate || 0);
+    } else {
+      const empRows = await db.select().from(employees).where(eq(employees.id, employeeId));
+      dailyRate = empRows.length > 0 ? Number(empRows[0].dailyRate || 0) : 0;
+    }
     const amountOfWages = 0;
 
     res.json({ totalDaysInYear, weeklyOffs, paidHolidays, leavesAvailed, absences, actualDaysWorked, totalPresent, leaveEarned, dailyRate, amountOfWages });
@@ -972,6 +980,48 @@ export async function registerRoutes(
 
   app.delete("/api/leave-with-wages/:id", requireAdmin, async (req, res) => {
     await storage.deleteLeaveWithWages(Number(req.params.id));
+    res.status(204).send();
+  });
+
+  // === EMPLOYEE WAGE RATES (Year-wise) ===
+  app.get("/api/employee-wage-rates", requireAdmin, async (req, res) => {
+    const employeeId = Number(req.query.employeeId);
+    if (!employeeId) return res.status(400).json({ error: "employeeId required" });
+    const rates = await storage.getEmployeeWageRates(employeeId);
+    res.json(rates);
+  });
+
+  app.get("/api/employee-wage-rates/by-year", requireAdmin, async (req, res) => {
+    const employeeId = Number(req.query.employeeId);
+    const year = Number(req.query.year);
+    if (!employeeId || !year) return res.status(400).json({ error: "employeeId and year required" });
+    const rate = await storage.getEmployeeWageRate(employeeId, year);
+    res.json(rate || null);
+  });
+
+  app.post("/api/employee-wage-rates", requireAdmin, async (req, res) => {
+    const { insertEmployeeWageRateSchema } = await import("@shared/schema");
+    const parsed = insertEmployeeWageRateSchema.safeParse(req.body);
+    if (!parsed.success) return res.status(400).json({ error: parsed.error.flatten() });
+    const existing = await storage.getEmployeeWageRate(parsed.data.employeeId, parsed.data.calendarYear);
+    if (existing) {
+      const updated = await storage.updateEmployeeWageRate(existing.id, parsed.data);
+      return res.json(updated);
+    }
+    const rec = await storage.createEmployeeWageRate(parsed.data);
+    res.status(201).json(rec);
+  });
+
+  app.put("/api/employee-wage-rates/:id", requireAdmin, async (req, res) => {
+    const { insertEmployeeWageRateSchema } = await import("@shared/schema");
+    const parsed = insertEmployeeWageRateSchema.safeParse(req.body);
+    if (!parsed.success) return res.status(400).json({ error: parsed.error.flatten() });
+    const rec = await storage.updateEmployeeWageRate(Number(req.params.id), parsed.data);
+    res.json(rec);
+  });
+
+  app.delete("/api/employee-wage-rates/:id", requireAdmin, async (req, res) => {
+    await storage.deleteEmployeeWageRate(Number(req.params.id));
     res.status(204).send();
   });
 

@@ -345,6 +345,16 @@ export const leaveWithWages = pgTable("leave_with_wages", {
   createdAt: timestamp("created_at").defaultNow(),
 });
 
+export const employeeWageRates = pgTable("employee_wage_rates", {
+  id: serial("id").primaryKey(),
+  employeeId: integer("employee_id").notNull().references(() => employees.id, { onDelete: 'cascade' }),
+  calendarYear: integer("calendar_year").notNull(),
+  dailyRate: numeric("daily_rate", { precision: 10, scale: 2 }).notNull().default("0"),
+  effectiveFrom: text("effective_from").default(""),
+  remarks: text("remarks").default(""),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
 // Saved item names for autocomplete in purchase requests and menus
 export const savedItemNames = pgTable("saved_item_names", {
   id: serial("id").primaryKey(),
@@ -583,5 +593,9 @@ export const selectDamageDeductionSchema = createSelectSchema(damageDeductions, 
 export type LeaveWithWages = typeof leaveWithWages.$inferSelect;
 export const insertLeaveWithWagesSchema = createInsertSchema(leaveWithWages).omit({ id: true, createdAt: true });
 export const selectLeaveWithWagesSchema = createSelectSchema(leaveWithWages, { createdAt: z.string().or(z.date()) });
+
+export type EmployeeWageRate = typeof employeeWageRates.$inferSelect;
+export const insertEmployeeWageRateSchema = createInsertSchema(employeeWageRates).omit({ id: true, createdAt: true });
+export const selectEmployeeWageRateSchema = createSelectSchema(employeeWageRates, { createdAt: z.string().or(z.date()) });
 
 export const ALL_PAYROLL_PERMISSIONS = [...ALL_PERMISSIONS, 'salary'] as const;

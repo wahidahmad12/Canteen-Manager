@@ -76,6 +76,7 @@ Preferred communication style: Simple, everyday language.
   - `overtime_register` — Overtime register (Form XXIII) linked to employees
   - `damage_deductions` — Damage/Loss register (Form XX) linked to employees
   - `leave_with_wages` — Register of Leave With Wages (Form No. 15, Rule 88 WB Factories Rule 1958) per employee per calendar year, tracking leave earned, brought forward, absences, days worked, leave allowed, wages rate/amount, payment date
+  - `employee_wage_rates` — Year-wise daily wage rates per employee (since wages change ~twice yearly). Used by Leave Register to pull correct rate for each year. Falls back to Employee Master dailyRate if no year-wise rate is set
 - **Storage Layer**: `server/storage.ts` implements `IStorage` interface with `DatabaseStorage` class, abstracting all DB operations
 
 ### Key Design Decisions
