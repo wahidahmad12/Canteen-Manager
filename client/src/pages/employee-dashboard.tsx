@@ -357,27 +357,38 @@ export default function EmployeeDashboard() {
                 </table>
               </div>
             )}
-          </CardContent>
-        </Card>
 
-        <Card className="border-blue-200 shadow-sm">
-          <CardHeader className="pb-3">
-            <CardTitle className="text-base flex items-center gap-2">
-              <Download className="w-4 h-4 text-blue-600" /> Pay Slip
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            {salary ? (
-              <div className="flex items-center justify-between">
-                <p className="text-sm text-slate-700 dark:text-slate-300">
-                  Wage slip for <span className="font-bold">{monthNames[Number(selectedMonth)]} {selectedYear}</span> — Net Pay: <span className="font-bold text-green-700 dark:text-green-400">{fmtAmt(salary.netPay)}</span>
-                </p>
-                <Button onClick={handleDownloadSlip} className="gap-2" data-testid="button-download-slip">
-                  <Download className="w-4 h-4" /> Download Pay Slip
-                </Button>
+            {salary && (
+              <div className="mt-4 pt-4 border-t border-slate-200 dark:border-slate-700">
+                <h4 className="text-sm font-bold text-slate-700 dark:text-slate-300 mb-3">{monthNames[Number(selectedMonth)]} {selectedYear} — Salary Summary</h4>
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-3">
+                  <div className="bg-emerald-50 dark:bg-emerald-950/30 rounded-lg p-3 text-center">
+                    <p className="text-lg font-bold text-emerald-700 dark:text-emerald-400" data-testid="text-total-salary">{fmtAmt(salary.grossWage)}</p>
+                    <p className="text-xs text-emerald-600">Total Salary</p>
+                  </div>
+                  <div className="bg-rose-50 dark:bg-rose-950/30 rounded-lg p-3 text-center">
+                    <p className="text-lg font-bold text-rose-700 dark:text-rose-400" data-testid="text-pf">{fmtAmt(salary.pfDeduction)}</p>
+                    <p className="text-xs text-rose-600">PF Deduction</p>
+                  </div>
+                  <div className="bg-orange-50 dark:bg-orange-950/30 rounded-lg p-3 text-center">
+                    <p className="text-lg font-bold text-orange-700 dark:text-orange-400" data-testid="text-esic">{fmtAmt(salary.esicDeduction)}</p>
+                    <p className="text-xs text-orange-600">ESIC Deduction</p>
+                  </div>
+                  <div className="bg-violet-50 dark:bg-violet-950/30 rounded-lg p-3 text-center">
+                    <p className="text-lg font-bold text-violet-700 dark:text-violet-400" data-testid="text-ptax">{fmtAmt(salary.professionalTax)}</p>
+                    <p className="text-xs text-violet-600">P.Tax Deduction</p>
+                  </div>
+                </div>
+                <div className="flex items-center justify-between bg-blue-50 dark:bg-blue-950/30 rounded-lg p-3">
+                  <div>
+                    <p className="text-xs text-blue-600">Net Pay (after deductions)</p>
+                    <p className="text-xl font-bold text-blue-700 dark:text-blue-400" data-testid="text-net-pay">{fmtAmt(salary.netPay)}</p>
+                  </div>
+                  <Button onClick={handleDownloadSlip} className="gap-2" data-testid="button-download-slip">
+                    <Download className="w-4 h-4" /> Download Pay Slip
+                  </Button>
+                </div>
               </div>
-            ) : (
-              <p className="text-sm text-muted-foreground text-center py-4">No pay slip available for {monthNames[Number(selectedMonth)]} {selectedYear}</p>
             )}
           </CardContent>
         </Card>
