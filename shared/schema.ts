@@ -205,6 +205,7 @@ export const employees = pgTable("employees", {
   accountNo: text("account_no").default(""),
   ifscCode: text("ifsc_code").default(""),
   dailyRate: numeric("daily_rate", { precision: 10, scale: 2 }).default("0"),
+  fixedHra: numeric("fixed_hra", { precision: 10, scale: 2 }).default("0"),
   gender: text("gender").default("Male"),
   dob: date("dob"),
   address: text("address").default(""),

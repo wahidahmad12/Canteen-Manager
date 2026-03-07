@@ -52,6 +52,7 @@ export default function MusterRoll() {
   const [year, setYear] = useState(String(new Date().getFullYear()));
   const [loaded, setLoaded] = useState(false);
   const [attendanceData, setAttendanceData] = useState<AttendanceMap>({});
+  const [overtimeData, setOvertimeData] = useState<Record<number, number>>({});
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const monthNum = parseInt(month);
@@ -95,16 +96,19 @@ export default function MusterRoll() {
       }
     });
 
+    const otMap: Record<number, number> = {};
     records.forEach((rec: any) => {
       if (map[rec.employeeId]) {
         for (let d = 1; d <= 31; d++) {
           const val = rec[`day${d}`] || "";
           map[rec.employeeId][`day${d}`] = val as StatusCode;
         }
+        otMap[rec.employeeId] = Number(rec.overtimeHours) || 0;
       }
     });
 
     setAttendanceData(map);
+    setOvertimeData(otMap);
     setLoaded(true);
   }, [clientName, refetchEmployees, refetchAttendance, toast]);
 
@@ -141,7 +145,7 @@ export default function MusterRoll() {
           year: yearNum,
           totalPresent,
           totalAbsent,
-          overtimeHours: 0,
+          overtimeHours: overtimeData[emp.id] || 0,
           remarks: "",
         };
         for (let d = 1; d <= 31; d++) {
@@ -313,7 +317,7 @@ export default function MusterRoll() {
 
     const headers = ["Sl.No", "Emp Name", "Designation"];
     for (let d = 1; d <= daysInMonth; d++) headers.push(String(d));
-    headers.push("Present", "Absent");
+    headers.push("Present", "Absent", "OT Hrs");
     const headerRow = ws.addRow(headers);
     headerRow.eachCell((cell) => {
       cell.font = { bold: true, size: 9 };
@@ -330,7 +334,7 @@ export default function MusterRoll() {
       for (let d = 1; d <= daysInMonth; d++) {
         rowData.push(empData[`day${d}`] || "");
       }
-      rowData.push(totalPresent, totalAbsent);
+      rowData.push(totalPresent, totalAbsent, overtimeData[emp.id] || 0);
       const r = ws.addRow(rowData);
       r.eachCell((cell, colNumber) => {
         cell.border = { top: { style: "thin" }, bottom: { style: "thin" }, left: { style: "thin" }, right: { style: "thin" } };
@@ -524,6 +528,9 @@ export default function MusterRoll() {
                         <th className="px-2 py-2 text-center font-semibold min-w-[50px] bg-red-50 dark:bg-red-950/20">
                           Absent
                         </th>
+                        <th className="px-2 py-2 text-center font-semibold min-w-[60px] bg-cyan-50 dark:bg-cyan-950/20">
+                          OT Hrs
+                        </th>
                       </tr>
                     </thead>
                     <tbody>
@@ -561,6 +568,18 @@ export default function MusterRoll() {
                             </td>
                             <td className="px-2 py-1.5 text-center font-bold bg-red-50 dark:bg-red-950/20 text-red-700 dark:text-red-300" data-testid={`total-absent-${emp.id}`}>
                               {totalAbsent}
+                            </td>
+                            <td className="px-1 py-1 text-center bg-cyan-50 dark:bg-cyan-950/20">
+                              <input
+                                type="number"
+                                min="0"
+                                step="0.5"
+                                className="w-14 h-7 text-center text-xs font-bold rounded border border-cyan-300 dark:border-cyan-700 bg-white dark:bg-slate-800 text-cyan-800 dark:text-cyan-300"
+                                value={overtimeData[emp.id] || ""}
+                                onChange={(e) => setOvertimeData(prev => ({ ...prev, [emp.id]: Number(e.target.value) || 0 }))}
+                                placeholder="0"
+                                data-testid={`ot-hours-${emp.id}`}
+                              />
                             </td>
                           </tr>
                         );

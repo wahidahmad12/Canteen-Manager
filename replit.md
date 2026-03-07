@@ -67,7 +67,7 @@ Preferred communication style: Simple, everyday language.
   - `purchase_invoices` — Purchase invoice headers with serialNumber, purchaseRequestId (optional link), clientName, vendorName, vendorInvoiceNo, date, totalAmount, totalGst, grandTotal, paymentGiven (boolean), createdBy
   - `purchase_invoice_items` — Invoice line items: itemName, uom, qty, unitPrice, totalPrice, gstRate, gstAmount, netAmount. Cascade deletes with parent invoice
   - `users` — User accounts with username (unique), passwordHash (bcrypt), displayName, role (admin/user), clientName (nullable), isActive flag
-  - `employees` — Employee Master with employeeCode (unique), name, fatherName, designation, department, clientName, government IDs (ESIC, PF, UAN, Aadhaar, PAN), bank details, dailyRate, permanentAddress, localAddress, skills, joiningDate, leavingDate, isActive
+  - `employees` — Employee Master with employeeCode (unique), name, fatherName, designation, department, clientName, government IDs (ESIC, PF, UAN, Aadhaar, PAN), bank details, dailyRate, fixedHra (monthly HRA amount), permanentAddress, localAddress, skills, joiningDate, leavingDate, isActive
   - `attendance` — Monthly attendance records with day1-day31 columns (P/A/H/WO/PH/CL/SL/EL), unique on (employeeId, month, year)
   - `salary_records` — Monthly salary with basicWage, DA, HRA, gross, PF/ESIC/PT deductions, netPay, overtime. Unique on (employeeId, month, year)
   - `fines` — Fine register (Form XXI) linked to employees

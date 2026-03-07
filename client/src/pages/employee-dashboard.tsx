@@ -361,10 +361,28 @@ export default function EmployeeDashboard() {
             {salary && (
               <div className="mt-4 pt-4 border-t border-slate-200 dark:border-slate-700">
                 <h4 className="text-sm font-bold text-slate-700 dark:text-slate-300 mb-3">{monthNames[Number(selectedMonth)]} {selectedYear} — Salary Summary</h4>
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-3">
+                <div className="grid grid-cols-3 sm:grid-cols-3 gap-2 mb-3 text-xs">
+                  <div className="bg-slate-50 dark:bg-slate-800/40 rounded-lg p-2 text-center">
+                    <p className="font-bold text-slate-700 dark:text-slate-300" data-testid="text-basic-wage">{fmtAmt(salary.basicWage)}</p>
+                    <p className="text-[10px] text-slate-500">Basic Wage</p>
+                  </div>
+                  <div className="bg-slate-50 dark:bg-slate-800/40 rounded-lg p-2 text-center">
+                    <p className="font-bold text-slate-700 dark:text-slate-300" data-testid="text-hra">{fmtAmt(salary.hra)}</p>
+                    <p className="text-[10px] text-slate-500">HRA</p>
+                  </div>
+                  <div className="bg-slate-50 dark:bg-slate-800/40 rounded-lg p-2 text-center">
+                    <p className="font-bold text-slate-700 dark:text-slate-300">{salary.daysWorked} days</p>
+                    <p className="text-[10px] text-slate-500">Days Worked</p>
+                  </div>
+                </div>
+                <div className="grid grid-cols-2 sm:grid-cols-5 gap-3 mb-3">
                   <div className="bg-emerald-50 dark:bg-emerald-950/30 rounded-lg p-3 text-center">
                     <p className="text-lg font-bold text-emerald-700 dark:text-emerald-400" data-testid="text-total-salary">{fmtAmt(salary.grossWage)}</p>
-                    <p className="text-xs text-emerald-600">Total Salary</p>
+                    <p className="text-xs text-emerald-600">Gross Salary</p>
+                  </div>
+                  <div className="bg-cyan-50 dark:bg-cyan-950/30 rounded-lg p-3 text-center">
+                    <p className="text-lg font-bold text-cyan-700 dark:text-cyan-400" data-testid="text-overtime">{salary.overtimeHours || '0'}h = {fmtAmt(salary.overtimeAmount)}</p>
+                    <p className="text-xs text-cyan-600">Overtime</p>
                   </div>
                   <div className="bg-rose-50 dark:bg-rose-950/30 rounded-lg p-3 text-center">
                     <p className="text-lg font-bold text-rose-700 dark:text-rose-400" data-testid="text-pf">{fmtAmt(salary.pfDeduction)}</p>
