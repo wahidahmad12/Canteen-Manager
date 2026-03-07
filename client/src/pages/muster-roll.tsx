@@ -404,12 +404,18 @@ export default function MusterRoll() {
           .print-full { overflow: visible !important; max-height: none !important; }
           .print-title-block { display: block !important; }
 
-          .print-table { font-size: 7.5pt !important; border-collapse: collapse !important; width: 100% !important; }
+          .print-table { font-size: 7.5pt !important; border-collapse: collapse !important; width: 100% !important; border: 2px solid #333 !important; }
           .print-table th, .print-table td { 
             padding: 2px 2px !important; 
             border: 1px solid #555 !important;
             text-align: center !important;
           }
+          .print-table thead tr:first-child th:first-child { border-left: 2px solid #333 !important; }
+          .print-table thead tr:first-child th:last-child { border-right: 2px solid #333 !important; }
+          .print-table thead tr:first-child th { border-top: 2px solid #333 !important; }
+          .print-table tbody tr:last-child td { border-bottom: 2px solid #333 !important; }
+          .print-table tbody tr td:first-child { border-left: 2px solid #333 !important; }
+          .print-table tbody tr td:last-child { border-right: 2px solid #333 !important; }
           .print-table thead tr { background: #1565c0 !important; }
           .print-table th { 
             background: #1565c0 !important; 
