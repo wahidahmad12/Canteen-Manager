@@ -1,0 +1,158 @@
+
+
+npm run dev
+12m
+ • 
+12 minutes ago
+Port :5000 opened on
+Production
+Status
+Wahid published about 1 hour ago
+Visibility
+Public
+Domain
+https://canteen-manager-wahid125.replit.app
+Type
+Autoscale
+(4 vCPU / 8 GiB RAM / 3 Max)
+See all usage
+Database
+Production database connected
+7e71339d
+WA
+wahid125
+Wahid
+published about 1 hour ago
+7479057d
+WA
+wahid125
+Wahid
+published about 3 hours ago
+797b18a1
+WA
+wahid125
+Wahid
+published about 4 hours ago
+c47cd46c
+WA
+wahid125
+Wahid
+published about 5 hours ago
+3006844d
+WA
+wahid125
+Wahid
+published about 5 hours ago
+ab3746ce
+WA
+wahid125
+Wahid
+published about 6 hours ago
+1cbe023c
+WA
+wahid125
+Wahid
+published about 6 hours ago
+614dd1d4
+WA
+wahid125
+Wahid
+published about 6 hours ago
+13fe6632
+WA
+wahid125
+Wahid
+published about 6 hours ago
+068983f7
+WA
+wahid125
+Wahid
+published about 7 hours ago
+7c5a5c4f
+WA
+wahid125
+Wahid
+published about 7 hours ago
+5e2a9a31
+WA
+wahid125
+Wahid
+published about 7 hours ago
+744431a3
+WA
+wahid125
+Wahid
+published about 7 hours ago
+bb58ab2c
+WA
+wahid125
+Wahid
+published about 8 hours ago
+d4f8cb1b
+WA
+wahid125
+Wahid
+published about 23 hours ago
+b46bc8bb
+WA
+wahid125
+Wahid
+published about 23 hours ago
+63e863b5
+WA
+wahid125
+Wahid
+published about 23 hours ago
+72246e5c
+WA
+wahid125
+Wahid
+published about 24 hours ago
+5ba9ba99
+WA
+wahid125
+Wahid
+published about 24 hours ago
+Improve application stability by gracefully handling database connection errors
+I've improved the mobile responsiveness across all the main pages. Buttons now wrap properly on small screens with shorter labels, filter grids use 2-column layouts on mobile, and the Muster Roll and Salary action bars use consistent flex-wrap instead of rigid grids. Does everything look good on your phone?
+
+Register Of Leave With Wages Page No. 1
+Name BABLU ROY Register Of Leave With Wages In Case of discharged or dismissed workers
+Department Canteen Prescribed Under Rule 88 of the West Bengal Factories Rule, 1958 Date of Discharge or Dismissal
+Serial No. In the Register of Form No. 15 Date & Amount of Payment mode in lieu of Leave Due
+Adult / Child Workers Adult Amount Of Payment Mode Rs. P.
+Date of entry into Service 01-11-2020 Date of Payment
+
+Calender Year No. of Days Leave earned in the immediately Preceeding Calender Year No. Of days Leave Brought forward (From Previous Year Or Years). Date of Absence Actual No. of days worked during the calender year Shown in Column 1 Date Forom which the worker is allowed leave (Shown in Coummns 2 & 3) and No of days allowed Rate of wages for the Period of Leave Amount of wages for the period of Leave Date of Payment Remarks Signature of the Manager or his agent
+Lay Off Maternity Leave (Female Worker) Leave earned in the Immediately Preceeding calender year and enjoyed during the Year Others
+Leave Earned Leave Enjoyed Date No of days allowed Rs. P. Rs. P.
+1 2 3 4 5 6 7 8 9 10 11 12 13 14
+2020 2 0 53 NA NA 377 0 754 0 07-11-2021
+2021 15 0 310 NA NA 377 0 5655 0 07-03-2022
+2022 15 0 296 NA NA 414 0 6210 0 07-01-2023
+2023 15 0 303 NA NA 414 0 6210 0 07-02-2024
+2024
+2025
+2026
+2027
+
+I've built the Register of Leave With Wages (Form No. 15) page. You can find it under Labour Works in the sidebar. It lets you select a client and employee, then add/edit/delete yearly leave records. The Print button generates the full government format (A3 landscape) matching your image layout with all the proper headers, 14 columns, and employee details. Does everything look right?
+
+I fixed the error - the client names data wasn't being loaded correctly. The page should work now. Can you try it again?
+
+The app failed to run, please debug and fix it.
+
+The app is running now. The crash was caused by the database connection failing on startup — I've added error handling so the server stays up even when the database is temporarily unavailable. Does the page load for you now?
+
+Authenticated Database
+
+The database is currently having connection issues with the Google Cloud SQL server. The app is running but can't reach the database. This is likely a temporary network issue with the remote database at 34.100.151.246.
+
+Is there anything specific you'd like me to do regarding the database connection, or are you just letting me know it's back up?
+
+Authenticated Database
+
+The app is back up with the database connected. Would you like to test the Leave With Wages page or is there anything else you need?
+
+The app failed to run, please debug and fix it.
+

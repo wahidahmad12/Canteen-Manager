@@ -931,6 +931,8 @@ export async function registerRoutes(
 // Helper to seed some initial data
 async function seedDatabase() {
   try {
+    const { dbReady } = await import("./db");
+    await dbReady;
     await storage.seedAdminUser();
 
     const vegetableNames = [
