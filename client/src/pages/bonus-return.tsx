@@ -15,6 +15,7 @@ import { useClientNames } from '@/hooks/use-reports';
 import { useToast } from '@/hooks/use-toast';
 import { Link } from 'wouter';
 import type { Employee, BonusReturn } from '@shared/schema';
+import { LETTERHEAD_HTML, getCoverLetterPrintStyles } from '@/lib/letterhead';
 
 interface SalaryRecord {
   id: number;
@@ -180,18 +181,7 @@ export default function BonusReturn() {
     const printWindow = window.open('', '_blank');
     if (!printWindow) return;
     printWindow.document.write(`<!DOCTYPE html><html><head><title>${title}</title>
-      <style>
-        @page { size: A4 portrait; margin: 20mm; }
-        body { margin: 0; padding: 0; font-family: 'Times New Roman', Georgia, serif; font-size: 13px; line-height: 1.7; color: #000; }
-        .letterhead { text-align: center; margin-bottom: 24px; padding-bottom: 12px; border-bottom: 2px solid #222; }
-        .letterhead h2 { font-size: 18px; font-weight: bold; margin: 0 0 4px 0; letter-spacing: 0.5px; }
-        .letterhead .contact { font-size: 10px; margin: 2px 0; color: #333; }
-        .letterhead .address { font-size: 10px; margin: 2px 0; color: #333; }
-        .letterhead .cin { font-size: 9px; margin: 2px 0; color: #555; }
-        .ref-line { display: flex; justify-content: space-between; margin-bottom: 20px; font-size: 13px; }
-        p { margin: 4px 0; }
-        .subject { text-align: center; font-weight: bold; margin: 15px 0; }
-      </style>
+      <style>${getCoverLetterPrintStyles()}</style>
     </head><body>${coverArea.innerHTML}</body></html>`);
     printWindow.document.close();
     printWindow.onload = () => {
@@ -636,13 +626,7 @@ export default function BonusReturn() {
                 </div>
 
                 <div id="bonus-cover-print" className="hidden">
-                  <div className="letterhead">
-                    <h2>DJ HOSPITALITY & FACILITY MANAGEMENT PRIVATE LIMITED</h2>
-                    <p className="contact">Ph.: +91 8668673870 | Email: djfoods15@yahoo.in | Sales@djfoods.in | Web: www.djfoods.in</p>
-                    <p className="address">Regd. & Head Office: 730, Tin Made, Sodiem Siolim, Mapusa Bardez, North Goa-403502, India</p>
-                    <p className="address">Branch Office: 7 Crematorium Street, Kolkata- 700014</p>
-                    <p className="cin">CIN: U74910GA2020PTC014271</p>
-                  </div>
+                  <div dangerouslySetInnerHTML={{ __html: LETTERHEAD_HTML }} />
                   <div className="ref-line">
                     <span>Ref. {refNumber || '___________'}</span>
                     <span>Date: {letterDate ? letterDate.split('-').reverse().join('-') : '___/___/______'}</span>
