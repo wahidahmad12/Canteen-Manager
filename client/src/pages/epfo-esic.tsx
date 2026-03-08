@@ -254,10 +254,12 @@ export default function EpfoEsicPage() {
       for (const [clientName, rows] of clientGroups) {
         buildEsicSheet(wb, rows, clientName);
       }
+      addEsicInstructionsSheet(wb);
       const buf = await wb.xlsx.writeBuffer();
       downloadBuffer(buf, `ESIC_All_Clients_${MONTHS[month - 1]}_${year}.xlsx`);
     } else {
       buildEsicSheet(wb, esicData, selectedClient);
+      addEsicInstructionsSheet(wb);
       const buf = await wb.xlsx.writeBuffer();
       downloadBuffer(buf, `ESIC_${selectedClient.replace(/\s+/g, '_')}_${MONTHS[month - 1]}_${year}.xlsx`);
     }
@@ -309,6 +311,9 @@ export default function EpfoEsicPage() {
       { width: 16 }, { width: 28 }, { width: 20 }, { width: 18 }, { width: 22 }, { width: 20 },
     ];
 
+  };
+
+  const addEsicInstructionsSheet = (wb: any) => {
     const ws2 = wb.addWorksheet("Instructions & Reason Codes");
     ws2.addRow(["Reason", "Code", "Note"]);
     ws2.addRow(["Without Reason", 0, "Leave last working day as blank"]);
