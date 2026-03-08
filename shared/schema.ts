@@ -397,6 +397,34 @@ export const adminSettings = pgTable("admin_settings", {
   adminPin: text("admin_pin").notNull().default("1234"),
 });
 
+export const halfYearlyReturns = pgTable("half_yearly_returns", {
+  id: serial("id").primaryKey(),
+  clientName: text("client_name").notNull(),
+  halfYear: text("half_year").notNull(),
+  year: integer("year").notNull(),
+  refNumber: text("ref_number"),
+  letterDate: text("letter_date"),
+  formDate: text("form_date"),
+  contractFrom: text("contract_from"),
+  contractTo: text("contract_to"),
+  principalDays: text("principal_days"),
+  contractorDays: text("contractor_days"),
+  dailyHours: text("daily_hours"),
+  weeklyHoliday: text("weekly_holiday"),
+  holidayPaid: text("holiday_paid"),
+  lwfMen: text("lwf_men"),
+  lwfWomen: text("lwf_women"),
+  canteen: text("canteen"),
+  restRoom: text("rest_room"),
+  drinkingWater: text("drinking_water"),
+  creches: text("creches"),
+  firstAid: text("first_aid"),
+  licenceNo: text("licence_no"),
+  principalAddress: text("principal_address"),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
 // === RELATIONS ===
 export const dailyReportsRelations = relations(dailyReports, ({ many, one }) => ({
   items: many(expenseItems),
@@ -618,3 +646,7 @@ export const selectSkillWageRateSchema = createSelectSchema(skillWageRates, { cr
 export const SKILL_CATEGORIES = ["Unskilled", "Semi Skilled", "Skilled", "High Skilled"] as const;
 
 export const ALL_PAYROLL_PERMISSIONS = [...ALL_PERMISSIONS, 'salary'] as const;
+
+export type HalfYearlyReturn = typeof halfYearlyReturns.$inferSelect;
+export const insertHalfYearlyReturnSchema = createInsertSchema(halfYearlyReturns).omit({ id: true, createdAt: true, updatedAt: true });
+export const selectHalfYearlyReturnSchema = createSelectSchema(halfYearlyReturns, { createdAt: z.string().or(z.date()), updatedAt: z.string().or(z.date()) });

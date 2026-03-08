@@ -29,6 +29,7 @@ import {
   leaveWithWages,
   employeeWageRates,
   skillWageRates,
+  halfYearlyReturns,
   type DailyReport, 
   type ExpenseItem,
   type CreateReportRequest,
@@ -57,6 +58,7 @@ import {
   type LeaveWithWages,
   type EmployeeWageRate,
   type SkillWageRate,
+  type HalfYearlyReturn,
 } from "@shared/schema";
 import { eq, desc, lt, and, sql } from "drizzle-orm";
 import bcrypt from "bcryptjs";
@@ -162,6 +164,10 @@ export interface IStorage {
   getSkillWageRate(skillCategory: string, month: number, year: number): Promise<SkillWageRate | undefined>;
   createOrUpdateSkillWageRate(data: any): Promise<SkillWageRate>;
   deleteSkillWageRate(id: number): Promise<void>;
+  getHalfYearlyReturns(clientName?: string): Promise<HalfYearlyReturn[]>;
+  getHalfYearlyReturn(clientName: string, halfYear: string, year: number): Promise<HalfYearlyReturn | undefined>;
+  saveHalfYearlyReturn(data: any): Promise<HalfYearlyReturn>;
+  deleteHalfYearlyReturn(id: number): Promise<void>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -1199,6 +1205,34 @@ export class DatabaseStorage implements IStorage {
   }
   async deleteSkillWageRate(id: number): Promise<void> {
     await db.delete(skillWageRates).where(eq(skillWageRates.id, id));
+  }
+
+  async getHalfYearlyReturns(clientName?: string): Promise<HalfYearlyReturn[]> {
+    if (clientName) {
+      return await db.select().from(halfYearlyReturns).where(eq(halfYearlyReturns.clientName, clientName)).orderBy(desc(halfYearlyReturns.year));
+    }
+    return await db.select().from(halfYearlyReturns).orderBy(desc(halfYearlyReturns.year));
+  }
+
+  async getHalfYearlyReturn(clientName: string, halfYear: string, year: number): Promise<HalfYearlyReturn | undefined> {
+    const [record] = await db.select().from(halfYearlyReturns).where(
+      and(eq(halfYearlyReturns.clientName, clientName), eq(halfYearlyReturns.halfYear, halfYear), eq(halfYearlyReturns.year, year))
+    );
+    return record;
+  }
+
+  async saveHalfYearlyReturn(data: any): Promise<HalfYearlyReturn> {
+    const existing = await this.getHalfYearlyReturn(data.clientName, data.halfYear, data.year);
+    if (existing) {
+      const [updated] = await db.update(halfYearlyReturns).set({ ...data, updatedAt: new Date() }).where(eq(halfYearlyReturns.id, existing.id)).returning();
+      return updated;
+    }
+    const [created] = await db.insert(halfYearlyReturns).values(data).returning();
+    return created;
+  }
+
+  async deleteHalfYearlyReturn(id: number): Promise<void> {
+    await db.delete(halfYearlyReturns).where(eq(halfYearlyReturns.id, id));
   }
 }
 

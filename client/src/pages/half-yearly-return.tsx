@@ -1,14 +1,16 @@
-import { useState, useMemo } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { useState, useMemo, useEffect } from 'react';
+import { useQuery, useMutation } from '@tanstack/react-query';
 import { Layout } from '@/components/layout';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
-import { Printer, ArrowLeft, Building2, RefreshCw } from 'lucide-react';
+import { Printer, ArrowLeft, Building2, RefreshCw, Save, Loader2 } from 'lucide-react';
 import { useClientNames } from '@/hooks/use-reports';
 import { Link } from 'wouter';
+import { apiRequest, queryClient } from '@/lib/queryClient';
+import { useToast } from '@/hooks/use-toast';
 import type { Employee } from '@shared/schema';
 
 interface SalaryRecord {
@@ -28,12 +30,8 @@ interface SalaryRecord {
 
 export default function HalfYearlyReturn() {
   const { data: clientNames = [] } = useClientNames();
+  const { toast } = useToast();
   const [selectedClient, setSelectedClient] = useState('');
-  const handleClientChange = (val: string) => {
-    setSelectedClient(val);
-    const c = clientNames.find((cl: any) => cl.name === val);
-    setPrincipalAddress(c?.address || "");
-  };
   const currentYear = new Date().getFullYear();
   const currentMonth = new Date().getMonth() + 1;
   const defaultHalf = currentMonth <= 6 ? 'H2' : 'H1';
@@ -62,8 +60,71 @@ export default function HalfYearlyReturn() {
   const [firstAid, setFirstAid] = useState('Provided');
   const [licenceNo, setLicenceNo] = useState('KOL01/CLL/001435, DT-27.11.2020, P.S-TARATALA, Ward-79');
   const [principalAddress, setPrincipalAddress] = useState('');
+  const [savedId, setSavedId] = useState<number | null>(null);
 
   const year = Number(selectedYear);
+
+  const { data: savedReturn } = useQuery({
+    queryKey: ['/api/half-yearly-returns/lookup', selectedClient, halfYear, year],
+    queryFn: async () => {
+      const res = await fetch(`/api/half-yearly-returns/lookup?clientName=${encodeURIComponent(selectedClient)}&halfYear=${halfYear}&year=${year}`, { credentials: 'include' });
+      if (!res.ok) return null;
+      return res.json();
+    },
+    enabled: !!selectedClient,
+  });
+
+  useEffect(() => {
+    if (savedReturn) {
+      setRefNumber(savedReturn.refNumber || '');
+      setLetterDate(savedReturn.letterDate || '');
+      setFormDate(savedReturn.formDate || '');
+      setContractFrom(savedReturn.contractFrom || '');
+      setContractTo(savedReturn.contractTo || '');
+      setPrincipalDays(savedReturn.principalDays || '');
+      setContractorDays(savedReturn.contractorDays || '');
+      setDailyHours(savedReturn.dailyHours || '8hrs. And 2Hrs spread over-time.');
+      setWeeklyHoliday(savedReturn.weeklyHoliday || 'Yes. On Sunday.');
+      setHolidayPaid(savedReturn.holidayPaid || 'Yes.');
+      setLwfMen(savedReturn.lwfMen || '');
+      setLwfWomen(savedReturn.lwfWomen || '');
+      setCanteen(savedReturn.canteen || 'Provided');
+      setRestRoom(savedReturn.restRoom || 'Provided');
+      setDrinkingWater(savedReturn.drinkingWater || 'Provided');
+      setCreches(savedReturn.creches || 'N/A');
+      setFirstAid(savedReturn.firstAid || 'Provided');
+      setLicenceNo(savedReturn.licenceNo || 'KOL01/CLL/001435, DT-27.11.2020, P.S-TARATALA, Ward-79');
+      setPrincipalAddress(savedReturn.principalAddress || '');
+      setSavedId(savedReturn.id);
+    } else {
+      setSavedId(null);
+    }
+  }, [savedReturn]);
+
+  const handleClientChange = (val: string) => {
+    setSelectedClient(val);
+    const c = clientNames.find((cl: any) => cl.name === val);
+    if (!savedReturn) setPrincipalAddress(c?.address || "");
+  };
+
+  const saveMutation = useMutation({
+    mutationFn: async () => {
+      return apiRequest('POST', '/api/half-yearly-returns', {
+        clientName: selectedClient, halfYear, year,
+        refNumber, letterDate, formDate, contractFrom, contractTo,
+        principalDays, contractorDays, dailyHours, weeklyHoliday, holidayPaid,
+        lwfMen, lwfWomen, canteen, restRoom, drinkingWater, creches, firstAid,
+        licenceNo, principalAddress,
+      });
+    },
+    onSuccess: () => {
+      toast({ title: 'Saved', description: 'Half-Yearly Return saved successfully' });
+      queryClient.invalidateQueries({ queryKey: ['/api/half-yearly-returns/lookup', selectedClient, halfYear, year] });
+    },
+    onError: () => {
+      toast({ title: 'Error', description: 'Failed to save', variant: 'destructive' });
+    },
+  });
   const months = halfYear === 'H1' ? [1, 2, 3, 4, 5, 6] : [7, 8, 9, 10, 11, 12];
   const halfLabel = halfYear === 'H1' ? `30th June- ${year}` : `31st December- ${year}`;
 
@@ -237,7 +298,10 @@ export default function HalfYearlyReturn() {
             </div>
           </div>
           {selectedClient && (
-            <div className="flex gap-2">
+            <div className="flex flex-wrap gap-2">
+              <Button onClick={() => saveMutation.mutate()} disabled={saveMutation.isPending} size="sm" className="gap-2" data-testid="button-save">
+                {saveMutation.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />} {savedId ? 'Update' : 'Save'}
+              </Button>
               <Button onClick={handlePrintCover} variant="outline" size="sm" className="gap-2" data-testid="button-print-cover">
                 <Printer className="w-4 h-4" /> Cover Letter
               </Button>

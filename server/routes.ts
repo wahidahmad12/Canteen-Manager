@@ -1106,6 +1106,29 @@ export async function registerRoutes(
     res.status(204).send();
   });
 
+  app.get("/api/half-yearly-returns", requireAuth, async (req, res) => {
+    const clientName = req.query.clientName as string | undefined;
+    const records = await storage.getHalfYearlyReturns(clientName);
+    res.json(records);
+  });
+
+  app.get("/api/half-yearly-returns/lookup", requireAuth, async (req, res) => {
+    const { clientName, halfYear, year } = req.query;
+    if (!clientName || !halfYear || !year) return res.status(400).json({ message: "clientName, halfYear, year required" });
+    const record = await storage.getHalfYearlyReturn(clientName as string, halfYear as string, Number(year));
+    res.json(record || null);
+  });
+
+  app.post("/api/half-yearly-returns", requireAuth, async (req, res) => {
+    const record = await storage.saveHalfYearlyReturn(req.body);
+    res.json(record);
+  });
+
+  app.delete("/api/half-yearly-returns/:id", requireAdmin, async (req, res) => {
+    await storage.deleteHalfYearlyReturn(Number(req.params.id));
+    res.status(204).send();
+  });
+
   return httpServer;
 }
 
