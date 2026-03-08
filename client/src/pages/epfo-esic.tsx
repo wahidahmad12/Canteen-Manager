@@ -315,21 +315,78 @@ export default function EpfoEsicPage() {
 
   const addEsicInstructionsSheet = (wb: any) => {
     const ws2 = wb.addWorksheet("Instructions & Reason Codes");
-    ws2.addRow(["Reason", "Code", "Note"]);
-    ws2.addRow(["Without Reason", 0, "Leave last working day as blank"]);
-    ws2.addRow(["On Leave", 1, "Leave last working day as blank"]);
-    ws2.addRow(["Left Service", 2, "Please provide last working day (dd/mm/yyyy). IP will not appear from next wage period"]);
-    ws2.addRow(["Retired", 3, "Please provide last working day (dd/mm/yyyy). IP will not appear from next wage period"]);
-    ws2.addRow(["Out of Coverage", 4, "Please provide last working day (dd/mm/yyyy). IP will not appear from next contribution period."]);
-    ws2.addRow(["Expired", 5, "Please provide last working day (dd/mm/yyyy). IP will not appear from next wage period"]);
-    ws2.addRow(["Non Implemented area", 6, "Please provide last working day (dd/mm/yyyy)."]);
 
-    const hdrRow = ws2.getRow(1);
-    hdrRow.eachCell((cell: any) => {
-      cell.font = { bold: true };
-      cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFD9E1F2" } };
-    });
-    ws2.columns = [{ width: 22 }, { width: 8 }, { width: 80 }];
+    const reasonData = [
+      ["Reason", "Code", "Note"],
+      ["Without Reason", 0, "Leave last working day as blank"],
+      ["On Leave", 1, "Leave last working day as blank"],
+      ["Left Service", 2, "Please provide last working day (dd/mm/yyyy). IP will not appear from next wage period"],
+      ["Retired", 3, "Please provide last working day (dd/mm/yyyy). IP will not appear from next wage period"],
+      ["Out of Coverage", 4, "Please provide last working day (dd/mm/yyyy). IP will not appear from next contribution period. This option is valid only if Wage Period is April/October. In case any other month then IP will continue to appear in the list"],
+      ["Expired", 5, "Please provide last working day (dd/mm/yyyy). IP will not appear from next wage period"],
+      ["Non Implemented area", 6, "Please provide last working day (dd/mm/yyyy)."],
+      ["Compliance by Immediate Employer", 7, "Leave last working day as blank"],
+      ["Suspension of work", 8, "Leave last working day as blank"],
+      ["Strike/Lockout", 9, "Leave last working day as blank"],
+      ["Retrenchment", 10, "Please provide last working day (dd/mm/yyyy). IP will not appear from next wage period"],
+      ["No Work", 11, "Leave last working day as blank"],
+      ["Doesnt Belong To This Employer", 12, "Leave last working day as blank"],
+      ["Duplicate IP", 13, "Leave last working day as blank"],
+    ];
+
+    for (let i = 0; i < reasonData.length; i++) {
+      const row = ws2.addRow(reasonData[i]);
+      row.eachCell((cell: any) => {
+        cell.border = {
+          top: { style: "thin" }, bottom: { style: "thin" },
+          left: { style: "thin" }, right: { style: "thin" },
+        };
+        if (i === 0) {
+          cell.font = { bold: true };
+          cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FF00FFFF" } };
+        }
+      });
+    }
+
+    ws2.addRow([]);
+    const linkRow = ws2.addRow(["Click Here to Go back to Data Entry Page"]);
+    linkRow.getCell(1).font = { color: { argb: "FF0000FF" }, underline: true, size: 12 };
+
+    ws2.addRow([]);
+    const instrTitle = ws2.addRow(["Instructions to fill in the excel file:"]);
+    instrTitle.getCell(1).font = { bold: true, underline: true, size: 11 };
+
+    const instructions = [
+      "1. Enter the IP number,  IP name, No. of Days, Total Monthly Wages, Reason for 0 wages(If Wages '0') & Last Working Day( only if employee has left service, Retired, Out of coverage, Expired, Non-Implemented area or Retrenchment. For other reasons,  last working day  must be left  BLANK).",
+      "2. Number of days must me a whole number.  Fractions should be rounded up to next higher whole number/integer",
+      "3. Excel sheet upload will lead to successful transaction only when all the Employees' (who are currently mapped in the system) details are entered perfectly in the excel sheet",
+      "4. Reasons are to be assigned numeric code  and date has to be provided as mentioned in the table above",
+      "5. Once  0 wages given and last working day is mentioned as in reason codes (2,3,4,5,10)  IP will be removed from the employer's record. Subsequent months will not have this IP listed under the employer. Last working day should be mentioned only if 'Number of days wages paid/payable' is '0'.",
+      "6. In case IP has worked for part of the month(i.e. atleast 1 day wage is paid/payable) and left in between of the month, then last working day shouldn't be mentioned.",
+      "7. Calculations – IP Contribution and Employer contribution calculation will be automatically done by the system",
+      "8. Date  column format is  dd/mm/yyyy or dd-mm-yyyy.  Pad single digit dates with 0.  Eg:- 2/5/2010  or  2-May-2010 is NOT acceptable.  Correct format  is 02/05/2010 or 02-05-2010",
+      "9. Excel file should be saved in .xls format (Excel 97-2003)",
+      "10. Note that all the column including date column should be in 'Text' format",
+      "10a. To convert  all columns to text,",
+      "    a.  Select column A; Click Data in Menu Bar on top;  Select Text to Columns ; Click Next (keep default selection of Delimited);  Click Next (keep default selection of Tab); Select  TEXT;  Click FINISH.   Excel 97 – 2003 as well have TEXT to COLUMN  conversion facility",
+      "    b.  Repeat the above step for each of the 6 columns. (Columns A – F )",
+      "10b.  Another method that can be used to text conversion is – copy the column with data and paste it in NOTEPAD.  Select the column (in excel) and convert to text. Copy the data back from notepad to excel",
+      "11.  If problem continues while upload,  download a fresh template by clicking 'Sample MC Excel Template'. Then copy the data area from Step 8a.a – eg:  copy Cell A2 to F8 (if there is data in 8 rows);  Paste it in cell A2 in the fresh template. Upload it",
+    ];
+
+    for (const line of instructions) {
+      ws2.addRow([line]);
+    }
+
+    ws2.addRow([]);
+    const noteRow = ws2.addRow(["Note :   Kindly turn  OFF  'POP UP BLOCKER' if it is ON in your  browser.  Follow the steps given to turn off  pop up blocker ."]);
+    noteRow.getCell(1).font = { bold: true };
+    ws2.addRow(["         This  is required to  upload Monthly contribution,  view or print  Challan /  TIC after uploading the excel"]);
+    ws2.addRow([]);
+    ws2.addRow(["    1.Mozilla Firefox 3.5.11 :  From Menu Bar, select  Tools → Options → Content → Uncheck (remove tick mark)  'Block Popup Windows'.  Click OK"]);
+    ws2.addRow(["    2. IE 7.0 :    From Menu Bar, select  Tools → Pop up Blocker → Turn Off Pop up Blocker"]);
+
+    ws2.columns = [{ width: 32 }, { width: 8 }, { width: 100 }];
   };
 
   const downloadBuffer = (buffer: any, filename: string) => {
