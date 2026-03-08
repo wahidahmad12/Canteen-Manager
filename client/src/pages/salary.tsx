@@ -366,7 +366,7 @@ export default function SalaryRegister() {
   const [salaryPrintSelectedIds, setSalaryPrintSelectedIds] = useState<Set<number>>(new Set());
 
   const salaryPrintEmployeeList = useMemo(() => {
-    return (salaries || []).map(s => {
+    return (salaries || []).filter(s => employeeMap.has(s.employeeId)).map(s => {
       const emp = employeeMap.get(s.employeeId);
       return { id: s.employeeId, name: emp?.name || `Employee #${s.employeeId}`, employeeCode: emp?.employeeCode };
     });
@@ -526,7 +526,8 @@ export default function SalaryRegister() {
 
   const { rows, totals } = useMemo(() => {
     if (!salaries || salaries.length === 0) return { rows: [] as ReturnType<typeof computeRow>[], totals: null };
-    const rs = salaries.map(computeRow);
+    const validSalaries = salaries.filter(s => employeeMap.has(s.employeeId));
+    const rs = validSalaries.map(computeRow);
     const sum = (fn: (r: ReturnType<typeof computeRow>) => number) => rs.reduce((a, r) => a + fn(r), 0);
     return {
       rows: rs,
