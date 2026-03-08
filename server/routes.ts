@@ -1183,7 +1183,7 @@ export async function registerRoutes(
   });
 
   // === SKILL WAGE RATES (Month/Year-wise by Skill Category) ===
-  app.get("/api/skill-wage-rates", requireAdmin, async (req, res) => {
+  app.get("/api/skill-wage-rates", requireAuth, async (req, res) => {
     const year = req.query.year ? Number(req.query.year) : undefined;
     const rates = await storage.getSkillWageRates(year);
     res.json(rates);

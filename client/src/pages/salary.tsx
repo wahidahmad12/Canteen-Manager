@@ -129,9 +129,9 @@ function formatDateStr(d: string | undefined | null): string {
   try { const dt = new Date(d); return dt.toLocaleDateString("en-IN", { day: "2-digit", month: "2-digit", year: "numeric" }); } catch { return d; }
 }
 
-function buildSlipHTML(salary: SalaryRecord, employee: Employee | undefined, attendance: AttendanceRecord | undefined, logoSrc: string): string {
+function buildSlipHTML(salary: SalaryRecord, employee: Employee | undefined, attendance: AttendanceRecord | undefined, logoSrc: string, skillBasicRate?: number): string {
   const n = (v: string | undefined | null) => Number(v) || 0;
-  const basicRate = n(employee?.dailyRate);
+  const basicRate = skillBasicRate !== undefined ? skillBasicRate : n(employee?.dailyRate);
   const basic = n(salary.basicWage);
   const hra5 = Math.round(basic * 0.05);
   const fixedHRA = n(salary.hra);
@@ -355,6 +355,24 @@ export default function SalaryRegister() {
     enabled: loaded && !!clientName,
   });
 
+  const { data: skillWageRates = [] } = useQuery<{ id: number; skillCategory: string; month: number; year: number; dailyRate: string }[]>({
+    queryKey: ["/api/skill-wage-rates", year],
+    queryFn: async () => {
+      const res = await fetch(`/api/skill-wage-rates?year=${year}`, { credentials: "include" });
+      if (!res.ok) return [];
+      return res.json();
+    },
+    enabled: !!year,
+  });
+
+  const skillRateMap = useMemo(() => {
+    const map = new Map<string, number>();
+    for (const r of skillWageRates) {
+      map.set(`${r.skillCategory}_${r.month}_${r.year}`, Number(r.dailyRate));
+    }
+    return map;
+  }, [skillWageRates]);
+
   const employeeMap = useMemo(() => {
     const map = new Map<number, Employee>();
     employees?.forEach((e) => map.set(e.id, e));
@@ -398,7 +416,9 @@ export default function SalaryRegister() {
         const s = salaries[i];
         const emp = employeeMap.get(s.employeeId);
         const att = attendanceList?.find((a) => a.employeeId === s.employeeId);
-        const html = buildSlipHTML(s, emp, att, logoPath);
+        const empSkill = emp?.skills || "";
+        const sRate = skillRateMap.get(`${empSkill}_${month}_${year}`);
+        const html = buildSlipHTML(s, emp, att, logoPath, sRate);
 
         container.innerHTML = html;
 
@@ -490,7 +510,9 @@ export default function SalaryRegister() {
     if (prsDays === 0) prsDays = n(att?.totalPresent) || n(s.daysWorked);
     const paidDays = n(s.daysWorked);
     const otHrs = n(s.overtimeHours);
-    const basicRate = n(emp?.dailyRate);
+    const skillCategory = emp?.skills || "";
+    const skillBasedRate = skillRateMap.get(`${skillCategory}_${month}_${year}`);
+    const basicRate = skillBasedRate !== undefined ? skillBasedRate : n(emp?.dailyRate);
     const basicWage = n(s.basicWage);
     const hra5 = Math.round(basicWage * 0.05);
     const fixedHRA = n(s.hra);
@@ -522,7 +544,7 @@ export default function SalaryRegister() {
       pfEmployer, esicEmployer, bonus, employerTotal,
       serviceCharge, afterService, gst, finalTotal,
     };
-  }, [employeeMap, attendanceList]);
+  }, [employeeMap, attendanceList, skillRateMap, month, year]);
 
   const { rows, totals } = useMemo(() => {
     if (!salaries || salaries.length === 0) return { rows: [] as ReturnType<typeof computeRow>[], totals: null };
