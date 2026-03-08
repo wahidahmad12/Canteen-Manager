@@ -36,7 +36,7 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
-import { Plus, Trash2, Printer, Loader2, Gavel, Banknote, Clock, AlertTriangle, Calendar } from "lucide-react";
+import { Plus, Trash2, Printer, Loader2, Gavel, Banknote, Clock, AlertTriangle, Calendar, RefreshCw } from "lucide-react";
 
 const fmt = (n: number) =>
   "\u20B9" + Number(n).toLocaleString("en-IN", { minimumFractionDigits: 0, maximumFractionDigits: 2 });
@@ -771,6 +771,15 @@ function OvertimeTab({ clientName, employees, empMap, filterMonth, filterYear }:
     onError: (err: Error) => toast({ title: "Error", description: err.message, variant: "destructive" }),
   });
 
+  const recalcMutation = useMutation({
+    mutationFn: async () => { const res = await apiRequest("POST", "/api/overtime/recalculate-rates", { clientName }); return res.json(); },
+    onSuccess: (data: any) => {
+      queryClient.invalidateQueries({ queryKey: ["/api/overtime", clientName] });
+      toast({ title: `Recalculated OT rates for ${data.updated} records` });
+    },
+    onError: (err: Error) => toast({ title: "Error", description: err.message, variant: "destructive" }),
+  });
+
   const calcOtRate = (dailyRate: number) => {
     return (dailyRate * 2) / 8;
   };
@@ -1004,6 +1013,9 @@ function OvertimeTab({ clientName, employees, empMap, filterMonth, filterYear }:
           </Button>
           <Button variant="outline" size="sm" onClick={handleGovPrint} data-testid="button-gov-print-overtime">
             <Printer className="w-4 h-4 mr-1" /> Form XXIII
+          </Button>
+          <Button variant="outline" size="sm" onClick={() => recalcMutation.mutate()} disabled={recalcMutation.isPending} data-testid="button-recalc-overtime">
+            {recalcMutation.isPending ? <Loader2 className="w-4 h-4 mr-1 animate-spin" /> : <RefreshCw className="w-4 h-4 mr-1" />} Recalculate Rates
           </Button>
           <Dialog open={open} onOpenChange={setOpen}>
             <DialogTrigger asChild>

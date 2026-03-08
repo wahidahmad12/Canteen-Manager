@@ -873,6 +873,38 @@ export async function registerRoutes(
     res.status(204).send();
   });
 
+  app.post("/api/overtime/recalculate-rates", requireAdmin, async (req, res) => {
+    const { clientName } = req.body;
+    if (!clientName) return res.status(400).json({ error: "clientName required" });
+    const allOt = await storage.getOvertimeRecords(clientName);
+    const allEmployees = await storage.getEmployees(clientName);
+    const empMap = new Map(allEmployees.map(e => [e.id, e]));
+    let updated = 0;
+    for (const ot of allOt) {
+      const emp = empMap.get(ot.employeeId);
+      if (!emp) continue;
+      const d = new Date(ot.date);
+      const month = d.getMonth() + 1;
+      const year = d.getFullYear();
+      let dailyRate = parseFloat(emp.dailyRate) || 0;
+      if (emp.skills) {
+        const skillRate = await storage.getSkillWageRate(emp.skills, month, year);
+        if (skillRate && Number(skillRate.dailyRate) > 0) {
+          dailyRate = Number(skillRate.dailyRate);
+        }
+      }
+      const overtimeRate = Math.round((dailyRate * 2) / 8 * 100) / 100;
+      const hours = Number(ot.overtimeHours) || 0;
+      const overtimeAmount = Math.round(overtimeRate * hours);
+      await storage.updateOvertimeRecord(ot.id, {
+        overtimeRate: String(overtimeRate),
+        overtimeAmount: String(overtimeAmount),
+      });
+      updated++;
+    }
+    res.json({ updated });
+  });
+
   // === DAMAGE DEDUCTIONS ===
   app.get("/api/damage-deductions", requireAuth, async (req, res) => {
     const records = await storage.getDamageDeductions(req.query.clientName as string | undefined);

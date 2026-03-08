@@ -144,6 +144,7 @@ export interface IStorage {
   getOvertimeRecords(clientName?: string): Promise<OvertimeRecord[]>;
   createOvertimeRecord(data: any): Promise<OvertimeRecord>;
   deleteOvertimeRecord(id: number): Promise<void>;
+  updateOvertimeRecord(id: number, data: { overtimeRate?: string; overtimeAmount?: string }): Promise<void>;
   getDamageDeductions(clientName?: string): Promise<DamageDeduction[]>;
   createDamageDeduction(data: any): Promise<DamageDeduction>;
   deleteDamageDeduction(id: number): Promise<void>;
@@ -1103,6 +1104,10 @@ export class DatabaseStorage implements IStorage {
   }
   async deleteOvertimeRecord(id: number): Promise<void> {
     await db.delete(overtimeRegister).where(eq(overtimeRegister.id, id));
+  }
+
+  async updateOvertimeRecord(id: number, data: { overtimeRate?: string; overtimeAmount?: string }): Promise<void> {
+    await db.update(overtimeRegister).set(data).where(eq(overtimeRegister.id, id));
   }
 
   // === DAMAGE DEDUCTIONS ===
