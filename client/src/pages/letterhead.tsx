@@ -54,8 +54,8 @@ export default function Letterhead() {
     if (val && val !== '__none__') {
       const client = clientNames.find(c => c.name === val);
       if (client) {
-        setToName(client.name);
-        setToAddress(client.address || '');
+        setToName('');
+        setToAddress(client.name + (client.address ? '\n' + client.address : ''));
         setToGstin(client.gstNo || '');
       }
     }
