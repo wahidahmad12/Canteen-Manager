@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
-import { Printer, ArrowLeft, Building2 } from 'lucide-react';
+import { Printer, ArrowLeft, Building2, RefreshCw } from 'lucide-react';
 import { useClientNames } from '@/hooks/use-reports';
 import { Link } from 'wouter';
 import type { Employee } from '@shared/schema';
@@ -138,6 +138,25 @@ export default function HalfYearlyReturn() {
 
   const fmtDate = (d: string) => d ? d.split('-').reverse().join('-') : '____________';
   const fmtAmt = (n: number) => n ? `${n.toLocaleString('en-IN')}/-` : 'NIL';
+
+  const handleRecalculate = () => {
+    if (!contractFrom || !contractTo) return;
+    const fromDate = new Date(contractFrom);
+    const toDate = new Date(contractTo);
+    let workingDays = 0;
+    for (const m of months) {
+      const monthStart = new Date(year, m - 1, 1);
+      const monthEnd = new Date(year, m, 0);
+      if (monthEnd < fromDate || monthStart > toDate) continue;
+      const monthRecs = salaryRecords.filter(r => Number(r.month) === m && Number(r.year) === year);
+      if (monthRecs.length > 0) {
+        const maxDays = Math.max(...monthRecs.map(r => Number(r.daysWorked || 0)));
+        workingDays += Math.round(maxDays);
+      }
+    }
+    setContractorDays(String(workingDays));
+    setPrincipalDays(String(workingDays));
+  };
 
   const handlePrintCover = () => {
     const el = document.getElementById('hy-cover-print');
@@ -286,13 +305,18 @@ export default function HalfYearlyReturn() {
                     <Label className="text-xs font-semibold">Contract To</Label>
                     <Input type="date" value={contractTo} onChange={e => setContractTo(e.target.value)} data-testid="input-contract-to" />
                   </div>
-                  <div className="space-y-2">
-                    <Label className="text-xs font-semibold">Principal Employer Days Worked</Label>
-                    <Input value={principalDays} onChange={e => setPrincipalDays(e.target.value)} placeholder="73" data-testid="input-principal-days" />
+                  <div className="flex items-end">
+                    <Button onClick={handleRecalculate} disabled={!contractFrom || !contractTo || !selectedClient} className="w-full" data-testid="button-recalculate">
+                      <RefreshCw className="h-4 w-4 mr-2" /> Recalculate Days
+                    </Button>
                   </div>
                   <div className="space-y-2">
-                    <Label className="text-xs font-semibold">Contractor Days Worked (auto from salary)</Label>
-                    <Input value={computed.contractorWorkingDays || contractorDays} onChange={e => setContractorDays(e.target.value)} placeholder="Auto-calculated" className={computed.contractorWorkingDays ? "bg-green-50 dark:bg-green-950/20 font-semibold" : ""} data-testid="input-contractor-days" />
+                    <Label className="text-xs font-semibold">Principal Employer Days Worked</Label>
+                    <Input value={principalDays} onChange={e => setPrincipalDays(e.target.value)} placeholder="Auto after Recalculate" className={principalDays ? "bg-green-50 dark:bg-green-950/20 font-semibold" : ""} data-testid="input-principal-days" />
+                  </div>
+                  <div className="space-y-2">
+                    <Label className="text-xs font-semibold">Contractor Days Worked</Label>
+                    <Input value={contractorDays} onChange={e => setContractorDays(e.target.value)} placeholder="Auto after Recalculate" className={contractorDays ? "bg-green-50 dark:bg-green-950/20 font-semibold" : ""} data-testid="input-contractor-days" />
                   </div>
                   <div className="space-y-2">
                     <Label className="text-xs font-semibold">Daily Hours & Spread Over</Label>
@@ -495,7 +519,7 @@ export default function HalfYearlyReturn() {
                   </tr>
                   <tr>
                     <td className="label" style={{ paddingLeft: '20px' }}>(b) The contractor's establishment had worked</td>
-                    <td className="value">: {computed.contractorWorkingDays || contractorDays || '____'} Days.</td>
+                    <td className="value">: {contractorDays || '____'} Days.</td>
                   </tr>
                   <tr><td colSpan={2} style={{ height: '6px' }}></td></tr>
                   <tr>
