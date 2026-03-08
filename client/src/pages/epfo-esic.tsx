@@ -99,6 +99,7 @@ export default function EpfoEsicPage() {
     });
 
   const esicData = filteredEmployees
+    .filter(emp => emp.esicNo && emp.esicNo.trim() !== "")
     .map(emp => {
       const sal = salaryMap.get(emp.id);
       const totalMonthlyWages = sal ? Math.round(Number(sal.grossWage)) : 0;
