@@ -242,6 +242,7 @@ export default function EpfoEsicPage() {
     }
 
     const ExcelJS = (await import("exceljs")).default;
+    const wb = new ExcelJS.Workbook();
 
     if (selectedClient === "__all__") {
       const clientGroups = new Map<string, typeof esicData>();
@@ -251,13 +252,11 @@ export default function EpfoEsicPage() {
       }
 
       for (const [clientName, rows] of clientGroups) {
-        const wb = new ExcelJS.Workbook();
         buildEsicSheet(wb, rows, clientName);
-        const buf = await wb.xlsx.writeBuffer();
-        downloadBuffer(buf, `ESIC_${clientName.replace(/\s+/g, '_')}_${MONTHS[month - 1]}_${year}.xlsx`);
       }
+      const buf = await wb.xlsx.writeBuffer();
+      downloadBuffer(buf, `ESIC_All_Clients_${MONTHS[month - 1]}_${year}.xlsx`);
     } else {
-      const wb = new ExcelJS.Workbook();
       buildEsicSheet(wb, esicData, selectedClient);
       const buf = await wb.xlsx.writeBuffer();
       downloadBuffer(buf, `ESIC_${selectedClient.replace(/\s+/g, '_')}_${MONTHS[month - 1]}_${year}.xlsx`);
@@ -266,7 +265,8 @@ export default function EpfoEsicPage() {
   };
 
   const buildEsicSheet = (wb: any, rows: typeof esicData, clientName: string) => {
-    const ws = wb.addWorksheet("Sheet1");
+    const sheetName = clientName.length > 31 ? clientName.substring(0, 31) : clientName;
+    const ws = wb.addWorksheet(sheetName);
 
     const headers = [
       "IP Number \n(10 Digits)",
