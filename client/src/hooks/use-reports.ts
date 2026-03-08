@@ -584,7 +584,7 @@ export function useClientNames() {
     queryFn: async () => {
       const res = await fetch(api.clients.list.path, { credentials: "include" });
       if (!res.ok) throw new Error("Failed to fetch clients");
-      return res.json() as Promise<{ id: number; name: string }[]>;
+      return res.json() as Promise<{ id: number; name: string; address?: string; gstNo?: string; agreementValidTill?: string | null }[]>;
     },
   });
 }
@@ -592,7 +592,7 @@ export function useClientNames() {
 export function useCreateClientName() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: async (data: { name: string }) => {
+    mutationFn: async (data: { name: string; address?: string; gstNo?: string; agreementValidTill?: string | null }) => {
       const res = await fetch(api.clients.create.path, {
         method: api.clients.create.method,
         headers: { "Content-Type": "application/json" },
@@ -614,12 +614,12 @@ export function useCreateClientName() {
 export function useUpdateClientName() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: async ({ id, name }: { id: number; name: string }) => {
+    mutationFn: async ({ id, name, address, gstNo, agreementValidTill }: { id: number; name: string; address?: string; gstNo?: string; agreementValidTill?: string | null }) => {
       const url = buildUrl(api.clients.update.path, { id });
       const res = await fetch(url, {
         method: api.clients.update.method,
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name }),
+        body: JSON.stringify({ name, address, gstNo, agreementValidTill }),
         credentials: "include",
       });
       if (!res.ok) throw new Error("Failed to update client");

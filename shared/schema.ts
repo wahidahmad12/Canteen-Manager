@@ -96,6 +96,9 @@ export const biscuitItems = pgTable("biscuit_items", {
 export const clientNames = pgTable("client_names", {
   id: serial("id").primaryKey(),
   name: text("name").notNull().unique(),
+  address: text("address").default(""),
+  gstNo: text("gst_no").default(""),
+  agreementValidTill: date("agreement_valid_till"),
 });
 
 // Saved menus

@@ -84,8 +84,14 @@ export default function Admin() {
   const updateClientMutation = useUpdateClientName();
   const deleteClientMutation = useDeleteClientName();
   const [newClientName, setNewClientName] = useState("");
+  const [newClientAddress, setNewClientAddress] = useState("");
+  const [newClientGst, setNewClientGst] = useState("");
+  const [newClientAgreement, setNewClientAgreement] = useState("");
   const [editingClientId, setEditingClientId] = useState<number | null>(null);
   const [editingClientName, setEditingClientName] = useState("");
+  const [editingClientAddress, setEditingClientAddress] = useState("");
+  const [editingClientGst, setEditingClientGst] = useState("");
+  const [editingClientAgreement, setEditingClientAgreement] = useState("");
 
   const { data: vendorsList, isLoading: vendorsLoading } = useVendors();
   const createVendorMutation = useCreateVendor();
@@ -201,8 +207,16 @@ export default function Admin() {
   const handleCreateClient = async () => {
     if (!newClientName.trim()) return;
     try {
-      await createClientMutation.mutateAsync({ name: newClientName });
+      await createClientMutation.mutateAsync({
+        name: newClientName,
+        address: newClientAddress,
+        gstNo: newClientGst,
+        agreementValidTill: newClientAgreement || null,
+      });
       setNewClientName("");
+      setNewClientAddress("");
+      setNewClientGst("");
+      setNewClientAgreement("");
       toast({ title: "Success", description: "Client added" });
     } catch (e: any) {
       toast({ title: "Error", description: e.message || "Failed to add client", variant: "destructive" });
@@ -212,12 +226,26 @@ export default function Admin() {
   const handleUpdateClient = async (id: number) => {
     if (!editingClientName.trim()) return;
     try {
-      await updateClientMutation.mutateAsync({ id, name: editingClientName });
+      await updateClientMutation.mutateAsync({
+        id,
+        name: editingClientName,
+        address: editingClientAddress,
+        gstNo: editingClientGst,
+        agreementValidTill: editingClientAgreement || null,
+      });
       setEditingClientId(null);
       toast({ title: "Success", description: "Client updated" });
     } catch (e) {
       toast({ title: "Error", description: "Failed to update client", variant: "destructive" });
     }
+  };
+
+  const startEditingClient = (client: any) => {
+    setEditingClientId(client.id);
+    setEditingClientName(client.name);
+    setEditingClientAddress(client.address || "");
+    setEditingClientGst(client.gstNo || "");
+    setEditingClientAgreement(client.agreementValidTill || "");
   };
 
   const handleDeleteClient = async (id: number) => {
@@ -524,19 +552,23 @@ export default function Admin() {
             </CardTitle>
           </CardHeader>
           <CardContent className="p-4 sm:p-6 space-y-4">
-            <div className="flex gap-2">
-              <Input
-                placeholder="New client name..."
-                value={newClientName}
-                onChange={(e) => setNewClientName(e.target.value)}
-                onKeyDown={(e) => e.key === 'Enter' && handleCreateClient()}
-                className="border-teal-200 dark:border-teal-800 focus-visible:ring-teal-400"
-                data-testid="input-new-client"
-              />
-              <Button onClick={handleCreateClient} disabled={createClientMutation.isPending} className="bg-gradient-to-r from-teal-500 to-emerald-500 hover:from-teal-600 hover:to-emerald-600 border-0 shadow-md shrink-0" data-testid="button-add-client">
-                {createClientMutation.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4 mr-1" />}
-                Add
-              </Button>
+            <div className="space-y-3 border border-teal-200 dark:border-teal-800 rounded-lg p-3">
+              <div className="text-xs font-semibold text-teal-600 dark:text-teal-400">Add New Client</div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                <Input placeholder="Client Name *" value={newClientName} onChange={(e) => setNewClientName(e.target.value)} className="border-teal-200 dark:border-teal-800" data-testid="input-new-client" />
+                <Input placeholder="GST No" value={newClientGst} onChange={(e) => setNewClientGst(e.target.value)} className="border-teal-200 dark:border-teal-800" data-testid="input-new-client-gst" />
+              </div>
+              <Input placeholder="Address" value={newClientAddress} onChange={(e) => setNewClientAddress(e.target.value)} className="border-teal-200 dark:border-teal-800" data-testid="input-new-client-address" />
+              <div className="flex gap-2 items-end">
+                <div className="flex-1">
+                  <Label className="text-xs text-muted-foreground">Agreement Valid Till</Label>
+                  <Input type="date" value={newClientAgreement} onChange={(e) => setNewClientAgreement(e.target.value)} className="border-teal-200 dark:border-teal-800" data-testid="input-new-client-agreement" />
+                </div>
+                <Button onClick={handleCreateClient} disabled={createClientMutation.isPending} className="bg-gradient-to-r from-teal-500 to-emerald-500 hover:from-teal-600 hover:to-emerald-600 border-0 shadow-md shrink-0" data-testid="button-add-client">
+                  {createClientMutation.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4 mr-1" />}
+                  Add
+                </Button>
+              </div>
             </div>
 
             {clientsLoading ? (
@@ -544,86 +576,57 @@ export default function Admin() {
                 <Loader2 className="w-8 h-8 animate-spin text-teal-500" />
               </div>
             ) : (
-              <div className="border border-teal-200 dark:border-teal-800/50 rounded-lg overflow-hidden">
-                <table className="w-full text-sm">
-                  <thead>
-                    <tr className="bg-teal-50 dark:bg-teal-950/20 border-b border-teal-200 dark:border-teal-800/50">
-                      <th className="px-4 py-2.5 text-left text-xs font-semibold text-teal-700 dark:text-teal-400">#</th>
-                      <th className="px-4 py-2.5 text-left text-xs font-semibold text-teal-700 dark:text-teal-400">Client Name</th>
-                      <th className="px-4 py-2.5 text-right w-24 text-xs font-semibold text-teal-700 dark:text-teal-400">Actions</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {clients?.map((client, idx) => (
-                      <tr key={client.id} className="border-b last:border-0 hover:bg-teal-50/50 dark:hover:bg-teal-950/10 transition-colors">
-                        <td className="px-4 py-2.5">
-                          <span className="w-6 h-6 rounded-full bg-gradient-to-br from-teal-400 to-emerald-500 text-white text-[10px] inline-flex items-center justify-center font-bold">{idx + 1}</span>
-                        </td>
-                        <td className="px-4 py-2.5">
-                          {editingClientId === client.id ? (
-                            <Input
-                              value={editingClientName}
-                              onChange={(e) => setEditingClientName(e.target.value)}
-                              className="h-8 border-teal-300"
-                              autoFocus
-                            />
-                          ) : (
-                            <span className="font-semibold">{client.name}</span>
-                          )}
-                        </td>
-                        <td className="px-4 py-2.5 text-right">
-                          <div className="flex justify-end gap-1">
-                            {editingClientId === client.id ? (
-                              <>
-                                <Button
-                                  size="icon"
-                                  variant="ghost"
-                                  className="h-8 w-8 text-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-900/20"
-                                  onClick={() => handleUpdateClient(client.id)}
-                                  data-testid={`button-save-client-${client.id}`}
-                                >
-                                  <Save className="w-4 h-4" />
-                                </Button>
-                                <Button
-                                  size="icon"
-                                  variant="ghost"
-                                  className="h-8 w-8 text-muted-foreground"
-                                  onClick={() => setEditingClientId(null)}
-                                >
-                                  <X className="w-4 h-4" />
-                                </Button>
-                              </>
-                            ) : (
-                              <>
-                                <Button
-                                  size="icon"
-                                  variant="ghost"
-                                  className="h-8 w-8 text-teal-600 hover:bg-teal-50 dark:hover:bg-teal-900/20"
-                                  onClick={() => {
-                                    setEditingClientId(client.id);
-                                    setEditingClientName(client.name);
-                                  }}
-                                  data-testid={`button-edit-client-${client.id}`}
-                                >
-                                  <Pencil className="w-4 h-4" />
-                                </Button>
-                                <Button
-                                  size="icon"
-                                  variant="ghost"
-                                  className="h-8 w-8 text-destructive hover:text-destructive hover:bg-destructive/10"
-                                  onClick={() => handleDeleteClient(client.id)}
-                                  data-testid={`button-delete-client-${client.id}`}
-                                >
-                                  <Trash2 className="w-4 h-4" />
-                                </Button>
-                              </>
+              <div className="space-y-3">
+                {clients?.map((client: any, idx: number) => (
+                  <div key={client.id} className="border border-teal-200 dark:border-teal-800/50 rounded-lg p-3 hover:bg-teal-50/50 dark:hover:bg-teal-950/10 transition-colors">
+                    {editingClientId === client.id ? (
+                      <div className="space-y-2">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                          <Input value={editingClientName} onChange={(e) => setEditingClientName(e.target.value)} placeholder="Client Name *" className="border-teal-300" autoFocus data-testid={`input-edit-client-name-${client.id}`} />
+                          <Input value={editingClientGst} onChange={(e) => setEditingClientGst(e.target.value)} placeholder="GST No" className="border-teal-300" data-testid={`input-edit-client-gst-${client.id}`} />
+                        </div>
+                        <Input value={editingClientAddress} onChange={(e) => setEditingClientAddress(e.target.value)} placeholder="Address" className="border-teal-300" data-testid={`input-edit-client-address-${client.id}`} />
+                        <div className="flex gap-2 items-end">
+                          <div className="flex-1">
+                            <Label className="text-xs text-muted-foreground">Agreement Valid Till</Label>
+                            <Input type="date" value={editingClientAgreement} onChange={(e) => setEditingClientAgreement(e.target.value)} className="border-teal-300" data-testid={`input-edit-client-agreement-${client.id}`} />
+                          </div>
+                          <Button size="sm" variant="ghost" className="text-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-900/20" onClick={() => handleUpdateClient(client.id)} data-testid={`button-save-client-${client.id}`}>
+                            <Save className="w-4 h-4 mr-1" /> Save
+                          </Button>
+                          <Button size="sm" variant="ghost" className="text-muted-foreground" onClick={() => setEditingClientId(null)}>
+                            <X className="w-4 h-4 mr-1" /> Cancel
+                          </Button>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="flex items-start gap-3">
+                        <span className="w-6 h-6 rounded-full bg-gradient-to-br from-teal-400 to-emerald-500 text-white text-[10px] inline-flex items-center justify-center font-bold shrink-0 mt-0.5">{idx + 1}</span>
+                        <div className="flex-1 min-w-0">
+                          <div className="font-semibold">{client.name}</div>
+                          {client.address && <div className="text-xs text-muted-foreground mt-0.5">{client.address}</div>}
+                          <div className="flex flex-wrap gap-3 mt-1">
+                            {client.gstNo && <span className="text-xs text-muted-foreground">GST: <span className="font-mono">{client.gstNo}</span></span>}
+                            {client.agreementValidTill && (
+                              <span className={`text-xs ${new Date(client.agreementValidTill) < new Date() ? 'text-red-500 font-semibold' : 'text-muted-foreground'}`}>
+                                Agreement: {new Date(client.agreementValidTill).toLocaleDateString('en-IN')}
+                                {new Date(client.agreementValidTill) < new Date() && ' (Expired)'}
+                              </span>
                             )}
                           </div>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
+                        </div>
+                        <div className="flex gap-1 shrink-0">
+                          <Button size="icon" variant="ghost" className="h-8 w-8 text-teal-600 hover:bg-teal-50 dark:hover:bg-teal-900/20" onClick={() => startEditingClient(client)} data-testid={`button-edit-client-${client.id}`}>
+                            <Pencil className="w-4 h-4" />
+                          </Button>
+                          <Button size="icon" variant="ghost" className="h-8 w-8 text-destructive hover:text-destructive hover:bg-destructive/10" onClick={() => handleDeleteClient(client.id)} data-testid={`button-delete-client-${client.id}`}>
+                            <Trash2 className="w-4 h-4" />
+                          </Button>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                ))}
               </div>
             )}
           </CardContent>

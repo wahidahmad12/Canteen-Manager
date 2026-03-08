@@ -220,6 +220,8 @@ export default function MusterRoll() {
 
   const handleGovPrint = () => {
     if (!employees || employees.length === 0) return;
+    const clientObj = clients?.find((c: any) => c.name === clientName);
+    const clientAddr = clientObj?.address || "";
     const printWin = window.open("", "_blank");
     if (!printWin) return;
 
@@ -268,7 +270,7 @@ export default function MusterRoll() {
           <td class="info-label" style="width:22%">Name and Address of the Contractor</td>
           <td style="width:28%">DJ HOSPITALITY &amp; FACILITY MANAGEMENT PVT LTD</td>
           <td class="info-label" style="width:22%">Name and address of the establishment in /</td>
-          <td style="width:28%">${clientName}</td>
+          <td style="width:28%">${clientName}${clientAddr ? '<br/>' + clientAddr : ''}</td>
         </tr>
         <tr>
           <td></td>
@@ -280,7 +282,7 @@ export default function MusterRoll() {
           <td class="info-label">Nature and location of Work</td>
           <td>Canteen</td>
           <td class="info-label">Name and address of the Principal Employer</td>
-          <td>${clientName}</td>
+          <td>${clientName}${clientAddr ? '<br/>' + clientAddr : ''}</td>
         </tr>
         <tr>
           <td></td>

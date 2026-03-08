@@ -70,7 +70,7 @@ function useEmployees(clientName: string) {
   });
 }
 
-function FinesTab({ clientName, employees, empMap, filterMonth, filterYear }: { clientName: string; employees: any[]; empMap: Map<number, string>; filterMonth: string; filterYear: string }) {
+function FinesTab({ clientName, clientAddress, employees, empMap, filterMonth, filterYear }: { clientName: string; clientAddress: string; employees: any[]; empMap: Map<number, string>; filterMonth: string; filterYear: string }) {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [open, setOpen] = useState(false);
@@ -207,7 +207,7 @@ function FinesTab({ clientName, employees, empMap, filterMonth, filterYear }: { 
           <td class="info-label" style="width:22%">Name and Address of the Contractor</td>
           <td style="width:28%">DJ HOSPITALITY &amp; FACILITY MANAGEMENT PVT LTD</td>
           <td class="info-label" style="width:22%">Name and address of the establishment in /</td>
-          <td style="width:28%">${clientName}</td>
+          <td style="width:28%">${clientName}${clientAddress ? '<br/>' + clientAddress : ''}</td>
         </tr>
         <tr>
           <td></td>
@@ -219,7 +219,7 @@ function FinesTab({ clientName, employees, empMap, filterMonth, filterYear }: { 
           <td class="info-label">Nature and location of Work</td>
           <td>Canteen</td>
           <td class="info-label">Name and address of the Principal Employer</td>
-          <td>${clientName}</td>
+          <td>${clientName}${clientAddress ? '<br/>' + clientAddress : ''}</td>
         </tr>
         <tr>
           <td></td>
@@ -399,7 +399,7 @@ function FinesTab({ clientName, employees, empMap, filterMonth, filterYear }: { 
   );
 }
 
-function AdvancesTab({ clientName, employees, empMap, filterMonth, filterYear }: { clientName: string; employees: any[]; empMap: Map<number, string>; filterMonth: string; filterYear: string }) {
+function AdvancesTab({ clientName, clientAddress, employees, empMap, filterMonth, filterYear }: { clientName: string; clientAddress: string; employees: any[]; empMap: Map<number, string>; filterMonth: string; filterYear: string }) {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [open, setOpen] = useState(false);
@@ -533,7 +533,7 @@ function AdvancesTab({ clientName, employees, empMap, filterMonth, filterYear }:
           <td class="info-label" style="width:22%">Name and Address of the Contractor</td>
           <td style="width:28%">DJ HOSPITALITY &amp; FACILITY MANAGEMENT PVT LTD</td>
           <td class="info-label" style="width:22%">Name and address of the establishment in /</td>
-          <td style="width:28%">${clientName}</td>
+          <td style="width:28%">${clientName}${clientAddress ? '<br/>' + clientAddress : ''}</td>
         </tr>
         <tr>
           <td></td>
@@ -545,7 +545,7 @@ function AdvancesTab({ clientName, employees, empMap, filterMonth, filterYear }:
           <td class="info-label">Nature and location of Work</td>
           <td>Canteen</td>
           <td class="info-label">Name and address of the Principal Employer</td>
-          <td>${clientName}</td>
+          <td>${clientName}${clientAddress ? '<br/>' + clientAddress : ''}</td>
         </tr>
         <tr>
           <td></td>
@@ -735,7 +735,7 @@ function AdvancesTab({ clientName, employees, empMap, filterMonth, filterYear }:
   );
 }
 
-function OvertimeTab({ clientName, employees, empMap, filterMonth, filterYear }: { clientName: string; employees: any[]; empMap: Map<number, string>; filterMonth: string; filterYear: string }) {
+function OvertimeTab({ clientName, clientAddress, employees, empMap, filterMonth, filterYear }: { clientName: string; clientAddress: string; employees: any[]; empMap: Map<number, string>; filterMonth: string; filterYear: string }) {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [open, setOpen] = useState(false);
@@ -938,7 +938,7 @@ function OvertimeTab({ clientName, employees, empMap, filterMonth, filterYear }:
           <td class="info-label" style="width:22%">Name and Address of the Contractor</td>
           <td class="info-val" style="width:28%">DJ HOSPITALITY &amp; FACILITY MANAGEMENT PVT LTD<br/>7 Crimatorium Street, Kolkata- 700014</td>
           <td class="info-label" style="width:22%">Name and address of the establishment in /</td>
-          <td class="info-val" style="width:28%">${clientName}</td>
+          <td class="info-val" style="width:28%">${clientName}${clientAddress ? '<br/>' + clientAddress : ''}</td>
         </tr>
         <tr>
           <td></td>
@@ -950,7 +950,7 @@ function OvertimeTab({ clientName, employees, empMap, filterMonth, filterYear }:
           <td class="info-label">Nature and location of Work</td>
           <td class="info-val">Canteen</td>
           <td class="info-label">Name and address of the Principal Employer</td>
-          <td class="info-val">${clientName}</td>
+          <td class="info-val">${clientName}${clientAddress ? '<br/>' + clientAddress : ''}</td>
         </tr>
         <tr>
           <td></td>
@@ -1151,7 +1151,7 @@ function OvertimeTab({ clientName, employees, empMap, filterMonth, filterYear }:
   );
 }
 
-function DamageTab({ clientName, employees, empMap, filterMonth, filterYear }: { clientName: string; employees: any[]; empMap: Map<number, string>; filterMonth: string; filterYear: string }) {
+function DamageTab({ clientName, clientAddress, employees, empMap, filterMonth, filterYear }: { clientName: string; clientAddress: string; employees: any[]; empMap: Map<number, string>; filterMonth: string; filterYear: string }) {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [open, setOpen] = useState(false);
@@ -1284,7 +1284,7 @@ function DamageTab({ clientName, employees, empMap, filterMonth, filterYear }: {
           <td class="info-label" style="width:22%">Name and Address of the Contractor</td>
           <td style="width:28%">DJ HOSPITALITY &amp; FACILITY MANAGEMENT PVT LTD</td>
           <td class="info-label" style="width:22%">Name and address of the establishment in /</td>
-          <td style="width:28%">${clientName}</td>
+          <td style="width:28%">${clientName}${clientAddress ? '<br/>' + clientAddress : ''}</td>
         </tr>
         <tr>
           <td></td>
@@ -1296,7 +1296,7 @@ function DamageTab({ clientName, employees, empMap, filterMonth, filterYear }: {
           <td class="info-label">Nature and location of Work</td>
           <td>Canteen</td>
           <td class="info-label">Name and address of the Principal Employer</td>
-          <td>${clientName}</td>
+          <td>${clientName}${clientAddress ? '<br/>' + clientAddress : ''}</td>
         </tr>
         <tr>
           <td></td>
@@ -1483,6 +1483,11 @@ export default function RegistersPage() {
     return clients.map((c: any) => (typeof c === "string" ? c : c.name));
   }, [clients]);
 
+  const clientAddress = useMemo(() => {
+    const c = clients?.find((cl: any) => cl.name === selectedClient);
+    return c?.address || "";
+  }, [clients, selectedClient]);
+
   const { data: employees } = useEmployees(selectedClient);
 
   const empMap = useMemo(() => {
@@ -1587,16 +1592,16 @@ export default function RegistersPage() {
             </div>
 
             <TabsContent value="fines">
-              <FinesTab clientName={selectedClient} employees={employees || []} empMap={empMap} filterMonth={filterMonth} filterYear={filterYear} />
+              <FinesTab clientName={selectedClient} clientAddress={clientAddress} employees={employees || []} empMap={empMap} filterMonth={filterMonth} filterYear={filterYear} />
             </TabsContent>
             <TabsContent value="advances">
-              <AdvancesTab clientName={selectedClient} employees={employees || []} empMap={empMap} filterMonth={filterMonth} filterYear={filterYear} />
+              <AdvancesTab clientName={selectedClient} clientAddress={clientAddress} employees={employees || []} empMap={empMap} filterMonth={filterMonth} filterYear={filterYear} />
             </TabsContent>
             <TabsContent value="overtime">
-              <OvertimeTab clientName={selectedClient} employees={employees || []} empMap={empMap} filterMonth={filterMonth} filterYear={filterYear} />
+              <OvertimeTab clientName={selectedClient} clientAddress={clientAddress} employees={employees || []} empMap={empMap} filterMonth={filterMonth} filterYear={filterYear} />
             </TabsContent>
             <TabsContent value="damage">
-              <DamageTab clientName={selectedClient} employees={employees || []} empMap={empMap} filterMonth={filterMonth} filterYear={filterYear} />
+              <DamageTab clientName={selectedClient} clientAddress={clientAddress} employees={employees || []} empMap={empMap} filterMonth={filterMonth} filterYear={filterYear} />
             </TabsContent>
           </Tabs>
         )}

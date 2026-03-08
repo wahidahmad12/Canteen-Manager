@@ -368,7 +368,7 @@ export const api = {
     create: {
       method: 'POST' as const,
       path: '/api/clients' as const,
-      input: z.object({ name: z.string().min(1) }),
+      input: z.object({ name: z.string().min(1), address: z.string().optional(), gstNo: z.string().optional(), agreementValidTill: z.string().nullable().optional() }),
       responses: {
         201: selectClientNameSchema,
         400: errorSchemas.validation,
@@ -377,7 +377,7 @@ export const api = {
     update: {
       method: 'PUT' as const,
       path: '/api/clients/:id' as const,
-      input: z.object({ name: z.string().min(1) }),
+      input: z.object({ name: z.string().min(1), address: z.string().optional(), gstNo: z.string().optional(), agreementValidTill: z.string().nullable().optional() }),
       responses: {
         200: selectClientNameSchema,
         404: errorSchemas.notFound,

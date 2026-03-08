@@ -85,8 +85,8 @@ export interface IStorage {
   createSavedMenu(data: { clientName: string; startDate: string; endDate: string; menuData: string }): Promise<SavedMenu>;
   deleteSavedMenu(id: number): Promise<void>;
   getClientNames(): Promise<ClientName[]>;
-  createClientName(item: { name: string }): Promise<ClientName>;
-  updateClientName(id: number, item: { name: string }): Promise<ClientName>;
+  createClientName(item: { name: string; address?: string; gstNo?: string; agreementValidTill?: string | null }): Promise<ClientName>;
+  updateClientName(id: number, item: { name?: string; address?: string; gstNo?: string; agreementValidTill?: string | null }): Promise<ClientName>;
   deleteClientName(id: number): Promise<void>;
   seedClientNames(names: string[]): Promise<void>;
   getAdminPin(): Promise<string>;
@@ -500,12 +500,12 @@ export class DatabaseStorage implements IStorage {
     return await db.select().from(clientNames).orderBy(clientNames.name);
   }
 
-  async createClientName(item: { name: string }): Promise<ClientName> {
+  async createClientName(item: { name: string; address?: string; gstNo?: string; agreementValidTill?: string | null }): Promise<ClientName> {
     const [newItem] = await db.insert(clientNames).values(item).returning();
     return newItem;
   }
 
-  async updateClientName(id: number, item: { name: string }): Promise<ClientName> {
+  async updateClientName(id: number, item: { name?: string; address?: string; gstNo?: string; agreementValidTill?: string | null }): Promise<ClientName> {
     const [updated] = await db.update(clientNames)
       .set(item)
       .where(eq(clientNames.id, id))

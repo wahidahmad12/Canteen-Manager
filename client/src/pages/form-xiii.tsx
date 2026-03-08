@@ -230,7 +230,7 @@ export default function FormXIII() {
                     <div style={{ fontSize: "16px", fontWeight: "bold", color: "#283593" }}>FORM XIII</div>
                     <div style={{ fontSize: "11px" }}>Register of Workmen Employed by Contractor</div>
                     <div style={{ fontSize: "10px", color: "#666" }}>[See Rule 75]</div>
-                    <div style={{ fontSize: "12px", fontWeight: 600, marginTop: "8px" }}>Name of the Establishment: {selectedClient}</div>
+                    <div style={{ fontSize: "12px", fontWeight: 600, marginTop: "8px" }}>Name of the Establishment: {selectedClient}{(() => { const c = clientNames.find((cl: any) => cl.name === selectedClient); return c?.address ? `, ${c.address}` : ''; })()}</div>
                     <div style={{ fontSize: "11px" }}>Name of the Contractor: DJ Hospitality & Facility Management Pvt Ltd</div>
                   </div>
                   <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "9px", fontFamily: "Arial, sans-serif" }}>

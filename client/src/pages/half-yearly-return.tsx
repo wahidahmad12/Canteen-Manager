@@ -28,6 +28,11 @@ interface SalaryRecord {
 export default function HalfYearlyReturn() {
   const { data: clientNames = [] } = useClientNames();
   const [selectedClient, setSelectedClient] = useState('');
+  const handleClientChange = (val: string) => {
+    setSelectedClient(val);
+    const c = clientNames.find((cl: any) => cl.name === val);
+    setPrincipalAddress(c?.address || "");
+  };
   const currentYear = new Date().getFullYear();
   const currentMonth = new Date().getMonth() + 1;
   const defaultHalf = currentMonth <= 6 ? 'H2' : 'H1';
@@ -207,7 +212,7 @@ export default function HalfYearlyReturn() {
                 <Label className="text-xs font-semibold text-blue-700 dark:text-blue-300 flex items-center gap-1">
                   <Building2 className="w-3.5 h-3.5" /> Company / Client
                 </Label>
-                <Select value={selectedClient} onValueChange={setSelectedClient}>
+                <Select value={selectedClient} onValueChange={handleClientChange}>
                   <SelectTrigger data-testid="select-client"><SelectValue placeholder="Select Company" /></SelectTrigger>
                   <SelectContent>
                     {clientNames.map(c => (
