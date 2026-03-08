@@ -772,7 +772,7 @@ function OvertimeTab({ clientName, employees, empMap, filterMonth, filterYear }:
   });
 
   const calcOtRate = (dailyRate: number) => {
-    return ((dailyRate + dailyRate * 0.05) / 4);
+    return (dailyRate * 2) / 8;
   };
 
   const calcOtAmount = (hours: string, rate: string) => {
@@ -781,13 +781,32 @@ function OvertimeTab({ clientName, employees, empMap, filterMonth, filterYear }:
     return h && r ? String(Math.round(h * r)) : "";
   };
 
-  const handleEmployeeChange = (empId: string) => {
+  const fetchSkillRate = async (skill: string, month: number, year: number): Promise<number | null> => {
+    try {
+      const res = await fetch(`/api/skill-wage-rates/lookup?skillCategory=${encodeURIComponent(skill)}&month=${month}&year=${year}`, { credentials: "include" });
+      const data = await res.json();
+      return data ? Number(data.dailyRate) : null;
+    } catch { return null; }
+  };
+
+  const recalcOtRate = async (empId: string, dateStr: string) => {
     const emp = employees.find((e: any) => String(e.id) === empId);
-    const rate = emp ? calcOtRate(parseFloat(emp.dailyRate) || 0).toFixed(2) : "";
-    setFormData(prev => {
-      const newRate = rate;
-      return { ...prev, employeeId: empId, overtimeRate: newRate, overtimeAmount: calcOtAmount(prev.overtimeHours, newRate) };
-    });
+    if (!emp) return;
+    let dailyRate = parseFloat(emp.dailyRate) || 0;
+    if (dateStr && emp.skills) {
+      const d = new Date(dateStr);
+      const m = d.getMonth() + 1;
+      const y = d.getFullYear();
+      const skillRate = await fetchSkillRate(emp.skills, m, y);
+      if (skillRate && skillRate > 0) dailyRate = skillRate;
+    }
+    const rate = calcOtRate(dailyRate).toFixed(2);
+    setFormData(prev => ({ ...prev, overtimeRate: rate, overtimeAmount: calcOtAmount(prev.overtimeHours, rate) }));
+  };
+
+  const handleEmployeeChange = (empId: string) => {
+    setFormData(prev => ({ ...prev, employeeId: empId }));
+    recalcOtRate(empId, formData.date);
   };
 
   const updateOvertimeHours = (val: string) => {
@@ -1002,7 +1021,7 @@ function OvertimeTab({ clientName, employees, empMap, filterMonth, filterYear }:
                 </div>
                 <div>
                   <Label>Date *</Label>
-                  <Input type="date" value={formData.date} onChange={(e) => setFormData({ ...formData, date: e.target.value })} data-testid="input-overtime-date" />
+                  <Input type="date" value={formData.date} onChange={(e) => { const val = e.target.value; setFormData(prev => ({ ...prev, date: val })); if (formData.employeeId) recalcOtRate(formData.employeeId, val); }} data-testid="input-overtime-date" />
                 </div>
                 <div className="grid grid-cols-2 gap-3">
                   <div>
