@@ -182,8 +182,15 @@ export default function BonusReturn() {
     printWindow.document.write(`<!DOCTYPE html><html><head><title>${title}</title>
       <style>
         @page { size: A4 portrait; margin: 20mm; }
-        body { margin: 0; padding: 0; font-family: Georgia, 'Times New Roman', serif; font-size: 14px; line-height: 1.8; }
+        body { margin: 0; padding: 0; font-family: 'Times New Roman', Georgia, serif; font-size: 13px; line-height: 1.7; color: #000; }
+        .letterhead { text-align: center; margin-bottom: 24px; padding-bottom: 12px; border-bottom: 2px solid #222; }
+        .letterhead h2 { font-size: 18px; font-weight: bold; margin: 0 0 4px 0; letter-spacing: 0.5px; }
+        .letterhead .contact { font-size: 10px; margin: 2px 0; color: #333; }
+        .letterhead .address { font-size: 10px; margin: 2px 0; color: #333; }
+        .letterhead .cin { font-size: 9px; margin: 2px 0; color: #555; }
+        .ref-line { display: flex; justify-content: space-between; margin-bottom: 20px; font-size: 13px; }
         p { margin: 4px 0; }
+        .subject { text-align: center; font-weight: bold; margin: 15px 0; }
       </style>
     </head><body>${coverArea.innerHTML}</body></html>`);
     printWindow.document.close();
@@ -629,30 +636,38 @@ export default function BonusReturn() {
                 </div>
 
                 <div id="bonus-cover-print" className="hidden">
-                  <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "20px" }}>
-                    <div style={{ fontWeight: 600 }}>Ref. {refNumber || '___________'}</div>
-                    <div>Date: {letterDate ? letterDate.split('-').reverse().join('-') : '___/___/______'}</div>
+                  <div className="letterhead">
+                    <h2>DJ HOSPITALITY & FACILITY MANAGEMENT PRIVATE LIMITED</h2>
+                    <p className="contact">Ph.: +91 8668673870 | Email: djfoods15@yahoo.in | Sales@djfoods.in | Web: www.djfoods.in</p>
+                    <p className="address">Regd. & Head Office: 730, Tin Made, Sodiem Siolim, Mapusa Bardez, North Goa-403502, India</p>
+                    <p className="address">Branch Office: 7 Crematorium Street, Kolkata- 700014</p>
+                    <p className="cin">CIN: U74910GA2020PTC014271</p>
+                  </div>
+                  <div className="ref-line">
+                    <span>Ref. {refNumber || '___________'}</span>
+                    <span>Date: {letterDate ? letterDate.split('-').reverse().join('-') : '___/___/______'}</span>
                   </div>
                   <div style={{ marginBottom: "16px" }}>
-                    <p style={{ margin: "2px 0" }}>To</p>
-                    <p style={{ margin: "2px 0", fontWeight: 600 }}>The Labour Commissioner</p>
-                    <p style={{ margin: "2px 0" }}>Office of the Labour Commissioner,</p>
-                    <p style={{ margin: "2px 0" }}>6, Church Lane 3rd floor</p>
-                    <p style={{ margin: "2px 0" }}>Kolkata - 700001</p>
+                    <p>To</p>
+                    <p><strong>The Labour Commissioner</strong></p>
+                    <p>Office of the Labour Commissioner,</p>
+                    <p>6, Church Lane 3rd floor</p>
+                    <p>Kolkata - 700001</p>
+                  </div>
+                  <div className="subject">
+                    <p>Sub: Annual Bonus Return for the year ending 31st March {fyEnd}</p>
                   </div>
                   <div style={{ marginBottom: "16px" }}>
-                    <p><span style={{ fontWeight: 600 }}>Sub:</span> Annual Bonus Return for the year ending 31st March {fyEnd}</p>
+                    <p>Dear Sir,</p>
+                    <p>Please find enclosed the following return pertaining to our establishment <strong>DJ Hospitality & Facility Management Pvt Ltd</strong>, 7 Crematorium Street, Kolkata- 700014</p>
+                    <p style={{ marginTop: "10px", fontWeight: "bold" }}>Form - D Under the Payment of Bonus Act.</p>
                   </div>
-                  <div style={{ marginBottom: "16px" }}>
-                    <p style={{ margin: "4px 0" }}>Dear Sir,</p>
-                    <p style={{ margin: "4px 0" }}>Please find enclosed the following return pertaining to our establishment <span style={{ fontWeight: 600 }}>DJ Hospitality & Facility Management Pvt Ltd</span>, 7 Crematorium Street, Kolkata- 700014</p>
-                    <p style={{ margin: "8px 0", fontWeight: 600 }}>Form - D Under the payment of Bonus Act.</p>
-                  </div>
-                  <div style={{ marginTop: "60px" }}>
-                    <p style={{ margin: "2px 0" }}>Your Faithfully</p>
-                    <p style={{ margin: "30px 0 2px 0", fontWeight: 600 }}>Wahid Ahmad</p>
-                    <p style={{ margin: "2px 0" }}>Zonal Manager & Partner</p>
-                    <p style={{ margin: "2px 0", fontWeight: 600 }}>DJ Hospitality & Facility Management Pvt Ltd.</p>
+                  <div style={{ marginTop: "50px" }}>
+                    <p>Thanking you.</p>
+                    <p>Yours faithfully,</p>
+                    <p style={{ marginTop: "25px", fontWeight: "bold" }}>Wahid Ahmad</p>
+                    <p>Zonal Manager & Partner</p>
+                    <p style={{ fontWeight: "bold" }}>DJ Hospitality & Facility Management Pvt Ltd</p>
                   </div>
                 </div>
 
