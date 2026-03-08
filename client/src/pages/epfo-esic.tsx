@@ -100,7 +100,6 @@ export default function EpfoEsicPage() {
     });
 
   const esicData = filteredEmployees
-    .filter(e => e.esicNo && e.esicNo.trim() !== "")
     .map(emp => {
       const sal = salaryMap.get(emp.id);
       const totalMonthlyWages = sal ? Math.round(Number(sal.grossWage)) : 0;
@@ -112,7 +111,7 @@ export default function EpfoEsicPage() {
         clientName: emp.clientName,
         noOfDays: daysWorked,
         totalMonthlyWages,
-        reasonCode: 0,
+        reasonCode: daysWorked === 0 ? 1 : 0,
         lastWorkingDay: emp.leavingDate && new Date(emp.leavingDate) <= new Date()
           ? new Date(emp.leavingDate).toLocaleDateString("en-IN", { day: "2-digit", month: "2-digit", year: "numeric" })
           : "",
