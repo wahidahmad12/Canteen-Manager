@@ -342,60 +342,60 @@ export default function EpfoEsicPage() {
   return (
     <Layout>
       <div className="space-y-4">
-        <div className="flex items-center justify-between flex-wrap gap-3">
-          <div className="flex items-center gap-3">
-            <Link href="/">
-              <Button variant="ghost" size="icon" data-testid="button-back">
-                <ArrowLeft className="w-5 h-5" />
-              </Button>
-            </Link>
-            <div>
-              <h1 className="text-2xl font-bold flex items-center gap-2" data-testid="text-page-title">
-                <FileSpreadsheet className="w-6 h-6" /> EPFO & ESIC Export
-              </h1>
-              <p className="text-sm text-muted-foreground">Export monthly EPFO and ESIC data in government format</p>
-            </div>
+        <div className="flex items-center gap-2 sm:gap-3">
+          <Link href="/">
+            <Button variant="ghost" size="icon" className="shrink-0" data-testid="button-back">
+              <ArrowLeft className="w-5 h-5" />
+            </Button>
+          </Link>
+          <div className="min-w-0">
+            <h1 className="text-lg sm:text-2xl font-bold flex items-center gap-2 truncate" data-testid="text-page-title">
+              <FileSpreadsheet className="w-5 h-5 sm:w-6 sm:h-6 shrink-0" /> EPFO & ESIC Export
+            </h1>
+            <p className="text-[10px] sm:text-sm text-muted-foreground truncate">Export monthly EPFO and ESIC data in government format</p>
           </div>
         </div>
 
         <Card className="no-print">
-          <CardContent className="p-4">
-            <div className="grid grid-cols-2 sm:flex sm:flex-wrap gap-3 items-end">
-              <div className="space-y-2 col-span-2 sm:col-span-1 sm:min-w-[200px]">
-                <Label className="text-xs font-semibold flex items-center gap-1">
-                  <Building2 className="w-3.5 h-3.5" /> Company / Client
-                </Label>
-                <Select value={selectedClient} onValueChange={setSelectedClient}>
-                  <SelectTrigger data-testid="select-client"><SelectValue placeholder="Select Company" /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="__all__">All Clients</SelectItem>
-                    {clientNames.map(c => (
-                      <SelectItem key={c.id} value={c.name}>{c.name}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="space-y-2">
-                <Label className="text-xs font-semibold">Month</Label>
-                <Select value={String(month)} onValueChange={(v) => setMonth(Number(v))}>
-                  <SelectTrigger className="w-[140px]" data-testid="select-month"><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    {MONTHS.map((m, i) => (
-                      <SelectItem key={i} value={String(i + 1)}>{m}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="space-y-2">
-                <Label className="text-xs font-semibold">Year</Label>
-                <Select value={String(year)} onValueChange={(v) => setYear(Number(v))}>
-                  <SelectTrigger className="w-[100px]" data-testid="select-year"><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    {years.map(y => (
-                      <SelectItem key={y} value={String(y)}>{y}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+          <CardContent className="p-3 sm:p-4">
+            <div className="flex flex-col gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                <div className="space-y-1.5">
+                  <Label className="text-xs font-semibold flex items-center gap-1">
+                    <Building2 className="w-3.5 h-3.5" /> Company / Client
+                  </Label>
+                  <Select value={selectedClient} onValueChange={setSelectedClient}>
+                    <SelectTrigger data-testid="select-client"><SelectValue placeholder="Select Company" /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="__all__">All Clients</SelectItem>
+                      {clientNames.map(c => (
+                        <SelectItem key={c.id} value={c.name}>{c.name}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-1.5">
+                  <Label className="text-xs font-semibold">Month</Label>
+                  <Select value={String(month)} onValueChange={(v) => setMonth(Number(v))}>
+                    <SelectTrigger data-testid="select-month"><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      {MONTHS.map((m, i) => (
+                        <SelectItem key={i} value={String(i + 1)}>{m}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-1.5">
+                  <Label className="text-xs font-semibold">Year</Label>
+                  <Select value={String(year)} onValueChange={(v) => setYear(Number(v))}>
+                    <SelectTrigger data-testid="select-year"><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      {years.map(y => (
+                        <SelectItem key={y} value={String(y)}>{y}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
               </div>
             </div>
           </CardContent>
@@ -413,12 +413,11 @@ export default function EpfoEsicPage() {
 
           <TabsContent value="epfo" className="space-y-3">
             <div className="flex justify-end gap-2 flex-wrap">
-              <Button variant="outline" onClick={exportEcrTextFile} className="gap-2" data-testid="button-export-ecr">
-                <FileSpreadsheet className="w-4 h-4" /> Export ECR Text File
+              <Button variant="outline" size="sm" onClick={exportEcrTextFile} className="gap-1.5 text-xs sm:text-sm" data-testid="button-export-ecr">
+                <FileSpreadsheet className="w-4 h-4 shrink-0" /> <span className="hidden sm:inline">Export</span> ECR Text
               </Button>
-              <Button onClick={exportEpfoExcel} className="gap-2" data-testid="button-export-epfo">
-                <Download className="w-4 h-4" /> Export EPFO Excel
-                {selectedClient === "__all__" ? " (Separate)" : ""}
+              <Button size="sm" onClick={exportEpfoExcel} className="gap-1.5 text-xs sm:text-sm" data-testid="button-export-epfo">
+                <Download className="w-4 h-4 shrink-0" /> <span className="hidden sm:inline">Export</span> EPFO Excel
               </Button>
             </div>
             <Card>
@@ -489,9 +488,8 @@ export default function EpfoEsicPage() {
 
           <TabsContent value="esic" className="space-y-3">
             <div className="flex justify-end">
-              <Button onClick={exportEsicExcel} className="gap-2" data-testid="button-export-esic">
-                <Download className="w-4 h-4" /> Export ESIC Excel
-                {selectedClient === "__all__" ? " (Separate Files)" : ""}
+              <Button size="sm" onClick={exportEsicExcel} className="gap-1.5 text-xs sm:text-sm" data-testid="button-export-esic">
+                <Download className="w-4 h-4 shrink-0" /> <span className="hidden sm:inline">Export</span> ESIC Excel
               </Button>
             </div>
             <Card>

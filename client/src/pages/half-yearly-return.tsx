@@ -211,7 +211,7 @@ export default function HalfYearlyReturn() {
     }
 
     return {
-      menCount: menEmps.length, womenCount: womenEmps.length, totalCount: activeEmps.length,
+      menCount: menEmps.length, womenCount: womenEmps.length, totalCount: relevantEmps.length,
       menDays: Math.round(menDays), womenDays: Math.round(womenDays), totalDays: Math.round(totalDays),
       menWages, womenWages, totalWages,
       menPF, womenPF, totalPF: menPF + womenPF,
@@ -313,15 +313,15 @@ export default function HalfYearlyReturn() {
     <Layout>
       <div className="space-y-4 max-w-7xl mx-auto px-2 sm:px-4 pb-8">
         <div className="flex flex-wrap items-center justify-between gap-3">
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2 sm:gap-3 min-w-0">
             <Link href="/registers">
-              <Button variant="ghost" size="icon" data-testid="button-back">
+              <Button variant="ghost" size="icon" className="shrink-0" data-testid="button-back">
                 <ArrowLeft className="w-5 h-5" />
               </Button>
             </Link>
-            <div>
-              <h1 className="text-xl font-bold text-slate-800 dark:text-slate-200" data-testid="text-title">Half-Yearly Return (Form XXIV)</h1>
-              <p className="text-xs text-muted-foreground">Rule 82(1) - Return to be sent by Contractor to the Licensing Officer</p>
+            <div className="min-w-0">
+              <h1 className="text-base sm:text-xl font-bold text-slate-800 dark:text-slate-200 truncate" data-testid="text-title">Half-Yearly Return (Form XXIV)</h1>
+              <p className="text-[10px] sm:text-xs text-muted-foreground truncate">Rule 82(1) - Contractor to Licensing Officer</p>
             </div>
           </div>
           {selectedClient && (
@@ -340,49 +340,53 @@ export default function HalfYearlyReturn() {
         </div>
 
         <Card className="no-print border-blue-200 shadow-sm">
-          <CardContent className="p-4">
-            <div className="grid grid-cols-2 sm:flex sm:flex-wrap gap-3 items-end">
-              <div className="space-y-2 col-span-2 sm:col-span-1 sm:min-w-[200px]">
-                <Label className="text-xs font-semibold text-blue-700 dark:text-blue-300 flex items-center gap-1">
-                  <Building2 className="w-3.5 h-3.5" /> Company / Client
-                </Label>
-                <Select value={selectedClient} onValueChange={handleClientChange}>
-                  <SelectTrigger data-testid="select-client"><SelectValue placeholder="Select Company" /></SelectTrigger>
-                  <SelectContent>
-                    {clientNames.map(c => (
-                      <SelectItem key={c.id} value={c.name}>{c.name}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+          <CardContent className="p-3 sm:p-4">
+            <div className="flex flex-col gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                <div className="space-y-1.5">
+                  <Label className="text-xs font-semibold text-blue-700 dark:text-blue-300 flex items-center gap-1">
+                    <Building2 className="w-3.5 h-3.5" /> Company / Client
+                  </Label>
+                  <Select value={selectedClient} onValueChange={handleClientChange}>
+                    <SelectTrigger data-testid="select-client"><SelectValue placeholder="Select Company" /></SelectTrigger>
+                    <SelectContent>
+                      {clientNames.map(c => (
+                        <SelectItem key={c.id} value={c.name}>{c.name}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-1.5">
+                  <Label className="text-xs font-semibold text-blue-700 dark:text-blue-300">Year</Label>
+                  <Select value={selectedYear} onValueChange={setSelectedYear}>
+                    <SelectTrigger data-testid="select-year"><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      {Array.from({ length: 5 }, (_, i) => currentYear - 2 + i).map(y => (
+                        <SelectItem key={y} value={String(y)}>{y}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-1.5">
+                  <Label className="text-xs font-semibold text-blue-700 dark:text-blue-300">Half Year</Label>
+                  <Select value={halfYear} onValueChange={setHalfYear}>
+                    <SelectTrigger data-testid="select-half"><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="H1">Jan - Jun (30th June)</SelectItem>
+                      <SelectItem value="H2">Jul - Dec (31st Dec)</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
               </div>
-              <div className="space-y-2 sm:min-w-[120px]">
-                <Label className="text-xs font-semibold text-blue-700 dark:text-blue-300">Year</Label>
-                <Select value={selectedYear} onValueChange={setSelectedYear}>
-                  <SelectTrigger data-testid="select-year"><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    {Array.from({ length: 5 }, (_, i) => currentYear - 2 + i).map(y => (
-                      <SelectItem key={y} value={String(y)}>{y}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="space-y-2 sm:min-w-[160px]">
-                <Label className="text-xs font-semibold text-blue-700 dark:text-blue-300">Half Year</Label>
-                <Select value={halfYear} onValueChange={setHalfYear}>
-                  <SelectTrigger data-testid="select-half"><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="H1">Jan - Jun (30th June)</SelectItem>
-                    <SelectItem value="H2">Jul - Dec (31st Dec)</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="space-y-2 sm:min-w-[160px]">
-                <Label className="text-xs font-semibold text-blue-700 dark:text-blue-300">Ref. Number</Label>
-                <Input value={refNumber} onChange={e => setRefNumber(e.target.value)} placeholder="DJ/KOL/25/00030" data-testid="input-ref" />
-              </div>
-              <div className="space-y-2 sm:min-w-[140px]">
-                <Label className="text-xs font-semibold text-blue-700 dark:text-blue-300">Letter Date</Label>
-                <Input type="date" value={letterDate} onChange={e => setLetterDate(e.target.value)} data-testid="input-letter-date" />
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1.5">
+                  <Label className="text-xs font-semibold text-blue-700 dark:text-blue-300">Ref. Number</Label>
+                  <Input value={refNumber} onChange={e => setRefNumber(e.target.value)} placeholder="DJ/KOL/25/00030" data-testid="input-ref" />
+                </div>
+                <div className="space-y-1.5">
+                  <Label className="text-xs font-semibold text-blue-700 dark:text-blue-300">Letter Date</Label>
+                  <Input type="date" value={letterDate} onChange={e => setLetterDate(e.target.value)} data-testid="input-letter-date" />
+                </div>
               </div>
             </div>
           </CardContent>

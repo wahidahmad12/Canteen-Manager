@@ -217,20 +217,20 @@ export default function LeaveWithWagesPage() {
 
   return (
     <Layout>
-      <div className="p-4 sm:p-6 max-w-[1400px] mx-auto space-y-4">
+      <div className="space-y-4">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 no-print">
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2 sm:gap-3 min-w-0">
             <Link href="/registers">
-              <Button variant="ghost" size="icon" data-testid="button-back">
+              <Button variant="ghost" size="icon" className="shrink-0" data-testid="button-back">
                 <ArrowLeft className="w-5 h-5" />
               </Button>
             </Link>
-            <div>
-              <h1 className="text-xl sm:text-2xl font-bold tracking-tight flex items-center gap-2" data-testid="text-title">
-                <FileText className="w-5 h-5 sm:w-6 sm:h-6 text-teal-600" />
+            <div className="min-w-0">
+              <h1 className="text-lg sm:text-2xl font-bold tracking-tight flex items-center gap-2 truncate" data-testid="text-title">
+                <FileText className="w-5 h-5 sm:w-6 sm:h-6 text-teal-600 shrink-0" />
                 Leave With Wages
               </h1>
-              <p className="text-muted-foreground text-xs sm:text-sm">Form No. 15 - Rule 88, West Bengal Factories Rule, 1958</p>
+              <p className="text-muted-foreground text-[10px] sm:text-sm truncate">Form No. 15 - Rule 88, WB Factories Rule, 1958</p>
             </div>
           </div>
           {selectedEmployee && leaveRecords.length >= 0 && (
@@ -243,36 +243,38 @@ export default function LeaveWithWagesPage() {
         </div>
 
         <Card className="no-print">
-          <CardContent className="p-4">
-            <div className="grid grid-cols-2 sm:flex sm:flex-wrap gap-3 items-end">
-              <div className="space-y-2 col-span-2 sm:col-span-1 sm:min-w-[200px]">
-                <Label className="text-xs font-semibold flex items-center gap-1">
-                  <Building2 className="w-3.5 h-3.5" /> Company / Client
-                </Label>
-                <Select value={selectedClient} onValueChange={(v) => { setSelectedClient(v); setSelectedEmployeeId(""); }}>
-                  <SelectTrigger data-testid="select-client"><SelectValue placeholder="Select Company" /></SelectTrigger>
-                  <SelectContent>
-                    {clientNames.map(c => (
-                      <SelectItem key={c.id} value={c.name}>{c.name}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="space-y-2 col-span-2 sm:col-span-1 sm:min-w-[250px]">
-                <Label className="text-xs font-semibold flex items-center gap-1">
-                  <Users className="w-3.5 h-3.5" /> Employee
-                </Label>
-                <Select value={selectedEmployeeId} onValueChange={setSelectedEmployeeId} disabled={!selectedClient}>
-                  <SelectTrigger data-testid="select-employee"><SelectValue placeholder="Select Employee" /></SelectTrigger>
-                  <SelectContent>
-                    {employees.map(emp => (
-                      <SelectItem key={emp.id} value={String(emp.id)}>{emp.name} ({emp.employeeCode}){emp.leavingDate ? ' [Left]' : ''}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+          <CardContent className="p-3 sm:p-4">
+            <div className="flex flex-col gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div className="space-y-1.5">
+                  <Label className="text-xs font-semibold flex items-center gap-1">
+                    <Building2 className="w-3.5 h-3.5" /> Company / Client
+                  </Label>
+                  <Select value={selectedClient} onValueChange={(v) => { setSelectedClient(v); setSelectedEmployeeId(""); }}>
+                    <SelectTrigger data-testid="select-client"><SelectValue placeholder="Select Company" /></SelectTrigger>
+                    <SelectContent>
+                      {clientNames.map(c => (
+                        <SelectItem key={c.id} value={c.name}>{c.name}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-1.5">
+                  <Label className="text-xs font-semibold flex items-center gap-1">
+                    <Users className="w-3.5 h-3.5" /> Employee
+                  </Label>
+                  <Select value={selectedEmployeeId} onValueChange={setSelectedEmployeeId} disabled={!selectedClient}>
+                    <SelectTrigger data-testid="select-employee"><SelectValue placeholder="Select Employee" /></SelectTrigger>
+                    <SelectContent>
+                      {employees.map(emp => (
+                        <SelectItem key={emp.id} value={String(emp.id)}>{emp.name} ({emp.employeeCode}){emp.leavingDate ? ' [Left]' : ''}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
               </div>
               {isAdmin && selectedClient && (
-                <div className="flex gap-2 mt-3 sm:mt-0">
+                <div className="flex flex-wrap gap-2">
                   {selectedEmployeeId && (
                     <Button
                       variant="outline"

@@ -350,18 +350,18 @@ export default function BonusReturn() {
     <Layout>
       <div className="space-y-6">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 no-print">
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2 sm:gap-3 min-w-0">
             <Link href="/">
-              <Button variant="ghost" size="icon" data-testid="button-back">
+              <Button variant="ghost" size="icon" className="shrink-0" data-testid="button-back">
                 <ArrowLeft className="w-4 h-4" />
               </Button>
             </Link>
-            <div>
-              <h1 className="text-xl sm:text-2xl font-bold tracking-tight flex items-center gap-2" data-testid="text-title">
-                <Gift className="w-5 h-5 text-amber-600" />
+            <div className="min-w-0">
+              <h1 className="text-base sm:text-2xl font-bold tracking-tight flex items-center gap-2 truncate" data-testid="text-title">
+                <Gift className="w-5 h-5 text-amber-600 shrink-0" />
                 Bonus Return
               </h1>
-              <p className="text-xs sm:text-sm text-muted-foreground">Payment of Bonus Act, 1965 — Form C & Form D</p>
+              <p className="text-[10px] sm:text-sm text-muted-foreground truncate">Payment of Bonus Act, 1965 — Form C & Form D</p>
             </div>
           </div>
           {selectedClient && (
@@ -397,73 +397,77 @@ export default function BonusReturn() {
         </div>
 
         <Card className="no-print border-amber-200 shadow-sm">
-          <CardContent className="p-4">
-            <div className="grid grid-cols-2 sm:flex sm:flex-wrap gap-3 items-end">
-              <div className="space-y-2 col-span-2 sm:col-span-1 sm:min-w-[200px]">
-                <Label className="text-xs font-semibold text-amber-700 dark:text-amber-300 flex items-center gap-1">
-                  <Building2 className="w-3.5 h-3.5" /> Company / Client
-                </Label>
-                <Select value={selectedClient} onValueChange={setSelectedClient}>
-                  <SelectTrigger data-testid="select-client">
-                    <SelectValue placeholder="Select Company" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {clientNames.map(c => (
-                      <SelectItem key={c.id} value={c.name}>{c.name}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+          <CardContent className="p-3 sm:p-4">
+            <div className="flex flex-col gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div className="space-y-1.5">
+                  <Label className="text-xs font-semibold text-amber-700 dark:text-amber-300 flex items-center gap-1">
+                    <Building2 className="w-3.5 h-3.5" /> Company / Client
+                  </Label>
+                  <Select value={selectedClient} onValueChange={setSelectedClient}>
+                    <SelectTrigger data-testid="select-client">
+                      <SelectValue placeholder="Select Company" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {clientNames.map(c => (
+                        <SelectItem key={c.id} value={c.name}>{c.name}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-1.5">
+                  <Label className="text-xs font-semibold text-amber-700 dark:text-amber-300">Accounting Year</Label>
+                  <Select value={fyStartYear} onValueChange={setFyStartYear}>
+                    <SelectTrigger data-testid="select-fy">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {Array.from({ length: 5 }, (_, i) => currentYear - 2 + i).map(y => (
+                        <SelectItem key={y} value={String(y)}>{`Apr ${y} – Mar ${y + 1}`}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
               </div>
-              <div className="space-y-2 sm:min-w-[140px]">
-                <Label className="text-xs font-semibold text-amber-700 dark:text-amber-300">Accounting Year</Label>
-                <Select value={fyStartYear} onValueChange={setFyStartYear}>
-                  <SelectTrigger data-testid="select-fy">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {Array.from({ length: 5 }, (_, i) => currentYear - 2 + i).map(y => (
-                      <SelectItem key={y} value={String(y)}>{`Apr ${y} – Mar ${y + 1}`}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="space-y-2 min-w-[120px]">
-                <Label className="text-xs font-semibold text-amber-700 dark:text-amber-300">Working Days</Label>
-                <Input
-                  type="number"
-                  value={workingDays}
-                  onChange={e => setWorkingDays(e.target.value)}
-                  placeholder="e.g. 3532"
-                  data-testid="input-working-days"
-                />
-              </div>
-              <div className="space-y-2 min-w-[140px]">
-                <Label className="text-xs font-semibold text-amber-700 dark:text-amber-300">Bonus Payment Date</Label>
-                <Input
-                  type="date"
-                  value={bonusDate}
-                  onChange={e => setBonusDate(e.target.value)}
-                  data-testid="input-bonus-date"
-                />
-              </div>
-              <div className="space-y-2 min-w-[180px]">
-                <Label className="text-xs font-semibold text-amber-700 dark:text-amber-300">Ref. Number</Label>
-                <Input
-                  type="text"
-                  value={refNumber}
-                  onChange={e => setRefNumber(e.target.value)}
-                  placeholder="e.g. DJ/KOL/25/0261"
-                  data-testid="input-ref-number"
-                />
-              </div>
-              <div className="space-y-2 min-w-[140px]">
-                <Label className="text-xs font-semibold text-amber-700 dark:text-amber-300">Letter Date</Label>
-                <Input
-                  type="date"
-                  value={letterDate}
-                  onChange={e => setLetterDate(e.target.value)}
-                  data-testid="input-letter-date"
-                />
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                <div className="space-y-1.5">
+                  <Label className="text-xs font-semibold text-amber-700 dark:text-amber-300">Working Days</Label>
+                  <Input
+                    type="number"
+                    value={workingDays}
+                    onChange={e => setWorkingDays(e.target.value)}
+                    placeholder="e.g. 3532"
+                    data-testid="input-working-days"
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <Label className="text-xs font-semibold text-amber-700 dark:text-amber-300">Bonus Date</Label>
+                  <Input
+                    type="date"
+                    value={bonusDate}
+                    onChange={e => setBonusDate(e.target.value)}
+                    data-testid="input-bonus-date"
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <Label className="text-xs font-semibold text-amber-700 dark:text-amber-300">Ref. Number</Label>
+                  <Input
+                    type="text"
+                    value={refNumber}
+                    onChange={e => setRefNumber(e.target.value)}
+                    placeholder="DJ/KOL/25/0261"
+                    data-testid="input-ref-number"
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <Label className="text-xs font-semibold text-amber-700 dark:text-amber-300">Letter Date</Label>
+                  <Input
+                    type="date"
+                    value={letterDate}
+                    onChange={e => setLetterDate(e.target.value)}
+                    data-testid="input-letter-date"
+                  />
+                </div>
               </div>
               {selectedClient && bonusRows.length > 0 && (
                 <Badge variant="secondary" className="text-xs bg-amber-100 text-amber-700 dark:bg-amber-900 dark:text-amber-300 h-8">
