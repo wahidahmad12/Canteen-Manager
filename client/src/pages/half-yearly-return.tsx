@@ -200,20 +200,21 @@ export default function HalfYearlyReturn() {
     if (!pw) return;
     pw.document.write(`<!DOCTYPE html><html><head><title>Form XXIV - ${selectedClient} - ${halfLabel}</title>
       <style>
-        @page { size: A4 portrait; margin: 15mm; }
-        body { margin: 0; padding: 0; font-family: 'Times New Roman', Georgia, serif; font-size: 12px; line-height: 1.5; color: #000; }
-        .form-title { text-align: center; margin-bottom: 10px; }
-        .form-title h3 { font-size: 14px; font-weight: bold; margin: 4px 0; }
-        .form-title p { font-size: 11px; margin: 2px 0; }
-        .licence { text-align: center; font-size: 10px; margin-bottom: 8px; }
-        table.fields { width: 100%; border-collapse: collapse; font-size: 11px; }
-        table.fields td { padding: 3px 6px; vertical-align: top; }
+        @page { size: A4 portrait; margin: 12mm 15mm; }
+        body { margin: 0; padding: 0; font-family: 'Times New Roman', Georgia, serif; font-size: 11px; line-height: 1.3; color: #000; }
+        .form-title { text-align: center; margin-bottom: 4px; }
+        .form-title h3 { font-size: 13px; font-weight: bold; margin: 2px 0; }
+        .form-title p { font-size: 10px; margin: 1px 0; }
+        .licence { text-align: center; font-size: 9px; margin-bottom: 4px; }
+        table.fields { width: 100%; border-collapse: collapse; font-size: 10.5px; }
+        table.fields td { padding: 1.5px 4px; vertical-align: top; }
         table.fields td.label { width: 45%; }
         table.fields td.value { width: 55%; }
-        .sub-table { border-collapse: collapse; font-size: 11px; }
-        .sub-table td, .sub-table th { padding: 2px 6px; text-align: left; }
-        .signature { display: flex; justify-content: space-between; margin-top: 30px; font-size: 11px; }
-        p { margin: 2px 0; }
+        .sub-table { border-collapse: collapse; font-size: 10.5px; }
+        .sub-table td, .sub-table th { padding: 1px 5px; text-align: left; }
+        .signature { display: flex; justify-content: space-between; margin-top: 20px; font-size: 10.5px; }
+        p { margin: 1px 0; }
+        .spacer td { height: 2px !important; }
       </style>
     </head><body>${el.innerHTML}</body></html>`);
     pw.document.close();
@@ -510,22 +511,22 @@ export default function HalfYearlyReturn() {
                     <td className="label">1. Name and Address of contractor</td>
                     <td className="value">: M/s DJ HOSPITALITY & FACILITY MANAGEMENT PRIVATE LIMITED<br />Ward.60, PS - Beniapukur, Kolkata-700014</td>
                   </tr>
-                  <tr><td colSpan={2} style={{ height: '6px' }}></td></tr>
+                  <tr className="spacer"><td colSpan={2}></td></tr>
                   <tr>
                     <td className="label">2. Name and Address of the establishment</td>
                     <td className="value">: M/s DJ HOSPITALITY & FACILITY MANAGEMENT PRIVATE LIMITED<br />Ward.60, PS - Beniapukur, Kolkata-700014</td>
                   </tr>
-                  <tr><td colSpan={2} style={{ height: '6px' }}></td></tr>
+                  <tr className="spacer"><td colSpan={2}></td></tr>
                   <tr>
                     <td className="label">3. Name and Address of the principal Employer</td>
                     <td className="value">: {selectedClient.toUpperCase()}<br />{principalAddress || '________________________________'}</td>
                   </tr>
-                  <tr><td colSpan={2} style={{ height: '6px' }}></td></tr>
+                  <tr className="spacer"><td colSpan={2}></td></tr>
                   <tr>
                     <td className="label">4. Duration of contract</td>
                     <td className="value">: From <u>{fmtDate(contractFrom)}</u> to <u>{fmtDate(contractTo)}</u></td>
                   </tr>
-                  <tr><td colSpan={2} style={{ height: '6px' }}></td></tr>
+                  <tr className="spacer"><td colSpan={2}></td></tr>
                   <tr>
                     <td className="label">5. Number of days during the half years on which<br />(a) The establishment of the principal Employer had worked</td>
                     <td className="value">: {principalDays || '____'} Days.</td>
@@ -534,7 +535,7 @@ export default function HalfYearlyReturn() {
                     <td className="label" style={{ paddingLeft: '20px' }}>(b) The contractor's establishment had worked</td>
                     <td className="value">: {contractorDays || '____'} Days.</td>
                   </tr>
-                  <tr><td colSpan={2} style={{ height: '6px' }}></td></tr>
+                  <tr className="spacer"><td colSpan={2}></td></tr>
                   <tr>
                     <td className="label">6. Maximum number of contract labour any day during the half year</td>
                     <td className="value">
@@ -544,7 +545,7 @@ export default function HalfYearlyReturn() {
                       </table>
                     </td>
                   </tr>
-                  <tr><td colSpan={2} style={{ height: '6px' }}></td></tr>
+                  <tr className="spacer"><td colSpan={2}></td></tr>
                   <tr>
                     <td className="label">7. (i) Daily hours of work and spread over-</td>
                     <td className="value">: {dailyHours}</td>
@@ -561,7 +562,7 @@ export default function HalfYearlyReturn() {
                     <td className="label" style={{ paddingLeft: '20px' }}>(iii) Number of man-hours of over-time Worked</td>
                     <td className="value">: {computed.totalOT} Hrs.</td>
                   </tr>
-                  <tr><td colSpan={2} style={{ height: '6px' }}></td></tr>
+                  <tr className="spacer"><td colSpan={2}></td></tr>
                   <tr>
                     <td className="label">8. Number of man-days worked by</td>
                     <td className="value">
@@ -571,7 +572,7 @@ export default function HalfYearlyReturn() {
                       </table>
                     </td>
                   </tr>
-                  <tr><td colSpan={2} style={{ height: '6px' }}></td></tr>
+                  <tr className="spacer"><td colSpan={2}></td></tr>
                   <tr>
                     <td className="label">9. Amount of Wages paid</td>
                     <td className="value">
@@ -581,7 +582,7 @@ export default function HalfYearlyReturn() {
                       </table>
                     </td>
                   </tr>
-                  <tr><td colSpan={2} style={{ height: '6px' }}></td></tr>
+                  <tr className="spacer"><td colSpan={2}></td></tr>
                   <tr>
                     <td className="label">10. Amount of deduction from wages, if any</td>
                     <td className="value">
@@ -596,7 +597,7 @@ export default function HalfYearlyReturn() {
                       </table>
                     </td>
                   </tr>
-                  <tr><td colSpan={2} style={{ height: '6px' }}></td></tr>
+                  <tr className="spacer"><td colSpan={2}></td></tr>
                   <tr>
                     <td className="label">11. Whether the following have been provided</td>
                     <td className="value"></td>
@@ -623,7 +624,7 @@ export default function HalfYearlyReturn() {
                   </tr>
                 </tbody>
               </table>
-              <p style={{ fontSize: '10px', fontStyle: 'italic', marginTop: '10px' }}>(If the Answer is "yes" state briefly standards provided)</p>
+              <p style={{ fontSize: '9px', fontStyle: 'italic', marginTop: '4px' }}>(If the Answer is "yes" state briefly standards provided)</p>
               <div className="signature">
                 <div>
                   <p>Place : Kolkata</p>
