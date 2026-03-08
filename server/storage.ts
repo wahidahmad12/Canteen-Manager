@@ -31,6 +31,7 @@ import {
   skillWageRates,
   halfYearlyReturns,
   bonusReturns,
+  letters,
   type DailyReport, 
   type ExpenseItem,
   type CreateReportRequest,
@@ -61,6 +62,7 @@ import {
   type SkillWageRate,
   type HalfYearlyReturn,
   type BonusReturn,
+  type Letter,
 } from "@shared/schema";
 import { eq, desc, lt, and, sql } from "drizzle-orm";
 import bcrypt from "bcryptjs";
@@ -173,6 +175,12 @@ export interface IStorage {
   getBonusReturn(clientName: string, fyStartYear: number): Promise<BonusReturn | undefined>;
   saveBonusReturn(data: any): Promise<BonusReturn>;
   deleteBonusReturn(id: number): Promise<void>;
+  getLetters(): Promise<Letter[]>;
+  getLetter(id: number): Promise<Letter | undefined>;
+  getNextLetterSerialNumber(): Promise<number>;
+  createLetter(data: any): Promise<Letter>;
+  updateLetter(id: number, data: any): Promise<Letter>;
+  deleteLetter(id: number): Promise<void>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -1271,6 +1279,34 @@ export class DatabaseStorage implements IStorage {
 
   async deleteBonusReturn(id: number): Promise<void> {
     await db.delete(bonusReturns).where(eq(bonusReturns.id, id));
+  }
+
+  async getLetters(): Promise<Letter[]> {
+    return await db.select().from(letters).orderBy(desc(letters.id));
+  }
+
+  async getLetter(id: number): Promise<Letter | undefined> {
+    const [letter] = await db.select().from(letters).where(eq(letters.id, id));
+    return letter;
+  }
+
+  async getNextLetterSerialNumber(): Promise<number> {
+    const result = await db.select({ maxSerial: sql<number>`COALESCE(MAX(${letters.serialNumber}), 0)` }).from(letters);
+    return (result[0]?.maxSerial || 0) + 1;
+  }
+
+  async createLetter(data: any): Promise<Letter> {
+    const [created] = await db.insert(letters).values(data).returning();
+    return created;
+  }
+
+  async updateLetter(id: number, data: any): Promise<Letter> {
+    const [updated] = await db.update(letters).set({ ...data, updatedAt: new Date() }).where(eq(letters.id, id)).returning();
+    return updated;
+  }
+
+  async deleteLetter(id: number): Promise<void> {
+    await db.delete(letters).where(eq(letters.id, id));
   }
 }
 

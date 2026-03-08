@@ -446,6 +446,26 @@ export const bonusReturns = pgTable("bonus_returns", {
 
 export type BonusReturn = typeof bonusReturns.$inferSelect;
 
+export const letters = pgTable("letters", {
+  id: serial("id").primaryKey(),
+  serialNumber: serial("serial_number"),
+  refNumber: text("ref_number").notNull(),
+  letterDate: text("letter_date").notNull(),
+  toName: text("to_name"),
+  toAddress: text("to_address"),
+  toGstin: text("to_gstin"),
+  subject: text("subject"),
+  body: text("body"),
+  regards: text("regards"),
+  clientName: text("client_name"),
+  createdBy: text("created_by"),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export type Letter = typeof letters.$inferSelect;
+export const insertLetterSchema = createInsertSchema(letters).omit({ id: true, serialNumber: true, createdAt: true, updatedAt: true });
+
 // === RELATIONS ===
 export const dailyReportsRelations = relations(dailyReports, ({ many, one }) => ({
   items: many(expenseItems),

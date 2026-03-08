@@ -37,6 +37,7 @@ Preferred communication style: Simple, everyday language.
   - `/half-yearly-return` — Half-Yearly Return (Form XXIV) Rule 82(1) with cover letter and form, auto-calculated from salary records, separate print buttons for cover letter (A4 portrait) and Form XXIV (A4 portrait)
   - `/leave-with-wages` — Register of Leave With Wages (Form No. 15) per employee, government format print (A3 landscape), CRUD for yearly leave records
   - `/epfo-esic` — EPFO & ESIC Excel Export with tabs for EPFO (UAN-based PF contribution sheet) and ESIC (IP number-based monthly return), client filter (individual or all), month/year selector, separate files per client when "All" selected
+  - `/letterhead` — Letterhead Letters page with compose/saved tabs, auto-generated ref numbers (DJ/KOL/Year/AutoNo), database persistence, print with company letterhead
 
 ### Backend
 - **Framework**: Express 5 on Node.js with TypeScript (run via tsx)
@@ -81,6 +82,7 @@ Preferred communication style: Simple, everyday language.
   - `skill_wage_rates` — Skill-category-wise daily wage rates by month and year (Unskilled, Semi Skilled, Skilled, High Skilled). Primary source for salary generation and leave wage calculations. Falls back to Employee Master dailyRate if no skill rate is set for that month/year
   - `half_yearly_returns` — Saved Half-Yearly Return (Form XXIV) data per client/half/year. Stores all form fields (contract dates, days worked, LWF, facilities, licence no, etc.) so users can retrieve previously entered data
   - `bonus_returns` — Saved Bonus Return data per client/FY year. Stores Form C fields (bonusDate, workingDays, refNumber, letterDate) and Form D fields (formDNatureOfIndustry, formDEmployerName, formDSettlement, formDPercentage, formDPaidToAll, formDRemarks, formDPaymentDate)
+  - `letters` — Letterhead letters with auto-incrementing serialNumber, refNumber (DJ/KOL/Year/AutoNo format), letterDate, recipient info (toName, toAddress, toGstin), subject, body, regards, clientName, createdBy
 - **Storage Layer**: `server/storage.ts` implements `IStorage` interface with `DatabaseStorage` class, abstracting all DB operations
 
 ### Key Design Decisions

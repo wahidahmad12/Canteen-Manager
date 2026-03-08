@@ -1263,6 +1263,42 @@ export async function registerRoutes(
     res.status(204).send();
   });
 
+  app.get("/api/letters", requireAuth, async (req, res) => {
+    const allLetters = await storage.getLetters();
+    res.json(allLetters);
+  });
+
+  app.get("/api/letters/next-serial", requireAuth, async (req, res) => {
+    const nextSerial = await storage.getNextLetterSerialNumber();
+    res.json({ nextSerial });
+  });
+
+  app.get("/api/letters/:id", requireAuth, async (req, res) => {
+    const letter = await storage.getLetter(Number(req.params.id));
+    if (!letter) return res.status(404).json({ message: "Letter not found" });
+    res.json(letter);
+  });
+
+  app.post("/api/letters", requireAuth, async (req, res) => {
+    const { refNumber, letterDate, toName, toAddress, toGstin, subject, body, regards, clientName } = req.body;
+    if (!refNumber || !letterDate) return res.status(400).json({ message: "refNumber and letterDate are required" });
+    const letter = await storage.createLetter({ refNumber, letterDate, toName, toAddress, toGstin, subject, body, regards, clientName, createdBy: req.session.displayName || req.session.username || '' });
+    res.status(201).json(letter);
+  });
+
+  app.put("/api/letters/:id", requireAuth, async (req, res) => {
+    const existing = await storage.getLetter(Number(req.params.id));
+    if (!existing) return res.status(404).json({ message: "Letter not found" });
+    const { refNumber, letterDate, toName, toAddress, toGstin, subject, body, regards, clientName } = req.body;
+    const letter = await storage.updateLetter(Number(req.params.id), { refNumber, letterDate, toName, toAddress, toGstin, subject, body, regards, clientName });
+    res.json(letter);
+  });
+
+  app.delete("/api/letters/:id", requireAdmin, async (req, res) => {
+    await storage.deleteLetter(Number(req.params.id));
+    res.status(204).send();
+  });
+
   return httpServer;
 }
 
