@@ -244,25 +244,11 @@ export default function EpfoEsicPage() {
     const ExcelJS = (await import("exceljs")).default;
     const wb = new ExcelJS.Workbook();
 
-    if (selectedClient === "__all__") {
-      const clientGroups = new Map<string, typeof esicData>();
-      for (const row of esicData) {
-        if (!clientGroups.has(row.clientName)) clientGroups.set(row.clientName, []);
-        clientGroups.get(row.clientName)!.push(row);
-      }
-
-      for (const [clientName, rows] of clientGroups) {
-        buildEsicSheet(wb, rows, clientName);
-      }
-      addEsicInstructionsSheet(wb);
-      const buf = await wb.xlsx.writeBuffer();
-      downloadBuffer(buf, `ESIC_All_Clients_${MONTHS[month - 1]}_${year}.xlsx`);
-    } else {
-      buildEsicSheet(wb, esicData, selectedClient);
-      addEsicInstructionsSheet(wb);
-      const buf = await wb.xlsx.writeBuffer();
-      downloadBuffer(buf, `ESIC_${selectedClient.replace(/\s+/g, '_')}_${MONTHS[month - 1]}_${year}.xlsx`);
-    }
+    const label = selectedClient === "__all__" ? "All_Clients" : selectedClient.replace(/\s+/g, '_');
+    buildEsicSheet(wb, esicData, selectedClient === "__all__" ? "Sheet1" : selectedClient);
+    addEsicInstructionsSheet(wb);
+    const buf = await wb.xlsx.writeBuffer();
+    downloadBuffer(buf, `ESIC_${label}_${MONTHS[month - 1]}_${year}.xlsx`);
     toast({ title: "ESIC Excel exported" });
   };
 
