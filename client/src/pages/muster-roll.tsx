@@ -61,15 +61,32 @@ export default function MusterRoll() {
   const yearNum = parseInt(year);
   const daysInMonth = getDaysInMonth(monthNum, yearNum);
 
-  const { data: employees, isLoading: employeesLoading, refetch: refetchEmployees } = useQuery({
+  const { data: allEmployees, isLoading: employeesLoading, refetch: refetchEmployees } = useQuery({
     queryKey: ["/api/employees", clientName],
     queryFn: async () => {
       const res = await fetch(`/api/employees?clientName=${encodeURIComponent(clientName)}`, { credentials: "include" });
       if (!res.ok) throw new Error("Failed to fetch employees");
-      return res.json() as Promise<{ id: number; name: string; employeeId?: string; designation?: string }[]>;
+      return res.json() as Promise<any[]>;
     },
     enabled: false,
   });
+
+  const employees = useMemo(() => {
+    if (!allEmployees) return undefined;
+    const lastDayOfMonth = new Date(yearNum, monthNum, 0);
+    const firstDayOfMonth = new Date(yearNum, monthNum - 1, 1);
+    return allEmployees.filter((emp: any) => {
+      if (emp.joiningDate) {
+        const joinDate = new Date(emp.joiningDate);
+        if (joinDate > lastDayOfMonth) return false;
+      }
+      if (emp.leavingDate) {
+        const leaveDate = new Date(emp.leavingDate);
+        if (leaveDate < firstDayOfMonth) return false;
+      }
+      return true;
+    });
+  }, [allEmployees, monthNum, yearNum]);
 
   const { data: attendanceRecords, isLoading: attendanceLoading, refetch: refetchAttendance } = useQuery({
     queryKey: ["/api/attendance", clientName, month, year],
@@ -87,8 +104,22 @@ export default function MusterRoll() {
       return;
     }
     const [empResult, attResult] = await Promise.all([refetchEmployees(), refetchAttendance()]);
-    const emps = empResult.data || [];
+    const rawEmps = empResult.data || [];
     const records = attResult.data || [];
+
+    const lastDayOfMonth = new Date(yearNum, monthNum, 0);
+    const firstDayOfMonth = new Date(yearNum, monthNum - 1, 1);
+    const emps = rawEmps.filter((emp: any) => {
+      if (emp.joiningDate) {
+        const joinDate = new Date(emp.joiningDate);
+        if (joinDate > lastDayOfMonth) return false;
+      }
+      if (emp.leavingDate) {
+        const leaveDate = new Date(emp.leavingDate);
+        if (leaveDate < firstDayOfMonth) return false;
+      }
+      return true;
+    });
 
     const map: AttendanceMap = {};
     emps.forEach((emp: any) => {

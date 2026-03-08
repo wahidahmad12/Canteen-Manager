@@ -992,7 +992,20 @@ export class DatabaseStorage implements IStorage {
 
   async generateSalary(clientName: string, month: number, year: number, paidOn?: string): Promise<SalaryRecord[]> {
     const emps = await this.getEmployees(clientName);
-    const activeEmps = emps.filter(e => e.isActive);
+    const lastDayOfMonth = new Date(year, month, 0);
+    const firstDayOfMonth = new Date(year, month - 1, 1);
+    const activeEmps = emps.filter(e => {
+      if (!e.isActive) return false;
+      if (e.joiningDate) {
+        const joinDate = new Date(e.joiningDate);
+        if (joinDate > lastDayOfMonth) return false;
+      }
+      if (e.leavingDate) {
+        const leaveDate = new Date(e.leavingDate);
+        if (leaveDate < firstDayOfMonth) return false;
+      }
+      return true;
+    });
     const attendanceRecords = await this.getAttendance(clientName, month, year);
     const allOtRecords = await this.getOvertimeRecords(clientName);
     const results: SalaryRecord[] = [];
