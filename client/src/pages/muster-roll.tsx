@@ -12,6 +12,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useClientNames } from "@/hooks/use-reports";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { Loader2, Download, Printer, Save, ClipboardList, Calendar, Users, FileSpreadsheet, Upload } from "lucide-react";
+import { PrintSettingsDialog } from "@/components/print-settings-dialog";
 
 const MONTHS = [
   "January", "February", "March", "April", "May", "June",
@@ -218,14 +219,28 @@ export default function MusterRoll() {
 
   const handlePrint = () => window.print();
 
-  const handleGovPrint = () => {
+  const [printDialogOpen, setPrintDialogOpen] = useState(false);
+  const [printSelectedIds, setPrintSelectedIds] = useState<Set<number>>(new Set());
+
+  const openPrintDialog = () => {
+    if (employees) setPrintSelectedIds(new Set(employees.map((e: any) => e.id)));
+    setPrintDialogOpen(true);
+  };
+
+  const printEmployeeList = useMemo(() => {
+    return (employees || []).map((e: any) => ({ id: e.id, name: e.name, employeeCode: e.employeeCode }));
+  }, [employees]);
+
+  const executeGovPrint = () => {
     if (!employees || employees.length === 0) return;
+    const selectedEmps = employees.filter((e: any) => printSelectedIds.has(e.id));
+    if (selectedEmps.length === 0) return;
     const clientObj = clients?.find((c: any) => c.name === clientName);
     const clientAddr = clientObj?.address || "";
     const printWin = window.open("", "_blank");
     if (!printWin) return;
 
-    const rows = employees.map((emp: any, idx: number) => {
+    const rows = selectedEmps.map((emp: any, idx: number) => {
       const empData = attendanceData[emp.id] || {};
       const totals = calcTotals(empData);
       const dayCells = Array.from({ length: daysInMonth }, (_, i) => {
@@ -666,7 +681,7 @@ export default function MusterRoll() {
                 <Printer className="w-4 h-4 mr-1" />
                 Print
               </Button>
-              <Button variant="outline" size="sm" onClick={handleGovPrint} data-testid="button-gov-print">
+              <Button variant="outline" size="sm" onClick={openPrintDialog} data-testid="button-gov-print">
                 <Printer className="w-4 h-4 mr-1" />
                 Form XVI
               </Button>
@@ -911,6 +926,15 @@ export default function MusterRoll() {
           </>
         )}
       </div>
+      <PrintSettingsDialog
+        open={printDialogOpen}
+        onOpenChange={setPrintDialogOpen}
+        employees={printEmployeeList}
+        selectedEmployeeIds={printSelectedIds}
+        onSelectedEmployeeIdsChange={setPrintSelectedIds}
+        onPrint={executeGovPrint}
+        title="Print Form XVI - Select Employees"
+      />
     </Layout>
   );
 }

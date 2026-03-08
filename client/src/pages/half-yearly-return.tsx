@@ -97,6 +97,26 @@ export default function HalfYearlyReturn() {
       setPrincipalAddress(savedReturn.principalAddress || '');
       setSavedId(savedReturn.id);
     } else {
+      setRefNumber('');
+      setLetterDate('');
+      setFormDate('');
+      setContractFrom('');
+      setContractTo('');
+      setPrincipalDays('');
+      setContractorDays('');
+      setDailyHours('8hrs. And 2Hrs spread over-time.');
+      setWeeklyHoliday('Yes. On Sunday.');
+      setHolidayPaid('Yes.');
+      setLwfMen('');
+      setLwfWomen('');
+      setCanteen('Provided');
+      setRestRoom('Provided');
+      setDrinkingWater('Provided');
+      setCreches('N/A');
+      setFirstAid('Provided');
+      setLicenceNo('KOL01/CLL/001435, DT-27.11.2020, P.S-TARATALA, Ward-79');
+      const c = clientNames.find((cl: any) => cl.name === selectedClient);
+      setPrincipalAddress(c?.address || '');
       setSavedId(null);
     }
   }, [savedReturn]);

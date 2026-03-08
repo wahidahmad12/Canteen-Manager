@@ -2,6 +2,7 @@ import { useState, useMemo, useRef, useCallback, useEffect } from "react";
 import { Link } from "wouter";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Loader2, Printer, FileText, Users, IndianRupee, TrendingDown, Wallet, ArrowRight, Download, ImageDown, FileSpreadsheet } from "lucide-react";
+import { PrintSettingsDialog } from "@/components/print-settings-dialog";
 import { Layout } from "@/components/layout";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -361,6 +362,20 @@ export default function SalaryRegister() {
   }, [employees]);
 
   const [downloading, setDownloading] = useState(false);
+  const [salaryPrintDialogOpen, setSalaryPrintDialogOpen] = useState(false);
+  const [salaryPrintSelectedIds, setSalaryPrintSelectedIds] = useState<Set<number>>(new Set());
+
+  const salaryPrintEmployeeList = useMemo(() => {
+    return (salaries || []).map(s => {
+      const emp = employeeMap.get(s.employeeId);
+      return { id: s.employeeId, name: emp?.name || `Employee #${s.employeeId}`, employeeCode: emp?.employeeCode };
+    });
+  }, [salaries, employeeMap]);
+
+  const openSalaryPrintDialog = () => {
+    setSalaryPrintSelectedIds(new Set(salaryPrintEmployeeList.map(e => e.id)));
+    setSalaryPrintDialogOpen(true);
+  };
   const renderRef = useRef<HTMLDivElement>(null);
 
   const handleDownloadAllJpeg = useCallback(async () => {
@@ -541,12 +556,14 @@ export default function SalaryRegister() {
     const f = (n: number) => n.toLocaleString("en-IN", { minimumFractionDigits: 0, maximumFractionDigits: 0 });
     const fDec = (n: number) => n.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
-    const dataRows = salaries.map((s, idx) => {
+    const filteredIndices = salaries.map((s, idx) => ({ s, idx })).filter(({ s }) => salaryPrintSelectedIds.size === 0 || salaryPrintSelectedIds.has(s.employeeId));
+
+    const dataRows = filteredIndices.map(({ s, idx }, newIdx) => {
       const r = rows[idx];
       if (!r) return "";
       const emp = r.emp;
       return `<tr>
-        <td>${idx + 1}</td>
+        <td>${newIdx + 1}</td>
         <td style="text-align:left;white-space:nowrap">${emp?.name || ""}</td>
         <td>${emp?.employeeCode || ""}</td>
         <td style="text-align:left;white-space:nowrap">${emp?.designation || ""}</td>
@@ -571,23 +588,39 @@ export default function SalaryRegister() {
       </tr>`;
     }).join("");
 
-    const totalRow = totals ? `<tr style="font-weight:bold;background:#f0f0f0">
+    const filteredRows = filteredIndices.map(({ idx }) => rows[idx]).filter(Boolean);
+    const filteredTotals = filteredRows.reduce((acc, r) => ({
+      paidDays: acc.paidDays + (r?.paidDays || 0),
+      otHrs: acc.otHrs + (r?.otHrs || 0),
+      basicWage: acc.basicWage + (r?.basicWage || 0),
+      otAllow: acc.otAllow + (r?.otAllow || 0),
+      fixedHRA: acc.fixedHRA + (r?.fixedHRA || 0),
+      hra5: acc.hra5 + (r?.hra5 || 0),
+      totalGross: acc.totalGross + (r?.totalGross || 0),
+      pfDed: acc.pfDed + (r?.pfDed || 0),
+      esicDed: acc.esicDed + (r?.esicDed || 0),
+      pTax: acc.pTax + (r?.pTax || 0),
+      totalDedu: acc.totalDedu + (r?.totalDedu || 0),
+      netSalary: acc.netSalary + (r?.netSalary || 0),
+    }), { paidDays: 0, otHrs: 0, basicWage: 0, otAllow: 0, fixedHRA: 0, hra5: 0, totalGross: 0, pfDed: 0, esicDed: 0, pTax: 0, totalDedu: 0, netSalary: 0 });
+
+    const totalRow = filteredRows.length > 0 ? `<tr style="font-weight:bold;background:#f0f0f0">
       <td colspan="4" style="text-align:right;font-weight:bold">TOTAL</td>
-      <td>${totals.paidDays}</td>
-      <td>${totals.otHrs || ""}</td>
+      <td>${filteredTotals.paidDays}</td>
+      <td>${filteredTotals.otHrs || ""}</td>
       <td></td>
       <td></td>
-      <td style="text-align:right">${f(totals.basicWage)}</td>
+      <td style="text-align:right">${f(filteredTotals.basicWage)}</td>
       <td style="text-align:right">${f(0)}</td>
-      <td style="text-align:right">${f(totals.otAllow)}</td>
-      <td style="text-align:right">${f(totals.fixedHRA)}</td>
-      <td style="text-align:right">${f(totals.hra5)}</td>
-      <td style="text-align:right">${f(totals.totalGross)}</td>
-      <td style="text-align:right">${f(totals.pfDed)}</td>
-      <td style="text-align:right">${f(totals.esicDed)}</td>
-      <td style="text-align:right">${f(totals.pTax)}</td>
-      <td style="text-align:right">${f(totals.totalDedu)}</td>
-      <td style="text-align:right">${f(totals.netSalary)}</td>
+      <td style="text-align:right">${f(filteredTotals.otAllow)}</td>
+      <td style="text-align:right">${f(filteredTotals.fixedHRA)}</td>
+      <td style="text-align:right">${f(filteredTotals.hra5)}</td>
+      <td style="text-align:right">${f(filteredTotals.totalGross)}</td>
+      <td style="text-align:right">${f(filteredTotals.pfDed)}</td>
+      <td style="text-align:right">${f(filteredTotals.esicDed)}</td>
+      <td style="text-align:right">${f(filteredTotals.pTax)}</td>
+      <td style="text-align:right">${f(filteredTotals.totalDedu)}</td>
+      <td style="text-align:right">${f(filteredTotals.netSalary)}</td>
       <td></td>
       <td></td>
       <td></td>
@@ -707,7 +740,7 @@ export default function SalaryRegister() {
     </body></html>`);
     printWin.document.close();
     printWin.print();
-  }, [salaries, rows, totals, clientName, month, year]);
+  }, [salaries, rows, totals, clientName, month, year, salaryPrintSelectedIds]);
 
   const handleExportExcel = useCallback(async () => {
     if (!salaries || salaries.length === 0 || rows.length === 0) return;
@@ -870,7 +903,7 @@ export default function SalaryRegister() {
                 <Printer className="w-4 h-4 mr-2" />
                 Print
               </Button>
-              <Button variant="outline" size="sm" onClick={handleGovPrint} data-testid="button-gov-print-salary">
+              <Button variant="outline" size="sm" onClick={openSalaryPrintDialog} data-testid="button-gov-print-salary">
                 <Printer className="w-4 h-4 mr-1" />
                 Form XVII
               </Button>
@@ -1339,6 +1372,15 @@ export default function SalaryRegister() {
           </Card>
         )}
       </div>
+      <PrintSettingsDialog
+        open={salaryPrintDialogOpen}
+        onOpenChange={setSalaryPrintDialogOpen}
+        employees={salaryPrintEmployeeList}
+        selectedEmployeeIds={salaryPrintSelectedIds}
+        onSelectedEmployeeIdsChange={setSalaryPrintSelectedIds}
+        onPrint={handleGovPrint}
+        title="Print Form XVII - Select Employees"
+      />
     </Layout>
   );
 }

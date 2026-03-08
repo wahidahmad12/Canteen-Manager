@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Layout } from '@/components/layout';
 import { Card, CardContent } from '@/components/ui/card';
@@ -10,6 +10,7 @@ import { Printer, Users, ArrowLeft, FileText, Building2, Briefcase, CreditCard }
 import { useClientNames } from '@/hooks/use-reports';
 import { Link } from 'wouter';
 import type { Employee } from '@shared/schema';
+import { PrintSettingsDialog } from '@/components/print-settings-dialog';
 
 export default function FormXIII() {
   const { data: clientNames = [] } = useClientNames();
@@ -27,6 +28,18 @@ export default function FormXIII() {
   });
 
   const activeEmployees = employees.filter(e => e.isActive);
+  const [printDialogOpen, setPrintDialogOpen] = useState(false);
+  const [printSelectedIds, setPrintSelectedIds] = useState<Set<number>>(new Set());
+
+  const printEmployeeList = useMemo(() =>
+    activeEmployees.map(e => ({ id: e.id, name: e.name, employeeCode: e.employeeCode || undefined })),
+    [activeEmployees]
+  );
+
+  const openPrintDialog = () => {
+    setPrintSelectedIds(new Set(activeEmployees.map(e => e.id)));
+    setPrintDialogOpen(true);
+  };
 
   const handlePrint = () => {
     const style = document.createElement("style");
@@ -64,7 +77,7 @@ export default function FormXIII() {
             </div>
           </div>
           {selectedClient && activeEmployees.length > 0 && (
-            <Button onClick={handlePrint} variant="outline" className="gap-2" data-testid="button-print">
+            <Button onClick={openPrintDialog} variant="outline" className="gap-2" data-testid="button-print">
               <Printer className="w-4 h-4" /> Print / PDF
             </Button>
           )}
@@ -257,7 +270,7 @@ export default function FormXIII() {
                       </tr>
                     </thead>
                     <tbody>
-                      {activeEmployees.map((emp, idx) => (
+                      {activeEmployees.filter(e => printSelectedIds.size === 0 || printSelectedIds.has(e.id)).map((emp, idx) => (
                         <tr key={emp.id} style={{ background: idx % 2 === 0 ? "#ffffff" : "#f5f7ff" }}>
                           <td style={{ border: "1px solid #bbb", padding: "3px 4px", textAlign: "center", fontWeight: 600, color: "#3949ab" }}>{idx + 1}</td>
                           <td style={{ border: "1px solid #bbb", padding: "3px 4px", fontWeight: 700 }}>{emp.name}</td>
@@ -275,10 +288,11 @@ export default function FormXIII() {
                       ))}
                     </tbody>
                     <tfoot>
+                      {(() => { const filtered = activeEmployees.filter(e => printSelectedIds.size === 0 || printSelectedIds.has(e.id)); return (
                       <tr style={{ background: "#e0e0e0", fontWeight: "bold" }}>
-                        <td colSpan={11} style={{ border: "1px solid #999", padding: "3px 6px", textAlign: "right", color: "#283593" }}>Total Workers: {activeEmployees.length}</td>
-                        <td style={{ border: "1px solid #999", padding: "3px 6px", textAlign: "right", color: "#2e7d32" }}>₹{activeEmployees.reduce((s, e) => s + Number(e.dailyRate), 0).toLocaleString('en-IN')}</td>
-                      </tr>
+                        <td colSpan={11} style={{ border: "1px solid #999", padding: "3px 6px", textAlign: "right", color: "#283593" }}>Total Workers: {filtered.length}</td>
+                        <td style={{ border: "1px solid #999", padding: "3px 6px", textAlign: "right", color: "#2e7d32" }}>₹{filtered.reduce((s, e) => s + Number(e.dailyRate), 0).toLocaleString('en-IN')}</td>
+                      </tr>); })()}
                     </tfoot>
                   </table>
                   <div style={{ marginTop: "40px", display: "flex", justifyContent: "space-between", fontSize: "10px" }}>
@@ -295,6 +309,15 @@ export default function FormXIII() {
           </>
         )}
       </div>
+      <PrintSettingsDialog
+        open={printDialogOpen}
+        onOpenChange={setPrintDialogOpen}
+        employees={printEmployeeList}
+        selectedEmployeeIds={printSelectedIds}
+        onSelectedEmployeeIdsChange={setPrintSelectedIds}
+        onPrint={handlePrint}
+        title="Print Form XIII - Select Employees"
+      />
     </Layout>
   );
 }

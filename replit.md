@@ -78,6 +78,7 @@ Preferred communication style: Simple, everyday language.
   - `leave_with_wages` — Register of Leave With Wages (Form No. 15, Rule 88 WB Factories Rule 1958) per employee per calendar year, tracking leave earned, brought forward, absences, days worked, leave allowed, wages rate/amount, payment date
   - `employee_wage_rates` — Year-wise daily wage rates per employee (since wages change ~twice yearly). Used by Leave Register to pull correct rate for each year. Falls back to Employee Master dailyRate if no year-wise rate is set
   - `skill_wage_rates` — Skill-category-wise daily wage rates by month and year (Unskilled, Semi Skilled, Skilled, High Skilled). Primary source for salary generation and leave wage calculations. Falls back to Employee Master dailyRate if no skill rate is set for that month/year
+  - `half_yearly_returns` — Saved Half-Yearly Return (Form XXIV) data per client/half/year. Stores all form fields (contract dates, days worked, LWF, facilities, licence no, etc.) so users can retrieve previously entered data
 - **Storage Layer**: `server/storage.ts` implements `IStorage` interface with `DatabaseStorage` class, abstracting all DB operations
 
 ### Key Design Decisions
