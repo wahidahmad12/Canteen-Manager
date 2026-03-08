@@ -60,9 +60,10 @@ export default function EpfoEsicPage() {
     return map;
   }, [salaryQueries]);
 
-  const filteredEmployees = selectedClient === "__all__"
+  const filteredEmployees = (selectedClient === "__all__"
     ? employees
-    : employees.filter(e => e.clientName === selectedClient);
+    : employees.filter(e => e.clientName === selectedClient)
+  ).filter(e => e.isActive !== false);
 
   const totalDays = getDaysInMonth(month, year);
 
