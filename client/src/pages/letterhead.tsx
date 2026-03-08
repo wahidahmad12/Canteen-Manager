@@ -44,9 +44,21 @@ export default function Letterhead() {
   });
 
   const generateRefNumber = (serial: number) => {
-    const yr = String(new Date().getFullYear()).slice(2);
+    const yr = String(new Date().getFullYear());
     const num = String(serial).padStart(3, '0');
-    return `DJ/KOL/${yr}/${num}`;
+    return `DJ/${yr}/${num}`;
+  };
+
+  const handleClientChange = (val: string) => {
+    setClientName(val);
+    if (val && val !== '__none__') {
+      const client = clientNames.find(c => c.name === val);
+      if (client) {
+        setToName(client.name);
+        setToAddress(client.address || '');
+        setToGstin(client.gstNo || '');
+      }
+    }
   };
 
   const resetForm = () => {
@@ -224,7 +236,7 @@ export default function Letterhead() {
                       <Input
                         value={refNumber}
                         onChange={e => setRefNumber(e.target.value)}
-                        placeholder={nextSerialData ? generateRefNumber(nextSerialData.nextSerial) : "DJ/KOL/26/001"}
+                        placeholder={nextSerialData ? generateRefNumber(nextSerialData.nextSerial) : "DJ/2026/001"}
                         data-testid="input-ref-number"
                       />
                     </div>
@@ -234,7 +246,7 @@ export default function Letterhead() {
                     </div>
                     <div className="space-y-1.5">
                       <Label className="text-xs font-semibold">Client (optional)</Label>
-                      <Select value={clientName} onValueChange={setClientName}>
+                      <Select value={clientName} onValueChange={handleClientChange}>
                         <SelectTrigger data-testid="select-client"><SelectValue placeholder="Select Client" /></SelectTrigger>
                         <SelectContent>
                           <SelectItem value="__none__">None</SelectItem>
