@@ -115,6 +115,15 @@ export default function HalfYearlyReturn() {
     const womenOT = womenRecords.reduce((s, r) => s + Number(r.overtimeHours || 0), 0);
     const totalOT = menOT + womenOT;
 
+    let contractorWorkingDays = 0;
+    for (const m of months) {
+      const monthRecs = salaryRecords.filter(r => Number(r.month) === m && Number(r.year) === year);
+      if (monthRecs.length > 0) {
+        const maxDays = Math.max(...monthRecs.map(r => Number(r.daysWorked || 0)));
+        contractorWorkingDays += Math.round(maxDays);
+      }
+    }
+
     return {
       menCount: menEmps.length, womenCount: womenEmps.length, totalCount: activeEmps.length,
       menDays: Math.round(menDays), womenDays: Math.round(womenDays), totalDays: Math.round(totalDays),
@@ -123,8 +132,9 @@ export default function HalfYearlyReturn() {
       menESI, womenESI, totalESI: menESI + womenESI,
       menPT, womenPT, totalPT: menPT + womenPT,
       totalOT: Math.round(totalOT),
+      contractorWorkingDays,
     };
-  }, [employees, salaryRecords]);
+  }, [employees, salaryRecords, months, year]);
 
   const fmtDate = (d: string) => d ? d.split('-').reverse().join('-') : '____________';
   const fmtAmt = (n: number) => n ? `${n.toLocaleString('en-IN')}/-` : 'NIL';
@@ -281,8 +291,8 @@ export default function HalfYearlyReturn() {
                     <Input value={principalDays} onChange={e => setPrincipalDays(e.target.value)} placeholder="73" data-testid="input-principal-days" />
                   </div>
                   <div className="space-y-2">
-                    <Label className="text-xs font-semibold">Contractor Days Worked</Label>
-                    <Input value={contractorDays} onChange={e => setContractorDays(e.target.value)} placeholder="73" data-testid="input-contractor-days" />
+                    <Label className="text-xs font-semibold">Contractor Days Worked (auto from salary)</Label>
+                    <Input value={computed.contractorWorkingDays || contractorDays} onChange={e => setContractorDays(e.target.value)} placeholder="Auto-calculated" className={computed.contractorWorkingDays ? "bg-green-50 dark:bg-green-950/20 font-semibold" : ""} data-testid="input-contractor-days" />
                   </div>
                   <div className="space-y-2">
                     <Label className="text-xs font-semibold">Daily Hours & Spread Over</Label>
@@ -485,7 +495,7 @@ export default function HalfYearlyReturn() {
                   </tr>
                   <tr>
                     <td className="label" style={{ paddingLeft: '20px' }}>(b) The contractor's establishment had worked</td>
-                    <td className="value">: {contractorDays || '____'} Days.</td>
+                    <td className="value">: {computed.contractorWorkingDays || contractorDays || '____'} Days.</td>
                   </tr>
                   <tr><td colSpan={2} style={{ height: '6px' }}></td></tr>
                   <tr>
