@@ -1002,6 +1002,123 @@ export async function registerRoutes(
     res.json({ totalDaysInYear, weeklyOffs, paidHolidays, leavesAvailed, absences, actualDaysWorked, totalPresent, leaveEarned, dailyRate, amountOfWages });
   });
 
+  app.post("/api/leave-with-wages/generate", requireAdmin, async (req, res) => {
+    try {
+      const employeeId = Number(req.body.employeeId);
+      const clientName = req.body.clientName as string;
+      if (!employeeId || !clientName) return res.status(400).json({ error: "employeeId and clientName required" });
+
+      const { attendance, employees, skillWageRates: swrTable, leaveWithWages: lwwTable } = await import("@shared/schema");
+      const { eq, and } = await import("drizzle-orm");
+      const { db } = await import("./db");
+
+      const empRows = await db.select().from(employees).where(eq(employees.id, employeeId));
+      if (empRows.length === 0) return res.status(404).json({ error: "Employee not found" });
+      const emp = empRows[0];
+      const empSkill = emp.skills || "";
+
+      const allAttendance = await db.select().from(attendance).where(eq(attendance.employeeId, employeeId));
+      if (allAttendance.length === 0) return res.json({ generated: 0, message: "No attendance records found" });
+
+      const yearSet = new Set<number>();
+      for (const rec of allAttendance) yearSet.add(rec.year);
+      const years = Array.from(yearSet).sort();
+
+      const existingRecords = await db.select().from(lwwTable).where(eq(lwwTable.employeeId, employeeId));
+      const existingYears = new Set(existingRecords.map(r => r.calendarYear));
+
+      let generated = 0;
+      let prevLeaveBalance = 0;
+
+      for (const year of years) {
+        const yearAttendance = allAttendance.filter(r => r.year === year);
+        let totalDaysInYear = 0;
+        let weeklyOffs = 0;
+        let paidHolidays = 0;
+        let leavesAvailed = 0;
+        let absences = 0;
+
+        for (const rec of yearAttendance) {
+          const daysInMonth = new Date(year, rec.month, 0).getDate();
+          for (let d = 1; d <= daysInMonth; d++) {
+            const val = (rec as any)[`day${d}`] as string | null;
+            if (!val) continue;
+            totalDaysInYear++;
+            const upper = val.toUpperCase().trim();
+            if (upper === "WO") weeklyOffs++;
+            else if (upper === "PH") paidHolidays++;
+            else if (upper === "CL" || upper === "SL" || upper === "EL") leavesAvailed++;
+            else if (upper === "A") absences++;
+          }
+        }
+
+        const actualDaysWorked = totalDaysInYear - (weeklyOffs + paidHolidays + leavesAvailed + absences);
+        const leaveEarned = Math.floor(actualDaysWorked / 20);
+
+        let dailyRate = Number(emp.dailyRate || 0);
+        const monthsWithRates: number[] = [];
+        let totalSkillRate = 0;
+        for (let m = 1; m <= 12; m++) {
+          const sr = await db.select().from(swrTable).where(
+            and(eq(swrTable.skillCategory, empSkill), eq(swrTable.month, m), eq(swrTable.year, year))
+          );
+          if (sr.length > 0) {
+            totalSkillRate += Number(sr[0].dailyRate);
+            monthsWithRates.push(m);
+          }
+        }
+        if (monthsWithRates.length > 0) {
+          dailyRate = Math.round((totalSkillRate / monthsWithRates.length) * 100) / 100;
+        }
+
+        if (existingYears.has(year)) {
+          const existing = existingRecords.find(r => r.calendarYear === year)!;
+          await storage.updateLeaveWithWages(existing.id, {
+            daysLeaveEarned: String(leaveEarned),
+            daysLeaveBroughtForward: String(prevLeaveBalance),
+            leaveEarned: String(leaveEarned),
+            otherAbsenceDays: String(absences),
+            actualDaysWorked: String(actualDaysWorked),
+            rateOfWagesRs: String(dailyRate),
+            rateOfWagesP: "0",
+            amountOfWagesRs: String(Math.round(dailyRate * Number(existing.leaveEnjoyed || 0))),
+            amountOfWagesP: "0",
+          });
+          const totalLeave = leaveEarned + prevLeaveBalance;
+          prevLeaveBalance = Math.max(0, totalLeave - Number(existing.leaveEnjoyed || 0));
+        } else {
+          await storage.createLeaveWithWages({
+            employeeId,
+            clientName,
+            calendarYear: year,
+            daysLeaveEarned: String(leaveEarned),
+            daysLeaveBroughtForward: String(prevLeaveBalance),
+            layOffDays: "0",
+            maternityLeaveDays: "0",
+            leaveEarned: String(leaveEarned),
+            leaveEnjoyed: "0",
+            otherAbsenceDays: String(absences),
+            actualDaysWorked: String(actualDaysWorked),
+            leaveAllowedDate: "NA",
+            leaveAllowedDays: "NA",
+            rateOfWagesRs: String(dailyRate),
+            rateOfWagesP: "0",
+            amountOfWagesRs: "0",
+            amountOfWagesP: "0",
+            dateOfPayment: "",
+            remarks: "",
+          });
+          prevLeaveBalance = leaveEarned + prevLeaveBalance;
+        }
+        generated++;
+      }
+
+      res.json({ generated, years, message: `Generated/updated ${generated} year(s) of leave records` });
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
   app.post("/api/leave-with-wages", requireAdmin, async (req, res) => {
     const { insertLeaveWithWagesSchema } = await import("@shared/schema");
     const parsed = insertLeaveWithWagesSchema.safeParse(req.body);

@@ -10,7 +10,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
 import { useClientNames, useCurrentUser } from "@/hooks/use-reports";
-import { ArrowLeft, Plus, Printer, Trash2, Pencil, Loader2, FileText, Building2, Users } from "lucide-react";
+import { ArrowLeft, Plus, Printer, Trash2, Pencil, Loader2, FileText, Building2, Users, RefreshCw } from "lucide-react";
 import { Link } from "wouter";
 import type { Employee, LeaveWithWages } from "@shared/schema";
 
@@ -85,6 +85,43 @@ export default function LeaveWithWagesPage() {
       queryClient.invalidateQueries({ queryKey: ["/api/leave-with-wages", selectedEmployeeId] });
       toast({ title: "Record deleted" });
     },
+  });
+
+  const generateMutation = useMutation({
+    mutationFn: (data: { employeeId: number; clientName: string }) =>
+      apiRequest("POST", "/api/leave-with-wages/generate", data),
+    onSuccess: async (res: any) => {
+      const result = await res.json();
+      queryClient.invalidateQueries({ queryKey: ["/api/leave-with-wages", selectedEmployeeId] });
+      toast({ title: result.message || `Generated ${result.generated} year(s)` });
+    },
+    onError: (e: any) => toast({ title: "Error", description: e.message, variant: "destructive" }),
+  });
+
+  const generateAllMutation = useMutation({
+    mutationFn: async () => {
+      const activeEmps = employees.filter(e => e.isActive);
+      let totalGenerated = 0;
+      for (const emp of activeEmps) {
+        try {
+          const res = await apiRequest("POST", "/api/leave-with-wages/generate", {
+            employeeId: emp.id,
+            clientName: selectedClient,
+          });
+          const result = await res.json();
+          totalGenerated += result.generated || 0;
+        } catch {}
+      }
+      return totalGenerated;
+    },
+    onSuccess: (count: number) => {
+      queryClient.invalidateQueries({ queryKey: ["/api/leave-with-wages"] });
+      if (selectedEmployeeId) {
+        queryClient.invalidateQueries({ queryKey: ["/api/leave-with-wages", selectedEmployeeId] });
+      }
+      toast({ title: `Generated leave records for all employees (${count} year-records)` });
+    },
+    onError: (e: any) => toast({ title: "Error", description: e.message, variant: "destructive" }),
   });
 
   const resetForm = () => {
@@ -235,6 +272,32 @@ export default function LeaveWithWagesPage() {
                   </SelectContent>
                 </Select>
               </div>
+              {isAdmin && selectedClient && (
+                <div className="flex gap-2 mt-3 sm:mt-0">
+                  {selectedEmployeeId && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => generateMutation.mutate({ employeeId: Number(selectedEmployeeId), clientName: selectedClient })}
+                      disabled={generateMutation.isPending}
+                      data-testid="button-generate"
+                    >
+                      {generateMutation.isPending ? <Loader2 className="w-4 h-4 mr-1 animate-spin" /> : <RefreshCw className="w-4 h-4 mr-1" />}
+                      Generate
+                    </Button>
+                  )}
+                  <Button
+                    variant="default"
+                    size="sm"
+                    onClick={() => { if (confirm(`Generate leave records for all active employees of ${selectedClient}?`)) generateAllMutation.mutate(); }}
+                    disabled={generateAllMutation.isPending}
+                    data-testid="button-generate-all"
+                  >
+                    {generateAllMutation.isPending ? <Loader2 className="w-4 h-4 mr-1 animate-spin" /> : <RefreshCw className="w-4 h-4 mr-1" />}
+                    Generate All
+                  </Button>
+                </div>
+              )}
             </div>
           </CardContent>
         </Card>
