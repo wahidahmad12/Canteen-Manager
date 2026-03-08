@@ -5,7 +5,7 @@ import logoImg from '@assets/logo1_1771660912341.png';
 import { useCurrentUser, useLogout } from '@/hooks/use-reports';
 import { Button } from '@/components/ui/button';
 
-const labourWorksPaths = ['/employee-master', '/muster-roll', '/salary', '/skill-wage-rates', '/registers', '/form-xiii', '/bonus-return', '/half-yearly-return', '/leave-with-wages'];
+const labourWorksPaths = ['/employee-master', '/muster-roll', '/salary', '/skill-wage-rates', '/registers', '/form-xiii', '/bonus-return', '/half-yearly-return', '/leave-with-wages', '/epfo-esic'];
 
 export function Layout({ children }: { children: React.ReactNode }) {
   const [location] = useLocation();
@@ -41,6 +41,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
     { href: '/bonus-return', label: 'Bonus Return', icon: FileText },
     { href: '/half-yearly-return', label: 'Half-Yearly Return', icon: FileText },
     { href: '/leave-with-wages', label: 'Leave With Wages', icon: FileText },
+    { href: '/epfo-esic', label: 'EPFO & ESIC Export', icon: FileText },
   ];
 
   const bottomNavItems = [

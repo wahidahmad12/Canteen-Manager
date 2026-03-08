@@ -36,6 +36,7 @@ Preferred communication style: Simple, everyday language.
   - `/bonus-return` — Bonus Return with tabs: Form C (client-wise annual bonus calculation at 8.33% of gross salary) and Form D (Annual Return summary per Payment of Bonus Act rule 5, with editable fields for nature of industry, settlement, percentage, paid-to-all status, remarks)
   - `/half-yearly-return` — Half-Yearly Return (Form XXIV) Rule 82(1) with cover letter and form, auto-calculated from salary records, separate print buttons for cover letter (A4 portrait) and Form XXIV (A4 portrait)
   - `/leave-with-wages` — Register of Leave With Wages (Form No. 15) per employee, government format print (A3 landscape), CRUD for yearly leave records
+  - `/epfo-esic` — EPFO & ESIC Excel Export with tabs for EPFO (UAN-based PF contribution sheet) and ESIC (IP number-based monthly return), client filter (individual or all), month/year selector, separate files per client when "All" selected
 
 ### Backend
 - **Framework**: Express 5 on Node.js with TypeScript (run via tsx)
