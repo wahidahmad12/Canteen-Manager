@@ -30,6 +30,7 @@ import {
   employeeWageRates,
   skillWageRates,
   halfYearlyReturns,
+  bonusReturns,
   type DailyReport, 
   type ExpenseItem,
   type CreateReportRequest,
@@ -59,6 +60,7 @@ import {
   type EmployeeWageRate,
   type SkillWageRate,
   type HalfYearlyReturn,
+  type BonusReturn,
 } from "@shared/schema";
 import { eq, desc, lt, and, sql } from "drizzle-orm";
 import bcrypt from "bcryptjs";
@@ -168,6 +170,9 @@ export interface IStorage {
   getHalfYearlyReturn(clientName: string, halfYear: string, year: number): Promise<HalfYearlyReturn | undefined>;
   saveHalfYearlyReturn(data: any): Promise<HalfYearlyReturn>;
   deleteHalfYearlyReturn(id: number): Promise<void>;
+  getBonusReturn(clientName: string, fyStartYear: number): Promise<BonusReturn | undefined>;
+  saveBonusReturn(data: any): Promise<BonusReturn>;
+  deleteBonusReturn(id: number): Promise<void>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -1233,6 +1238,27 @@ export class DatabaseStorage implements IStorage {
 
   async deleteHalfYearlyReturn(id: number): Promise<void> {
     await db.delete(halfYearlyReturns).where(eq(halfYearlyReturns.id, id));
+  }
+
+  async getBonusReturn(clientName: string, fyStartYear: number): Promise<BonusReturn | undefined> {
+    const [record] = await db.select().from(bonusReturns).where(
+      and(eq(bonusReturns.clientName, clientName), eq(bonusReturns.fyStartYear, fyStartYear))
+    );
+    return record;
+  }
+
+  async saveBonusReturn(data: any): Promise<BonusReturn> {
+    const existing = await this.getBonusReturn(data.clientName, data.fyStartYear);
+    if (existing) {
+      const [updated] = await db.update(bonusReturns).set({ ...data, updatedAt: new Date() }).where(eq(bonusReturns.id, existing.id)).returning();
+      return updated;
+    }
+    const [created] = await db.insert(bonusReturns).values(data).returning();
+    return created;
+  }
+
+  async deleteBonusReturn(id: number): Promise<void> {
+    await db.delete(bonusReturns).where(eq(bonusReturns.id, id));
   }
 }
 

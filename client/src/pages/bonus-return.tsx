@@ -1,5 +1,6 @@
-import { useState } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { useState, useEffect } from 'react';
+import { useQuery, useMutation } from '@tanstack/react-query';
+import { queryClient, apiRequest } from '@/lib/queryClient';
 import { Layout } from '@/components/layout';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -7,10 +8,11 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
-import { Printer, ArrowLeft, Users, Building2, Gift, Download } from 'lucide-react';
+import { Printer, ArrowLeft, Users, Building2, Gift, Download, Save, Loader2 } from 'lucide-react';
 import { useClientNames } from '@/hooks/use-reports';
+import { useToast } from '@/hooks/use-toast';
 import { Link } from 'wouter';
-import type { Employee } from '@shared/schema';
+import type { Employee, BonusReturn } from '@shared/schema';
 
 interface SalaryRecord {
   id: number;
@@ -25,6 +27,7 @@ interface SalaryRecord {
 const BONUS_RATE = 8.33;
 
 export default function BonusReturn() {
+  const { toast } = useToast();
   const { data: clientNames = [] } = useClientNames();
   const [selectedClient, setSelectedClient] = useState('');
   const currentYear = new Date().getFullYear();
@@ -35,8 +38,51 @@ export default function BonusReturn() {
   const [workingDays, setWorkingDays] = useState('');
   const [refNumber, setRefNumber] = useState('');
   const [letterDate, setLetterDate] = useState('');
+  const [savedId, setSavedId] = useState<number | null>(null);
 
   const fyStart = Number(fyStartYear);
+
+  const { data: savedReturn } = useQuery<BonusReturn | null>({
+    queryKey: ['/api/bonus-returns/lookup', selectedClient, fyStartYear],
+    queryFn: async () => {
+      const res = await fetch(`/api/bonus-returns/lookup?clientName=${encodeURIComponent(selectedClient)}&fyStartYear=${fyStartYear}`, { credentials: 'include' });
+      if (!res.ok) return null;
+      return res.json();
+    },
+    enabled: !!selectedClient,
+  });
+
+  useEffect(() => {
+    if (savedReturn) {
+      setBonusDate(savedReturn.bonusDate || '');
+      setWorkingDays(savedReturn.workingDays || '');
+      setRefNumber(savedReturn.refNumber || '');
+      setLetterDate(savedReturn.letterDate || '');
+      setSavedId(savedReturn.id);
+    } else {
+      setBonusDate('');
+      setWorkingDays('');
+      setRefNumber('');
+      setLetterDate('');
+      setSavedId(null);
+    }
+  }, [savedReturn]);
+
+  const saveMutation = useMutation({
+    mutationFn: () => apiRequest('POST', '/api/bonus-returns', {
+      clientName: selectedClient,
+      fyStartYear: fyStart,
+      bonusDate,
+      workingDays,
+      refNumber,
+      letterDate,
+    }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/bonus-returns/lookup', selectedClient, fyStartYear] });
+      toast({ title: savedId ? 'Updated successfully' : 'Saved successfully' });
+    },
+    onError: (e: any) => toast({ title: 'Error', description: e.message, variant: 'destructive' }),
+  });
   const fyEnd = fyStart + 1;
   const fyLabel = `1st April, ${fyStart} to 31st March, ${fyEnd}`;
 
@@ -258,17 +304,31 @@ export default function BonusReturn() {
               <p className="text-xs sm:text-sm text-muted-foreground">[See rule 4 (c)] — Payment of Bonus Act, 1965</p>
             </div>
           </div>
-          {selectedClient && bonusRows.length > 0 && (
-            <div className="flex gap-2">
-              <Button onClick={handleExportExcel} variant="outline" size="sm" className="gap-2" data-testid="button-export-excel">
-                <Download className="w-4 h-4" /> Excel
+          {selectedClient && (
+            <div className="flex flex-wrap gap-2">
+              <Button
+                onClick={() => saveMutation.mutate()}
+                disabled={saveMutation.isPending}
+                size="sm"
+                className="gap-2"
+                data-testid="button-save"
+              >
+                {saveMutation.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
+                {savedId ? 'Update' : 'Save'}
               </Button>
-              <Button onClick={handlePrintCover} variant="outline" size="sm" className="gap-2" data-testid="button-print-cover">
-                <Printer className="w-4 h-4" /> Cover Letter
-              </Button>
-              <Button onClick={handlePrintFormC} variant="outline" size="sm" className="gap-2" data-testid="button-print-formc">
-                <Printer className="w-4 h-4" /> Form C
-              </Button>
+              {bonusRows.length > 0 && (
+                <>
+                  <Button onClick={handleExportExcel} variant="outline" size="sm" className="gap-2" data-testid="button-export-excel">
+                    <Download className="w-4 h-4" /> Excel
+                  </Button>
+                  <Button onClick={handlePrintCover} variant="outline" size="sm" className="gap-2" data-testid="button-print-cover">
+                    <Printer className="w-4 h-4" /> Cover Letter
+                  </Button>
+                  <Button onClick={handlePrintFormC} variant="outline" size="sm" className="gap-2" data-testid="button-print-formc">
+                    <Printer className="w-4 h-4" /> Form C
+                  </Button>
+                </>
+              )}
             </div>
           )}
         </div>

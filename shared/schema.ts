@@ -425,6 +425,20 @@ export const halfYearlyReturns = pgTable("half_yearly_returns", {
   updatedAt: timestamp("updated_at").defaultNow(),
 });
 
+export const bonusReturns = pgTable("bonus_returns", {
+  id: serial("id").primaryKey(),
+  clientName: text("client_name").notNull(),
+  fyStartYear: integer("fy_start_year").notNull(),
+  bonusDate: text("bonus_date"),
+  workingDays: text("working_days"),
+  refNumber: text("ref_number"),
+  letterDate: text("letter_date"),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export type BonusReturn = typeof bonusReturns.$inferSelect;
+
 // === RELATIONS ===
 export const dailyReportsRelations = relations(dailyReports, ({ many, one }) => ({
   items: many(expenseItems),

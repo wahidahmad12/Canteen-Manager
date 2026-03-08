@@ -1246,6 +1246,23 @@ export async function registerRoutes(
     res.status(204).send();
   });
 
+  app.get("/api/bonus-returns/lookup", requireAuth, async (req, res) => {
+    const { clientName, fyStartYear } = req.query;
+    if (!clientName || !fyStartYear) return res.status(400).json({ message: "clientName and fyStartYear required" });
+    const record = await storage.getBonusReturn(clientName as string, Number(fyStartYear));
+    res.json(record || null);
+  });
+
+  app.post("/api/bonus-returns", requireAuth, async (req, res) => {
+    const record = await storage.saveBonusReturn(req.body);
+    res.json(record);
+  });
+
+  app.delete("/api/bonus-returns/:id", requireAdmin, async (req, res) => {
+    await storage.deleteBonusReturn(Number(req.params.id));
+    res.status(204).send();
+  });
+
   return httpServer;
 }
 

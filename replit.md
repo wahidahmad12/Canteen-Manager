@@ -79,6 +79,7 @@ Preferred communication style: Simple, everyday language.
   - `employee_wage_rates` — Year-wise daily wage rates per employee (since wages change ~twice yearly). Used by Leave Register to pull correct rate for each year. Falls back to Employee Master dailyRate if no year-wise rate is set
   - `skill_wage_rates` — Skill-category-wise daily wage rates by month and year (Unskilled, Semi Skilled, Skilled, High Skilled). Primary source for salary generation and leave wage calculations. Falls back to Employee Master dailyRate if no skill rate is set for that month/year
   - `half_yearly_returns` — Saved Half-Yearly Return (Form XXIV) data per client/half/year. Stores all form fields (contract dates, days worked, LWF, facilities, licence no, etc.) so users can retrieve previously entered data
+  - `bonus_returns` — Saved Bonus Return (Form C) data per client/FY year. Stores bonusDate, workingDays, refNumber, letterDate so users can retrieve previously entered form settings
 - **Storage Layer**: `server/storage.ts` implements `IStorage` interface with `DatabaseStorage` class, abstracting all DB operations
 
 ### Key Design Decisions
