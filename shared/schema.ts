@@ -433,6 +433,13 @@ export const bonusReturns = pgTable("bonus_returns", {
   workingDays: text("working_days"),
   refNumber: text("ref_number"),
   letterDate: text("letter_date"),
+  formDNatureOfIndustry: text("form_d_nature_of_industry"),
+  formDEmployerName: text("form_d_employer_name"),
+  formDSettlement: text("form_d_settlement"),
+  formDPercentage: text("form_d_percentage"),
+  formDPaidToAll: text("form_d_paid_to_all"),
+  formDRemarks: text("form_d_remarks"),
+  formDPaymentDate: text("form_d_payment_date"),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 });

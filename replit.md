@@ -33,7 +33,7 @@ Preferred communication style: Simple, everyday language.
   - `/registers` — Combined registers page with tabs for Fines (XXI), Advances (XXII), Overtime (XXIII), Damage/Loss (XX)
   - `/form-xiii` — Workmen Register (Form XIII) printable list of workers by company
   - `/form-xiv/:id` — Employment Card (Form XIV) individual worker card
-  - `/bonus-return` — Bonus Return (Form C) client-wise annual bonus calculation (8.33% of gross salary)
+  - `/bonus-return` — Bonus Return with tabs: Form C (client-wise annual bonus calculation at 8.33% of gross salary) and Form D (Annual Return summary per Payment of Bonus Act rule 5, with editable fields for nature of industry, settlement, percentage, paid-to-all status, remarks)
   - `/half-yearly-return` — Half-Yearly Return (Form XXIV) Rule 82(1) with cover letter and form, auto-calculated from salary records, separate print buttons for cover letter (A4 portrait) and Form XXIV (A4 portrait)
   - `/leave-with-wages` — Register of Leave With Wages (Form No. 15) per employee, government format print (A3 landscape), CRUD for yearly leave records
 
@@ -79,7 +79,7 @@ Preferred communication style: Simple, everyday language.
   - `employee_wage_rates` — Year-wise daily wage rates per employee (since wages change ~twice yearly). Used by Leave Register to pull correct rate for each year. Falls back to Employee Master dailyRate if no year-wise rate is set
   - `skill_wage_rates` — Skill-category-wise daily wage rates by month and year (Unskilled, Semi Skilled, Skilled, High Skilled). Primary source for salary generation and leave wage calculations. Falls back to Employee Master dailyRate if no skill rate is set for that month/year
   - `half_yearly_returns` — Saved Half-Yearly Return (Form XXIV) data per client/half/year. Stores all form fields (contract dates, days worked, LWF, facilities, licence no, etc.) so users can retrieve previously entered data
-  - `bonus_returns` — Saved Bonus Return (Form C) data per client/FY year. Stores bonusDate, workingDays, refNumber, letterDate so users can retrieve previously entered form settings
+  - `bonus_returns` — Saved Bonus Return data per client/FY year. Stores Form C fields (bonusDate, workingDays, refNumber, letterDate) and Form D fields (formDNatureOfIndustry, formDEmployerName, formDSettlement, formDPercentage, formDPaidToAll, formDRemarks, formDPaymentDate)
 - **Storage Layer**: `server/storage.ts` implements `IStorage` interface with `DatabaseStorage` class, abstracting all DB operations
 
 ### Key Design Decisions

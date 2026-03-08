@@ -8,7 +8,9 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
-import { Printer, ArrowLeft, Users, Building2, Gift, Download, Save, Loader2 } from 'lucide-react';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Textarea } from '@/components/ui/textarea';
+import { Printer, ArrowLeft, Users, Building2, Gift, Download, Save, Loader2, FileText } from 'lucide-react';
 import { useClientNames } from '@/hooks/use-reports';
 import { useToast } from '@/hooks/use-toast';
 import { Link } from 'wouter';
@@ -39,6 +41,14 @@ export default function BonusReturn() {
   const [refNumber, setRefNumber] = useState('');
   const [letterDate, setLetterDate] = useState('');
   const [savedId, setSavedId] = useState<number | null>(null);
+  const [activeTab, setActiveTab] = useState('formc');
+  const [formDNatureOfIndustry, setFormDNatureOfIndustry] = useState('Catering & Facility Management');
+  const [formDEmployerName, setFormDEmployerName] = useState('DJ Hospitality & Facility Management Pvt Ltd');
+  const [formDSettlement, setFormDSettlement] = useState('');
+  const [formDPercentage, setFormDPercentage] = useState('8.33');
+  const [formDPaidToAll, setFormDPaidToAll] = useState('Yes');
+  const [formDRemarks, setFormDRemarks] = useState('');
+  const [formDPaymentDate, setFormDPaymentDate] = useState('');
 
   const fyStart = Number(fyStartYear);
 
@@ -59,12 +69,26 @@ export default function BonusReturn() {
       setRefNumber(savedReturn.refNumber || '');
       setLetterDate(savedReturn.letterDate || '');
       setSavedId(savedReturn.id);
+      setFormDNatureOfIndustry(savedReturn.formDNatureOfIndustry || 'Catering & Facility Management');
+      setFormDEmployerName(savedReturn.formDEmployerName || 'DJ Hospitality & Facility Management Pvt Ltd');
+      setFormDSettlement(savedReturn.formDSettlement || '');
+      setFormDPercentage(savedReturn.formDPercentage || '8.33');
+      setFormDPaidToAll(savedReturn.formDPaidToAll || 'Yes');
+      setFormDRemarks(savedReturn.formDRemarks || '');
+      setFormDPaymentDate(savedReturn.formDPaymentDate || '');
     } else {
       setBonusDate('');
       setWorkingDays('');
       setRefNumber('');
       setLetterDate('');
       setSavedId(null);
+      setFormDNatureOfIndustry('Catering & Facility Management');
+      setFormDEmployerName('DJ Hospitality & Facility Management Pvt Ltd');
+      setFormDSettlement('');
+      setFormDPercentage('8.33');
+      setFormDPaidToAll('Yes');
+      setFormDRemarks('');
+      setFormDPaymentDate('');
     }
   }, [savedReturn]);
 
@@ -76,6 +100,13 @@ export default function BonusReturn() {
       workingDays,
       refNumber,
       letterDate,
+      formDNatureOfIndustry,
+      formDEmployerName,
+      formDSettlement,
+      formDPercentage,
+      formDPaidToAll,
+      formDRemarks,
+      formDPaymentDate,
     }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/bonus-returns/lookup', selectedClient, fyStartYear] });
@@ -176,6 +207,30 @@ export default function BonusReturn() {
         table th, table td { padding: 1px 2px; line-height: 1.2; overflow: hidden; word-wrap: break-word; }
         table thead { display: table-header-group; }
         p { margin: 2px 0; }
+      </style>
+    </head><body>${formArea.innerHTML}</body></html>`);
+    printWindow.document.close();
+    printWindow.onload = () => {
+      printWindow.print();
+      printWindow.onafterprint = () => printWindow.close();
+    };
+  };
+
+  const handlePrintFormD = () => {
+    const formArea = document.getElementById('bonus-formd-print');
+    if (!formArea) return;
+    const title = `Form D - Annual Return - ${selectedClient} - FY ${fyStart}-${fyEnd}`;
+    const printWindow = window.open('', '_blank');
+    if (!printWindow) return;
+    printWindow.document.write(`<!DOCTYPE html><html><head><title>${title}</title>
+      <style>
+        @page { size: A4 portrait; margin: 20mm; }
+        body { margin: 0; padding: 0; font-family: Georgia, 'Times New Roman', serif; font-size: 12px; line-height: 1.6; }
+        table { width: 100%; border-collapse: collapse; }
+        th, td { border: 1px solid #333; padding: 8px; vertical-align: top; }
+        th { font-weight: 700; font-size: 9px; text-align: left; }
+        p { margin: 4px 0; }
+        b { font-weight: 700; }
       </style>
     </head><body>${formArea.innerHTML}</body></html>`);
     printWindow.document.close();
@@ -304,9 +359,9 @@ export default function BonusReturn() {
             <div>
               <h1 className="text-xl sm:text-2xl font-bold tracking-tight flex items-center gap-2" data-testid="text-title">
                 <Gift className="w-5 h-5 text-amber-600" />
-                Bonus Return (Form C)
+                Bonus Return
               </h1>
-              <p className="text-xs sm:text-sm text-muted-foreground">[See rule 4 (c)] — Payment of Bonus Act, 1965</p>
+              <p className="text-xs sm:text-sm text-muted-foreground">Payment of Bonus Act, 1965 — Form C & Form D</p>
             </div>
           </div>
           {selectedClient && (
@@ -331,6 +386,9 @@ export default function BonusReturn() {
                   </Button>
                   <Button onClick={handlePrintFormC} variant="outline" size="sm" className="gap-2" data-testid="button-print-formc">
                     <Printer className="w-4 h-4" /> Form C
+                  </Button>
+                  <Button onClick={handlePrintFormD} variant="outline" size="sm" className="gap-2" data-testid="button-print-formd">
+                    <Printer className="w-4 h-4" /> Form D
                   </Button>
                 </>
               )}
@@ -430,7 +488,12 @@ export default function BonusReturn() {
                 </CardContent>
               </Card>
             ) : (
-              <>
+              <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
+                <TabsList className="no-print">
+                  <TabsTrigger value="formc" className="gap-2" data-testid="tab-formc"><FileText className="w-4 h-4" /> Form C</TabsTrigger>
+                  <TabsTrigger value="formd" className="gap-2" data-testid="tab-formd"><FileText className="w-4 h-4" /> Form D</TabsTrigger>
+                </TabsList>
+              <TabsContent value="formc" className="space-y-4">
                 <Card className="no-print border-2 border-indigo-200 shadow-lg">
                   <CardContent className="p-6 space-y-4" style={{ fontFamily: "Georgia, 'Times New Roman', serif" }}>
                     <div className="flex justify-between items-start text-sm">
@@ -663,7 +726,196 @@ export default function BonusReturn() {
                     </div>
                   </div>
                 </div>
-              </>
+              </TabsContent>
+
+              <TabsContent value="formd" className="space-y-4">
+                <Card className="no-print border-2 border-teal-200 shadow-lg">
+                  <CardContent className="p-5 space-y-4">
+                    <h3 className="text-sm font-bold text-teal-800 dark:text-teal-300">Form D Settings</h3>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                      <div className="space-y-1">
+                        <Label className="text-xs font-semibold text-teal-700 dark:text-teal-300">Nature of Industry</Label>
+                        <Input value={formDNatureOfIndustry} onChange={e => setFormDNatureOfIndustry(e.target.value)} data-testid="input-formd-industry" />
+                      </div>
+                      <div className="space-y-1">
+                        <Label className="text-xs font-semibold text-teal-700 dark:text-teal-300">Name of the Employer</Label>
+                        <Input value={formDEmployerName} onChange={e => setFormDEmployerName(e.target.value)} data-testid="input-formd-employer" />
+                      </div>
+                      <div className="space-y-1">
+                        <Label className="text-xs font-semibold text-teal-700 dark:text-teal-300">Settlement (Section 18/12)</Label>
+                        <Input value={formDSettlement} onChange={e => setFormDSettlement(e.target.value)} placeholder="e.g. NIL" data-testid="input-formd-settlement" />
+                      </div>
+                      <div className="space-y-1">
+                        <Label className="text-xs font-semibold text-teal-700 dark:text-teal-300">Percentage of Bonus Declared</Label>
+                        <Input value={formDPercentage} onChange={e => setFormDPercentage(e.target.value)} data-testid="input-formd-percentage" />
+                      </div>
+                      <div className="space-y-1">
+                        <Label className="text-xs font-semibold text-teal-700 dark:text-teal-300">Date on which payment made</Label>
+                        <Input type="date" value={formDPaymentDate} onChange={e => setFormDPaymentDate(e.target.value)} data-testid="input-formd-payment-date" />
+                      </div>
+                      <div className="space-y-1">
+                        <Label className="text-xs font-semibold text-teal-700 dark:text-teal-300">Bonus paid to all employees?</Label>
+                        <Select value={formDPaidToAll} onValueChange={setFormDPaidToAll}>
+                          <SelectTrigger data-testid="select-formd-paidtoall"><SelectValue /></SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="Yes">Yes</SelectItem>
+                            <SelectItem value="No">No</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div className="space-y-1 sm:col-span-2 lg:col-span-3">
+                        <Label className="text-xs font-semibold text-teal-700 dark:text-teal-300">Remarks</Label>
+                        <Textarea value={formDRemarks} onChange={e => setFormDRemarks(e.target.value)} placeholder="Any remarks..." rows={2} data-testid="input-formd-remarks" />
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+
+                <Card className="no-print border-2 border-teal-100 shadow-sm">
+                  <CardContent className="p-4">
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                      <div className="bg-teal-50 dark:bg-teal-950/30 rounded-lg p-3 text-center">
+                        <p className="text-xs text-muted-foreground">Total Employees</p>
+                        <p className="text-lg font-bold text-teal-700 dark:text-teal-300" data-testid="text-formd-total-emp">{bonusRows.length}</p>
+                      </div>
+                      <div className="bg-emerald-50 dark:bg-emerald-950/30 rounded-lg p-3 text-center">
+                        <p className="text-xs text-muted-foreground">Employees Benefited</p>
+                        <p className="text-lg font-bold text-emerald-700 dark:text-emerald-300" data-testid="text-formd-benefited">{bonusRows.length}</p>
+                      </div>
+                      <div className="bg-amber-50 dark:bg-amber-950/30 rounded-lg p-3 text-center">
+                        <p className="text-xs text-muted-foreground">Total Bonus Payable</p>
+                        <p className="text-lg font-bold text-amber-700 dark:text-amber-300" data-testid="text-formd-total-payable">₹{totalBonus.toLocaleString('en-IN')}</p>
+                      </div>
+                      <div className="bg-indigo-50 dark:bg-indigo-950/30 rounded-lg p-3 text-center">
+                        <p className="text-xs text-muted-foreground">Total Bonus Paid</p>
+                        <p className="text-lg font-bold text-indigo-700 dark:text-indigo-300" data-testid="text-formd-total-paid">₹{totalBonus.toLocaleString('en-IN')}</p>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+
+                <div className="hidden sm:block no-print">
+                  <div className="border-2 border-teal-200 rounded-xl overflow-hidden shadow-lg">
+                    <div className="bg-gradient-to-r from-teal-600 via-emerald-600 to-green-600 text-white text-center py-2.5 font-bold text-sm tracking-wide">
+                      FORM D &mdash; Annual Return &mdash; {selectedClient} &mdash; FY {fyStart}-{fyEnd}
+                    </div>
+                    <div className="p-6" style={{ fontFamily: "Georgia, 'Times New Roman', serif" }}>
+                      <div className="text-center mb-4">
+                        <p className="font-bold text-base">Payment of Bonus Act</p>
+                        <p className="font-bold text-lg">FORM D</p>
+                        <p className="text-xs text-muted-foreground">[See rule 5]</p>
+                        <p className="text-sm font-semibold mt-1">ANNUAL RETURN — BONUS PAID TO EMPLOYEES FOR THE ACCOUNTING YEAR</p>
+                        <p className="text-sm font-semibold">ENDING ON THE 31st March, {fyEnd}</p>
+                      </div>
+                      <div className="space-y-2 text-sm mb-6">
+                        <p><span className="font-semibold">1. Name of the establishment and its complete postal address:</span> {formDEmployerName}, 7 Crematorium Street, Kolkata - 700014 (Client: {selectedClient})</p>
+                        <p><span className="font-semibold">2. Nature of industry:</span> {formDNatureOfIndustry}</p>
+                        <p><span className="font-semibold">3. Name of the employer:</span> {formDEmployerName}</p>
+                        <p><span className="font-semibold">4. Total number of employees:</span> {bonusRows.length}</p>
+                        <p><span className="font-semibold">5. Number of employees benefited by bonus payments:</span> {bonusRows.length}</p>
+                      </div>
+                      <table className="w-full border-collapse text-sm">
+                        <thead>
+                          <tr>
+                            <th className="border border-slate-400 p-2 bg-teal-50 dark:bg-teal-950 text-left text-xs font-bold" style={{ width: '20%' }}>Total amount payable as bonus under section 10 or 11 of the Payment of Bonus Act, 1965 as the case may be<br/><span className="text-muted-foreground">(1)</span></th>
+                            <th className="border border-slate-400 p-2 bg-teal-50 dark:bg-teal-950 text-left text-xs font-bold" style={{ width: '16%' }}>Settlement, if any reached under section 18(1) or 12(3) of the Industrial Disputes Act. 1947 with date<br/><span className="text-muted-foreground">(2)</span></th>
+                            <th className="border border-slate-400 p-2 bg-teal-50 dark:bg-teal-950 text-left text-xs font-bold" style={{ width: '10%' }}>Percentage of bonus declared to be paid<br/><span className="text-muted-foreground">(3)</span></th>
+                            <th className="border border-slate-400 p-2 bg-teal-50 dark:bg-teal-950 text-left text-xs font-bold" style={{ width: '14%' }}>Total amount of bonus actually paid<br/><span className="text-muted-foreground">(4)</span></th>
+                            <th className="border border-slate-400 p-2 bg-teal-50 dark:bg-teal-950 text-left text-xs font-bold" style={{ width: '12%' }}>Date on which payment made<br/><span className="text-muted-foreground">(5)</span></th>
+                            <th className="border border-slate-400 p-2 bg-teal-50 dark:bg-teal-950 text-left text-xs font-bold" style={{ width: '14%' }}>Whether bonus has been paid to all the employees, if not, reasons for non-payment<br/><span className="text-muted-foreground">(6)</span></th>
+                            <th className="border border-slate-400 p-2 bg-teal-50 dark:bg-teal-950 text-left text-xs font-bold" style={{ width: '14%' }}>Remark<br/><span className="text-muted-foreground">(7)</span></th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          <tr>
+                            <td className="border border-slate-400 p-3 text-center font-bold text-lg text-emerald-700 dark:text-emerald-400">₹{totalBonus.toLocaleString('en-IN')}/-</td>
+                            <td className="border border-slate-400 p-3 text-center">{formDSettlement || 'NIL'}</td>
+                            <td className="border border-slate-400 p-3 text-center font-semibold">{formDPercentage}%</td>
+                            <td className="border border-slate-400 p-3 text-center font-bold text-lg text-indigo-700 dark:text-indigo-400">₹{totalBonus.toLocaleString('en-IN')}/-</td>
+                            <td className="border border-slate-400 p-3 text-center">{formDPaymentDate ? formDPaymentDate.split('-').reverse().join('-') : (bonusDate ? bonusDate.split('-').reverse().join('-') : '____________')}</td>
+                            <td className="border border-slate-400 p-3 text-center">{formDPaidToAll}</td>
+                            <td className="border border-slate-400 p-3 text-center">{formDRemarks || '-'}</td>
+                          </tr>
+                        </tbody>
+                      </table>
+                      <div className="mt-10 text-right text-sm">
+                        <p className="font-semibold">Signature of the employer or his agent</p>
+                        <p className="mt-6 font-bold">Wahid Ahmad</p>
+                        <p>Zonal Manager & Partner</p>
+                        <p className="font-semibold">{formDEmployerName}</p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="sm:hidden no-print">
+                  <Card className="border-l-4 border-l-teal-500">
+                    <CardContent className="p-4 space-y-3" style={{ fontFamily: "Georgia, 'Times New Roman', serif" }}>
+                      <p className="text-center font-bold text-base">FORM D</p>
+                      <p className="text-center text-xs text-muted-foreground">[See rule 5] — Annual Return</p>
+                      <div className="space-y-2 text-xs">
+                        <p><span className="font-semibold">Establishment:</span> {formDEmployerName}</p>
+                        <p><span className="font-semibold">Industry:</span> {formDNatureOfIndustry}</p>
+                        <p><span className="font-semibold">Total Employees:</span> {bonusRows.length}</p>
+                        <p><span className="font-semibold">Bonus Payable:</span> ₹{totalBonus.toLocaleString('en-IN')}</p>
+                        <p><span className="font-semibold">Bonus Paid:</span> ₹{totalBonus.toLocaleString('en-IN')}</p>
+                        <p><span className="font-semibold">Percentage:</span> {formDPercentage}%</p>
+                        <p><span className="font-semibold">Payment Date:</span> {formDPaymentDate ? formDPaymentDate.split('-').reverse().join('-') : (bonusDate ? bonusDate.split('-').reverse().join('-') : '-')}</p>
+                        <p><span className="font-semibold">Paid to All:</span> {formDPaidToAll}</p>
+                        <p><span className="font-semibold">Settlement:</span> {formDSettlement || 'NIL'}</p>
+                      </div>
+                    </CardContent>
+                  </Card>
+                </div>
+
+                <div id="bonus-formd-print" className="hidden">
+                  <div style={{ textAlign: "center", marginBottom: "12px", fontFamily: "Georgia, 'Times New Roman', serif" }}>
+                    <p style={{ fontWeight: 700, fontSize: "14px" }}>Payment of Bonus Act</p>
+                    <p style={{ fontWeight: 700, fontSize: "18px" }}>FORM D</p>
+                    <p style={{ fontSize: "10px", color: "#666" }}>[See rule 5]</p>
+                    <p style={{ fontWeight: 600, fontSize: "12px", marginTop: "4px" }}>ANNUAL RETURN — BONUS PAID TO EMPLOYEES FOR THE ACCOUNTING YEAR</p>
+                    <p style={{ fontWeight: 600, fontSize: "12px" }}>ENDING ON THE 31st March, {fyEnd}</p>
+                  </div>
+                  <div style={{ fontFamily: "Georgia, 'Times New Roman', serif", fontSize: "12px", marginBottom: "16px", lineHeight: "1.8" }}>
+                    <p><b>1. Name of the establishment and its complete postal address:</b> {formDEmployerName}, 7 Crematorium Street, Kolkata - 700014 (Client: {selectedClient})</p>
+                    <p><b>2. Nature of industry:</b> {formDNatureOfIndustry}</p>
+                    <p><b>3. Name of the employer:</b> {formDEmployerName}</p>
+                    <p><b>4. Total number of employees:</b> {bonusRows.length}</p>
+                    <p><b>5. Number of employees benefited by bonus payments:</b> {bonusRows.length}</p>
+                  </div>
+                  <table style={{ width: "100%", borderCollapse: "collapse", fontFamily: "Arial, sans-serif", fontSize: "10px" }}>
+                    <thead>
+                      <tr>
+                        <th style={{ border: "1px solid #333", padding: "6px", fontWeight: 700, fontSize: "9px", verticalAlign: "top", width: "20%", textAlign: "left" }}>Total amount payable as bonus under section 10 or 11 of the Payment of Bonus Act, 1965 as the case may be<br/>(1)</th>
+                        <th style={{ border: "1px solid #333", padding: "6px", fontWeight: 700, fontSize: "9px", verticalAlign: "top", width: "16%", textAlign: "left" }}>Settlement, if any reached under section 18(1) or 12(3) of the Industrial Disputes Act. 1947 with date<br/>(2)</th>
+                        <th style={{ border: "1px solid #333", padding: "6px", fontWeight: 700, fontSize: "9px", verticalAlign: "top", width: "10%", textAlign: "left" }}>Percentage of bonus declared to be paid<br/>(3)</th>
+                        <th style={{ border: "1px solid #333", padding: "6px", fontWeight: 700, fontSize: "9px", verticalAlign: "top", width: "14%", textAlign: "left" }}>Total amount of bonus actually paid<br/>(4)</th>
+                        <th style={{ border: "1px solid #333", padding: "6px", fontWeight: 700, fontSize: "9px", verticalAlign: "top", width: "12%", textAlign: "left" }}>Date on which payment made<br/>(5)</th>
+                        <th style={{ border: "1px solid #333", padding: "6px", fontWeight: 700, fontSize: "9px", verticalAlign: "top", width: "14%", textAlign: "left" }}>Whether bonus has been paid to all the employees, if not, reasons for non-payment<br/>(6)</th>
+                        <th style={{ border: "1px solid #333", padding: "6px", fontWeight: 700, fontSize: "9px", verticalAlign: "top", width: "14%", textAlign: "left" }}>Remark<br/>(7)</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      <tr>
+                        <td style={{ border: "1px solid #333", padding: "8px", textAlign: "center", fontWeight: 700, fontSize: "14px" }}>₹{totalBonus.toLocaleString('en-IN')}/-</td>
+                        <td style={{ border: "1px solid #333", padding: "8px", textAlign: "center" }}>{formDSettlement || 'NIL'}</td>
+                        <td style={{ border: "1px solid #333", padding: "8px", textAlign: "center", fontWeight: 600 }}>{formDPercentage}%</td>
+                        <td style={{ border: "1px solid #333", padding: "8px", textAlign: "center", fontWeight: 700, fontSize: "14px" }}>₹{totalBonus.toLocaleString('en-IN')}/-</td>
+                        <td style={{ border: "1px solid #333", padding: "8px", textAlign: "center" }}>{formDPaymentDate ? formDPaymentDate.split('-').reverse().join('-') : (bonusDate ? bonusDate.split('-').reverse().join('-') : '____________')}</td>
+                        <td style={{ border: "1px solid #333", padding: "8px", textAlign: "center" }}>{formDPaidToAll}</td>
+                        <td style={{ border: "1px solid #333", padding: "8px", textAlign: "center" }}>{formDRemarks || '-'}</td>
+                      </tr>
+                    </tbody>
+                  </table>
+                  <div style={{ marginTop: "40px", textAlign: "right", fontFamily: "Georgia, 'Times New Roman', serif", fontSize: "12px" }}>
+                    <p style={{ fontWeight: 600 }}>Signature of the employer or his agent</p>
+                    <p style={{ marginTop: "30px", fontWeight: 700 }}>Wahid Ahmad</p>
+                    <p>Zonal Manager & Partner</p>
+                    <p style={{ fontWeight: 600 }}>{formDEmployerName}</p>
+                  </div>
+                </div>
+              </TabsContent>
+              </Tabs>
             )}
           </>
         )}
