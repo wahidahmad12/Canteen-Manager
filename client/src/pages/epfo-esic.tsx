@@ -75,8 +75,7 @@ export default function EpfoEsicPage() {
       const basicWage = sal ? Math.round(Number(sal.basicWage)) : 0;
       const da = sal ? Math.round(Number(sal.da)) : 0;
       const epfWages = basicWage + da;
-      const daysWorked = sal ? Number(sal.daysWorked) : 0;
-      const ncpDays = grossWages > 0 ? Math.max(0, totalDays - Math.round(daysWorked)) : totalDays;
+      const ncpDays = grossWages > 0 ? 0 : totalDays;
       const epsWages = epfWages > 15000 ? 15000 : epfWages;
       const edliWages = epsWages > 15000 ? 15000 : epsWages;
       const epfContri = Math.round(epfWages * 0.12);
