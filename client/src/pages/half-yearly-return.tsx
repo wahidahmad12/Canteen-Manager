@@ -23,6 +23,7 @@ interface SalaryRecord {
   esicDeduction: string;
   professionalTax: string;
   overtimeHours: string;
+  lwf: string;
 }
 
 export default function HalfYearlyReturn() {
@@ -144,6 +145,11 @@ export default function HalfYearlyReturn() {
     const fromDate = new Date(contractFrom);
     const toDate = new Date(contractTo);
     let workingDays = 0;
+    const activeEmps = employees.filter((e: Employee) => e.isActive);
+    const menIds = new Set(activeEmps.filter((e: Employee) => (e.gender || 'Male') !== 'Female').map((e: Employee) => e.id));
+    const womenIds = new Set(activeEmps.filter((e: Employee) => (e.gender || 'Male') === 'Female').map((e: Employee) => e.id));
+    let totalLwfMen = 0;
+    let totalLwfWomen = 0;
     for (const m of months) {
       const monthStart = new Date(year, m - 1, 1);
       const monthEnd = new Date(year, m, 0);
@@ -153,9 +159,16 @@ export default function HalfYearlyReturn() {
         const maxDays = Math.max(...monthRecs.map(r => Number(r.daysWorked || 0)));
         workingDays += Math.round(maxDays);
       }
+      for (const r of monthRecs) {
+        const lwfVal = Math.round(Number(r.lwf || 0));
+        if (menIds.has(r.employeeId)) totalLwfMen += lwfVal;
+        else if (womenIds.has(r.employeeId)) totalLwfWomen += lwfVal;
+      }
     }
     setContractorDays(String(workingDays));
     setPrincipalDays(String(workingDays));
+    setLwfMen(String(totalLwfMen));
+    setLwfWomen(String(totalLwfWomen));
   };
 
   const handlePrintCover = () => {
@@ -331,12 +344,12 @@ export default function HalfYearlyReturn() {
                     <Input value={holidayPaid} onChange={e => setHolidayPaid(e.target.value)} data-testid="input-holiday-paid" />
                   </div>
                   <div className="space-y-2">
-                    <Label className="text-xs font-semibold">LWF Men</Label>
-                    <Input value={lwfMen} onChange={e => setLwfMen(e.target.value)} placeholder="30" data-testid="input-lwf-men" />
+                    <Label className="text-xs font-semibold">LWF Men (auto from salary)</Label>
+                    <Input value={lwfMen} onChange={e => setLwfMen(e.target.value)} placeholder="Auto after Recalculate" className={lwfMen ? "bg-green-50 dark:bg-green-950/20 font-semibold" : ""} data-testid="input-lwf-men" />
                   </div>
                   <div className="space-y-2">
-                    <Label className="text-xs font-semibold">LWF Women</Label>
-                    <Input value={lwfWomen} onChange={e => setLwfWomen(e.target.value)} placeholder="6" data-testid="input-lwf-women" />
+                    <Label className="text-xs font-semibold">LWF Women (auto from salary)</Label>
+                    <Input value={lwfWomen} onChange={e => setLwfWomen(e.target.value)} placeholder="Auto after Recalculate" className={lwfWomen ? "bg-green-50 dark:bg-green-950/20 font-semibold" : ""} data-testid="input-lwf-women" />
                   </div>
                   <div className="space-y-2">
                     <Label className="text-xs font-semibold">Form Date</Label>
