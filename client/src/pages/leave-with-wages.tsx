@@ -8,11 +8,9 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog";
-import { Checkbox } from "@/components/ui/checkbox";
-import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 import { useClientNames, useCurrentUser } from "@/hooks/use-reports";
-import { ArrowLeft, Plus, Printer, Trash2, Pencil, Loader2, FileText, Building2, Users, RefreshCw, CheckSquare, Square } from "lucide-react";
+import { ArrowLeft, Plus, Printer, Trash2, Pencil, Loader2, FileText, Building2, Users, RefreshCw } from "lucide-react";
 import { Link } from "wouter";
 import type { Employee, LeaveWithWages } from "@shared/schema";
 
@@ -23,7 +21,6 @@ export default function LeaveWithWagesPage() {
   const { data: clientNames = [] } = useClientNames();
   const [selectedClient, setSelectedClient] = useState("");
   const [selectedEmployeeId, setSelectedEmployeeId] = useState<string>("");
-  const [selectedEmployeeIds, setSelectedEmployeeIds] = useState<Set<number>>(new Set());
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingRecord, setEditingRecord] = useState<LeaveWithWages | null>(null);
 
@@ -101,13 +98,13 @@ export default function LeaveWithWagesPage() {
     onError: (e: any) => toast({ title: "Error", description: e.message, variant: "destructive" }),
   });
 
-  const generateSelectedMutation = useMutation({
-    mutationFn: async (empIds: number[]) => {
+  const generateAllMutation = useMutation({
+    mutationFn: async () => {
       let totalGenerated = 0;
-      for (const empId of empIds) {
+      for (const emp of employees) {
         try {
           const res = await apiRequest("POST", "/api/leave-with-wages/generate", {
-            employeeId: empId,
+            employeeId: emp.id,
             clientName: selectedClient,
           });
           const result = await res.json();
@@ -121,27 +118,10 @@ export default function LeaveWithWagesPage() {
       if (selectedEmployeeId) {
         queryClient.invalidateQueries({ queryKey: ["/api/leave-with-wages", selectedEmployeeId] });
       }
-      toast({ title: `Generated leave records (${count} year-records)` });
+      toast({ title: `Generated leave records for all employees (${count} year-records)` });
     },
     onError: (e: any) => toast({ title: "Error", description: e.message, variant: "destructive" }),
   });
-
-  const toggleEmployeeSelection = (empId: number) => {
-    setSelectedEmployeeIds(prev => {
-      const next = new Set(prev);
-      if (next.has(empId)) next.delete(empId);
-      else next.add(empId);
-      return next;
-    });
-  };
-
-  const toggleSelectAll = () => {
-    if (selectedEmployeeIds.size === employees.length) {
-      setSelectedEmployeeIds(new Set());
-    } else {
-      setSelectedEmployeeIds(new Set(employees.map(e => e.id)));
-    }
-  };
 
   const resetForm = () => {
     setFormData({
@@ -263,13 +243,13 @@ export default function LeaveWithWagesPage() {
         </div>
 
         <Card className="no-print">
-          <CardContent className="p-4 space-y-3">
+          <CardContent className="p-4">
             <div className="grid grid-cols-2 sm:flex sm:flex-wrap gap-3 items-end">
               <div className="space-y-2 col-span-2 sm:col-span-1 sm:min-w-[200px]">
                 <Label className="text-xs font-semibold flex items-center gap-1">
                   <Building2 className="w-3.5 h-3.5" /> Company / Client
                 </Label>
-                <Select value={selectedClient} onValueChange={(v) => { setSelectedClient(v); setSelectedEmployeeId(""); setSelectedEmployeeIds(new Set()); }}>
+                <Select value={selectedClient} onValueChange={(v) => { setSelectedClient(v); setSelectedEmployeeId(""); }}>
                   <SelectTrigger data-testid="select-client"><SelectValue placeholder="Select Company" /></SelectTrigger>
                   <SelectContent>
                     {clientNames.map(c => (
@@ -280,10 +260,10 @@ export default function LeaveWithWagesPage() {
               </div>
               <div className="space-y-2 col-span-2 sm:col-span-1 sm:min-w-[250px]">
                 <Label className="text-xs font-semibold flex items-center gap-1">
-                  <Users className="w-3.5 h-3.5" /> View Employee Records
+                  <Users className="w-3.5 h-3.5" /> Employee
                 </Label>
                 <Select value={selectedEmployeeId} onValueChange={setSelectedEmployeeId} disabled={!selectedClient}>
-                  <SelectTrigger data-testid="select-employee"><SelectValue placeholder="Select Employee to view" /></SelectTrigger>
+                  <SelectTrigger data-testid="select-employee"><SelectValue placeholder="Select Employee" /></SelectTrigger>
                   <SelectContent>
                     {employees.map(emp => (
                       <SelectItem key={emp.id} value={String(emp.id)}>{emp.name} ({emp.employeeCode}){emp.leavingDate ? ' [Left]' : ''}</SelectItem>
@@ -291,75 +271,33 @@ export default function LeaveWithWagesPage() {
                   </SelectContent>
                 </Select>
               </div>
-              {isAdmin && selectedClient && selectedEmployeeId && (
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => generateMutation.mutate({ employeeId: Number(selectedEmployeeId), clientName: selectedClient })}
-                  disabled={generateMutation.isPending}
-                  className="mt-3 sm:mt-0"
-                  data-testid="button-generate"
-                >
-                  {generateMutation.isPending ? <Loader2 className="w-4 h-4 mr-1 animate-spin" /> : <RefreshCw className="w-4 h-4 mr-1" />}
-                  Generate
-                </Button>
+              {isAdmin && selectedClient && (
+                <div className="flex gap-2 mt-3 sm:mt-0">
+                  {selectedEmployeeId && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => generateMutation.mutate({ employeeId: Number(selectedEmployeeId), clientName: selectedClient })}
+                      disabled={generateMutation.isPending}
+                      data-testid="button-generate"
+                    >
+                      {generateMutation.isPending ? <Loader2 className="w-4 h-4 mr-1 animate-spin" /> : <RefreshCw className="w-4 h-4 mr-1" />}
+                      Generate
+                    </Button>
+                  )}
+                  <Button
+                    variant="default"
+                    size="sm"
+                    onClick={() => { if (confirm(`Generate leave records for all employees of ${selectedClient}?`)) generateAllMutation.mutate(); }}
+                    disabled={generateAllMutation.isPending}
+                    data-testid="button-generate-all"
+                  >
+                    {generateAllMutation.isPending ? <Loader2 className="w-4 h-4 mr-1 animate-spin" /> : <RefreshCw className="w-4 h-4 mr-1" />}
+                    Generate All
+                  </Button>
+                </div>
               )}
             </div>
-
-            {isAdmin && selectedClient && employees.length > 0 && (
-              <div className="border rounded-lg p-3 bg-slate-50 dark:bg-slate-900 space-y-2">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <Label className="text-xs font-bold text-teal-700 dark:text-teal-300">Select Employees to Generate</Label>
-                    {selectedEmployeeIds.size > 0 && (
-                      <Badge variant="secondary" className="text-xs">{selectedEmployeeIds.size} selected</Badge>
-                    )}
-                  </div>
-                  <div className="flex gap-2">
-                    <Button variant="ghost" size="sm" onClick={toggleSelectAll} className="text-xs h-7 px-2" data-testid="button-select-all">
-                      {selectedEmployeeIds.size === employees.length ? <Square className="w-3.5 h-3.5 mr-1" /> : <CheckSquare className="w-3.5 h-3.5 mr-1" />}
-                      {selectedEmployeeIds.size === employees.length ? 'Deselect All' : 'Select All'}
-                    </Button>
-                    <Button
-                      size="sm"
-                      onClick={() => {
-                        const ids = Array.from(selectedEmployeeIds);
-                        if (ids.length === 0) {
-                          toast({ title: "No employees selected", variant: "destructive" });
-                          return;
-                        }
-                        if (confirm(`Generate leave records for ${ids.length} selected employee(s)?`)) {
-                          generateSelectedMutation.mutate(ids);
-                        }
-                      }}
-                      disabled={generateSelectedMutation.isPending || selectedEmployeeIds.size === 0}
-                      className="h-7 text-xs gap-1"
-                      data-testid="button-generate-selected"
-                    >
-                      {generateSelectedMutation.isPending ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <RefreshCw className="w-3.5 h-3.5" />}
-                      Generate ({selectedEmployeeIds.size})
-                    </Button>
-                  </div>
-                </div>
-                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-1 max-h-[200px] overflow-y-auto">
-                  {employees.map(emp => (
-                    <label
-                      key={emp.id}
-                      className={`flex items-center gap-2 px-2 py-1.5 rounded cursor-pointer text-xs hover:bg-teal-50 dark:hover:bg-teal-950/30 transition-colors ${selectedEmployeeIds.has(emp.id) ? 'bg-teal-100 dark:bg-teal-900/40 font-medium' : ''}`}
-                      data-testid={`checkbox-emp-${emp.id}`}
-                    >
-                      <Checkbox
-                        checked={selectedEmployeeIds.has(emp.id)}
-                        onCheckedChange={() => toggleEmployeeSelection(emp.id)}
-                      />
-                      <span className="truncate">{emp.name}</span>
-                      <span className="text-muted-foreground">({emp.employeeCode})</span>
-                      {emp.leavingDate && <span className="text-orange-500 text-[10px]">[Left]</span>}
-                    </label>
-                  ))}
-                </div>
-              </div>
-            )}
           </CardContent>
         </Card>
 
