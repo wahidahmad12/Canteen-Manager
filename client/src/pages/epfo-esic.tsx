@@ -148,6 +148,57 @@ export default function EpfoEsicPage() {
     toast({ title: "EPFO Excel exported" });
   };
 
+  const exportEcrTextFile = () => {
+    if (epfoData.length === 0) {
+      toast({ title: "No EPFO data to export", variant: "destructive" });
+      return;
+    }
+
+    if (selectedClient === "__all__") {
+      const clientGroups = new Map<string, typeof epfoData>();
+      for (const row of epfoData) {
+        if (!clientGroups.has(row.clientName)) clientGroups.set(row.clientName, []);
+        clientGroups.get(row.clientName)!.push(row);
+      }
+      for (const [clientName, rows] of clientGroups) {
+        const text = buildEcrText(rows);
+        downloadTextFile(text, `ECR_${clientName.replace(/\s+/g, '_')}_${MONTHS[month - 1]}_${year}.txt`);
+      }
+    } else {
+      const text = buildEcrText(epfoData);
+      downloadTextFile(text, `ECR_${selectedClient.replace(/\s+/g, '_')}_${MONTHS[month - 1]}_${year}.txt`);
+    }
+    toast({ title: "ECR Text file exported" });
+  };
+
+  const buildEcrText = (rows: typeof epfoData) => {
+    return rows.map(row =>
+      [
+        row.uan,
+        row.memberName,
+        row.grossWages,
+        row.epfWages,
+        row.epsWages,
+        row.edliWages,
+        row.epfContri,
+        row.epsContri,
+        row.epfEpsDiff,
+        row.ncpDays,
+        row.refundOfAdvances,
+      ].join("#~#")
+    ).join("\n");
+  };
+
+  const downloadTextFile = (content: string, filename: string) => {
+    const blob = new Blob([content], { type: "text/plain" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = filename;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
   const buildEpfoSheet = (wb: any, rows: typeof epfoData, clientName: string) => {
     const ws = wb.addWorksheet("EPFO");
 
@@ -373,10 +424,14 @@ export default function EpfoEsicPage() {
           </TabsList>
 
           <TabsContent value="epfo" className="space-y-3">
-            <div className="flex justify-end">
+            <div className="flex justify-end gap-2 flex-wrap">
+              <Button variant="outline" onClick={exportEcrTextFile} className="gap-2" data-testid="button-export-ecr">
+                <FileSpreadsheet className="w-4 h-4" /> Export ECR Text File
+                {selectedClient === "__all__" ? " (Separate)" : ""}
+              </Button>
               <Button onClick={exportEpfoExcel} className="gap-2" data-testid="button-export-epfo">
                 <Download className="w-4 h-4" /> Export EPFO Excel
-                {selectedClient === "__all__" ? " (Separate Files)" : ""}
+                {selectedClient === "__all__" ? " (Separate)" : ""}
               </Button>
             </div>
             <Card>
