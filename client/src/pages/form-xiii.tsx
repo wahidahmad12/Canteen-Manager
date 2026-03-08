@@ -27,7 +27,7 @@ export default function FormXIII() {
     enabled: !!selectedClient,
   });
 
-  const activeEmployees = employees.filter(e => e.isActive);
+  const activeEmployees = employees;
   const [printDialogOpen, setPrintDialogOpen] = useState(false);
   const [printSelectedIds, setPrintSelectedIds] = useState<Set<number>>(new Set());
 

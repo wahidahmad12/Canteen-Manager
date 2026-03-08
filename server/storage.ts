@@ -936,6 +936,18 @@ export class DatabaseStorage implements IStorage {
     for (const key of Object.keys(data)) {
       if (data[key] !== undefined) updateFields[key] = data[key];
     }
+    if (updateFields.leavingDate) {
+      const leaveDate = new Date(updateFields.leavingDate);
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      if (leaveDate <= today) {
+        updateFields.isActive = false;
+      }
+    }
+    if (updateFields.leavingDate === null || updateFields.leavingDate === '') {
+      updateFields.leavingDate = null;
+      updateFields.isActive = true;
+    }
     const [emp] = await db.update(employees).set(updateFields).where(eq(employees.id, id)).returning();
     if (!emp) throw new Error("Employee not found");
     return emp;

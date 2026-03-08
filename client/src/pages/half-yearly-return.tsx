@@ -169,9 +169,13 @@ export default function HalfYearlyReturn() {
   });
 
   const computed = useMemo(() => {
-    const activeEmps = employees.filter(e => e.isActive);
-    const menEmps = activeEmps.filter(e => (e.gender || 'Male') !== 'Female');
-    const womenEmps = activeEmps.filter(e => (e.gender || 'Male') === 'Female');
+    const periodStart = new Date(Number(year), halfYear === 'H1' ? 0 : 6, 1);
+    const relevantEmps = employees.filter(e => {
+      if (!e.leavingDate) return true;
+      return new Date(e.leavingDate) >= periodStart;
+    });
+    const menEmps = relevantEmps.filter(e => (e.gender || 'Male') !== 'Female');
+    const womenEmps = relevantEmps.filter(e => (e.gender || 'Male') === 'Female');
     const menIds = new Set(menEmps.map(e => e.id));
     const womenIds = new Set(womenEmps.map(e => e.id));
 
@@ -226,9 +230,12 @@ export default function HalfYearlyReturn() {
     const fromDate = new Date(contractFrom);
     const toDate = new Date(contractTo);
     let workingDays = 0;
-    const activeEmps = employees.filter((e: Employee) => e.isActive);
-    const menIds = new Set(activeEmps.filter((e: Employee) => (e.gender || 'Male') !== 'Female').map((e: Employee) => e.id));
-    const womenIds = new Set(activeEmps.filter((e: Employee) => (e.gender || 'Male') === 'Female').map((e: Employee) => e.id));
+    const relevantEmps = employees.filter((e: Employee) => {
+      if (!e.leavingDate) return true;
+      return new Date(e.leavingDate) >= fromDate;
+    });
+    const menIds = new Set(relevantEmps.filter((e: Employee) => (e.gender || 'Male') !== 'Female').map((e: Employee) => e.id));
+    const womenIds = new Set(relevantEmps.filter((e: Employee) => (e.gender || 'Male') === 'Female').map((e: Employee) => e.id));
     let totalLwfMen = 0;
     let totalLwfWomen = 0;
     for (const m of months) {

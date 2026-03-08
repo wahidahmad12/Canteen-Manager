@@ -100,7 +100,7 @@ export default function LeaveWithWagesPage() {
 
   const generateAllMutation = useMutation({
     mutationFn: async () => {
-      const activeEmps = employees.filter(e => e.isActive);
+      const activeEmps = employees;
       let totalGenerated = 0;
       for (const emp of activeEmps) {
         try {
@@ -266,7 +266,7 @@ export default function LeaveWithWagesPage() {
                 <Select value={selectedEmployeeId} onValueChange={setSelectedEmployeeId} disabled={!selectedClient}>
                   <SelectTrigger data-testid="select-employee"><SelectValue placeholder="Select Employee" /></SelectTrigger>
                   <SelectContent>
-                    {employees.filter(e => e.isActive).map(emp => (
+                    {employees.map(emp => (
                       <SelectItem key={emp.id} value={String(emp.id)}>{emp.name} ({emp.employeeCode})</SelectItem>
                     ))}
                   </SelectContent>

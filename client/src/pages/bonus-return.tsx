@@ -106,9 +106,14 @@ export default function BonusReturn() {
     enabled: !!selectedClient && !!fyStart,
   });
 
-  const activeEmployees = employees.filter(e => e.isActive);
+  const fyEmployees = employees.filter(e => {
+    if (!e.leavingDate) return true;
+    const leaveDate = new Date(e.leavingDate);
+    const fyStartDate = new Date(fyStart, 3, 1);
+    return leaveDate >= fyStartDate;
+  });
 
-  const bonusRows = activeEmployees.map((emp, idx) => {
+  const bonusRows = fyEmployees.map((emp, idx) => {
     const empSalaries = annualSalary.filter(s => s.employeeId === emp.id);
     const totalDaysWorked = empSalaries.reduce((sum, s) => sum + Number(s.daysWorked || 0), 0);
     const totalSalary = empSalaries.reduce((sum, s) => sum + Number(s.grossWage || 0), 0);
