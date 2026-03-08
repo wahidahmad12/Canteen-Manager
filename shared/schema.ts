@@ -664,7 +664,7 @@ export type SkillWageRate = typeof skillWageRates.$inferSelect;
 export const insertSkillWageRateSchema = createInsertSchema(skillWageRates).omit({ id: true, createdAt: true });
 export const selectSkillWageRateSchema = createSelectSchema(skillWageRates, { createdAt: z.string().or(z.date()) });
 
-export const SKILL_CATEGORIES = ["Unskilled", "Semi Skilled", "Skilled", "High Skilled"] as const;
+export const SKILL_CATEGORIES = ["Unskilled", "Semi Skilled", "Skilled", "High Skilled", "Partner"] as const;
 
 export const ALL_PAYROLL_PERMISSIONS = [...ALL_PERMISSIONS, 'salary'] as const;
 
