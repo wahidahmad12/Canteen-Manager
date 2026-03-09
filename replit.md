@@ -38,6 +38,7 @@ Preferred communication style: Simple, everyday language.
   - `/leave-with-wages` — Register of Leave With Wages (Form No. 15) per employee, government format print (A3 landscape), CRUD for yearly leave records
   - `/epfo-esic` — EPFO & ESIC Excel Export with tabs for EPFO (UAN-based PF contribution sheet) and ESIC (IP number-based monthly return), client filter (individual or all), month/year selector, separate files per client when "All" selected
   - `/letterhead` — Letterhead Letters page with compose/saved tabs, auto-generated ref numbers (DJ/KOL/Year/AutoNo), database persistence, print with company letterhead
+  - `/ptax-report` — Professional Tax Report with client-wise employee breakdown, month/year filters, print and Excel export
 
 ### Backend
 - **Framework**: Express 5 on Node.js with TypeScript (run via tsx)

@@ -32,6 +32,7 @@ import LeaveWithWages from "./pages/leave-with-wages";
 import SkillWageRates from "./pages/skill-wage-rates";
 import EpfoEsic from "./pages/epfo-esic";
 import LetterheadPage from "./pages/letterhead";
+import PtaxReport from "./pages/ptax-report";
 import EmployeeDashboard from "./pages/employee-dashboard";
 import Login from "./pages/login";
 import { useCurrentUser } from "./hooks/use-reports";
@@ -90,6 +91,7 @@ function AuthenticatedRouter() {
       <Route path="/skill-wage-rates">{() => <AdminOnlyRoute><SkillWageRates /></AdminOnlyRoute>}</Route>
       <Route path="/epfo-esic" component={EpfoEsic} />
       <Route path="/letterhead" component={LetterheadPage} />
+      <Route path="/ptax-report" component={PtaxReport} />
       <Route component={NotFound} />
     </Switch>
   );
