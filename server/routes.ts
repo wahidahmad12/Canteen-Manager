@@ -66,7 +66,13 @@ export async function registerRoutes(
       req.session.displayName = user.displayName;
       req.session.permissions = user.permissions;
       req.session.employeeId = user.employeeId;
-      res.json({ id: user.id, username: user.username, displayName: user.displayName, role: user.role, clientName: user.clientName, permissions: user.permissions, employeeId: user.employeeId });
+      req.session.save((err) => {
+        if (err) {
+          console.error("Session save error:", err);
+          return res.status(500).json({ message: "Session save failed" });
+        }
+        res.json({ id: user.id, username: user.username, displayName: user.displayName, role: user.role, clientName: user.clientName, permissions: user.permissions, employeeId: user.employeeId });
+      });
     } catch (err) {
       if (err instanceof z.ZodError) {
         return res.status(400).json({ message: err.errors[0].message });
