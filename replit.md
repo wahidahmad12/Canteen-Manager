@@ -52,9 +52,10 @@ Preferred communication style: Simple, everyday language.
 - **`routes.ts`**: API route definitions with paths, methods, input/output Zod schemas. Used by both server (for validation) and client (for type-safe fetching)
 
 ### Data Storage
-- **Database**: PostgreSQL via `DATABASE_URL` environment variable
-- **ORM**: Drizzle ORM with node-postgres driver
-- **Schema Push**: `npm run db:push` uses drizzle-kit to push schema changes directly (no migration files needed for development)
+- **Database**: MySQL (TiDB Cloud Serverless) via `TIDB_DATABASE_URL` environment variable. SSL required (`rejectUnauthorized: true`)
+- **ORM**: Drizzle ORM with mysql2 driver (`drizzle-orm/mysql-core`)
+- **Schema**: Uses `mysqlTable`, `int().autoincrement().primaryKey()`, `varchar` for unique/defaulted text columns, `decimal` instead of `numeric`, `json` for array-like fields (e.g., permissions). MySQL doesn't support `.returning()` — inserts use `LAST_INSERT_ID()` via helper, updates re-select by ID
+- **Schema Push**: `npx drizzle-kit generate` then manual SQL execution (TiDB needs `DEFAULT 'value'` not `DEFAULT ('value')` and JSON columns can't have defaults)
 - **Tables**:
   - `daily_reports` — One row per day (date is unique). Stores opening balance, received amount, auto-incrementing reportNumber
   - `expense_items` — Line items belonging to a report. Has category ('fixed' or 'vegetable'), description, UOM, qty, rate, amount. Cascade deletes with parent report
@@ -95,10 +96,10 @@ Preferred communication style: Simple, everyday language.
 
 ## External Dependencies
 
-- **PostgreSQL** — Primary database hosted on **Google Cloud SQL** (PostgreSQL 16). Connected via `GOOGLE_DATABASE_URL` environment variable (falls back to `DATABASE_URL` if not set). SSL is enabled with `rejectUnauthorized: false` for Google Cloud. The database name is `djpkf` on host `34.100.151.246`
+- **TiDB Cloud** — Primary database (MySQL-compatible). Connected via `TIDB_DATABASE_URL` environment variable. Host: `gateway01.ap-southeast-1.prod.aws.tidbcloud.com:4000`, database: `test`. SSL required. Data migrated from old Google Cloud PostgreSQL (host `34.100.151.246`, db `djpkf`)
 - **Google Fonts** — Loads Inter, DM Sans, Fira Code, Geist Mono, and Architects Daughter font families from Google Fonts CDN
 - **Authentication** — Session-based auth with bcrypt password hashing. Two types of user creation: (1) Work User — manual username/password/role, (2) Employee User — auto-created from Employee Master with mobile as username, password=name[0:3].lower()+"@"+mobile[-4:], role="employee", linked via employeeId. Default admin: username "admin", password "admin123"
-- **Session Storage** — PostgreSQL-backed sessions via connect-pg-simple with 30-day cookie lifetime
+- **Session Storage** — MySQL-backed sessions via express-mysql-session with 30-day cookie lifetime
 - **Role-based Access** — "admin" role for full access; "user" role for standard operations; "employee" role for self-service dashboard (view own attendance, salary, print wage slip)
 - **Permissions** — Available permissions: expense, cashseal, inventory, menu, purchase, labour. Dashboard tabs and navigation are filtered based on user permissions.
 - **Route Protection** — All API routes require authentication; admin-only routes use requireAdmin middleware. Frontend gates /admin route to admin users only

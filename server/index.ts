@@ -3,7 +3,8 @@ import { registerRoutes } from "./routes";
 import { serveStatic } from "./static";
 import { createServer } from "http";
 import session from "express-session";
-import connectPgSimple from "connect-pg-simple";
+import expressMySqlSession from "express-mysql-session";
+import mysql from "mysql2/promise";
 import { dbReady } from "./db";
 
 const app = express();
@@ -78,13 +79,19 @@ app.use((req, res, next) => {
   await dbReady;
   const { pool } = await import("./db");
 
-  const PgStore = connectPgSimple(session);
+  const MySQLStore = expressMySqlSession(session as any);
+  const sessionPool = mysql.createPool({
+    uri: process.env.TIDB_DATABASE_URL || process.env.GOOGLE_DATABASE_URL || process.env.DATABASE_URL,
+    ssl: { rejectUnauthorized: true },
+    waitForConnections: true,
+    connectionLimit: 5,
+  });
+  const sessionStore = new MySQLStore({
+    createDatabaseTable: true,
+  }, sessionPool as any);
   app.use(
     session({
-      store: new PgStore({
-        pool: pool,
-        createTableIfMissing: true,
-      }),
+      store: sessionStore as any,
       secret: process.env.SESSION_SECRET || "kpf-delay-cash-expanse-secret",
       resave: false,
       saveUninitialized: false,

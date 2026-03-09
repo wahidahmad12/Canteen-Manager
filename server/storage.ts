@@ -67,6 +67,22 @@ import {
 import { eq, desc, lt, and, sql } from "drizzle-orm";
 import bcrypt from "bcryptjs";
 
+async function getInsertId(dbOrTx: any): Promise<number> {
+  const result = await dbOrTx.execute(sql`SELECT LAST_INSERT_ID() as insertId`);
+  const rows = Array.isArray(result[0]) ? result[0] : result;
+  const row = rows[0];
+  return Number(row?.insertId ?? 0);
+}
+
+async function insertAndGet<T>(table: any, values: any, dbOrTx: any = db): Promise<T> {
+  return await dbOrTx.transaction(async (tx: any) => {
+    await tx.insert(table).values(values);
+    const id = await getInsertId(tx);
+    const [row] = await tx.select().from(table).where(eq(table.id, id));
+    return row as T;
+  });
+}
+
 export interface IStorage {
   getReports(): Promise<ReportWithItems[]>;
   getReport(id: number): Promise<ReportWithItems | undefined>;
@@ -189,15 +205,21 @@ export class DatabaseStorage implements IStorage {
   }
 
   async createVegetableItem(item: { name: string }): Promise<VegetableItem> {
-    const [newItem] = await db.insert(vegetableItems).values(item).returning();
+    const [newItem] = await db.transaction(async (tx) => {
+
+      await tx.insert(vegetableItems).values(item);
+
+      const __iid = await getInsertId(tx);
+
+      return await tx.select().from(vegetableItems).where(eq(vegetableItems.id, __iid));
+
+    });
     return newItem;
   }
 
   async updateVegetableItem(id: number, item: { name: string }): Promise<VegetableItem> {
-    const [updated] = await db.update(vegetableItems)
-      .set(item)
-      .where(eq(vegetableItems.id, id))
-      .returning();
+    await db.update(vegetableItems).set(item).where(eq(vegetableItems.id, id));
+    const [updated] = await db.select().from(vegetableItems).where(eq(vegetableItems.id, id));
     if (!updated) throw new Error("Vegetable not found");
     return updated;
   }
@@ -208,7 +230,7 @@ export class DatabaseStorage implements IStorage {
 
   async seedVegetableItems(names: string[]): Promise<void> {
     for (const name of names) {
-      await db.insert(vegetableItems).values({ name }).onConflictDoNothing();
+      try { await db.insert(vegetableItems).values({ name }); } catch(e: any) { if (e?.code !== 'ER_DUP_ENTRY') throw e; }
     }
   }
 
@@ -254,11 +276,13 @@ export class DatabaseStorage implements IStorage {
 
   async createReport(request: CreateReportRequest): Promise<ReportWithItems> {
     return await db.transaction(async (tx) => {
-      const [report] = await tx.insert(dailyReports).values({
+      await tx.insert(dailyReports).values({
         date: request.date,
         openingBalance: request.openingBalance.toString(),
         receivedAmount: request.receivedAmount.toString(),
-      }).returning();
+      });
+      const __iid = await getInsertId(tx);
+      const [report] = await tx.select().from(dailyReports).where(eq(dailyReports.id, __iid));
 
       if (request.items.length > 0) {
         await tx.insert(expenseItems).values(
@@ -281,15 +305,15 @@ export class DatabaseStorage implements IStorage {
   async updateReport(id: number, request: UpdateReportRequest): Promise<ReportWithItems> {
     return await db.transaction(async (tx) => {
       // Update report header
-      const [report] = await tx.update(dailyReports)
+      await tx.update(dailyReports)
         .set({
           ...(request.date ? { date: request.date } : {}),
           ...(request.openingBalance !== undefined ? { openingBalance: request.openingBalance.toString() } : {}),
           ...(request.receivedAmount !== undefined ? { receivedAmount: request.receivedAmount.toString() } : {}),
           updatedAt: new Date(),
         })
-        .where(eq(dailyReports.id, id))
-        .returning();
+        .where(eq(dailyReports.id, id));
+      const [report] = await tx.select().from(dailyReports).where(eq(dailyReports.id, id));
 
       if (!report) throw new Error("Report not found");
 
@@ -344,7 +368,9 @@ export class DatabaseStorage implements IStorage {
 
   async createInventory(data: CreateInventoryRequest): Promise<InventoryWithItems> {
     return await db.transaction(async (tx) => {
-      const [inv] = await tx.insert(dailyInventory).values({ date: data.date }).returning();
+      await tx.insert(dailyInventory).values({ date: data.date });
+      const __iid = await getInsertId(tx);
+      const [inv] = await tx.select().from(dailyInventory).where(eq(dailyInventory.id, __iid));
       if (data.kitchenStock.length > 0) {
         await tx.insert(kitchenStockItems).values(
           data.kitchenStock.map(item => ({
@@ -375,10 +401,10 @@ export class DatabaseStorage implements IStorage {
 
   async updateInventory(id: number, data: CreateInventoryRequest): Promise<InventoryWithItems> {
     return await db.transaction(async (tx) => {
-      const [inv] = await tx.update(dailyInventory)
+      await tx.update(dailyInventory)
         .set({ date: data.date, updatedAt: new Date() })
-        .where(eq(dailyInventory.id, id))
-        .returning();
+        .where(eq(dailyInventory.id, id));
+      const [inv] = await tx.select().from(dailyInventory).where(eq(dailyInventory.id, id));
       if (!inv) throw new Error("Inventory not found");
       await tx.delete(kitchenStockItems).where(eq(kitchenStockItems.inventoryId, id));
       await tx.delete(biscuitItems).where(eq(biscuitItems.inventoryId, id));
@@ -440,18 +466,20 @@ export class DatabaseStorage implements IStorage {
       let report = await tx.select().from(dailyReports).where(eq(dailyReports.date, data.date));
       let reportId: number;
       if (report.length === 0) {
-        const [newReport] = await tx.insert(dailyReports).values({
+        await tx.insert(dailyReports).values({
           date: data.date,
           openingBalance: "0",
           receivedAmount: "0",
-        }).returning();
+        });
+        const __iid = await getInsertId(tx);
+        const [newReport] = await tx.select().from(dailyReports).where(eq(dailyReports.id, __iid));
         reportId = newReport.id;
       } else {
         reportId = report[0].id;
       }
       const existing = await tx.select().from(cashSeals).where(eq(cashSeals.reportId, reportId));
       if (existing.length > 0) {
-        const [updated] = await tx.update(cashSeals).set({
+        await tx.update(cashSeals).set({
           incomeMorningQty: data.incomeMorningQty?.toString() || "0",
           incomeLunchQty: data.incomeLunchQty?.toString() || "0",
           incomeEveningQty: data.incomeEveningQty?.toString() || "0",
@@ -469,10 +497,11 @@ export class DatabaseStorage implements IStorage {
           expenseDahiBharRate: data.expenseDahiBharRate?.toString() || "0",
           expenseOtherAmount: data.expenseOtherAmount?.toString() || "0",
           totalGivenToAkbarAli: data.totalGivenToAkbarAli?.toString() || "0",
-        }).where(eq(cashSeals.id, existing[0].id)).returning();
+        }).where(eq(cashSeals.id, existing[0].id));
+        const [updated] = await tx.select().from(cashSeals).where(eq(cashSeals.id, existing[0].id));
         return { ...updated, date: data.date };
       } else {
-        const [created] = await tx.insert(cashSeals).values({
+        await tx.insert(cashSeals).values({
           reportId,
           incomeMorningQty: data.incomeMorningQty?.toString() || "0",
           incomeLunchQty: data.incomeLunchQty?.toString() || "0",
@@ -491,7 +520,9 @@ export class DatabaseStorage implements IStorage {
           expenseDahiBharRate: data.expenseDahiBharRate?.toString() || "0",
           expenseOtherAmount: data.expenseOtherAmount?.toString() || "0",
           totalGivenToAkbarAli: data.totalGivenToAkbarAli?.toString() || "0",
-        }).returning();
+        });
+        const __iid = await getInsertId(tx);
+        const [created] = await tx.select().from(cashSeals).where(eq(cashSeals.id, __iid));
         return { ...created, date: data.date };
       }
     });
@@ -507,7 +538,15 @@ export class DatabaseStorage implements IStorage {
   }
 
   async createSavedMenu(data: { clientName: string; startDate: string; endDate: string; menuData: string }): Promise<SavedMenu> {
-    const [menu] = await db.insert(savedMenus).values(data).returning();
+    const [menu] = await db.transaction(async (tx) => {
+
+      await tx.insert(savedMenus).values(data);
+
+      const __iid = await getInsertId(tx);
+
+      return await tx.select().from(savedMenus).where(eq(savedMenus.id, __iid));
+
+    });
     return menu;
   }
 
@@ -520,15 +559,21 @@ export class DatabaseStorage implements IStorage {
   }
 
   async createClientName(item: { name: string; address?: string; gstNo?: string; agreementValidTill?: string | null }): Promise<ClientName> {
-    const [newItem] = await db.insert(clientNames).values(item).returning();
+    const [newItem] = await db.transaction(async (tx) => {
+
+      await tx.insert(clientNames).values(item);
+
+      const __iid = await getInsertId(tx);
+
+      return await tx.select().from(clientNames).where(eq(clientNames.id, __iid));
+
+    });
     return newItem;
   }
 
   async updateClientName(id: number, item: { name?: string; address?: string; gstNo?: string; agreementValidTill?: string | null }): Promise<ClientName> {
-    const [updated] = await db.update(clientNames)
-      .set(item)
-      .where(eq(clientNames.id, id))
-      .returning();
+    await db.update(clientNames).set(item).where(eq(clientNames.id, id));
+    const [updated] = await db.select().from(clientNames).where(eq(clientNames.id, id));
     if (!updated) throw new Error("Client not found");
     return updated;
   }
@@ -539,7 +584,7 @@ export class DatabaseStorage implements IStorage {
 
   async seedClientNames(names: string[]): Promise<void> {
     for (const name of names) {
-      await db.insert(clientNames).values({ name }).onConflictDoNothing();
+      try { await db.insert(clientNames).values({ name }); } catch(e: any) { if (e?.code !== 'ER_DUP_ENTRY') throw e; }
     }
   }
 
@@ -593,7 +638,9 @@ export class DatabaseStorage implements IStorage {
 
   async createUser(data: { username: string; password: string; displayName: string; role: string; clientName: string | null; permissions?: string[]; employeeId?: number | null }): Promise<SafeUser> {
     const passwordHash = await bcrypt.hash(data.password, 10);
-    const [user] = await db.insert(users).values({
+    const [user] = await db.transaction(async (tx) => {
+
+      await tx.insert(users).values({
       username: data.username,
       passwordHash,
       displayName: data.displayName,
@@ -601,7 +648,13 @@ export class DatabaseStorage implements IStorage {
       clientName: data.clientName,
       permissions: data.permissions || ['expense', 'cashseal', 'inventory', 'menu'],
       employeeId: data.employeeId || null,
-    }).returning();
+    });
+
+      const __iid = await getInsertId(tx);
+
+      return await tx.select().from(users).where(eq(users.id, __iid));
+
+    });
     const { passwordHash: _, ...safeUser } = user;
     return safeUser as SafeUser;
   }
@@ -613,9 +666,10 @@ export class DatabaseStorage implements IStorage {
     if (data.clientName !== undefined) updates.clientName = data.clientName;
     if (data.permissions !== undefined) updates.permissions = data.permissions;
     if (data.password) updates.passwordHash = await bcrypt.hash(data.password, 10);
-    const result = await db.update(users).set(updates).where(eq(users.id, id)).returning();
-    if (!result.length) throw new Error("User not found");
-    const { passwordHash: _, ...safeUser } = result[0];
+    await db.update(users).set(updates).where(eq(users.id, id));
+    const [user] = await db.select().from(users).where(eq(users.id, id));
+    if (!user) throw new Error("User not found");
+    const { passwordHash: _, ...safeUser } = user;
     return safeUser as SafeUser;
   }
 
@@ -640,11 +694,13 @@ export class DatabaseStorage implements IStorage {
 
   async createPurchaseRequest(data: { clientName: string; date: string; createdBy?: string; items: { itemName: string; uom: string; requestQty: number }[] }): Promise<PurchaseRequestWithItems> {
     return await db.transaction(async (tx) => {
-      const [req] = await tx.insert(purchaseRequests).values({
+      await tx.insert(purchaseRequests).values({
         clientName: data.clientName,
         date: data.date,
         createdBy: data.createdBy || null,
-      }).returning();
+      });
+      const __iid = await getInsertId(tx);
+      const [req] = await tx.select().from(purchaseRequests).where(eq(purchaseRequests.id, __iid));
       if (data.items.length > 0) {
         await tx.insert(purchaseRequestItems).values(
           data.items.map(item => ({
@@ -662,12 +718,13 @@ export class DatabaseStorage implements IStorage {
 
   async updatePurchaseRequest(id: number, data: { clientName?: string; date?: string; status?: string; approvedBy?: string; items?: { id?: number; itemName: string; uom: string; requestQty: number; approveQty?: number | null; approved: boolean }[] }): Promise<PurchaseRequestWithItems> {
     return await db.transaction(async (tx) => {
-      const [req] = await tx.update(purchaseRequests).set({
+      await tx.update(purchaseRequests).set({
         ...(data.clientName ? { clientName: data.clientName } : {}),
         ...(data.date ? { date: data.date } : {}),
         ...(data.status ? { status: data.status } : {}),
         ...(data.approvedBy !== undefined ? { approvedBy: data.approvedBy } : {}),
-      }).where(eq(purchaseRequests.id, id)).returning();
+      }).where(eq(purchaseRequests.id, id));
+      const [req] = await tx.select().from(purchaseRequests).where(eq(purchaseRequests.id, id));
       if (!req) throw new Error("Purchase request not found");
       if (data.items) {
         await tx.delete(purchaseRequestItems).where(eq(purchaseRequestItems.requestId, id));
@@ -709,7 +766,7 @@ export class DatabaseStorage implements IStorage {
           name: trimmed,
           source,
           categoryId: categoryId || null,
-        }).onConflictDoNothing();
+        });
       } catch {
       }
     }
@@ -725,6 +782,7 @@ export class DatabaseStorage implements IStorage {
         displayName: "Administrator",
         role: "admin",
         clientName: null,
+        permissions: ['expense','cashseal','inventory','menu','purchase','labour'],
       });
     }
   }
@@ -734,7 +792,15 @@ export class DatabaseStorage implements IStorage {
   }
 
   async createVendor(data: { name: string; phone?: string; address?: string; gstNo?: string }): Promise<Vendor> {
-    const [vendor] = await db.insert(vendors).values(data).returning();
+    const [vendor] = await db.transaction(async (tx) => {
+
+      await tx.insert(vendors).values(data);
+
+      const __iid = await getInsertId(tx);
+
+      return await tx.select().from(vendors).where(eq(vendors.id, __iid));
+
+    });
     return vendor;
   }
 
@@ -743,7 +809,8 @@ export class DatabaseStorage implements IStorage {
     if (data.phone !== undefined) updateData.phone = data.phone;
     if (data.address !== undefined) updateData.address = data.address;
     if (data.gstNo !== undefined) updateData.gstNo = data.gstNo;
-    const [vendor] = await db.update(vendors).set(updateData).where(eq(vendors.id, id)).returning();
+    await db.update(vendors).set(updateData).where(eq(vendors.id, id));
+    const [vendor] = await db.select().from(vendors).where(eq(vendors.id, id));
     if (!vendor) throw new Error("Vendor not found");
     return vendor;
   }
@@ -772,7 +839,7 @@ export class DatabaseStorage implements IStorage {
       const totalAmount = data.items.reduce((sum, i) => sum + i.totalPrice, 0);
       const totalGst = data.items.reduce((sum, i) => sum + i.gstAmount, 0);
       const grandTotal = data.items.reduce((sum, i) => sum + i.netAmount, 0);
-      const [inv] = await tx.insert(purchaseInvoices).values({
+      await tx.insert(purchaseInvoices).values({
         purchaseRequestId: data.purchaseRequestId || null,
         clientName: data.clientName,
         vendorName: data.vendorName,
@@ -783,7 +850,9 @@ export class DatabaseStorage implements IStorage {
         totalAmount: totalAmount.toString(),
         totalGst: totalGst.toString(),
         grandTotal: grandTotal.toString(),
-      }).returning();
+      });
+      const __iid = await getInsertId(tx);
+      const [inv] = await tx.select().from(purchaseInvoices).where(eq(purchaseInvoices.id, __iid));
       if (data.items.length > 0) {
         await tx.insert(purchaseInvoiceItems).values(
           data.items.map(item => ({
@@ -821,7 +890,8 @@ export class DatabaseStorage implements IStorage {
         updateFields.totalGst = totalGst.toString();
         updateFields.grandTotal = grandTotal.toString();
       }
-      const [inv] = await tx.update(purchaseInvoices).set(updateFields).where(eq(purchaseInvoices.id, id)).returning();
+      await tx.update(purchaseInvoices).set(updateFields).where(eq(purchaseInvoices.id, id));
+      const [inv] = await tx.select().from(purchaseInvoices).where(eq(purchaseInvoices.id, id));
       if (!inv) throw new Error("Purchase invoice not found");
       if (data.items) {
         await tx.delete(purchaseInvoiceItems).where(eq(purchaseInvoiceItems.invoiceId, id));
@@ -891,7 +961,9 @@ export class DatabaseStorage implements IStorage {
   }
 
   async createItemMasterItem(data: { itemName: string; uom?: string; rate?: string; hsnCode?: string; gstPercent?: string; itemType?: string; itemCategory?: string }): Promise<ItemMaster> {
-    const [item] = await db.insert(itemMaster).values({
+    const [item] = await db.transaction(async (tx) => {
+
+      await tx.insert(itemMaster).values({
       itemName: data.itemName,
       uom: data.uom || "Kg",
       rate: data.rate || "0",
@@ -899,7 +971,13 @@ export class DatabaseStorage implements IStorage {
       gstPercent: data.gstPercent || "0",
       itemType: data.itemType || "purchase",
       itemCategory: data.itemCategory || "General",
-    }).returning();
+    });
+
+      const __iid = await getInsertId(tx);
+
+      return await tx.select().from(itemMaster).where(eq(itemMaster.id, __iid));
+
+    });
     return item;
   }
 
@@ -912,7 +990,8 @@ export class DatabaseStorage implements IStorage {
     if (data.gstPercent !== undefined) updateFields.gstPercent = data.gstPercent;
     if (data.itemType !== undefined) updateFields.itemType = data.itemType;
     if (data.itemCategory !== undefined) updateFields.itemCategory = data.itemCategory;
-    const [item] = await db.update(itemMaster).set(updateFields).where(eq(itemMaster.id, id)).returning();
+    await db.update(itemMaster).set(updateFields).where(eq(itemMaster.id, id));
+    const [item] = await db.select().from(itemMaster).where(eq(itemMaster.id, id));
     if (!item) throw new Error("Item not found");
     return item;
   }
@@ -935,7 +1014,15 @@ export class DatabaseStorage implements IStorage {
   }
 
   async createEmployee(data: any): Promise<Employee> {
-    const [emp] = await db.insert(employees).values(data).returning();
+    const [emp] = await db.transaction(async (tx) => {
+
+      await tx.insert(employees).values(data);
+
+      const __iid = await getInsertId(tx);
+
+      return await tx.select().from(employees).where(eq(employees.id, __iid));
+
+    });
     return emp;
   }
 
@@ -956,7 +1043,8 @@ export class DatabaseStorage implements IStorage {
       updateFields.leavingDate = null;
       updateFields.isActive = true;
     }
-    const [emp] = await db.update(employees).set(updateFields).where(eq(employees.id, id)).returning();
+    await db.update(employees).set(updateFields).where(eq(employees.id, id));
+    const [emp] = await db.select().from(employees).where(eq(employees.id, id));
     if (!emp) throw new Error("Employee not found");
     return emp;
   }
@@ -975,11 +1063,20 @@ export class DatabaseStorage implements IStorage {
     const existing = await db.select().from(attendance)
       .where(and(eq(attendance.employeeId, data.employeeId), eq(attendance.month, data.month), eq(attendance.year, data.year)));
     if (existing.length > 0) {
-      const [updated] = await db.update(attendance).set(data)
-        .where(eq(attendance.id, existing[0].id)).returning();
+      await db.update(attendance).set(data)
+        .where(eq(attendance.id, existing[0].id));
+      const [updated] = await db.select().from(attendance).where(eq(attendance.id, existing[0].id));
       return updated;
     }
-    const [created] = await db.insert(attendance).values(data).returning();
+    const [created] = await db.transaction(async (tx) => {
+
+      await tx.insert(attendance).values(data);
+
+      const __iid = await getInsertId(tx);
+
+      return await tx.select().from(attendance).where(eq(attendance.id, __iid));
+
+    });
     return created;
   }
 
@@ -997,16 +1094,26 @@ export class DatabaseStorage implements IStorage {
   async saveSalaryRecord(data: any): Promise<SalaryRecord> {
     if (data.id) {
       const { id, ...updateData } = data;
-      const [updated] = await db.update(salaryRecords).set(updateData).where(eq(salaryRecords.id, id)).returning();
+      await db.update(salaryRecords).set(updateData).where(eq(salaryRecords.id, id));
+      const [updated] = await db.select().from(salaryRecords).where(eq(salaryRecords.id, id));
       return updated;
     }
     const existing = await db.select().from(salaryRecords)
       .where(and(eq(salaryRecords.employeeId, data.employeeId), eq(salaryRecords.month, data.month), eq(salaryRecords.year, data.year)));
     if (existing.length > 0) {
-      const [updated] = await db.update(salaryRecords).set(data).where(eq(salaryRecords.id, existing[0].id)).returning();
+      await db.update(salaryRecords).set(data).where(eq(salaryRecords.id, existing[0].id));
+      const [updated] = await db.select().from(salaryRecords).where(eq(salaryRecords.id, existing[0].id));
       return updated;
     }
-    const [created] = await db.insert(salaryRecords).values(data).returning();
+    const [created] = await db.transaction(async (tx) => {
+
+      await tx.insert(salaryRecords).values(data);
+
+      const __iid = await getInsertId(tx);
+
+      return await tx.select().from(salaryRecords).where(eq(salaryRecords.id, __iid));
+
+    });
     return created;
   }
 
@@ -1018,7 +1125,7 @@ export class DatabaseStorage implements IStorage {
     const result = await db.update(salaryRecords)
       .set({ paidOn })
       .where(and(eq(salaryRecords.clientName, clientName), eq(salaryRecords.month, month), eq(salaryRecords.year, year)));
-    return result.rowCount || 0;
+    return (result as any)[0]?.affectedRows || 0;
   }
 
   async generateSalary(clientName: string, month: number, year: number, paidOn?: string): Promise<SalaryRecord[]> {
@@ -1117,7 +1224,15 @@ export class DatabaseStorage implements IStorage {
     return await db.select().from(fines).orderBy(desc(fines.date));
   }
   async createFine(data: any): Promise<Fine> {
-    const [fine] = await db.insert(fines).values(data).returning();
+    const [fine] = await db.transaction(async (tx) => {
+
+      await tx.insert(fines).values(data);
+
+      const __iid = await getInsertId(tx);
+
+      return await tx.select().from(fines).where(eq(fines.id, __iid));
+
+    });
     return fine;
   }
   async deleteFine(id: number): Promise<void> {
@@ -1130,7 +1245,15 @@ export class DatabaseStorage implements IStorage {
     return await db.select().from(advances).orderBy(desc(advances.date));
   }
   async createAdvance(data: any): Promise<Advance> {
-    const [adv] = await db.insert(advances).values(data).returning();
+    const [adv] = await db.transaction(async (tx) => {
+
+      await tx.insert(advances).values(data);
+
+      const __iid = await getInsertId(tx);
+
+      return await tx.select().from(advances).where(eq(advances.id, __iid));
+
+    });
     return adv;
   }
   async deleteAdvance(id: number): Promise<void> {
@@ -1143,7 +1266,15 @@ export class DatabaseStorage implements IStorage {
     return await db.select().from(overtimeRegister).orderBy(desc(overtimeRegister.date));
   }
   async createOvertimeRecord(data: any): Promise<OvertimeRecord> {
-    const [ot] = await db.insert(overtimeRegister).values(data).returning();
+    const [ot] = await db.transaction(async (tx) => {
+
+      await tx.insert(overtimeRegister).values(data);
+
+      const __iid = await getInsertId(tx);
+
+      return await tx.select().from(overtimeRegister).where(eq(overtimeRegister.id, __iid));
+
+    });
     return ot;
   }
   async deleteOvertimeRecord(id: number): Promise<void> {
@@ -1160,7 +1291,15 @@ export class DatabaseStorage implements IStorage {
     return await db.select().from(damageDeductions).orderBy(desc(damageDeductions.date));
   }
   async createDamageDeduction(data: any): Promise<DamageDeduction> {
-    const [dd] = await db.insert(damageDeductions).values(data).returning();
+    const [dd] = await db.transaction(async (tx) => {
+
+      await tx.insert(damageDeductions).values(data);
+
+      const __iid = await getInsertId(tx);
+
+      return await tx.select().from(damageDeductions).where(eq(damageDeductions.id, __iid));
+
+    });
     return dd;
   }
   async deleteDamageDeduction(id: number): Promise<void> {
@@ -1175,11 +1314,20 @@ export class DatabaseStorage implements IStorage {
     return await db.select().from(leaveWithWages).where(eq(leaveWithWages.clientName, clientName)).orderBy(leaveWithWages.calendarYear);
   }
   async createLeaveWithWages(data: any): Promise<LeaveWithWages> {
-    const [rec] = await db.insert(leaveWithWages).values(data).returning();
+    const [rec] = await db.transaction(async (tx) => {
+
+      await tx.insert(leaveWithWages).values(data);
+
+      const __iid = await getInsertId(tx);
+
+      return await tx.select().from(leaveWithWages).where(eq(leaveWithWages.id, __iid));
+
+    });
     return rec;
   }
   async updateLeaveWithWages(id: number, data: any): Promise<LeaveWithWages> {
-    const [rec] = await db.update(leaveWithWages).set(data).where(eq(leaveWithWages.id, id)).returning();
+    await db.update(leaveWithWages).set(data).where(eq(leaveWithWages.id, id));
+    const [rec] = await db.select().from(leaveWithWages).where(eq(leaveWithWages.id, id));
     return rec;
   }
   async deleteLeaveWithWages(id: number): Promise<void> {
@@ -1195,11 +1343,20 @@ export class DatabaseStorage implements IStorage {
     return rec;
   }
   async createEmployeeWageRate(data: any): Promise<EmployeeWageRate> {
-    const [rec] = await db.insert(employeeWageRates).values(data).returning();
+    const [rec] = await db.transaction(async (tx) => {
+
+      await tx.insert(employeeWageRates).values(data);
+
+      const __iid = await getInsertId(tx);
+
+      return await tx.select().from(employeeWageRates).where(eq(employeeWageRates.id, __iid));
+
+    });
     return rec;
   }
   async updateEmployeeWageRate(id: number, data: any): Promise<EmployeeWageRate> {
-    const [rec] = await db.update(employeeWageRates).set(data).where(eq(employeeWageRates.id, id)).returning();
+    await db.update(employeeWageRates).set(data).where(eq(employeeWageRates.id, id));
+    const [rec] = await db.select().from(employeeWageRates).where(eq(employeeWageRates.id, id));
     return rec;
   }
   async deleteEmployeeWageRate(id: number): Promise<void> {
@@ -1222,10 +1379,19 @@ export class DatabaseStorage implements IStorage {
   async createOrUpdateSkillWageRate(data: any): Promise<SkillWageRate> {
     const existing = await this.getSkillWageRate(data.skillCategory, data.month, data.year);
     if (existing) {
-      const [rec] = await db.update(skillWageRates).set({ dailyRate: data.dailyRate, remarks: data.remarks || "" }).where(eq(skillWageRates.id, existing.id)).returning();
+      await db.update(skillWageRates).set({ dailyRate: data.dailyRate, remarks: data.remarks || "" }).where(eq(skillWageRates.id, existing.id));
+      const [rec] = await db.select().from(skillWageRates).where(eq(skillWageRates.id, existing.id));
       return rec;
     }
-    const [rec] = await db.insert(skillWageRates).values(data).returning();
+    const [rec] = await db.transaction(async (tx) => {
+
+      await tx.insert(skillWageRates).values(data);
+
+      const __iid = await getInsertId(tx);
+
+      return await tx.select().from(skillWageRates).where(eq(skillWageRates.id, __iid));
+
+    });
     return rec;
   }
   async deleteSkillWageRate(id: number): Promise<void> {
@@ -1249,10 +1415,19 @@ export class DatabaseStorage implements IStorage {
   async saveHalfYearlyReturn(data: any): Promise<HalfYearlyReturn> {
     const existing = await this.getHalfYearlyReturn(data.clientName, data.halfYear, data.year);
     if (existing) {
-      const [updated] = await db.update(halfYearlyReturns).set({ ...data, updatedAt: new Date() }).where(eq(halfYearlyReturns.id, existing.id)).returning();
+      await db.update(halfYearlyReturns).set({ ...data, updatedAt: new Date() }).where(eq(halfYearlyReturns.id, existing.id));
+      const [updated] = await db.select().from(halfYearlyReturns).where(eq(halfYearlyReturns.id, existing.id));
       return updated;
     }
-    const [created] = await db.insert(halfYearlyReturns).values(data).returning();
+    const [created] = await db.transaction(async (tx) => {
+
+      await tx.insert(halfYearlyReturns).values(data);
+
+      const __iid = await getInsertId(tx);
+
+      return await tx.select().from(halfYearlyReturns).where(eq(halfYearlyReturns.id, __iid));
+
+    });
     return created;
   }
 
@@ -1270,10 +1445,19 @@ export class DatabaseStorage implements IStorage {
   async saveBonusReturn(data: any): Promise<BonusReturn> {
     const existing = await this.getBonusReturn(data.clientName, data.fyStartYear);
     if (existing) {
-      const [updated] = await db.update(bonusReturns).set({ ...data, updatedAt: new Date() }).where(eq(bonusReturns.id, existing.id)).returning();
+      await db.update(bonusReturns).set({ ...data, updatedAt: new Date() }).where(eq(bonusReturns.id, existing.id));
+      const [updated] = await db.select().from(bonusReturns).where(eq(bonusReturns.id, existing.id));
       return updated;
     }
-    const [created] = await db.insert(bonusReturns).values(data).returning();
+    const [created] = await db.transaction(async (tx) => {
+
+      await tx.insert(bonusReturns).values(data);
+
+      const __iid = await getInsertId(tx);
+
+      return await tx.select().from(bonusReturns).where(eq(bonusReturns.id, __iid));
+
+    });
     return created;
   }
 
@@ -1296,12 +1480,21 @@ export class DatabaseStorage implements IStorage {
   }
 
   async createLetter(data: any): Promise<Letter> {
-    const [created] = await db.insert(letters).values(data).returning();
+    const [created] = await db.transaction(async (tx) => {
+
+      await tx.insert(letters).values(data);
+
+      const __iid = await getInsertId(tx);
+
+      return await tx.select().from(letters).where(eq(letters.id, __iid));
+
+    });
     return created;
   }
 
   async updateLetter(id: number, data: any): Promise<Letter> {
-    const [updated] = await db.update(letters).set({ ...data, updatedAt: new Date() }).where(eq(letters.id, id)).returning();
+    await db.update(letters).set({ ...data, updatedAt: new Date() }).where(eq(letters.id, id));
+    const [updated] = await db.select().from(letters).where(eq(letters.id, id));
     return updated;
   }
 

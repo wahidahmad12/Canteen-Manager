@@ -1,5 +1,5 @@
 
-import { pgTable, text, serial, integer, numeric, date, timestamp, boolean } from "drizzle-orm/pg-core";
+import { mysqlTable, varchar, text, int, decimal, date, timestamp, boolean, json } from "drizzle-orm/mysql-core";
 import { createInsertSchema, createSelectSchema } from "drizzle-zod";
 import { z } from "zod";
 import { relations, sql } from "drizzle-orm";
@@ -7,103 +7,103 @@ import { relations, sql } from "drizzle-orm";
 // === TABLE DEFINITIONS ===
 
 // Stores the header information for each day's report
-export const dailyReports = pgTable("daily_reports", {
-  id: serial("id").primaryKey(),
-  reportNumber: serial("report_number"), // Auto-incrementing report number
+export const dailyReports = mysqlTable("daily_reports", {
+  id: int("id").autoincrement().primaryKey(),
+  reportNumber: int("report_number"), // Auto-incrementing report number
   date: date("date").notNull().unique(), // One report per day
-  openingBalance: numeric("opening_balance", { precision: 10, scale: 2 }).default("0").notNull(),
-  receivedAmount: numeric("received_amount", { precision: 10, scale: 2 }).default("0").notNull(),
+  openingBalance: decimal("opening_balance", { precision: 10, scale: 2 }).default("0").notNull(),
+  receivedAmount: decimal("received_amount", { precision: 10, scale: 2 }).default("0").notNull(),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 });
 
 // Stores predefined vegetable names for selection
-export const vegetableItems = pgTable("vegetable_items", {
-  id: serial("id").primaryKey(),
-  name: text("name").notNull().unique(),
+export const vegetableItems = mysqlTable("vegetable_items", {
+  id: int("id").autoincrement().primaryKey(),
+  name: varchar("name", { length: 255 }).notNull().unique(),
 });
 
 // Stores individual line items (both fixed and vegetable)
-export const expenseItems = pgTable("expense_items", {
-  id: serial("id").primaryKey(),
-  reportId: integer("report_id").notNull().references(() => dailyReports.id, { onDelete: 'cascade' }),
+export const expenseItems = mysqlTable("expense_items", {
+  id: int("id").autoincrement().primaryKey(),
+  reportId: int("report_id").notNull().references(() => dailyReports.id, { onDelete: 'cascade' }),
   category: text("category").notNull(), // 'fixed' | 'vegetable'
   description: text("description").notNull(),
   uom: text("uom").notNull(), // Unit of Measure (Kg, Pcs, etc.)
-  qty: numeric("qty", { precision: 10, scale: 2 }).default("0"),
-  rate: numeric("rate", { precision: 10, scale: 2 }).default("0"),
-  amount: numeric("amount", { precision: 10, scale: 2 }).default("0"),
+  qty: decimal("qty", { precision: 10, scale: 2 }).default("0"),
+  rate: decimal("rate", { precision: 10, scale: 2 }).default("0"),
+  amount: decimal("amount", { precision: 10, scale: 2 }).default("0"),
 });
 
 // Stores cash seal (income vs expense) per day
-export const cashSeals = pgTable("cash_seals", {
-  id: serial("id").primaryKey(),
-  serialNumber: serial("serial_number"),
-  reportId: integer("report_id").notNull().references(() => dailyReports.id, { onDelete: 'cascade' }),
-  incomeMorningQty: numeric("income_morning_qty", { precision: 10, scale: 2 }).default("0"),
-  incomeLunchQty: numeric("income_lunch_qty", { precision: 10, scale: 2 }).default("0"),
-  incomeEveningQty: numeric("income_evening_qty", { precision: 10, scale: 2 }).default("0"),
-  incomeNightQty: numeric("income_night_qty", { precision: 10, scale: 2 }).default("0"),
-  incomeNonVegRate: numeric("income_non_veg_rate", { precision: 10, scale: 2 }).default("0"),
-  incomeNonVegQty: numeric("income_non_veg_qty", { precision: 10, scale: 2 }).default("0"),
-  incomeVegRate: numeric("income_veg_rate", { precision: 10, scale: 2 }).default("0"),
-  incomeVegQty: numeric("income_veg_qty", { precision: 10, scale: 2 }).default("0"),
-  incomeMorningCashRate: numeric("income_morning_cash_rate", { precision: 10, scale: 2 }).default("0"),
-  incomeMorningCashQty: numeric("income_morning_cash_qty", { precision: 10, scale: 2 }).default("0"),
-  incomeEveningCashRate: numeric("income_evening_cash_rate", { precision: 10, scale: 2 }).default("0"),
-  incomeEveningCashQty: numeric("income_evening_cash_qty", { precision: 10, scale: 2 }).default("0"),
-  expenseBananaQty: numeric("expense_banana_qty", { precision: 10, scale: 2 }).default("0"),
-  expenseDahiBharQty: numeric("expense_dahi_bhar_qty", { precision: 10, scale: 2 }).default("0"),
-  expenseDahiBharRate: numeric("expense_dahi_bhar_rate", { precision: 10, scale: 2 }).default("0"),
-  expenseOtherAmount: numeric("expense_other_amount", { precision: 10, scale: 2 }).default("0"),
-  totalGivenToAkbarAli: numeric("total_given_to_akbar_ali", { precision: 10, scale: 2 }).default("0"),
+export const cashSeals = mysqlTable("cash_seals", {
+  id: int("id").autoincrement().primaryKey(),
+  serialNumber: int("serial_number"),
+  reportId: int("report_id").notNull().references(() => dailyReports.id, { onDelete: 'cascade' }),
+  incomeMorningQty: decimal("income_morning_qty", { precision: 10, scale: 2 }).default("0"),
+  incomeLunchQty: decimal("income_lunch_qty", { precision: 10, scale: 2 }).default("0"),
+  incomeEveningQty: decimal("income_evening_qty", { precision: 10, scale: 2 }).default("0"),
+  incomeNightQty: decimal("income_night_qty", { precision: 10, scale: 2 }).default("0"),
+  incomeNonVegRate: decimal("income_non_veg_rate", { precision: 10, scale: 2 }).default("0"),
+  incomeNonVegQty: decimal("income_non_veg_qty", { precision: 10, scale: 2 }).default("0"),
+  incomeVegRate: decimal("income_veg_rate", { precision: 10, scale: 2 }).default("0"),
+  incomeVegQty: decimal("income_veg_qty", { precision: 10, scale: 2 }).default("0"),
+  incomeMorningCashRate: decimal("income_morning_cash_rate", { precision: 10, scale: 2 }).default("0"),
+  incomeMorningCashQty: decimal("income_morning_cash_qty", { precision: 10, scale: 2 }).default("0"),
+  incomeEveningCashRate: decimal("income_evening_cash_rate", { precision: 10, scale: 2 }).default("0"),
+  incomeEveningCashQty: decimal("income_evening_cash_qty", { precision: 10, scale: 2 }).default("0"),
+  expenseBananaQty: decimal("expense_banana_qty", { precision: 10, scale: 2 }).default("0"),
+  expenseDahiBharQty: decimal("expense_dahi_bhar_qty", { precision: 10, scale: 2 }).default("0"),
+  expenseDahiBharRate: decimal("expense_dahi_bhar_rate", { precision: 10, scale: 2 }).default("0"),
+  expenseOtherAmount: decimal("expense_other_amount", { precision: 10, scale: 2 }).default("0"),
+  totalGivenToAkbarAli: decimal("total_given_to_akbar_ali", { precision: 10, scale: 2 }).default("0"),
 });
 
 // Daily Inventory records
-export const dailyInventory = pgTable("daily_inventory", {
-  id: serial("id").primaryKey(),
-  serialNumber: serial("serial_number"),
+export const dailyInventory = mysqlTable("daily_inventory", {
+  id: int("id").autoincrement().primaryKey(),
+  serialNumber: int("serial_number"),
   date: date("date").notNull().unique(),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 });
 
 // Kitchen stock items for daily inventory
-export const kitchenStockItems = pgTable("kitchen_stock_items", {
-  id: serial("id").primaryKey(),
-  inventoryId: integer("inventory_id").notNull().references(() => dailyInventory.id, { onDelete: 'cascade' }),
+export const kitchenStockItems = mysqlTable("kitchen_stock_items", {
+  id: int("id").autoincrement().primaryKey(),
+  inventoryId: int("inventory_id").notNull().references(() => dailyInventory.id, { onDelete: 'cascade' }),
   name: text("name").notNull(),
   unit: text("unit").notNull(),
-  open: numeric("open", { precision: 10, scale: 2 }).default("0"),
-  used: numeric("used", { precision: 10, scale: 2 }).default("0"),
-  balance: numeric("balance", { precision: 10, scale: 2 }).default("0"),
-  remarks: text("remarks").default(""),
+  open: decimal("open", { precision: 10, scale: 2 }).default("0"),
+  used: decimal("used", { precision: 10, scale: 2 }).default("0"),
+  balance: decimal("balance", { precision: 10, scale: 2 }).default("0"),
+  remarks: varchar("remarks", { length: 500 }).default(""),
 });
 
 // Biscuit items for daily inventory
-export const biscuitItems = pgTable("biscuit_items", {
-  id: serial("id").primaryKey(),
-  inventoryId: integer("inventory_id").notNull().references(() => dailyInventory.id, { onDelete: 'cascade' }),
+export const biscuitItems = mysqlTable("biscuit_items", {
+  id: int("id").autoincrement().primaryKey(),
+  inventoryId: int("inventory_id").notNull().references(() => dailyInventory.id, { onDelete: 'cascade' }),
   name: text("name").notNull(),
-  expDate: text("exp_date").default(""),
-  brand: text("brand").default(""),
-  given: numeric("given", { precision: 10, scale: 2 }).default("0"),
-  used: numeric("used", { precision: 10, scale: 2 }).default("0"),
-  balance: numeric("balance", { precision: 10, scale: 2 }).default("0"),
+  expDate: varchar("exp_date", { length: 500 }).default(""),
+  brand: varchar("brand", { length: 500 }).default(""),
+  given: decimal("given", { precision: 10, scale: 2 }).default("0"),
+  used: decimal("used", { precision: 10, scale: 2 }).default("0"),
+  balance: decimal("balance", { precision: 10, scale: 2 }).default("0"),
 });
 
 // Client names for menu manager
-export const clientNames = pgTable("client_names", {
-  id: serial("id").primaryKey(),
-  name: text("name").notNull().unique(),
-  address: text("address").default(""),
-  gstNo: text("gst_no").default(""),
+export const clientNames = mysqlTable("client_names", {
+  id: int("id").autoincrement().primaryKey(),
+  name: varchar("name", { length: 255 }).notNull().unique(),
+  address: varchar("address", { length: 500 }).default(""),
+  gstNo: varchar("gst_no", { length: 500 }).default(""),
   agreementValidTill: date("agreement_valid_till"),
 });
 
 // Saved menus
-export const savedMenus = pgTable("saved_menus", {
-  id: serial("id").primaryKey(),
+export const savedMenus = mysqlTable("saved_menus", {
+  id: int("id").autoincrement().primaryKey(),
   clientName: text("client_name").notNull(),
   startDate: date("start_date").notNull(),
   endDate: date("end_date").notNull(),
@@ -112,124 +112,124 @@ export const savedMenus = pgTable("saved_menus", {
 });
 
 // Purchase requests
-export const purchaseRequests = pgTable("purchase_requests", {
-  id: serial("id").primaryKey(),
-  serialNumber: serial("serial_number"),
+export const purchaseRequests = mysqlTable("purchase_requests", {
+  id: int("id").autoincrement().primaryKey(),
+  serialNumber: int("serial_number"),
   clientName: text("client_name").notNull(),
   date: date("date").notNull(),
-  status: text("status").notNull().default("pending"),
+  status: varchar("status", { length: 500 }).notNull().default("pending"),
   createdBy: text("created_by"),
   approvedBy: text("approved_by"),
   createdAt: timestamp("created_at").defaultNow(),
 });
 
 // Purchase request line items
-export const purchaseRequestItems = pgTable("purchase_request_items", {
-  id: serial("id").primaryKey(),
-  requestId: integer("request_id").notNull().references(() => purchaseRequests.id, { onDelete: 'cascade' }),
+export const purchaseRequestItems = mysqlTable("purchase_request_items", {
+  id: int("id").autoincrement().primaryKey(),
+  requestId: int("request_id").notNull().references(() => purchaseRequests.id, { onDelete: 'cascade' }),
   itemName: text("item_name").notNull(),
   uom: text("uom").notNull(),
-  requestQty: numeric("request_qty", { precision: 10, scale: 2 }).default("0"),
-  approveQty: numeric("approve_qty", { precision: 10, scale: 2 }),
+  requestQty: decimal("request_qty", { precision: 10, scale: 2 }).default("0"),
+  approveQty: decimal("approve_qty", { precision: 10, scale: 2 }),
   approved: boolean("approved").notNull().default(false),
 });
 
 // Vendors
-export const vendors = pgTable("vendors", {
-  id: serial("id").primaryKey(),
-  name: text("name").notNull().unique(),
-  phone: text("phone").default(""),
-  address: text("address").default(""),
-  gstNo: text("gst_no").default(""),
+export const vendors = mysqlTable("vendors", {
+  id: int("id").autoincrement().primaryKey(),
+  name: varchar("name", { length: 255 }).notNull().unique(),
+  phone: varchar("phone", { length: 500 }).default(""),
+  address: varchar("address", { length: 500 }).default(""),
+  gstNo: varchar("gst_no", { length: 500 }).default(""),
   createdAt: timestamp("created_at").defaultNow(),
 });
 
 // Purchase invoices
-export const purchaseInvoices = pgTable("purchase_invoices", {
-  id: serial("id").primaryKey(),
-  serialNumber: serial("serial_number"),
-  purchaseRequestId: integer("purchase_request_id").references(() => purchaseRequests.id),
+export const purchaseInvoices = mysqlTable("purchase_invoices", {
+  id: int("id").autoincrement().primaryKey(),
+  serialNumber: int("serial_number"),
+  purchaseRequestId: int("purchase_request_id").references(() => purchaseRequests.id),
   clientName: text("client_name").notNull(),
   vendorName: text("vendor_name").notNull(),
-  vendorInvoiceNo: text("vendor_invoice_no").notNull().default(""),
+  vendorInvoiceNo: varchar("vendor_invoice_no", { length: 500 }).notNull().default(""),
   date: date("date").notNull(),
-  totalAmount: numeric("total_amount", { precision: 12, scale: 2 }).default("0"),
-  totalGst: numeric("total_gst", { precision: 12, scale: 2 }).default("0"),
-  grandTotal: numeric("grand_total", { precision: 12, scale: 2 }).default("0"),
+  totalAmount: decimal("total_amount", { precision: 12, scale: 2 }).default("0"),
+  totalGst: decimal("total_gst", { precision: 12, scale: 2 }).default("0"),
+  grandTotal: decimal("grand_total", { precision: 12, scale: 2 }).default("0"),
   paymentGiven: boolean("payment_given").default(false).notNull(),
   createdBy: text("created_by"),
   createdAt: timestamp("created_at").defaultNow(),
 });
 
 // Purchase invoice line items
-export const purchaseInvoiceItems = pgTable("purchase_invoice_items", {
-  id: serial("id").primaryKey(),
-  invoiceId: integer("invoice_id").notNull().references(() => purchaseInvoices.id, { onDelete: 'cascade' }),
+export const purchaseInvoiceItems = mysqlTable("purchase_invoice_items", {
+  id: int("id").autoincrement().primaryKey(),
+  invoiceId: int("invoice_id").notNull().references(() => purchaseInvoices.id, { onDelete: 'cascade' }),
   itemName: text("item_name").notNull(),
   uom: text("uom").notNull(),
-  qty: numeric("qty", { precision: 10, scale: 2 }).default("0"),
-  unitPrice: numeric("unit_price", { precision: 10, scale: 2 }).default("0"),
-  totalPrice: numeric("total_price", { precision: 12, scale: 2 }).default("0"),
-  gstRate: numeric("gst_rate", { precision: 5, scale: 2 }).default("0"),
-  gstAmount: numeric("gst_amount", { precision: 12, scale: 2 }).default("0"),
-  netAmount: numeric("net_amount", { precision: 12, scale: 2 }).default("0"),
+  qty: decimal("qty", { precision: 10, scale: 2 }).default("0"),
+  unitPrice: decimal("unit_price", { precision: 10, scale: 2 }).default("0"),
+  totalPrice: decimal("total_price", { precision: 12, scale: 2 }).default("0"),
+  gstRate: decimal("gst_rate", { precision: 5, scale: 2 }).default("0"),
+  gstAmount: decimal("gst_amount", { precision: 12, scale: 2 }).default("0"),
+  netAmount: decimal("net_amount", { precision: 12, scale: 2 }).default("0"),
 });
 
 // Item Master - unified item database
-export const itemMaster = pgTable("item_master", {
-  id: serial("id").primaryKey(),
-  itemName: text("item_name").notNull().unique(),
-  uom: text("uom").notNull().default("Kg"),
-  rate: numeric("rate", { precision: 10, scale: 2 }).default("0"),
-  hsnCode: text("hsn_code").notNull().default(""),
-  gstPercent: numeric("gst_percent", { precision: 5, scale: 2 }).default("0"),
-  itemType: text("item_type").notNull().default("purchase"),
-  itemCategory: text("item_category").notNull().default("General"),
+export const itemMaster = mysqlTable("item_master", {
+  id: int("id").autoincrement().primaryKey(),
+  itemName: varchar("item_name", { length: 255 }).notNull().unique(),
+  uom: varchar("uom", { length: 500 }).notNull().default("Kg"),
+  rate: decimal("rate", { precision: 10, scale: 2 }).default("0"),
+  hsnCode: varchar("hsn_code", { length: 500 }).notNull().default(""),
+  gstPercent: decimal("gst_percent", { precision: 5, scale: 2 }).default("0"),
+  itemType: varchar("item_type", { length: 500 }).notNull().default("purchase"),
+  itemCategory: varchar("item_category", { length: 500 }).notNull().default("General"),
   createdAt: timestamp("created_at").defaultNow(),
 });
 
 // === SALARY & PAYROLL TABLES ===
 
 // Employee Master
-export const employees = pgTable("employees", {
-  id: serial("id").primaryKey(),
-  employeeCode: text("employee_code").notNull().unique(),
+export const employees = mysqlTable("employees", {
+  id: int("id").autoincrement().primaryKey(),
+  employeeCode: varchar("employee_code", { length: 255 }).notNull().unique(),
   name: text("name").notNull(),
-  fatherName: text("father_name").default(""),
-  designation: text("designation").default(""),
-  department: text("department").default(""),
+  fatherName: varchar("father_name", { length: 500 }).default(""),
+  designation: varchar("designation", { length: 500 }).default(""),
+  department: varchar("department", { length: 500 }).default(""),
   clientName: text("client_name").notNull(),
-  esicNo: text("esic_no").default(""),
-  pfNo: text("pf_no").default(""),
-  uanNo: text("uan_no").default(""),
-  aadhaarNo: text("aadhaar_no").default(""),
-  panNo: text("pan_no").default(""),
-  bankName: text("bank_name").default(""),
-  accountNo: text("account_no").default(""),
-  ifscCode: text("ifsc_code").default(""),
-  dailyRate: numeric("daily_rate", { precision: 10, scale: 2 }).default("0"),
-  fixedHra: numeric("fixed_hra", { precision: 10, scale: 2 }).default("0"),
-  gender: text("gender").default("Male"),
+  esicNo: varchar("esic_no", { length: 500 }).default(""),
+  pfNo: varchar("pf_no", { length: 500 }).default(""),
+  uanNo: varchar("uan_no", { length: 500 }).default(""),
+  aadhaarNo: varchar("aadhaar_no", { length: 500 }).default(""),
+  panNo: varchar("pan_no", { length: 500 }).default(""),
+  bankName: varchar("bank_name", { length: 500 }).default(""),
+  accountNo: varchar("account_no", { length: 500 }).default(""),
+  ifscCode: varchar("ifsc_code", { length: 500 }).default(""),
+  dailyRate: decimal("daily_rate", { precision: 10, scale: 2 }).default("0"),
+  fixedHra: decimal("fixed_hra", { precision: 10, scale: 2 }).default("0"),
+  gender: varchar("gender", { length: 500 }).default("Male"),
   dob: date("dob"),
-  address: text("address").default(""),
-  permanentAddress: text("permanent_address").default(""),
-  localAddress: text("local_address").default(""),
-  skills: text("skills").default(""),
+  address: varchar("address", { length: 500 }).default(""),
+  permanentAddress: varchar("permanent_address", { length: 500 }).default(""),
+  localAddress: varchar("local_address", { length: 500 }).default(""),
+  skills: varchar("skills", { length: 500 }).default(""),
   joiningDate: date("joining_date"),
   leavingDate: date("leaving_date"),
-  leavingReason: text("leaving_reason").default(""),
-  mobile: text("mobile").default(""),
+  leavingReason: varchar("leaving_reason", { length: 500 }).default(""),
+  mobile: varchar("mobile", { length: 500 }).default(""),
   isActive: boolean("is_active").notNull().default(true),
   createdAt: timestamp("created_at").defaultNow(),
 });
 
 // Attendance / Muster Roll (Form XVI)
-export const attendance = pgTable("attendance", {
-  id: serial("id").primaryKey(),
-  employeeId: integer("employee_id").notNull().references(() => employees.id, { onDelete: 'cascade' }),
+export const attendance = mysqlTable("attendance", {
+  id: int("id").autoincrement().primaryKey(),
+  employeeId: int("employee_id").notNull().references(() => employees.id, { onDelete: 'cascade' }),
   clientName: text("client_name").notNull(),
-  month: integer("month").notNull(),
-  year: integer("year").notNull(),
+  month: int("month").notNull(),
+  year: int("year").notNull(),
   day1: text("day1"), day2: text("day2"), day3: text("day3"), day4: text("day4"), day5: text("day5"),
   day6: text("day6"), day7: text("day7"), day8: text("day8"), day9: text("day9"), day10: text("day10"),
   day11: text("day11"), day12: text("day12"), day13: text("day13"), day14: text("day14"), day15: text("day15"),
@@ -237,171 +237,171 @@ export const attendance = pgTable("attendance", {
   day21: text("day21"), day22: text("day22"), day23: text("day23"), day24: text("day24"), day25: text("day25"),
   day26: text("day26"), day27: text("day27"), day28: text("day28"), day29: text("day29"), day30: text("day30"),
   day31: text("day31"),
-  totalPresent: numeric("total_present", { precision: 5, scale: 1 }).default("0"),
-  totalAbsent: numeric("total_absent", { precision: 5, scale: 1 }).default("0"),
-  overtimeHours: numeric("overtime_hours", { precision: 6, scale: 2 }).default("0"),
-  remarks: text("remarks").default(""),
+  totalPresent: decimal("total_present", { precision: 5, scale: 1 }).default("0"),
+  totalAbsent: decimal("total_absent", { precision: 5, scale: 1 }).default("0"),
+  overtimeHours: decimal("overtime_hours", { precision: 6, scale: 2 }).default("0"),
+  remarks: varchar("remarks", { length: 500 }).default(""),
   createdAt: timestamp("created_at").defaultNow(),
 });
 
 // Salary Records / Register of Wages (Form XVII)
-export const salaryRecords = pgTable("salary_records", {
-  id: serial("id").primaryKey(),
-  employeeId: integer("employee_id").notNull().references(() => employees.id, { onDelete: 'cascade' }),
+export const salaryRecords = mysqlTable("salary_records", {
+  id: int("id").autoincrement().primaryKey(),
+  employeeId: int("employee_id").notNull().references(() => employees.id, { onDelete: 'cascade' }),
   clientName: text("client_name").notNull(),
-  month: integer("month").notNull(),
-  year: integer("year").notNull(),
-  daysWorked: numeric("days_worked", { precision: 5, scale: 1 }).default("0"),
-  basicWage: numeric("basic_wage", { precision: 12, scale: 2 }).default("0"),
-  da: numeric("da", { precision: 12, scale: 2 }).default("0"),
-  hra: numeric("hra", { precision: 12, scale: 2 }).default("0"),
-  otherAllowance: numeric("other_allowance", { precision: 12, scale: 2 }).default("0"),
-  grossWage: numeric("gross_wage", { precision: 12, scale: 2 }).default("0"),
-  pfDeduction: numeric("pf_deduction", { precision: 12, scale: 2 }).default("0"),
-  esicDeduction: numeric("esic_deduction", { precision: 12, scale: 2 }).default("0"),
-  professionalTax: numeric("professional_tax", { precision: 12, scale: 2 }).default("0"),
-  advanceDeduction: numeric("advance_deduction", { precision: 12, scale: 2 }).default("0"),
-  fineDeduction: numeric("fine_deduction", { precision: 12, scale: 2 }).default("0"),
-  lwf: numeric("lwf", { precision: 12, scale: 2 }).default("0"),
-  otherDeduction: numeric("other_deduction", { precision: 12, scale: 2 }).default("0"),
-  totalDeduction: numeric("total_deduction", { precision: 12, scale: 2 }).default("0"),
-  netPay: numeric("net_pay", { precision: 12, scale: 2 }).default("0"),
-  overtimeHours: numeric("overtime_hours", { precision: 6, scale: 2 }).default("0"),
-  overtimeRate: numeric("overtime_rate", { precision: 10, scale: 2 }).default("0"),
-  overtimeAmount: numeric("overtime_amount", { precision: 12, scale: 2 }).default("0"),
-  paymentMode: text("payment_mode").default("Bank Transfer"),
+  month: int("month").notNull(),
+  year: int("year").notNull(),
+  daysWorked: decimal("days_worked", { precision: 5, scale: 1 }).default("0"),
+  basicWage: decimal("basic_wage", { precision: 12, scale: 2 }).default("0"),
+  da: decimal("da", { precision: 12, scale: 2 }).default("0"),
+  hra: decimal("hra", { precision: 12, scale: 2 }).default("0"),
+  otherAllowance: decimal("other_allowance", { precision: 12, scale: 2 }).default("0"),
+  grossWage: decimal("gross_wage", { precision: 12, scale: 2 }).default("0"),
+  pfDeduction: decimal("pf_deduction", { precision: 12, scale: 2 }).default("0"),
+  esicDeduction: decimal("esic_deduction", { precision: 12, scale: 2 }).default("0"),
+  professionalTax: decimal("professional_tax", { precision: 12, scale: 2 }).default("0"),
+  advanceDeduction: decimal("advance_deduction", { precision: 12, scale: 2 }).default("0"),
+  fineDeduction: decimal("fine_deduction", { precision: 12, scale: 2 }).default("0"),
+  lwf: decimal("lwf", { precision: 12, scale: 2 }).default("0"),
+  otherDeduction: decimal("other_deduction", { precision: 12, scale: 2 }).default("0"),
+  totalDeduction: decimal("total_deduction", { precision: 12, scale: 2 }).default("0"),
+  netPay: decimal("net_pay", { precision: 12, scale: 2 }).default("0"),
+  overtimeHours: decimal("overtime_hours", { precision: 6, scale: 2 }).default("0"),
+  overtimeRate: decimal("overtime_rate", { precision: 10, scale: 2 }).default("0"),
+  overtimeAmount: decimal("overtime_amount", { precision: 12, scale: 2 }).default("0"),
+  paymentMode: varchar("payment_mode", { length: 500 }).default("Bank Transfer"),
   paidOn: date("paid_on"),
   createdAt: timestamp("created_at").defaultNow(),
 });
 
 // Register of Fines (Form XXI)
-export const fines = pgTable("fines", {
-  id: serial("id").primaryKey(),
-  employeeId: integer("employee_id").notNull().references(() => employees.id, { onDelete: 'cascade' }),
+export const fines = mysqlTable("fines", {
+  id: int("id").autoincrement().primaryKey(),
+  employeeId: int("employee_id").notNull().references(() => employees.id, { onDelete: 'cascade' }),
   clientName: text("client_name").notNull(),
   date: date("date").notNull(),
-  amount: numeric("amount", { precision: 10, scale: 2 }).default("0"),
-  reason: text("reason").default(""),
+  amount: decimal("amount", { precision: 10, scale: 2 }).default("0"),
+  reason: varchar("reason", { length: 500 }).default(""),
   realized: boolean("realized").notNull().default(false),
   createdAt: timestamp("created_at").defaultNow(),
 });
 
 // Register of Advances (Form XXII)
-export const advances = pgTable("advances", {
-  id: serial("id").primaryKey(),
-  employeeId: integer("employee_id").notNull().references(() => employees.id, { onDelete: 'cascade' }),
+export const advances = mysqlTable("advances", {
+  id: int("id").autoincrement().primaryKey(),
+  employeeId: int("employee_id").notNull().references(() => employees.id, { onDelete: 'cascade' }),
   clientName: text("client_name").notNull(),
   date: date("date").notNull(),
-  amount: numeric("amount", { precision: 10, scale: 2 }).default("0"),
-  purpose: text("purpose").default(""),
-  installments: integer("installments").default(1),
-  recoveredAmount: numeric("recovered_amount", { precision: 10, scale: 2 }).default("0"),
+  amount: decimal("amount", { precision: 10, scale: 2 }).default("0"),
+  purpose: varchar("purpose", { length: 500 }).default(""),
+  installments: int("installments").default(1),
+  recoveredAmount: decimal("recovered_amount", { precision: 10, scale: 2 }).default("0"),
   createdAt: timestamp("created_at").defaultNow(),
 });
 
 // Register of Overtime (Form XXIII)
-export const overtimeRegister = pgTable("overtime_register", {
-  id: serial("id").primaryKey(),
-  employeeId: integer("employee_id").notNull().references(() => employees.id, { onDelete: 'cascade' }),
+export const overtimeRegister = mysqlTable("overtime_register", {
+  id: int("id").autoincrement().primaryKey(),
+  employeeId: int("employee_id").notNull().references(() => employees.id, { onDelete: 'cascade' }),
   clientName: text("client_name").notNull(),
   date: date("date").notNull(),
-  normalHours: numeric("normal_hours", { precision: 5, scale: 2 }).default("8"),
-  overtimeHours: numeric("overtime_hours", { precision: 5, scale: 2 }).default("0"),
-  overtimeRate: numeric("overtime_rate", { precision: 10, scale: 2 }).default("0"),
-  overtimeAmount: numeric("overtime_amount", { precision: 12, scale: 2 }).default("0"),
+  normalHours: decimal("normal_hours", { precision: 5, scale: 2 }).default("8"),
+  overtimeHours: decimal("overtime_hours", { precision: 5, scale: 2 }).default("0"),
+  overtimeRate: decimal("overtime_rate", { precision: 10, scale: 2 }).default("0"),
+  overtimeAmount: decimal("overtime_amount", { precision: 12, scale: 2 }).default("0"),
   createdAt: timestamp("created_at").defaultNow(),
 });
 
 // Register of Deductions for Damage or Loss (Form XX)
-export const damageDeductions = pgTable("damage_deductions", {
-  id: serial("id").primaryKey(),
-  employeeId: integer("employee_id").notNull().references(() => employees.id, { onDelete: 'cascade' }),
+export const damageDeductions = mysqlTable("damage_deductions", {
+  id: int("id").autoincrement().primaryKey(),
+  employeeId: int("employee_id").notNull().references(() => employees.id, { onDelete: 'cascade' }),
   clientName: text("client_name").notNull(),
   date: date("date").notNull(),
-  amount: numeric("amount", { precision: 10, scale: 2 }).default("0"),
-  description: text("description").default(""),
+  amount: decimal("amount", { precision: 10, scale: 2 }).default("0"),
+  description: varchar("description", { length: 500 }).default(""),
   createdAt: timestamp("created_at").defaultNow(),
 });
 
 // Register of Leave With Wages (Form No. 15)
-export const leaveWithWages = pgTable("leave_with_wages", {
-  id: serial("id").primaryKey(),
-  employeeId: integer("employee_id").notNull().references(() => employees.id, { onDelete: 'cascade' }),
+export const leaveWithWages = mysqlTable("leave_with_wages", {
+  id: int("id").autoincrement().primaryKey(),
+  employeeId: int("employee_id").notNull().references(() => employees.id, { onDelete: 'cascade' }),
   clientName: text("client_name").notNull(),
-  calendarYear: integer("calendar_year").notNull(),
-  daysLeaveEarned: numeric("days_leave_earned", { precision: 6, scale: 1 }).default("0"),
-  daysLeaveBroughtForward: numeric("days_leave_brought_forward", { precision: 6, scale: 1 }).default("0"),
-  layOffDays: numeric("lay_off_days", { precision: 6, scale: 1 }).default("0"),
-  maternityLeaveDays: numeric("maternity_leave_days", { precision: 6, scale: 1 }).default("0"),
-  leaveEarned: numeric("leave_earned", { precision: 6, scale: 1 }).default("0"),
-  leaveEnjoyed: numeric("leave_enjoyed", { precision: 6, scale: 1 }).default("0"),
-  otherAbsenceDays: numeric("other_absence_days", { precision: 6, scale: 1 }).default("0"),
-  actualDaysWorked: numeric("actual_days_worked", { precision: 6, scale: 1 }).default("0"),
-  leaveAllowedDate: text("leave_allowed_date").default("NA"),
-  leaveAllowedDays: text("leave_allowed_days").default("NA"),
-  rateOfWagesRs: numeric("rate_of_wages_rs", { precision: 10, scale: 2 }).default("0"),
-  rateOfWagesP: numeric("rate_of_wages_p", { precision: 4, scale: 0 }).default("0"),
-  amountOfWagesRs: numeric("amount_of_wages_rs", { precision: 10, scale: 2 }).default("0"),
-  amountOfWagesP: numeric("amount_of_wages_p", { precision: 4, scale: 0 }).default("0"),
-  dateOfPayment: text("date_of_payment").default(""),
-  remarks: text("remarks").default(""),
+  calendarYear: int("calendar_year").notNull(),
+  daysLeaveEarned: decimal("days_leave_earned", { precision: 6, scale: 1 }).default("0"),
+  daysLeaveBroughtForward: decimal("days_leave_brought_forward", { precision: 6, scale: 1 }).default("0"),
+  layOffDays: decimal("lay_off_days", { precision: 6, scale: 1 }).default("0"),
+  maternityLeaveDays: decimal("maternity_leave_days", { precision: 6, scale: 1 }).default("0"),
+  leaveEarned: decimal("leave_earned", { precision: 6, scale: 1 }).default("0"),
+  leaveEnjoyed: decimal("leave_enjoyed", { precision: 6, scale: 1 }).default("0"),
+  otherAbsenceDays: decimal("other_absence_days", { precision: 6, scale: 1 }).default("0"),
+  actualDaysWorked: decimal("actual_days_worked", { precision: 6, scale: 1 }).default("0"),
+  leaveAllowedDate: varchar("leave_allowed_date", { length: 500 }).default("NA"),
+  leaveAllowedDays: varchar("leave_allowed_days", { length: 500 }).default("NA"),
+  rateOfWagesRs: decimal("rate_of_wages_rs", { precision: 10, scale: 2 }).default("0"),
+  rateOfWagesP: decimal("rate_of_wages_p", { precision: 4, scale: 0 }).default("0"),
+  amountOfWagesRs: decimal("amount_of_wages_rs", { precision: 10, scale: 2 }).default("0"),
+  amountOfWagesP: decimal("amount_of_wages_p", { precision: 4, scale: 0 }).default("0"),
+  dateOfPayment: varchar("date_of_payment", { length: 500 }).default(""),
+  remarks: varchar("remarks", { length: 500 }).default(""),
   createdAt: timestamp("created_at").defaultNow(),
 });
 
-export const employeeWageRates = pgTable("employee_wage_rates", {
-  id: serial("id").primaryKey(),
-  employeeId: integer("employee_id").notNull().references(() => employees.id, { onDelete: 'cascade' }),
-  calendarYear: integer("calendar_year").notNull(),
-  dailyRate: numeric("daily_rate", { precision: 10, scale: 2 }).notNull().default("0"),
-  effectiveFrom: text("effective_from").default(""),
-  remarks: text("remarks").default(""),
+export const employeeWageRates = mysqlTable("employee_wage_rates", {
+  id: int("id").autoincrement().primaryKey(),
+  employeeId: int("employee_id").notNull().references(() => employees.id, { onDelete: 'cascade' }),
+  calendarYear: int("calendar_year").notNull(),
+  dailyRate: decimal("daily_rate", { precision: 10, scale: 2 }).notNull().default("0"),
+  effectiveFrom: varchar("effective_from", { length: 500 }).default(""),
+  remarks: varchar("remarks", { length: 500 }).default(""),
   createdAt: timestamp("created_at").defaultNow(),
 });
 
-export const skillWageRates = pgTable("skill_wage_rates", {
-  id: serial("id").primaryKey(),
+export const skillWageRates = mysqlTable("skill_wage_rates", {
+  id: int("id").autoincrement().primaryKey(),
   skillCategory: text("skill_category").notNull(),
-  month: integer("month").notNull(),
-  year: integer("year").notNull(),
-  dailyRate: numeric("daily_rate", { precision: 10, scale: 2 }).notNull().default("0"),
-  remarks: text("remarks").default(""),
+  month: int("month").notNull(),
+  year: int("year").notNull(),
+  dailyRate: decimal("daily_rate", { precision: 10, scale: 2 }).notNull().default("0"),
+  remarks: varchar("remarks", { length: 500 }).default(""),
   createdAt: timestamp("created_at").defaultNow(),
 });
 
 // Saved item names for autocomplete in purchase requests and menus
-export const savedItemNames = pgTable("saved_item_names", {
-  id: serial("id").primaryKey(),
-  name: text("name").notNull().unique(),
-  source: text("source").notNull().default("purchase"),
-  categoryId: integer("category_id"),
+export const savedItemNames = mysqlTable("saved_item_names", {
+  id: int("id").autoincrement().primaryKey(),
+  name: varchar("name", { length: 255 }).notNull().unique(),
+  source: varchar("source", { length: 500 }).notNull().default("purchase"),
+  categoryId: int("category_id"),
   createdAt: timestamp("created_at").defaultNow(),
 });
 
 // Users table for authentication
-export const users = pgTable("users", {
-  id: serial("id").primaryKey(),
-  username: text("username").notNull().unique(),
+export const users = mysqlTable("users", {
+  id: int("id").autoincrement().primaryKey(),
+  username: varchar("username", { length: 255 }).notNull().unique(),
   passwordHash: text("password_hash").notNull(),
   displayName: text("display_name").notNull(),
-  role: text("role").notNull().default("user"),
+  role: varchar("role", { length: 500 }).notNull().default("user"),
   clientName: text("client_name"),
-  permissions: text("permissions").array().notNull().default(sql`ARRAY['expense','cashseal','inventory','menu']::text[]`),
-  employeeId: integer("employee_id"),
+  permissions: json("permissions").$type<string[]>().notNull().default(['expense','cashseal','inventory','menu']),
+  employeeId: int("employee_id"),
   isActive: boolean("is_active").notNull().default(true),
   createdAt: timestamp("created_at").defaultNow(),
 });
 
 // Admin settings for access control
-export const adminSettings = pgTable("admin_settings", {
-  id: serial("id").primaryKey(),
-  adminPin: text("admin_pin").notNull().default("1234"),
+export const adminSettings = mysqlTable("admin_settings", {
+  id: int("id").autoincrement().primaryKey(),
+  adminPin: varchar("admin_pin", { length: 500 }).notNull().default("1234"),
 });
 
-export const halfYearlyReturns = pgTable("half_yearly_returns", {
-  id: serial("id").primaryKey(),
+export const halfYearlyReturns = mysqlTable("half_yearly_returns", {
+  id: int("id").autoincrement().primaryKey(),
   clientName: text("client_name").notNull(),
   halfYear: text("half_year").notNull(),
-  year: integer("year").notNull(),
+  year: int("year").notNull(),
   refNumber: text("ref_number"),
   letterDate: text("letter_date"),
   formDate: text("form_date"),
@@ -425,10 +425,10 @@ export const halfYearlyReturns = pgTable("half_yearly_returns", {
   updatedAt: timestamp("updated_at").defaultNow(),
 });
 
-export const bonusReturns = pgTable("bonus_returns", {
-  id: serial("id").primaryKey(),
+export const bonusReturns = mysqlTable("bonus_returns", {
+  id: int("id").autoincrement().primaryKey(),
   clientName: text("client_name").notNull(),
-  fyStartYear: integer("fy_start_year").notNull(),
+  fyStartYear: int("fy_start_year").notNull(),
   bonusDate: text("bonus_date"),
   workingDays: text("working_days"),
   refNumber: text("ref_number"),
@@ -446,9 +446,9 @@ export const bonusReturns = pgTable("bonus_returns", {
 
 export type BonusReturn = typeof bonusReturns.$inferSelect;
 
-export const letters = pgTable("letters", {
-  id: serial("id").primaryKey(),
-  serialNumber: serial("serial_number"),
+export const letters = mysqlTable("letters", {
+  id: int("id").autoincrement().primaryKey(),
+  serialNumber: int("serial_number"),
   refNumber: text("ref_number").notNull(),
   letterDate: text("letter_date").notNull(),
   toName: text("to_name"),
