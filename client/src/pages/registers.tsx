@@ -739,7 +739,7 @@ function OvertimeTab({ clientName, clientAddress, employees, empMap, filterMonth
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [open, setOpen] = useState(false);
-  const [formData, setFormData] = useState({ employeeId: "", date: "", normalHours: "", overtimeHours: "", overtimeRate: "", overtimeAmount: "" });
+  const [formData, setFormData] = useState({ employeeId: "", date: "", normalHours: "", overtimeHours: "", overtimeRate: "", overtimeAmount: "", paidDate: "" });
 
   const { data: overtime, isLoading } = useQuery({
     queryKey: ["/api/overtime", clientName],
@@ -756,7 +756,7 @@ function OvertimeTab({ clientName, clientAddress, employees, empMap, filterMonth
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/overtime", clientName] });
       setOpen(false);
-      setFormData({ employeeId: "", date: "", normalHours: "", overtimeHours: "", overtimeRate: "", overtimeAmount: "" });
+      setFormData({ employeeId: "", date: "", normalHours: "", overtimeHours: "", overtimeRate: "", overtimeAmount: "", paidDate: "" });
       toast({ title: "Overtime record added successfully" });
     },
     onError: (err: Error) => toast({ title: "Error", description: err.message, variant: "destructive" }),
@@ -839,6 +839,7 @@ function OvertimeTab({ clientName, clientAddress, employees, empMap, filterMonth
       overtimeHours: formData.overtimeHours ? Number(formData.overtimeHours) : undefined,
       overtimeRate: formData.overtimeRate || undefined,
       overtimeAmount: formData.overtimeAmount || undefined,
+      paidDate: formData.paidDate || undefined,
     });
   };
 
@@ -848,12 +849,12 @@ function OvertimeTab({ clientName, clientAddress, employees, empMap, filterMonth
     const printWin = window.open("", "_blank");
     if (!printWin) return;
     const rows = filtered.map((o: any, i: number) => `
-      <tr><td>${i + 1}</td><td>${empMap.get(o.employeeId) || o.employeeId}</td><td>${o.date}</td><td>${o.normalHours || ""}</td><td>${o.overtimeHours || ""}</td><td>${o.overtimeRate ? fmt(o.overtimeRate) : ""}</td><td>${o.overtimeAmount ? fmt(o.overtimeAmount) : ""}</td></tr>
+      <tr><td>${i + 1}</td><td>${empMap.get(o.employeeId) || o.employeeId}</td><td>${o.date}</td><td>${o.normalHours || ""}</td><td>${o.overtimeHours || ""}</td><td>${o.overtimeRate ? fmt(o.overtimeRate) : ""}</td><td>${o.overtimeAmount ? fmt(o.overtimeAmount) : ""}</td><td>${o.paidDate || ""}</td></tr>
     `).join("");
     const period = filterMonth && filterMonth !== "all" && filterYear ? ` - ${MONTHS[parseInt(filterMonth) - 1]} ${filterYear}` : filterYear ? ` - ${filterYear}` : "";
     printWin.document.write(`<html><head><title>Form XXIII - Overtime</title><style>body{font-family:sans-serif;padding:20px}table{width:100%;border-collapse:collapse}th,td{border:1px solid #ccc;padding:6px 10px;text-align:left;font-size:13px}th{background:#f5f5f5}</style></head><body>
       <h2>Register of Overtime (Form XXIII) - ${clientName}${period}</h2>
-      <table><thead><tr><th>#</th><th>Employee</th><th>Date</th><th>Normal Hrs</th><th>OT Hrs</th><th>OT Rate</th><th>OT Amount</th></tr></thead><tbody>${rows}</tbody></table>
+      <table><thead><tr><th>#</th><th>Employee</th><th>Date</th><th>Normal Hrs</th><th>OT Hrs</th><th>OT Rate</th><th>OT Amount</th><th>Paid Date</th></tr></thead><tbody>${rows}</tbody></table>
     </body></html>`);
     printWin.document.close();
     printWin.print();
@@ -904,7 +905,7 @@ function OvertimeTab({ clientName, clientAddress, employees, empMap, filterMonth
         <td>${normalRate.rs}</td><td>${normalRate.p}</td>
         <td>${otRate.rs}</td><td>${otRate.p}</td>
         <td>${otEarnings.rs}</td><td>${otEarnings.p}</td>
-        <td></td>
+        <td>${o.paidDate ? formatDate(o.paidDate) : ""}</td>
         <td></td>
       </tr>`;
     }).join("");
@@ -1055,6 +1056,10 @@ function OvertimeTab({ clientName, clientAddress, employees, empMap, filterMonth
                     <Input inputMode="decimal" placeholder="0.00" value={formData.overtimeAmount} readOnly className="bg-muted" data-testid="input-overtime-amount" />
                   </div>
                 </div>
+                <div>
+                  <Label>Paid Date</Label>
+                  <Input type="date" value={formData.paidDate} onChange={(e) => setFormData(prev => ({ ...prev, paidDate: e.target.value }))} data-testid="input-overtime-paid-date" />
+                </div>
                 <Button className="w-full" onClick={handleSubmit} disabled={createMutation.isPending} data-testid="button-submit-overtime">
                   {createMutation.isPending ? <Loader2 className="w-4 h-4 animate-spin mr-1" /> : null} Save Overtime
                 </Button>
@@ -1082,6 +1087,7 @@ function OvertimeTab({ clientName, clientAddress, employees, empMap, filterMonth
                         <th className="px-3 py-2.5 text-right text-xs font-semibold">OT Hrs</th>
                         <th className="px-3 py-2.5 text-right text-xs font-semibold">OT Rate</th>
                         <th className="px-3 py-2.5 text-right text-xs font-semibold">OT Amount</th>
+                        <th className="px-3 py-2.5 text-left text-xs font-semibold">Paid Date</th>
                         <th className="px-3 py-2.5 text-right text-xs font-semibold">Actions</th>
                       </tr>
                     </thead>
@@ -1095,6 +1101,7 @@ function OvertimeTab({ clientName, clientAddress, employees, empMap, filterMonth
                           <td className="px-3 py-2.5 text-right">{o.overtimeHours || "-"}</td>
                           <td className="px-3 py-2.5 text-right font-mono">{o.overtimeRate ? fmt(o.overtimeRate) : "-"}</td>
                           <td className="px-3 py-2.5 text-right font-mono">{o.overtimeAmount ? fmt(o.overtimeAmount) : "-"}</td>
+                          <td className="px-3 py-2.5">{o.paidDate || "-"}</td>
                           <td className="px-3 py-2.5 text-right">
                             <AlertDialog>
                               <AlertDialogTrigger asChild>
@@ -1129,6 +1136,7 @@ function OvertimeTab({ clientName, clientAddress, employees, empMap, filterMonth
                     {o.normalHours && <span>Normal: {o.normalHours}h</span>}
                     {o.overtimeHours && <span>OT: {o.overtimeHours}h</span>}
                     {o.overtimeRate && <span>Rate: {fmt(o.overtimeRate)}</span>}
+                    {o.paidDate && <span>Paid: {o.paidDate}</span>}
                   </div>
                   <div className="flex justify-end">
                     <AlertDialog>

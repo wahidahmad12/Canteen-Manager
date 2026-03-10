@@ -309,6 +309,7 @@ export const overtimeRegister = mysqlTable("overtime_register", {
   overtimeHours: decimal("overtime_hours", { precision: 5, scale: 2 }).default("0"),
   overtimeRate: decimal("overtime_rate", { precision: 10, scale: 2 }).default("0"),
   overtimeAmount: decimal("overtime_amount", { precision: 12, scale: 2 }).default("0"),
+  paidDate: date("paid_date"),
   createdAt: timestamp("created_at").defaultNow(),
 });
 
