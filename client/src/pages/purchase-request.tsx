@@ -6,11 +6,12 @@ import { Button } from "@/components/ui/button";
 import { DatePicker } from "@/components/ui/date-picker";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { format } from "date-fns";
-import { ShoppingCart, Plus, Trash2, Save, Loader2 } from "lucide-react";
+import { ShoppingCart, Plus, Trash2, Save, Loader2, ClipboardList, CalendarDays, Building2, Package, Ruler, Hash } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useCreatePurchaseRequest, useClientNames, useItemMaster } from "@/hooks/use-reports";
 import { useLocation } from "wouter";
 import { Label } from "@/components/ui/label";
+import { Badge } from "@/components/ui/badge";
 
 interface PurchaseItem {
   itemName: string;
@@ -83,6 +84,8 @@ export default function PurchaseRequest() {
     );
   };
 
+  const validCount = items.filter(i => i.itemName.trim() !== "").length;
+
   return (
     <Layout>
       <datalist id="purchase-item-suggestions">
@@ -90,27 +93,32 @@ export default function PurchaseRequest() {
           <option key={item.id} value={item.name} />
         ))}
       </datalist>
-      <div className="max-w-4xl mx-auto">
-        <div className="flex items-center gap-3 mb-6">
-          <div className="w-10 h-10 rounded-xl bg-primary/10 text-primary flex items-center justify-center">
+      <div className="max-w-4xl mx-auto px-2 sm:px-0">
+        <div className="flex items-center gap-3 mb-5">
+          <div className="w-11 h-11 rounded-xl bg-gradient-to-br from-orange-500 to-amber-500 text-white flex items-center justify-center shadow-lg shadow-orange-200 dark:shadow-orange-900/30">
             <ShoppingCart className="w-5 h-5" />
           </div>
           <div>
             <h2 className="text-xl sm:text-2xl font-bold" data-testid="text-purchase-title">Purchase Request</h2>
-            <p className="text-sm text-muted-foreground">Create a new purchase request</p>
+            <p className="text-xs sm:text-sm text-muted-foreground">Create a new purchase request</p>
           </div>
         </div>
 
-        <Card className="mb-6">
-          <CardHeader className="pb-4">
-            <CardTitle className="text-base">Request Details</CardTitle>
+        <Card className="border-0 shadow-lg overflow-hidden mb-5" data-testid="card-request-details">
+          <CardHeader className="bg-gradient-to-r from-indigo-500 to-blue-500 text-white pb-3 pt-4 px-4 sm:px-6">
+            <CardTitle className="flex items-center gap-2 text-base">
+              <ClipboardList className="w-4 h-4" />
+              Request Details
+            </CardTitle>
           </CardHeader>
-          <CardContent>
+          <CardContent className="p-4 sm:p-6 bg-gradient-to-b from-indigo-50/50 to-transparent dark:from-indigo-950/20">
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div className="space-y-2">
-                <Label>Client Name</Label>
+                <Label className="text-sm font-semibold text-indigo-700 dark:text-indigo-400 flex items-center gap-1.5">
+                  <Building2 className="w-3.5 h-3.5" /> Client Name
+                </Label>
                 <Select value={clientName} onValueChange={setClientName} data-testid="select-client">
-                  <SelectTrigger data-testid="select-client-trigger">
+                  <SelectTrigger className="h-11 border-indigo-200 focus:border-indigo-400 dark:border-indigo-800" data-testid="select-client-trigger">
                     <SelectValue placeholder="Select client" />
                   </SelectTrigger>
                   <SelectContent>
@@ -123,52 +131,71 @@ export default function PurchaseRequest() {
                 </Select>
               </div>
               <div className="space-y-2">
-                <Label>Date</Label>
+                <Label className="text-sm font-semibold text-blue-700 dark:text-blue-400 flex items-center gap-1.5">
+                  <CalendarDays className="w-3.5 h-3.5" /> Date
+                </Label>
                 <DatePicker date={date} setDate={(d: Date | undefined) => d && setDate(d)} />
               </div>
             </div>
           </CardContent>
         </Card>
 
-        <Card>
-          <CardHeader className="pb-4">
+        <Card className="border-0 shadow-lg overflow-hidden" data-testid="card-items">
+          <CardHeader className="bg-gradient-to-r from-emerald-500 to-teal-500 text-white pb-3 pt-4 px-4 sm:px-6">
             <div className="flex items-center justify-between">
-              <CardTitle className="text-base">Items</CardTitle>
-              <Button size="sm" variant="outline" onClick={addItem} data-testid="button-add-item">
-                <Plus className="w-4 h-4 mr-1" /> Add Item
+              <CardTitle className="flex items-center gap-2 text-base">
+                <Package className="w-4 h-4" />
+                Items
+                <Badge variant="secondary" className="ml-1 bg-white/20 text-white hover:bg-white/30 text-xs">
+                  {validCount} item{validCount !== 1 ? 's' : ''}
+                </Badge>
+              </CardTitle>
+              <Button
+                size="sm"
+                onClick={addItem}
+                className="bg-white/20 hover:bg-white/30 text-white border-0 h-8 text-xs"
+                data-testid="button-add-item"
+              >
+                <Plus className="w-3.5 h-3.5 mr-1" /> Add
               </Button>
             </div>
           </CardHeader>
-          <CardContent>
+          <CardContent className="p-4 sm:p-6 bg-gradient-to-b from-emerald-50/50 to-transparent dark:from-emerald-950/20">
             <div className="hidden sm:block">
               <div className="overflow-x-auto">
                 <table className="w-full text-sm">
                   <thead>
-                    <tr className="border-b">
-                      <th className="text-left py-2 px-2 font-medium text-muted-foreground w-8">#</th>
-                      <th className="text-left py-2 px-2 font-medium text-muted-foreground">Item Name</th>
-                      <th className="text-left py-2 px-2 font-medium text-muted-foreground w-24">UOM</th>
-                      <th className="text-right py-2 px-2 font-medium text-muted-foreground w-28">Qty</th>
+                    <tr className="border-b border-emerald-200 dark:border-emerald-800">
+                      <th className="text-left py-2.5 px-2 font-semibold text-emerald-700 dark:text-emerald-400 w-8">
+                        <Hash className="w-3.5 h-3.5" />
+                      </th>
+                      <th className="text-left py-2.5 px-2 font-semibold text-emerald-700 dark:text-emerald-400">Item Name</th>
+                      <th className="text-left py-2.5 px-2 font-semibold text-emerald-700 dark:text-emerald-400 w-28">UOM</th>
+                      <th className="text-right py-2.5 px-2 font-semibold text-emerald-700 dark:text-emerald-400 w-28">Qty</th>
                       <th className="w-10"></th>
                     </tr>
                   </thead>
                   <tbody>
                     {items.map((item, index) => (
-                      <tr key={index} className="border-b last:border-0">
-                        <td className="py-2 px-2 text-muted-foreground">{index + 1}</td>
+                      <tr key={index} className="border-b last:border-0 border-emerald-100 dark:border-emerald-900 hover:bg-emerald-50/50 dark:hover:bg-emerald-950/20 transition-colors">
+                        <td className="py-2 px-2">
+                          <span className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-emerald-100 dark:bg-emerald-900 text-emerald-700 dark:text-emerald-300 text-xs font-bold">
+                            {index + 1}
+                          </span>
+                        </td>
                         <td className="py-2 px-2">
                           <Input
                             value={item.itemName}
                             onChange={(e) => updateItem(index, "itemName", e.target.value)}
                             placeholder="Enter item name"
-                            className="h-9"
+                            className="h-9 border-emerald-200 focus:border-emerald-400 dark:border-emerald-800"
                             list="purchase-item-suggestions"
                             data-testid={`input-item-name-${index}`}
                           />
                         </td>
                         <td className="py-2 px-2">
                           <Select value={item.uom} onValueChange={(v) => updateItem(index, "uom", v)}>
-                            <SelectTrigger className="h-9" data-testid={`select-uom-${index}`}>
+                            <SelectTrigger className="h-9 border-emerald-200 focus:border-emerald-400 dark:border-emerald-800" data-testid={`select-uom-${index}`}>
                               <SelectValue />
                             </SelectTrigger>
                             <SelectContent>
@@ -183,7 +210,7 @@ export default function PurchaseRequest() {
                             type="number"
                             value={item.requestQty || ""}
                             onChange={(e) => updateItem(index, "requestQty", Number(e.target.value))}
-                            className="h-9 text-right"
+                            className="h-9 text-right font-mono border-emerald-200 focus:border-emerald-400 dark:border-emerald-800"
                             min={0}
                             data-testid={`input-request-qty-${index}`}
                           />
@@ -192,7 +219,7 @@ export default function PurchaseRequest() {
                           <Button
                             size="icon"
                             variant="ghost"
-                            className="h-8 w-8 text-destructive hover:text-destructive"
+                            className="h-8 w-8 text-red-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-950/30"
                             onClick={() => removeItem(index)}
                             disabled={items.length <= 1}
                             data-testid={`button-remove-item-${index}`}
@@ -207,38 +234,49 @@ export default function PurchaseRequest() {
               </div>
             </div>
 
-            <div className="sm:hidden space-y-4">
+            <div className="sm:hidden space-y-3">
               {items.map((item, index) => (
-                <div key={index} className="border rounded-xl p-4 space-y-3">
+                <div key={index} className="border border-emerald-200 dark:border-emerald-800 rounded-xl p-3 space-y-3 bg-white dark:bg-gray-900 shadow-sm">
                   <div className="flex items-center justify-between">
-                    <span className="text-sm font-medium text-muted-foreground">Item #{index + 1}</span>
+                    <div className="flex items-center gap-2">
+                      <span className="inline-flex items-center justify-center w-7 h-7 rounded-full bg-gradient-to-br from-emerald-500 to-teal-500 text-white text-xs font-bold shadow-sm">
+                        {index + 1}
+                      </span>
+                      <span className="text-sm font-semibold text-emerald-700 dark:text-emerald-400">Item #{index + 1}</span>
+                    </div>
                     <Button
                       size="icon"
                       variant="ghost"
-                      className="h-7 w-7 text-destructive"
+                      className="h-7 w-7 text-red-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-950/30"
                       onClick={() => removeItem(index)}
                       disabled={items.length <= 1}
+                      data-testid={`button-remove-item-mobile-${index}`}
                     >
                       <Trash2 className="w-3.5 h-3.5" />
                     </Button>
                   </div>
 
-                  <div className="space-y-2">
-                    <Label className="text-xs">Item Name</Label>
+                  <div className="space-y-1.5">
+                    <Label className="text-xs font-semibold text-emerald-600 dark:text-emerald-400 flex items-center gap-1">
+                      <Package className="w-3 h-3" /> Item Name
+                    </Label>
                     <Input
                       value={item.itemName}
                       onChange={(e) => updateItem(index, "itemName", e.target.value)}
                       placeholder="Enter item name"
-                      className="h-9"
+                      className="h-10 border-emerald-200 focus:border-emerald-400 dark:border-emerald-800"
                       list="purchase-item-suggestions"
+                      data-testid={`input-item-name-mobile-${index}`}
                     />
                   </div>
 
-                  <div className="grid grid-cols-2 gap-2">
-                    <div className="space-y-1">
-                      <Label className="text-xs">UOM</Label>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="space-y-1.5">
+                      <Label className="text-xs font-semibold text-teal-600 dark:text-teal-400 flex items-center gap-1">
+                        <Ruler className="w-3 h-3" /> UOM
+                      </Label>
                       <Select value={item.uom} onValueChange={(v) => updateItem(index, "uom", v)}>
-                        <SelectTrigger className="h-9">
+                        <SelectTrigger className="h-10 border-emerald-200 focus:border-emerald-400 dark:border-emerald-800" data-testid={`select-uom-mobile-${index}`}>
                           <SelectValue />
                         </SelectTrigger>
                         <SelectContent>
@@ -248,14 +286,17 @@ export default function PurchaseRequest() {
                         </SelectContent>
                       </Select>
                     </div>
-                    <div className="space-y-1">
-                      <Label className="text-xs">Qty</Label>
+                    <div className="space-y-1.5">
+                      <Label className="text-xs font-semibold text-blue-600 dark:text-blue-400 flex items-center gap-1">
+                        <Hash className="w-3 h-3" /> Qty
+                      </Label>
                       <Input
                         type="number"
                         value={item.requestQty || ""}
                         onChange={(e) => updateItem(index, "requestQty", Number(e.target.value))}
-                        className="h-9 text-right"
+                        className="h-10 text-right font-mono border-emerald-200 focus:border-emerald-400 dark:border-emerald-800"
                         min={0}
+                        data-testid={`input-request-qty-mobile-${index}`}
                       />
                     </div>
                   </div>
@@ -264,16 +305,32 @@ export default function PurchaseRequest() {
             </div>
 
             <div className="flex justify-center mt-4">
-              <Button size="sm" variant="outline" onClick={addItem} className="w-full sm:w-auto" data-testid="button-add-item-bottom">
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={addItem}
+                className="w-full sm:w-auto border-emerald-300 text-emerald-700 hover:bg-emerald-50 dark:border-emerald-700 dark:text-emerald-400 dark:hover:bg-emerald-950/30"
+                data-testid="button-add-item-bottom"
+              >
                 <Plus className="w-4 h-4 mr-1" /> Add Item
               </Button>
             </div>
 
-            <div className="flex justify-end gap-3 mt-6 pt-4 border-t">
-              <Button variant="outline" onClick={() => navigate("/")} data-testid="button-cancel">
+            <div className="flex flex-col sm:flex-row justify-end gap-3 mt-6 pt-4 border-t border-emerald-200 dark:border-emerald-800">
+              <Button
+                variant="outline"
+                onClick={() => navigate("/")}
+                className="w-full sm:w-auto order-2 sm:order-1"
+                data-testid="button-cancel"
+              >
                 Cancel
               </Button>
-              <Button onClick={handleSave} disabled={createMutation.isPending} data-testid="button-save-request">
+              <Button
+                onClick={handleSave}
+                disabled={createMutation.isPending}
+                className="w-full sm:w-auto bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-600 hover:to-teal-600 text-white shadow-lg shadow-emerald-200 dark:shadow-emerald-900/30 order-1 sm:order-2"
+                data-testid="button-save-request"
+              >
                 {createMutation.isPending ? (
                   <Loader2 className="w-4 h-4 mr-2 animate-spin" />
                 ) : (
