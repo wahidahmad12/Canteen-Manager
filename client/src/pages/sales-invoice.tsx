@@ -1016,11 +1016,11 @@ export default function SalesInvoicePage() {
           </TabsContent>
 
           <TabsContent value="gst-report" className="mt-4">
-            <GstTdsReport invoices={invoices} type="gst" clients={clients} />
+            <GstTdsReport invoices={invoices} type="gst" clients={clients.map((c: any) => c.name)} />
           </TabsContent>
 
           <TabsContent value="tds-report" className="mt-4">
-            <GstTdsReport invoices={invoices} type="tds" clients={clients} />
+            <GstTdsReport invoices={invoices} type="tds" clients={clients.map((c: any) => c.name)} />
           </TabsContent>
         </Tabs>
       </div>
