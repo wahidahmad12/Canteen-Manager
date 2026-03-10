@@ -650,6 +650,12 @@ export default function SalesInvoicePage() {
               <ClipboardList className="w-3.5 h-3.5" /> Purchase Orders
               {purchaseOrders.length > 0 && <Badge variant="secondary" className="ml-1 h-5 text-[10px]">{purchaseOrders.length}</Badge>}
             </TabsTrigger>
+            <TabsTrigger value="gst-report" className="data-[state=active]:bg-white dark:data-[state=active]:bg-gray-800 flex items-center gap-1.5" data-testid="tab-gst-report">
+              <Percent className="w-3.5 h-3.5" /> GST Report
+            </TabsTrigger>
+            <TabsTrigger value="tds-report" className="data-[state=active]:bg-white dark:data-[state=active]:bg-gray-800 flex items-center gap-1.5" data-testid="tab-tds-report">
+              <IndianRupee className="w-3.5 h-3.5" /> TDS Report
+            </TabsTrigger>
           </TabsList>
 
           <TabsContent value="purchase-orders" className="mt-4">
@@ -867,6 +873,7 @@ export default function SalesInvoicePage() {
                         <th className="text-right py-3 px-3 font-semibold text-xs">Total</th>
                         <th className="text-right py-3 px-3 font-semibold text-xs">TDS%</th>
                         <th className="text-right py-3 px-3 font-semibold text-xs">TDS Amt</th>
+                        <th className="text-right py-3 px-3 font-semibold text-xs">To Receive</th>
                         <th className="text-left py-3 px-3 font-semibold text-xs">Pmt Date</th>
                         <th className="text-right py-3 px-3 font-semibold text-xs">Pmt Rcvd</th>
                         <th className="text-center py-3 px-3 font-semibold text-xs">Status</th>
@@ -891,6 +898,7 @@ export default function SalesInvoicePage() {
                             <td className="py-2.5 px-3 text-right font-mono text-xs font-bold">{fmtCurrency(inv.totalBillAmount)}</td>
                             <td className="py-2.5 px-3 text-right text-xs">{Number(inv.tdsPercent)}%</td>
                             <td className="py-2.5 px-3 text-right font-mono text-xs text-red-600">{fmtCurrency(inv.tdsAmount)}</td>
+                            <td className="py-2.5 px-3 text-right font-mono text-xs font-bold text-blue-600">{fmtCurrency(Number(inv.billAmount) + Number(inv.gstAmount) - Number(inv.tdsAmount))}</td>
                             <td className="py-2.5 px-3 text-xs">{fmtDate(inv.paymentReceivedDate)}</td>
                             <td className="py-2.5 px-3 text-right font-mono text-xs text-green-600">{fmtCurrency(inv.paymentReceivedAmount)}</td>
                             <td className="py-2.5 px-3 text-center">
@@ -919,6 +927,7 @@ export default function SalesInvoicePage() {
                         <td className="py-2.5 px-3 text-right font-mono text-xs">{fmtCurrency(totalBilled)}</td>
                         <td className="py-2.5 px-3"></td>
                         <td className="py-2.5 px-3 text-right font-mono text-xs text-red-600">{fmtCurrency(filteredInvoices.reduce((s, i) => s + Number(i.tdsAmount), 0))}</td>
+                        <td className="py-2.5 px-3 text-right font-mono text-xs text-blue-600">{fmtCurrency(filteredInvoices.reduce((s, i) => s + Number(i.billAmount) + Number(i.gstAmount) - Number(i.tdsAmount), 0))}</td>
                         <td className="py-2.5 px-3"></td>
                         <td className="py-2.5 px-3 text-right font-mono text-xs text-green-600">{fmtCurrency(totalReceived)}</td>
                         <td colSpan={2} className="py-2.5 px-3 text-center text-xs">{paidCount} paid</td>
@@ -968,11 +977,17 @@ export default function SalesInvoicePage() {
                         </div>
                       </div>
 
-                      <div className="grid grid-cols-3 gap-2 text-xs mt-2">
+                      <div className="grid grid-cols-2 gap-2 text-xs mt-2">
                         <div className="bg-red-50 dark:bg-red-950/20 rounded-lg p-2 text-center">
                           <p className="text-[10px] text-red-600 dark:text-red-400">TDS ({Number(inv.tdsPercent)}%)</p>
                           <p className="font-mono font-bold text-red-700 dark:text-red-300">{fmtCurrency(inv.tdsAmount)}</p>
                         </div>
+                        <div className="bg-blue-50 dark:bg-blue-950/20 rounded-lg p-2 text-center">
+                          <p className="text-[10px] text-blue-600 dark:text-blue-400">To Receive</p>
+                          <p className="font-mono font-bold text-blue-700 dark:text-blue-300">{fmtCurrency(Number(inv.billAmount) + Number(inv.gstAmount) - Number(inv.tdsAmount))}</p>
+                        </div>
+                      </div>
+                      <div className="grid grid-cols-2 gap-2 text-xs mt-2">
                         <div className="bg-green-50 dark:bg-green-950/20 rounded-lg p-2 text-center">
                           <p className="text-[10px] text-green-600 dark:text-green-400">Received</p>
                           <p className="font-mono font-bold text-green-700 dark:text-green-300">{fmtCurrency(inv.paymentReceivedAmount)}</p>
@@ -999,9 +1014,180 @@ export default function SalesInvoicePage() {
           </>
         )}
           </TabsContent>
+
+          <TabsContent value="gst-report" className="mt-4">
+            <GstTdsReport invoices={invoices} type="gst" />
+          </TabsContent>
+
+          <TabsContent value="tds-report" className="mt-4">
+            <GstTdsReport invoices={invoices} type="tds" />
+          </TabsContent>
         </Tabs>
       </div>
 
     </Layout>
+  );
+}
+
+function GstTdsReport({ invoices, type }: { invoices: any[]; type: "gst" | "tds" }) {
+  const now = new Date();
+  const [month, setMonth] = useState(String(now.getMonth() + 1));
+  const [year, setYear] = useState(String(now.getFullYear()));
+
+  const filtered = invoices.filter((inv) => {
+    if (!inv.billDate) return false;
+    const d = new Date(inv.billDate);
+    return d.getMonth() + 1 === Number(month) && d.getFullYear() === Number(year);
+  });
+
+  const isGst = type === "gst";
+  const title = isGst ? "GST Report" : "TDS Report";
+  const amountKey = isGst ? "gstAmount" : "tdsAmount";
+
+  const total = filtered.reduce((s, inv) => s + Number(inv[amountKey]), 0);
+
+  const months = [
+    { v: "1", l: "January" }, { v: "2", l: "February" }, { v: "3", l: "March" },
+    { v: "4", l: "April" }, { v: "5", l: "May" }, { v: "6", l: "June" },
+    { v: "7", l: "July" }, { v: "8", l: "August" }, { v: "9", l: "September" },
+    { v: "10", l: "October" }, { v: "11", l: "November" }, { v: "12", l: "December" },
+  ];
+
+  const years: string[] = [];
+  for (let y = now.getFullYear(); y >= now.getFullYear() - 5; y--) years.push(String(y));
+
+  return (
+    <div>
+      <Card className="border-0 shadow-md mb-4">
+        <CardContent className="p-4">
+          <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3">
+            <div className="flex items-center gap-2">
+              {isGst ? <Percent className="w-5 h-5 text-emerald-600" /> : <IndianRupee className="w-5 h-5 text-red-600" />}
+              <h3 className="font-bold text-lg">{title}</h3>
+            </div>
+            <div className="flex items-center gap-2 ml-auto">
+              <Select value={month} onValueChange={setMonth}>
+                <SelectTrigger className="w-[130px] h-9" data-testid={`select-${type}-month`}>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {months.map(m => <SelectItem key={m.v} value={m.v}>{m.l}</SelectItem>)}
+                </SelectContent>
+              </Select>
+              <Select value={year} onValueChange={setYear}>
+                <SelectTrigger className="w-[90px] h-9" data-testid={`select-${type}-year`}>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {years.map(y => <SelectItem key={y} value={y}>{y}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 mb-4">
+        <Card className="border-0 shadow-md">
+          <CardContent className="p-4 text-center">
+            <p className="text-xs text-muted-foreground mb-1">Total Invoices</p>
+            <p className="text-2xl font-bold">{filtered.length}</p>
+          </CardContent>
+        </Card>
+        <Card className="border-0 shadow-md">
+          <CardContent className="p-4 text-center">
+            <p className="text-xs text-muted-foreground mb-1">Total {isGst ? "GST" : "TDS"} Amount</p>
+            <p className={`text-2xl font-bold font-mono ${isGst ? "text-emerald-600" : "text-red-600"}`}>₹{total.toLocaleString("en-IN", { minimumFractionDigits: 2 })}</p>
+          </CardContent>
+        </Card>
+        <Card className="border-0 shadow-md">
+          <CardContent className="p-4 text-center">
+            <p className="text-xs text-muted-foreground mb-1">Total Bill Amount</p>
+            <p className="text-2xl font-bold font-mono text-violet-600">₹{filtered.reduce((s, i) => s + Number(i.billAmount), 0).toLocaleString("en-IN", { minimumFractionDigits: 2 })}</p>
+          </CardContent>
+        </Card>
+      </div>
+
+      {filtered.length === 0 ? (
+        <Card className="border-0 shadow-md">
+          <CardContent className="flex flex-col items-center justify-center py-16">
+            <FileText className="w-12 h-12 text-muted-foreground/30 mb-3" />
+            <p className="text-muted-foreground text-sm">No invoices for {months.find(m => m.v === month)?.l} {year}</p>
+          </CardContent>
+        </Card>
+      ) : (
+        <>
+          <div className="hidden lg:block">
+            <Card className="border-0 shadow-lg overflow-hidden" data-testid={`card-${type}-report-table`}>
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className={`bg-gradient-to-r ${isGst ? "from-emerald-500 to-green-600" : "from-red-500 to-rose-600"} text-white`}>
+                      <th className="text-left py-3 px-4 font-semibold text-xs">Sl#</th>
+                      <th className="text-left py-3 px-4 font-semibold text-xs">Client</th>
+                      <th className="text-left py-3 px-4 font-semibold text-xs">Bill Date</th>
+                      <th className="text-left py-3 px-4 font-semibold text-xs">Bill Number</th>
+                      <th className="text-right py-3 px-4 font-semibold text-xs">Bill Amount</th>
+                      <th className="text-right py-3 px-4 font-semibold text-xs">{isGst ? "GST %" : "TDS %"}</th>
+                      <th className="text-right py-3 px-4 font-semibold text-xs">{isGst ? "GST Amount" : "TDS Amount"}</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {filtered.map((inv, idx) => (
+                      <tr key={inv.id} className={`border-b border-gray-100 dark:border-gray-800 hover:bg-gray-50 dark:hover:bg-gray-900/50 ${idx % 2 === 0 ? "bg-white dark:bg-gray-950" : "bg-gray-50/50 dark:bg-gray-900/50"}`} data-testid={`row-${type}-${inv.id}`}>
+                        <td className="py-2.5 px-4">
+                          <span className={`inline-flex items-center justify-center w-6 h-6 rounded-full ${isGst ? "bg-emerald-100 dark:bg-emerald-900 text-emerald-700 dark:text-emerald-300" : "bg-red-100 dark:bg-red-900 text-red-700 dark:text-red-300"} text-xs font-bold`}>{idx + 1}</span>
+                        </td>
+                        <td className="py-2.5 px-4 font-medium text-xs">{inv.clientName}</td>
+                        <td className="py-2.5 px-4 text-xs">{fmtDate(inv.billDate)}</td>
+                        <td className="py-2.5 px-4 font-mono text-xs">{inv.billNumber}</td>
+                        <td className="py-2.5 px-4 text-right font-mono text-xs">{fmtCurrency(inv.billAmount)}</td>
+                        <td className="py-2.5 px-4 text-right text-xs">{Number(isGst ? inv.gstPercent : inv.tdsPercent)}%</td>
+                        <td className={`py-2.5 px-4 text-right font-mono text-xs font-bold ${isGst ? "text-emerald-600" : "text-red-600"}`}>{fmtCurrency(inv[amountKey])}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                  <tfoot>
+                    <tr className={`bg-gradient-to-r ${isGst ? "from-emerald-100 to-green-100 dark:from-emerald-950/40 dark:to-green-950/40" : "from-red-100 to-rose-100 dark:from-red-950/40 dark:to-rose-950/40"} font-bold`}>
+                      <td colSpan={4} className="py-2.5 px-4 text-xs">Total ({filtered.length} invoices)</td>
+                      <td className="py-2.5 px-4 text-right font-mono text-xs">{fmtCurrency(filtered.reduce((s, i) => s + Number(i.billAmount), 0))}</td>
+                      <td className="py-2.5 px-4"></td>
+                      <td className={`py-2.5 px-4 text-right font-mono text-xs ${isGst ? "text-emerald-600" : "text-red-600"}`}>{fmtCurrency(total)}</td>
+                    </tr>
+                  </tfoot>
+                </table>
+              </div>
+            </Card>
+          </div>
+
+          <div className="lg:hidden space-y-3">
+            {filtered.map((inv, idx) => (
+              <Card key={inv.id} className="border-0 shadow-md overflow-hidden" data-testid={`card-${type}-mobile-${inv.id}`}>
+                <div className={`h-1 bg-gradient-to-r ${isGst ? "from-emerald-400 to-green-500" : "from-red-400 to-rose-500"}`} />
+                <CardContent className="p-3">
+                  <div className="flex items-center gap-2 mb-2">
+                    <span className={`inline-flex items-center justify-center w-7 h-7 rounded-full bg-gradient-to-br ${isGst ? "from-emerald-500 to-green-600" : "from-red-500 to-rose-600"} text-white text-xs font-bold`}>{idx + 1}</span>
+                    <div>
+                      <p className="font-semibold text-sm">{inv.clientName}</p>
+                      <p className="text-xs text-muted-foreground">{inv.billNumber} • {fmtDate(inv.billDate)}</p>
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-2 gap-2 text-xs">
+                    <div className="bg-violet-50 dark:bg-violet-950/20 rounded-lg p-2 text-center">
+                      <p className="text-[10px] text-violet-600 dark:text-violet-400">Bill Amount</p>
+                      <p className="font-mono font-bold text-violet-700 dark:text-violet-300">{fmtCurrency(inv.billAmount)}</p>
+                    </div>
+                    <div className={`${isGst ? "bg-emerald-50 dark:bg-emerald-950/20" : "bg-red-50 dark:bg-red-950/20"} rounded-lg p-2 text-center`}>
+                      <p className={`text-[10px] ${isGst ? "text-emerald-600 dark:text-emerald-400" : "text-red-600 dark:text-red-400"}`}>{isGst ? `GST (${Number(inv.gstPercent)}%)` : `TDS (${Number(inv.tdsPercent)}%)`}</p>
+                      <p className={`font-mono font-bold ${isGst ? "text-emerald-700 dark:text-emerald-300" : "text-red-700 dark:text-red-300"}`}>{fmtCurrency(inv[amountKey])}</p>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        </>
+      )}
+    </div>
   );
 }
