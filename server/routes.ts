@@ -1443,6 +1443,11 @@ export async function registerRoutes(
       if (!clientName || !billDate || !billNumber) {
         return res.status(400).json({ message: "Client name, bill date, and bill number are required" });
       }
+      const allInvoices = await storage.getSalesInvoices();
+      const duplicateBill = allInvoices.find(inv => inv.billNumber === billNumber.trim());
+      if (duplicateBill) {
+        return res.status(400).json({ message: `Bill Number "${billNumber.trim()}" already exists (Sl# ${duplicateBill.slNo}, Client: ${duplicateBill.clientName})` });
+      }
       if (poId) {
         const po = await storage.getPurchaseOrder(Number(poId));
         if (!po) return res.status(400).json({ message: "Selected PO not found" });
@@ -1450,7 +1455,6 @@ export async function registerRoutes(
           return res.status(400).json({ message: "PO does not belong to the selected client" });
         }
         if (!bypassPO) {
-          const allInvoices = await storage.getSalesInvoices();
           const usedAmount = allInvoices.filter(inv => inv.poId === po.id).reduce((sum, inv) => sum + Number(inv.billAmount), 0);
           const balance = Math.round((Number(po.poAmount) - usedAmount) * 100) / 100;
           if (Number(billAmount) > balance) {
@@ -1482,6 +1486,13 @@ export async function registerRoutes(
       const existing = await storage.getSalesInvoice(Number(req.params.id));
       if (!existing) return res.status(404).json({ message: "Sales invoice not found" });
       const { clientName, billDate, billNumber, billAmount, gstPercent, gstAmount, totalBillAmount, tdsPercent, tdsAmount, paymentReceivedDate, paymentReceivedAmount, poId, bypassPO } = req.body;
+      if (billNumber !== undefined) {
+        const allInvForDup = await storage.getSalesInvoices();
+        const duplicateBill = allInvForDup.find(inv => inv.billNumber === billNumber.trim() && inv.id !== existing.id);
+        if (duplicateBill) {
+          return res.status(400).json({ message: `Bill Number "${billNumber.trim()}" already exists (Sl# ${duplicateBill.slNo}, Client: ${duplicateBill.clientName})` });
+        }
+      }
       const targetPoId = poId !== undefined ? (poId ? Number(poId) : null) : existing.poId;
       const effectiveBillAmount = billAmount !== undefined ? Number(billAmount) : Number(existing.billAmount);
       const effectiveClientName = clientName !== undefined ? clientName : existing.clientName;
