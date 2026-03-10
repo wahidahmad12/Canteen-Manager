@@ -77,7 +77,7 @@ function InvoiceFormDialog({ invoice, onClose, clients, purchaseOrders, allInvoi
   const [selectedPoId, setSelectedPoId] = useState<string>(invoice?.poId ? String(invoice.poId) : "none");
   const [bypassPO, setBypassPO] = useState(false);
   const [billAmount, setBillAmount] = useState(invoice ? Number(invoice.billAmount) : 0);
-  const [gstPercent, setGstPercent] = useState(invoice ? Number(invoice.gstPercent) : 18);
+  const [gstPercent, setGstPercent] = useState(invoice ? Number(invoice.gstPercent) : 5);
   const [tdsPercent, setTdsPercent] = useState(invoice ? Number(invoice.tdsPercent) : 2);
   const [paymentReceivedDate, setPaymentReceivedDate] = useState<Date | undefined>(
     invoice?.paymentReceivedDate ? new Date(invoice.paymentReceivedDate) : undefined
