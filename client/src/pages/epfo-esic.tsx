@@ -261,28 +261,12 @@ export default function EpfoEsicPage() {
     }
 
     const ExcelJS = (await import("exceljs")).default;
-
-    if (selectedClient === "__all__") {
-      const clientGroups = new Map<string, typeof esicData>();
-      for (const row of esicData) {
-        if (!clientGroups.has(row.clientName)) clientGroups.set(row.clientName, []);
-        clientGroups.get(row.clientName)!.push(row);
-      }
-
-      for (const [clientName, rows] of clientGroups) {
-        const wb = new ExcelJS.Workbook();
-        buildEsicSheet(wb, rows, "Sheet1");
-        addEsicInstructionsSheet(wb);
-        const buf = await wb.xlsx.writeBuffer();
-        downloadBuffer(buf, `ESIC_${clientName.replace(/\s+/g, '_')}_${MONTHS[month - 1]}_${year}.xlsx`);
-      }
-    } else {
-      const wb = new ExcelJS.Workbook();
-      buildEsicSheet(wb, esicData, "Sheet1");
-      addEsicInstructionsSheet(wb);
-      const buf = await wb.xlsx.writeBuffer();
-      downloadBuffer(buf, `ESIC_${selectedClient.replace(/\s+/g, '_')}_${MONTHS[month - 1]}_${year}.xlsx`);
-    }
+    const wb = new ExcelJS.Workbook();
+    const label = selectedClient === "__all__" ? "All_Clients" : selectedClient.replace(/\s+/g, '_');
+    buildEsicSheet(wb, esicData, "Sheet1");
+    addEsicInstructionsSheet(wb);
+    const buf = await wb.xlsx.writeBuffer();
+    downloadBuffer(buf, `ESIC_${label}_${MONTHS[month - 1]}_${year}.xlsx`);
     toast({ title: "ESIC Excel exported" });
   };
 
