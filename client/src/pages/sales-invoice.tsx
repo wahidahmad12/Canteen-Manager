@@ -17,7 +17,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   FileText, Plus, Save, Loader2, Pencil, Trash2, Search,
   CalendarDays, Building2, Receipt, IndianRupee, Percent,
-  CheckCircle2, XCircle, X, BarChart3, ClipboardList, AlertTriangle
+  CheckCircle2, XCircle, X, BarChart3, ClipboardList, AlertTriangle,
+  Printer, User, Check
 } from "lucide-react";
 import { Link } from "wouter";
 
@@ -656,6 +657,9 @@ export default function SalesInvoicePage() {
             <TabsTrigger value="tds-report" className="data-[state=active]:bg-white dark:data-[state=active]:bg-gray-800 flex items-center gap-1.5" data-testid="tab-tds-report">
               <IndianRupee className="w-3.5 h-3.5" /> TDS Report
             </TabsTrigger>
+            <TabsTrigger value="pankaj-report" className="data-[state=active]:bg-white dark:data-[state=active]:bg-gray-800 flex items-center gap-1.5" data-testid="tab-pankaj-report">
+              <User className="w-3.5 h-3.5" /> Pankaj
+            </TabsTrigger>
           </TabsList>
 
           <TabsContent value="purchase-orders" className="mt-4">
@@ -1022,6 +1026,10 @@ export default function SalesInvoicePage() {
           <TabsContent value="tds-report" className="mt-4">
             <GstTdsReport invoices={invoices} type="tds" clients={clients.map((c: any) => c.name)} />
           </TabsContent>
+
+          <TabsContent value="pankaj-report" className="mt-4">
+            <PankajReport invoices={invoices} clients={clients.map((c: any) => c.name)} />
+          </TabsContent>
         </Tabs>
       </div>
 
@@ -1249,6 +1257,267 @@ function GstTdsReport({ invoices, type, clients }: { invoices: any[]; type: "gst
                     <div className={`${isGst ? "bg-emerald-50 dark:bg-emerald-950/20" : "bg-red-50 dark:bg-red-950/20"} rounded-lg p-2 text-center`}>
                       <p className={`text-[10px] ${isGst ? "text-emerald-600 dark:text-emerald-400" : "text-red-600 dark:text-red-400"}`}>{isGst ? `GST (${Number(inv.gstPercent)}%)` : `TDS (${Number(inv.tdsPercent)}%)`}</p>
                       <p className={`font-mono font-bold ${isGst ? "text-emerald-700 dark:text-emerald-300" : "text-red-700 dark:text-red-300"}`}>{fmtCurrency(inv[amountKey])}</p>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
+
+function PankajReport({ invoices, clients }: { invoices: any[]; clients: string[] }) {
+  const now = new Date();
+  const [month, setMonth] = useState(String(now.getMonth() + 1));
+  const [year, setYear] = useState(String(now.getFullYear()));
+  const [selectedClients, setSelectedClients] = useState<string[]>([]);
+  const [clientDropdownOpen, setClientDropdownOpen] = useState(false);
+
+  const toggleClient = (name: string) => {
+    setSelectedClients(prev => prev.includes(name) ? prev.filter(c => c !== name) : [...prev, name]);
+  };
+
+  const selectAll = () => setSelectedClients([...clients]);
+  const clearAll = () => setSelectedClients([]);
+
+  const rows = selectedClients.map((clientName, idx) => {
+    const clientInvoices = invoices.filter(inv => {
+      if (!inv.billDate || inv.clientName !== clientName) return false;
+      const d = new Date(inv.billDate);
+      return d.getMonth() + 1 === Number(month) && d.getFullYear() === Number(year);
+    });
+    const totalBill = clientInvoices.reduce((s, i) => s + Number(i.billAmount), 0);
+    const totalGst = clientInvoices.reduce((s, i) => s + Number(i.gstAmount), 0);
+    const total = totalBill + totalGst;
+    const toReceive = Math.round((total - total * 0.03) * 100) / 100;
+    return { idx: idx + 1, clientName, totalBill, totalGst, total, toReceive };
+  });
+
+  const grandTotalBill = rows.reduce((s, r) => s + r.totalBill, 0);
+  const grandTotalGst = rows.reduce((s, r) => s + r.totalGst, 0);
+  const grandTotal = rows.reduce((s, r) => s + r.total, 0);
+  const grandToReceive = rows.reduce((s, r) => s + r.toReceive, 0);
+
+  const monthsList = [
+    { v: "1", l: "January" }, { v: "2", l: "February" }, { v: "3", l: "March" },
+    { v: "4", l: "April" }, { v: "5", l: "May" }, { v: "6", l: "June" },
+    { v: "7", l: "July" }, { v: "8", l: "August" }, { v: "9", l: "September" },
+    { v: "10", l: "October" }, { v: "11", l: "November" }, { v: "12", l: "December" },
+  ];
+
+  const years: string[] = [];
+  for (let y = now.getFullYear(); y >= now.getFullYear() - 5; y--) years.push(String(y));
+
+  const monthName = monthsList.find(m => m.v === month)?.l || "";
+
+  const handlePrint = () => {
+    if (rows.length === 0) return;
+    const printWindow = window.open("", "_blank");
+    if (!printWindow) return;
+    printWindow.document.write(`<!DOCTYPE html><html><head><title>Pankaj Report - ${monthName} ${year}</title>
+      <style>
+        body { font-family: Arial, sans-serif; margin: 20px; color: #333; }
+        h2 { text-align: center; margin-bottom: 4px; }
+        .sub { text-align: center; font-size: 13px; color: #666; margin-bottom: 16px; }
+        table { width: 100%; border-collapse: collapse; font-size: 12px; }
+        th { background: #7c3aed; color: white; padding: 8px 10px; text-align: left; }
+        th.right { text-align: right; }
+        td { padding: 6px 10px; border-bottom: 1px solid #e5e7eb; }
+        td.right { text-align: right; font-family: monospace; }
+        tr:nth-child(even) { background: #f9fafb; }
+        tfoot td { font-weight: bold; border-top: 2px solid #333; padding-top: 8px; }
+        @media print { body { margin: 10px; } }
+      </style></head><body>
+      <h2>Pankaj Report</h2>
+      <p class="sub">${monthName} ${year}</p>
+      <table>
+        <thead><tr>
+          <th>Sl#</th><th>Client Name</th>
+          <th class="right">Bill Amount</th><th class="right">GST Amount</th>
+          <th class="right">Total</th><th class="right">To Receive (-3%)</th>
+        </tr></thead>
+        <tbody>${rows.map(r => `<tr>
+          <td>${r.idx}</td><td>${r.clientName}</td>
+          <td class="right">${fmtCurrency(r.totalBill)}</td><td class="right">${fmtCurrency(r.totalGst)}</td>
+          <td class="right" style="font-weight:bold">${fmtCurrency(r.total)}</td>
+          <td class="right" style="font-weight:bold;color:#059669">${fmtCurrency(r.toReceive)}</td>
+        </tr>`).join("")}</tbody>
+        <tfoot><tr>
+          <td colspan="2">Grand Total</td>
+          <td class="right">${fmtCurrency(grandTotalBill)}</td><td class="right">${fmtCurrency(grandTotalGst)}</td>
+          <td class="right">${fmtCurrency(grandTotal)}</td>
+          <td class="right" style="color:#059669">${fmtCurrency(grandToReceive)}</td>
+        </tr></tfoot>
+      </table>
+      <script>window.onload=function(){window.print();}<\/script>
+    </body></html>`);
+    printWindow.document.close();
+  };
+
+  return (
+    <div>
+      <Card className="border-0 shadow-md mb-4">
+        <CardContent className="p-4">
+          <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3 flex-wrap">
+            <div className="flex items-center gap-2">
+              <User className="w-5 h-5 text-violet-600" />
+              <h3 className="font-bold text-lg">Pankaj Report</h3>
+            </div>
+            <div className="flex items-center gap-2 ml-auto flex-wrap">
+              <div className="relative">
+                <Button variant="outline" size="sm" className="h-9 min-w-[180px] justify-between" onClick={() => setClientDropdownOpen(!clientDropdownOpen)} data-testid="button-pankaj-client-select">
+                  <span className="flex items-center gap-1 text-xs">
+                    <Building2 className="w-3.5 h-3.5 text-muted-foreground" />
+                    {selectedClients.length === 0 ? "Select Clients" : `${selectedClients.length} client${selectedClients.length > 1 ? "s" : ""}`}
+                  </span>
+                </Button>
+                {clientDropdownOpen && (
+                  <div className="absolute z-50 mt-1 w-72 bg-white dark:bg-gray-900 border rounded-lg shadow-xl p-2 max-h-60 overflow-y-auto" data-testid="dropdown-pankaj-clients">
+                    <div className="flex gap-2 mb-2 px-1">
+                      <Button size="sm" variant="outline" className="h-6 text-[10px]" onClick={selectAll}>Select All</Button>
+                      <Button size="sm" variant="outline" className="h-6 text-[10px]" onClick={clearAll}>Clear All</Button>
+                    </div>
+                    {clients.map(c => (
+                      <div key={c} className="flex items-center gap-2 px-2 py-1.5 rounded hover:bg-violet-50 dark:hover:bg-violet-950/30 cursor-pointer" onClick={() => toggleClient(c)} data-testid={`checkbox-client-${c}`}>
+                        <div className={`w-4 h-4 rounded border flex items-center justify-center text-white text-xs ${selectedClients.includes(c) ? "bg-violet-600 border-violet-600" : "border-gray-300 dark:border-gray-600"}`}>
+                          {selectedClients.includes(c) && <Check className="w-3 h-3" />}
+                        </div>
+                        <span className="text-xs">{c}</span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+              <Select value={month} onValueChange={setMonth}>
+                <SelectTrigger className="w-[130px] h-9" data-testid="select-pankaj-month">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {monthsList.map(m => <SelectItem key={m.v} value={m.v}>{m.l}</SelectItem>)}
+                </SelectContent>
+              </Select>
+              <Select value={year} onValueChange={setYear}>
+                <SelectTrigger className="w-[90px] h-9" data-testid="select-pankaj-year">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {years.map(y => <SelectItem key={y} value={y}>{y}</SelectItem>)}
+                </SelectContent>
+              </Select>
+              <Button variant="outline" size="sm" className="h-9" onClick={handlePrint} data-testid="button-print-pankaj">
+                <Printer className="w-4 h-4 mr-1" /> Print
+              </Button>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-4">
+        <Card className="border-0 shadow-md">
+          <CardContent className="p-4 text-center">
+            <p className="text-xs text-muted-foreground mb-1">Clients Selected</p>
+            <p className="text-2xl font-bold">{selectedClients.length}</p>
+          </CardContent>
+        </Card>
+        <Card className="border-0 shadow-md">
+          <CardContent className="p-4 text-center">
+            <p className="text-xs text-muted-foreground mb-1">Total Bill Amount</p>
+            <p className="text-xl font-bold font-mono text-violet-600">₹{grandTotalBill.toLocaleString("en-IN", { minimumFractionDigits: 2 })}</p>
+          </CardContent>
+        </Card>
+        <Card className="border-0 shadow-md">
+          <CardContent className="p-4 text-center">
+            <p className="text-xs text-muted-foreground mb-1">Total (Bill + GST)</p>
+            <p className="text-xl font-bold font-mono text-blue-600">₹{grandTotal.toLocaleString("en-IN", { minimumFractionDigits: 2 })}</p>
+          </CardContent>
+        </Card>
+        <Card className="border-0 shadow-md">
+          <CardContent className="p-4 text-center">
+            <p className="text-xs text-muted-foreground mb-1">To Receive (-3%)</p>
+            <p className="text-xl font-bold font-mono text-emerald-600">₹{grandToReceive.toLocaleString("en-IN", { minimumFractionDigits: 2 })}</p>
+          </CardContent>
+        </Card>
+      </div>
+
+      {selectedClients.length === 0 ? (
+        <Card className="border-0 shadow-md">
+          <CardContent className="flex flex-col items-center justify-center py-16">
+            <Building2 className="w-12 h-12 text-muted-foreground/30 mb-3" />
+            <p className="text-muted-foreground text-sm">Select one or more clients to generate the report</p>
+          </CardContent>
+        </Card>
+      ) : (
+        <>
+          <div className="hidden lg:block">
+            <Card className="border-0 shadow-lg overflow-hidden" data-testid="card-pankaj-report-table">
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="bg-gradient-to-r from-violet-500 to-purple-600 text-white">
+                      <th className="text-left py-3 px-4 font-semibold text-xs">Sl#</th>
+                      <th className="text-left py-3 px-4 font-semibold text-xs">Client Name</th>
+                      <th className="text-right py-3 px-4 font-semibold text-xs">Month Bill Amount</th>
+                      <th className="text-right py-3 px-4 font-semibold text-xs">Month GST Amount</th>
+                      <th className="text-right py-3 px-4 font-semibold text-xs">Total</th>
+                      <th className="text-right py-3 px-4 font-semibold text-xs">To Receive (-3%)</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {rows.map((r) => (
+                      <tr key={r.clientName} className={`border-b border-gray-100 dark:border-gray-800 hover:bg-violet-50/50 dark:hover:bg-violet-950/20 ${r.idx % 2 === 0 ? "bg-gray-50/50 dark:bg-gray-900/50" : "bg-white dark:bg-gray-950"}`} data-testid={`row-pankaj-${r.idx}`}>
+                        <td className="py-2.5 px-4">
+                          <span className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-violet-100 dark:bg-violet-900 text-violet-700 dark:text-violet-300 text-xs font-bold">{r.idx}</span>
+                        </td>
+                        <td className="py-2.5 px-4 font-medium text-xs">{r.clientName}</td>
+                        <td className="py-2.5 px-4 text-right font-mono text-xs">{fmtCurrency(r.totalBill)}</td>
+                        <td className="py-2.5 px-4 text-right font-mono text-xs">{fmtCurrency(r.totalGst)}</td>
+                        <td className="py-2.5 px-4 text-right font-mono text-xs font-bold text-blue-600">{fmtCurrency(r.total)}</td>
+                        <td className="py-2.5 px-4 text-right font-mono text-xs font-bold text-emerald-600">{fmtCurrency(r.toReceive)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                  <tfoot>
+                    <tr className="bg-gradient-to-r from-violet-100 to-purple-100 dark:from-violet-950/40 dark:to-purple-950/40 font-bold">
+                      <td colSpan={2} className="py-2.5 px-4 text-xs">Grand Total</td>
+                      <td className="py-2.5 px-4 text-right font-mono text-xs">{fmtCurrency(grandTotalBill)}</td>
+                      <td className="py-2.5 px-4 text-right font-mono text-xs">{fmtCurrency(grandTotalGst)}</td>
+                      <td className="py-2.5 px-4 text-right font-mono text-xs text-blue-600">{fmtCurrency(grandTotal)}</td>
+                      <td className="py-2.5 px-4 text-right font-mono text-xs text-emerald-600">{fmtCurrency(grandToReceive)}</td>
+                    </tr>
+                  </tfoot>
+                </table>
+              </div>
+            </Card>
+          </div>
+
+          <div className="lg:hidden space-y-3">
+            {rows.map((r) => (
+              <Card key={r.clientName} className="border-0 shadow-md overflow-hidden" data-testid={`card-pankaj-mobile-${r.idx}`}>
+                <div className="h-1 bg-gradient-to-r from-violet-400 to-purple-500" />
+                <CardContent className="p-3">
+                  <div className="flex items-center gap-2 mb-2">
+                    <span className="inline-flex items-center justify-center w-7 h-7 rounded-full bg-gradient-to-br from-violet-500 to-purple-600 text-white text-xs font-bold">{r.idx}</span>
+                    <p className="font-semibold text-sm">{r.clientName}</p>
+                  </div>
+                  <div className="grid grid-cols-2 gap-2 text-xs">
+                    <div className="bg-violet-50 dark:bg-violet-950/20 rounded-lg p-2 text-center">
+                      <p className="text-[10px] text-violet-600 dark:text-violet-400">Bill Amount</p>
+                      <p className="font-mono font-bold text-violet-700 dark:text-violet-300">{fmtCurrency(r.totalBill)}</p>
+                    </div>
+                    <div className="bg-orange-50 dark:bg-orange-950/20 rounded-lg p-2 text-center">
+                      <p className="text-[10px] text-orange-600 dark:text-orange-400">GST Amount</p>
+                      <p className="font-mono font-bold text-orange-700 dark:text-orange-300">{fmtCurrency(r.totalGst)}</p>
+                    </div>
+                    <div className="bg-blue-50 dark:bg-blue-950/20 rounded-lg p-2 text-center">
+                      <p className="text-[10px] text-blue-600 dark:text-blue-400">Total</p>
+                      <p className="font-mono font-bold text-blue-700 dark:text-blue-300">{fmtCurrency(r.total)}</p>
+                    </div>
+                    <div className="bg-emerald-50 dark:bg-emerald-950/20 rounded-lg p-2 text-center">
+                      <p className="text-[10px] text-emerald-600 dark:text-emerald-400">To Receive (-3%)</p>
+                      <p className="font-mono font-bold text-emerald-700 dark:text-emerald-300">{fmtCurrency(r.toReceive)}</p>
                     </div>
                   </div>
                 </CardContent>
