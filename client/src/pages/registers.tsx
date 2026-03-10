@@ -751,6 +751,39 @@ function OvertimeTab({ clientName, clientAddress, employees, empMap, filterMonth
     enabled: !!clientName,
   });
 
+  const { data: salaryRecords } = useQuery({
+    queryKey: ["/api/salary", clientName, filterMonth, filterYear],
+    queryFn: async () => {
+      const params = new URLSearchParams({ clientName });
+      if (filterMonth && filterMonth !== "all") params.set("month", filterMonth);
+      if (filterYear) params.set("year", filterYear);
+      const res = await fetch(`/api/salary?${params}`, { credentials: "include" });
+      if (!res.ok) return [];
+      return res.json() as Promise<any[]>;
+    },
+    enabled: !!clientName,
+  });
+
+  const salaryPaidDateMap = useMemo(() => {
+    const map = new Map<string, string>();
+    if (!salaryRecords) return map;
+    for (const s of salaryRecords) {
+      if (s.paidOn) {
+        const key = `${s.employeeId}-${s.month}-${s.year}`;
+        map.set(key, s.paidOn);
+      }
+    }
+    return map;
+  }, [salaryRecords]);
+
+  const getSalaryPaidDate = (employeeId: number, dateStr: string) => {
+    if (!dateStr) return "";
+    const d = new Date(dateStr);
+    const m = d.getMonth() + 1;
+    const y = d.getFullYear();
+    return salaryPaidDateMap.get(`${employeeId}-${m}-${y}`) || "";
+  };
+
   const createMutation = useMutation({
     mutationFn: async (data: any) => { const res = await apiRequest("POST", "/api/overtime", data); return res.json(); },
     onSuccess: () => {
@@ -849,7 +882,7 @@ function OvertimeTab({ clientName, clientAddress, employees, empMap, filterMonth
     const printWin = window.open("", "_blank");
     if (!printWin) return;
     const rows = filtered.map((o: any, i: number) => `
-      <tr><td>${i + 1}</td><td>${empMap.get(o.employeeId) || o.employeeId}</td><td>${o.date}</td><td>${o.normalHours || ""}</td><td>${o.overtimeHours || ""}</td><td>${o.overtimeRate ? fmt(o.overtimeRate) : ""}</td><td>${o.overtimeAmount ? fmt(o.overtimeAmount) : ""}</td><td>${o.paidDate || ""}</td></tr>
+      <tr><td>${i + 1}</td><td>${empMap.get(o.employeeId) || o.employeeId}</td><td>${o.date}</td><td>${o.normalHours || ""}</td><td>${o.overtimeHours || ""}</td><td>${o.overtimeRate ? fmt(o.overtimeRate) : ""}</td><td>${o.overtimeAmount ? fmt(o.overtimeAmount) : ""}</td><td>${o.paidDate || getSalaryPaidDate(o.employeeId, o.date) || ""}</td></tr>
     `).join("");
     const period = filterMonth && filterMonth !== "all" && filterYear ? ` - ${MONTHS[parseInt(filterMonth) - 1]} ${filterYear}` : filterYear ? ` - ${filterYear}` : "";
     printWin.document.write(`<html><head><title>Form XXIII - Overtime</title><style>body{font-family:sans-serif;padding:20px}table{width:100%;border-collapse:collapse}th,td{border:1px solid #ccc;padding:6px 10px;text-align:left;font-size:13px}th{background:#f5f5f5}</style></head><body>
@@ -905,7 +938,7 @@ function OvertimeTab({ clientName, clientAddress, employees, empMap, filterMonth
         <td>${normalRate.rs}</td><td>${normalRate.p}</td>
         <td>${otRate.rs}</td><td>${otRate.p}</td>
         <td>${otEarnings.rs}</td><td>${otEarnings.p}</td>
-        <td>${o.paidDate ? formatDate(o.paidDate) : ""}</td>
+        <td>${o.paidDate ? formatDate(o.paidDate) : (getSalaryPaidDate(o.employeeId, o.date) ? formatDate(getSalaryPaidDate(o.employeeId, o.date)) : "")}</td>
         <td></td>
       </tr>`;
     }).join("");
@@ -1101,7 +1134,7 @@ function OvertimeTab({ clientName, clientAddress, employees, empMap, filterMonth
                           <td className="px-3 py-2.5 text-right">{o.overtimeHours || "-"}</td>
                           <td className="px-3 py-2.5 text-right font-mono">{o.overtimeRate ? fmt(o.overtimeRate) : "-"}</td>
                           <td className="px-3 py-2.5 text-right font-mono">{o.overtimeAmount ? fmt(o.overtimeAmount) : "-"}</td>
-                          <td className="px-3 py-2.5">{o.paidDate || "-"}</td>
+                          <td className="px-3 py-2.5">{o.paidDate || getSalaryPaidDate(o.employeeId, o.date) || "-"}</td>
                           <td className="px-3 py-2.5 text-right">
                             <AlertDialog>
                               <AlertDialogTrigger asChild>
@@ -1136,7 +1169,7 @@ function OvertimeTab({ clientName, clientAddress, employees, empMap, filterMonth
                     {o.normalHours && <span>Normal: {o.normalHours}h</span>}
                     {o.overtimeHours && <span>OT: {o.overtimeHours}h</span>}
                     {o.overtimeRate && <span>Rate: {fmt(o.overtimeRate)}</span>}
-                    {o.paidDate && <span>Paid: {o.paidDate}</span>}
+                    {(o.paidDate || getSalaryPaidDate(o.employeeId, o.date)) && <span>Paid: {o.paidDate || getSalaryPaidDate(o.employeeId, o.date)}</span>}
                   </div>
                   <div className="flex justify-end">
                     <AlertDialog>
