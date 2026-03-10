@@ -13,7 +13,15 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
-import { Plus, Loader2, Pencil, Trash2, Users, Search, UserCheck, UserX, Building2, IndianRupee, CreditCard, FileText, MapPin, Shield } from "lucide-react";
+import { Plus, Loader2, Pencil, Trash2, Users, Search, UserCheck, UserX, Building2, IndianRupee, CreditCard, FileText, MapPin, Shield, Calendar } from "lucide-react";
+
+const fmtDate = (d: string | null | undefined): string => {
+  if (!d) return "-";
+  const s = String(d).split("T")[0];
+  if (!s) return "-";
+  const [y, m, dd] = s.split("-");
+  return `${dd}-${m}-${y}`;
+};
 
 interface Employee {
   id: number;
@@ -329,6 +337,16 @@ export default function EmployeeMaster() {
                             </span>
                           )}
                           {emp.designation && <span>{emp.designation}</span>}
+                          {emp.dob && (
+                            <span className="flex items-center gap-1">
+                              <Calendar className="w-3 h-3" /> DOB: {fmtDate(emp.dob)}
+                            </span>
+                          )}
+                          {emp.joiningDate && (
+                            <span className="flex items-center gap-1">
+                              <Calendar className="w-3 h-3" /> Joined: {fmtDate(emp.joiningDate)}
+                            </span>
+                          )}
                           {emp.dailyRate && emp.dailyRate !== "0" && (
                             <span className="flex items-center gap-1">
                               <IndianRupee className="w-3 h-3" /> {emp.dailyRate}/day
@@ -363,7 +381,8 @@ export default function EmployeeMaster() {
                         <th className="px-3 py-2.5 text-left text-xs font-semibold text-muted-foreground">Name</th>
                         <th className="px-3 py-2.5 text-left text-xs font-semibold text-muted-foreground">Client</th>
                         <th className="px-3 py-2.5 text-left text-xs font-semibold text-muted-foreground">Designation</th>
-                        <th className="px-3 py-2.5 text-left text-xs font-semibold text-muted-foreground">Department</th>
+                        <th className="px-3 py-2.5 text-left text-xs font-semibold text-muted-foreground">DOB</th>
+                        <th className="px-3 py-2.5 text-left text-xs font-semibold text-muted-foreground">Joining Date</th>
                         <th className="px-3 py-2.5 text-right text-xs font-semibold text-muted-foreground">Daily Rate</th>
                         <th className="px-3 py-2.5 text-center text-xs font-semibold text-muted-foreground">Status</th>
                         <th className="px-3 py-2.5 text-right text-xs font-semibold text-muted-foreground">Actions</th>
@@ -376,7 +395,8 @@ export default function EmployeeMaster() {
                           <td className="px-3 py-2.5">{emp.name}</td>
                           <td className="px-3 py-2.5 text-muted-foreground">{emp.clientName}</td>
                           <td className="px-3 py-2.5 text-muted-foreground">{emp.designation || "-"}</td>
-                          <td className="px-3 py-2.5 text-muted-foreground">{emp.department || "-"}</td>
+                          <td className="px-3 py-2.5 text-muted-foreground">{fmtDate(emp.dob)}</td>
+                          <td className="px-3 py-2.5 text-muted-foreground">{fmtDate(emp.joiningDate)}</td>
                           <td className="px-3 py-2.5 text-right font-mono">{emp.dailyRate && emp.dailyRate !== "0" ? `₹${emp.dailyRate}` : "-"}</td>
                           <td className="px-3 py-2.5 text-center">
                             {emp.isActive ? (
