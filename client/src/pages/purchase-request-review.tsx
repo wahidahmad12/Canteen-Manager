@@ -154,7 +154,7 @@ export default function PurchaseRequestReview() {
           <div>
             <h2 className="text-xl sm:text-2xl font-bold" data-testid="text-review-title">Review Purchase Request</h2>
             <p className="text-sm text-muted-foreground">
-              #{pr.serialNumber} — {pr.clientName} — {format(new Date(pr.date), "dd MMM yyyy")}
+              #{pr.serialNumber} — {pr.clientName} — {format(new Date(pr.date), "dd-MM-yyyy")}
               {pr.createdBy && <span className="ml-2">by {pr.createdBy}</span>}
             </p>
           </div>

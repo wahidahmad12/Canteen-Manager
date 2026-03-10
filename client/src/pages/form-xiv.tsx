@@ -5,6 +5,14 @@ import { Printer, ArrowLeft, User, Building2, CreditCard, Landmark, Shield, Phon
 import { Link, useParams } from 'wouter';
 import type { Employee } from '@shared/schema';
 
+const fmtDate = (d: string | null | undefined): string => {
+  if (!d) return "-";
+  const s = String(d).split("T")[0];
+  if (!s) return "-";
+  const [y, m, dd] = s.split("-");
+  return `${dd}-${m}-${y}`;
+};
+
 export default function FormXIV() {
   const params = useParams<{ id: string }>();
   const employeeId = Number(params.id);
@@ -76,7 +84,7 @@ export default function FormXIV() {
               <InfoRow label="Name of Workman" value={employee.name} highlight />
               <InfoRow label="Father's/Husband's Name" value={employee.fatherName || '-'} />
               <InfoRow label="Gender" value={employee.gender || '-'} />
-              <InfoRow label="Date of Birth" value={employee.dob || '-'} />
+              <InfoRow label="Date of Birth" value={fmtDate(employee.dob)} />
               <InfoRow label="Age" value={String(age)} />
               <InfoRow label="Mobile" value={employee.mobile || '-'} />
               <InfoRow label="Address" value={employee.address || '-'} />
@@ -89,7 +97,7 @@ export default function FormXIV() {
               <InfoRow label="Designation" value={employee.designation || '-'} />
               <InfoRow label="Department" value={employee.department || '-'} />
               <InfoRow label="Daily Rate of Wages" value={`₹${Number(employee.dailyRate).toLocaleString('en-IN')}`} highlight money />
-              <InfoRow label="Date of Commencement" value={employee.joiningDate || '-'} />
+              <InfoRow label="Date of Commencement" value={fmtDate(employee.joiningDate)} />
             </div>
           </div>
 
@@ -117,7 +125,7 @@ export default function FormXIV() {
             <div>
               <SectionHeader icon={<User className="w-4 h-4" />} label="Termination / Leaving Details" color="rose" />
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-3">
-                <InfoRow label="Date of Leaving" value={employee.leavingDate} />
+                <InfoRow label="Date of Leaving" value={fmtDate(employee.leavingDate)} />
                 <InfoRow label="Reason" value={employee.leavingReason || '-'} />
               </div>
             </div>

@@ -351,7 +351,7 @@ export default function Letterhead() {
                           <TableRow key={letter.id} data-testid={`row-letter-${letter.id}`}>
                             <TableCell className="text-xs font-mono">{letter.serialNumber}</TableCell>
                             <TableCell className="text-xs font-semibold">{letter.refNumber}</TableCell>
-                            <TableCell className="text-xs">{letter.letterDate ? letter.letterDate.split('-').reverse().join('/') : '-'}</TableCell>
+                            <TableCell className="text-xs">{letter.letterDate ? letter.letterDate.split('-').reverse().join('-') : '-'}</TableCell>
                             <TableCell className="text-xs max-w-[150px] truncate">{letter.toName || '-'}</TableCell>
                             <TableCell className="text-xs max-w-[200px] truncate">{letter.subject || '-'}</TableCell>
                             <TableCell className="text-xs max-w-[120px] truncate">{letter.clientName || '-'}</TableCell>

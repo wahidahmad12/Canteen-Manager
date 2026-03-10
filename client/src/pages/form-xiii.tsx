@@ -12,6 +12,14 @@ import { Link } from 'wouter';
 import type { Employee } from '@shared/schema';
 import { PrintSettingsDialog } from '@/components/print-settings-dialog';
 
+const fmtDate = (d: string | null | undefined): string => {
+  if (!d) return "-";
+  const s = String(d).split("T")[0];
+  if (!s) return "-";
+  const [y, m, dd] = s.split("-");
+  return `${dd}-${m}-${y}`;
+};
+
 export default function FormXIII() {
   const { data: clientNames = [] } = useClientNames();
   const [selectedClient, setSelectedClient] = useState('');
@@ -154,7 +162,7 @@ export default function FormXIII() {
                           <span className="text-muted-foreground">UAN:</span>
                           <span className="font-mono text-[10px]">{emp.uanNo || '-'}</span>
                           <span className="text-muted-foreground">Joining:</span>
-                          <span>{emp.joiningDate || '-'}</span>
+                          <span>{fmtDate(emp.joiningDate)}</span>
                           <span className="text-muted-foreground">Daily Rate:</span>
                           <span className="font-bold text-emerald-700 dark:text-emerald-400">₹{Number(emp.dailyRate).toLocaleString('en-IN')}</span>
                         </div>
@@ -209,7 +217,7 @@ export default function FormXIII() {
                                 <td className="px-2 py-2 text-left border border-slate-200 font-mono text-[10px] text-violet-600 dark:text-violet-400">{emp.pfNo || '-'}</td>
                                 <td className="px-2 py-2 text-left border border-slate-200 font-mono text-[10px]">{emp.esicNo || '-'}</td>
                                 <td className="px-2 py-2 text-left border border-slate-200 font-mono text-[10px]">{emp.uanNo || '-'}</td>
-                                <td className="px-2 py-2 text-left border border-slate-200">{emp.joiningDate || '-'}</td>
+                                <td className="px-2 py-2 text-left border border-slate-200">{fmtDate(emp.joiningDate)}</td>
                                 <td className="px-2 py-2 text-right border border-slate-200 font-bold text-emerald-700 dark:text-emerald-400">₹{Number(emp.dailyRate).toLocaleString('en-IN')}</td>
                                 <td className="px-2 py-2 text-center border border-slate-200">
                                   <Link href={`/form-xiv/${emp.id}`}>
@@ -282,7 +290,7 @@ export default function FormXIII() {
                           <td style={{ border: "1px solid #bbb", padding: "3px 4px", fontFamily: "monospace", fontSize: "8px", color: "#4527a0" }}>{emp.pfNo || '-'}</td>
                           <td style={{ border: "1px solid #bbb", padding: "3px 4px", fontFamily: "monospace", fontSize: "8px" }}>{emp.esicNo || '-'}</td>
                           <td style={{ border: "1px solid #bbb", padding: "3px 4px", fontFamily: "monospace", fontSize: "8px" }}>{emp.uanNo || '-'}</td>
-                          <td style={{ border: "1px solid #bbb", padding: "3px 4px" }}>{emp.joiningDate || '-'}</td>
+                          <td style={{ border: "1px solid #bbb", padding: "3px 4px" }}>{fmtDate(emp.joiningDate)}</td>
                           <td style={{ border: "1px solid #bbb", padding: "3px 4px", textAlign: "right", fontWeight: 700, color: "#2e7d32" }}>₹{Number(emp.dailyRate).toLocaleString('en-IN')}</td>
                         </tr>
                       ))}

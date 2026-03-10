@@ -378,7 +378,7 @@ export default function VendorReport() {
             <h2 className="text-lg font-semibold mt-1">Vendor Payment Report</h2>
             <p className="text-sm text-gray-600 mt-1">
               {fromDate && toDate
-                ? `${format(fromDate, "dd/MM/yyyy")} to ${format(toDate, "dd/MM/yyyy")}`
+                ? `${format(fromDate, "dd-MM-yyyy")} to ${format(toDate, "dd-MM-yyyy")}`
                 : "All Dates"}
               {vendorFilter !== "all" && ` | Vendor: ${vendorFilter}`}
               {clientFilter !== "all" && ` | Client: ${clientFilter}`}
@@ -611,7 +611,7 @@ export default function VendorReport() {
                         <td className="py-2 px-3">
                           <span className="w-5 h-5 rounded-full bg-gradient-to-br from-blue-400 to-cyan-500 text-white text-[9px] inline-flex items-center justify-center font-bold print:bg-gray-200 print:text-black">{i + 1}</span>
                         </td>
-                        <td className="py-2 px-3 font-medium">{format(new Date(inv.date), "dd/MM/yyyy")}</td>
+                        <td className="py-2 px-3 font-medium">{format(new Date(inv.date), "dd-MM-yyyy")}</td>
                         <td className="py-2 px-3 font-mono text-muted-foreground">{inv.vendorInvoiceNo || `PI-${inv.serialNumber}`}</td>
                         <td className="py-2 px-3 font-medium">{inv.vendorName}</td>
                         <td className="py-2 px-3 text-muted-foreground">{inv.clientName}</td>
@@ -646,7 +646,7 @@ export default function VendorReport() {
                       </span>
                     </div>
                     <div className="flex justify-between text-muted-foreground">
-                      <span>{format(new Date(inv.date), "dd/MM/yyyy")}</span>
+                      <span>{format(new Date(inv.date), "dd-MM-yyyy")}</span>
                       <span className="font-mono">{inv.vendorInvoiceNo || `PI-${inv.serialNumber}`}</span>
                     </div>
                     <div className="flex justify-between items-center pt-1 border-t border-blue-100 dark:border-blue-800/30">
@@ -694,7 +694,7 @@ export default function VendorReport() {
         </div>
 
         <p className="text-center text-[10px] text-muted-foreground print:text-gray-400 pb-4">
-          Generated on {format(new Date(), "dd/MM/yyyy hh:mm a")}
+          Generated on {format(new Date(), "dd-MM-yyyy hh:mm a")}
         </p>
       </div>
     </Layout>

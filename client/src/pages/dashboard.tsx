@@ -103,7 +103,7 @@ export default function Dashboard() {
       totalReceived += received;
       totalOpening += opening;
       return {
-        date: format(new Date(r.date), "dd MMM"),
+        date: format(new Date(r.date), "dd-MM"),
         cash: opening + received,
         expense,
         balance: (opening + received) - expense,
@@ -186,7 +186,7 @@ export default function Dashboard() {
       const totalCash = opening + received;
       const totalExpense = report.items?.reduce((sum: number, item: any) => sum + (Number(item.amount) || 0), 0) || 0;
       const r = ws.addRow([
-        report.reportNumber, format(new Date(report.date), "dd/MM/yyyy"),
+        report.reportNumber, format(new Date(report.date), "dd-MM-yyyy"),
         opening, received, totalCash, totalExpense, totalCash - totalExpense,
         report.items?.length || 0
       ]);
@@ -201,7 +201,7 @@ export default function Dashboard() {
 
     sortedReports.forEach((report: any) => {
       if (!report.items || report.items.length === 0) return;
-      const rHeader = ws.addRow([`Report #${report.reportNumber} - ${format(new Date(report.date), "dd/MM/yyyy")}`]);
+      const rHeader = ws.addRow([`Report #${report.reportNumber} - ${format(new Date(report.date), "dd-MM-yyyy")}`]);
       rHeader.getCell(1).font = { bold: true, size: 11 };
       ws.mergeCells(`A${rHeader.number}:G${rHeader.number}`);
 
@@ -485,7 +485,7 @@ export default function Dashboard() {
                                     {format(new Date(report.date), "dd")}
                                   </div>
                                   <div className="flex flex-col min-w-0">
-                                    <span className="text-sm truncate">{format(new Date(report.date), "MMMM yyyy")}</span>
+                                    <span className="text-sm truncate">{format(new Date(report.date), "MM-yyyy")}</span>
                                     <span className="text-[10px] text-muted-foreground truncate">{format(new Date(report.date), "EEEE")}</span>
                                   </div>
                                 </div>
@@ -518,7 +518,7 @@ export default function Dashboard() {
                                       <AlertDialogHeader>
                                         <AlertDialogTitle>Are you sure?</AlertDialogTitle>
                                         <AlertDialogDescription>
-                                          This will permanently delete the report for {format(new Date(report.date), "PPP")}.
+                                          This will permanently delete the report for {format(new Date(report.date), "dd-MM-yyyy")}.
                                         </AlertDialogDescription>
                                       </AlertDialogHeader>
                                       <AlertDialogFooter>
@@ -614,7 +614,7 @@ export default function Dashboard() {
                                     {format(new Date(seal.date), "dd")}
                                   </div>
                                   <div className="flex flex-col min-w-0">
-                                    <span className="text-sm truncate">{format(new Date(seal.date), "MMMM yyyy")}</span>
+                                    <span className="text-sm truncate">{format(new Date(seal.date), "MM-yyyy")}</span>
                                     <span className="text-[10px] text-muted-foreground truncate">{format(new Date(seal.date), "EEEE")}</span>
                                   </div>
                                 </div>
@@ -698,7 +698,7 @@ export default function Dashboard() {
                                     {format(new Date(inv.date), "dd")}
                                   </div>
                                   <div className="flex flex-col min-w-0">
-                                    <span className="text-sm truncate">{format(new Date(inv.date), "MMMM yyyy")}</span>
+                                    <span className="text-sm truncate">{format(new Date(inv.date), "MM-yyyy")}</span>
                                     <span className="text-[10px] text-muted-foreground truncate">{format(new Date(inv.date), "EEEE")}</span>
                                   </div>
                                 </div>
@@ -784,10 +784,10 @@ export default function Dashboard() {
                               </div>
                             </td>
                             <td className="px-3 py-2.5 font-mono text-xs text-muted-foreground">
-                              {format(new Date(menu.startDate), "dd MMM yyyy")} — {format(new Date(menu.endDate), "dd MMM yyyy")}
+                              {format(new Date(menu.startDate), "dd-MM-yyyy")} — {format(new Date(menu.endDate), "dd-MM-yyyy")}
                             </td>
                             <td className="px-3 py-2.5 text-xs text-muted-foreground">
-                              {menu.createdAt ? format(new Date(menu.createdAt), "dd MMM yyyy, hh:mm a") : "-"}
+                              {menu.createdAt ? format(new Date(menu.createdAt), "dd-MM-yyyy, hh:mm a") : "-"}
                             </td>
                             <td className="px-3 py-2.5 text-right">
                               <div className="flex items-center justify-end gap-1">
@@ -890,7 +890,7 @@ export default function Dashboard() {
                               </div>
                             </td>
                             <td className="px-3 py-2.5 text-xs text-muted-foreground">{pr.createdBy || '-'}</td>
-                            <td className="px-3 py-2.5 text-xs text-muted-foreground">{format(new Date(pr.date), "dd MMM yyyy")}</td>
+                            <td className="px-3 py-2.5 text-xs text-muted-foreground">{format(new Date(pr.date), "dd-MM-yyyy")}</td>
                             <td className="px-3 py-2.5 text-center">
                               <span className="font-mono text-xs bg-amber-50 dark:bg-amber-900/20 text-amber-600 dark:text-amber-400 px-2 py-0.5 rounded-full font-semibold">{pr.items?.length || 0}</span>
                             </td>
@@ -940,7 +940,7 @@ export default function Dashboard() {
                                     <AlertDialogHeader>
                                       <AlertDialogTitle>Delete purchase request?</AlertDialogTitle>
                                       <AlertDialogDescription>
-                                        This will permanently delete the purchase request for {pr.clientName} ({format(new Date(pr.date), "dd MMM yyyy")}).
+                                        This will permanently delete the purchase request for {pr.clientName} ({format(new Date(pr.date), "dd-MM-yyyy")}).
                                       </AlertDialogDescription>
                                     </AlertDialogHeader>
                                     <AlertDialogFooter>
@@ -1023,7 +1023,7 @@ export default function Dashboard() {
                             </td>
                             <td className="px-3 py-2.5 text-xs text-muted-foreground">{inv.vendorName}</td>
                             <td className="px-3 py-2.5 text-xs font-mono text-muted-foreground">{inv.vendorInvoiceNo || '-'}</td>
-                            <td className="px-3 py-2.5 text-xs text-muted-foreground">{format(new Date(inv.date), "dd MMM yyyy")}</td>
+                            <td className="px-3 py-2.5 text-xs text-muted-foreground">{format(new Date(inv.date), "dd-MM-yyyy")}</td>
                             <td className="px-3 py-2.5 text-right font-mono text-xs font-bold text-indigo-600">{fmt(Number(inv.grandTotal))}</td>
                             <td className="px-3 py-2.5 text-center">
                               <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-semibold shadow-sm ${inv.paymentGiven ? 'bg-gradient-to-r from-emerald-400 to-green-500 text-white' : 'bg-gradient-to-r from-rose-400 to-red-500 text-white'}`} data-testid={`badge-payment-${inv.id}`}>
@@ -1055,7 +1055,7 @@ export default function Dashboard() {
                                     <AlertDialogHeader>
                                       <AlertDialogTitle>Delete purchase invoice?</AlertDialogTitle>
                                       <AlertDialogDescription>
-                                        This will permanently delete the invoice for {inv.clientName} - {inv.vendorName} ({format(new Date(inv.date), "dd MMM yyyy")}).
+                                        This will permanently delete the invoice for {inv.clientName} - {inv.vendorName} ({format(new Date(inv.date), "dd-MM-yyyy")}).
                                       </AlertDialogDescription>
                                     </AlertDialogHeader>
                                     <AlertDialogFooter>

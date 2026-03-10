@@ -145,7 +145,7 @@ export default function CashSealPDF() {
             </div>
             <div>
               <span className="text-muted-foreground print:text-gray-500">Date: </span>
-              <span className="font-semibold print:text-black" data-testid="text-seal-date">{format(new Date(seal.date), "dd MMM yyyy, EEEE")}</span>
+              <span className="font-semibold print:text-black" data-testid="text-seal-date">{format(new Date(seal.date), "dd-MM-yyyy, EEEE")}</span>
             </div>
           </div>
 
@@ -222,7 +222,7 @@ export default function CashSealPDF() {
           </div>
 
           <div className="text-center mt-6 sm:mt-8 text-[10px] sm:text-xs text-muted-foreground print:text-gray-400">
-            Generated on {format(new Date(), "dd MMM yyyy, hh:mm a")}
+            Generated on {format(new Date(), "dd-MM-yyyy, hh:mm a")}
           </div>
         </div>
       </div>

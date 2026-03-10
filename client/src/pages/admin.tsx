@@ -610,7 +610,7 @@ export default function Admin() {
                             {client.gstNo && <span className="text-xs text-muted-foreground">GST: <span className="font-mono">{client.gstNo}</span></span>}
                             {client.agreementValidTill && (
                               <span className={`text-xs ${new Date(client.agreementValidTill) < new Date() ? 'text-red-500 font-semibold' : 'text-muted-foreground'}`}>
-                                Agreement: {new Date(client.agreementValidTill).toLocaleDateString('en-IN')}
+                                Agreement: {(() => { const dt = new Date(client.agreementValidTill); const dd = String(dt.getDate()).padStart(2, "0"); const mm = String(dt.getMonth() + 1).padStart(2, "0"); return `${dd}-${mm}-${dt.getFullYear()}`; })()}
                                 {new Date(client.agreementValidTill) < new Date() && ' (Expired)'}
                               </span>
                             )}

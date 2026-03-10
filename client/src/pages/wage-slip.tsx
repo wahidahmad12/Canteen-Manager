@@ -205,7 +205,7 @@ export default function WageSlip() {
     if (!d) return "-";
     try {
       const dt = new Date(d);
-      return dt.toLocaleDateString("en-IN", { day: "2-digit", month: "2-digit", year: "numeric" });
+      const dd = String(dt.getDate()).padStart(2, "0"); const mm = String(dt.getMonth() + 1).padStart(2, "0"); return `${dd}-${mm}-${dt.getFullYear()}`;
     } catch { return d; }
   };
 

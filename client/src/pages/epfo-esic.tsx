@@ -113,7 +113,7 @@ export default function EpfoEsicPage() {
         totalMonthlyWages,
         reasonCode: daysWorked === 0 ? 1 : 0,
         lastWorkingDay: emp.leavingDate && new Date(emp.leavingDate) <= new Date()
-          ? new Date(emp.leavingDate).toLocaleDateString("en-IN", { day: "2-digit", month: "2-digit", year: "numeric" })
+          ? (() => { const dt = new Date(emp.leavingDate); const dd = String(dt.getDate()).padStart(2, "0"); const mm = String(dt.getMonth() + 1).padStart(2, "0"); return `${dd}-${mm}-${dt.getFullYear()}`; })()
           : "",
       };
     });

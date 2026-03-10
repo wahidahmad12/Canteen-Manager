@@ -310,7 +310,7 @@ export default function PurchaseInvoice() {
                     <SelectContent>
                       {approvedPRs.map((pr: any) => (
                         <SelectItem key={pr.id} value={pr.id.toString()}>
-                          #{pr.serialNumber} - {pr.clientName} ({format(new Date(pr.date), "dd MMM yyyy")})
+                          #{pr.serialNumber} - {pr.clientName} ({format(new Date(pr.date), "dd-MM-yyyy")})
                         </SelectItem>
                       ))}
                     </SelectContent>

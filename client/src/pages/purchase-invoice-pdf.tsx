@@ -78,7 +78,7 @@ export default function PurchaseInvoicePDF() {
             </div>
             <div className="flex justify-between sm:justify-end gap-1">
               <span className="text-muted-foreground print:text-gray-500">Date:</span>
-              <span className="font-semibold print:text-black">{format(new Date(inv.date), "dd MMM yyyy")}</span>
+              <span className="font-semibold print:text-black">{format(new Date(inv.date), "dd-MM-yyyy")}</span>
             </div>
             <div className="flex justify-between sm:justify-start gap-1">
               <span className="text-muted-foreground print:text-gray-500">Client:</span>
@@ -196,7 +196,7 @@ export default function PurchaseInvoicePDF() {
           </div>
 
           <div className="text-center mt-6 sm:mt-8 text-[10px] sm:text-xs text-muted-foreground print:text-gray-400">
-            Generated on {format(new Date(), "dd MMM yyyy, hh:mm a")}
+            Generated on {format(new Date(), "dd-MM-yyyy, hh:mm a")}
           </div>
         </div>
       </div>

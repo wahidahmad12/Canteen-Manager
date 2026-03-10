@@ -503,7 +503,7 @@ export default function LeaveWithWagesPage() {
 
 function PrintableForm({ employee, records, displayYears }: { employee: Employee; records: LeaveWithWages[]; displayYears: number[] }) {
   const getRecord = (year: number) => records.find(r => r.calendarYear === year);
-  const joiningDate = employee.joiningDate ? new Date(employee.joiningDate).toLocaleDateString("en-IN", { day: "2-digit", month: "2-digit", year: "numeric" }) : "";
+  const joiningDate = employee.joiningDate ? (() => { const dt = new Date(employee.joiningDate); const dd = String(dt.getDate()).padStart(2, "0"); const mm = String(dt.getMonth() + 1).padStart(2, "0"); return `${dd}-${mm}-${dt.getFullYear()}`; })() : "";
 
   const minRows = 10;
   const years = [...displayYears];

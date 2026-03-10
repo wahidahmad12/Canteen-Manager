@@ -126,7 +126,7 @@ function esc(s: string | undefined | null): string {
 
 function formatDateStr(d: string | undefined | null): string {
   if (!d) return "-";
-  try { const dt = new Date(d); return dt.toLocaleDateString("en-IN", { day: "2-digit", month: "2-digit", year: "numeric" }); } catch { return d; }
+  try { const dt = new Date(d); const dd = String(dt.getDate()).padStart(2, "0"); const mm = String(dt.getMonth() + 1).padStart(2, "0"); return `${dd}-${mm}-${dt.getFullYear()}`; } catch { return d; }
 }
 
 function buildSlipHTML(salary: SalaryRecord, employee: Employee | undefined, attendance: AttendanceRecord | undefined, logoSrc: string, skillBasicRate?: number): string {

@@ -169,7 +169,7 @@ export default function EmployeeDashboard() {
 
     const formatDt = (d: string | null | undefined) => {
       if (!d) return "-";
-      try { return new Date(d).toLocaleDateString("en-IN", { day: "2-digit", month: "2-digit", year: "numeric" }); } catch { return d; }
+      try { const dt = new Date(d); const dd = String(dt.getDate()).padStart(2, "0"); const mm = String(dt.getMonth() + 1).padStart(2, "0"); return `${dd}-${mm}-${dt.getFullYear()}`; } catch { return d; }
     };
 
     const C = {
