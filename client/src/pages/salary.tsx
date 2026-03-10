@@ -653,18 +653,18 @@ export default function SalaryRegister() {
     <style>
       @page { size: A3 landscape; margin: 8mm; }
       * { margin: 0; padding: 0; box-sizing: border-box; }
-      body { font-family: Arial, sans-serif; font-size: 10px; padding: 8px; }
-      .header-title { text-align: left; font-size: 11px; font-weight: bold; margin-bottom: 2px; }
-      .header-main { text-align: center; font-size: 18px; font-weight: bold; margin-bottom: 4px; }
-      .header-rule { text-align: center; font-size: 9px; margin-bottom: 8px; }
-      .info-table { width: 100%; border-collapse: collapse; margin-bottom: 6px; font-size: 10px; }
-      .info-table td { padding: 2px 6px; vertical-align: top; }
+      body { font-family: Arial, sans-serif; font-size: 12px; padding: 8px; }
+      .header-title { text-align: left; font-size: 13px; font-weight: bold; margin-bottom: 2px; }
+      .header-main { text-align: center; font-size: 20px; font-weight: bold; margin-bottom: 4px; }
+      .header-rule { text-align: center; font-size: 11px; margin-bottom: 8px; }
+      .info-table { width: 100%; border-collapse: collapse; margin-bottom: 6px; font-size: 12px; }
+      .info-table td { padding: 3px 6px; vertical-align: top; }
       .info-label { font-weight: bold; white-space: nowrap; }
-      .period-label { font-size: 16px; font-weight: bold; }
-      table.main { width: 100%; border-collapse: collapse; font-size: 8px; table-layout: auto; }
-      table.main th, table.main td { border: 1px solid #000; padding: 3px 5px; text-align: center; vertical-align: middle; height: 28px; white-space: nowrap; }
-      table.main th { background: #f0f0f0; font-weight: bold; font-size: 7.5px; white-space: normal; }
-      table.main td { font-size: 8.5px; }
+      .period-label { font-size: 18px; font-weight: bold; }
+      table.main { width: 100%; border-collapse: collapse; font-size: 11px; table-layout: auto; }
+      table.main th, table.main td { border: 1px solid #000; padding: 4px 5px; text-align: center; vertical-align: middle; height: 30px; white-space: nowrap; }
+      table.main th { background: #f0f0f0; font-weight: bold; font-size: 10px; white-space: normal; }
+      table.main td { font-size: 11px; }
       table.main td.wrap { white-space: normal; }
     </style></head><body>
       <div class="header-title">FORM XVII</div>
@@ -748,7 +748,7 @@ export default function SalaryRegister() {
             <th>Rs.</th>
             <th>Rs.</th>
           </tr>
-          <tr style="font-size:7px;font-style:italic">
+          <tr style="font-size:9px;font-style:italic">
             <th>1</th><th>2</th><th>3</th><th>4</th><th>5(a)</th><th>5(b)</th><th>6</th><th>7</th>
             <th>8</th><th>9</th><th>10</th><th>11</th><th>12</th><th>13</th>
             <th>14(a)</th><th>14(b)</th><th>14(c)</th><th>14(d)</th><th>15</th>
