@@ -27,6 +27,7 @@ import Registers from "./pages/registers";
 import FormXIII from "./pages/form-xiii";
 import FormXIV from "./pages/form-xiv";
 import FormXV from "./pages/form-xv";
+import FormVIA from "./pages/form-vi-a";
 import BonusReturn from "./pages/bonus-return";
 import HalfYearlyReturn from "./pages/half-yearly-return";
 import LeaveWithWages from "./pages/leave-with-wages";
@@ -87,6 +88,7 @@ function AuthenticatedRouter() {
       <Route path="/form-xiii" component={FormXIII} />
       <Route path="/form-xiv/:id" component={FormXIV} />
       <Route path="/form-xv/:id" component={FormXV} />
+      <Route path="/form-vi-a" component={FormVIA} />
       <Route path="/bonus-return" component={BonusReturn} />
       <Route path="/half-yearly-return" component={HalfYearlyReturn} />
       <Route path="/leave-with-wages" component={LeaveWithWages} />

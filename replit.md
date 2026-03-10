@@ -40,6 +40,7 @@ Preferred communication style: Simple, everyday language.
   - `/epfo-esic` — EPFO & ESIC Excel Export with tabs for EPFO (UAN-based PF contribution sheet) and ESIC (IP number-based monthly return), client filter (individual or all), month/year selector, separate files per client when "All" selected
   - `/letterhead` — Letterhead Letters page with compose/saved tabs, auto-generated ref numbers (DJ/KOL/Year/AutoNo), database persistence, print with company letterhead
   - `/ptax-report` — Professional Tax Report with client-wise employee breakdown, month/year filters, print and Excel export
+  - `/form-vi-a` — Form VI-A (Rule 25(2)(viii)) Notice of Commencement/Completion of Contract Work, fillable form with client selection, contractor/principal employer details, license info, print-ready government format
 
 ### Backend
 - **Framework**: Express 5 on Node.js with TypeScript (run via tsx)
