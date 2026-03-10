@@ -7,7 +7,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Label } from "@/components/ui/label";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { useClientNames } from "@/hooks/use-reports";
-import { ArrowLeft, Printer, FileSpreadsheet, IndianRupee } from "lucide-react";
+import { Input } from "@/components/ui/input";
+import { ArrowLeft, Printer, FileSpreadsheet, IndianRupee, FileText } from "lucide-react";
 import { Link } from "wouter";
 import type { Employee, SalaryRecord } from "@shared/schema";
 
@@ -220,6 +221,103 @@ export default function PtaxReport() {
     URL.revokeObjectURL(url);
   };
 
+  const PTAX_SLABS = [
+    { label: "Do Not Exceed INR 10000/-", min: 0, max: 10000, rate: 0 },
+    { label: "Exceeds INR 10001/- but does not exceed INR 15000/-", min: 10001, max: 15000, rate: 110 },
+    { label: "Exceeds INR 15001/- but does not exceed INR 25000/-", min: 15001, max: 25000, rate: 130 },
+    { label: "Exceeds INR 25001/- but does not exceed INR 40000/-", min: 25001, max: 40000, rate: 150 },
+    { label: "Exceeds INR 40001/- but does not exceed INR 100000/-", min: 40001, max: 100000, rate: 200 },
+  ];
+
+  const slabData = useMemo(() => {
+    return PTAX_SLABS.map(slab => {
+      let count = 0;
+      for (const sal of allSalaryRecords) {
+        const gross = Math.round(Number(sal.grossWage) || 0);
+        if (gross >= slab.min && gross <= slab.max) count++;
+      }
+      return { ...slab, count, tax: count * slab.rate };
+    });
+  }, [allSalaryRecords]);
+
+  const slabTotal = useMemo(() => {
+    return slabData.reduce((s, d) => ({ count: s.count + d.count, tax: s.tax + d.tax }), { count: 0, tax: 0 });
+  }, [slabData]);
+
+  const [showForm5, setShowForm5] = useState(false);
+  const [challanNo, setChallanNo] = useState("");
+  const [chequeNo, setChequeNo] = useState("");
+  const [challanDate, setChallanDate] = useState("");
+  const [bankName, setBankName] = useState("");
+  const [signatoryName, setSignatoryName] = useState("");
+
+  const handlePrintForm5 = () => {
+    const pw = window.open('', '_blank');
+    if (!pw) return;
+
+    let slabRows = '';
+    for (const s of slabData) {
+      slabRows += `<tr>
+        <td style="border:1px solid #000;padding:6px 8px;text-align:left">${s.label}</td>
+        <td style="border:1px solid #000;padding:6px 8px;text-align:center">${s.rate.toFixed(2)}</td>
+        <td style="border:1px solid #000;padding:6px 8px;text-align:center">${s.count}</td>
+        <td style="border:1px solid #000;padding:6px 8px;text-align:center">${s.count > 0 && s.rate > 0 ? s.tax.toFixed(2) : ''}</td>
+      </tr>`;
+    }
+    slabRows += `<tr style="font-weight:bold;background:#fff3e0">
+      <td style="border:1px solid #000;padding:6px 8px;font-weight:bold">Total (in INR)</td>
+      <td style="border:1px solid #000;padding:6px 8px"></td>
+      <td style="border:1px solid #000;padding:6px 8px;text-align:center;font-weight:bold">${slabTotal.count}</td>
+      <td style="border:1px solid #000;padding:6px 8px;text-align:center;font-weight:bold">${slabTotal.tax > 0 ? slabTotal.tax.toFixed(2) : ''}</td>
+    </tr>`;
+
+    pw.document.write(`<!DOCTYPE html><html><head><title>Form 5 - PTax Return - ${MONTHS[month-1]} ${year}</title>
+    <style>
+      body { font-family: 'Times New Roman', serif; padding: 30px 40px; font-size: 13px; line-height: 1.6; color: #000; }
+      h2 { text-align: center; margin-bottom: 2px; font-size: 18px; }
+      .subtitle { text-align: center; font-size: 12px; margin-bottom: 4px; }
+      .month-line { text-align: center; font-weight: bold; font-size: 14px; margin: 16px 0; }
+      table { width: 100%; border-collapse: collapse; margin: 12px 0; }
+      th { background: #f5deb3; border: 1px solid #000; padding: 8px; font-weight: bold; font-size: 12px; }
+      td { font-size: 12px; }
+      .cert { margin-top: 24px; text-align: justify; }
+      .sig-area { margin-top: 50px; display: flex; justify-content: space-between; }
+      @media print { body { padding: 15mm 20mm; } @page { size: A4 portrait; margin: 15mm; } }
+    </style></head><body>
+      <h2>FORM 5</h2>
+      <p class="subtitle">Return of tax payable by employer under Sub-section(1) of Section 6 of the Gujarat state Tax on Professions,<br/>Traders, Callings and Employments Act, 1976</p>
+      <p class="month-line">For the month of ${MONTHS[month-1]} - ${year}</p>
+      <table>
+        <thead>
+          <tr>
+            <th style="text-align:left;width:45%">Monthly Salaries or Wages</th>
+            <th style="width:15%">Rate</th>
+            <th style="width:20%">No. of Employees</th>
+            <th style="width:20%">Tax (in INR)</th>
+          </tr>
+        </thead>
+        <tbody>${slabRows}</tbody>
+      </table>
+      <div style="margin-top:20px">
+        <p>Amount paid under challan No. <b>${challanNo || '...................'}</b> Cheque No. <b>${chequeNo || '...................'}</b> &nbsp;&nbsp;&nbsp;&nbsp; Dated <b>${challanDate || '...................'}</b></p>
+        <p>Name of the Bank <b>${bankName || '...................'}</b></p>
+      </div>
+      <div class="cert">
+        <p style="text-indent:40px">I certify that all employees who are liable to pay the tax in my employ during the period of return have been covered by the foregoing particulars. I also certify that the necessary revision in the amount of tax deductible from the salary or wages of the employees on account of variation in the salary or wages earned by them has been made where necessary.</p>
+      </div>
+      <div style="margin-top:20px">
+        <p>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;I , Shri <b>${signatoryName || '.........................................'}</b></p>
+        <p>solemnly declare that above statements are true to the best of my knowledge and belief.</p>
+      </div>
+      <div class="sig-area">
+        <div>Place : Kolkata</div>
+        <div>Signature of Employer</div>
+      </div>
+    </body></html>`);
+    pw.document.close();
+    pw.onload = () => { pw.print(); pw.onafterprint = () => pw.close(); };
+  };
+
   return (
     <Layout>
       <div className="space-y-4">
@@ -280,6 +378,9 @@ export default function PtaxReport() {
                 </Button>
                 <Button size="sm" variant="outline" onClick={handleExportExcel} className="gap-1.5 text-xs sm:text-sm" data-testid="button-export-ptax">
                   <FileSpreadsheet className="w-4 h-4" /> Excel
+                </Button>
+                <Button size="sm" variant={showForm5 ? "default" : "outline"} onClick={() => setShowForm5(!showForm5)} className="gap-1.5 text-xs sm:text-sm" data-testid="button-toggle-form5">
+                  <FileText className="w-4 h-4" /> Form 5
                 </Button>
               </div>
             </div>
@@ -344,6 +445,73 @@ export default function PtaxReport() {
           <Card>
             <CardContent className="p-8 text-center text-muted-foreground text-sm">
               No salary records found for {MONTHS[month - 1]} {year}
+            </CardContent>
+          </Card>
+        )}
+
+        {showForm5 && (
+          <Card className="border-2 border-amber-300 dark:border-amber-700">
+            <CardContent className="p-4 space-y-4">
+              <div className="flex items-center justify-between">
+                <h3 className="font-bold text-sm flex items-center gap-2">
+                  <FileText className="w-4 h-4" /> Form 5 — Professional Tax Return (Govt. Format)
+                </h3>
+                <Button size="sm" onClick={handlePrintForm5} className="gap-1.5" data-testid="button-print-form5">
+                  <Printer className="w-4 h-4" /> Print Form 5
+                </Button>
+              </div>
+
+              <div className="overflow-x-auto">
+                <Table>
+                  <TableHeader>
+                    <TableRow className="bg-amber-100 dark:bg-amber-900/30">
+                      <TableHead className="text-xs font-bold">Monthly Salaries or Wages</TableHead>
+                      <TableHead className="text-xs font-bold text-center">Rate</TableHead>
+                      <TableHead className="text-xs font-bold text-center">No. of Employees</TableHead>
+                      <TableHead className="text-xs font-bold text-center">Tax (in INR)</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {slabData.map((s, i) => (
+                      <TableRow key={i} data-testid={`row-slab-${i}`}>
+                        <TableCell className="text-xs">{s.label}</TableCell>
+                        <TableCell className="text-xs text-center">{s.rate.toFixed(2)}</TableCell>
+                        <TableCell className="text-xs text-center font-semibold">{s.count}</TableCell>
+                        <TableCell className="text-xs text-center">{s.count > 0 && s.rate > 0 ? s.tax.toFixed(2) : ''}</TableCell>
+                      </TableRow>
+                    ))}
+                    <TableRow className="bg-amber-50 dark:bg-amber-900/20 font-bold">
+                      <TableCell className="text-xs font-bold">Total (in INR)</TableCell>
+                      <TableCell className="text-xs"></TableCell>
+                      <TableCell className="text-xs text-center font-bold">{slabTotal.count}</TableCell>
+                      <TableCell className="text-xs text-center font-bold">{slabTotal.tax > 0 ? slabTotal.tax.toFixed(2) : ''}</TableCell>
+                    </TableRow>
+                  </TableBody>
+                </Table>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3 pt-2">
+                <div className="space-y-1">
+                  <Label className="text-xs">Challan No.</Label>
+                  <Input value={challanNo} onChange={e => setChallanNo(e.target.value)} placeholder="Challan No." data-testid="input-challan-no" />
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-xs">Cheque No.</Label>
+                  <Input value={chequeNo} onChange={e => setChequeNo(e.target.value)} placeholder="Cheque No." data-testid="input-cheque-no" />
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-xs">Dated</Label>
+                  <Input type="date" value={challanDate} onChange={e => setChallanDate(e.target.value)} data-testid="input-challan-date" />
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-xs">Name of the Bank</Label>
+                  <Input value={bankName} onChange={e => setBankName(e.target.value)} placeholder="Bank Name" data-testid="input-bank-name" />
+                </div>
+                <div className="space-y-1 sm:col-span-2">
+                  <Label className="text-xs">Signatory Name (I, Shri ...)</Label>
+                  <Input value={signatoryName} onChange={e => setSignatoryName(e.target.value)} placeholder="Signatory Name" data-testid="input-signatory-name" />
+                </div>
+              </div>
             </CardContent>
           </Card>
         )}
