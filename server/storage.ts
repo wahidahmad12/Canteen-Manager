@@ -32,6 +32,7 @@ import {
   halfYearlyReturns,
   bonusReturns,
   letters,
+  purchaseOrders,
   salesInvoices,
   type DailyReport, 
   type ExpenseItem,
@@ -65,6 +66,7 @@ import {
   type BonusReturn,
   type Letter,
   type SalesInvoice,
+  type PurchaseOrder,
 } from "@shared/schema";
 import { eq, desc, lt, and, sql } from "drizzle-orm";
 import bcrypt from "bcryptjs";
@@ -203,6 +205,11 @@ export interface IStorage {
   createLetter(data: any): Promise<Letter>;
   updateLetter(id: number, data: any): Promise<Letter>;
   deleteLetter(id: number): Promise<void>;
+  getPurchaseOrders(): Promise<PurchaseOrder[]>;
+  getPurchaseOrder(id: number): Promise<PurchaseOrder | undefined>;
+  createPurchaseOrder(data: any): Promise<PurchaseOrder>;
+  updatePurchaseOrder(id: number, data: any): Promise<PurchaseOrder>;
+  deletePurchaseOrder(id: number): Promise<void>;
   getSalesInvoices(): Promise<SalesInvoice[]>;
   getSalesInvoice(id: number): Promise<SalesInvoice | undefined>;
   createSalesInvoice(data: any): Promise<SalesInvoice>;
@@ -1553,6 +1560,29 @@ export class DatabaseStorage implements IStorage {
 
   async deleteLetter(id: number): Promise<void> {
     await db.delete(letters).where(eq(letters.id, id));
+  }
+
+  async getPurchaseOrders(): Promise<PurchaseOrder[]> {
+    return await db.select().from(purchaseOrders).orderBy(desc(purchaseOrders.id));
+  }
+
+  async getPurchaseOrder(id: number): Promise<PurchaseOrder | undefined> {
+    const [row] = await db.select().from(purchaseOrders).where(eq(purchaseOrders.id, id));
+    return row;
+  }
+
+  async createPurchaseOrder(data: any): Promise<PurchaseOrder> {
+    return await insertAndGet<PurchaseOrder>(purchaseOrders, data);
+  }
+
+  async updatePurchaseOrder(id: number, data: any): Promise<PurchaseOrder> {
+    await db.update(purchaseOrders).set({ ...data, updatedAt: new Date() }).where(eq(purchaseOrders.id, id));
+    const [updated] = await db.select().from(purchaseOrders).where(eq(purchaseOrders.id, id));
+    return updated;
+  }
+
+  async deletePurchaseOrder(id: number): Promise<void> {
+    await db.delete(purchaseOrders).where(eq(purchaseOrders.id, id));
   }
 
   async getSalesInvoices(): Promise<SalesInvoice[]> {

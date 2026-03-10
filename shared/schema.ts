@@ -469,9 +469,24 @@ export const letters = mysqlTable("letters", {
 export type Letter = typeof letters.$inferSelect;
 export const insertLetterSchema = createInsertSchema(letters).omit({ id: true, serialNumber: true, createdAt: true, updatedAt: true });
 
+export const purchaseOrders = mysqlTable("purchase_orders", {
+  id: int("id").autoincrement().primaryKey(),
+  poNumber: varchar("po_number", { length: 100 }).notNull(),
+  poDate: text("po_date").notNull(),
+  poAmount: decimal("po_amount", { precision: 14, scale: 2 }).default("0").notNull(),
+  clientName: text("client_name").notNull(),
+  createdBy: text("created_by"),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export type PurchaseOrder = typeof purchaseOrders.$inferSelect;
+export const insertPurchaseOrderSchema = createInsertSchema(purchaseOrders).omit({ id: true, createdAt: true, updatedAt: true });
+
 export const salesInvoices = mysqlTable("sales_invoices", {
   id: int("id").autoincrement().primaryKey(),
   slNo: int("sl_no"),
+  poId: int("po_id"),
   clientName: text("client_name").notNull(),
   billDate: text("bill_date").notNull(),
   billNumber: varchar("bill_number", { length: 100 }).notNull(),
