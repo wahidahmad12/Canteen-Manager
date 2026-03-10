@@ -243,13 +243,28 @@ export default function EpfoEsicPage() {
     }
 
     const ExcelJS = (await import("exceljs")).default;
-    const wb = new ExcelJS.Workbook();
 
-    const label = selectedClient === "__all__" ? "All_Clients" : selectedClient.replace(/\s+/g, '_');
-    buildEsicSheet(wb, esicData, selectedClient === "__all__" ? "Sheet1" : selectedClient);
-    addEsicInstructionsSheet(wb);
-    const buf = await wb.xlsx.writeBuffer();
-    downloadBuffer(buf, `ESIC_${label}_${MONTHS[month - 1]}_${year}.xlsx`);
+    if (selectedClient === "__all__") {
+      const clientGroups = new Map<string, typeof esicData>();
+      for (const row of esicData) {
+        if (!clientGroups.has(row.clientName)) clientGroups.set(row.clientName, []);
+        clientGroups.get(row.clientName)!.push(row);
+      }
+
+      for (const [clientName, rows] of clientGroups) {
+        const wb = new ExcelJS.Workbook();
+        buildEsicSheet(wb, rows, "Sheet1");
+        addEsicInstructionsSheet(wb);
+        const buf = await wb.xlsx.writeBuffer();
+        downloadBuffer(buf, `ESIC_${clientName.replace(/\s+/g, '_')}_${MONTHS[month - 1]}_${year}.xlsx`);
+      }
+    } else {
+      const wb = new ExcelJS.Workbook();
+      buildEsicSheet(wb, esicData, "Sheet1");
+      addEsicInstructionsSheet(wb);
+      const buf = await wb.xlsx.writeBuffer();
+      downloadBuffer(buf, `ESIC_${selectedClient.replace(/\s+/g, '_')}_${MONTHS[month - 1]}_${year}.xlsx`);
+    }
     toast({ title: "ESIC Excel exported" });
   };
 
@@ -279,23 +294,29 @@ export default function EpfoEsicPage() {
 
     for (const row of rows) {
       const dataRow = ws.addRow([
-        row.ipNumber, row.ipName, row.noOfDays, row.totalMonthlyWages,
-        row.reasonCode, row.lastWorkingDay,
+        String(row.ipNumber),
+        String(row.ipName),
+        String(row.noOfDays),
+        String(row.totalMonthlyWages),
+        String(row.reasonCode),
+        row.lastWorkingDay ? String(row.lastWorkingDay) : "",
       ]);
-      dataRow.eachCell((cell: any, colNumber: number) => {
+      dataRow.eachCell((cell: any) => {
         cell.border = {
           top: { style: "thin" }, bottom: { style: "thin" },
           left: { style: "thin" }, right: { style: "thin" },
         };
-        if (colNumber === 3 || colNumber === 4) {
-          cell.numFmt = "#,##0";
-          cell.alignment = { horizontal: "right" };
-        }
+        cell.numFmt = "@";
       });
     }
 
     ws.columns = [
-      { width: 16 }, { width: 28 }, { width: 20 }, { width: 18 }, { width: 22 }, { width: 20 },
+      { width: 16, style: { numFmt: "@" } },
+      { width: 28, style: { numFmt: "@" } },
+      { width: 20, style: { numFmt: "@" } },
+      { width: 18, style: { numFmt: "@" } },
+      { width: 22, style: { numFmt: "@" } },
+      { width: 20, style: { numFmt: "@" } },
     ];
 
   };
