@@ -33,6 +33,7 @@ Preferred communication style: Simple, everyday language.
   - `/registers` — Combined registers page with tabs for Fines (XXI), Advances (XXII), Overtime (XXIII), Damage/Loss (XX)
   - `/form-xiii` — Workmen Register (Form XIII) printable list of workers by company
   - `/form-xiv/:id` — Employment Card (Form XIV) individual worker card
+  - `/form-xv/:id` — Service Certificate (Form XV, Rule 77) per-employee printable certificate with employment period, nature of work, wage rate
   - `/bonus-return` — Bonus Return with tabs: Form C (client-wise annual bonus calculation at 8.33% of gross salary) and Form D (Annual Return summary per Payment of Bonus Act rule 5, with editable fields for nature of industry, settlement, percentage, paid-to-all status, remarks)
   - `/half-yearly-return` — Half-Yearly Return (Form XXIV) Rule 82(1) with cover letter and form, auto-calculated from salary records, separate print buttons for cover letter (A4 portrait) and Form XXIV (A4 portrait)
   - `/leave-with-wages` — Register of Leave With Wages (Form No. 15) per employee, government format print (A3 landscape), CRUD for yearly leave records

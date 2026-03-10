@@ -142,11 +142,18 @@ export default function FormXIII() {
                             <p className="font-bold text-sm text-indigo-800 dark:text-indigo-300">{idx + 1}. {emp.name}</p>
                             <p className="text-xs text-muted-foreground font-mono">{emp.employeeCode}</p>
                           </div>
-                          <Link href={`/form-xiv/${emp.id}`}>
-                            <Button variant="outline" size="sm" className="text-indigo-600 border-indigo-300" data-testid={`button-card-${emp.id}`}>
-                              <CreditCard className="w-3 h-3 mr-1" /> Card
-                            </Button>
-                          </Link>
+                          <div className="flex gap-1">
+                            <Link href={`/form-xiv/${emp.id}`}>
+                              <Button variant="outline" size="sm" className="text-indigo-600 border-indigo-300" data-testid={`button-card-${emp.id}`}>
+                                <CreditCard className="w-3 h-3 mr-1" /> Card
+                              </Button>
+                            </Link>
+                            <Link href={`/form-xv/${emp.id}`}>
+                              <Button variant="outline" size="sm" className="text-emerald-600 border-emerald-300" data-testid={`button-service-cert-${emp.id}`}>
+                                <FileText className="w-3 h-3 mr-1" /> Cert
+                              </Button>
+                            </Link>
+                          </div>
                         </div>
                         <div className="grid grid-cols-2 gap-1.5 text-xs">
                           <span className="text-muted-foreground">Father's Name:</span>
@@ -220,11 +227,18 @@ export default function FormXIII() {
                                 <td className="px-2 py-2 text-left border border-slate-200">{fmtDate(emp.joiningDate)}</td>
                                 <td className="px-2 py-2 text-right border border-slate-200 font-bold text-emerald-700 dark:text-emerald-400">₹{Number(emp.dailyRate).toLocaleString('en-IN')}</td>
                                 <td className="px-2 py-2 text-center border border-slate-200">
-                                  <Link href={`/form-xiv/${emp.id}`}>
-                                    <Button variant="outline" size="sm" className="h-6 text-[10px] px-2 text-indigo-600 border-indigo-300 hover:bg-indigo-50" data-testid={`button-emp-card-${emp.id}`}>
-                                      <Briefcase className="w-3 h-3 mr-1" /> Card
-                                    </Button>
-                                  </Link>
+                                  <div className="flex gap-1 justify-center">
+                                    <Link href={`/form-xiv/${emp.id}`}>
+                                      <Button variant="outline" size="sm" className="h-6 text-[10px] px-2 text-indigo-600 border-indigo-300 hover:bg-indigo-50" data-testid={`button-emp-card-${emp.id}`}>
+                                        <Briefcase className="w-3 h-3 mr-1" /> Card
+                                      </Button>
+                                    </Link>
+                                    <Link href={`/form-xv/${emp.id}`}>
+                                      <Button variant="outline" size="sm" className="h-6 text-[10px] px-2 text-emerald-600 border-emerald-300 hover:bg-emerald-50" data-testid={`button-emp-cert-${emp.id}`}>
+                                        <FileText className="w-3 h-3 mr-1" /> Cert
+                                      </Button>
+                                    </Link>
+                                  </div>
                                 </td>
                               </tr>
                             );
