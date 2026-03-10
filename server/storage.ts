@@ -159,16 +159,20 @@ export interface IStorage {
   getAnnualSalary(clientName: string, fyStartYear: number): Promise<SalaryRecord[]>;
   getFines(clientName?: string): Promise<Fine[]>;
   createFine(data: any): Promise<Fine>;
+  updateFine(id: number, data: any): Promise<Fine>;
   deleteFine(id: number): Promise<void>;
   getAdvances(clientName?: string): Promise<Advance[]>;
   createAdvance(data: any): Promise<Advance>;
+  updateAdvance(id: number, data: any): Promise<Advance>;
   deleteAdvance(id: number): Promise<void>;
   getOvertimeRecords(clientName?: string): Promise<OvertimeRecord[]>;
   createOvertimeRecord(data: any): Promise<OvertimeRecord>;
+  updateOvertimeRecordFull(id: number, data: any): Promise<OvertimeRecord>;
   deleteOvertimeRecord(id: number): Promise<void>;
   updateOvertimeRecord(id: number, data: { overtimeRate?: string; overtimeAmount?: string }): Promise<void>;
   getDamageDeductions(clientName?: string): Promise<DamageDeduction[]>;
   createDamageDeduction(data: any): Promise<DamageDeduction>;
+  updateDamageDeduction(id: number, data: any): Promise<DamageDeduction>;
   deleteDamageDeduction(id: number): Promise<void>;
   getLeaveWithWages(employeeId: number): Promise<LeaveWithWages[]>;
   getLeaveWithWagesByClient(clientName: string): Promise<LeaveWithWages[]>;
@@ -1235,6 +1239,16 @@ export class DatabaseStorage implements IStorage {
     });
     return fine;
   }
+  async updateFine(id: number, data: any): Promise<Fine> {
+    const updates: any = {};
+    if (data.date !== undefined) updates.date = data.date;
+    if (data.amount !== undefined) updates.amount = data.amount;
+    if (data.reason !== undefined) updates.reason = data.reason;
+    if (data.realized !== undefined) updates.realized = data.realized;
+    await db.update(fines).set(updates).where(eq(fines.id, id));
+    const [updated] = await db.select().from(fines).where(eq(fines.id, id));
+    return updated;
+  }
   async deleteFine(id: number): Promise<void> {
     await db.delete(fines).where(eq(fines.id, id));
   }
@@ -1255,6 +1269,17 @@ export class DatabaseStorage implements IStorage {
 
     });
     return adv;
+  }
+  async updateAdvance(id: number, data: any): Promise<Advance> {
+    const updates: any = {};
+    if (data.date !== undefined) updates.date = data.date;
+    if (data.amount !== undefined) updates.amount = data.amount;
+    if (data.purpose !== undefined) updates.purpose = data.purpose;
+    if (data.installments !== undefined) updates.installments = data.installments;
+    if (data.recoveredAmount !== undefined) updates.recoveredAmount = data.recoveredAmount;
+    await db.update(advances).set(updates).where(eq(advances.id, id));
+    const [updated] = await db.select().from(advances).where(eq(advances.id, id));
+    return updated;
   }
   async deleteAdvance(id: number): Promise<void> {
     await db.delete(advances).where(eq(advances.id, id));
@@ -1281,6 +1306,18 @@ export class DatabaseStorage implements IStorage {
     await db.delete(overtimeRegister).where(eq(overtimeRegister.id, id));
   }
 
+  async updateOvertimeRecordFull(id: number, data: any): Promise<OvertimeRecord> {
+    const updates: any = {};
+    if (data.date !== undefined) updates.date = data.date;
+    if (data.normalHours !== undefined) updates.normalHours = data.normalHours;
+    if (data.overtimeHours !== undefined) updates.overtimeHours = data.overtimeHours;
+    if (data.overtimeRate !== undefined) updates.overtimeRate = data.overtimeRate;
+    if (data.overtimeAmount !== undefined) updates.overtimeAmount = data.overtimeAmount;
+    if (data.paidDate !== undefined) updates.paidDate = data.paidDate;
+    await db.update(overtimeRegister).set(updates).where(eq(overtimeRegister.id, id));
+    const [updated] = await db.select().from(overtimeRegister).where(eq(overtimeRegister.id, id));
+    return updated;
+  }
   async updateOvertimeRecord(id: number, data: { overtimeRate?: string; overtimeAmount?: string }): Promise<void> {
     await db.update(overtimeRegister).set(data).where(eq(overtimeRegister.id, id));
   }
@@ -1301,6 +1338,15 @@ export class DatabaseStorage implements IStorage {
 
     });
     return dd;
+  }
+  async updateDamageDeduction(id: number, data: any): Promise<DamageDeduction> {
+    const updates: any = {};
+    if (data.date !== undefined) updates.date = data.date;
+    if (data.amount !== undefined) updates.amount = data.amount;
+    if (data.description !== undefined) updates.description = data.description;
+    await db.update(damageDeductions).set(updates).where(eq(damageDeductions.id, id));
+    const [updated] = await db.select().from(damageDeductions).where(eq(damageDeductions.id, id));
+    return updated;
   }
   async deleteDamageDeduction(id: number): Promise<void> {
     await db.delete(damageDeductions).where(eq(damageDeductions.id, id));

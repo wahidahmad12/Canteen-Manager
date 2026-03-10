@@ -36,7 +36,7 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
-import { Plus, Trash2, Printer, Loader2, Gavel, Banknote, Clock, AlertTriangle, Calendar, RefreshCw } from "lucide-react";
+import { Plus, Trash2, Printer, Loader2, Gavel, Banknote, Clock, AlertTriangle, Calendar, RefreshCw, Pencil } from "lucide-react";
 
 const fmt = (n: number) =>
   "\u20B9" + Number(n).toLocaleString("en-IN", { minimumFractionDigits: 0, maximumFractionDigits: 2 });
@@ -74,7 +74,9 @@ function FinesTab({ clientName, clientAddress, employees, empMap, filterMonth, f
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [open, setOpen] = useState(false);
+  const [editingId, setEditingId] = useState<number | null>(null);
   const [formData, setFormData] = useState({ employeeId: "", date: "", amount: "", reason: "", realized: "" });
+  const emptyForm = { employeeId: "", date: "", amount: "", reason: "", realized: "" };
 
   const { data: fines, isLoading } = useQuery({
     queryKey: ["/api/fines", clientName],
@@ -93,9 +95,21 @@ function FinesTab({ clientName, clientAddress, employees, empMap, filterMonth, f
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/fines", clientName] });
-      setOpen(false);
-      setFormData({ employeeId: "", date: "", amount: "", reason: "", realized: "" });
+      setOpen(false); setEditingId(null); setFormData(emptyForm);
       toast({ title: "Fine added successfully" });
+    },
+    onError: (err: Error) => toast({ title: "Error", description: err.message, variant: "destructive" }),
+  });
+
+  const updateMutation = useMutation({
+    mutationFn: async ({ id, data }: { id: number; data: any }) => {
+      const res = await apiRequest("PUT", `/api/fines/${id}`, data);
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/fines", clientName] });
+      setOpen(false); setEditingId(null); setFormData(emptyForm);
+      toast({ title: "Fine updated successfully" });
     },
     onError: (err: Error) => toast({ title: "Error", description: err.message, variant: "destructive" }),
   });
@@ -109,19 +123,40 @@ function FinesTab({ clientName, clientAddress, employees, empMap, filterMonth, f
     onError: (err: Error) => toast({ title: "Error", description: err.message, variant: "destructive" }),
   });
 
+  const openEdit = (record: any) => {
+    setEditingId(record.id);
+    setFormData({
+      employeeId: String(record.employeeId),
+      date: record.date?.split("T")[0] || record.date || "",
+      amount: record.amount || "",
+      reason: record.reason || "",
+      realized: record.realized || "",
+    });
+    setOpen(true);
+  };
+
+  const openAdd = () => {
+    setEditingId(null); setFormData(emptyForm); setOpen(true);
+  };
+
   const handleSubmit = () => {
     if (!formData.employeeId || !formData.date || !formData.amount) {
       toast({ title: "Please fill required fields", variant: "destructive" });
       return;
     }
-    createMutation.mutate({
+    const payload = {
       employeeId: Number(formData.employeeId),
       clientName,
       date: formData.date,
       amount: formData.amount,
       reason: formData.reason,
       realized: formData.realized,
-    });
+    };
+    if (editingId) {
+      updateMutation.mutate({ id: editingId, data: payload });
+    } else {
+      createMutation.mutate(payload);
+    }
   };
 
   const filtered = useMemo(() => filterByMonth(fines, filterMonth, filterYear), [fines, filterMonth, filterYear]);
@@ -280,16 +315,16 @@ function FinesTab({ clientName, clientAddress, employees, empMap, filterMonth, f
           <Button variant="outline" size="sm" onClick={handleGovPrint} data-testid="button-gov-print-fines">
             <Printer className="w-4 h-4 mr-1" /> Form XXI
           </Button>
-          <Dialog open={open} onOpenChange={setOpen}>
+          <Dialog open={open} onOpenChange={(v) => { setOpen(v); if (!v) { setEditingId(null); setFormData(emptyForm); } }}>
             <DialogTrigger asChild>
-              <Button size="sm" data-testid="button-add-fine"><Plus className="w-4 h-4 mr-1" /> Add</Button>
+              <Button size="sm" onClick={openAdd} data-testid="button-add-fine"><Plus className="w-4 h-4 mr-1" /> Add</Button>
             </DialogTrigger>
             <DialogContent>
-              <DialogHeader><DialogTitle>Add Fine</DialogTitle></DialogHeader>
+              <DialogHeader><DialogTitle>{editingId ? "Edit Fine" : "Add Fine"}</DialogTitle></DialogHeader>
               <div className="space-y-3">
                 <div>
                   <Label>Employee *</Label>
-                  <Select value={formData.employeeId} onValueChange={(v) => setFormData({ ...formData, employeeId: v })}>
+                  <Select value={formData.employeeId} onValueChange={(v) => setFormData({ ...formData, employeeId: v })} disabled={!!editingId}>
                     <SelectTrigger data-testid="select-fine-employee"><SelectValue placeholder="Select employee" /></SelectTrigger>
                     <SelectContent>{employees.map((e: any) => <SelectItem key={e.id} value={String(e.id)}>{e.name}</SelectItem>)}</SelectContent>
                   </Select>
@@ -310,8 +345,8 @@ function FinesTab({ clientName, clientAddress, employees, empMap, filterMonth, f
                   <Label>Realized</Label>
                   <Input value={formData.realized} onChange={(e) => setFormData({ ...formData, realized: e.target.value })} data-testid="input-fine-realized" />
                 </div>
-                <Button className="w-full" onClick={handleSubmit} disabled={createMutation.isPending} data-testid="button-submit-fine">
-                  {createMutation.isPending ? <Loader2 className="w-4 h-4 animate-spin mr-1" /> : null} Save Fine
+                <Button className="w-full" onClick={handleSubmit} disabled={createMutation.isPending || updateMutation.isPending} data-testid="button-submit-fine">
+                  {(createMutation.isPending || updateMutation.isPending) ? <Loader2 className="w-4 h-4 animate-spin mr-1" /> : null} {editingId ? "Update Fine" : "Save Fine"}
                 </Button>
               </div>
             </DialogContent>
@@ -348,6 +383,7 @@ function FinesTab({ clientName, clientAddress, employees, empMap, filterMonth, f
                         <td className="px-3 py-2.5">{f.reason || "-"}</td>
                         <td className="px-3 py-2.5">{f.realized || "-"}</td>
                         <td className="px-3 py-2.5 text-right">
+                          <Button variant="ghost" size="icon" onClick={() => openEdit(f)} data-testid={`button-edit-fine-${f.id}`}><Pencil className="w-4 h-4" /></Button>
                           <AlertDialog>
                             <AlertDialogTrigger asChild>
                               <Button variant="ghost" size="icon" data-testid={`button-delete-fine-${f.id}`}><Trash2 className="w-4 h-4 text-destructive" /></Button>
@@ -378,7 +414,8 @@ function FinesTab({ clientName, clientAddress, employees, empMap, filterMonth, f
                   </div>
                   {f.reason && <p className="text-xs text-muted-foreground">Reason: {f.reason}</p>}
                   {f.realized && <p className="text-xs text-muted-foreground">Realized: {f.realized}</p>}
-                  <div className="flex justify-end">
+                  <div className="flex justify-end gap-1">
+                    <Button variant="ghost" size="icon" onClick={() => openEdit(f)} data-testid={`button-edit-fine-mobile-${f.id}`}><Pencil className="w-4 h-4" /></Button>
                     <AlertDialog>
                       <AlertDialogTrigger asChild>
                         <Button variant="ghost" size="icon" data-testid={`button-delete-fine-mobile-${f.id}`}><Trash2 className="w-4 h-4 text-destructive" /></Button>
@@ -403,7 +440,9 @@ function AdvancesTab({ clientName, clientAddress, employees, empMap, filterMonth
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [open, setOpen] = useState(false);
+  const [editingId, setEditingId] = useState<number | null>(null);
   const [formData, setFormData] = useState({ employeeId: "", date: "", amount: "", purpose: "", installments: "", recoveredAmount: "" });
+  const emptyForm = { employeeId: "", date: "", amount: "", purpose: "", installments: "", recoveredAmount: "" };
 
   const { data: advances, isLoading } = useQuery({
     queryKey: ["/api/advances", clientName],
@@ -419,9 +458,21 @@ function AdvancesTab({ clientName, clientAddress, employees, empMap, filterMonth
     mutationFn: async (data: any) => { const res = await apiRequest("POST", "/api/advances", data); return res.json(); },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/advances", clientName] });
-      setOpen(false);
-      setFormData({ employeeId: "", date: "", amount: "", purpose: "", installments: "", recoveredAmount: "" });
+      setOpen(false); setEditingId(null); setFormData(emptyForm);
       toast({ title: "Advance added successfully" });
+    },
+    onError: (err: Error) => toast({ title: "Error", description: err.message, variant: "destructive" }),
+  });
+
+  const updateMutation = useMutation({
+    mutationFn: async ({ id, data }: { id: number; data: any }) => {
+      const res = await apiRequest("PUT", `/api/advances/${id}`, data);
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/advances", clientName] });
+      setOpen(false); setEditingId(null); setFormData(emptyForm);
+      toast({ title: "Advance updated successfully" });
     },
     onError: (err: Error) => toast({ title: "Error", description: err.message, variant: "destructive" }),
   });
@@ -435,20 +486,42 @@ function AdvancesTab({ clientName, clientAddress, employees, empMap, filterMonth
     onError: (err: Error) => toast({ title: "Error", description: err.message, variant: "destructive" }),
   });
 
+  const openEdit = (record: any) => {
+    setEditingId(record.id);
+    setFormData({
+      employeeId: String(record.employeeId),
+      date: record.date?.split("T")[0] || record.date || "",
+      amount: record.amount || "",
+      purpose: record.purpose || "",
+      installments: record.installments ? String(record.installments) : "",
+      recoveredAmount: record.recoveredAmount || "",
+    });
+    setOpen(true);
+  };
+
+  const openAdd = () => {
+    setEditingId(null); setFormData(emptyForm); setOpen(true);
+  };
+
   const handleSubmit = () => {
     if (!formData.employeeId || !formData.date || !formData.amount) {
       toast({ title: "Please fill required fields", variant: "destructive" });
       return;
     }
-    createMutation.mutate({
+    const payload = {
       employeeId: Number(formData.employeeId),
       clientName,
       date: formData.date,
       amount: formData.amount,
       purpose: formData.purpose,
-      installments: formData.installments ? Number(formData.installments) : undefined,
-      recoveredAmount: formData.recoveredAmount || undefined,
-    });
+      installments: formData.installments ? Number(formData.installments) : null,
+      recoveredAmount: formData.recoveredAmount || null,
+    };
+    if (editingId) {
+      updateMutation.mutate({ id: editingId, data: payload });
+    } else {
+      createMutation.mutate(payload);
+    }
   };
 
   const filtered = useMemo(() => filterByMonth(advances, filterMonth, filterYear), [advances, filterMonth, filterYear]);
@@ -605,16 +678,16 @@ function AdvancesTab({ clientName, clientAddress, employees, empMap, filterMonth
           <Button variant="outline" size="sm" onClick={handleGovPrint} data-testid="button-gov-print-advances">
             <Printer className="w-4 h-4 mr-1" /> Form XXII
           </Button>
-          <Dialog open={open} onOpenChange={setOpen}>
+          <Dialog open={open} onOpenChange={(v) => { setOpen(v); if (!v) { setEditingId(null); setFormData(emptyForm); } }}>
             <DialogTrigger asChild>
-              <Button size="sm" data-testid="button-add-advance"><Plus className="w-4 h-4 mr-1" /> Add</Button>
+              <Button size="sm" onClick={openAdd} data-testid="button-add-advance"><Plus className="w-4 h-4 mr-1" /> Add</Button>
             </DialogTrigger>
             <DialogContent>
-              <DialogHeader><DialogTitle>Add Advance</DialogTitle></DialogHeader>
+              <DialogHeader><DialogTitle>{editingId ? "Edit Advance" : "Add Advance"}</DialogTitle></DialogHeader>
               <div className="space-y-3">
                 <div>
                   <Label>Employee *</Label>
-                  <Select value={formData.employeeId} onValueChange={(v) => setFormData({ ...formData, employeeId: v })}>
+                  <Select value={formData.employeeId} onValueChange={(v) => setFormData({ ...formData, employeeId: v })} disabled={!!editingId}>
                     <SelectTrigger data-testid="select-advance-employee"><SelectValue placeholder="Select employee" /></SelectTrigger>
                     <SelectContent>{employees.map((e: any) => <SelectItem key={e.id} value={String(e.id)}>{e.name}</SelectItem>)}</SelectContent>
                   </Select>
@@ -641,8 +714,8 @@ function AdvancesTab({ clientName, clientAddress, employees, empMap, filterMonth
                     <Input inputMode="decimal" placeholder="0.00" value={formData.recoveredAmount} onChange={(e) => setFormData({ ...formData, recoveredAmount: e.target.value })} data-testid="input-advance-recovered" />
                   </div>
                 </div>
-                <Button className="w-full" onClick={handleSubmit} disabled={createMutation.isPending} data-testid="button-submit-advance">
-                  {createMutation.isPending ? <Loader2 className="w-4 h-4 animate-spin mr-1" /> : null} Save Advance
+                <Button className="w-full" onClick={handleSubmit} disabled={createMutation.isPending || updateMutation.isPending} data-testid="button-submit-advance">
+                  {(createMutation.isPending || updateMutation.isPending) ? <Loader2 className="w-4 h-4 animate-spin mr-1" /> : null} {editingId ? "Update Advance" : "Save Advance"}
                 </Button>
               </div>
             </DialogContent>
@@ -681,6 +754,7 @@ function AdvancesTab({ clientName, clientAddress, employees, empMap, filterMonth
                         <td className="px-3 py-2.5 text-right">{a.installments || "-"}</td>
                         <td className="px-3 py-2.5 text-right font-mono">{a.recoveredAmount ? fmt(a.recoveredAmount) : "-"}</td>
                         <td className="px-3 py-2.5 text-right">
+                          <Button variant="ghost" size="icon" onClick={() => openEdit(a)} data-testid={`button-edit-advance-${a.id}`}><Pencil className="w-4 h-4" /></Button>
                           <AlertDialog>
                             <AlertDialogTrigger asChild>
                               <Button variant="ghost" size="icon" data-testid={`button-delete-advance-${a.id}`}><Trash2 className="w-4 h-4 text-destructive" /></Button>
@@ -715,15 +789,18 @@ function AdvancesTab({ clientName, clientAddress, employees, empMap, filterMonth
                       {a.installments && <span>Installments: {a.installments}</span>}
                       {a.recoveredAmount && <span>Recovered: {fmt(a.recoveredAmount)}</span>}
                     </div>
-                    <AlertDialog>
-                      <AlertDialogTrigger asChild>
-                        <Button variant="ghost" size="icon" data-testid={`button-delete-advance-mobile-${a.id}`}><Trash2 className="w-4 h-4 text-destructive" /></Button>
-                      </AlertDialogTrigger>
-                      <AlertDialogContent>
-                        <AlertDialogHeader><AlertDialogTitle>Delete Advance?</AlertDialogTitle><AlertDialogDescription>This action cannot be undone.</AlertDialogDescription></AlertDialogHeader>
-                        <AlertDialogFooter><AlertDialogCancel>Cancel</AlertDialogCancel><AlertDialogAction onClick={() => deleteMutation.mutate(a.id)}>Delete</AlertDialogAction></AlertDialogFooter>
-                      </AlertDialogContent>
-                    </AlertDialog>
+                    <div className="flex gap-1">
+                      <Button variant="ghost" size="icon" onClick={() => openEdit(a)} data-testid={`button-edit-advance-mobile-${a.id}`}><Pencil className="w-4 h-4" /></Button>
+                      <AlertDialog>
+                        <AlertDialogTrigger asChild>
+                          <Button variant="ghost" size="icon" data-testid={`button-delete-advance-mobile-${a.id}`}><Trash2 className="w-4 h-4 text-destructive" /></Button>
+                        </AlertDialogTrigger>
+                        <AlertDialogContent>
+                          <AlertDialogHeader><AlertDialogTitle>Delete Advance?</AlertDialogTitle><AlertDialogDescription>This action cannot be undone.</AlertDialogDescription></AlertDialogHeader>
+                          <AlertDialogFooter><AlertDialogCancel>Cancel</AlertDialogCancel><AlertDialogAction onClick={() => deleteMutation.mutate(a.id)}>Delete</AlertDialogAction></AlertDialogFooter>
+                        </AlertDialogContent>
+                      </AlertDialog>
+                    </div>
                   </div>
                 </CardContent>
               </Card>
@@ -739,7 +816,9 @@ function OvertimeTab({ clientName, clientAddress, employees, empMap, filterMonth
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [open, setOpen] = useState(false);
+  const [editingId, setEditingId] = useState<number | null>(null);
   const [formData, setFormData] = useState({ employeeId: "", date: "", normalHours: "", overtimeHours: "", overtimeRate: "", overtimeAmount: "", paidDate: "" });
+  const emptyForm = { employeeId: "", date: "", normalHours: "", overtimeHours: "", overtimeRate: "", overtimeAmount: "", paidDate: "" };
 
   const { data: overtime, isLoading } = useQuery({
     queryKey: ["/api/overtime", clientName],
@@ -788,9 +867,21 @@ function OvertimeTab({ clientName, clientAddress, employees, empMap, filterMonth
     mutationFn: async (data: any) => { const res = await apiRequest("POST", "/api/overtime", data); return res.json(); },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/overtime", clientName] });
-      setOpen(false);
-      setFormData({ employeeId: "", date: "", normalHours: "", overtimeHours: "", overtimeRate: "", overtimeAmount: "", paidDate: "" });
+      setOpen(false); setEditingId(null); setFormData(emptyForm);
       toast({ title: "Overtime record added successfully" });
+    },
+    onError: (err: Error) => toast({ title: "Error", description: err.message, variant: "destructive" }),
+  });
+
+  const updateMutation = useMutation({
+    mutationFn: async ({ id, data }: { id: number; data: any }) => {
+      const res = await apiRequest("PUT", `/api/overtime/${id}`, data);
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/overtime", clientName] });
+      setOpen(false); setEditingId(null); setFormData(emptyForm);
+      toast({ title: "Overtime record updated successfully" });
     },
     onError: (err: Error) => toast({ title: "Error", description: err.message, variant: "destructive" }),
   });
@@ -859,21 +950,44 @@ function OvertimeTab({ clientName, clientAddress, employees, empMap, filterMonth
     setFormData(prev => ({ ...prev, overtimeRate: val, overtimeAmount: calcOtAmount(prev.overtimeHours, val) }));
   };
 
+  const openEdit = (record: any) => {
+    setEditingId(record.id);
+    setFormData({
+      employeeId: String(record.employeeId),
+      date: record.date?.split("T")[0] || record.date || "",
+      normalHours: record.normalHours ? String(record.normalHours) : "",
+      overtimeHours: record.overtimeHours ? String(record.overtimeHours) : "",
+      overtimeRate: record.overtimeRate || "",
+      overtimeAmount: record.overtimeAmount || "",
+      paidDate: record.paidDate?.split("T")[0] || record.paidDate || "",
+    });
+    setOpen(true);
+  };
+
+  const openAdd = () => {
+    setEditingId(null); setFormData(emptyForm); setOpen(true);
+  };
+
   const handleSubmit = () => {
     if (!formData.employeeId || !formData.date) {
       toast({ title: "Please fill required fields", variant: "destructive" });
       return;
     }
-    createMutation.mutate({
+    const payload = {
       employeeId: Number(formData.employeeId),
       clientName,
       date: formData.date,
-      normalHours: formData.normalHours ? Number(formData.normalHours) : undefined,
-      overtimeHours: formData.overtimeHours ? Number(formData.overtimeHours) : undefined,
-      overtimeRate: formData.overtimeRate || undefined,
-      overtimeAmount: formData.overtimeAmount || undefined,
-      paidDate: formData.paidDate || undefined,
-    });
+      normalHours: formData.normalHours ? Number(formData.normalHours) : null,
+      overtimeHours: formData.overtimeHours ? Number(formData.overtimeHours) : null,
+      overtimeRate: formData.overtimeRate || null,
+      overtimeAmount: formData.overtimeAmount || null,
+      paidDate: formData.paidDate || null,
+    };
+    if (editingId) {
+      updateMutation.mutate({ id: editingId, data: payload });
+    } else {
+      createMutation.mutate(payload);
+    }
   };
 
   const filtered = useMemo(() => filterByMonth(overtime, filterMonth, filterYear), [overtime, filterMonth, filterYear]);
@@ -1051,16 +1165,16 @@ function OvertimeTab({ clientName, clientAddress, employees, empMap, filterMonth
           <Button variant="outline" size="sm" onClick={() => recalcMutation.mutate()} disabled={recalcMutation.isPending} data-testid="button-recalc-overtime">
             {recalcMutation.isPending ? <Loader2 className="w-4 h-4 mr-1 animate-spin" /> : <RefreshCw className="w-4 h-4 mr-1" />} Recalculate Rates
           </Button>
-          <Dialog open={open} onOpenChange={setOpen}>
+          <Dialog open={open} onOpenChange={(v) => { setOpen(v); if (!v) { setEditingId(null); setFormData(emptyForm); } }}>
             <DialogTrigger asChild>
-              <Button size="sm" data-testid="button-add-overtime"><Plus className="w-4 h-4 mr-1" /> Add</Button>
+              <Button size="sm" onClick={openAdd} data-testid="button-add-overtime"><Plus className="w-4 h-4 mr-1" /> Add</Button>
             </DialogTrigger>
             <DialogContent>
-              <DialogHeader><DialogTitle>Add Overtime Record</DialogTitle></DialogHeader>
+              <DialogHeader><DialogTitle>{editingId ? "Edit Overtime Record" : "Add Overtime Record"}</DialogTitle></DialogHeader>
               <div className="space-y-3">
                 <div>
                   <Label>Employee *</Label>
-                  <Select value={formData.employeeId} onValueChange={handleEmployeeChange}>
+                  <Select value={formData.employeeId} onValueChange={handleEmployeeChange} disabled={!!editingId}>
                     <SelectTrigger data-testid="select-overtime-employee"><SelectValue placeholder="Select employee" /></SelectTrigger>
                     <SelectContent>{employees.map((e: any) => <SelectItem key={e.id} value={String(e.id)}>{e.name}</SelectItem>)}</SelectContent>
                   </Select>
@@ -1093,8 +1207,8 @@ function OvertimeTab({ clientName, clientAddress, employees, empMap, filterMonth
                   <Label>Paid Date</Label>
                   <Input type="date" value={formData.paidDate} onChange={(e) => setFormData(prev => ({ ...prev, paidDate: e.target.value }))} data-testid="input-overtime-paid-date" />
                 </div>
-                <Button className="w-full" onClick={handleSubmit} disabled={createMutation.isPending} data-testid="button-submit-overtime">
-                  {createMutation.isPending ? <Loader2 className="w-4 h-4 animate-spin mr-1" /> : null} Save Overtime
+                <Button className="w-full" onClick={handleSubmit} disabled={createMutation.isPending || updateMutation.isPending} data-testid="button-submit-overtime">
+                  {(createMutation.isPending || updateMutation.isPending) ? <Loader2 className="w-4 h-4 animate-spin mr-1" /> : null} {editingId ? "Update Overtime" : "Save Overtime"}
                 </Button>
               </div>
             </DialogContent>
@@ -1136,6 +1250,7 @@ function OvertimeTab({ clientName, clientAddress, employees, empMap, filterMonth
                           <td className="px-3 py-2.5 text-right font-mono">{o.overtimeAmount ? fmt(o.overtimeAmount) : "-"}</td>
                           <td className="px-3 py-2.5">{o.paidDate || getSalaryPaidDate(o.employeeId, o.date) || "-"}</td>
                           <td className="px-3 py-2.5 text-right">
+                            <Button variant="ghost" size="icon" onClick={() => openEdit(o)} data-testid={`button-edit-overtime-${o.id}`}><Pencil className="w-4 h-4" /></Button>
                             <AlertDialog>
                               <AlertDialogTrigger asChild>
                                 <Button variant="ghost" size="icon" data-testid={`button-delete-overtime-${o.id}`}><Trash2 className="w-4 h-4 text-destructive" /></Button>
@@ -1171,7 +1286,8 @@ function OvertimeTab({ clientName, clientAddress, employees, empMap, filterMonth
                     {o.overtimeRate && <span>Rate: {fmt(o.overtimeRate)}</span>}
                     {(o.paidDate || getSalaryPaidDate(o.employeeId, o.date)) && <span>Paid: {o.paidDate || getSalaryPaidDate(o.employeeId, o.date)}</span>}
                   </div>
-                  <div className="flex justify-end">
+                  <div className="flex justify-end gap-1">
+                    <Button variant="ghost" size="icon" onClick={() => openEdit(o)} data-testid={`button-edit-overtime-mobile-${o.id}`}><Pencil className="w-4 h-4" /></Button>
                     <AlertDialog>
                       <AlertDialogTrigger asChild>
                         <Button variant="ghost" size="icon" data-testid={`button-delete-overtime-mobile-${o.id}`}><Trash2 className="w-4 h-4 text-destructive" /></Button>
@@ -1196,7 +1312,9 @@ function DamageTab({ clientName, clientAddress, employees, empMap, filterMonth, 
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [open, setOpen] = useState(false);
+  const [editingId, setEditingId] = useState<number | null>(null);
   const [formData, setFormData] = useState({ employeeId: "", date: "", amount: "", description: "" });
+  const emptyForm = { employeeId: "", date: "", amount: "", description: "" };
 
   const { data: deductions, isLoading } = useQuery({
     queryKey: ["/api/damage-deductions", clientName],
@@ -1212,9 +1330,21 @@ function DamageTab({ clientName, clientAddress, employees, empMap, filterMonth, 
     mutationFn: async (data: any) => { const res = await apiRequest("POST", "/api/damage-deductions", data); return res.json(); },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/damage-deductions", clientName] });
-      setOpen(false);
-      setFormData({ employeeId: "", date: "", amount: "", description: "" });
+      setOpen(false); setEditingId(null); setFormData(emptyForm);
       toast({ title: "Damage deduction added successfully" });
+    },
+    onError: (err: Error) => toast({ title: "Error", description: err.message, variant: "destructive" }),
+  });
+
+  const updateMutation = useMutation({
+    mutationFn: async ({ id, data }: { id: number; data: any }) => {
+      const res = await apiRequest("PUT", `/api/damage-deductions/${id}`, data);
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/damage-deductions", clientName] });
+      setOpen(false); setEditingId(null); setFormData(emptyForm);
+      toast({ title: "Damage deduction updated successfully" });
     },
     onError: (err: Error) => toast({ title: "Error", description: err.message, variant: "destructive" }),
   });
@@ -1228,18 +1358,38 @@ function DamageTab({ clientName, clientAddress, employees, empMap, filterMonth, 
     onError: (err: Error) => toast({ title: "Error", description: err.message, variant: "destructive" }),
   });
 
+  const openEdit = (record: any) => {
+    setEditingId(record.id);
+    setFormData({
+      employeeId: String(record.employeeId),
+      date: record.date?.split("T")[0] || record.date || "",
+      amount: record.amount || "",
+      description: record.description || "",
+    });
+    setOpen(true);
+  };
+
+  const openAdd = () => {
+    setEditingId(null); setFormData(emptyForm); setOpen(true);
+  };
+
   const handleSubmit = () => {
     if (!formData.employeeId || !formData.date || !formData.amount) {
       toast({ title: "Please fill required fields", variant: "destructive" });
       return;
     }
-    createMutation.mutate({
+    const payload = {
       employeeId: Number(formData.employeeId),
       clientName,
       date: formData.date,
       amount: formData.amount,
       description: formData.description,
-    });
+    };
+    if (editingId) {
+      updateMutation.mutate({ id: editingId, data: payload });
+    } else {
+      createMutation.mutate(payload);
+    }
   };
 
   const filtered = useMemo(() => filterByMonth(deductions, filterMonth, filterYear), [deductions, filterMonth, filterYear]);
@@ -1400,16 +1550,16 @@ function DamageTab({ clientName, clientAddress, employees, empMap, filterMonth, 
           <Button variant="outline" size="sm" onClick={handleGovPrint} data-testid="button-gov-print-damage">
             <Printer className="w-4 h-4 mr-1" /> Form XX
           </Button>
-          <Dialog open={open} onOpenChange={setOpen}>
+          <Dialog open={open} onOpenChange={(v) => { setOpen(v); if (!v) { setEditingId(null); setFormData(emptyForm); } }}>
             <DialogTrigger asChild>
-              <Button size="sm" data-testid="button-add-damage"><Plus className="w-4 h-4 mr-1" /> Add</Button>
+              <Button size="sm" onClick={openAdd} data-testid="button-add-damage"><Plus className="w-4 h-4 mr-1" /> Add</Button>
             </DialogTrigger>
             <DialogContent>
-              <DialogHeader><DialogTitle>Add Damage/Loss Deduction</DialogTitle></DialogHeader>
+              <DialogHeader><DialogTitle>{editingId ? "Edit Damage/Loss Deduction" : "Add Damage/Loss Deduction"}</DialogTitle></DialogHeader>
               <div className="space-y-3">
                 <div>
                   <Label>Employee *</Label>
-                  <Select value={formData.employeeId} onValueChange={(v) => setFormData({ ...formData, employeeId: v })}>
+                  <Select value={formData.employeeId} onValueChange={(v) => setFormData({ ...formData, employeeId: v })} disabled={!!editingId}>
                     <SelectTrigger data-testid="select-damage-employee"><SelectValue placeholder="Select employee" /></SelectTrigger>
                     <SelectContent>{employees.map((e: any) => <SelectItem key={e.id} value={String(e.id)}>{e.name}</SelectItem>)}</SelectContent>
                   </Select>
@@ -1426,8 +1576,8 @@ function DamageTab({ clientName, clientAddress, employees, empMap, filterMonth, 
                   <Label>Description</Label>
                   <Input value={formData.description} onChange={(e) => setFormData({ ...formData, description: e.target.value })} data-testid="input-damage-description" />
                 </div>
-                <Button className="w-full" onClick={handleSubmit} disabled={createMutation.isPending} data-testid="button-submit-damage">
-                  {createMutation.isPending ? <Loader2 className="w-4 h-4 animate-spin mr-1" /> : null} Save Deduction
+                <Button className="w-full" onClick={handleSubmit} disabled={createMutation.isPending || updateMutation.isPending} data-testid="button-submit-damage">
+                  {(createMutation.isPending || updateMutation.isPending) ? <Loader2 className="w-4 h-4 animate-spin mr-1" /> : null} {editingId ? "Update Deduction" : "Save Deduction"}
                 </Button>
               </div>
             </DialogContent>
@@ -1462,6 +1612,7 @@ function DamageTab({ clientName, clientAddress, employees, empMap, filterMonth, 
                         <td className="px-3 py-2.5 text-right font-mono">{fmt(d.amount)}</td>
                         <td className="px-3 py-2.5">{d.description || "-"}</td>
                         <td className="px-3 py-2.5 text-right">
+                          <Button variant="ghost" size="icon" onClick={() => openEdit(d)} data-testid={`button-edit-damage-${d.id}`}><Pencil className="w-4 h-4" /></Button>
                           <AlertDialog>
                             <AlertDialogTrigger asChild>
                               <Button variant="ghost" size="icon" data-testid={`button-delete-damage-${d.id}`}><Trash2 className="w-4 h-4 text-destructive" /></Button>
@@ -1491,7 +1642,8 @@ function DamageTab({ clientName, clientAddress, employees, empMap, filterMonth, 
                     <Badge variant="secondary" className="font-mono">{fmt(d.amount)}</Badge>
                   </div>
                   {d.description && <p className="text-xs text-muted-foreground">Description: {d.description}</p>}
-                  <div className="flex justify-end">
+                  <div className="flex justify-end gap-1">
+                    <Button variant="ghost" size="icon" onClick={() => openEdit(d)} data-testid={`button-edit-damage-mobile-${d.id}`}><Pencil className="w-4 h-4" /></Button>
                     <AlertDialog>
                       <AlertDialogTrigger asChild>
                         <Button variant="ghost" size="icon" data-testid={`button-delete-damage-mobile-${d.id}`}><Trash2 className="w-4 h-4 text-destructive" /></Button>

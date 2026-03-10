@@ -842,6 +842,11 @@ export async function registerRoutes(
     res.status(201).json(record);
   });
 
+  app.put("/api/fines/:id", requireAdmin, async (req, res) => {
+    const record = await storage.updateFine(Number(req.params.id), req.body);
+    res.json(record);
+  });
+
   app.delete("/api/fines/:id", requireAdmin, async (req, res) => {
     await storage.deleteFine(Number(req.params.id));
     res.status(204).send();
@@ -858,6 +863,11 @@ export async function registerRoutes(
     res.status(201).json(record);
   });
 
+  app.put("/api/advances/:id", requireAdmin, async (req, res) => {
+    const record = await storage.updateAdvance(Number(req.params.id), req.body);
+    res.json(record);
+  });
+
   app.delete("/api/advances/:id", requireAdmin, async (req, res) => {
     await storage.deleteAdvance(Number(req.params.id));
     res.status(204).send();
@@ -872,6 +882,11 @@ export async function registerRoutes(
   app.post("/api/overtime", requireAdmin, async (req, res) => {
     const record = await storage.createOvertimeRecord(req.body);
     res.status(201).json(record);
+  });
+
+  app.put("/api/overtime/:id", requireAdmin, async (req, res) => {
+    const record = await storage.updateOvertimeRecordFull(Number(req.params.id), req.body);
+    res.json(record);
   });
 
   app.delete("/api/overtime/:id", requireAdmin, async (req, res) => {
@@ -920,6 +935,11 @@ export async function registerRoutes(
   app.post("/api/damage-deductions", requireAdmin, async (req, res) => {
     const record = await storage.createDamageDeduction(req.body);
     res.status(201).json(record);
+  });
+
+  app.put("/api/damage-deductions/:id", requireAdmin, async (req, res) => {
+    const record = await storage.updateDamageDeduction(Number(req.params.id), req.body);
+    res.json(record);
   });
 
   app.delete("/api/damage-deductions/:id", requireAdmin, async (req, res) => {
