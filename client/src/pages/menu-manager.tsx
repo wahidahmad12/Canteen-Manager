@@ -202,7 +202,7 @@ export default function MenuManager() {
   };
 
   const handleExcelDownload = async () => {
-    const ExcelJS = await import("exceljs");
+    const ExcelJS = (await import("exceljs")).default;
     const { saveAs } = await import("file-saver");
     const workbook = new ExcelJS.Workbook();
     const worksheet = workbook.addWorksheet("Menu");

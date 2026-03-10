@@ -165,7 +165,7 @@ export default function VendorReport() {
 
   const handleExportExcel = async () => {
     if (summaryData.length === 0) return;
-    const ExcelJS = await import("exceljs");
+    const ExcelJS = (await import("exceljs")).default;
     const workbook = new ExcelJS.Workbook();
     const ws = workbook.addWorksheet("Vendor Report");
 

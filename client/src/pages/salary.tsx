@@ -767,7 +767,7 @@ export default function SalaryRegister() {
 
   const handleExportExcel = useCallback(async () => {
     if (!salaries || salaries.length === 0 || rows.length === 0) return;
-    const ExcelJS = await import("exceljs");
+    const ExcelJS = (await import("exceljs")).default;
     const workbook = new ExcelJS.Workbook();
     const ws = workbook.addWorksheet("Salary Register");
 

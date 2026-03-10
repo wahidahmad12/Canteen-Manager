@@ -162,7 +162,7 @@ export default function Dashboard() {
 
   const handleExportReportsExcel = async () => {
     if (!sortedReports.length) return;
-    const ExcelJS = await import("exceljs");
+    const ExcelJS = (await import("exceljs")).default;
     const workbook = new ExcelJS.Workbook();
     const ws = workbook.addWorksheet("Expense Reports");
 

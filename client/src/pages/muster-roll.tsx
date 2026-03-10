@@ -342,7 +342,7 @@ export default function MusterRoll() {
       toast({ title: "No data", description: "Load employees first before downloading format.", variant: "destructive" });
       return;
     }
-    const ExcelJS = await import("exceljs");
+    const ExcelJS = (await import("exceljs")).default;
     const wb = new ExcelJS.Workbook();
     const ws = wb.addWorksheet("Attendance Format");
 
@@ -417,7 +417,7 @@ export default function MusterRoll() {
     }
 
     try {
-      const ExcelJS = await import("exceljs");
+      const ExcelJS = (await import("exceljs")).default;
       const wb = new ExcelJS.Workbook();
       const arrayBuf = await file.arrayBuffer();
       await wb.xlsx.load(arrayBuf);
@@ -470,7 +470,7 @@ export default function MusterRoll() {
 
   const handleExportExcel = async () => {
     if (!employees || employees.length === 0) return;
-    const ExcelJS = await import("exceljs");
+    const ExcelJS = (await import("exceljs")).default;
     const workbook = new ExcelJS.Workbook();
     const ws = workbook.addWorksheet("Muster Roll");
 
