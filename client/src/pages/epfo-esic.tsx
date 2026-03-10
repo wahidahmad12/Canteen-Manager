@@ -65,11 +65,6 @@ export default function EpfoEsicPage() {
     : employees.filter(e => e.clientName === selectedClient)
   ).filter(e => e.isActive !== false);
 
-  const allClientEmployees = (selectedClient === "__all__"
-    ? employees
-    : employees.filter(e => e.clientName === selectedClient)
-  );
-
   const totalDays = getDaysInMonth(month, year);
 
   const epfoData = filteredEmployees
@@ -103,27 +98,12 @@ export default function EpfoEsicPage() {
       };
     });
 
-  const esicData = allClientEmployees
+  const esicData = filteredEmployees
     .filter(emp => emp.esicNo && emp.esicNo.trim() !== "")
     .map(emp => {
       const sal = salaryMap.get(emp.id);
       const totalMonthlyWages = sal ? Math.round(Number(sal.grossWage)) : 0;
       const daysWorked = sal ? Math.round(Number(sal.daysWorked)) : 0;
-      const isLeft = emp.isActive === false;
-      const leftThisMonth = isLeft && emp.leavingDate
-        ? (() => {
-            const ld = new Date(emp.leavingDate);
-            return ld.getMonth() + 1 === month && ld.getFullYear() === year;
-          })()
-        : false;
-
-      let reasonCode = 0;
-      if (daysWorked === 0 && !isLeft) reasonCode = 1;
-      if (isLeft && leftThisMonth) reasonCode = 2;
-
-      const lastWorkingDay = isLeft && emp.leavingDate
-        ? (() => { const s = String(emp.leavingDate).split("T")[0]; const [y, m, d] = s.split("-"); return `${d}-${m}-${y}`; })()
-        : "";
 
       return {
         ipNumber: emp.esicNo || "",
@@ -131,8 +111,8 @@ export default function EpfoEsicPage() {
         clientName: emp.clientName,
         noOfDays: daysWorked,
         totalMonthlyWages,
-        reasonCode,
-        lastWorkingDay,
+        reasonCode: daysWorked === 0 ? 1 : 0,
+        lastWorkingDay: "",
       };
     });
 
