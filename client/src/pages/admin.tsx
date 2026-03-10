@@ -87,11 +87,15 @@ export default function Admin() {
   const [newClientName, setNewClientName] = useState("");
   const [newClientAddress, setNewClientAddress] = useState("");
   const [newClientGst, setNewClientGst] = useState("");
+  const [newClientStateName, setNewClientStateName] = useState("");
+  const [newClientStateCode, setNewClientStateCode] = useState("");
   const [newClientAgreement, setNewClientAgreement] = useState("");
   const [editingClientId, setEditingClientId] = useState<number | null>(null);
   const [editingClientName, setEditingClientName] = useState("");
   const [editingClientAddress, setEditingClientAddress] = useState("");
   const [editingClientGst, setEditingClientGst] = useState("");
+  const [editingClientStateName, setEditingClientStateName] = useState("");
+  const [editingClientStateCode, setEditingClientStateCode] = useState("");
   const [editingClientAgreement, setEditingClientAgreement] = useState("");
 
   const { data: vendorsList, isLoading: vendorsLoading } = useVendors();
@@ -212,11 +216,15 @@ export default function Admin() {
         name: newClientName,
         address: newClientAddress,
         gstNo: newClientGst,
+        stateName: newClientStateName,
+        stateCode: newClientStateCode.toUpperCase(),
         agreementValidTill: newClientAgreement || null,
       });
       setNewClientName("");
       setNewClientAddress("");
       setNewClientGst("");
+      setNewClientStateName("");
+      setNewClientStateCode("");
       setNewClientAgreement("");
       toast({ title: "Success", description: "Client added" });
     } catch (e: any) {
@@ -232,6 +240,8 @@ export default function Admin() {
         name: editingClientName,
         address: editingClientAddress,
         gstNo: editingClientGst,
+        stateName: editingClientStateName,
+        stateCode: editingClientStateCode.toUpperCase(),
         agreementValidTill: editingClientAgreement || null,
       });
       setEditingClientId(null);
@@ -246,6 +256,8 @@ export default function Admin() {
     setEditingClientName(client.name);
     setEditingClientAddress(client.address || "");
     setEditingClientGst(client.gstNo || "");
+    setEditingClientStateName(client.stateName || "");
+    setEditingClientStateCode(client.stateCode || "");
     setEditingClientAgreement(client.agreementValidTill || "");
   };
 
@@ -559,6 +571,10 @@ export default function Admin() {
                 <Input placeholder="Client Name *" value={newClientName} onChange={(e) => setNewClientName(e.target.value)} className="border-teal-200 dark:border-teal-800" data-testid="input-new-client" />
                 <Input placeholder="GST No" value={newClientGst} onChange={(e) => setNewClientGst(e.target.value)} className="border-teal-200 dark:border-teal-800" data-testid="input-new-client-gst" />
               </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                <Input placeholder="State Name (e.g. West Bengal)" value={newClientStateName} onChange={(e) => setNewClientStateName(e.target.value)} className="border-teal-200 dark:border-teal-800" data-testid="input-new-client-state" />
+                <Input placeholder="State Code (e.g. KOL, GOA, SKI)" value={newClientStateCode} onChange={(e) => setNewClientStateCode(e.target.value.toUpperCase())} className="border-teal-200 dark:border-teal-800 uppercase font-mono" maxLength={5} data-testid="input-new-client-state-code" />
+              </div>
               <Input placeholder="Address" value={newClientAddress} onChange={(e) => setNewClientAddress(e.target.value)} className="border-teal-200 dark:border-teal-800" data-testid="input-new-client-address" />
               <div className="flex gap-2 items-end">
                 <div className="flex-1">
@@ -586,6 +602,10 @@ export default function Admin() {
                           <Input value={editingClientName} onChange={(e) => setEditingClientName(e.target.value)} placeholder="Client Name *" className="border-teal-300" autoFocus data-testid={`input-edit-client-name-${client.id}`} />
                           <Input value={editingClientGst} onChange={(e) => setEditingClientGst(e.target.value)} placeholder="GST No" className="border-teal-300" data-testid={`input-edit-client-gst-${client.id}`} />
                         </div>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                          <Input value={editingClientStateName} onChange={(e) => setEditingClientStateName(e.target.value)} placeholder="State Name" className="border-teal-300" data-testid={`input-edit-client-state-${client.id}`} />
+                          <Input value={editingClientStateCode} onChange={(e) => setEditingClientStateCode(e.target.value.toUpperCase())} placeholder="State Code (e.g. KOL)" className="border-teal-300 uppercase font-mono" maxLength={5} data-testid={`input-edit-client-state-code-${client.id}`} />
+                        </div>
                         <Input value={editingClientAddress} onChange={(e) => setEditingClientAddress(e.target.value)} placeholder="Address" className="border-teal-300" data-testid={`input-edit-client-address-${client.id}`} />
                         <div className="flex gap-2 items-end">
                           <div className="flex-1">
@@ -607,6 +627,7 @@ export default function Admin() {
                           <div className="font-semibold">{client.name}</div>
                           {client.address && <div className="text-xs text-muted-foreground mt-0.5">{client.address}</div>}
                           <div className="flex flex-wrap gap-3 mt-1">
+                            {client.stateName && <span className="text-xs text-muted-foreground">State: {client.stateName} {client.stateCode && <span className="font-mono font-bold text-teal-600">({client.stateCode})</span>}</span>}
                             {client.gstNo && <span className="text-xs text-muted-foreground">GST: <span className="font-mono">{client.gstNo}</span></span>}
                             {client.agreementValidTill && (
                               <span className={`text-xs ${new Date(client.agreementValidTill) < new Date() ? 'text-red-500 font-semibold' : 'text-muted-foreground'}`}>

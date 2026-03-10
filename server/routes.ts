@@ -1325,6 +1325,27 @@ export async function registerRoutes(
     res.status(204).send();
   });
 
+  app.get("/api/sales-invoices/next-bill-number", requireAuth, async (req, res) => {
+    try {
+      const { stateCode, year } = req.query;
+      if (!stateCode || !year) return res.status(400).json({ message: "stateCode and year are required" });
+      const yy = String(year).slice(-2);
+      const prefix = `DJ-${stateCode}-${yy}-`;
+      const allInvoices = await storage.getSalesInvoices();
+      const matching = allInvoices.filter(inv => inv.billNumber && inv.billNumber.startsWith(prefix));
+      let maxSerial = 0;
+      matching.forEach(inv => {
+        const parts = inv.billNumber.split('-');
+        const serial = parseInt(parts[parts.length - 1], 10);
+        if (!isNaN(serial) && serial > maxSerial) maxSerial = serial;
+      });
+      const nextSerial = String(maxSerial + 1).padStart(3, '0');
+      res.json({ billNumber: `${prefix}${nextSerial}`, nextSerial: maxSerial + 1 });
+    } catch (err: any) {
+      res.status(500).json({ message: err.message });
+    }
+  });
+
   app.get("/api/sales-invoices", requireAuth, async (req, res) => {
     try {
       const invoices = await storage.getSalesInvoices();

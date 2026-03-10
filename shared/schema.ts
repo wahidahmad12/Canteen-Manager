@@ -98,6 +98,8 @@ export const clientNames = mysqlTable("client_names", {
   name: varchar("name", { length: 255 }).notNull().unique(),
   address: varchar("address", { length: 500 }).default(""),
   gstNo: varchar("gst_no", { length: 500 }).default(""),
+  stateName: varchar("state_name", { length: 100 }).default(""),
+  stateCode: varchar("state_code", { length: 10 }).default(""),
   agreementValidTill: date("agreement_valid_till"),
 });
 

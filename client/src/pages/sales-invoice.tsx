@@ -62,6 +62,7 @@ function InvoiceFormDialog({ invoice, onClose, clients }: { invoice?: SalesInvoi
   const [clientName, setClientName] = useState(invoice?.clientName || "");
   const [billDate, setBillDate] = useState<Date>(invoice?.billDate ? new Date(invoice.billDate) : new Date());
   const [billNumber, setBillNumber] = useState(invoice?.billNumber || "");
+  const [billNumberAuto, setBillNumberAuto] = useState(false);
   const [billAmount, setBillAmount] = useState(invoice ? Number(invoice.billAmount) : 0);
   const [gstPercent, setGstPercent] = useState(invoice ? Number(invoice.gstPercent) : 18);
   const [tdsPercent, setTdsPercent] = useState(invoice ? Number(invoice.tdsPercent) : 2);
@@ -73,6 +74,25 @@ function InvoiceFormDialog({ invoice, onClose, clients }: { invoice?: SalesInvoi
   const gstAmount = Math.round(billAmount * gstPercent / 100 * 100) / 100;
   const totalBillAmount = Math.round((billAmount + gstAmount) * 100) / 100;
   const tdsAmount = Math.round(billAmount * tdsPercent / 100 * 100) / 100;
+
+  useEffect(() => {
+    if (isEdit || !clientName) return;
+    const client = clients.find((c: any) => c.name === clientName);
+    if (!client?.stateCode) return;
+    const yr = String(billDate.getFullYear()).slice(-2);
+    fetch(`/api/sales-invoices/next-bill-number?stateCode=${encodeURIComponent(client.stateCode)}&year=${billDate.getFullYear()}`, { credentials: "include" })
+      .then(r => r.json())
+      .then(data => {
+        if (data.billNumber) {
+          setBillNumber(data.billNumber);
+          setBillNumberAuto(true);
+        }
+      })
+      .catch(() => {});
+  }, [clientName, billDate, isEdit, clients]);
+
+  const billNumberPattern = /^DJ-[A-Z]{2,5}-\d{2}-\d{3,}$/;
+  const isBillNumberValid = billNumberPattern.test(billNumber);
 
   const createMutation = useMutation({
     mutationFn: async (data: any) => {
@@ -111,6 +131,10 @@ function InvoiceFormDialog({ invoice, onClose, clients }: { invoice?: SalesInvoi
     }
     if (!billNumber.trim()) {
       toast({ title: "Error", description: "Enter bill number", variant: "destructive" });
+      return;
+    }
+    if (!isBillNumberValid) {
+      toast({ title: "Error", description: "Bill number must be in format DJ-CODE-YY-NNN (e.g. DJ-KOL-25-001)", variant: "destructive" });
       return;
     }
     const payload = {
@@ -166,7 +190,21 @@ function InvoiceFormDialog({ invoice, onClose, clients }: { invoice?: SalesInvoi
           <Label className="text-sm font-semibold text-purple-700 dark:text-purple-400 flex items-center gap-1.5">
             <Receipt className="w-3.5 h-3.5" /> Bill Number
           </Label>
-          <Input value={billNumber} onChange={(e) => setBillNumber(e.target.value)} placeholder="e.g. INV-001" className="h-10" data-testid="input-bill-number" />
+          <div className="relative">
+            <Input
+              value={billNumber}
+              onChange={(e) => { setBillNumber(e.target.value.toUpperCase()); setBillNumberAuto(false); }}
+              placeholder="DJ-KOL-25-001"
+              className={`h-10 font-mono pr-8 ${billNumber && !isBillNumberValid ? 'border-red-400 focus:border-red-500' : billNumber && isBillNumberValid ? 'border-green-400 focus:border-green-500' : ''}`}
+              data-testid="input-bill-number"
+            />
+            {billNumber && (
+              <span className="absolute right-2 top-1/2 -translate-y-1/2">
+                {isBillNumberValid ? <CheckCircle2 className="w-4 h-4 text-green-500" /> : <XCircle className="w-4 h-4 text-red-400" />}
+              </span>
+            )}
+          </div>
+          <p className="text-[10px] text-muted-foreground">Format: DJ-CODE-YY-NNN (auto-generated from client)</p>
         </div>
         <div className="space-y-1.5">
           <Label className="text-sm font-semibold text-emerald-700 dark:text-emerald-400 flex items-center gap-1.5">
