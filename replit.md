@@ -41,6 +41,8 @@ Preferred communication style: Simple, everyday language.
   - `/letterhead` — Letterhead Letters page with compose/saved tabs, auto-generated ref numbers (DJ/KOL/Year/AutoNo), database persistence, print with company letterhead
   - `/ptax-report` — Professional Tax Report with client-wise employee breakdown, month/year filters, print and Excel export
   - `/form-vi-a` — Form VI-A (Rule 25(2)(viii)) Notice of Commencement/Completion of Contract Work, fillable form with client selection, contractor/principal employer details, license info, print-ready government format
+  - `/sales-invoice` — Sales Invoice Ledger Entry with CRUD, client/month/year filters, search, summary cards, inline edit via dialog, desktop table + mobile card layout
+  - `/sales-dashboard` — Sales Dashboard with monthly billing/received bar charts, donut chart for payment status, client-wise breakdown, top pending payments, stat cards
 
 ### Backend
 - **Framework**: Express 5 on Node.js with TypeScript (run via tsx)
@@ -87,6 +89,7 @@ Preferred communication style: Simple, everyday language.
   - `half_yearly_returns` — Saved Half-Yearly Return (Form XXIV) data per client/half/year. Stores all form fields (contract dates, days worked, LWF, facilities, licence no, etc.) so users can retrieve previously entered data
   - `bonus_returns` — Saved Bonus Return data per client/FY year. Stores Form C fields (bonusDate, workingDays, refNumber, letterDate) and Form D fields (formDNatureOfIndustry, formDEmployerName, formDSettlement, formDPercentage, formDPaidToAll, formDRemarks, formDPaymentDate)
   - `letters` — Letterhead letters with auto-incrementing serialNumber, refNumber (DJ/KOL/Year/AutoNo format), letterDate, recipient info (toName, toAddress, toGstin), subject, body, regards, clientName, createdBy
+  - `sales_invoices` — Sales invoice ledger entries with auto-incrementing slNo, clientName, billDate, billNumber, billAmount, gstPercent, gstAmount, totalBillAmount, tdsPercent, tdsAmount, paymentReceivedDate, paymentReceivedAmount, createdBy
 - **Storage Layer**: `server/storage.ts` implements `IStorage` interface with `DatabaseStorage` class, abstracting all DB operations
 
 ### Key Design Decisions

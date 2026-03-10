@@ -1325,6 +1325,74 @@ export async function registerRoutes(
     res.status(204).send();
   });
 
+  app.get("/api/sales-invoices", requireAuth, async (req, res) => {
+    try {
+      const invoices = await storage.getSalesInvoices();
+      res.json(invoices);
+    } catch (err: any) {
+      res.status(500).json({ message: err.message });
+    }
+  });
+
+  app.get("/api/sales-invoices/:id", requireAuth, async (req, res) => {
+    const invoice = await storage.getSalesInvoice(Number(req.params.id));
+    if (!invoice) return res.status(404).json({ message: "Sales invoice not found" });
+    res.json(invoice);
+  });
+
+  app.post("/api/sales-invoices", requireAuth, async (req, res) => {
+    try {
+      const { clientName, billDate, billNumber, billAmount, gstPercent, gstAmount, totalBillAmount, tdsPercent, tdsAmount, paymentReceivedDate, paymentReceivedAmount } = req.body;
+      if (!clientName || !billDate || !billNumber) {
+        return res.status(400).json({ message: "Client name, bill date, and bill number are required" });
+      }
+      const invoice = await storage.createSalesInvoice({
+        clientName, billDate, billNumber,
+        billAmount: String(billAmount || 0),
+        gstPercent: String(gstPercent || 0),
+        gstAmount: String(gstAmount || 0),
+        totalBillAmount: String(totalBillAmount || 0),
+        tdsPercent: String(tdsPercent || 0),
+        tdsAmount: String(tdsAmount || 0),
+        paymentReceivedDate: paymentReceivedDate || null,
+        paymentReceivedAmount: String(paymentReceivedAmount || 0),
+        createdBy: req.session.displayName || req.session.username || '',
+      });
+      res.status(201).json(invoice);
+    } catch (err: any) {
+      res.status(500).json({ message: err.message });
+    }
+  });
+
+  app.put("/api/sales-invoices/:id", requireAuth, async (req, res) => {
+    try {
+      const existing = await storage.getSalesInvoice(Number(req.params.id));
+      if (!existing) return res.status(404).json({ message: "Sales invoice not found" });
+      const { clientName, billDate, billNumber, billAmount, gstPercent, gstAmount, totalBillAmount, tdsPercent, tdsAmount, paymentReceivedDate, paymentReceivedAmount } = req.body;
+      const invoice = await storage.updateSalesInvoice(Number(req.params.id), {
+        ...(clientName !== undefined && { clientName }),
+        ...(billDate !== undefined && { billDate }),
+        ...(billNumber !== undefined && { billNumber }),
+        ...(billAmount !== undefined && { billAmount: String(billAmount) }),
+        ...(gstPercent !== undefined && { gstPercent: String(gstPercent) }),
+        ...(gstAmount !== undefined && { gstAmount: String(gstAmount) }),
+        ...(totalBillAmount !== undefined && { totalBillAmount: String(totalBillAmount) }),
+        ...(tdsPercent !== undefined && { tdsPercent: String(tdsPercent) }),
+        ...(tdsAmount !== undefined && { tdsAmount: String(tdsAmount) }),
+        ...(paymentReceivedDate !== undefined && { paymentReceivedDate: paymentReceivedDate || null }),
+        ...(paymentReceivedAmount !== undefined && { paymentReceivedAmount: String(paymentReceivedAmount) }),
+      });
+      res.json(invoice);
+    } catch (err: any) {
+      res.status(500).json({ message: err.message });
+    }
+  });
+
+  app.delete("/api/sales-invoices/:id", requireAdmin, async (req, res) => {
+    await storage.deleteSalesInvoice(Number(req.params.id));
+    res.status(204).send();
+  });
+
   return httpServer;
 }
 

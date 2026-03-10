@@ -32,6 +32,7 @@ import {
   halfYearlyReturns,
   bonusReturns,
   letters,
+  salesInvoices,
   type DailyReport, 
   type ExpenseItem,
   type CreateReportRequest,
@@ -63,6 +64,7 @@ import {
   type HalfYearlyReturn,
   type BonusReturn,
   type Letter,
+  type SalesInvoice,
 } from "@shared/schema";
 import { eq, desc, lt, and, sql } from "drizzle-orm";
 import bcrypt from "bcryptjs";
@@ -201,6 +203,11 @@ export interface IStorage {
   createLetter(data: any): Promise<Letter>;
   updateLetter(id: number, data: any): Promise<Letter>;
   deleteLetter(id: number): Promise<void>;
+  getSalesInvoices(): Promise<SalesInvoice[]>;
+  getSalesInvoice(id: number): Promise<SalesInvoice | undefined>;
+  createSalesInvoice(data: any): Promise<SalesInvoice>;
+  updateSalesInvoice(id: number, data: any): Promise<SalesInvoice>;
+  deleteSalesInvoice(id: number): Promise<void>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -1546,6 +1553,31 @@ export class DatabaseStorage implements IStorage {
 
   async deleteLetter(id: number): Promise<void> {
     await db.delete(letters).where(eq(letters.id, id));
+  }
+
+  async getSalesInvoices(): Promise<SalesInvoice[]> {
+    return await db.select().from(salesInvoices).orderBy(desc(salesInvoices.id));
+  }
+
+  async getSalesInvoice(id: number): Promise<SalesInvoice | undefined> {
+    const [row] = await db.select().from(salesInvoices).where(eq(salesInvoices.id, id));
+    return row;
+  }
+
+  async createSalesInvoice(data: any): Promise<SalesInvoice> {
+    const nextSlNo = await db.select({ maxSl: sql<number>`COALESCE(MAX(${salesInvoices.slNo}), 0)` }).from(salesInvoices);
+    const slNo = (nextSlNo[0]?.maxSl || 0) + 1;
+    return await insertAndGet<SalesInvoice>(salesInvoices, { ...data, slNo });
+  }
+
+  async updateSalesInvoice(id: number, data: any): Promise<SalesInvoice> {
+    await db.update(salesInvoices).set({ ...data, updatedAt: new Date() }).where(eq(salesInvoices.id, id));
+    const [updated] = await db.select().from(salesInvoices).where(eq(salesInvoices.id, id));
+    return updated;
+  }
+
+  async deleteSalesInvoice(id: number): Promise<void> {
+    await db.delete(salesInvoices).where(eq(salesInvoices.id, id));
   }
 }
 

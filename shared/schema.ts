@@ -467,6 +467,25 @@ export const letters = mysqlTable("letters", {
 export type Letter = typeof letters.$inferSelect;
 export const insertLetterSchema = createInsertSchema(letters).omit({ id: true, serialNumber: true, createdAt: true, updatedAt: true });
 
+export const salesInvoices = mysqlTable("sales_invoices", {
+  id: int("id").autoincrement().primaryKey(),
+  slNo: int("sl_no"),
+  clientName: text("client_name").notNull(),
+  billDate: text("bill_date").notNull(),
+  billNumber: varchar("bill_number", { length: 100 }).notNull(),
+  billAmount: decimal("bill_amount", { precision: 12, scale: 2 }).default("0").notNull(),
+  gstPercent: decimal("gst_percent", { precision: 5, scale: 2 }).default("0").notNull(),
+  gstAmount: decimal("gst_amount", { precision: 12, scale: 2 }).default("0").notNull(),
+  totalBillAmount: decimal("total_bill_amount", { precision: 12, scale: 2 }).default("0").notNull(),
+  tdsPercent: decimal("tds_percent", { precision: 5, scale: 2 }).default("0").notNull(),
+  tdsAmount: decimal("tds_amount", { precision: 12, scale: 2 }).default("0").notNull(),
+  paymentReceivedDate: text("payment_received_date"),
+  paymentReceivedAmount: decimal("payment_received_amount", { precision: 12, scale: 2 }).default("0").notNull(),
+  createdBy: text("created_by"),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
 // === RELATIONS ===
 export const dailyReportsRelations = relations(dailyReports, ({ many, one }) => ({
   items: many(expenseItems),
@@ -686,6 +705,13 @@ export const insertSkillWageRateSchema = createInsertSchema(skillWageRates).omit
 export const selectSkillWageRateSchema = createSelectSchema(skillWageRates, { createdAt: z.string().or(z.date()) });
 
 export const SKILL_CATEGORIES = ["Unskilled", "Semi Skilled", "Skilled", "High Skilled", "Partner"] as const;
+
+export type SalesInvoice = typeof salesInvoices.$inferSelect;
+export const insertSalesInvoiceSchema = createInsertSchema(salesInvoices).omit({ id: true, slNo: true, createdAt: true, updatedAt: true });
+export const selectSalesInvoiceSchema = createSelectSchema(salesInvoices, {
+  createdAt: z.string().or(z.date()),
+  updatedAt: z.string().or(z.date()),
+});
 
 export const ALL_PAYROLL_PERMISSIONS = [...ALL_PERMISSIONS, 'salary'] as const;
 

@@ -29,6 +29,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
     { href: '/inventory', label: 'Daily Inventory', icon: ClipboardList, perm: 'inventory' },
     { href: '/menu', label: 'Menu Manager', icon: UtensilsCrossed, perm: 'menu' },
     { href: '/purchase-request', label: 'Purchase Request', icon: ShoppingCart, perm: 'purchase' },
+    { href: '/sales-invoice', label: 'Sales Invoice Ledger', icon: FileText, perm: null },
   ].filter(item => item.perm === null || perms.includes(item.perm));
 
   const labourSubItems = [
