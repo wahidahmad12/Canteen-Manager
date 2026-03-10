@@ -75,6 +75,7 @@ function InvoiceFormDialog({ invoice, onClose, clients, purchaseOrders, allInvoi
   const [billNumber, setBillNumber] = useState(invoice?.billNumber || "");
   const [billNumberAuto, setBillNumberAuto] = useState(false);
   const [selectedPoId, setSelectedPoId] = useState<string>(invoice?.poId ? String(invoice.poId) : "none");
+  const [bypassPO, setBypassPO] = useState(false);
   const [billAmount, setBillAmount] = useState(invoice ? Number(invoice.billAmount) : 0);
   const [gstPercent, setGstPercent] = useState(invoice ? Number(invoice.gstPercent) : 18);
   const [tdsPercent, setTdsPercent] = useState(invoice ? Number(invoice.tdsPercent) : 2);
@@ -96,7 +97,7 @@ function InvoiceFormDialog({ invoice, onClose, clients, purchaseOrders, allInvoi
         .reduce((sum, inv) => sum + Number(inv.billAmount), 0)
     : 0;
   const poBalance = selectedPO ? Math.round((Number(selectedPO.poAmount) - poUsedAmount) * 100) / 100 : 0;
-  const isBillExceedsPO = selectedPO ? billAmount > poBalance : false;
+  const isBillExceedsPO = selectedPO && !bypassPO ? billAmount > poBalance : false;
 
   useEffect(() => {
     if (isEdit || !clientName) return;
@@ -183,6 +184,7 @@ function InvoiceFormDialog({ invoice, onClose, clients, purchaseOrders, allInvoi
       paymentReceivedDate: paymentReceivedDate ? format(paymentReceivedDate, "yyyy-MM-dd") : null,
       paymentReceivedAmount,
       poId: selectedPoId !== "none" ? Number(selectedPoId) : null,
+      bypassPO,
     };
     if (isEdit) {
       updateMutation.mutate(payload);
@@ -256,9 +258,24 @@ function InvoiceFormDialog({ invoice, onClose, clients, purchaseOrders, allInvoi
       </div>
 
       <div className="bg-gradient-to-r from-cyan-50 to-sky-50 dark:from-cyan-950/20 dark:to-sky-950/20 rounded-xl p-3 space-y-3 border border-cyan-200 dark:border-cyan-800">
-        <p className="text-xs font-bold text-cyan-700 dark:text-cyan-400 uppercase tracking-wide flex items-center gap-1.5">
-          <ClipboardList className="w-3.5 h-3.5" /> Purchase Order (PO)
-        </p>
+        <div className="flex items-center justify-between">
+          <p className="text-xs font-bold text-cyan-700 dark:text-cyan-400 uppercase tracking-wide flex items-center gap-1.5">
+            <ClipboardList className="w-3.5 h-3.5" /> Purchase Order (PO)
+          </p>
+          {selectedPO && (
+            <Button
+              type="button"
+              size="sm"
+              variant={bypassPO ? "default" : "outline"}
+              className={`h-6 text-[10px] px-2 ${bypassPO ? 'bg-orange-500 hover:bg-orange-600 text-white' : 'border-orange-300 text-orange-600 hover:bg-orange-50 dark:border-orange-700 dark:text-orange-400'}`}
+              onClick={() => setBypassPO(!bypassPO)}
+              data-testid="button-bypass-po"
+            >
+              {bypassPO ? <CheckCircle2 className="w-3 h-3 mr-1" /> : <XCircle className="w-3 h-3 mr-1" />}
+              Bypass PO
+            </Button>
+          )}
+        </div>
         <div className="space-y-2">
           <Select value={selectedPoId} onValueChange={setSelectedPoId} data-testid="select-po">
             <SelectTrigger className="h-9 border-cyan-200 dark:border-cyan-800" data-testid="select-po-trigger">
@@ -289,10 +306,16 @@ function InvoiceFormDialog({ invoice, onClose, clients, purchaseOrders, allInvoi
               </div>
             </div>
           )}
-          {isBillExceedsPO && (
+          {selectedPO && billAmount > poBalance && !bypassPO && (
             <div className="flex items-center gap-1.5 text-red-600 dark:text-red-400 text-xs bg-red-50 dark:bg-red-950/30 rounded-md px-2.5 py-1.5">
               <AlertTriangle className="w-3.5 h-3.5 flex-shrink-0" />
-              <span>Bill Amount exceeds PO remaining balance. Invoice cannot be saved.</span>
+              <span>Bill Amount exceeds PO remaining balance. Turn on "Bypass PO" to save anyway.</span>
+            </div>
+          )}
+          {bypassPO && (
+            <div className="flex items-center gap-1.5 text-orange-600 dark:text-orange-400 text-xs bg-orange-50 dark:bg-orange-950/30 rounded-md px-2.5 py-1.5">
+              <AlertTriangle className="w-3.5 h-3.5 flex-shrink-0" />
+              <span>Bypass PO is ON — PO balance check will be skipped.</span>
             </div>
           )}
           {!clientName && (

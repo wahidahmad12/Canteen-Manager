@@ -1439,7 +1439,7 @@ export async function registerRoutes(
 
   app.post("/api/sales-invoices", requireAuth, async (req, res) => {
     try {
-      const { clientName, billDate, billNumber, billAmount, gstPercent, gstAmount, totalBillAmount, tdsPercent, tdsAmount, paymentReceivedDate, paymentReceivedAmount, poId } = req.body;
+      const { clientName, billDate, billNumber, billAmount, gstPercent, gstAmount, totalBillAmount, tdsPercent, tdsAmount, paymentReceivedDate, paymentReceivedAmount, poId, bypassPO } = req.body;
       if (!clientName || !billDate || !billNumber) {
         return res.status(400).json({ message: "Client name, bill date, and bill number are required" });
       }
@@ -1449,11 +1449,13 @@ export async function registerRoutes(
         if (po.clientName !== clientName) {
           return res.status(400).json({ message: "PO does not belong to the selected client" });
         }
-        const allInvoices = await storage.getSalesInvoices();
-        const usedAmount = allInvoices.filter(inv => inv.poId === po.id).reduce((sum, inv) => sum + Number(inv.billAmount), 0);
-        const balance = Math.round((Number(po.poAmount) - usedAmount) * 100) / 100;
-        if (Number(billAmount) > balance) {
-          return res.status(400).json({ message: `Bill Amount (₹${Number(billAmount).toFixed(2)}) exceeds PO remaining balance (₹${balance.toFixed(2)})` });
+        if (!bypassPO) {
+          const allInvoices = await storage.getSalesInvoices();
+          const usedAmount = allInvoices.filter(inv => inv.poId === po.id).reduce((sum, inv) => sum + Number(inv.billAmount), 0);
+          const balance = Math.round((Number(po.poAmount) - usedAmount) * 100) / 100;
+          if (Number(billAmount) > balance) {
+            return res.status(400).json({ message: `Bill Amount (₹${Number(billAmount).toFixed(2)}) exceeds PO remaining balance (₹${balance.toFixed(2)})` });
+          }
         }
       }
       const invoice = await storage.createSalesInvoice({
@@ -1479,7 +1481,7 @@ export async function registerRoutes(
     try {
       const existing = await storage.getSalesInvoice(Number(req.params.id));
       if (!existing) return res.status(404).json({ message: "Sales invoice not found" });
-      const { clientName, billDate, billNumber, billAmount, gstPercent, gstAmount, totalBillAmount, tdsPercent, tdsAmount, paymentReceivedDate, paymentReceivedAmount, poId } = req.body;
+      const { clientName, billDate, billNumber, billAmount, gstPercent, gstAmount, totalBillAmount, tdsPercent, tdsAmount, paymentReceivedDate, paymentReceivedAmount, poId, bypassPO } = req.body;
       const targetPoId = poId !== undefined ? (poId ? Number(poId) : null) : existing.poId;
       const effectiveBillAmount = billAmount !== undefined ? Number(billAmount) : Number(existing.billAmount);
       const effectiveClientName = clientName !== undefined ? clientName : existing.clientName;
@@ -1489,11 +1491,13 @@ export async function registerRoutes(
         if (po.clientName !== effectiveClientName) {
           return res.status(400).json({ message: "PO does not belong to the selected client" });
         }
-        const allInvoices = await storage.getSalesInvoices();
-        const usedAmount = allInvoices.filter(inv => inv.poId === po.id && inv.id !== existing.id).reduce((sum, inv) => sum + Number(inv.billAmount), 0);
-        const balance = Math.round((Number(po.poAmount) - usedAmount) * 100) / 100;
-        if (effectiveBillAmount > balance) {
-          return res.status(400).json({ message: `Bill Amount (₹${effectiveBillAmount.toFixed(2)}) exceeds PO remaining balance (₹${balance.toFixed(2)})` });
+        if (!bypassPO) {
+          const allInvoices = await storage.getSalesInvoices();
+          const usedAmount = allInvoices.filter(inv => inv.poId === po.id && inv.id !== existing.id).reduce((sum, inv) => sum + Number(inv.billAmount), 0);
+          const balance = Math.round((Number(po.poAmount) - usedAmount) * 100) / 100;
+          if (effectiveBillAmount > balance) {
+            return res.status(400).json({ message: `Bill Amount (₹${effectiveBillAmount.toFixed(2)}) exceeds PO remaining balance (₹${balance.toFixed(2)})` });
+          }
         }
       }
       const invoice = await storage.updateSalesInvoice(Number(req.params.id), {
