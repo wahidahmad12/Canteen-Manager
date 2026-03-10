@@ -43,6 +43,14 @@ const fmt = (n: number) =>
 
 const MONTHS = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
 
+const fmtDate = (d: string | null | undefined): string => {
+  if (!d) return "-";
+  const s = String(d).split("T")[0];
+  if (!s) return "-";
+  const [y, m, dd] = s.split("-");
+  return `${dd}-${m}-${y}`;
+};
+
 function filterByMonth(records: any[] | undefined, month: string, year: string): any[] {
   if (!records) return [];
   const m = month && month !== "all" ? parseInt(month) : 0;
@@ -165,7 +173,7 @@ function FinesTab({ clientName, clientAddress, employees, empMap, filterMonth, f
     const printWin = window.open("", "_blank");
     if (!printWin) return;
     const rows = filtered.map((f: any, i: number) => `
-      <tr><td>${i + 1}</td><td>${empMap.get(f.employeeId) || f.employeeId}</td><td>${f.date}</td><td>${fmt(f.amount)}</td><td>${f.reason || ""}</td><td>${f.realized || ""}</td></tr>
+      <tr><td>${i + 1}</td><td>${empMap.get(f.employeeId) || f.employeeId}</td><td>${f.date?.split("T")[0] || f.date}</td><td>${fmt(f.amount)}</td><td>${f.reason || ""}</td><td>${f.realized || ""}</td></tr>
     `).join("");
     const period = filterMonth && filterMonth !== "all" && filterYear ? ` - ${MONTHS[parseInt(filterMonth) - 1]} ${filterYear}` : filterYear ? ` - ${filterYear}` : "";
     printWin.document.write(`<html><head><title>Form XXI - Fines</title><style>body{font-family:sans-serif;padding:20px}table{width:100%;border-collapse:collapse}th,td{border:1px solid #ccc;padding:6px 10px;text-align:left;font-size:13px}th{background:#f5f5f5}</style></head><body>
@@ -378,7 +386,7 @@ function FinesTab({ clientName, clientAddress, employees, empMap, filterMonth, f
                       <tr key={f.id} className="border-b last:border-0" data-testid={`row-fine-${f.id}`}>
                         <td className="px-3 py-2.5">{i + 1}</td>
                         <td className="px-3 py-2.5 font-medium">{empMap.get(f.employeeId) || f.employeeId}</td>
-                        <td className="px-3 py-2.5">{f.date}</td>
+                        <td className="px-3 py-2.5">{fmtDate(f.date)}</td>
                         <td className="px-3 py-2.5 text-right font-mono">{fmt(f.amount)}</td>
                         <td className="px-3 py-2.5">{f.reason || "-"}</td>
                         <td className="px-3 py-2.5">{f.realized || "-"}</td>
@@ -408,7 +416,7 @@ function FinesTab({ clientName, clientAddress, employees, empMap, filterMonth, f
                   <div className="flex items-start justify-between gap-2">
                     <div>
                       <p className="font-medium text-sm">{empMap.get(f.employeeId) || f.employeeId}</p>
-                      <p className="text-xs text-muted-foreground">{f.date}</p>
+                      <p className="text-xs text-muted-foreground">{fmtDate(f.date)}</p>
                     </div>
                     <Badge variant="secondary" className="font-mono">{fmt(f.amount)}</Badge>
                   </div>
@@ -530,7 +538,7 @@ function AdvancesTab({ clientName, clientAddress, employees, empMap, filterMonth
     const printWin = window.open("", "_blank");
     if (!printWin) return;
     const rows = filtered.map((a: any, i: number) => `
-      <tr><td>${i + 1}</td><td>${empMap.get(a.employeeId) || a.employeeId}</td><td>${a.date}</td><td>${fmt(a.amount)}</td><td>${a.purpose || ""}</td><td>${a.installments || ""}</td><td>${a.recoveredAmount ? fmt(a.recoveredAmount) : ""}</td></tr>
+      <tr><td>${i + 1}</td><td>${empMap.get(a.employeeId) || a.employeeId}</td><td>${a.date?.split("T")[0] || a.date}</td><td>${fmt(a.amount)}</td><td>${a.purpose || ""}</td><td>${a.installments || ""}</td><td>${a.recoveredAmount ? fmt(a.recoveredAmount) : ""}</td></tr>
     `).join("");
     const period = filterMonth && filterMonth !== "all" && filterYear ? ` - ${MONTHS[parseInt(filterMonth) - 1]} ${filterYear}` : filterYear ? ` - ${filterYear}` : "";
     printWin.document.write(`<html><head><title>Form XXII - Advances</title><style>body{font-family:sans-serif;padding:20px}table{width:100%;border-collapse:collapse}th,td{border:1px solid #ccc;padding:6px 10px;text-align:left;font-size:13px}th{background:#f5f5f5}</style></head><body>
@@ -748,7 +756,7 @@ function AdvancesTab({ clientName, clientAddress, employees, empMap, filterMonth
                       <tr key={a.id} className="border-b last:border-0" data-testid={`row-advance-${a.id}`}>
                         <td className="px-3 py-2.5">{i + 1}</td>
                         <td className="px-3 py-2.5 font-medium">{empMap.get(a.employeeId) || a.employeeId}</td>
-                        <td className="px-3 py-2.5">{a.date}</td>
+                        <td className="px-3 py-2.5">{fmtDate(a.date)}</td>
                         <td className="px-3 py-2.5 text-right font-mono">{fmt(a.amount)}</td>
                         <td className="px-3 py-2.5">{a.purpose || "-"}</td>
                         <td className="px-3 py-2.5 text-right">{a.installments || "-"}</td>
@@ -779,7 +787,7 @@ function AdvancesTab({ clientName, clientAddress, employees, empMap, filterMonth
                   <div className="flex items-start justify-between gap-2">
                     <div>
                       <p className="font-medium text-sm">{empMap.get(a.employeeId) || a.employeeId}</p>
-                      <p className="text-xs text-muted-foreground">{a.date}</p>
+                      <p className="text-xs text-muted-foreground">{fmtDate(a.date)}</p>
                     </div>
                     <Badge variant="secondary" className="font-mono">{fmt(a.amount)}</Badge>
                   </div>
@@ -996,7 +1004,7 @@ function OvertimeTab({ clientName, clientAddress, employees, empMap, filterMonth
     const printWin = window.open("", "_blank");
     if (!printWin) return;
     const rows = filtered.map((o: any, i: number) => `
-      <tr><td>${i + 1}</td><td>${empMap.get(o.employeeId) || o.employeeId}</td><td>${o.date}</td><td>${o.normalHours || ""}</td><td>${o.overtimeHours || ""}</td><td>${o.overtimeRate ? fmt(o.overtimeRate) : ""}</td><td>${o.overtimeAmount ? fmt(o.overtimeAmount) : ""}</td><td>${o.paidDate || getSalaryPaidDate(o.employeeId, o.date) || ""}</td></tr>
+      <tr><td>${i + 1}</td><td>${empMap.get(o.employeeId) || o.employeeId}</td><td>${o.date?.split("T")[0] || o.date}</td><td>${o.normalHours || ""}</td><td>${o.overtimeHours || ""}</td><td>${o.overtimeRate ? fmt(o.overtimeRate) : ""}</td><td>${o.overtimeAmount ? fmt(o.overtimeAmount) : ""}</td><td>${(o.paidDate || getSalaryPaidDate(o.employeeId, o.date) || "").split("T")[0] || ""}</td></tr>
     `).join("");
     const period = filterMonth && filterMonth !== "all" && filterYear ? ` - ${MONTHS[parseInt(filterMonth) - 1]} ${filterYear}` : filterYear ? ` - ${filterYear}` : "";
     printWin.document.write(`<html><head><title>Form XXIII - Overtime</title><style>body{font-family:sans-serif;padding:20px}table{width:100%;border-collapse:collapse}th,td{border:1px solid #ccc;padding:6px 10px;text-align:left;font-size:13px}th{background:#f5f5f5}</style></head><body>
@@ -1243,12 +1251,12 @@ function OvertimeTab({ clientName, clientAddress, employees, empMap, filterMonth
                         <tr key={o.id} className="border-b last:border-0" data-testid={`row-overtime-${o.id}`}>
                           <td className="px-3 py-2.5">{i + 1}</td>
                           <td className="px-3 py-2.5 font-medium">{empMap.get(o.employeeId) || o.employeeId}</td>
-                          <td className="px-3 py-2.5">{o.date}</td>
+                          <td className="px-3 py-2.5">{fmtDate(o.date)}</td>
                           <td className="px-3 py-2.5 text-right">{o.normalHours || "-"}</td>
                           <td className="px-3 py-2.5 text-right">{o.overtimeHours || "-"}</td>
                           <td className="px-3 py-2.5 text-right font-mono">{o.overtimeRate ? fmt(o.overtimeRate) : "-"}</td>
                           <td className="px-3 py-2.5 text-right font-mono">{o.overtimeAmount ? fmt(o.overtimeAmount) : "-"}</td>
-                          <td className="px-3 py-2.5">{o.paidDate || getSalaryPaidDate(o.employeeId, o.date) || "-"}</td>
+                          <td className="px-3 py-2.5">{fmtDate(o.paidDate || getSalaryPaidDate(o.employeeId, o.date))}</td>
                           <td className="px-3 py-2.5 text-right">
                             <Button variant="ghost" size="icon" onClick={() => openEdit(o)} data-testid={`button-edit-overtime-${o.id}`}><Pencil className="w-4 h-4" /></Button>
                             <AlertDialog>
@@ -1276,7 +1284,7 @@ function OvertimeTab({ clientName, clientAddress, employees, empMap, filterMonth
                   <div className="flex items-start justify-between gap-2">
                     <div>
                       <p className="font-medium text-sm">{empMap.get(o.employeeId) || o.employeeId}</p>
-                      <p className="text-xs text-muted-foreground">{o.date}</p>
+                      <p className="text-xs text-muted-foreground">{fmtDate(o.date)}</p>
                     </div>
                     {o.overtimeAmount && <Badge variant="secondary" className="font-mono">{fmt(o.overtimeAmount)}</Badge>}
                   </div>
@@ -1284,7 +1292,7 @@ function OvertimeTab({ clientName, clientAddress, employees, empMap, filterMonth
                     {o.normalHours && <span>Normal: {o.normalHours}h</span>}
                     {o.overtimeHours && <span>OT: {o.overtimeHours}h</span>}
                     {o.overtimeRate && <span>Rate: {fmt(o.overtimeRate)}</span>}
-                    {(o.paidDate || getSalaryPaidDate(o.employeeId, o.date)) && <span>Paid: {o.paidDate || getSalaryPaidDate(o.employeeId, o.date)}</span>}
+                    {(o.paidDate || getSalaryPaidDate(o.employeeId, o.date)) && <span>Paid: {fmtDate(o.paidDate || getSalaryPaidDate(o.employeeId, o.date))}</span>}
                   </div>
                   <div className="flex justify-end gap-1">
                     <Button variant="ghost" size="icon" onClick={() => openEdit(o)} data-testid={`button-edit-overtime-mobile-${o.id}`}><Pencil className="w-4 h-4" /></Button>
@@ -1398,7 +1406,7 @@ function DamageTab({ clientName, clientAddress, employees, empMap, filterMonth, 
     const printWin = window.open("", "_blank");
     if (!printWin) return;
     const rows = filtered.map((d: any, i: number) => `
-      <tr><td>${i + 1}</td><td>${empMap.get(d.employeeId) || d.employeeId}</td><td>${d.date}</td><td>${fmt(d.amount)}</td><td>${d.description || ""}</td></tr>
+      <tr><td>${i + 1}</td><td>${empMap.get(d.employeeId) || d.employeeId}</td><td>${d.date?.split("T")[0] || d.date}</td><td>${fmt(d.amount)}</td><td>${d.description || ""}</td></tr>
     `).join("");
     const period = filterMonth && filterMonth !== "all" && filterYear ? ` - ${MONTHS[parseInt(filterMonth) - 1]} ${filterYear}` : filterYear ? ` - ${filterYear}` : "";
     printWin.document.write(`<html><head><title>Form XX - Damage/Loss</title><style>body{font-family:sans-serif;padding:20px}table{width:100%;border-collapse:collapse}th,td{border:1px solid #ccc;padding:6px 10px;text-align:left;font-size:13px}th{background:#f5f5f5}</style></head><body>
@@ -1608,7 +1616,7 @@ function DamageTab({ clientName, clientAddress, employees, empMap, filterMonth, 
                       <tr key={d.id} className="border-b last:border-0" data-testid={`row-damage-${d.id}`}>
                         <td className="px-3 py-2.5">{i + 1}</td>
                         <td className="px-3 py-2.5 font-medium">{empMap.get(d.employeeId) || d.employeeId}</td>
-                        <td className="px-3 py-2.5">{d.date}</td>
+                        <td className="px-3 py-2.5">{fmtDate(d.date)}</td>
                         <td className="px-3 py-2.5 text-right font-mono">{fmt(d.amount)}</td>
                         <td className="px-3 py-2.5">{d.description || "-"}</td>
                         <td className="px-3 py-2.5 text-right">
@@ -1637,7 +1645,7 @@ function DamageTab({ clientName, clientAddress, employees, empMap, filterMonth, 
                   <div className="flex items-start justify-between gap-2">
                     <div>
                       <p className="font-medium text-sm">{empMap.get(d.employeeId) || d.employeeId}</p>
-                      <p className="text-xs text-muted-foreground">{d.date}</p>
+                      <p className="text-xs text-muted-foreground">{fmtDate(d.date)}</p>
                     </div>
                     <Badge variant="secondary" className="font-mono">{fmt(d.amount)}</Badge>
                   </div>
