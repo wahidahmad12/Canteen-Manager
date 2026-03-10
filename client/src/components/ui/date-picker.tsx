@@ -20,7 +20,7 @@ interface DatePickerProps {
   "data-testid"?: string
 }
 
-export function DatePicker({ date, setDate, className, dateFormat = "PPP", placeholder = "Pick a date", ...rest }: DatePickerProps) {
+export function DatePicker({ date, setDate, className, dateFormat = "dd-MM-yyyy", placeholder = "Pick a date", ...rest }: DatePickerProps) {
   return (
     <Popover>
       <PopoverTrigger asChild>

@@ -187,7 +187,7 @@ export default function ReportForm() {
         .then(res => res.json())
         .then(data => {
           if (data.balance !== undefined) {
-            form.setValue("openingBalance", data.balance);
+            form.setValue("openingBalance", Math.round(Number(data.balance) * 100) / 100);
           }
         });
     }
@@ -202,8 +202,8 @@ export default function ReportForm() {
     if (report) {
       form.reset({
         date: new Date(report.date),
-        openingBalance: Number(report.openingBalance),
-        receivedAmount: Number(report.receivedAmount),
+        openingBalance: Math.round(Number(report.openingBalance) * 100) / 100,
+        receivedAmount: Math.round(Number(report.receivedAmount) * 100) / 100,
         items: report.items.map((item: any) => ({
           ...item,
           qty: Number(item.qty),
@@ -348,14 +348,14 @@ export default function ReportForm() {
                 type="text"
                 inputMode="decimal"
                 className="font-mono no-spinner border-emerald-200 focus:border-emerald-400 dark:border-emerald-800"
-                value={openingBalance}
+                value={Math.round(Number(openingBalance) * 100) / 100}
                 onChange={(e) => {
                   const val = e.target.value;
                   if (val === '' || val === '-') {
                     form.setValue("openingBalance", 0);
                   } else {
                     const num = parseFloat(val);
-                    if (!isNaN(num)) form.setValue("openingBalance", num);
+                    if (!isNaN(num)) form.setValue("openingBalance", Math.round(num * 100) / 100);
                   }
                 }}
                 onFocus={(e) => e.target.select()}
