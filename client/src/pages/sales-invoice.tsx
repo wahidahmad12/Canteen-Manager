@@ -1016,11 +1016,11 @@ export default function SalesInvoicePage() {
           </TabsContent>
 
           <TabsContent value="gst-report" className="mt-4">
-            <GstTdsReport invoices={invoices} type="gst" />
+            <GstTdsReport invoices={invoices} type="gst" clients={clients} />
           </TabsContent>
 
           <TabsContent value="tds-report" className="mt-4">
-            <GstTdsReport invoices={invoices} type="tds" />
+            <GstTdsReport invoices={invoices} type="tds" clients={clients} />
           </TabsContent>
         </Tabs>
       </div>
@@ -1029,15 +1029,18 @@ export default function SalesInvoicePage() {
   );
 }
 
-function GstTdsReport({ invoices, type }: { invoices: any[]; type: "gst" | "tds" }) {
+function GstTdsReport({ invoices, type, clients }: { invoices: any[]; type: "gst" | "tds"; clients: string[] }) {
   const now = new Date();
   const [month, setMonth] = useState(String(now.getMonth() + 1));
   const [year, setYear] = useState(String(now.getFullYear()));
+  const [clientFilter, setClientFilter] = useState("all");
 
   const filtered = invoices.filter((inv) => {
     if (!inv.billDate) return false;
     const d = new Date(inv.billDate);
-    return d.getMonth() + 1 === Number(month) && d.getFullYear() === Number(year);
+    if (d.getMonth() + 1 !== Number(month) || d.getFullYear() !== Number(year)) return false;
+    if (clientFilter !== "all" && inv.clientName !== clientFilter) return false;
+    return true;
   });
 
   const isGst = type === "gst";
@@ -1056,16 +1059,79 @@ function GstTdsReport({ invoices, type }: { invoices: any[]; type: "gst" | "tds"
   const years: string[] = [];
   for (let y = now.getFullYear(); y >= now.getFullYear() - 5; y--) years.push(String(y));
 
+  const handlePrint = () => {
+    const monthName = months.find(m => m.v === month)?.l || "";
+    const clientLabel = clientFilter === "all" ? "All Clients" : clientFilter;
+    const totalBillAmt = filtered.reduce((s, i) => s + Number(i.billAmount), 0);
+    const printWindow = window.open("", "_blank");
+    if (!printWindow) return;
+    printWindow.document.write(`<!DOCTYPE html><html><head><title>${title} - ${monthName} ${year}</title>
+      <style>
+        body { font-family: Arial, sans-serif; margin: 20px; color: #333; }
+        h2 { text-align: center; margin-bottom: 4px; }
+        .sub { text-align: center; font-size: 13px; color: #666; margin-bottom: 16px; }
+        table { width: 100%; border-collapse: collapse; font-size: 12px; }
+        th { background: ${isGst ? "#059669" : "#dc2626"}; color: white; padding: 8px 10px; text-align: left; }
+        th.right { text-align: right; }
+        td { padding: 6px 10px; border-bottom: 1px solid #e5e7eb; }
+        td.right { text-align: right; font-family: monospace; }
+        tr:nth-child(even) { background: #f9fafb; }
+        tfoot td { font-weight: bold; border-top: 2px solid #333; padding-top: 8px; }
+        .summary { display: flex; justify-content: space-around; margin-bottom: 16px; }
+        .summary-card { text-align: center; padding: 10px 20px; border: 1px solid #e5e7eb; border-radius: 8px; }
+        .summary-card .label { font-size: 11px; color: #666; }
+        .summary-card .value { font-size: 18px; font-weight: bold; font-family: monospace; }
+        @media print { body { margin: 10px; } }
+      </style></head><body>
+      <h2>${title}</h2>
+      <p class="sub">${monthName} ${year} | ${clientLabel}</p>
+      <div class="summary">
+        <div class="summary-card"><div class="label">Total Invoices</div><div class="value">${filtered.length}</div></div>
+        <div class="summary-card"><div class="label">Total Bill Amount</div><div class="value" style="color:#7c3aed">₹${totalBillAmt.toLocaleString("en-IN", { minimumFractionDigits: 2 })}</div></div>
+        <div class="summary-card"><div class="label">Total ${isGst ? "GST" : "TDS"} Amount</div><div class="value" style="color:${isGst ? "#059669" : "#dc2626"}">₹${total.toLocaleString("en-IN", { minimumFractionDigits: 2 })}</div></div>
+      </div>
+      <table>
+        <thead><tr>
+          <th>Sl#</th><th>Client</th><th>Bill Date</th><th>Bill Number</th>
+          <th class="right">Bill Amount</th><th class="right">${isGst ? "GST %" : "TDS %"}</th><th class="right">${isGst ? "GST Amount" : "TDS Amount"}</th>
+        </tr></thead>
+        <tbody>${filtered.map((inv: any, idx: number) => `<tr>
+          <td>${idx + 1}</td><td>${inv.clientName}</td><td>${fmtDate(inv.billDate)}</td><td>${inv.billNumber}</td>
+          <td class="right">${fmtCurrency(inv.billAmount)}</td><td class="right">${Number(isGst ? inv.gstPercent : inv.tdsPercent)}%</td>
+          <td class="right" style="font-weight:bold;color:${isGst ? "#059669" : "#dc2626"}">${fmtCurrency(inv[amountKey])}</td>
+        </tr>`).join("")}</tbody>
+        <tfoot><tr>
+          <td colspan="4">Total (${filtered.length} invoices)</td>
+          <td class="right">₹${totalBillAmt.toLocaleString("en-IN", { minimumFractionDigits: 2 })}</td>
+          <td></td>
+          <td class="right" style="color:${isGst ? "#059669" : "#dc2626"}">₹${total.toLocaleString("en-IN", { minimumFractionDigits: 2 })}</td>
+        </tr></tfoot>
+      </table>
+      <script>window.onload=function(){window.print();}<\/script>
+    </body></html>`);
+    printWindow.document.close();
+  };
+
   return (
     <div>
       <Card className="border-0 shadow-md mb-4">
         <CardContent className="p-4">
-          <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3">
+          <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3 flex-wrap">
             <div className="flex items-center gap-2">
               {isGst ? <Percent className="w-5 h-5 text-emerald-600" /> : <IndianRupee className="w-5 h-5 text-red-600" />}
               <h3 className="font-bold text-lg">{title}</h3>
             </div>
-            <div className="flex items-center gap-2 ml-auto">
+            <div className="flex items-center gap-2 ml-auto flex-wrap">
+              <Select value={clientFilter} onValueChange={setClientFilter}>
+                <SelectTrigger className="w-[180px] h-9" data-testid={`select-${type}-client`}>
+                  <Building2 className="w-3.5 h-3.5 mr-1 text-muted-foreground" />
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Clients</SelectItem>
+                  {clients.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}
+                </SelectContent>
+              </Select>
               <Select value={month} onValueChange={setMonth}>
                 <SelectTrigger className="w-[130px] h-9" data-testid={`select-${type}-month`}>
                   <SelectValue />
@@ -1082,6 +1148,9 @@ function GstTdsReport({ invoices, type }: { invoices: any[]; type: "gst" | "tds"
                   {years.map(y => <SelectItem key={y} value={y}>{y}</SelectItem>)}
                 </SelectContent>
               </Select>
+              <Button variant="outline" size="sm" className="h-9" onClick={handlePrint} data-testid={`button-print-${type}`}>
+                <BarChart3 className="w-4 h-4 mr-1" /> Print
+              </Button>
             </div>
           </div>
         </CardContent>
