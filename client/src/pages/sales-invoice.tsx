@@ -1275,6 +1275,7 @@ function PankajReport({ invoices, clients }: { invoices: any[]; clients: string[
   const [year, setYear] = useState(String(now.getFullYear()));
   const [selectedClients, setSelectedClients] = useState<string[]>([]);
   const [clientDropdownOpen, setClientDropdownOpen] = useState(false);
+  const [fixedAmounts, setFixedAmounts] = useState<Record<string, number>>({});
   const dropdownRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -1306,13 +1307,15 @@ function PankajReport({ invoices, clients }: { invoices: any[]; clients: string[
     const totalTds = clientInvoices.reduce((s, i) => s + Number(i.tdsAmount), 0);
     const total = totalBill + totalGst;
     const toReceive = Math.round((totalGst - totalTds) * 100) / 100;
-    return { idx: idx + 1, clientName, totalBill, totalGst, totalTds, total, toReceive };
+    const fixedAmt = fixedAmounts[clientName] || 0;
+    return { idx: idx + 1, clientName, totalBill, totalGst, totalTds, total, toReceive, fixedAmt };
   });
 
   const grandTotalBill = rows.reduce((s, r) => s + r.totalBill, 0);
   const grandTotalGst = rows.reduce((s, r) => s + r.totalGst, 0);
   const grandTotal = rows.reduce((s, r) => s + r.total, 0);
   const grandToReceive = rows.reduce((s, r) => s + r.toReceive, 0);
+  const grandFixedAmt = rows.reduce((s, r) => s + r.fixedAmt, 0);
 
   const monthsList = [
     { v: "1", l: "January" }, { v: "2", l: "February" }, { v: "3", l: "March" },
@@ -1359,13 +1362,14 @@ function PankajReport({ invoices, clients }: { invoices: any[]; clients: string[
         <thead><tr>
           <th>Sl No</th><th>Client Name</th>
           <th>Bill Amt</th><th>GST Amount</th>
-          <th>Total</th><th>Give To Pankaj</th>
+          <th>Total</th><th>Monthly Fixed Amt</th><th>Give To Pankaj</th>
         </tr></thead>
         <tbody>${rows.map(r => `<tr>
           <td class="center">${r.idx}</td><td>${r.clientName}</td>
           <td class="right">${r.totalBill.toLocaleString("en-IN", {minimumFractionDigits:2})}</td>
           <td class="right">${r.totalGst.toLocaleString("en-IN", {minimumFractionDigits:2})}</td>
           <td class="right">${r.total.toLocaleString("en-IN", {minimumFractionDigits:2})}</td>
+          <td class="right">${r.fixedAmt > 0 ? r.fixedAmt.toLocaleString("en-IN", {minimumFractionDigits:2}) : "-"}</td>
           <td class="right" style="font-weight:bold">${r.toReceive.toLocaleString("en-IN", {minimumFractionDigits:2})}</td>
         </tr>`).join("")}</tbody>
         <tfoot><tr>
@@ -1373,6 +1377,7 @@ function PankajReport({ invoices, clients }: { invoices: any[]; clients: string[
           <td class="right">${grandTotalBill.toLocaleString("en-IN", {minimumFractionDigits:2})}</td>
           <td class="right">${grandTotalGst.toLocaleString("en-IN", {minimumFractionDigits:2})}</td>
           <td class="right">${grandTotal.toLocaleString("en-IN", {minimumFractionDigits:2})}</td>
+          <td class="right">${grandFixedAmt > 0 ? grandFixedAmt.toLocaleString("en-IN", {minimumFractionDigits:2}) : "-"}</td>
           <td class="right">${grandToReceive.toLocaleString("en-IN", {minimumFractionDigits:2})}</td>
         </tr></tfoot>
       </table>
@@ -1510,6 +1515,7 @@ function PankajReport({ invoices, clients }: { invoices: any[]; clients: string[
                       <th className="text-right py-3.5 px-4 font-semibold text-xs">Bill Amt</th>
                       <th className="text-right py-3.5 px-4 font-semibold text-xs">GST Amount</th>
                       <th className="text-right py-3.5 px-4 font-semibold text-xs">Total</th>
+                      <th className="text-center py-3.5 px-4 font-semibold text-xs">Monthly Fixed Amt</th>
                       <th className="text-right py-3.5 px-4 font-semibold text-xs">Give To Pankaj</th>
                     </tr>
                   </thead>
@@ -1523,6 +1529,9 @@ function PankajReport({ invoices, clients }: { invoices: any[]; clients: string[
                         <td className="py-3 px-4 text-right font-mono text-sm">{fmtCurrency(r.totalBill)}</td>
                         <td className="py-3 px-4 text-right font-mono text-sm text-amber-600 dark:text-amber-400">{fmtCurrency(r.totalGst)}</td>
                         <td className="py-3 px-4 text-right font-mono text-sm font-bold text-blue-600 dark:text-blue-400">{fmtCurrency(r.total)}</td>
+                        <td className="py-2 px-2 text-center">
+                          <Input type="number" className="w-24 h-8 text-xs text-center font-mono mx-auto" placeholder="0" value={fixedAmounts[r.clientName] || ""} onChange={(e) => setFixedAmounts(prev => ({ ...prev, [r.clientName]: Number(e.target.value) || 0 }))} data-testid={`input-fixed-amt-${r.idx}`} />
+                        </td>
                         <td className="py-3 px-4 text-right font-mono text-sm font-bold text-emerald-600 dark:text-emerald-400">{fmtCurrency(r.toReceive)}</td>
                       </tr>
                     ))}
@@ -1533,6 +1542,7 @@ function PankajReport({ invoices, clients }: { invoices: any[]; clients: string[
                       <td className="py-3 px-4 text-right font-mono text-sm font-bold">{fmtCurrency(grandTotalBill)}</td>
                       <td className="py-3 px-4 text-right font-mono text-sm font-bold text-amber-600">{fmtCurrency(grandTotalGst)}</td>
                       <td className="py-3 px-4 text-right font-mono text-sm font-bold text-blue-600">{fmtCurrency(grandTotal)}</td>
+                      <td className="py-3 px-4 text-center font-mono text-sm font-bold">{grandFixedAmt > 0 ? fmtCurrency(grandFixedAmt) : "-"}</td>
                       <td className="py-3 px-4 text-right font-mono text-sm font-bold text-emerald-600">{fmtCurrency(grandToReceive)}</td>
                     </tr>
                   </tfoot>
@@ -1563,9 +1573,13 @@ function PankajReport({ invoices, clients }: { invoices: any[]; clients: string[
                       <p className="text-[10px] text-blue-600 dark:text-blue-400 uppercase tracking-wider font-medium">Total</p>
                       <p className="font-mono font-bold text-blue-700 dark:text-blue-300 mt-0.5">{fmtCurrency(r.total)}</p>
                     </div>
-                    <div className="bg-emerald-50 dark:bg-emerald-950/20 rounded-xl p-2.5 text-center">
+                    <div className="bg-purple-50 dark:bg-purple-950/20 rounded-xl p-2.5 text-center">
+                      <p className="text-[10px] text-purple-600 dark:text-purple-400 uppercase tracking-wider font-medium">Monthly Fixed</p>
+                      <Input type="number" className="w-20 h-7 text-xs text-center font-mono mx-auto mt-0.5" placeholder="0" value={fixedAmounts[r.clientName] || ""} onChange={(e) => setFixedAmounts(prev => ({ ...prev, [r.clientName]: Number(e.target.value) || 0 }))} data-testid={`input-fixed-amt-mobile-${r.idx}`} />
+                    </div>
+                    <div className="col-span-2 bg-emerald-50 dark:bg-emerald-950/20 rounded-xl p-2.5 text-center">
                       <p className="text-[10px] text-emerald-600 dark:text-emerald-400 uppercase tracking-wider font-medium">Give To Pankaj</p>
-                      <p className="font-mono font-bold text-emerald-700 dark:text-emerald-300 mt-0.5">{fmtCurrency(r.toReceive)}</p>
+                      <p className="font-mono font-bold text-emerald-700 dark:text-emerald-300 mt-0.5 text-base">{fmtCurrency(r.toReceive)}</p>
                     </div>
                   </div>
                 </CardContent>
