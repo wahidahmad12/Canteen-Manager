@@ -520,6 +520,7 @@ export default function SalesInvoicePage() {
   const [filterClient, setFilterClient] = useState("all");
   const [filterMonth, setFilterMonth] = useState("all");
   const [filterYear, setFilterYear] = useState(String(new Date().getFullYear()));
+  const [filterStatus, setFilterStatus] = useState("all");
 
   const deleteMutation = useMutation({
     mutationFn: async (id: number) => {
@@ -558,6 +559,8 @@ export default function SalesInvoicePage() {
         if (filterMonth !== "all" && d.getMonth() !== Number(filterMonth)) return false;
       } catch { return false; }
     }
+    if (filterStatus === "pending" && inv.paymentReceivedDate) return false;
+    if (filterStatus === "received" && !inv.paymentReceivedDate) return false;
     if (searchTerm) {
       const s = searchTerm.toLowerCase();
       return inv.billNumber.toLowerCase().includes(s) || inv.clientName.toLowerCase().includes(s);
@@ -915,8 +918,23 @@ export default function SalesInvoicePage() {
                   </SelectContent>
                 </Select>
               </div>
-              {(filterClient !== "all" || filterMonth !== "all" || filterYear !== String(new Date().getFullYear()) || searchTerm) && (
-                <Button variant="ghost" size="sm" className="text-muted-foreground" onClick={() => { setFilterClient("all"); setFilterMonth("all"); setFilterYear(String(new Date().getFullYear())); setSearchTerm(""); }} data-testid="button-clear-filters">
+              <div className="w-full sm:w-32">
+                <Label className="text-xs font-semibold text-muted-foreground flex items-center gap-1 mb-1">
+                  <CheckCircle2 className="w-3 h-3" /> Status
+                </Label>
+                <Select value={filterStatus} onValueChange={setFilterStatus}>
+                  <SelectTrigger className="h-9" data-testid="select-filter-status">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All</SelectItem>
+                    <SelectItem value="pending">Pending</SelectItem>
+                    <SelectItem value="received">Received</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              {(filterClient !== "all" || filterMonth !== "all" || filterYear !== String(new Date().getFullYear()) || filterStatus !== "all" || searchTerm) && (
+                <Button variant="ghost" size="sm" className="text-muted-foreground" onClick={() => { setFilterClient("all"); setFilterMonth("all"); setFilterYear(String(new Date().getFullYear())); setFilterStatus("all"); setSearchTerm(""); }} data-testid="button-clear-filters">
                   <X className="w-3.5 h-3.5 mr-1" /> Clear
                 </Button>
               )}
