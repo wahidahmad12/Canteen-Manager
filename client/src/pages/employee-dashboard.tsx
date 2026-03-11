@@ -62,9 +62,14 @@ interface SalaryRecord {
 
 const monthNames = ['', 'January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
 
-function fmtDate(d: string | null) {
+function fmtDate(d: string | null | undefined) {
   if (!d) return '—';
-  return d.split('-').reverse().join('-');
+  try {
+    const dt = new Date(d);
+    const dd = String(dt.getDate()).padStart(2, '0');
+    const mm = String(dt.getMonth() + 1).padStart(2, '0');
+    return `${dd}-${mm}-${dt.getFullYear()}`;
+  } catch { return '—'; }
 }
 
 function fmtAmt(n: string | number) {
@@ -267,7 +272,7 @@ export default function EmployeeDashboard() {
             <td style="background:${C.infoLabelBg};color:${C.infoLabelColor};font-weight:600;white-space:nowrap;border:${b};${cp}" colspan="2">Father's / Husband's :</td>
             <td colspan="3" style="border:${b};${cp}">${empInfo.fatherName || "-"}</td>
             <td style="background:${C.infoLabelBg};color:${C.infoLabelColor};font-weight:600;white-space:nowrap;border:${b};${cp}">Skills:</td>
-            <td colspan="2" style="border:${b};${cp}">${empInfo.designation || "Unskilled"}</td>
+            <td colspan="2" style="border:${b};${cp}">${empInfo.skills || "Unskilled"}</td>
           </tr>
           <tr>
             <td style="background:${C.infoLabelBg};color:${C.infoLabelColor};font-weight:600;white-space:nowrap;border:${b};${cp}" colspan="2">Date Of Birth</td>
@@ -494,6 +499,13 @@ export default function EmployeeDashboard() {
                   <div>
                     <p className="text-xs text-muted-foreground">Mobile</p>
                     <p className="font-semibold">{empInfo.mobile || '—'}</p>
+                  </div>
+                </div>
+                <div className="flex items-start gap-2">
+                  <CalendarDays className="w-4 h-4 text-slate-400 mt-0.5 shrink-0" />
+                  <div>
+                    <p className="text-xs text-muted-foreground">Date of Birth</p>
+                    <p className="font-semibold">{fmtDate(empInfo.dob)}</p>
                   </div>
                 </div>
                 <div className="flex items-start gap-2">
