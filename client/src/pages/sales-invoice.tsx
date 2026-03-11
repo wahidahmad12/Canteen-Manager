@@ -1383,7 +1383,7 @@ function PankajReport({ invoices, clients }: { invoices: any[]; clients: string[
 
   return (
     <div>
-      <Card className="border-0 shadow-lg mb-5 overflow-hidden">
+      <Card className="border-0 shadow-lg mb-5">
         <div className="h-1.5 bg-gradient-to-r from-violet-500 via-purple-500 to-fuchsia-500" />
         <CardContent className="p-5">
           <div className="flex items-center gap-3 mb-4">
