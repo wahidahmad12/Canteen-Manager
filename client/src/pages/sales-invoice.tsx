@@ -18,7 +18,7 @@ import {
   FileText, Plus, Save, Loader2, Pencil, Trash2, Search,
   CalendarDays, Building2, Receipt, IndianRupee, Percent,
   CheckCircle2, XCircle, X, BarChart3, ClipboardList, AlertTriangle,
-  Printer, User, Check
+  Printer, User, Check, TrendingUp
 } from "lucide-react";
 import { Link } from "wouter";
 
@@ -1329,41 +1329,53 @@ function PankajReport({ invoices, clients }: { invoices: any[]; clients: string[
     if (rows.length === 0) return;
     const printWindow = window.open("", "_blank");
     if (!printWindow) return;
-    printWindow.document.write(`<!DOCTYPE html><html><head><title>Pankaj Report - ${monthName} ${year}</title>
+    const today = new Date();
+    const dateStr = `${String(today.getDate()).padStart(2,"0")}/${String(today.getMonth()+1).padStart(2,"0")}/${today.getFullYear()}`;
+    printWindow.document.write(`<!DOCTYPE html><html><head><title>Amount Give To Pankaj - ${monthName} ${year}</title>
       <style>
-        body { font-family: Arial, sans-serif; margin: 20px; color: #333; }
-        h2 { text-align: center; margin-bottom: 4px; }
-        .sub { text-align: center; font-size: 13px; color: #666; margin-bottom: 16px; }
+        body { font-family: Arial, sans-serif; margin: 30px 40px; color: #000; }
+        .company { text-align: center; font-size: 16px; font-weight: bold; border-bottom: 2px solid #000; padding-bottom: 6px; margin-bottom: 2px; }
+        .title { text-align: center; font-size: 14px; font-weight: bold; padding: 6px 0; border-bottom: 1px solid #000; margin-bottom: 8px; }
+        .meta-row { display: flex; justify-content: space-between; font-size: 12px; margin-bottom: 10px; padding: 0 4px; }
+        .meta-row span { }
         table { width: 100%; border-collapse: collapse; font-size: 12px; }
-        th { background: #7c3aed; color: white; padding: 8px 10px; text-align: left; }
-        th.right { text-align: right; }
-        td { padding: 6px 10px; border-bottom: 1px solid #e5e7eb; }
-        td.right { text-align: right; font-family: monospace; }
-        tr:nth-child(even) { background: #f9fafb; }
-        tfoot td { font-weight: bold; border-top: 2px solid #333; padding-top: 8px; }
-        @media print { body { margin: 10px; } }
+        th, td { border: 1px solid #000; padding: 6px 8px; }
+        th { background: #f0f0f0; font-weight: bold; text-align: center; font-size: 11px; }
+        td { text-align: left; }
+        td.right { text-align: right; font-family: 'Courier New', monospace; }
+        td.center { text-align: center; }
+        tfoot td { font-weight: bold; background: #f5f5f5; }
+        .note { font-size: 11px; margin-top: 10px; font-style: italic; color: #444; }
+        @media print { body { margin: 15px 20px; } }
       </style></head><body>
-      <h2>Pankaj Report</h2>
-      <p class="sub">${monthName} ${year}</p>
+      <div class="company">DJ Hospitality & Facility Management Private Limited</div>
+      <div class="title">Amount Give To Pankaj</div>
+      <div class="meta-row">
+        <span><b>Date:</b> ${dateStr}</span>
+        <span><b>Month:</b> ${monthName} ${year}</span>
+      </div>
       <table>
         <thead><tr>
-          <th>Sl#</th><th>Client Name</th>
-          <th class="right">Bill Amount</th><th class="right">GST Amount</th>
-          <th class="right">Total</th><th class="right">To Receive (-3%)</th>
+          <th>Sl No</th><th>Client Name</th>
+          <th>Bill Amt</th><th>GST Amount</th>
+          <th>Total</th><th>Give To Pankaj</th>
         </tr></thead>
         <tbody>${rows.map(r => `<tr>
-          <td>${r.idx}</td><td>${r.clientName}</td>
-          <td class="right">${fmtCurrency(r.totalBill)}</td><td class="right">${fmtCurrency(r.totalGst)}</td>
-          <td class="right" style="font-weight:bold">${fmtCurrency(r.total)}</td>
-          <td class="right" style="font-weight:bold;color:#059669">${fmtCurrency(r.toReceive)}</td>
+          <td class="center">${r.idx}</td><td>${r.clientName}</td>
+          <td class="right">${r.totalBill.toLocaleString("en-IN", {minimumFractionDigits:2})}</td>
+          <td class="right">${r.totalGst.toLocaleString("en-IN", {minimumFractionDigits:2})}</td>
+          <td class="right">${r.total.toLocaleString("en-IN", {minimumFractionDigits:2})}</td>
+          <td class="right" style="font-weight:bold">${r.toReceive.toLocaleString("en-IN", {minimumFractionDigits:2})}</td>
         </tr>`).join("")}</tbody>
         <tfoot><tr>
-          <td colspan="2">Grand Total</td>
-          <td class="right">${fmtCurrency(grandTotalBill)}</td><td class="right">${fmtCurrency(grandTotalGst)}</td>
-          <td class="right">${fmtCurrency(grandTotal)}</td>
-          <td class="right" style="color:#059669">${fmtCurrency(grandToReceive)}</td>
+          <td colspan="2" style="text-align:center"><b>Grand Total</b></td>
+          <td class="right">${grandTotalBill.toLocaleString("en-IN", {minimumFractionDigits:2})}</td>
+          <td class="right">${grandTotalGst.toLocaleString("en-IN", {minimumFractionDigits:2})}</td>
+          <td class="right">${grandTotal.toLocaleString("en-IN", {minimumFractionDigits:2})}</td>
+          <td class="right">${grandToReceive.toLocaleString("en-IN", {minimumFractionDigits:2})}</td>
         </tr></tfoot>
       </table>
+      <p class="note">Give To Pankaj = GST Amount - TDS Amount</p>
       <script>window.onload=function(){window.print();}<\/script>
     </body></html>`);
     printWindow.document.close();
@@ -1371,33 +1383,39 @@ function PankajReport({ invoices, clients }: { invoices: any[]; clients: string[
 
   return (
     <div>
-      <Card className="border-0 shadow-md mb-4">
-        <CardContent className="p-4">
-          <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3 flex-wrap">
-            <div className="flex items-center gap-2">
-              <User className="w-5 h-5 text-violet-600" />
-              <h3 className="font-bold text-lg">Pankaj Report</h3>
+      <Card className="border-0 shadow-lg mb-5 overflow-hidden">
+        <div className="h-1.5 bg-gradient-to-r from-violet-500 via-purple-500 to-fuchsia-500" />
+        <CardContent className="p-5">
+          <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4 flex-wrap">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-violet-500 to-purple-600 flex items-center justify-center shadow-lg shadow-violet-200 dark:shadow-violet-900/30">
+                <User className="w-5 h-5 text-white" />
+              </div>
+              <div>
+                <h3 className="font-bold text-lg leading-tight" data-testid="text-pankaj-title">Amount Give To Pankaj</h3>
+                <p className="text-xs text-muted-foreground">{monthName} {year}</p>
+              </div>
             </div>
             <div className="flex items-center gap-2 ml-auto flex-wrap">
               <div className="relative" ref={dropdownRef}>
-                <Button variant="outline" size="sm" className="h-9 min-w-[180px] justify-between" onClick={() => setClientDropdownOpen(!clientDropdownOpen)} data-testid="button-pankaj-client-select">
-                  <span className="flex items-center gap-1 text-xs">
-                    <Building2 className="w-3.5 h-3.5 text-muted-foreground" />
+                <Button variant="outline" size="sm" className="h-9 min-w-[180px] justify-between border-violet-200 dark:border-violet-800 hover:bg-violet-50 dark:hover:bg-violet-950/30" onClick={() => setClientDropdownOpen(!clientDropdownOpen)} data-testid="button-pankaj-client-select">
+                  <span className="flex items-center gap-1.5 text-xs">
+                    <Building2 className="w-3.5 h-3.5 text-violet-500" />
                     {selectedClients.length === 0 ? "Select Clients" : `${selectedClients.length} client${selectedClients.length > 1 ? "s" : ""}`}
                   </span>
                 </Button>
                 {clientDropdownOpen && (
-                  <div className="absolute z-50 mt-1 w-72 bg-white dark:bg-gray-900 border rounded-lg shadow-xl p-2 max-h-60 overflow-y-auto" data-testid="dropdown-pankaj-clients" onClick={(e) => e.stopPropagation()} onMouseDown={(e) => e.stopPropagation()}>
+                  <div className="absolute z-50 mt-1 w-72 bg-white dark:bg-gray-900 border border-violet-100 dark:border-violet-900 rounded-xl shadow-2xl shadow-violet-100/50 dark:shadow-violet-950/50 p-2 max-h-60 overflow-y-auto" data-testid="dropdown-pankaj-clients" onClick={(e) => e.stopPropagation()} onMouseDown={(e) => e.stopPropagation()}>
                     <div className="flex gap-2 mb-2 px-1">
-                      <Button size="sm" variant="outline" className="h-6 text-[10px]" onClick={(e) => { e.stopPropagation(); selectAll(); }}>Select All</Button>
-                      <Button size="sm" variant="outline" className="h-6 text-[10px]" onClick={(e) => { e.stopPropagation(); clearAll(); }}>Clear All</Button>
+                      <Button size="sm" variant="outline" className="h-6 text-[10px] border-violet-200" onClick={(e) => { e.stopPropagation(); selectAll(); }}>Select All</Button>
+                      <Button size="sm" variant="outline" className="h-6 text-[10px] border-violet-200" onClick={(e) => { e.stopPropagation(); clearAll(); }}>Clear All</Button>
                     </div>
                     {clients.map(c => (
-                      <div key={c} className="flex items-center gap-2 px-2 py-1.5 rounded hover:bg-violet-50 dark:hover:bg-violet-950/30 cursor-pointer" onClick={(e) => { e.stopPropagation(); toggleClient(c); }} data-testid={`checkbox-client-${c}`}>
-                        <div className={`w-4 h-4 rounded border flex items-center justify-center text-white text-xs ${selectedClients.includes(c) ? "bg-violet-600 border-violet-600" : "border-gray-300 dark:border-gray-600"}`}>
-                          {selectedClients.includes(c) && <Check className="w-3 h-3" />}
+                      <div key={c} className="flex items-center gap-2.5 px-2.5 py-2 rounded-lg hover:bg-violet-50 dark:hover:bg-violet-950/30 cursor-pointer transition-colors" onClick={(e) => { e.stopPropagation(); toggleClient(c); }} data-testid={`checkbox-client-${c}`}>
+                        <div className={`w-5 h-5 rounded-md border-2 flex items-center justify-center text-white text-xs transition-all ${selectedClients.includes(c) ? "bg-violet-600 border-violet-600 shadow-sm shadow-violet-300" : "border-gray-300 dark:border-gray-600"}`}>
+                          {selectedClients.includes(c) && <Check className="w-3.5 h-3.5" />}
                         </div>
-                        <span className="text-xs">{c}</span>
+                        <span className="text-sm">{c}</span>
                       </div>
                     ))}
                   </div>
@@ -1419,46 +1437,65 @@ function PankajReport({ invoices, clients }: { invoices: any[]; clients: string[
                   {years.map(y => <SelectItem key={y} value={y}>{y}</SelectItem>)}
                 </SelectContent>
               </Select>
-              <Button variant="outline" size="sm" className="h-9" onClick={handlePrint} data-testid="button-print-pankaj">
-                <Printer className="w-4 h-4 mr-1" /> Print
+              <Button size="sm" className="h-9 bg-gradient-to-r from-violet-600 to-purple-600 hover:from-violet-700 hover:to-purple-700 text-white shadow-md shadow-violet-200 dark:shadow-violet-900/30" onClick={handlePrint} data-testid="button-print-pankaj">
+                <Printer className="w-4 h-4 mr-1.5" /> Print
               </Button>
             </div>
           </div>
         </CardContent>
       </Card>
 
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-4">
-        <Card className="border-0 shadow-md">
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-5">
+        <Card className="border-0 shadow-lg overflow-hidden group hover:shadow-xl transition-shadow">
+          <div className="h-1 bg-gradient-to-r from-violet-400 to-violet-600" />
           <CardContent className="p-4 text-center">
-            <p className="text-xs text-muted-foreground mb-1">Clients Selected</p>
-            <p className="text-2xl font-bold">{selectedClients.length}</p>
+            <div className="w-9 h-9 rounded-full bg-violet-100 dark:bg-violet-900/40 flex items-center justify-center mx-auto mb-2">
+              <Building2 className="w-4 h-4 text-violet-600 dark:text-violet-400" />
+            </div>
+            <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium mb-1">Clients</p>
+            <p className="text-3xl font-bold text-violet-600" data-testid="text-pankaj-client-count">{selectedClients.length}</p>
           </CardContent>
         </Card>
-        <Card className="border-0 shadow-md">
+        <Card className="border-0 shadow-lg overflow-hidden group hover:shadow-xl transition-shadow">
+          <div className="h-1 bg-gradient-to-r from-amber-400 to-orange-500" />
           <CardContent className="p-4 text-center">
-            <p className="text-xs text-muted-foreground mb-1">Total Bill Amount</p>
-            <p className="text-xl font-bold font-mono text-violet-600">₹{grandTotalBill.toLocaleString("en-IN", { minimumFractionDigits: 2 })}</p>
+            <div className="w-9 h-9 rounded-full bg-amber-100 dark:bg-amber-900/40 flex items-center justify-center mx-auto mb-2">
+              <IndianRupee className="w-4 h-4 text-amber-600 dark:text-amber-400" />
+            </div>
+            <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium mb-1">Bill Amount</p>
+            <p className="text-lg font-bold font-mono text-amber-600" data-testid="text-pankaj-total-bill">₹{grandTotalBill.toLocaleString("en-IN", { minimumFractionDigits: 2 })}</p>
           </CardContent>
         </Card>
-        <Card className="border-0 shadow-md">
+        <Card className="border-0 shadow-lg overflow-hidden group hover:shadow-xl transition-shadow">
+          <div className="h-1 bg-gradient-to-r from-blue-400 to-indigo-500" />
           <CardContent className="p-4 text-center">
-            <p className="text-xs text-muted-foreground mb-1">Total (Bill + GST)</p>
-            <p className="text-xl font-bold font-mono text-blue-600">₹{grandTotal.toLocaleString("en-IN", { minimumFractionDigits: 2 })}</p>
+            <div className="w-9 h-9 rounded-full bg-blue-100 dark:bg-blue-900/40 flex items-center justify-center mx-auto mb-2">
+              <TrendingUp className="w-4 h-4 text-blue-600 dark:text-blue-400" />
+            </div>
+            <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium mb-1">Total (Bill+GST)</p>
+            <p className="text-lg font-bold font-mono text-blue-600" data-testid="text-pankaj-grand-total">₹{grandTotal.toLocaleString("en-IN", { minimumFractionDigits: 2 })}</p>
           </CardContent>
         </Card>
-        <Card className="border-0 shadow-md">
+        <Card className="border-0 shadow-lg overflow-hidden group hover:shadow-xl transition-shadow">
+          <div className="h-1 bg-gradient-to-r from-emerald-400 to-green-500" />
           <CardContent className="p-4 text-center">
-            <p className="text-xs text-muted-foreground mb-1">To Receive (-3%)</p>
-            <p className="text-xl font-bold font-mono text-emerald-600">₹{grandToReceive.toLocaleString("en-IN", { minimumFractionDigits: 2 })}</p>
+            <div className="w-9 h-9 rounded-full bg-emerald-100 dark:bg-emerald-900/40 flex items-center justify-center mx-auto mb-2">
+              <TrendingUp className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
+            </div>
+            <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium mb-1">Give To Pankaj</p>
+            <p className="text-lg font-bold font-mono text-emerald-600" data-testid="text-pankaj-to-receive">₹{grandToReceive.toLocaleString("en-IN", { minimumFractionDigits: 2 })}</p>
           </CardContent>
         </Card>
       </div>
 
       {selectedClients.length === 0 ? (
-        <Card className="border-0 shadow-md">
-          <CardContent className="flex flex-col items-center justify-center py-16">
-            <Building2 className="w-12 h-12 text-muted-foreground/30 mb-3" />
-            <p className="text-muted-foreground text-sm">Select one or more clients to generate the report</p>
+        <Card className="border-0 shadow-lg">
+          <CardContent className="flex flex-col items-center justify-center py-20">
+            <div className="w-16 h-16 rounded-2xl bg-violet-100 dark:bg-violet-900/30 flex items-center justify-center mb-4">
+              <Building2 className="w-8 h-8 text-violet-400" />
+            </div>
+            <p className="text-muted-foreground text-sm font-medium">Select one or more clients to generate the report</p>
+            <p className="text-muted-foreground/60 text-xs mt-1">Use the client dropdown above to get started</p>
           </CardContent>
         </Card>
       ) : (
@@ -1468,36 +1505,36 @@ function PankajReport({ invoices, clients }: { invoices: any[]; clients: string[
               <div className="overflow-x-auto">
                 <table className="w-full text-sm">
                   <thead>
-                    <tr className="bg-gradient-to-r from-violet-500 to-purple-600 text-white">
-                      <th className="text-left py-3 px-4 font-semibold text-xs">Sl#</th>
-                      <th className="text-left py-3 px-4 font-semibold text-xs">Client Name</th>
-                      <th className="text-right py-3 px-4 font-semibold text-xs">Month Bill Amount</th>
-                      <th className="text-right py-3 px-4 font-semibold text-xs">Month GST Amount</th>
-                      <th className="text-right py-3 px-4 font-semibold text-xs">Total</th>
-                      <th className="text-right py-3 px-4 font-semibold text-xs">To Receive (-3%)</th>
+                    <tr className="bg-gradient-to-r from-violet-600 via-purple-600 to-fuchsia-600 text-white">
+                      <th className="text-center py-3.5 px-4 font-semibold text-xs">Sl No</th>
+                      <th className="text-left py-3.5 px-4 font-semibold text-xs">Client Name</th>
+                      <th className="text-right py-3.5 px-4 font-semibold text-xs">Bill Amt</th>
+                      <th className="text-right py-3.5 px-4 font-semibold text-xs">GST Amount</th>
+                      <th className="text-right py-3.5 px-4 font-semibold text-xs">Total</th>
+                      <th className="text-right py-3.5 px-4 font-semibold text-xs">Give To Pankaj</th>
                     </tr>
                   </thead>
                   <tbody>
                     {rows.map((r) => (
-                      <tr key={r.clientName} className={`border-b border-gray-100 dark:border-gray-800 hover:bg-violet-50/50 dark:hover:bg-violet-950/20 ${r.idx % 2 === 0 ? "bg-gray-50/50 dark:bg-gray-900/50" : "bg-white dark:bg-gray-950"}`} data-testid={`row-pankaj-${r.idx}`}>
-                        <td className="py-2.5 px-4">
-                          <span className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-violet-100 dark:bg-violet-900 text-violet-700 dark:text-violet-300 text-xs font-bold">{r.idx}</span>
+                      <tr key={r.clientName} className={`border-b border-gray-100 dark:border-gray-800 hover:bg-violet-50/70 dark:hover:bg-violet-950/20 transition-colors ${r.idx % 2 === 0 ? "bg-gray-50/60 dark:bg-gray-900/50" : "bg-white dark:bg-gray-950"}`} data-testid={`row-pankaj-${r.idx}`}>
+                        <td className="py-3 px-4 text-center">
+                          <span className="inline-flex items-center justify-center w-7 h-7 rounded-lg bg-gradient-to-br from-violet-100 to-purple-100 dark:from-violet-900 dark:to-purple-900 text-violet-700 dark:text-violet-300 text-xs font-bold">{r.idx}</span>
                         </td>
-                        <td className="py-2.5 px-4 font-medium text-xs">{r.clientName}</td>
-                        <td className="py-2.5 px-4 text-right font-mono text-xs">{fmtCurrency(r.totalBill)}</td>
-                        <td className="py-2.5 px-4 text-right font-mono text-xs">{fmtCurrency(r.totalGst)}</td>
-                        <td className="py-2.5 px-4 text-right font-mono text-xs font-bold text-blue-600">{fmtCurrency(r.total)}</td>
-                        <td className="py-2.5 px-4 text-right font-mono text-xs font-bold text-emerald-600">{fmtCurrency(r.toReceive)}</td>
+                        <td className="py-3 px-4 font-semibold text-sm">{r.clientName}</td>
+                        <td className="py-3 px-4 text-right font-mono text-sm">{fmtCurrency(r.totalBill)}</td>
+                        <td className="py-3 px-4 text-right font-mono text-sm text-amber-600 dark:text-amber-400">{fmtCurrency(r.totalGst)}</td>
+                        <td className="py-3 px-4 text-right font-mono text-sm font-bold text-blue-600 dark:text-blue-400">{fmtCurrency(r.total)}</td>
+                        <td className="py-3 px-4 text-right font-mono text-sm font-bold text-emerald-600 dark:text-emerald-400">{fmtCurrency(r.toReceive)}</td>
                       </tr>
                     ))}
                   </tbody>
                   <tfoot>
-                    <tr className="bg-gradient-to-r from-violet-100 to-purple-100 dark:from-violet-950/40 dark:to-purple-950/40 font-bold">
-                      <td colSpan={2} className="py-2.5 px-4 text-xs">Grand Total</td>
-                      <td className="py-2.5 px-4 text-right font-mono text-xs">{fmtCurrency(grandTotalBill)}</td>
-                      <td className="py-2.5 px-4 text-right font-mono text-xs">{fmtCurrency(grandTotalGst)}</td>
-                      <td className="py-2.5 px-4 text-right font-mono text-xs text-blue-600">{fmtCurrency(grandTotal)}</td>
-                      <td className="py-2.5 px-4 text-right font-mono text-xs text-emerald-600">{fmtCurrency(grandToReceive)}</td>
+                    <tr className="bg-gradient-to-r from-violet-100 via-purple-100 to-fuchsia-100 dark:from-violet-950/50 dark:via-purple-950/50 dark:to-fuchsia-950/50">
+                      <td colSpan={2} className="py-3 px-4 text-sm font-bold">Grand Total</td>
+                      <td className="py-3 px-4 text-right font-mono text-sm font-bold">{fmtCurrency(grandTotalBill)}</td>
+                      <td className="py-3 px-4 text-right font-mono text-sm font-bold text-amber-600">{fmtCurrency(grandTotalGst)}</td>
+                      <td className="py-3 px-4 text-right font-mono text-sm font-bold text-blue-600">{fmtCurrency(grandTotal)}</td>
+                      <td className="py-3 px-4 text-right font-mono text-sm font-bold text-emerald-600">{fmtCurrency(grandToReceive)}</td>
                     </tr>
                   </tfoot>
                 </table>
@@ -1507,29 +1544,29 @@ function PankajReport({ invoices, clients }: { invoices: any[]; clients: string[
 
           <div className="lg:hidden space-y-3">
             {rows.map((r) => (
-              <Card key={r.clientName} className="border-0 shadow-md overflow-hidden" data-testid={`card-pankaj-mobile-${r.idx}`}>
-                <div className="h-1 bg-gradient-to-r from-violet-400 to-purple-500" />
-                <CardContent className="p-3">
-                  <div className="flex items-center gap-2 mb-2">
-                    <span className="inline-flex items-center justify-center w-7 h-7 rounded-full bg-gradient-to-br from-violet-500 to-purple-600 text-white text-xs font-bold">{r.idx}</span>
-                    <p className="font-semibold text-sm">{r.clientName}</p>
+              <Card key={r.clientName} className="border-0 shadow-lg overflow-hidden" data-testid={`card-pankaj-mobile-${r.idx}`}>
+                <div className="h-1.5 bg-gradient-to-r from-violet-500 via-purple-500 to-fuchsia-500" />
+                <CardContent className="p-4">
+                  <div className="flex items-center gap-3 mb-3">
+                    <span className="inline-flex items-center justify-center w-8 h-8 rounded-xl bg-gradient-to-br from-violet-500 to-purple-600 text-white text-sm font-bold shadow-md shadow-violet-200 dark:shadow-violet-900/30">{r.idx}</span>
+                    <p className="font-bold text-sm">{r.clientName}</p>
                   </div>
-                  <div className="grid grid-cols-2 gap-2 text-xs">
-                    <div className="bg-violet-50 dark:bg-violet-950/20 rounded-lg p-2 text-center">
-                      <p className="text-[10px] text-violet-600 dark:text-violet-400">Bill Amount</p>
-                      <p className="font-mono font-bold text-violet-700 dark:text-violet-300">{fmtCurrency(r.totalBill)}</p>
+                  <div className="grid grid-cols-2 gap-2.5 text-xs">
+                    <div className="bg-amber-50 dark:bg-amber-950/20 rounded-xl p-2.5 text-center">
+                      <p className="text-[10px] text-amber-600 dark:text-amber-400 uppercase tracking-wider font-medium">Bill Amt</p>
+                      <p className="font-mono font-bold text-amber-700 dark:text-amber-300 mt-0.5">{fmtCurrency(r.totalBill)}</p>
                     </div>
-                    <div className="bg-orange-50 dark:bg-orange-950/20 rounded-lg p-2 text-center">
-                      <p className="text-[10px] text-orange-600 dark:text-orange-400">GST Amount</p>
-                      <p className="font-mono font-bold text-orange-700 dark:text-orange-300">{fmtCurrency(r.totalGst)}</p>
+                    <div className="bg-orange-50 dark:bg-orange-950/20 rounded-xl p-2.5 text-center">
+                      <p className="text-[10px] text-orange-600 dark:text-orange-400 uppercase tracking-wider font-medium">GST Amt</p>
+                      <p className="font-mono font-bold text-orange-700 dark:text-orange-300 mt-0.5">{fmtCurrency(r.totalGst)}</p>
                     </div>
-                    <div className="bg-blue-50 dark:bg-blue-950/20 rounded-lg p-2 text-center">
-                      <p className="text-[10px] text-blue-600 dark:text-blue-400">Total</p>
-                      <p className="font-mono font-bold text-blue-700 dark:text-blue-300">{fmtCurrency(r.total)}</p>
+                    <div className="bg-blue-50 dark:bg-blue-950/20 rounded-xl p-2.5 text-center">
+                      <p className="text-[10px] text-blue-600 dark:text-blue-400 uppercase tracking-wider font-medium">Total</p>
+                      <p className="font-mono font-bold text-blue-700 dark:text-blue-300 mt-0.5">{fmtCurrency(r.total)}</p>
                     </div>
-                    <div className="bg-emerald-50 dark:bg-emerald-950/20 rounded-lg p-2 text-center">
-                      <p className="text-[10px] text-emerald-600 dark:text-emerald-400">To Receive (-3%)</p>
-                      <p className="font-mono font-bold text-emerald-700 dark:text-emerald-300">{fmtCurrency(r.toReceive)}</p>
+                    <div className="bg-emerald-50 dark:bg-emerald-950/20 rounded-xl p-2.5 text-center">
+                      <p className="text-[10px] text-emerald-600 dark:text-emerald-400 uppercase tracking-wider font-medium">Give To Pankaj</p>
+                      <p className="font-mono font-bold text-emerald-700 dark:text-emerald-300 mt-0.5">{fmtCurrency(r.toReceive)}</p>
                     </div>
                   </div>
                 </CardContent>
