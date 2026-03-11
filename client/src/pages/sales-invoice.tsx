@@ -1308,7 +1308,7 @@ function PankajReport({ invoices, clients }: { invoices: any[]; clients: string[
     const toReceive = Math.round((totalBill + totalGst - totalTds) * 100) / 100;
     const gstMinusTds = Math.round((totalGst - totalTds) * 100) / 100;
     const fixedAmt = fixedAmounts[clientName] || 0;
-    const total = Math.round((toReceive - gstMinusTds + fixedAmt) * 100) / 100;
+    const total = Math.round((gstMinusTds + fixedAmt) * 100) / 100;
     return { idx: idx + 1, clientName, toReceive, gstMinusTds, fixedAmt, total };
   });
 
