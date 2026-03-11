@@ -1303,9 +1303,10 @@ function PankajReport({ invoices, clients }: { invoices: any[]; clients: string[
     });
     const totalBill = clientInvoices.reduce((s, i) => s + Number(i.billAmount), 0);
     const totalGst = clientInvoices.reduce((s, i) => s + Number(i.gstAmount), 0);
+    const totalTds = clientInvoices.reduce((s, i) => s + Number(i.tdsAmount), 0);
     const total = totalBill + totalGst;
-    const toReceive = Math.round((total - total * 0.03) * 100) / 100;
-    return { idx: idx + 1, clientName, totalBill, totalGst, total, toReceive };
+    const toReceive = Math.round((totalGst - totalTds) * 100) / 100;
+    return { idx: idx + 1, clientName, totalBill, totalGst, totalTds, total, toReceive };
   });
 
   const grandTotalBill = rows.reduce((s, r) => s + r.totalBill, 0);
