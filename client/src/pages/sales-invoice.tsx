@@ -1386,61 +1386,59 @@ function PankajReport({ invoices, clients }: { invoices: any[]; clients: string[
       <Card className="border-0 shadow-lg mb-5 overflow-hidden">
         <div className="h-1.5 bg-gradient-to-r from-violet-500 via-purple-500 to-fuchsia-500" />
         <CardContent className="p-5">
-          <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4 flex-wrap">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-violet-500 to-purple-600 flex items-center justify-center shadow-lg shadow-violet-200 dark:shadow-violet-900/30">
-                <User className="w-5 h-5 text-white" />
-              </div>
-              <div>
-                <h3 className="font-bold text-lg leading-tight" data-testid="text-pankaj-title">Amount Give To Pankaj</h3>
-                <p className="text-xs text-muted-foreground">{monthName} {year}</p>
-              </div>
+          <div className="flex items-center gap-3 mb-4">
+            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-violet-500 to-purple-600 flex items-center justify-center shadow-lg shadow-violet-200 dark:shadow-violet-900/30">
+              <User className="w-5 h-5 text-white" />
             </div>
-            <div className="flex items-center gap-2 ml-auto flex-wrap">
-              <div className="relative" ref={dropdownRef}>
-                <Button variant="outline" size="sm" className="h-9 min-w-[180px] justify-between border-violet-200 dark:border-violet-800 hover:bg-violet-50 dark:hover:bg-violet-950/30" onClick={() => setClientDropdownOpen(!clientDropdownOpen)} data-testid="button-pankaj-client-select">
-                  <span className="flex items-center gap-1.5 text-xs">
-                    <Building2 className="w-3.5 h-3.5 text-violet-500" />
-                    {selectedClients.length === 0 ? "Select Clients" : `${selectedClients.length} client${selectedClients.length > 1 ? "s" : ""}`}
-                  </span>
-                </Button>
-                {clientDropdownOpen && (
-                  <div className="absolute z-50 mt-1 w-72 bg-white dark:bg-gray-900 border border-violet-100 dark:border-violet-900 rounded-xl shadow-2xl shadow-violet-100/50 dark:shadow-violet-950/50 p-2 max-h-60 overflow-y-auto" data-testid="dropdown-pankaj-clients" onClick={(e) => e.stopPropagation()} onMouseDown={(e) => e.stopPropagation()}>
-                    <div className="flex gap-2 mb-2 px-1">
-                      <Button size="sm" variant="outline" className="h-6 text-[10px] border-violet-200" onClick={(e) => { e.stopPropagation(); selectAll(); }}>Select All</Button>
-                      <Button size="sm" variant="outline" className="h-6 text-[10px] border-violet-200" onClick={(e) => { e.stopPropagation(); clearAll(); }}>Clear All</Button>
-                    </div>
-                    {clients.map(c => (
-                      <div key={c} className="flex items-center gap-2.5 px-2.5 py-2 rounded-lg hover:bg-violet-50 dark:hover:bg-violet-950/30 cursor-pointer transition-colors" onClick={(e) => { e.stopPropagation(); toggleClient(c); }} data-testid={`checkbox-client-${c}`}>
-                        <div className={`w-5 h-5 rounded-md border-2 flex items-center justify-center text-white text-xs transition-all ${selectedClients.includes(c) ? "bg-violet-600 border-violet-600 shadow-sm shadow-violet-300" : "border-gray-300 dark:border-gray-600"}`}>
-                          {selectedClients.includes(c) && <Check className="w-3.5 h-3.5" />}
-                        </div>
-                        <span className="text-sm">{c}</span>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-              <Select value={month} onValueChange={setMonth}>
-                <SelectTrigger className="w-[130px] h-9" data-testid="select-pankaj-month">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {monthsList.map(m => <SelectItem key={m.v} value={m.v}>{m.l}</SelectItem>)}
-                </SelectContent>
-              </Select>
-              <Select value={year} onValueChange={setYear}>
-                <SelectTrigger className="w-[90px] h-9" data-testid="select-pankaj-year">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {years.map(y => <SelectItem key={y} value={y}>{y}</SelectItem>)}
-                </SelectContent>
-              </Select>
-              <Button size="sm" className="h-9 bg-gradient-to-r from-violet-600 to-purple-600 hover:from-violet-700 hover:to-purple-700 text-white shadow-md shadow-violet-200 dark:shadow-violet-900/30" onClick={handlePrint} data-testid="button-print-pankaj">
-                <Printer className="w-4 h-4 mr-1.5" /> Print
+            <div>
+              <h3 className="font-bold text-lg leading-tight" data-testid="text-pankaj-title">Amount Give To Pankaj</h3>
+              <p className="text-xs text-muted-foreground">{monthName} {year}</p>
+            </div>
+          </div>
+          <div className="flex items-center gap-2 flex-wrap">
+            <div className="relative" ref={dropdownRef}>
+              <Button variant="outline" size="sm" className="h-9 min-w-[180px] justify-between border-violet-200 dark:border-violet-800 hover:bg-violet-50 dark:hover:bg-violet-950/30" onClick={() => setClientDropdownOpen(!clientDropdownOpen)} data-testid="button-pankaj-client-select">
+                <span className="flex items-center gap-1.5 text-xs">
+                  <Building2 className="w-3.5 h-3.5 text-violet-500" />
+                  {selectedClients.length === 0 ? "Select Clients" : `${selectedClients.length} client${selectedClients.length > 1 ? "s" : ""}`}
+                </span>
               </Button>
+              {clientDropdownOpen && (
+                <div className="absolute z-50 mt-1 w-72 bg-white dark:bg-gray-900 border border-violet-100 dark:border-violet-900 rounded-xl shadow-2xl shadow-violet-100/50 dark:shadow-violet-950/50 p-2 max-h-60 overflow-y-auto" data-testid="dropdown-pankaj-clients" onClick={(e) => e.stopPropagation()} onMouseDown={(e) => e.stopPropagation()}>
+                  <div className="flex gap-2 mb-2 px-1">
+                    <Button size="sm" variant="outline" className="h-6 text-[10px] border-violet-200" onClick={(e) => { e.stopPropagation(); selectAll(); }}>Select All</Button>
+                    <Button size="sm" variant="outline" className="h-6 text-[10px] border-violet-200" onClick={(e) => { e.stopPropagation(); clearAll(); }}>Clear All</Button>
+                  </div>
+                  {clients.map(c => (
+                    <div key={c} className="flex items-center gap-2.5 px-2.5 py-2 rounded-lg hover:bg-violet-50 dark:hover:bg-violet-950/30 cursor-pointer transition-colors" onClick={(e) => { e.stopPropagation(); toggleClient(c); }} data-testid={`checkbox-client-${c}`}>
+                      <div className={`w-5 h-5 rounded-md border-2 flex items-center justify-center text-white text-xs transition-all ${selectedClients.includes(c) ? "bg-violet-600 border-violet-600 shadow-sm shadow-violet-300" : "border-gray-300 dark:border-gray-600"}`}>
+                        {selectedClients.includes(c) && <Check className="w-3.5 h-3.5" />}
+                      </div>
+                      <span className="text-sm">{c}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
+            <Select value={month} onValueChange={setMonth}>
+              <SelectTrigger className="w-[130px] h-9" data-testid="select-pankaj-month">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {monthsList.map(m => <SelectItem key={m.v} value={m.v}>{m.l}</SelectItem>)}
+              </SelectContent>
+            </Select>
+            <Select value={year} onValueChange={setYear}>
+              <SelectTrigger className="w-[90px] h-9" data-testid="select-pankaj-year">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {years.map(y => <SelectItem key={y} value={y}>{y}</SelectItem>)}
+              </SelectContent>
+            </Select>
+            <Button size="sm" className="h-9 bg-gradient-to-r from-violet-600 to-purple-600 hover:from-violet-700 hover:to-purple-700 text-white shadow-md shadow-violet-200 dark:shadow-violet-900/30 ml-auto" onClick={handlePrint} data-testid="button-print-pankaj">
+              <Printer className="w-4 h-4 mr-1.5" /> Print
+            </Button>
           </div>
         </CardContent>
       </Card>
