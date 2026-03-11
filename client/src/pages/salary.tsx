@@ -86,6 +86,8 @@ interface Employee {
   joiningDate?: string;
   leavingDate?: string;
   mobile?: string;
+  skills?: string;
+  clientName?: string;
 }
 
 interface AttendanceRecord {
