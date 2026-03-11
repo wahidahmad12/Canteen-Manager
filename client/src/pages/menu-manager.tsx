@@ -92,7 +92,8 @@ export default function MenuManager() {
   useEffect(() => {
     if (loadedMenu && loadId > 0 && loadedForId !== loadId) {
       setClient(loadedMenu.clientName);
-      setStartDate(loadedMenu.startDate);
+      const sd = loadedMenu.startDate?.includes("T") ? loadedMenu.startDate.split("T")[0] : loadedMenu.startDate;
+      setStartDate(sd);
       setLoadedForId(loadId);
     }
   }, [loadedMenu, loadId, loadedForId]);
@@ -176,7 +177,7 @@ export default function MenuManager() {
       setCellValues(initValues());
       setInitialized(true);
     }
-  }, [loadedMenu, loadedForId, loadId]);
+  }, [loadedMenu, loadedForId, loadId, initValues]);
 
   if (clientsLoading || !client) {
     return (
