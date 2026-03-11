@@ -188,7 +188,7 @@ function buildSlipHTML(salary: SalaryRecord, employee: Employee | undefined, att
           <td colspan="2" style="background:${C.infoLabelBg};color:${C.infoLabelColor};font-weight:600;white-space:nowrap;border:${b};${cp}">Father's / Husband's :</td>
           <td colspan="3" style="border:${b};${cp}">${esc(employee?.fatherName)}</td>
           <td style="background:${C.infoLabelBg};color:${C.infoLabelColor};font-weight:600;white-space:nowrap;border:${b};${cp}">Skills:</td>
-          <td colspan="2" style="border:${b};${cp}">${esc(employee?.designation) || "Unskilled"}</td>
+          <td colspan="2" style="border:${b};${cp}">${esc(employee?.skills) || getSkillLevel(employee?.designation) || "Unskilled"}</td>
         </tr>
         <tr>
           <td colspan="2" style="background:${C.infoLabelBg};color:${C.infoLabelColor};font-weight:600;white-space:nowrap;border:${b};${cp}">Date Of Birth</td>
@@ -535,7 +535,7 @@ export default function SalaryRegister() {
     const afterService = serviceBase + serviceCharge;
     const gst = Math.round(serviceCharge * 0.18);
     const finalTotal = afterService + gst;
-    const skills = getSkillLevel(emp?.designation);
+    const skills = emp?.skills || getSkillLevel(emp?.designation);
     return {
       emp, skills, prsDays, halfDay, holidayWorking, leave, holidays, paidDays, otHrs,
       basicRate, basicWage, hra5, fixedHRA, otAllow, totalGross,
