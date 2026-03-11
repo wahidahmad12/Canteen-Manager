@@ -103,7 +103,10 @@ export default function MenuManager() {
     return [...baseCategories, ...(isHUL_UB ? hul_extras : unichem_extras)];
   }, [isHUL_UB]);
 
-  const parsedStart = useMemo(() => new Date(startDate + "T00:00:00"), [startDate]);
+  const parsedStart = useMemo(() => {
+    const d = new Date(startDate + "T00:00:00");
+    return isNaN(d.getTime()) ? new Date() : d;
+  }, [startDate]);
 
   const week1Dates = useMemo(() => getWeekDates(parsedStart, daysToDisplay, !isHUL_UB), [parsedStart, daysToDisplay, isHUL_UB]);
   const week2Start = useMemo(() => addDays(week1Dates[week1Dates.length - 1], 1), [week1Dates]);
