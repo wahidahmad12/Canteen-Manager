@@ -758,6 +758,9 @@ export default function SalesInvoicePage() {
                 const totalTotalBill = filteredInvoices.reduce((s, i) => s + Number(i.totalBillAmount), 0);
                 const totalTds = filteredInvoices.reduce((s, i) => s + Number(i.tdsAmount), 0);
                 const totalToReceive = filteredInvoices.reduce((s, i) => s + (Number(i.totalBillAmount) - Number(i.tdsAmount)), 0);
+                const uniqueClients = [...new Set(filteredInvoices.map(i => i.clientName))];
+                const isSingleClient = uniqueClients.length === 1;
+                const footColspan = isSingleClient ? 5 : 6;
                 pw.document.write(`<!DOCTYPE html><html><head><title>Sales Invoice Ledger</title>
                   <style>
                     body { font-family: Arial, sans-serif; margin: 20px 30px; color: #000; }
@@ -777,12 +780,12 @@ export default function SalesInvoicePage() {
                   <div class="title">Sales Invoice Ledger</div>
                   <div class="meta-row">
                     <span><b>Date:</b> ${dateStr}</span>
-                    <span><b>Client:</b> ${clientLabel}</span>
+                    ${isSingleClient ? `<span><b>Client:</b> ${uniqueClients[0]}</span>` : ""}
                     <span><b>Period:</b> ${monthLabel} ${yearLabel}</span>
                   </div>
                   <table>
                     <thead><tr>
-                      <th>Sl No</th><th>Client Name</th><th>PO No</th><th>PO Date</th>
+                      <th>Sl No</th>${isSingleClient ? "" : "<th>Client Name</th>"}<th>PO No</th><th>PO Date</th>
                       <th>Bill No</th><th>Bill Date</th>
                       <th>Bill Amount</th><th>GST Amount</th><th>Total Bill</th>
                       <th>TDS</th><th>To Receive</th>
@@ -792,7 +795,7 @@ export default function SalesInvoicePage() {
                       const toRec = Number(inv.totalBillAmount) - Number(inv.tdsAmount);
                       return `<tr>
                         <td class="center">${idx + 1}</td>
-                        <td>${inv.clientName}</td>
+                        ${isSingleClient ? "" : `<td>${inv.clientName}</td>`}
                         <td>${po ? po.poNumber : "-"}</td>
                         <td class="center">${po ? fmtDate(po.poDate) : "-"}</td>
                         <td>${inv.billNumber}</td>
@@ -805,7 +808,7 @@ export default function SalesInvoicePage() {
                       </tr>`;
                     }).join("")}</tbody>
                     <tfoot><tr>
-                      <td colspan="6" style="text-align:center"><b>Grand Total (${filteredInvoices.length} invoices)</b></td>
+                      <td colspan="${footColspan}" style="text-align:center"><b>Grand Total (${filteredInvoices.length} invoices)</b></td>
                       <td class="right">${totalBill.toLocaleString("en-IN", {minimumFractionDigits:2})}</td>
                       <td class="right">${totalGst.toLocaleString("en-IN", {minimumFractionDigits:2})}</td>
                       <td class="right">${totalTotalBill.toLocaleString("en-IN", {minimumFractionDigits:2})}</td>
