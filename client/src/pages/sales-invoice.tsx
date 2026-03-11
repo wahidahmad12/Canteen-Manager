@@ -564,8 +564,8 @@ export default function SalesInvoicePage() {
       } catch { return false; }
     }
     if (filterStatus !== "all") {
-      const toRec = Number(inv.totalBillAmount) - Number(inv.tdsAmount);
-      const rcvd = Number(inv.paymentReceivedAmount);
+      const toRec = Math.round((Number(inv.totalBillAmount) - Number(inv.tdsAmount)) * 100) / 100;
+      const rcvd = Math.round(Number(inv.paymentReceivedAmount) * 100) / 100;
       const st = toRec > 0 && rcvd >= toRec ? "received" : toRec > 0 && rcvd > 0 && rcvd < toRec ? "partial" : "pending";
       if (filterStatus === "pending" && st !== "pending") return false;
       if (filterStatus === "received" && st !== "received") return false;
@@ -581,7 +581,7 @@ export default function SalesInvoicePage() {
   const totalBilled = filteredInvoices.reduce((s, i) => s + Number(i.totalBillAmount), 0);
   const totalReceived = filteredInvoices.reduce((s, i) => s + Number(i.paymentReceivedAmount), 0);
   const totalOutstanding = totalBilled - totalReceived;
-  const paidCount = filteredInvoices.filter(i => { const tr = Number(i.totalBillAmount) - Number(i.tdsAmount); const rc = Number(i.paymentReceivedAmount); return tr > 0 && rc >= tr; }).length;
+  const paidCount = filteredInvoices.filter(i => { const tr = Math.round((Number(i.totalBillAmount) - Number(i.tdsAmount)) * 100) / 100; const rc = Math.round(Number(i.paymentReceivedAmount) * 100) / 100; return tr > 0 && rc >= tr; }).length;
 
   const openNew = () => { setEditingInvoice(null); setDialogOpen(true); };
   const openEdit = (inv: SalesInvoice) => { setEditingInvoice(inv); setDialogOpen(true); };
@@ -993,8 +993,8 @@ export default function SalesInvoicePage() {
                     </thead>
                     <tbody>
                       {filteredInvoices.map((inv, idx) => {
-                        const toReceiveAmt = Number(inv.totalBillAmount) - Number(inv.tdsAmount);
-                        const receivedAmt = Number(inv.paymentReceivedAmount);
+                        const toReceiveAmt = Math.round((Number(inv.totalBillAmount) - Number(inv.tdsAmount)) * 100) / 100;
+                        const receivedAmt = Math.round(Number(inv.paymentReceivedAmount) * 100) / 100;
                         const paymentStatus = toReceiveAmt > 0 && receivedAmt >= toReceiveAmt ? "full" : toReceiveAmt > 0 && receivedAmt > 0 && receivedAmt < toReceiveAmt ? "partial" : "due";
                         return (
                           <tr key={inv.id} className={`border-b border-gray-100 dark:border-gray-800 hover:bg-violet-50/50 dark:hover:bg-violet-950/20 transition-colors ${idx % 2 === 0 ? "bg-white dark:bg-gray-950" : "bg-gray-50/50 dark:bg-gray-900/50"}`} data-testid={`row-invoice-${inv.id}`}>
@@ -1055,8 +1055,8 @@ export default function SalesInvoicePage() {
 
             <div className="lg:hidden space-y-3">
               {filteredInvoices.map((inv) => {
-                const mToReceive = Number(inv.totalBillAmount) - Number(inv.tdsAmount);
-                const mReceived = Number(inv.paymentReceivedAmount);
+                const mToReceive = Math.round((Number(inv.totalBillAmount) - Number(inv.tdsAmount)) * 100) / 100;
+                const mReceived = Math.round(Number(inv.paymentReceivedAmount) * 100) / 100;
                 const mStatus = mToReceive > 0 && mReceived >= mToReceive ? "full" : mToReceive > 0 && mReceived > 0 && mReceived < mToReceive ? "partial" : "due";
                 return (
                   <Card key={inv.id} className="border-0 shadow-md overflow-hidden" data-testid={`card-invoice-mobile-${inv.id}`}>
