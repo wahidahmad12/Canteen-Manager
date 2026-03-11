@@ -743,7 +743,82 @@ export default function SalesInvoicePage() {
           </TabsContent>
 
           <TabsContent value="invoices" className="mt-4">
-            <div className="flex justify-end mb-4">
+            <div className="flex justify-end gap-2 mb-4">
+              <Button variant="outline" size="sm" className="h-9" onClick={() => {
+                if (filteredInvoices.length === 0) return;
+                const pw = window.open("", "_blank");
+                if (!pw) return;
+                const today = new Date();
+                const dateStr = `${String(today.getDate()).padStart(2,"0")}/${String(today.getMonth()+1).padStart(2,"0")}/${today.getFullYear()}`;
+                const clientLabel = filterClient === "all" ? "All Clients" : filterClient;
+                const monthLabel = filterMonth === "all" ? "All Months" : MONTHS[Number(filterMonth)];
+                const yearLabel = filterYear === "all" ? "All Years" : filterYear;
+                const totalBill = filteredInvoices.reduce((s, i) => s + Number(i.billAmount), 0);
+                const totalGst = filteredInvoices.reduce((s, i) => s + Number(i.gstAmount), 0);
+                const totalTotalBill = filteredInvoices.reduce((s, i) => s + Number(i.totalBillAmount), 0);
+                const totalTds = filteredInvoices.reduce((s, i) => s + Number(i.tdsAmount), 0);
+                const totalToReceive = filteredInvoices.reduce((s, i) => s + (Number(i.totalBillAmount) - Number(i.tdsAmount)), 0);
+                pw.document.write(`<!DOCTYPE html><html><head><title>Sales Invoice Ledger</title>
+                  <style>
+                    body { font-family: Arial, sans-serif; margin: 20px 30px; color: #000; }
+                    .company { text-align: center; font-size: 16px; font-weight: bold; border-bottom: 2px solid #000; padding-bottom: 6px; margin-bottom: 2px; }
+                    .title { text-align: center; font-size: 14px; font-weight: bold; padding: 6px 0; border-bottom: 1px solid #000; margin-bottom: 8px; }
+                    .meta-row { display: flex; justify-content: space-between; font-size: 12px; margin-bottom: 10px; padding: 0 4px; }
+                    table { width: 100%; border-collapse: collapse; font-size: 11px; }
+                    th, td { border: 1px solid #000; padding: 5px 6px; }
+                    th { background: #f0f0f0; font-weight: bold; text-align: center; font-size: 10px; }
+                    td { text-align: left; }
+                    td.right { text-align: right; font-family: 'Courier New', monospace; }
+                    td.center { text-align: center; }
+                    tfoot td { font-weight: bold; background: #f5f5f5; }
+                    @media print { body { margin: 10px 15px; } }
+                  </style></head><body>
+                  <div class="company">DJ Hospitality & Facility Management Private Limited</div>
+                  <div class="title">Sales Invoice Ledger</div>
+                  <div class="meta-row">
+                    <span><b>Date:</b> ${dateStr}</span>
+                    <span><b>Client:</b> ${clientLabel}</span>
+                    <span><b>Period:</b> ${monthLabel} ${yearLabel}</span>
+                  </div>
+                  <table>
+                    <thead><tr>
+                      <th>Sl No</th><th>Client Name</th><th>PO No</th><th>PO Date</th>
+                      <th>Bill No</th><th>Bill Date</th>
+                      <th>Bill Amount</th><th>GST Amount</th><th>Total Bill</th>
+                      <th>TDS</th><th>To Receive</th>
+                    </tr></thead>
+                    <tbody>${filteredInvoices.map((inv, idx) => {
+                      const po = inv.poId ? purchaseOrders.find(p => p.id === inv.poId) : null;
+                      const toRec = Number(inv.totalBillAmount) - Number(inv.tdsAmount);
+                      return `<tr>
+                        <td class="center">${idx + 1}</td>
+                        <td>${inv.clientName}</td>
+                        <td>${po ? po.poNumber : "-"}</td>
+                        <td class="center">${po ? fmtDate(po.poDate) : "-"}</td>
+                        <td>${inv.billNumber}</td>
+                        <td class="center">${fmtDate(inv.billDate)}</td>
+                        <td class="right">${Number(inv.billAmount).toLocaleString("en-IN", {minimumFractionDigits:2})}</td>
+                        <td class="right">${Number(inv.gstAmount).toLocaleString("en-IN", {minimumFractionDigits:2})}</td>
+                        <td class="right">${Number(inv.totalBillAmount).toLocaleString("en-IN", {minimumFractionDigits:2})}</td>
+                        <td class="right">${Number(inv.tdsAmount).toLocaleString("en-IN", {minimumFractionDigits:2})}</td>
+                        <td class="right" style="font-weight:bold">${toRec.toLocaleString("en-IN", {minimumFractionDigits:2})}</td>
+                      </tr>`;
+                    }).join("")}</tbody>
+                    <tfoot><tr>
+                      <td colspan="6" style="text-align:center"><b>Grand Total (${filteredInvoices.length} invoices)</b></td>
+                      <td class="right">${totalBill.toLocaleString("en-IN", {minimumFractionDigits:2})}</td>
+                      <td class="right">${totalGst.toLocaleString("en-IN", {minimumFractionDigits:2})}</td>
+                      <td class="right">${totalTotalBill.toLocaleString("en-IN", {minimumFractionDigits:2})}</td>
+                      <td class="right">${totalTds.toLocaleString("en-IN", {minimumFractionDigits:2})}</td>
+                      <td class="right" style="font-weight:bold">${totalToReceive.toLocaleString("en-IN", {minimumFractionDigits:2})}</td>
+                    </tr></tfoot>
+                  </table>
+                  <script>window.onload=function(){window.print();}<\/script>
+                </body></html>`);
+                pw.document.close();
+              }} data-testid="button-print-invoices">
+                <Printer className="w-4 h-4 mr-1.5" /> Print
+              </Button>
               <Button className="bg-gradient-to-r from-violet-500 to-purple-600 hover:from-violet-600 hover:to-purple-700 text-white shadow-lg" onClick={openNew} data-testid="button-new-invoice">
                 <Plus className="w-4 h-4 mr-2" /> New Invoice
               </Button>
