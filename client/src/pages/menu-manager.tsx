@@ -123,6 +123,7 @@ export default function MenuManager() {
   }, [categories, week1Dates, week2Dates]);
 
   const [cellValues, setCellValues] = useState<Record<string, string>>({});
+  const [initialized, setInitialized] = useState(false);
 
   useEffect(() => {
     if (loadedMenu && loadedForId === loadId && loadId > 0) {
@@ -133,10 +134,12 @@ export default function MenuManager() {
       } catch {
         setCellValues(initValues());
       }
-    } else {
+      setInitialized(true);
+    } else if (!initialized) {
       setCellValues(initValues());
+      setInitialized(true);
     }
-  }, [initValues, loadedMenu, loadedForId, loadId]);
+  }, [loadedMenu, loadedForId, loadId]);
 
   if (clientsLoading || !client) {
     return (
@@ -410,7 +413,16 @@ export default function MenuManager() {
                         type="text"
                         list={`list_${cat.id}`}
                         value={cellValues[key] || ""}
-                        onChange={e => handleCellChange(key, e.target.value)}
+                        onChange={e => {
+                          handleCellChange(key, e.target.value);
+                        }}
+                        onBlur={e => {
+                          const val = e.target.value.trim();
+                          if (val && !cat.options.some(o => o.toLowerCase() === val.toLowerCase())) {
+                            const match = cat.options.find(o => o.toLowerCase().startsWith(val.toLowerCase()));
+                            handleCellChange(key, match || cellValues[key] || cat.def);
+                          }
+                        }}
                         data-testid={`input-menu-w${weekNum}-c${cat.id}-d${di}`}
                         style={{
                           width: "98%",
@@ -439,17 +451,13 @@ export default function MenuManager() {
 
   return (
     <Layout>
-      {categories.map(cat => {
-        const savedNames = savedMenuItems?.map(i => i.name) || [];
-        const allOptions = Array.from(new Set([...cat.options, ...savedNames]));
-        return (
-          <datalist key={cat.id} id={`list_${cat.id}`}>
-            {allOptions.map(opt => (
-              <option key={opt} value={opt} />
-            ))}
-          </datalist>
-        );
-      })}
+      {categories.map(cat => (
+        <datalist key={cat.id} id={`list_${cat.id}`}>
+          {cat.options.map(opt => (
+            <option key={opt} value={opt} />
+          ))}
+        </datalist>
+      ))}
 
       <div className="flex flex-col md:flex-row md:items-center justify-between mb-6 gap-4">
         <div>
