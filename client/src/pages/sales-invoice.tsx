@@ -624,8 +624,8 @@ export default function SalesInvoicePage() {
           </div>
           <div className="flex gap-2">
             <Link href="/sales-dashboard">
-              <Button variant="outline" className="border-violet-300 text-violet-700 hover:bg-violet-50 dark:border-violet-700 dark:text-violet-400" data-testid="button-sales-dashboard">
-                <BarChart3 className="w-4 h-4 mr-2" /> Dashboard
+              <Button variant="outline" size="sm" className="border-violet-300 text-violet-700 hover:bg-violet-50 dark:border-violet-700 dark:text-violet-400" data-testid="button-sales-dashboard">
+                <BarChart3 className="w-4 h-4 sm:mr-2" /> <span className="hidden sm:inline">Dashboard</span>
               </Button>
             </Link>
           </div>
@@ -656,24 +656,26 @@ export default function SalesInvoicePage() {
         </div>
 
         <Tabs value={activeTab} onValueChange={setActiveTab} className="mb-5">
-          <TabsList className="bg-violet-100 dark:bg-violet-950/30">
-            <TabsTrigger value="invoices" className="data-[state=active]:bg-white dark:data-[state=active]:bg-gray-800 flex items-center gap-1.5" data-testid="tab-invoices">
-              <FileText className="w-3.5 h-3.5" /> Sales Invoices
-            </TabsTrigger>
-            <TabsTrigger value="purchase-orders" className="data-[state=active]:bg-white dark:data-[state=active]:bg-gray-800 flex items-center gap-1.5" data-testid="tab-purchase-orders">
-              <ClipboardList className="w-3.5 h-3.5" /> Purchase Orders
-              {purchaseOrders.length > 0 && <Badge variant="secondary" className="ml-1 h-5 text-[10px]">{purchaseOrders.length}</Badge>}
-            </TabsTrigger>
-            <TabsTrigger value="gst-report" className="data-[state=active]:bg-white dark:data-[state=active]:bg-gray-800 flex items-center gap-1.5" data-testid="tab-gst-report">
-              <Percent className="w-3.5 h-3.5" /> GST Report
-            </TabsTrigger>
-            <TabsTrigger value="tds-report" className="data-[state=active]:bg-white dark:data-[state=active]:bg-gray-800 flex items-center gap-1.5" data-testid="tab-tds-report">
-              <IndianRupee className="w-3.5 h-3.5" /> TDS Report
-            </TabsTrigger>
-            <TabsTrigger value="pankaj-report" className="data-[state=active]:bg-white dark:data-[state=active]:bg-gray-800 flex items-center gap-1.5" data-testid="tab-pankaj-report">
-              <User className="w-3.5 h-3.5" /> Pankaj
-            </TabsTrigger>
-          </TabsList>
+          <div className="overflow-x-auto -mx-2 px-2 pb-1">
+            <TabsList className="bg-violet-100 dark:bg-violet-950/30 w-max min-w-full sm:w-auto">
+              <TabsTrigger value="invoices" className="data-[state=active]:bg-white dark:data-[state=active]:bg-gray-800 flex items-center gap-1 text-xs sm:text-sm sm:gap-1.5" data-testid="tab-invoices">
+                <FileText className="w-3.5 h-3.5" /> <span className="hidden sm:inline">Sales</span> Invoices
+              </TabsTrigger>
+              <TabsTrigger value="purchase-orders" className="data-[state=active]:bg-white dark:data-[state=active]:bg-gray-800 flex items-center gap-1 text-xs sm:text-sm sm:gap-1.5" data-testid="tab-purchase-orders">
+                <ClipboardList className="w-3.5 h-3.5" /> PO
+                {purchaseOrders.length > 0 && <Badge variant="secondary" className="ml-0.5 sm:ml-1 h-5 text-[10px]">{purchaseOrders.length}</Badge>}
+              </TabsTrigger>
+              <TabsTrigger value="gst-report" className="data-[state=active]:bg-white dark:data-[state=active]:bg-gray-800 flex items-center gap-1 text-xs sm:text-sm sm:gap-1.5" data-testid="tab-gst-report">
+                <Percent className="w-3.5 h-3.5" /> GST
+              </TabsTrigger>
+              <TabsTrigger value="tds-report" className="data-[state=active]:bg-white dark:data-[state=active]:bg-gray-800 flex items-center gap-1 text-xs sm:text-sm sm:gap-1.5" data-testid="tab-tds-report">
+                <IndianRupee className="w-3.5 h-3.5" /> TDS
+              </TabsTrigger>
+              <TabsTrigger value="pankaj-report" className="data-[state=active]:bg-white dark:data-[state=active]:bg-gray-800 flex items-center gap-1 text-xs sm:text-sm sm:gap-1.5" data-testid="tab-pankaj-report">
+                <User className="w-3.5 h-3.5" /> Pankaj
+              </TabsTrigger>
+            </TabsList>
+          </div>
 
           <TabsContent value="purchase-orders" className="mt-4">
             <div className="flex justify-end mb-4">
@@ -724,22 +726,22 @@ export default function SalesInvoicePage() {
                             </Button>
                           </div>
                         </div>
-                        <div className="grid grid-cols-4 gap-3 mt-3">
+                        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-3 mt-3">
                           <div className="bg-cyan-50 dark:bg-cyan-950/20 rounded-lg p-2 text-center">
                             <p className="text-[10px] text-cyan-600 dark:text-cyan-400">PO Amount</p>
-                            <p className="font-mono font-bold text-sm text-cyan-800 dark:text-cyan-200">{fmtCurrency(po.poAmount)}</p>
+                            <p className="font-mono font-bold text-xs sm:text-sm text-cyan-800 dark:text-cyan-200">{fmtCurrency(po.poAmount)}</p>
                           </div>
                           <div className="bg-amber-50 dark:bg-amber-950/20 rounded-lg p-2 text-center">
                             <p className="text-[10px] text-amber-600 dark:text-amber-400">Used ({usedPercent}%)</p>
-                            <p className="font-mono font-bold text-sm text-amber-800 dark:text-amber-200">{fmtCurrency(used)}</p>
+                            <p className="font-mono font-bold text-xs sm:text-sm text-amber-800 dark:text-amber-200">{fmtCurrency(used)}</p>
                           </div>
                           <div className={`rounded-lg p-2 text-center ${balance > 0 ? 'bg-green-50 dark:bg-green-950/20' : 'bg-red-50 dark:bg-red-950/20'}`}>
                             <p className={`text-[10px] ${balance > 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>Balance</p>
-                            <p className={`font-mono font-bold text-sm ${balance > 0 ? 'text-green-800 dark:text-green-200' : 'text-red-800 dark:text-red-200'}`}>{fmtCurrency(balance)}</p>
+                            <p className={`font-mono font-bold text-xs sm:text-sm ${balance > 0 ? 'text-green-800 dark:text-green-200' : 'text-red-800 dark:text-red-200'}`}>{fmtCurrency(balance)}</p>
                           </div>
                           <div className="bg-violet-50 dark:bg-violet-950/20 rounded-lg p-2 text-center">
                             <p className="text-[10px] text-violet-600 dark:text-violet-400">Invoices</p>
-                            <p className="font-mono font-bold text-sm text-violet-800 dark:text-violet-200">{linked}</p>
+                            <p className="font-mono font-bold text-xs sm:text-sm text-violet-800 dark:text-violet-200">{linked}</p>
                           </div>
                         </div>
                         <div className="mt-2">
@@ -756,7 +758,7 @@ export default function SalesInvoicePage() {
           </TabsContent>
 
           <TabsContent value="invoices" className="mt-4">
-            <div className="flex justify-end gap-2 mb-4">
+            <div className="flex justify-end gap-2 mb-4 flex-wrap">
               <Button variant="outline" size="sm" className="h-9" onClick={() => {
                 if (filteredInvoices.length === 0) return;
                 const pw = window.open("", "_blank");
@@ -869,86 +871,100 @@ export default function SalesInvoicePage() {
 
         <Card className="border-0 shadow-lg overflow-hidden mb-5" data-testid="card-filters">
           <CardContent className="p-3 sm:p-4">
-            <div className="flex flex-col sm:flex-row gap-3 items-start sm:items-end">
-              <div className="flex-1 w-full sm:w-auto">
+            <div className="space-y-3 sm:space-y-0">
+              <div className="w-full sm:hidden">
                 <Label className="text-xs font-semibold text-muted-foreground flex items-center gap-1 mb-1">
                   <Search className="w-3 h-3" /> Search
                 </Label>
                 <Input
-                  placeholder="Search bill number or client..."
+                  placeholder="Search bill no. or client..."
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
                   className="h-9"
-                  data-testid="input-search-invoices"
+                  data-testid="input-search-invoices-mobile"
                 />
               </div>
-              <div className="w-full sm:w-40">
-                <Label className="text-xs font-semibold text-muted-foreground flex items-center gap-1 mb-1">
-                  <Building2 className="w-3 h-3" /> Client
-                </Label>
-                <Select value={filterClient} onValueChange={setFilterClient}>
-                  <SelectTrigger className="h-9" data-testid="select-filter-client">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">All Clients</SelectItem>
-                    {clients.map((c: any) => (
-                      <SelectItem key={c.id} value={c.name}>{c.name}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+              <div className="grid grid-cols-2 gap-2 sm:flex sm:flex-row sm:gap-3 sm:items-end">
+                <div className="hidden sm:block flex-1">
+                  <Label className="text-xs font-semibold text-muted-foreground flex items-center gap-1 mb-1">
+                    <Search className="w-3 h-3" /> Search
+                  </Label>
+                  <Input
+                    placeholder="Search bill number or client..."
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    className="h-9"
+                    data-testid="input-search-invoices"
+                  />
+                </div>
+                <div className="col-span-2 sm:w-40">
+                  <Label className="text-xs font-semibold text-muted-foreground flex items-center gap-1 mb-1">
+                    <Building2 className="w-3 h-3" /> Client
+                  </Label>
+                  <Select value={filterClient} onValueChange={setFilterClient}>
+                    <SelectTrigger className="h-9" data-testid="select-filter-client">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All Clients</SelectItem>
+                      {clients.map((c: any) => (
+                        <SelectItem key={c.id} value={c.name}>{c.name}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="sm:w-36">
+                  <Label className="text-xs font-semibold text-muted-foreground flex items-center gap-1 mb-1">
+                    <CalendarDays className="w-3 h-3" /> Month
+                  </Label>
+                  <Select value={filterMonth} onValueChange={setFilterMonth}>
+                    <SelectTrigger className="h-9" data-testid="select-filter-month">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All Months</SelectItem>
+                      {MONTHS.map((m, i) => (
+                        <SelectItem key={i} value={String(i)}>{m}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="sm:w-28">
+                  <Label className="text-xs font-semibold text-muted-foreground mb-1 block">Year</Label>
+                  <Select value={filterYear} onValueChange={setFilterYear}>
+                    <SelectTrigger className="h-9" data-testid="select-filter-year">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All</SelectItem>
+                      {years.map(y => (
+                        <SelectItem key={y} value={String(y)}>{y}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="sm:w-32">
+                  <Label className="text-xs font-semibold text-muted-foreground flex items-center gap-1 mb-1">
+                    <CheckCircle2 className="w-3 h-3" /> Status
+                  </Label>
+                  <Select value={filterStatus} onValueChange={setFilterStatus}>
+                    <SelectTrigger className="h-9" data-testid="select-filter-status">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All</SelectItem>
+                      <SelectItem value="pending">Due</SelectItem>
+                      <SelectItem value="partial">Partial Received</SelectItem>
+                      <SelectItem value="received">Full Paid</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                {(filterClient !== "all" || filterMonth !== "all" || filterYear !== String(new Date().getFullYear()) || filterStatus !== "all" || searchTerm) && (
+                  <Button variant="ghost" size="sm" className="text-muted-foreground h-9 self-end" onClick={() => { setFilterClient("all"); setFilterMonth("all"); setFilterYear(String(new Date().getFullYear())); setFilterStatus("all"); setSearchTerm(""); }} data-testid="button-clear-filters">
+                    <X className="w-3.5 h-3.5 mr-1" /> Clear
+                  </Button>
+                )}
               </div>
-              <div className="w-full sm:w-36">
-                <Label className="text-xs font-semibold text-muted-foreground flex items-center gap-1 mb-1">
-                  <CalendarDays className="w-3 h-3" /> Month
-                </Label>
-                <Select value={filterMonth} onValueChange={setFilterMonth}>
-                  <SelectTrigger className="h-9" data-testid="select-filter-month">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">All Months</SelectItem>
-                    {MONTHS.map((m, i) => (
-                      <SelectItem key={i} value={String(i)}>{m}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="w-full sm:w-28">
-                <Label className="text-xs font-semibold text-muted-foreground mb-1 block">Year</Label>
-                <Select value={filterYear} onValueChange={setFilterYear}>
-                  <SelectTrigger className="h-9" data-testid="select-filter-year">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">All</SelectItem>
-                    {years.map(y => (
-                      <SelectItem key={y} value={String(y)}>{y}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="w-full sm:w-32">
-                <Label className="text-xs font-semibold text-muted-foreground flex items-center gap-1 mb-1">
-                  <CheckCircle2 className="w-3 h-3" /> Status
-                </Label>
-                <Select value={filterStatus} onValueChange={setFilterStatus}>
-                  <SelectTrigger className="h-9" data-testid="select-filter-status">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">All</SelectItem>
-                    <SelectItem value="pending">Due</SelectItem>
-                    <SelectItem value="partial">Partial Received</SelectItem>
-                    <SelectItem value="received">Full Paid</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              {(filterClient !== "all" || filterMonth !== "all" || filterYear !== String(new Date().getFullYear()) || filterStatus !== "all" || searchTerm) && (
-                <Button variant="ghost" size="sm" className="text-muted-foreground" onClick={() => { setFilterClient("all"); setFilterMonth("all"); setFilterYear(String(new Date().getFullYear())); setFilterStatus("all"); setSearchTerm(""); }} data-testid="button-clear-filters">
-                  <X className="w-3.5 h-3.5 mr-1" /> Clear
-                </Button>
-              )}
             </div>
           </CardContent>
         </Card>
@@ -1081,39 +1097,39 @@ export default function SalesInvoicePage() {
                         </div>
                       </div>
 
-                      <div className="grid grid-cols-3 gap-2 text-xs mt-2">
-                        <div className="bg-blue-50 dark:bg-blue-950/20 rounded-lg p-2 text-center">
-                          <p className="text-[10px] text-blue-600 dark:text-blue-400">Bill Amount</p>
-                          <p className="font-mono font-bold text-blue-700 dark:text-blue-300">{fmtCurrency(inv.billAmount)}</p>
+                      <div className="grid grid-cols-3 gap-1.5 text-xs mt-2">
+                        <div className="bg-blue-50 dark:bg-blue-950/20 rounded-lg p-1.5 text-center">
+                          <p className="text-[9px] text-blue-600 dark:text-blue-400">Bill Amount</p>
+                          <p className="font-mono font-bold text-[11px] text-blue-700 dark:text-blue-300">{fmtCurrency(inv.billAmount)}</p>
                         </div>
-                        <div className="bg-orange-50 dark:bg-orange-950/20 rounded-lg p-2 text-center">
-                          <p className="text-[10px] text-orange-600 dark:text-orange-400">GST ({Number(inv.gstPercent)}%)</p>
-                          <p className="font-mono font-bold text-orange-700 dark:text-orange-300">{fmtCurrency(inv.gstAmount)}</p>
+                        <div className="bg-orange-50 dark:bg-orange-950/20 rounded-lg p-1.5 text-center">
+                          <p className="text-[9px] text-orange-600 dark:text-orange-400">GST ({Number(inv.gstPercent)}%)</p>
+                          <p className="font-mono font-bold text-[11px] text-orange-700 dark:text-orange-300">{fmtCurrency(inv.gstAmount)}</p>
                         </div>
-                        <div className="bg-violet-50 dark:bg-violet-950/20 rounded-lg p-2 text-center">
-                          <p className="text-[10px] text-violet-600 dark:text-violet-400">Total</p>
-                          <p className="font-mono font-bold text-violet-700 dark:text-violet-300">{fmtCurrency(inv.totalBillAmount)}</p>
+                        <div className="bg-violet-50 dark:bg-violet-950/20 rounded-lg p-1.5 text-center">
+                          <p className="text-[9px] text-violet-600 dark:text-violet-400">Total</p>
+                          <p className="font-mono font-bold text-[11px] text-violet-700 dark:text-violet-300">{fmtCurrency(inv.totalBillAmount)}</p>
                         </div>
                       </div>
 
-                      <div className="grid grid-cols-2 gap-2 text-xs mt-2">
-                        <div className="bg-red-50 dark:bg-red-950/20 rounded-lg p-2 text-center">
-                          <p className="text-[10px] text-red-600 dark:text-red-400">TDS ({Number(inv.tdsPercent)}%)</p>
-                          <p className="font-mono font-bold text-red-700 dark:text-red-300">{fmtCurrency(inv.tdsAmount)}</p>
+                      <div className="grid grid-cols-2 gap-1.5 text-xs mt-1.5">
+                        <div className="bg-red-50 dark:bg-red-950/20 rounded-lg p-1.5 text-center">
+                          <p className="text-[9px] text-red-600 dark:text-red-400">TDS ({Number(inv.tdsPercent)}%)</p>
+                          <p className="font-mono font-bold text-[11px] text-red-700 dark:text-red-300">{fmtCurrency(inv.tdsAmount)}</p>
                         </div>
-                        <div className="bg-blue-50 dark:bg-blue-950/20 rounded-lg p-2 text-center">
-                          <p className="text-[10px] text-blue-600 dark:text-blue-400">To Receive</p>
-                          <p className="font-mono font-bold text-blue-700 dark:text-blue-300">{fmtCurrency(Number(inv.billAmount) + Number(inv.gstAmount) - Number(inv.tdsAmount))}</p>
+                        <div className="bg-blue-50 dark:bg-blue-950/20 rounded-lg p-1.5 text-center">
+                          <p className="text-[9px] text-blue-600 dark:text-blue-400">To Receive</p>
+                          <p className="font-mono font-bold text-[11px] text-blue-700 dark:text-blue-300">{fmtCurrency(Number(inv.billAmount) + Number(inv.gstAmount) - Number(inv.tdsAmount))}</p>
                         </div>
                       </div>
-                      <div className="grid grid-cols-2 gap-2 text-xs mt-2">
-                        <div className="bg-green-50 dark:bg-green-950/20 rounded-lg p-2 text-center">
-                          <p className="text-[10px] text-green-600 dark:text-green-400">Received</p>
-                          <p className="font-mono font-bold text-green-700 dark:text-green-300">{fmtCurrency(inv.paymentReceivedAmount)}</p>
+                      <div className="grid grid-cols-2 gap-1.5 text-xs mt-1.5">
+                        <div className="bg-green-50 dark:bg-green-950/20 rounded-lg p-1.5 text-center">
+                          <p className="text-[9px] text-green-600 dark:text-green-400">Received</p>
+                          <p className="font-mono font-bold text-[11px] text-green-700 dark:text-green-300">{fmtCurrency(inv.paymentReceivedAmount)}</p>
                         </div>
-                        <div className="bg-gray-50 dark:bg-gray-900/30 rounded-lg p-2 text-center">
-                          <p className="text-[10px] text-muted-foreground">Pmt Date</p>
-                          <p className="font-mono font-bold text-xs">{fmtDate(inv.paymentReceivedDate)}</p>
+                        <div className="bg-gray-50 dark:bg-gray-900/30 rounded-lg p-1.5 text-center">
+                          <p className="text-[9px] text-muted-foreground">Pmt Date</p>
+                          <p className="font-mono font-bold text-[11px]">{fmtDate(inv.paymentReceivedDate)}</p>
                         </div>
                       </div>
 
@@ -1239,63 +1255,67 @@ function GstTdsReport({ invoices, type, clients }: { invoices: any[]; type: "gst
     <div>
       <Card className="border-0 shadow-md mb-4">
         <CardContent className="p-4">
-          <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3 flex-wrap">
+          <div className="space-y-3">
             <div className="flex items-center gap-2">
               {isGst ? <Percent className="w-5 h-5 text-emerald-600" /> : <IndianRupee className="w-5 h-5 text-red-600" />}
               <h3 className="font-bold text-lg">{title}</h3>
             </div>
-            <div className="flex items-center gap-2 ml-auto flex-wrap">
-              <Select value={clientFilter} onValueChange={setClientFilter}>
-                <SelectTrigger className="w-[180px] h-9" data-testid={`select-${type}-client`}>
-                  <Building2 className="w-3.5 h-3.5 mr-1 text-muted-foreground" />
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Clients</SelectItem>
-                  {clients.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}
-                </SelectContent>
-              </Select>
+            <div className="grid grid-cols-2 sm:flex sm:flex-row gap-2 sm:gap-2 sm:items-center sm:flex-wrap">
+              <div className="col-span-2 sm:w-auto">
+                <Select value={clientFilter} onValueChange={setClientFilter}>
+                  <SelectTrigger className="w-full sm:w-[180px] h-9" data-testid={`select-${type}-client`}>
+                    <Building2 className="w-3.5 h-3.5 mr-1 text-muted-foreground" />
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Clients</SelectItem>
+                    {clients.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </div>
               <Select value={month} onValueChange={setMonth}>
-                <SelectTrigger className="w-[130px] h-9" data-testid={`select-${type}-month`}>
+                <SelectTrigger className="w-full sm:w-[130px] h-9" data-testid={`select-${type}-month`}>
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
                   {months.map(m => <SelectItem key={m.v} value={m.v}>{m.l}</SelectItem>)}
                 </SelectContent>
               </Select>
-              <Select value={year} onValueChange={setYear}>
-                <SelectTrigger className="w-[90px] h-9" data-testid={`select-${type}-year`}>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {years.map(y => <SelectItem key={y} value={y}>{y}</SelectItem>)}
-                </SelectContent>
-              </Select>
-              <Button variant="outline" size="sm" className="h-9" onClick={handlePrint} data-testid={`button-print-${type}`}>
-                <BarChart3 className="w-4 h-4 mr-1" /> Print
-              </Button>
+              <div className="flex gap-2">
+                <Select value={year} onValueChange={setYear}>
+                  <SelectTrigger className="w-full sm:w-[90px] h-9" data-testid={`select-${type}-year`}>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {years.map(y => <SelectItem key={y} value={y}>{y}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+                <Button variant="outline" size="sm" className="h-9 shrink-0" onClick={handlePrint} data-testid={`button-print-${type}`}>
+                  <BarChart3 className="w-4 h-4 sm:mr-1" /> <span className="hidden sm:inline">Print</span>
+                </Button>
+              </div>
             </div>
           </div>
         </CardContent>
       </Card>
 
-      <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 mb-4">
+      <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 sm:gap-3 mb-4">
         <Card className="border-0 shadow-md">
-          <CardContent className="p-4 text-center">
-            <p className="text-xs text-muted-foreground mb-1">Total Invoices</p>
-            <p className="text-2xl font-bold">{filtered.length}</p>
+          <CardContent className="p-3 sm:p-4 text-center">
+            <p className="text-[10px] sm:text-xs text-muted-foreground mb-1">Total Invoices</p>
+            <p className="text-xl sm:text-2xl font-bold">{filtered.length}</p>
           </CardContent>
         </Card>
         <Card className="border-0 shadow-md">
-          <CardContent className="p-4 text-center">
-            <p className="text-xs text-muted-foreground mb-1">Total {isGst ? "GST" : "TDS"} Amount</p>
-            <p className={`text-2xl font-bold font-mono ${isGst ? "text-emerald-600" : "text-red-600"}`}>₹{total.toLocaleString("en-IN", { minimumFractionDigits: 2 })}</p>
+          <CardContent className="p-3 sm:p-4 text-center">
+            <p className="text-[10px] sm:text-xs text-muted-foreground mb-1">Total {isGst ? "GST" : "TDS"}</p>
+            <p className={`text-sm sm:text-2xl font-bold font-mono ${isGst ? "text-emerald-600" : "text-red-600"}`}>₹{total.toLocaleString("en-IN", { minimumFractionDigits: 2 })}</p>
           </CardContent>
         </Card>
-        <Card className="border-0 shadow-md">
-          <CardContent className="p-4 text-center">
-            <p className="text-xs text-muted-foreground mb-1">Total Bill Amount</p>
-            <p className="text-2xl font-bold font-mono text-violet-600">₹{filtered.reduce((s, i) => s + Number(i.billAmount), 0).toLocaleString("en-IN", { minimumFractionDigits: 2 })}</p>
+        <Card className="border-0 shadow-md col-span-2 sm:col-span-1">
+          <CardContent className="p-3 sm:p-4 text-center">
+            <p className="text-[10px] sm:text-xs text-muted-foreground mb-1">Total Bill Amount</p>
+            <p className="text-sm sm:text-2xl font-bold font-mono text-violet-600">₹{filtered.reduce((s, i) => s + Number(i.billAmount), 0).toLocaleString("en-IN", { minimumFractionDigits: 2 })}</p>
           </CardContent>
         </Card>
       </div>
@@ -1580,21 +1600,21 @@ function PankajReport({ invoices, clients }: { invoices: any[]; clients: string[
     <div>
       <Card className="border-0 shadow-lg mb-5">
         <div className="h-1.5 bg-gradient-to-r from-violet-500 via-purple-500 to-fuchsia-500" />
-        <CardContent className="p-5">
-          <div className="flex items-center gap-3 mb-4">
-            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-violet-500 to-purple-600 flex items-center justify-center shadow-lg shadow-violet-200 dark:shadow-violet-900/30">
-              <User className="w-5 h-5 text-white" />
+        <CardContent className="p-3 sm:p-5">
+          <div className="flex items-center gap-2 sm:gap-3 mb-3 sm:mb-4">
+            <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-gradient-to-br from-violet-500 to-purple-600 flex items-center justify-center shadow-lg shadow-violet-200 dark:shadow-violet-900/30">
+              <User className="w-4 h-4 sm:w-5 sm:h-5 text-white" />
             </div>
             <div>
-              <h3 className="font-bold text-lg leading-tight" data-testid="text-pankaj-title">Amount Give To Pankaj</h3>
+              <h3 className="font-bold text-base sm:text-lg leading-tight" data-testid="text-pankaj-title">Amount Give To Pankaj</h3>
               <p className="text-xs text-muted-foreground">{monthName} {year}
                 {hasSavedData && <Badge variant="outline" className="ml-2 text-[10px] border-green-300 text-green-600 bg-green-50 dark:bg-green-950/30">Saved</Badge>}
               </p>
             </div>
           </div>
-          <div className="flex items-center gap-2 flex-wrap">
-            <div className="relative" ref={dropdownRef}>
-              <Button variant="outline" size="sm" className="h-9 min-w-[180px] justify-between border-violet-200 dark:border-violet-800 hover:bg-violet-50 dark:hover:bg-violet-950/30" onClick={() => setClientDropdownOpen(!clientDropdownOpen)} data-testid="button-pankaj-client-select">
+          <div className="grid grid-cols-2 sm:flex sm:items-center gap-2 sm:flex-wrap">
+            <div className="relative col-span-2" ref={dropdownRef}>
+              <Button variant="outline" size="sm" className="h-9 w-full sm:w-auto sm:min-w-[180px] justify-between border-violet-200 dark:border-violet-800 hover:bg-violet-50 dark:hover:bg-violet-950/30" onClick={() => setClientDropdownOpen(!clientDropdownOpen)} data-testid="button-pankaj-client-select">
                 <span className="flex items-center gap-1.5 text-xs">
                   <Building2 className="w-3.5 h-3.5 text-violet-500" />
                   {selectedClients.length === 0 ? "Select Clients" : `${selectedClients.length} client${selectedClients.length > 1 ? "s" : ""}`}
@@ -1618,7 +1638,7 @@ function PankajReport({ invoices, clients }: { invoices: any[]; clients: string[
               )}
             </div>
             <Select value={month} onValueChange={setMonth}>
-              <SelectTrigger className="w-[130px] h-9" data-testid="select-pankaj-month">
+              <SelectTrigger className="w-full sm:w-[130px] h-9" data-testid="select-pankaj-month">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -1626,19 +1646,19 @@ function PankajReport({ invoices, clients }: { invoices: any[]; clients: string[
               </SelectContent>
             </Select>
             <Select value={year} onValueChange={setYear}>
-              <SelectTrigger className="w-[90px] h-9" data-testid="select-pankaj-year">
+              <SelectTrigger className="w-full sm:w-[90px] h-9" data-testid="select-pankaj-year">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
                 {years.map(y => <SelectItem key={y} value={y}>{y}</SelectItem>)}
               </SelectContent>
             </Select>
-            <div className="flex gap-2 ml-auto">
-              <Button size="sm" className="h-9 bg-gradient-to-r from-emerald-600 to-green-600 hover:from-emerald-700 hover:to-green-700 text-white shadow-md" onClick={() => saveMutation.mutate()} disabled={saveMutation.isPending || rows.length === 0} data-testid="button-save-pankaj">
+            <div className="flex gap-2 col-span-2 sm:col-span-1 sm:ml-auto">
+              <Button size="sm" className="h-9 flex-1 sm:flex-none bg-gradient-to-r from-emerald-600 to-green-600 hover:from-emerald-700 hover:to-green-700 text-white shadow-md" onClick={() => saveMutation.mutate()} disabled={saveMutation.isPending || rows.length === 0} data-testid="button-save-pankaj">
                 {saveMutation.isPending ? <Loader2 className="w-4 h-4 mr-1.5 animate-spin" /> : <Save className="w-4 h-4 mr-1.5" />}
                 {hasSavedData ? "Update" : "Save"}
               </Button>
-              <Button size="sm" className="h-9 bg-gradient-to-r from-violet-600 to-purple-600 hover:from-violet-700 hover:to-purple-700 text-white shadow-md shadow-violet-200 dark:shadow-violet-900/30" onClick={handlePrint} data-testid="button-print-pankaj">
+              <Button size="sm" className="h-9 flex-1 sm:flex-none bg-gradient-to-r from-violet-600 to-purple-600 hover:from-violet-700 hover:to-purple-700 text-white shadow-md shadow-violet-200 dark:shadow-violet-900/30" onClick={handlePrint} data-testid="button-print-pankaj">
                 <Printer className="w-4 h-4 mr-1.5" /> Print
               </Button>
             </div>
@@ -1646,45 +1666,45 @@ function PankajReport({ invoices, clients }: { invoices: any[]; clients: string[
         </CardContent>
       </Card>
 
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-5">
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-4 mb-5">
         <Card className="border-0 shadow-lg overflow-hidden group hover:shadow-xl transition-shadow">
           <div className="h-1 bg-gradient-to-r from-violet-400 to-violet-600" />
-          <CardContent className="p-4 text-center">
-            <div className="w-9 h-9 rounded-full bg-violet-100 dark:bg-violet-900/40 flex items-center justify-center mx-auto mb-2">
-              <Building2 className="w-4 h-4 text-violet-600 dark:text-violet-400" />
+          <CardContent className="p-3 sm:p-4 text-center">
+            <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-full bg-violet-100 dark:bg-violet-900/40 flex items-center justify-center mx-auto mb-1.5 sm:mb-2">
+              <Building2 className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-violet-600 dark:text-violet-400" />
             </div>
-            <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium mb-1">Clients</p>
-            <p className="text-3xl font-bold text-violet-600" data-testid="text-pankaj-client-count">{selectedClients.length}</p>
+            <p className="text-[9px] sm:text-[10px] uppercase tracking-wider text-muted-foreground font-medium mb-1">Clients</p>
+            <p className="text-2xl sm:text-3xl font-bold text-violet-600" data-testid="text-pankaj-client-count">{selectedClients.length}</p>
           </CardContent>
         </Card>
         <Card className="border-0 shadow-lg overflow-hidden group hover:shadow-xl transition-shadow">
           <div className="h-1 bg-gradient-to-r from-amber-400 to-orange-500" />
-          <CardContent className="p-4 text-center">
-            <div className="w-9 h-9 rounded-full bg-amber-100 dark:bg-amber-900/40 flex items-center justify-center mx-auto mb-2">
-              <IndianRupee className="w-4 h-4 text-amber-600 dark:text-amber-400" />
+          <CardContent className="p-3 sm:p-4 text-center">
+            <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-full bg-amber-100 dark:bg-amber-900/40 flex items-center justify-center mx-auto mb-1.5 sm:mb-2">
+              <IndianRupee className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-amber-600 dark:text-amber-400" />
             </div>
-            <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium mb-1">To Receive</p>
-            <p className="text-lg font-bold font-mono text-amber-600" data-testid="text-pankaj-to-receive">₹{grandToReceive.toLocaleString("en-IN", { minimumFractionDigits: 2 })}</p>
+            <p className="text-[9px] sm:text-[10px] uppercase tracking-wider text-muted-foreground font-medium mb-1">To Receive</p>
+            <p className="text-xs sm:text-lg font-bold font-mono text-amber-600" data-testid="text-pankaj-to-receive">₹{grandToReceive.toLocaleString("en-IN", { minimumFractionDigits: 2 })}</p>
           </CardContent>
         </Card>
         <Card className="border-0 shadow-lg overflow-hidden group hover:shadow-xl transition-shadow">
           <div className="h-1 bg-gradient-to-r from-blue-400 to-indigo-500" />
-          <CardContent className="p-4 text-center">
-            <div className="w-9 h-9 rounded-full bg-blue-100 dark:bg-blue-900/40 flex items-center justify-center mx-auto mb-2">
-              <TrendingUp className="w-4 h-4 text-blue-600 dark:text-blue-400" />
+          <CardContent className="p-3 sm:p-4 text-center">
+            <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-full bg-blue-100 dark:bg-blue-900/40 flex items-center justify-center mx-auto mb-1.5 sm:mb-2">
+              <TrendingUp className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-blue-600 dark:text-blue-400" />
             </div>
-            <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium mb-1">GST - TDS</p>
-            <p className="text-lg font-bold font-mono text-blue-600" data-testid="text-pankaj-gst-tds">₹{grandGstMinusTds.toLocaleString("en-IN", { minimumFractionDigits: 2 })}</p>
+            <p className="text-[9px] sm:text-[10px] uppercase tracking-wider text-muted-foreground font-medium mb-1">GST - TDS</p>
+            <p className="text-xs sm:text-lg font-bold font-mono text-blue-600" data-testid="text-pankaj-gst-tds">₹{grandGstMinusTds.toLocaleString("en-IN", { minimumFractionDigits: 2 })}</p>
           </CardContent>
         </Card>
         <Card className="border-0 shadow-lg overflow-hidden group hover:shadow-xl transition-shadow">
           <div className="h-1 bg-gradient-to-r from-emerald-400 to-green-500" />
-          <CardContent className="p-4 text-center">
-            <div className="w-9 h-9 rounded-full bg-emerald-100 dark:bg-emerald-900/40 flex items-center justify-center mx-auto mb-2">
-              <TrendingUp className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
+          <CardContent className="p-3 sm:p-4 text-center">
+            <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-full bg-emerald-100 dark:bg-emerald-900/40 flex items-center justify-center mx-auto mb-1.5 sm:mb-2">
+              <TrendingUp className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-emerald-600 dark:text-emerald-400" />
             </div>
-            <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium mb-1">Total</p>
-            <p className="text-lg font-bold font-mono text-emerald-600" data-testid="text-pankaj-grand-total">₹{grandTotal.toLocaleString("en-IN", { minimumFractionDigits: 2 })}</p>
+            <p className="text-[9px] sm:text-[10px] uppercase tracking-wider text-muted-foreground font-medium mb-1">Total</p>
+            <p className="text-xs sm:text-lg font-bold font-mono text-emerald-600" data-testid="text-pankaj-grand-total">₹{grandTotal.toLocaleString("en-IN", { minimumFractionDigits: 2 })}</p>
           </CardContent>
         </Card>
       </div>
