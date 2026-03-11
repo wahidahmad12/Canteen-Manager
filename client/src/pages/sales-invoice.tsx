@@ -348,7 +348,7 @@ function InvoiceFormDialog({ invoice, onClose, clients, purchaseOrders, allInvoi
 
       <div className="bg-gradient-to-r from-red-50 to-pink-50 dark:from-red-950/20 dark:to-pink-950/20 rounded-xl p-3 space-y-3 border border-red-200 dark:border-red-800">
         <p className="text-xs font-bold text-red-700 dark:text-red-400 uppercase tracking-wide">TDS Deduction</p>
-        <div className="grid grid-cols-2 gap-3">
+        <div className="grid grid-cols-3 gap-3">
           <div className="space-y-1">
             <Label className="text-xs text-red-600 dark:text-red-400 flex items-center gap-1"><Percent className="w-3 h-3" /> TDS %</Label>
             <Input type="number" value={tdsPercent || ""} onChange={(e) => setTdsPercent(Number(e.target.value))} className="h-9 font-mono text-sm" min={0} data-testid="input-tds-percent" />
@@ -356,6 +356,10 @@ function InvoiceFormDialog({ invoice, onClose, clients, purchaseOrders, allInvoi
           <div className="space-y-1">
             <Label className="text-xs text-red-600 dark:text-red-400">TDS Amount</Label>
             <div className="h-9 flex items-center px-3 bg-red-100 dark:bg-red-900/30 rounded-md font-mono text-sm" data-testid="text-tds-amount">{fmtCurrency(tdsAmount)}</div>
+          </div>
+          <div className="space-y-1">
+            <Label className="text-xs text-emerald-600 dark:text-emerald-400 font-bold flex items-center gap-1"><IndianRupee className="w-3 h-3" /> To Receive</Label>
+            <div className="h-9 flex items-center px-3 bg-emerald-200 dark:bg-emerald-800/40 rounded-md font-mono text-sm font-bold text-emerald-700 dark:text-emerald-300" data-testid="text-to-receive">{fmtCurrency(Math.round((totalBillAmount - tdsAmount) * 100) / 100)}</div>
           </div>
         </div>
       </div>
