@@ -3,9 +3,9 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Label } from '@/components/ui/label';
-import { User, CalendarDays, LogOut, Download, Building2, Phone, MapPin, Briefcase, IdCard } from 'lucide-react';
+import { User, CalendarDays, LogOut, Download, Building2, Phone, MapPin, Briefcase, IdCard, Smartphone, X, Share } from 'lucide-react';
 import { useCurrentUser, useLogout } from '@/hooks/use-reports';
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import logoImg from '@assets/logo1_1771660912341.png';
 
 interface EmployeeInfo {
@@ -99,6 +99,54 @@ export default function EmployeeDashboard() {
   const currentMonth = new Date().getMonth() + 1;
   const [selectedYear, setSelectedYear] = useState(String(currentYear));
   const [selectedMonth, setSelectedMonth] = useState(String(currentMonth));
+
+  const deferredPrompt = useRef<any>(null);
+  const [showInstallBanner, setShowInstallBanner] = useState(false);
+  const [isIos, setIsIos] = useState(false);
+
+  useEffect(() => {
+    if (!user) return;
+    const isStandalone = window.matchMedia('(display-mode: standalone)').matches || (navigator as any).standalone;
+    if (isStandalone) return;
+
+    const dismissKey = `pwa-install-dismissed:${user.id}`;
+    const dismissed = localStorage.getItem(dismissKey);
+    if (dismissed) return;
+
+    const ua = navigator.userAgent;
+    const isiOS = /iPad|iPhone|iPod/.test(ua) && !(window as any).MSStream;
+    if (isiOS) {
+      setIsIos(true);
+      setShowInstallBanner(true);
+      return;
+    }
+
+    const handler = (e: Event) => {
+      e.preventDefault();
+      deferredPrompt.current = e;
+      setShowInstallBanner(true);
+    };
+    window.addEventListener('beforeinstallprompt', handler);
+    return () => window.removeEventListener('beforeinstallprompt', handler);
+  }, [user]);
+
+  const handleInstall = async () => {
+    if (deferredPrompt.current) {
+      deferredPrompt.current.prompt();
+      const result = await deferredPrompt.current.userChoice;
+      if (result.outcome === 'accepted') {
+        setShowInstallBanner(false);
+      }
+      deferredPrompt.current = null;
+    }
+  };
+
+  const dismissInstallBanner = () => {
+    setShowInstallBanner(false);
+    if (user) {
+      localStorage.setItem(`pwa-install-dismissed:${user.id}`, 'true');
+    }
+  };
 
   const { data: empInfo } = useQuery<EmployeeInfo>({
     queryKey: ['/api/employee/me'],
@@ -365,6 +413,45 @@ export default function EmployeeDashboard() {
           </Button>
         </div>
       </header>
+
+      {showInstallBanner && (
+        <div className="max-w-5xl mx-auto px-4 pt-4">
+          <div className="bg-gradient-to-r from-blue-600 to-indigo-600 rounded-xl p-4 shadow-lg text-white relative" data-testid="banner-install-app">
+            <button onClick={dismissInstallBanner} className="absolute top-2 right-2 p-1 rounded-full hover:bg-white/20 transition" data-testid="button-dismiss-install">
+              <X className="w-4 h-4" />
+            </button>
+            <div className="flex items-center gap-3">
+              <div className="w-12 h-12 rounded-xl bg-white/20 flex items-center justify-center shrink-0">
+                <Smartphone className="w-6 h-6" />
+              </div>
+              <div className="flex-1 min-w-0">
+                <h3 className="font-bold text-sm">Install DJ Hospitality App</h3>
+                <p className="text-xs text-blue-100 mt-0.5">
+                  {isIos
+                    ? 'Tap the Share button below, then "Add to Home Screen"'
+                    : 'Install this app on your phone for quick access'}
+                </p>
+              </div>
+            </div>
+            {isIos ? (
+              <div className="mt-3 flex items-center justify-center gap-2 bg-white/10 rounded-lg p-2 text-xs">
+                <span>Tap</span>
+                <Share className="w-4 h-4" />
+                <span>then "Add to Home Screen"</span>
+              </div>
+            ) : (
+              <Button
+                onClick={handleInstall}
+                className="mt-3 w-full bg-white text-blue-700 hover:bg-blue-50 font-bold shadow"
+                size="sm"
+                data-testid="button-install-app"
+              >
+                <Download className="w-4 h-4 mr-2" /> Install App
+              </Button>
+            )}
+          </div>
+        </div>
+      )}
 
       <div className="max-w-5xl mx-auto px-4 py-6 space-y-6">
         {empInfo && (
