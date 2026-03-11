@@ -8,6 +8,7 @@ import mysql from "mysql2/promise";
 import { dbReady } from "./db";
 
 const app = express();
+app.set("trust proxy", 1);
 const httpServer = createServer(app);
 
 declare module "http" {
@@ -99,6 +100,7 @@ app.use((req, res, next) => {
         maxAge: 30 * 24 * 60 * 60 * 1000,
         httpOnly: true,
         sameSite: "lax",
+        secure: process.env.NODE_ENV === "production",
       },
     })
   );
