@@ -563,8 +563,14 @@ export default function SalesInvoicePage() {
         if (filterMonth !== "all" && d.getMonth() !== Number(filterMonth)) return false;
       } catch { return false; }
     }
-    if (filterStatus === "pending" && inv.paymentReceivedDate) return false;
-    if (filterStatus === "received" && !inv.paymentReceivedDate) return false;
+    if (filterStatus !== "all") {
+      const toRec = Number(inv.totalBillAmount) - Number(inv.tdsAmount);
+      const rcvd = Number(inv.paymentReceivedAmount);
+      const st = toRec > 0 && rcvd >= toRec ? "received" : toRec > 0 && rcvd > 0 && rcvd < toRec ? "partial" : "pending";
+      if (filterStatus === "pending" && st !== "pending") return false;
+      if (filterStatus === "received" && st !== "received") return false;
+      if (filterStatus === "partial" && st !== "partial") return false;
+    }
     if (searchTerm) {
       const s = searchTerm.toLowerCase();
       return inv.billNumber.toLowerCase().includes(s) || inv.clientName.toLowerCase().includes(s);
@@ -575,7 +581,7 @@ export default function SalesInvoicePage() {
   const totalBilled = filteredInvoices.reduce((s, i) => s + Number(i.totalBillAmount), 0);
   const totalReceived = filteredInvoices.reduce((s, i) => s + Number(i.paymentReceivedAmount), 0);
   const totalOutstanding = totalBilled - totalReceived;
-  const paidCount = filteredInvoices.filter(i => Number(i.paymentReceivedAmount) >= Number(i.totalBillAmount)).length;
+  const paidCount = filteredInvoices.filter(i => { const tr = Number(i.totalBillAmount) - Number(i.tdsAmount); const rc = Number(i.paymentReceivedAmount); return tr > 0 && rc >= tr; }).length;
 
   const openNew = () => { setEditingInvoice(null); setDialogOpen(true); };
   const openEdit = (inv: SalesInvoice) => { setEditingInvoice(inv); setDialogOpen(true); };
@@ -932,8 +938,9 @@ export default function SalesInvoicePage() {
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="all">All</SelectItem>
-                    <SelectItem value="pending">Pending</SelectItem>
-                    <SelectItem value="received">Received</SelectItem>
+                    <SelectItem value="pending">Due</SelectItem>
+                    <SelectItem value="partial">Partial Received</SelectItem>
+                    <SelectItem value="received">Full Paid</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
@@ -986,7 +993,9 @@ export default function SalesInvoicePage() {
                     </thead>
                     <tbody>
                       {filteredInvoices.map((inv, idx) => {
-                        const isPaid = Number(inv.paymentReceivedAmount) >= Number(inv.totalBillAmount) && Number(inv.totalBillAmount) > 0;
+                        const toReceiveAmt = Number(inv.totalBillAmount) - Number(inv.tdsAmount);
+                        const receivedAmt = Number(inv.paymentReceivedAmount);
+                        const paymentStatus = toReceiveAmt > 0 && receivedAmt >= toReceiveAmt ? "full" : toReceiveAmt > 0 && receivedAmt > 0 && receivedAmt < toReceiveAmt ? "partial" : "due";
                         return (
                           <tr key={inv.id} className={`border-b border-gray-100 dark:border-gray-800 hover:bg-violet-50/50 dark:hover:bg-violet-950/20 transition-colors ${idx % 2 === 0 ? "bg-white dark:bg-gray-950" : "bg-gray-50/50 dark:bg-gray-900/50"}`} data-testid={`row-invoice-${inv.id}`}>
                             <td className="py-2.5 px-3">
@@ -1002,14 +1011,16 @@ export default function SalesInvoicePage() {
                             <td className="py-2.5 px-3 text-right font-mono text-xs font-bold">{fmtCurrency(inv.totalBillAmount)}</td>
                             <td className="py-2.5 px-3 text-right text-xs">{Number(inv.tdsPercent)}%</td>
                             <td className="py-2.5 px-3 text-right font-mono text-xs text-red-600">{fmtCurrency(inv.tdsAmount)}</td>
-                            <td className="py-2.5 px-3 text-right font-mono text-xs font-bold text-blue-600">{fmtCurrency(Number(inv.billAmount) + Number(inv.gstAmount) - Number(inv.tdsAmount))}</td>
+                            <td className="py-2.5 px-3 text-right font-mono text-xs font-bold text-blue-600">{fmtCurrency(toReceiveAmt)}</td>
                             <td className="py-2.5 px-3 text-xs">{fmtDate(inv.paymentReceivedDate)}</td>
                             <td className="py-2.5 px-3 text-right font-mono text-xs text-green-600">{fmtCurrency(inv.paymentReceivedAmount)}</td>
                             <td className="py-2.5 px-3 text-center">
-                              {isPaid ? (
-                                <Badge className="bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400 text-[10px]"><CheckCircle2 className="w-3 h-3 mr-0.5" /> Paid</Badge>
+                              {paymentStatus === "full" ? (
+                                <Badge className="bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400 text-[10px]"><CheckCircle2 className="w-3 h-3 mr-0.5" /> Full Paid</Badge>
+                              ) : paymentStatus === "partial" ? (
+                                <Badge className="bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400 text-[10px]"><IndianRupee className="w-3 h-3 mr-0.5" /> Partial Received</Badge>
                               ) : (
-                                <Badge variant="outline" className="text-orange-600 border-orange-300 dark:border-orange-700 text-[10px]"><XCircle className="w-3 h-3 mr-0.5" /> Pending</Badge>
+                                <Badge variant="outline" className="text-red-600 border-red-300 dark:border-red-700 text-[10px]"><XCircle className="w-3 h-3 mr-0.5" /> Due</Badge>
                               )}
                             </td>
                             <td className="py-2.5 px-3 text-center">
@@ -1044,10 +1055,12 @@ export default function SalesInvoicePage() {
 
             <div className="lg:hidden space-y-3">
               {filteredInvoices.map((inv) => {
-                const isPaid = Number(inv.paymentReceivedAmount) >= Number(inv.totalBillAmount) && Number(inv.totalBillAmount) > 0;
+                const mToReceive = Number(inv.totalBillAmount) - Number(inv.tdsAmount);
+                const mReceived = Number(inv.paymentReceivedAmount);
+                const mStatus = mToReceive > 0 && mReceived >= mToReceive ? "full" : mToReceive > 0 && mReceived > 0 && mReceived < mToReceive ? "partial" : "due";
                 return (
                   <Card key={inv.id} className="border-0 shadow-md overflow-hidden" data-testid={`card-invoice-mobile-${inv.id}`}>
-                    <div className={`h-1 ${isPaid ? 'bg-gradient-to-r from-green-400 to-emerald-500' : 'bg-gradient-to-r from-orange-400 to-amber-500'}`} />
+                    <div className={`h-1 ${mStatus === "full" ? 'bg-gradient-to-r from-green-400 to-emerald-500' : mStatus === "partial" ? 'bg-gradient-to-r from-amber-400 to-yellow-500' : 'bg-gradient-to-r from-orange-400 to-red-500'}`} />
                     <CardContent className="p-3">
                       <div className="flex items-start justify-between mb-2">
                         <div className="flex items-center gap-2">
@@ -1058,10 +1071,12 @@ export default function SalesInvoicePage() {
                           </div>
                         </div>
                         <div className="flex items-center gap-1">
-                          {isPaid ? (
-                            <Badge className="bg-green-100 text-green-700 dark:bg-green-900/30 text-[10px]"><CheckCircle2 className="w-3 h-3 mr-0.5" /> Paid</Badge>
+                          {mStatus === "full" ? (
+                            <Badge className="bg-green-100 text-green-700 dark:bg-green-900/30 text-[10px]"><CheckCircle2 className="w-3 h-3 mr-0.5" /> Full Paid</Badge>
+                          ) : mStatus === "partial" ? (
+                            <Badge className="bg-amber-100 text-amber-700 dark:bg-amber-900/30 text-[10px]"><IndianRupee className="w-3 h-3 mr-0.5" /> Partial Received</Badge>
                           ) : (
-                            <Badge variant="outline" className="text-orange-600 border-orange-300 text-[10px]"><XCircle className="w-3 h-3 mr-0.5" /> Due</Badge>
+                            <Badge variant="outline" className="text-red-600 border-red-300 text-[10px]"><XCircle className="w-3 h-3 mr-0.5" /> Due</Badge>
                           )}
                         </div>
                       </div>
