@@ -1,7 +1,10 @@
 import { useState, useMemo, useRef, useCallback, useEffect } from "react";
 import { Layout } from "@/components/layout";
 import { Button } from "@/components/ui/button";
-import { RotateCcw, Download, Loader2, FileSpreadsheet, Save } from "lucide-react";
+import { Input } from "@/components/ui/input";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Badge } from "@/components/ui/badge";
+import { RotateCcw, Download, Loader2, FileSpreadsheet, Save, Plus, X, Trash2 } from "lucide-react";
 import { format, addDays, getDay } from "date-fns";
 import { useClientNames, useCreateSavedMenu, useSavedMenu, useSavedItemNames } from "@/hooks/use-reports";
 import { useToast } from "@/hooks/use-toast";
@@ -124,6 +127,37 @@ export default function MenuManager() {
 
   const [cellValues, setCellValues] = useState<Record<string, string>>({});
   const [initialized, setInitialized] = useState(false);
+  const [customItems, setCustomItems] = useState<Record<number, string[]>>({});
+  const [addItemCatId, setAddItemCatId] = useState<number | null>(null);
+  const [newItemName, setNewItemName] = useState("");
+
+  const getCatOptions = useCallback((cat: Category) => {
+    return [...cat.options, ...(customItems[cat.id] || [])];
+  }, [customItems]);
+
+  const handleAddItem = () => {
+    if (!newItemName.trim() || addItemCatId === null) return;
+    const cat = categories.find(c => c.id === addItemCatId);
+    if (!cat) return;
+    const allOpts = getCatOptions(cat);
+    if (allOpts.some(o => o.toLowerCase() === newItemName.trim().toLowerCase())) {
+      toast({ title: "Item already exists in this category", variant: "destructive" });
+      return;
+    }
+    setCustomItems(prev => ({
+      ...prev,
+      [addItemCatId]: [...(prev[addItemCatId] || []), newItemName.trim()],
+    }));
+    toast({ title: `"${newItemName.trim()}" added to ${cat.name}` });
+    setNewItemName("");
+  };
+
+  const handleRemoveCustomItem = (catId: number, item: string) => {
+    setCustomItems(prev => ({
+      ...prev,
+      [catId]: (prev[catId] || []).filter(i => i !== item),
+    }));
+  };
 
   useEffect(() => {
     if (loadedMenu && loadedForId === loadId && loadId > 0) {
@@ -394,7 +428,30 @@ export default function MenuManager() {
                     width: "160px",
                   }}
                 >
-                  {cat.name}
+                  <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                    <span>{cat.name}</span>
+                    <button
+                      onClick={() => { setAddItemCatId(cat.id); setNewItemName(""); }}
+                      title={`Add item to ${cat.name}`}
+                      data-testid={`button-add-item-cat-${cat.id}`}
+                      style={{
+                        background: "#1a3a5a",
+                        color: "white",
+                        border: "none",
+                        borderRadius: "4px",
+                        width: "20px",
+                        height: "20px",
+                        cursor: "pointer",
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        fontSize: "14px",
+                        lineHeight: 1,
+                        marginRight: "4px",
+                        flexShrink: 0,
+                      }}
+                    >+</button>
+                  </div>
                 </td>
                 {dates.map((_, di) => {
                   const key = `w${weekNum}_c${cat.id}_d${di}`;
@@ -418,8 +475,9 @@ export default function MenuManager() {
                         }}
                         onBlur={e => {
                           const val = e.target.value.trim();
-                          if (val && !cat.options.some(o => o.toLowerCase() === val.toLowerCase())) {
-                            const match = cat.options.find(o => o.toLowerCase().startsWith(val.toLowerCase()));
+                          const opts = getCatOptions(cat);
+                          if (val && !opts.some(o => o.toLowerCase() === val.toLowerCase())) {
+                            const match = opts.find(o => o.toLowerCase().startsWith(val.toLowerCase()));
                             handleCellChange(key, match || cellValues[key] || cat.def);
                           }
                         }}
@@ -453,7 +511,7 @@ export default function MenuManager() {
     <Layout>
       {categories.map(cat => (
         <datalist key={cat.id} id={`list_${cat.id}`}>
-          {cat.options.map(opt => (
+          {getCatOptions(cat).map(opt => (
             <option key={opt} value={opt} />
           ))}
         </datalist>
@@ -589,6 +647,61 @@ export default function MenuManager() {
         {renderWeekTable(1, week1Dates)}
         {renderWeekTable(2, week2Dates)}
       </div>
+
+      <Dialog open={addItemCatId !== null} onOpenChange={(o) => { if (!o) setAddItemCatId(null); }}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Plus className="w-5 h-5 text-blue-600" />
+              Add Item to {categories.find(c => c.id === addItemCatId)?.name}
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="flex gap-2">
+              <Input
+                placeholder="Enter new item name..."
+                value={newItemName}
+                onChange={e => setNewItemName(e.target.value)}
+                onKeyDown={e => { if (e.key === "Enter") handleAddItem(); }}
+                data-testid="input-new-menu-item"
+                className="flex-1"
+              />
+              <Button onClick={handleAddItem} disabled={!newItemName.trim()} data-testid="button-add-menu-item">
+                <Plus className="w-4 h-4 mr-1" /> Add
+              </Button>
+            </div>
+
+            {addItemCatId !== null && (
+              <div>
+                <p className="text-xs text-muted-foreground mb-2 font-medium">Current items:</p>
+                <div className="flex flex-wrap gap-1.5 max-h-48 overflow-y-auto">
+                  {getCatOptions(categories.find(c => c.id === addItemCatId)!).map(item => {
+                    const isCustom = (customItems[addItemCatId] || []).includes(item);
+                    return (
+                      <Badge
+                        key={item}
+                        variant={isCustom ? "default" : "secondary"}
+                        className={`text-xs ${isCustom ? "bg-blue-600 hover:bg-blue-700" : ""}`}
+                      >
+                        {item}
+                        {isCustom && (
+                          <button
+                            className="ml-1 hover:text-red-200"
+                            onClick={() => handleRemoveCustomItem(addItemCatId, item)}
+                            data-testid={`button-remove-item-${item}`}
+                          >
+                            <X className="w-3 h-3" />
+                          </button>
+                        )}
+                      </Badge>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
     </Layout>
   );
 }
