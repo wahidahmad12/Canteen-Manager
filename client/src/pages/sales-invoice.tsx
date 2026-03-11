@@ -1305,17 +1305,17 @@ function PankajReport({ invoices, clients }: { invoices: any[]; clients: string[
     const totalBill = clientInvoices.reduce((s, i) => s + Number(i.billAmount), 0);
     const totalGst = clientInvoices.reduce((s, i) => s + Number(i.gstAmount), 0);
     const totalTds = clientInvoices.reduce((s, i) => s + Number(i.tdsAmount), 0);
-    const total = totalBill + totalGst;
-    const toReceive = Math.round((totalGst - totalTds) * 100) / 100;
+    const toReceive = Math.round((totalBill + totalGst) * 100) / 100;
+    const gstMinusTds = Math.round((totalGst - totalTds) * 100) / 100;
     const fixedAmt = fixedAmounts[clientName] || 0;
-    return { idx: idx + 1, clientName, totalBill, totalGst, totalTds, total, toReceive, fixedAmt };
+    const total = Math.round((toReceive - gstMinusTds + fixedAmt) * 100) / 100;
+    return { idx: idx + 1, clientName, toReceive, gstMinusTds, fixedAmt, total };
   });
 
-  const grandTotalBill = rows.reduce((s, r) => s + r.totalBill, 0);
-  const grandTotalGst = rows.reduce((s, r) => s + r.totalGst, 0);
-  const grandTotal = rows.reduce((s, r) => s + r.total, 0);
   const grandToReceive = rows.reduce((s, r) => s + r.toReceive, 0);
+  const grandGstMinusTds = rows.reduce((s, r) => s + r.gstMinusTds, 0);
   const grandFixedAmt = rows.reduce((s, r) => s + r.fixedAmt, 0);
+  const grandTotal = rows.reduce((s, r) => s + r.total, 0);
 
   const monthsList = [
     { v: "1", l: "January" }, { v: "2", l: "February" }, { v: "3", l: "March" },
@@ -1361,27 +1361,25 @@ function PankajReport({ invoices, clients }: { invoices: any[]; clients: string[
       <table>
         <thead><tr>
           <th>Sl No</th><th>Client Name</th>
-          <th>Bill Amt</th><th>GST Amount</th>
-          <th>Total</th><th>Monthly Fixed Amt</th><th>Give To Pankaj</th>
+          <th>To Receive</th><th>GST Amount</th>
+          <th>Fixed Amount</th><th>Total</th>
         </tr></thead>
         <tbody>${rows.map(r => `<tr>
           <td class="center">${r.idx}</td><td>${r.clientName}</td>
-          <td class="right">${r.totalBill.toLocaleString("en-IN", {minimumFractionDigits:2})}</td>
-          <td class="right">${r.totalGst.toLocaleString("en-IN", {minimumFractionDigits:2})}</td>
-          <td class="right">${r.total.toLocaleString("en-IN", {minimumFractionDigits:2})}</td>
+          <td class="right">${r.toReceive.toLocaleString("en-IN", {minimumFractionDigits:2})}</td>
+          <td class="right">${r.gstMinusTds.toLocaleString("en-IN", {minimumFractionDigits:2})}</td>
           <td class="right">${r.fixedAmt > 0 ? r.fixedAmt.toLocaleString("en-IN", {minimumFractionDigits:2}) : "-"}</td>
-          <td class="right" style="font-weight:bold">${r.toReceive.toLocaleString("en-IN", {minimumFractionDigits:2})}</td>
+          <td class="right" style="font-weight:bold">${r.total.toLocaleString("en-IN", {minimumFractionDigits:2})}</td>
         </tr>`).join("")}</tbody>
         <tfoot><tr>
           <td colspan="2" style="text-align:center"><b>Grand Total</b></td>
-          <td class="right">${grandTotalBill.toLocaleString("en-IN", {minimumFractionDigits:2})}</td>
-          <td class="right">${grandTotalGst.toLocaleString("en-IN", {minimumFractionDigits:2})}</td>
-          <td class="right">${grandTotal.toLocaleString("en-IN", {minimumFractionDigits:2})}</td>
-          <td class="right">${grandFixedAmt > 0 ? grandFixedAmt.toLocaleString("en-IN", {minimumFractionDigits:2}) : "-"}</td>
           <td class="right">${grandToReceive.toLocaleString("en-IN", {minimumFractionDigits:2})}</td>
+          <td class="right">${grandGstMinusTds.toLocaleString("en-IN", {minimumFractionDigits:2})}</td>
+          <td class="right">${grandFixedAmt > 0 ? grandFixedAmt.toLocaleString("en-IN", {minimumFractionDigits:2}) : "-"}</td>
+          <td class="right">${grandTotal.toLocaleString("en-IN", {minimumFractionDigits:2})}</td>
         </tr></tfoot>
       </table>
-      <p class="note">Give To Pankaj = GST Amount - TDS Amount</p>
+      <p class="note">GST Amount = GST Amount - TDS Amount &nbsp;|&nbsp; Total = To Receive - (GST Amount - TDS Amount) + Fixed Amount</p>
       <script>window.onload=function(){window.print();}<\/script>
     </body></html>`);
     printWindow.document.close();
@@ -1466,8 +1464,8 @@ function PankajReport({ invoices, clients }: { invoices: any[]; clients: string[
             <div className="w-9 h-9 rounded-full bg-amber-100 dark:bg-amber-900/40 flex items-center justify-center mx-auto mb-2">
               <IndianRupee className="w-4 h-4 text-amber-600 dark:text-amber-400" />
             </div>
-            <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium mb-1">Bill Amount</p>
-            <p className="text-lg font-bold font-mono text-amber-600" data-testid="text-pankaj-total-bill">₹{grandTotalBill.toLocaleString("en-IN", { minimumFractionDigits: 2 })}</p>
+            <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium mb-1">To Receive</p>
+            <p className="text-lg font-bold font-mono text-amber-600" data-testid="text-pankaj-to-receive">₹{grandToReceive.toLocaleString("en-IN", { minimumFractionDigits: 2 })}</p>
           </CardContent>
         </Card>
         <Card className="border-0 shadow-lg overflow-hidden group hover:shadow-xl transition-shadow">
@@ -1476,8 +1474,8 @@ function PankajReport({ invoices, clients }: { invoices: any[]; clients: string[
             <div className="w-9 h-9 rounded-full bg-blue-100 dark:bg-blue-900/40 flex items-center justify-center mx-auto mb-2">
               <TrendingUp className="w-4 h-4 text-blue-600 dark:text-blue-400" />
             </div>
-            <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium mb-1">Total (Bill+GST)</p>
-            <p className="text-lg font-bold font-mono text-blue-600" data-testid="text-pankaj-grand-total">₹{grandTotal.toLocaleString("en-IN", { minimumFractionDigits: 2 })}</p>
+            <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium mb-1">GST - TDS</p>
+            <p className="text-lg font-bold font-mono text-blue-600" data-testid="text-pankaj-gst-tds">₹{grandGstMinusTds.toLocaleString("en-IN", { minimumFractionDigits: 2 })}</p>
           </CardContent>
         </Card>
         <Card className="border-0 shadow-lg overflow-hidden group hover:shadow-xl transition-shadow">
@@ -1486,8 +1484,8 @@ function PankajReport({ invoices, clients }: { invoices: any[]; clients: string[
             <div className="w-9 h-9 rounded-full bg-emerald-100 dark:bg-emerald-900/40 flex items-center justify-center mx-auto mb-2">
               <TrendingUp className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
             </div>
-            <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium mb-1">Give To Pankaj</p>
-            <p className="text-lg font-bold font-mono text-emerald-600" data-testid="text-pankaj-to-receive">₹{grandToReceive.toLocaleString("en-IN", { minimumFractionDigits: 2 })}</p>
+            <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium mb-1">Total</p>
+            <p className="text-lg font-bold font-mono text-emerald-600" data-testid="text-pankaj-grand-total">₹{grandTotal.toLocaleString("en-IN", { minimumFractionDigits: 2 })}</p>
           </CardContent>
         </Card>
       </div>
@@ -1512,11 +1510,10 @@ function PankajReport({ invoices, clients }: { invoices: any[]; clients: string[
                     <tr className="bg-gradient-to-r from-violet-600 via-purple-600 to-fuchsia-600 text-white">
                       <th className="text-center py-3.5 px-4 font-semibold text-xs">Sl No</th>
                       <th className="text-left py-3.5 px-4 font-semibold text-xs">Client Name</th>
-                      <th className="text-right py-3.5 px-4 font-semibold text-xs">Bill Amt</th>
+                      <th className="text-right py-3.5 px-4 font-semibold text-xs">To Receive</th>
                       <th className="text-right py-3.5 px-4 font-semibold text-xs">GST Amount</th>
+                      <th className="text-center py-3.5 px-4 font-semibold text-xs">Fixed Amount</th>
                       <th className="text-right py-3.5 px-4 font-semibold text-xs">Total</th>
-                      <th className="text-center py-3.5 px-4 font-semibold text-xs">Monthly Fixed Amt</th>
-                      <th className="text-right py-3.5 px-4 font-semibold text-xs">Give To Pankaj</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -1526,24 +1523,22 @@ function PankajReport({ invoices, clients }: { invoices: any[]; clients: string[
                           <span className="inline-flex items-center justify-center w-7 h-7 rounded-lg bg-gradient-to-br from-violet-100 to-purple-100 dark:from-violet-900 dark:to-purple-900 text-violet-700 dark:text-violet-300 text-xs font-bold">{r.idx}</span>
                         </td>
                         <td className="py-3 px-4 font-semibold text-sm">{r.clientName}</td>
-                        <td className="py-3 px-4 text-right font-mono text-sm">{fmtCurrency(r.totalBill)}</td>
-                        <td className="py-3 px-4 text-right font-mono text-sm text-amber-600 dark:text-amber-400">{fmtCurrency(r.totalGst)}</td>
-                        <td className="py-3 px-4 text-right font-mono text-sm font-bold text-blue-600 dark:text-blue-400">{fmtCurrency(r.total)}</td>
+                        <td className="py-3 px-4 text-right font-mono text-sm">{fmtCurrency(r.toReceive)}</td>
+                        <td className="py-3 px-4 text-right font-mono text-sm text-blue-600 dark:text-blue-400">{fmtCurrency(r.gstMinusTds)}</td>
                         <td className="py-2 px-2 text-center">
                           <Input type="number" className="w-24 h-8 text-xs text-center font-mono mx-auto" placeholder="0" value={fixedAmounts[r.clientName] || ""} onChange={(e) => setFixedAmounts(prev => ({ ...prev, [r.clientName]: Number(e.target.value) || 0 }))} data-testid={`input-fixed-amt-${r.idx}`} />
                         </td>
-                        <td className="py-3 px-4 text-right font-mono text-sm font-bold text-emerald-600 dark:text-emerald-400">{fmtCurrency(r.toReceive)}</td>
+                        <td className="py-3 px-4 text-right font-mono text-sm font-bold text-emerald-600 dark:text-emerald-400">{fmtCurrency(r.total)}</td>
                       </tr>
                     ))}
                   </tbody>
                   <tfoot>
                     <tr className="bg-gradient-to-r from-violet-100 via-purple-100 to-fuchsia-100 dark:from-violet-950/50 dark:via-purple-950/50 dark:to-fuchsia-950/50">
                       <td colSpan={2} className="py-3 px-4 text-sm font-bold">Grand Total</td>
-                      <td className="py-3 px-4 text-right font-mono text-sm font-bold">{fmtCurrency(grandTotalBill)}</td>
-                      <td className="py-3 px-4 text-right font-mono text-sm font-bold text-amber-600">{fmtCurrency(grandTotalGst)}</td>
-                      <td className="py-3 px-4 text-right font-mono text-sm font-bold text-blue-600">{fmtCurrency(grandTotal)}</td>
+                      <td className="py-3 px-4 text-right font-mono text-sm font-bold">{fmtCurrency(grandToReceive)}</td>
+                      <td className="py-3 px-4 text-right font-mono text-sm font-bold text-blue-600">{fmtCurrency(grandGstMinusTds)}</td>
                       <td className="py-3 px-4 text-center font-mono text-sm font-bold">{grandFixedAmt > 0 ? fmtCurrency(grandFixedAmt) : "-"}</td>
-                      <td className="py-3 px-4 text-right font-mono text-sm font-bold text-emerald-600">{fmtCurrency(grandToReceive)}</td>
+                      <td className="py-3 px-4 text-right font-mono text-sm font-bold text-emerald-600">{fmtCurrency(grandTotal)}</td>
                     </tr>
                   </tfoot>
                 </table>
@@ -1562,24 +1557,20 @@ function PankajReport({ invoices, clients }: { invoices: any[]; clients: string[
                   </div>
                   <div className="grid grid-cols-2 gap-2.5 text-xs">
                     <div className="bg-amber-50 dark:bg-amber-950/20 rounded-xl p-2.5 text-center">
-                      <p className="text-[10px] text-amber-600 dark:text-amber-400 uppercase tracking-wider font-medium">Bill Amt</p>
-                      <p className="font-mono font-bold text-amber-700 dark:text-amber-300 mt-0.5">{fmtCurrency(r.totalBill)}</p>
-                    </div>
-                    <div className="bg-orange-50 dark:bg-orange-950/20 rounded-xl p-2.5 text-center">
-                      <p className="text-[10px] text-orange-600 dark:text-orange-400 uppercase tracking-wider font-medium">GST Amt</p>
-                      <p className="font-mono font-bold text-orange-700 dark:text-orange-300 mt-0.5">{fmtCurrency(r.totalGst)}</p>
+                      <p className="text-[10px] text-amber-600 dark:text-amber-400 uppercase tracking-wider font-medium">To Receive</p>
+                      <p className="font-mono font-bold text-amber-700 dark:text-amber-300 mt-0.5">{fmtCurrency(r.toReceive)}</p>
                     </div>
                     <div className="bg-blue-50 dark:bg-blue-950/20 rounded-xl p-2.5 text-center">
-                      <p className="text-[10px] text-blue-600 dark:text-blue-400 uppercase tracking-wider font-medium">Total</p>
-                      <p className="font-mono font-bold text-blue-700 dark:text-blue-300 mt-0.5">{fmtCurrency(r.total)}</p>
+                      <p className="text-[10px] text-blue-600 dark:text-blue-400 uppercase tracking-wider font-medium">GST - TDS</p>
+                      <p className="font-mono font-bold text-blue-700 dark:text-blue-300 mt-0.5">{fmtCurrency(r.gstMinusTds)}</p>
                     </div>
                     <div className="bg-purple-50 dark:bg-purple-950/20 rounded-xl p-2.5 text-center">
-                      <p className="text-[10px] text-purple-600 dark:text-purple-400 uppercase tracking-wider font-medium">Monthly Fixed</p>
+                      <p className="text-[10px] text-purple-600 dark:text-purple-400 uppercase tracking-wider font-medium">Fixed Amount</p>
                       <Input type="number" className="w-20 h-7 text-xs text-center font-mono mx-auto mt-0.5" placeholder="0" value={fixedAmounts[r.clientName] || ""} onChange={(e) => setFixedAmounts(prev => ({ ...prev, [r.clientName]: Number(e.target.value) || 0 }))} data-testid={`input-fixed-amt-mobile-${r.idx}`} />
                     </div>
-                    <div className="col-span-2 bg-emerald-50 dark:bg-emerald-950/20 rounded-xl p-2.5 text-center">
-                      <p className="text-[10px] text-emerald-600 dark:text-emerald-400 uppercase tracking-wider font-medium">Give To Pankaj</p>
-                      <p className="font-mono font-bold text-emerald-700 dark:text-emerald-300 mt-0.5 text-base">{fmtCurrency(r.toReceive)}</p>
+                    <div className="bg-emerald-50 dark:bg-emerald-950/20 rounded-xl p-2.5 text-center">
+                      <p className="text-[10px] text-emerald-600 dark:text-emerald-400 uppercase tracking-wider font-medium">Total</p>
+                      <p className="font-mono font-bold text-emerald-700 dark:text-emerald-300 mt-0.5">{fmtCurrency(r.total)}</p>
                     </div>
                   </div>
                 </CardContent>
