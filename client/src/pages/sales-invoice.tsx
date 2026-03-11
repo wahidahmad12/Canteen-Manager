@@ -1276,7 +1276,38 @@ function PankajReport({ invoices, clients }: { invoices: any[]; clients: string[
   const [selectedClients, setSelectedClients] = useState<string[]>([]);
   const [clientDropdownOpen, setClientDropdownOpen] = useState(false);
   const [fixedAmounts, setFixedAmounts] = useState<Record<string, number>>({});
+  const [givenDates, setGivenDates] = useState<Record<string, string>>({});
   const dropdownRef = useRef<HTMLDivElement>(null);
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
+
+  const { data: savedRecords = [], isLoading: loadingSaved } = useQuery<any[]>({
+    queryKey: ["/api/pankaj-reports", month, year],
+    queryFn: async () => {
+      const res = await fetch(`/api/pankaj-reports?month=${month}&year=${year}`, { credentials: "include" });
+      if (!res.ok) throw new Error("Failed to load");
+      return res.json();
+    },
+  });
+
+  useEffect(() => {
+    if (savedRecords.length > 0) {
+      const savedClients = savedRecords.map((r: any) => r.clientName);
+      setSelectedClients(savedClients);
+      const fa: Record<string, number> = {};
+      const gd: Record<string, string> = {};
+      savedRecords.forEach((r: any) => {
+        fa[r.clientName] = Number(r.fixedAmount) || 0;
+        if (r.givenDate) gd[r.clientName] = r.givenDate.split("T")[0];
+      });
+      setFixedAmounts(fa);
+      setGivenDates(gd);
+    } else {
+      setSelectedClients([]);
+      setFixedAmounts({});
+      setGivenDates({});
+    }
+  }, [savedRecords]);
 
   useEffect(() => {
     if (!clientDropdownOpen) return;
@@ -1309,13 +1340,52 @@ function PankajReport({ invoices, clients }: { invoices: any[]; clients: string[
     const gstMinusTds = Math.round((totalGst - totalTds) * 100) / 100;
     const fixedAmt = fixedAmounts[clientName] || 0;
     const total = Math.round((gstMinusTds + fixedAmt) * 100) / 100;
-    return { idx: idx + 1, clientName, toReceive, gstMinusTds, fixedAmt, total };
+    const savedRec = savedRecords.find((r: any) => r.clientName === clientName);
+    const givenDate = givenDates[clientName] || "";
+    return { idx: idx + 1, clientName, toReceive, gstMinusTds, fixedAmt, total, givenDate, savedId: savedRec?.id || null };
   });
 
   const grandToReceive = rows.reduce((s, r) => s + r.toReceive, 0);
   const grandGstMinusTds = rows.reduce((s, r) => s + r.gstMinusTds, 0);
   const grandFixedAmt = rows.reduce((s, r) => s + r.fixedAmt, 0);
   const grandTotal = rows.reduce((s, r) => s + r.total, 0);
+
+  const saveMutation = useMutation({
+    mutationFn: async () => {
+      for (let i = 0; i < rows.length; i++) {
+        const r = rows[i];
+        const payload = {
+          slNo: r.idx,
+          clientName: r.clientName,
+          month: Number(month),
+          year: Number(year),
+          toReceive: String(r.toReceive),
+          gstMinusTds: String(r.gstMinusTds),
+          fixedAmount: String(r.fixedAmt),
+          total: String(r.total),
+          givenDate: r.givenDate || null,
+        };
+        if (r.savedId) {
+          await apiRequest("PUT", `/api/pankaj-reports/${r.savedId}`, payload);
+        } else {
+          await apiRequest("POST", `/api/pankaj-reports`, payload);
+        }
+      }
+      const savedIds = savedRecords.map((r: any) => r.id);
+      const currentSavedIds = rows.filter(r => r.savedId).map(r => r.savedId);
+      const toDelete = savedIds.filter((id: number) => !currentSavedIds.includes(id));
+      for (const id of toDelete) {
+        await apiRequest("DELETE", `/api/pankaj-reports/${id}`);
+      }
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/pankaj-reports", month, year] });
+      toast({ title: "Saved", description: `Pankaj report for ${monthName} ${year} saved successfully` });
+    },
+    onError: () => {
+      toast({ title: "Error", description: "Failed to save report", variant: "destructive" });
+    },
+  });
 
   const monthsList = [
     { v: "1", l: "January" }, { v: "2", l: "February" }, { v: "3", l: "March" },
@@ -1329,6 +1399,8 @@ function PankajReport({ invoices, clients }: { invoices: any[]; clients: string[
 
   const monthName = monthsList.find(m => m.v === month)?.l || "";
 
+  const hasSavedData = savedRecords.length > 0;
+
   const handlePrint = () => {
     if (rows.length === 0) return;
     const printWindow = window.open("", "_blank");
@@ -1341,7 +1413,6 @@ function PankajReport({ invoices, clients }: { invoices: any[]; clients: string[
         .company { text-align: center; font-size: 16px; font-weight: bold; border-bottom: 2px solid #000; padding-bottom: 6px; margin-bottom: 2px; }
         .title { text-align: center; font-size: 14px; font-weight: bold; padding: 6px 0; border-bottom: 1px solid #000; margin-bottom: 8px; }
         .meta-row { display: flex; justify-content: space-between; font-size: 12px; margin-bottom: 10px; padding: 0 4px; }
-        .meta-row span { }
         table { width: 100%; border-collapse: collapse; font-size: 12px; }
         th, td { border: 1px solid #000; padding: 6px 8px; }
         th { background: #f0f0f0; font-weight: bold; text-align: center; font-size: 11px; }
@@ -1362,24 +1433,29 @@ function PankajReport({ invoices, clients }: { invoices: any[]; clients: string[
         <thead><tr>
           <th>Sl No</th><th>Client Name</th>
           <th>To Receive</th><th>GST Amount</th>
-          <th>Fixed Amount</th><th>Total</th>
+          <th>Fixed Amount</th><th>Total</th><th>Given Date</th>
         </tr></thead>
-        <tbody>${rows.map(r => `<tr>
+        <tbody>${rows.map(r => {
+          const gd = r.givenDate ? (() => { const p = r.givenDate.split("-"); return `${p[2]}/${p[1]}/${p[0]}`; })() : "-";
+          return `<tr>
           <td class="center">${r.idx}</td><td>${r.clientName}</td>
           <td class="right">${r.toReceive.toLocaleString("en-IN", {minimumFractionDigits:2})}</td>
           <td class="right">${r.gstMinusTds.toLocaleString("en-IN", {minimumFractionDigits:2})}</td>
           <td class="right">${r.fixedAmt > 0 ? r.fixedAmt.toLocaleString("en-IN", {minimumFractionDigits:2}) : "-"}</td>
           <td class="right" style="font-weight:bold">${r.total.toLocaleString("en-IN", {minimumFractionDigits:2})}</td>
-        </tr>`).join("")}</tbody>
+          <td class="center">${gd}</td>
+        </tr>`;
+        }).join("")}</tbody>
         <tfoot><tr>
           <td colspan="2" style="text-align:center"><b>Grand Total</b></td>
           <td class="right">${grandToReceive.toLocaleString("en-IN", {minimumFractionDigits:2})}</td>
           <td class="right">${grandGstMinusTds.toLocaleString("en-IN", {minimumFractionDigits:2})}</td>
           <td class="right">${grandFixedAmt > 0 ? grandFixedAmt.toLocaleString("en-IN", {minimumFractionDigits:2}) : "-"}</td>
           <td class="right">${grandTotal.toLocaleString("en-IN", {minimumFractionDigits:2})}</td>
+          <td></td>
         </tr></tfoot>
       </table>
-      <p class="note">GST Amount = GST Amount - TDS Amount &nbsp;|&nbsp; Total = To Receive - (GST Amount - TDS Amount) + Fixed Amount</p>
+      <p class="note">GST Amount = GST Amount - TDS Amount &nbsp;|&nbsp; Total = (GST - TDS) + Fixed Amount</p>
       <script>window.onload=function(){window.print();}<\/script>
     </body></html>`);
     printWindow.document.close();
@@ -1396,7 +1472,9 @@ function PankajReport({ invoices, clients }: { invoices: any[]; clients: string[
             </div>
             <div>
               <h3 className="font-bold text-lg leading-tight" data-testid="text-pankaj-title">Amount Give To Pankaj</h3>
-              <p className="text-xs text-muted-foreground">{monthName} {year}</p>
+              <p className="text-xs text-muted-foreground">{monthName} {year}
+                {hasSavedData && <Badge variant="outline" className="ml-2 text-[10px] border-green-300 text-green-600 bg-green-50 dark:bg-green-950/30">Saved</Badge>}
+              </p>
             </div>
           </div>
           <div className="flex items-center gap-2 flex-wrap">
@@ -1440,9 +1518,15 @@ function PankajReport({ invoices, clients }: { invoices: any[]; clients: string[
                 {years.map(y => <SelectItem key={y} value={y}>{y}</SelectItem>)}
               </SelectContent>
             </Select>
-            <Button size="sm" className="h-9 bg-gradient-to-r from-violet-600 to-purple-600 hover:from-violet-700 hover:to-purple-700 text-white shadow-md shadow-violet-200 dark:shadow-violet-900/30 ml-auto" onClick={handlePrint} data-testid="button-print-pankaj">
-              <Printer className="w-4 h-4 mr-1.5" /> Print
-            </Button>
+            <div className="flex gap-2 ml-auto">
+              <Button size="sm" className="h-9 bg-gradient-to-r from-emerald-600 to-green-600 hover:from-emerald-700 hover:to-green-700 text-white shadow-md" onClick={() => saveMutation.mutate()} disabled={saveMutation.isPending || rows.length === 0} data-testid="button-save-pankaj">
+                {saveMutation.isPending ? <Loader2 className="w-4 h-4 mr-1.5 animate-spin" /> : <Save className="w-4 h-4 mr-1.5" />}
+                {hasSavedData ? "Update" : "Save"}
+              </Button>
+              <Button size="sm" className="h-9 bg-gradient-to-r from-violet-600 to-purple-600 hover:from-violet-700 hover:to-purple-700 text-white shadow-md shadow-violet-200 dark:shadow-violet-900/30" onClick={handlePrint} data-testid="button-print-pankaj">
+                <Printer className="w-4 h-4 mr-1.5" /> Print
+              </Button>
+            </div>
           </div>
         </CardContent>
       </Card>
@@ -1490,7 +1574,13 @@ function PankajReport({ invoices, clients }: { invoices: any[]; clients: string[
         </Card>
       </div>
 
-      {selectedClients.length === 0 ? (
+      {loadingSaved ? (
+        <Card className="border-0 shadow-lg">
+          <CardContent className="flex items-center justify-center py-20">
+            <Loader2 className="w-8 h-8 animate-spin text-violet-500" />
+          </CardContent>
+        </Card>
+      ) : selectedClients.length === 0 ? (
         <Card className="border-0 shadow-lg">
           <CardContent className="flex flex-col items-center justify-center py-20">
             <div className="w-16 h-16 rounded-2xl bg-violet-100 dark:bg-violet-900/30 flex items-center justify-center mb-4">
@@ -1514,6 +1604,8 @@ function PankajReport({ invoices, clients }: { invoices: any[]; clients: string[
                       <th className="text-right py-3.5 px-4 font-semibold text-xs">GST Amount</th>
                       <th className="text-center py-3.5 px-4 font-semibold text-xs">Fixed Amount</th>
                       <th className="text-right py-3.5 px-4 font-semibold text-xs">Total</th>
+                      <th className="text-center py-3.5 px-4 font-semibold text-xs">Given Date</th>
+                      <th className="text-center py-3.5 px-4 font-semibold text-xs">Status</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -1529,6 +1621,16 @@ function PankajReport({ invoices, clients }: { invoices: any[]; clients: string[
                           <Input type="number" className="w-24 h-8 text-xs text-center font-mono mx-auto" placeholder="0" value={fixedAmounts[r.clientName] || ""} onChange={(e) => setFixedAmounts(prev => ({ ...prev, [r.clientName]: Number(e.target.value) || 0 }))} data-testid={`input-fixed-amt-${r.idx}`} />
                         </td>
                         <td className="py-3 px-4 text-right font-mono text-sm font-bold text-emerald-600 dark:text-emerald-400">{fmtCurrency(r.total)}</td>
+                        <td className="py-2 px-2 text-center">
+                          <Input type="date" className="w-[130px] h-8 text-xs text-center mx-auto" value={givenDates[r.clientName] || ""} onChange={(e) => setGivenDates(prev => ({ ...prev, [r.clientName]: e.target.value }))} data-testid={`input-given-date-${r.idx}`} />
+                        </td>
+                        <td className="py-3 px-2 text-center">
+                          {r.savedId ? (
+                            <Badge variant="outline" className="text-[10px] border-green-300 text-green-600 bg-green-50 dark:bg-green-950/30">Saved</Badge>
+                          ) : (
+                            <Badge variant="outline" className="text-[10px] border-orange-300 text-orange-600 bg-orange-50 dark:bg-orange-950/30">New</Badge>
+                          )}
+                        </td>
                       </tr>
                     ))}
                   </tbody>
@@ -1539,6 +1641,7 @@ function PankajReport({ invoices, clients }: { invoices: any[]; clients: string[
                       <td className="py-3 px-4 text-right font-mono text-sm font-bold text-blue-600">{fmtCurrency(grandGstMinusTds)}</td>
                       <td className="py-3 px-4 text-center font-mono text-sm font-bold">{grandFixedAmt > 0 ? fmtCurrency(grandFixedAmt) : "-"}</td>
                       <td className="py-3 px-4 text-right font-mono text-sm font-bold text-emerald-600">{fmtCurrency(grandTotal)}</td>
+                      <td colSpan={2}></td>
                     </tr>
                   </tfoot>
                 </table>
@@ -1551,9 +1654,16 @@ function PankajReport({ invoices, clients }: { invoices: any[]; clients: string[
               <Card key={r.clientName} className="border-0 shadow-lg overflow-hidden" data-testid={`card-pankaj-mobile-${r.idx}`}>
                 <div className="h-1.5 bg-gradient-to-r from-violet-500 via-purple-500 to-fuchsia-500" />
                 <CardContent className="p-4">
-                  <div className="flex items-center gap-3 mb-3">
-                    <span className="inline-flex items-center justify-center w-8 h-8 rounded-xl bg-gradient-to-br from-violet-500 to-purple-600 text-white text-sm font-bold shadow-md shadow-violet-200 dark:shadow-violet-900/30">{r.idx}</span>
-                    <p className="font-bold text-sm">{r.clientName}</p>
+                  <div className="flex items-center justify-between mb-3">
+                    <div className="flex items-center gap-3">
+                      <span className="inline-flex items-center justify-center w-8 h-8 rounded-xl bg-gradient-to-br from-violet-500 to-purple-600 text-white text-sm font-bold shadow-md shadow-violet-200 dark:shadow-violet-900/30">{r.idx}</span>
+                      <p className="font-bold text-sm">{r.clientName}</p>
+                    </div>
+                    {r.savedId ? (
+                      <Badge variant="outline" className="text-[10px] border-green-300 text-green-600 bg-green-50">Saved</Badge>
+                    ) : (
+                      <Badge variant="outline" className="text-[10px] border-orange-300 text-orange-600 bg-orange-50">New</Badge>
+                    )}
                   </div>
                   <div className="grid grid-cols-2 gap-2.5 text-xs">
                     <div className="bg-amber-50 dark:bg-amber-950/20 rounded-xl p-2.5 text-center">
@@ -1572,6 +1682,11 @@ function PankajReport({ invoices, clients }: { invoices: any[]; clients: string[
                       <p className="text-[10px] text-emerald-600 dark:text-emerald-400 uppercase tracking-wider font-medium">Total</p>
                       <p className="font-mono font-bold text-emerald-700 dark:text-emerald-300 mt-0.5">{fmtCurrency(r.total)}</p>
                     </div>
+                  </div>
+                  <div className="mt-3 flex items-center gap-2">
+                    <CalendarDays className="w-3.5 h-3.5 text-muted-foreground" />
+                    <span className="text-xs text-muted-foreground">Given Date:</span>
+                    <Input type="date" className="w-[130px] h-7 text-xs" value={givenDates[r.clientName] || ""} onChange={(e) => setGivenDates(prev => ({ ...prev, [r.clientName]: e.target.value }))} data-testid={`input-given-date-mobile-${r.idx}`} />
                   </div>
                 </CardContent>
               </Card>

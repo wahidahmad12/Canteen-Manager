@@ -730,6 +730,29 @@ export const selectSalesInvoiceSchema = createSelectSchema(salesInvoices, {
   updatedAt: z.string().or(z.date()),
 });
 
+export const pankajReports = mysqlTable("pankaj_reports", {
+  id: int("id").autoincrement().primaryKey(),
+  slNo: int("sl_no").notNull(),
+  clientName: text("client_name").notNull(),
+  month: int("month").notNull(),
+  year: int("year").notNull(),
+  toReceive: decimal("to_receive", { precision: 12, scale: 2 }).default("0").notNull(),
+  gstMinusTds: decimal("gst_minus_tds", { precision: 12, scale: 2 }).default("0").notNull(),
+  fixedAmount: decimal("fixed_amount", { precision: 12, scale: 2 }).default("0").notNull(),
+  total: decimal("total", { precision: 12, scale: 2 }).default("0").notNull(),
+  givenDate: date("given_date"),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export type PankajReport = typeof pankajReports.$inferSelect;
+export const insertPankajReportSchema = createInsertSchema(pankajReports).omit({ id: true, createdAt: true, updatedAt: true });
+export const selectPankajReportSchema = createSelectSchema(pankajReports, {
+  givenDate: z.string().nullable(),
+  createdAt: z.string().or(z.date()),
+  updatedAt: z.string().or(z.date()),
+});
+
 export const ALL_PAYROLL_PERMISSIONS = [...ALL_PERMISSIONS, 'salary'] as const;
 
 export type HalfYearlyReturn = typeof halfYearlyReturns.$inferSelect;

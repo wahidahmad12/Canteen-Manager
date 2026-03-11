@@ -67,6 +67,8 @@ import {
   type Letter,
   type SalesInvoice,
   type PurchaseOrder,
+  type PankajReport,
+  pankajReports,
 } from "@shared/schema";
 import { eq, desc, lt, and, sql } from "drizzle-orm";
 import bcrypt from "bcryptjs";
@@ -215,6 +217,10 @@ export interface IStorage {
   createSalesInvoice(data: any): Promise<SalesInvoice>;
   updateSalesInvoice(id: number, data: any): Promise<SalesInvoice>;
   deleteSalesInvoice(id: number): Promise<void>;
+  getPankajReports(month: number, year: number): Promise<PankajReport[]>;
+  savePankajReport(data: any): Promise<PankajReport>;
+  updatePankajReport(id: number, data: any): Promise<PankajReport>;
+  deletePankajReport(id: number): Promise<void>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -1608,6 +1614,26 @@ export class DatabaseStorage implements IStorage {
 
   async deleteSalesInvoice(id: number): Promise<void> {
     await db.delete(salesInvoices).where(eq(salesInvoices.id, id));
+  }
+
+  async getPankajReports(month: number, year: number): Promise<PankajReport[]> {
+    return await db.select().from(pankajReports)
+      .where(and(eq(pankajReports.month, month), eq(pankajReports.year, year)))
+      .orderBy(pankajReports.slNo);
+  }
+
+  async savePankajReport(data: any): Promise<PankajReport> {
+    return await insertAndGet<PankajReport>(pankajReports, data);
+  }
+
+  async updatePankajReport(id: number, data: any): Promise<PankajReport> {
+    await db.update(pankajReports).set({ ...data, updatedAt: new Date() }).where(eq(pankajReports.id, id));
+    const [updated] = await db.select().from(pankajReports).where(eq(pankajReports.id, id));
+    return updated;
+  }
+
+  async deletePankajReport(id: number): Promise<void> {
+    await db.delete(pankajReports).where(eq(pankajReports.id, id));
   }
 }
 

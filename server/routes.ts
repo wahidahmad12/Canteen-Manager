@@ -5,6 +5,7 @@ import { storage } from "./storage";
 import { api } from "@shared/routes";
 import { z } from "zod";
 import bcrypt from "bcryptjs";
+import { insertPankajReportSchema } from "@shared/schema";
 
 function requireAuth(req: Request, res: Response, next: NextFunction) {
   if (!req.session.userId) {
@@ -1533,6 +1534,39 @@ export async function registerRoutes(
 
   app.delete("/api/sales-invoices/:id", requireAdmin, async (req, res) => {
     await storage.deleteSalesInvoice(Number(req.params.id));
+    res.status(204).send();
+  });
+
+  app.get("/api/pankaj-reports", requireAdmin, async (req, res) => {
+    const month = Number(req.query.month);
+    const year = Number(req.query.year);
+    if (!month || !year) return res.status(400).json({ error: "month and year required" });
+    const reports = await storage.getPankajReports(month, year);
+    res.json(reports);
+  });
+
+  app.post("/api/pankaj-reports", requireAdmin, async (req, res) => {
+    try {
+      const validated = insertPankajReportSchema.parse(req.body);
+      const report = await storage.savePankajReport(validated);
+      res.status(201).json(report);
+    } catch (err: any) {
+      res.status(400).json({ message: err.message });
+    }
+  });
+
+  app.put("/api/pankaj-reports/:id", requireAdmin, async (req, res) => {
+    try {
+      const validated = insertPankajReportSchema.partial().parse(req.body);
+      const report = await storage.updatePankajReport(Number(req.params.id), validated);
+      res.json(report);
+    } catch (err: any) {
+      res.status(400).json({ message: err.message });
+    }
+  });
+
+  app.delete("/api/pankaj-reports/:id", requireAdmin, async (req, res) => {
+    await storage.deletePankajReport(Number(req.params.id));
     res.status(204).send();
   });
 
