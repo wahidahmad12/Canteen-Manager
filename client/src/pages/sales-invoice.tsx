@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Layout } from "@/components/layout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -1275,6 +1275,18 @@ function PankajReport({ invoices, clients }: { invoices: any[]; clients: string[
   const [year, setYear] = useState(String(now.getFullYear()));
   const [selectedClients, setSelectedClients] = useState<string[]>([]);
   const [clientDropdownOpen, setClientDropdownOpen] = useState(false);
+  const dropdownRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!clientDropdownOpen) return;
+    const handleClickOutside = (e: MouseEvent) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) {
+        setClientDropdownOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, [clientDropdownOpen]);
 
   const toggleClient = (name: string) => {
     setSelectedClients(prev => prev.includes(name) ? prev.filter(c => c !== name) : [...prev, name]);
@@ -1367,7 +1379,7 @@ function PankajReport({ invoices, clients }: { invoices: any[]; clients: string[
               <h3 className="font-bold text-lg">Pankaj Report</h3>
             </div>
             <div className="flex items-center gap-2 ml-auto flex-wrap">
-              <div className="relative">
+              <div className="relative" ref={dropdownRef}>
                 <Button variant="outline" size="sm" className="h-9 min-w-[180px] justify-between" onClick={() => setClientDropdownOpen(!clientDropdownOpen)} data-testid="button-pankaj-client-select">
                   <span className="flex items-center gap-1 text-xs">
                     <Building2 className="w-3.5 h-3.5 text-muted-foreground" />
@@ -1375,13 +1387,13 @@ function PankajReport({ invoices, clients }: { invoices: any[]; clients: string[
                   </span>
                 </Button>
                 {clientDropdownOpen && (
-                  <div className="absolute z-50 mt-1 w-72 bg-white dark:bg-gray-900 border rounded-lg shadow-xl p-2 max-h-60 overflow-y-auto" data-testid="dropdown-pankaj-clients">
+                  <div className="absolute z-50 mt-1 w-72 bg-white dark:bg-gray-900 border rounded-lg shadow-xl p-2 max-h-60 overflow-y-auto" data-testid="dropdown-pankaj-clients" onClick={(e) => e.stopPropagation()} onMouseDown={(e) => e.stopPropagation()}>
                     <div className="flex gap-2 mb-2 px-1">
-                      <Button size="sm" variant="outline" className="h-6 text-[10px]" onClick={selectAll}>Select All</Button>
-                      <Button size="sm" variant="outline" className="h-6 text-[10px]" onClick={clearAll}>Clear All</Button>
+                      <Button size="sm" variant="outline" className="h-6 text-[10px]" onClick={(e) => { e.stopPropagation(); selectAll(); }}>Select All</Button>
+                      <Button size="sm" variant="outline" className="h-6 text-[10px]" onClick={(e) => { e.stopPropagation(); clearAll(); }}>Clear All</Button>
                     </div>
                     {clients.map(c => (
-                      <div key={c} className="flex items-center gap-2 px-2 py-1.5 rounded hover:bg-violet-50 dark:hover:bg-violet-950/30 cursor-pointer" onClick={() => toggleClient(c)} data-testid={`checkbox-client-${c}`}>
+                      <div key={c} className="flex items-center gap-2 px-2 py-1.5 rounded hover:bg-violet-50 dark:hover:bg-violet-950/30 cursor-pointer" onClick={(e) => { e.stopPropagation(); toggleClient(c); }} data-testid={`checkbox-client-${c}`}>
                         <div className={`w-4 h-4 rounded border flex items-center justify-center text-white text-xs ${selectedClients.includes(c) ? "bg-violet-600 border-violet-600" : "border-gray-300 dark:border-gray-600"}`}>
                           {selectedClients.includes(c) && <Check className="w-3 h-3" />}
                         </div>
