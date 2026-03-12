@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
-import { RotateCcw, Download, Loader2, FileSpreadsheet, Save, Plus, X, Trash2 } from "lucide-react";
+import { RotateCcw, Download, Loader2, FileSpreadsheet, Save, Plus, X, Trash2, Upload } from "lucide-react";
 import { format, addDays, getDay } from "date-fns";
 import { useClientNames, useCreateSavedMenu, useSavedMenu, useSavedItemNames } from "@/hooks/use-reports";
 import { useToast } from "@/hooks/use-toast";
@@ -72,6 +72,7 @@ export default function MenuManager() {
   const [client, setClient] = useState("");
   const [startDate, setStartDate] = useState(format(new Date(), "yyyy-MM-dd"));
   const captureRef = useRef<HTMLDivElement>(null);
+  const importRef = useRef<HTMLInputElement>(null);
   const saveMenuMutation = useCreateSavedMenu();
   const { toast } = useToast();
 
@@ -348,6 +349,77 @@ export default function MenuManager() {
     saveAs(new Blob([buffer]), fileName);
   };
 
+  const handleImportExcel = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    e.target.value = "";
+    try {
+      const ExcelJS = (await import("exceljs")).default;
+      const workbook = new ExcelJS.Workbook();
+      const buffer = await file.arrayBuffer();
+      await workbook.xlsx.load(buffer);
+
+      const ws = workbook.getWorksheet("Menu");
+      if (!ws) throw new Error("No 'Menu' sheet found. Please use a file exported from this app.");
+
+      const newValues: Record<string, string> = { ...cellValues };
+      const newCustomItems: Record<number, string[]> = {};
+      Object.entries(customItems).forEach(([k, v]) => {
+        newCustomItems[Number(k)] = [...v];
+      });
+
+      let weekNum = 0;
+      let readingData = false;
+      let newItemsAdded = 0;
+
+      ws.eachRow((row) => {
+        const vals = row.values as (string | number | null | undefined)[];
+        const colA = String(vals[1] ?? "").trim();
+
+        if (colA.toUpperCase().includes("WEEK 1")) { weekNum = 1; readingData = false; return; }
+        if (colA.toUpperCase().includes("WEEK 2")) { weekNum = 2; readingData = false; return; }
+        if (weekNum === 0) return;
+
+        if (!readingData) {
+          if (colA.toUpperCase() === "CATEGORY") { readingData = true; }
+          return;
+        }
+
+        if (!colA) { readingData = false; return; }
+
+        const cat = categories.find(c => c.name.toLowerCase() === colA.toLowerCase());
+        if (!cat) return;
+
+        const dates = weekNum === 1 ? week1Dates : week2Dates;
+        vals.slice(2).forEach((cellVal, colIdx) => {
+          if (colIdx >= dates.length) return;
+          const val = String(cellVal ?? "").trim();
+          if (!val) return;
+
+          const key = `w${weekNum}_c${cat.id}_d${colIdx}`;
+          newValues[key] = val;
+
+          const existing = [...cat.options, ...(newCustomItems[cat.id] || [])];
+          if (!existing.some(o => o.toLowerCase() === val.toLowerCase())) {
+            newCustomItems[cat.id] = [...(newCustomItems[cat.id] || []), val];
+            newItemsAdded++;
+          }
+        });
+      });
+
+      setCellValues(newValues);
+      setCustomItems(newCustomItems);
+      toast({
+        title: "Menu Imported",
+        description: newItemsAdded > 0
+          ? `Menu loaded successfully. ${newItemsAdded} new item(s) added to options.`
+          : "Menu loaded successfully from Excel.",
+      });
+    } catch (err: any) {
+      toast({ title: "Import Failed", description: err.message || "Could not read the Excel file.", variant: "destructive" });
+    }
+  };
+
   const renderWeekTable = (weekNum: number, dates: Date[]) => (
     <div key={weekNum}>
       <div
@@ -587,6 +659,14 @@ export default function MenuManager() {
             Excel
           </Button>
           <Button
+            onClick={() => importRef.current?.click()}
+            className="bg-[#9C27B0] text-white font-bold text-xs sm:text-sm h-9 flex-1 sm:flex-none"
+            data-testid="button-menu-import"
+          >
+            <Upload className="w-4 h-4 mr-1" />
+            Import
+          </Button>
+          <Button
             onClick={handleReset}
             variant="secondary"
             className="bg-[#7f8c8d] text-white font-bold text-xs sm:text-sm h-9 flex-1 sm:flex-none"
@@ -597,6 +677,14 @@ export default function MenuManager() {
           </Button>
         </div>
       </div>
+      <input
+        ref={importRef}
+        type="file"
+        accept=".xlsx"
+        className="hidden"
+        data-testid="input-menu-import-file"
+        onChange={handleImportExcel}
+      />
 
       <div
         ref={captureRef}
