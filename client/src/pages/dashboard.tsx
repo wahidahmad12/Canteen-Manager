@@ -597,7 +597,11 @@ export default function Dashboard() {
                             (Number(seal.incomeNonVegRate) * Number(seal.incomeNonVegQty)) +
                             (Number(seal.incomeVegRate) * Number(seal.incomeVegQty)) +
                             (Number(seal.incomeMorningCashRate) * Number(seal.incomeMorningCashQty)) +
-                            (Number(seal.incomeEveningCashRate) * Number(seal.incomeEveningCashQty));
+                            (Number(seal.incomeEveningCashRate) * Number(seal.incomeEveningCashQty)) +
+                            (Number(seal.incomeOnlineBreakfastQty) * MORNING_RATE) +
+                            (Number(seal.incomeOnlineLunchQty) * LUNCH_RATE) +
+                            (Number(seal.incomeOnlineEveningSnacksQty) * EVENING_RATE) +
+                            (Number(seal.incomeOnlineNightQty) * NIGHT_RATE);
                           const expense = (Number(seal.expenseBananaQty) * BANANA_RATE) +
                             (Number(seal.expenseDahiBharQty) * Number(seal.expenseDahiBharRate)) +
                             Number(seal.expenseOtherAmount);
@@ -624,12 +628,20 @@ export default function Dashboard() {
                               <td className="px-3 py-2.5 text-right font-mono text-xs font-bold text-blue-600">{fmt(balance)}</td>
                               <td className="px-3 py-2.5 text-right font-mono text-xs text-orange-600 font-semibold">{fmt(Number(seal.totalGivenToAkbarAli))}</td>
                               <td className="px-3 py-2.5 text-right">
-                                <Link href={`/cash-seal/${seal.id}/pdf`}>
-                                  <Button size="sm" variant="ghost" className="h-7 text-xs text-emerald-600" data-testid={`button-pdf-seal-${seal.id}`}>
-                                    <FileDown className="w-3.5 h-3.5 mr-0.5" />
-                                    <span className="hidden sm:inline">PDF</span>
-                                  </Button>
-                                </Link>
+                                <div className="flex items-center justify-end gap-1">
+                                  <Link href={`/cash-seal?edit=${seal.id}`}>
+                                    <Button size="sm" variant="ghost" className="h-7 text-xs text-teal-600 hover:text-teal-700 hover:bg-teal-50 dark:hover:bg-teal-900/20" data-testid={`button-edit-seal-${seal.id}`}>
+                                      <Pencil className="w-3.5 h-3.5 mr-0.5" />
+                                      <span className="hidden sm:inline">Edit</span>
+                                    </Button>
+                                  </Link>
+                                  <Link href={`/cash-seal/${seal.id}/pdf`}>
+                                    <Button size="sm" variant="ghost" className="h-7 text-xs text-emerald-600" data-testid={`button-pdf-seal-${seal.id}`}>
+                                      <FileDown className="w-3.5 h-3.5 mr-0.5" />
+                                      <span className="hidden sm:inline">PDF</span>
+                                    </Button>
+                                  </Link>
+                                </div>
                               </td>
                             </tr>
                           );

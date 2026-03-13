@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Layout } from "@/components/layout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -39,6 +39,7 @@ function calcTotals(s: any) {
 export default function CashSeal() {
   const [view, setView] = useState<"list" | "form">("list");
   const [editId, setEditId] = useState<number | null>(null);
+  const autoEditHandled = useRef(false);
 
   const [date, setDate] = useState<Date>(new Date());
   const { toast } = useToast();
@@ -68,6 +69,21 @@ export default function CashSeal() {
   const [dahiBharRate, setDahiBharRate] = useState(0);
   const [otherExpense, setOtherExpense] = useState(0);
   const [akbarAliAmount, setAkbarAliAmount] = useState(0);
+
+  useEffect(() => {
+    if (autoEditHandled.current) return;
+    if (!records || (records as any[]).length === 0) return;
+    const params = new URLSearchParams(window.location.search);
+    const editParam = params.get("edit");
+    if (editParam) {
+      const id = Number(editParam);
+      const rec = (records as any[]).find((r: any) => r.id === id);
+      if (rec) {
+        autoEditHandled.current = true;
+        handleEdit(rec);
+      }
+    }
+  }, [records]);
 
   function loadRecord(rec: any) {
     const n = (v: any) => Number(v) || 0;
