@@ -336,8 +336,9 @@ export default function LeaveWithWagesPage() {
                                     const data = await res.json();
                                     const enjoyed = Number(formData.leaveEnjoyed || 0);
                                     const amt = Math.round(data.dailyRate * enjoyed);
-                                    setFormData(prev => ({ ...prev, daysLeaveEarned: String(data.leaveEarned), actualDaysWorked: String(data.actualDaysWorked), rateOfWagesRs: String(data.dailyRate), rateOfWagesP: "0", amountOfWagesRs: String(amt), amountOfWagesP: "0" }));
-                                    toast({ title: `Worked: ${data.actualDaysWorked}d, Leave: ${data.leaveEarned}, Rate: ₹${data.dailyRate}/day` });
+                                    const earnedFloored = Math.floor(Number(data.leaveEarned || 0));
+                                    setFormData(prev => ({ ...prev, daysLeaveEarned: String(earnedFloored), actualDaysWorked: String(data.actualDaysWorked), rateOfWagesRs: String(data.dailyRate), rateOfWagesP: "0", amountOfWagesRs: String(amt), amountOfWagesP: "0" }));
+                                    toast({ title: `Worked: ${data.actualDaysWorked}d, Leave: ${earnedFloored}, Rate: ₹${data.dailyRate}/day` });
                                   } catch { toast({ title: "Failed to fetch attendance", variant: "destructive" }); }
                                 }}>Auto</Button>
                               </div>
@@ -468,8 +469,8 @@ export default function LeaveWithWagesPage() {
                           return (
                             <tr key={year} className={rec ? "" : "text-muted-foreground"}>
                               <td className="border px-2 py-1.5 font-medium">{year}</td>
-                              <td className="border px-2 py-1.5 text-center">{rec?.daysLeaveEarned || ""}</td>
-                              <td className="border px-2 py-1.5 text-center">{rec?.daysLeaveBroughtForward || ""}</td>
+                              <td className="border px-2 py-1.5 text-center">{rec ? Math.floor(Number(rec.daysLeaveEarned || 0)) : ""}</td>
+                              <td className="border px-2 py-1.5 text-center">{rec ? Math.floor(Number(rec.daysLeaveBroughtForward || 0)) : ""}</td>
                               <td className="border px-2 py-1.5 text-center">{rec?.actualDaysWorked || ""}</td>
                               <td className="border px-2 py-1.5 text-right">{rec?.rateOfWagesRs || ""}</td>
                               <td className="border px-2 py-1.5 text-right">{rec?.amountOfWagesRs || ""}</td>
@@ -672,11 +673,11 @@ function PrintableForm({ employee, records, displayYears }: { employee: Employee
             return (
               <tr key={year} style={{ height: "22px" }}>
                 <td style={{ ...cs, textAlign: "left", fontWeight: "bold" }}>{year}</td>
-                <td style={cs}>{v(rec?.daysLeaveEarned)}</td>
-                <td style={cs}>{rec ? rec.daysLeaveBroughtForward : ""}</td>
+                <td style={cs}>{rec ? (Math.floor(Number(rec.daysLeaveEarned || 0)) || "") : ""}</td>
+                <td style={cs}>{rec ? (Math.floor(Number(rec.daysLeaveBroughtForward || 0)) || "") : ""}</td>
                 <td style={cs}>{v(rec?.layOffDays)}</td>
                 <td style={cs}>{v(rec?.maternityLeaveDays)}</td>
-                <td style={cs}>{v(rec?.leaveEarned)}</td>
+                <td style={cs}>{rec ? (Math.floor(Number(rec.leaveEarned || 0)) || "") : ""}</td>
                 <td style={cs}>{v(rec?.leaveEnjoyed)}</td>
                 <td style={cs}>{v(rec?.otherAbsenceDays)}</td>
                 <td style={cs}>{v(rec?.actualDaysWorked)}</td>

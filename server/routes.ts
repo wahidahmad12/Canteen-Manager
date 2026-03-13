@@ -1122,11 +1122,11 @@ export async function registerRoutes(
             // Leave was encashed/paid — nothing carries forward to next year
             prevLeaveBalance = 0;
           } else {
-            // Leave not yet paid — remaining balance carries forward
-            prevLeaveBalance = Math.max(0, totalLeave - Number(existing.leaveEnjoyed || 0));
+            // Leave not yet paid — remaining balance carries forward (always integer)
+            prevLeaveBalance = Math.floor(Math.max(0, totalLeave - Number(existing.leaveEnjoyed || 0)));
           }
         } else {
-          const newTotalLeave = leaveEarned + prevLeaveBalance;
+          const newTotalLeave = Math.floor(leaveEarned + prevLeaveBalance);
           await storage.createLeaveWithWages({
             employeeId,
             clientName,
@@ -1148,7 +1148,7 @@ export async function registerRoutes(
             dateOfPayment: "",
             remarks: "",
           });
-          prevLeaveBalance = newTotalLeave;
+          prevLeaveBalance = Math.floor(newTotalLeave);
         }
         generated++;
       }
