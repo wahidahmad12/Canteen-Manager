@@ -390,7 +390,15 @@ export default function LeaveWithWagesPage() {
                             </div>
                             <div className="space-y-1">
                               <Label className="text-xs">Rate of Wages Rs. (Col 10)</Label>
-                              <Input value={formData.rateOfWagesRs} onChange={e => setFormData({ ...formData, rateOfWagesRs: e.target.value })} data-testid="input-rate-rs" />
+                              <Input
+                                value={formData.rateOfWagesRs}
+                                onChange={e => {
+                                  const rate = e.target.value;
+                                  const amt = Math.round(Number(rate || 0) * Number(formData.leaveEnjoyed || 0));
+                                  setFormData({ ...formData, rateOfWagesRs: rate, amountOfWagesRs: String(amt), amountOfWagesP: "0" });
+                                }}
+                                data-testid="input-rate-rs"
+                              />
                             </div>
                           </div>
                           <div className="grid grid-cols-2 gap-3">
@@ -399,14 +407,21 @@ export default function LeaveWithWagesPage() {
                               <Input value={formData.rateOfWagesP} onChange={e => setFormData({ ...formData, rateOfWagesP: e.target.value })} data-testid="input-rate-p" />
                             </div>
                             <div className="space-y-1">
-                              <Label className="text-xs">Amount of Wages Rs. (Col 11)</Label>
-                              <Input value={formData.amountOfWagesRs} onChange={e => setFormData({ ...formData, amountOfWagesRs: e.target.value })} data-testid="input-amount-rs" />
+                              <Label className="text-xs font-semibold text-green-700 dark:text-green-400">
+                                Amount of Wages Rs. (Col 11) — Auto
+                              </Label>
+                              <Input
+                                value={formData.amountOfWagesRs}
+                                readOnly
+                                className="bg-green-50 dark:bg-green-950 font-bold text-green-800 dark:text-green-300 border-green-300"
+                                data-testid="input-amount-rs"
+                              />
                             </div>
                           </div>
                           <div className="grid grid-cols-2 gap-3">
                             <div className="space-y-1">
                               <Label className="text-xs">Amount of Wages P. (Col 11)</Label>
-                              <Input value={formData.amountOfWagesP} onChange={e => setFormData({ ...formData, amountOfWagesP: e.target.value })} data-testid="input-amount-p" />
+                              <Input value={formData.amountOfWagesP} readOnly className="bg-muted/30" data-testid="input-amount-p" />
                             </div>
                             <div className="space-y-1">
                               <Label className="text-xs">Date of Payment (Col 12)</Label>
