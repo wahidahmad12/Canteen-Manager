@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { DatePicker } from "@/components/ui/date-picker";
 import { Badge } from "@/components/ui/badge";
 import { format, parseISO } from "date-fns";
-import { Save, ArrowLeft, Loader2, Plus, Pencil, FileDown, Users, UserPlus, TrendingUp, TrendingDown, Wallet, IndianRupee } from "lucide-react";
+import { Save, ArrowLeft, Loader2, Plus, Pencil, FileDown, Users, UserPlus, TrendingUp, TrendingDown, Wallet, IndianRupee, BarChart3 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useCreateCashSeal, useUpdateCashSeal, useCashSeals } from "@/hooks/use-reports";
 import { useLocation } from "wouter";
@@ -485,11 +485,18 @@ export default function CashSeal() {
               <h1 className="text-xl sm:text-2xl font-bold text-slate-800 dark:text-slate-100">Daily Cash Seal KPF</h1>
               <p className="text-xs sm:text-sm text-slate-500 dark:text-slate-400 mt-0.5">Permanent Staff & Third Party records</p>
             </div>
-            <Button onClick={handleNew} size="sm" className="bg-teal-600 hover:bg-teal-700 text-white gap-1.5" data-testid="button-new-seal">
-              <Plus className="w-4 h-4" />
-              <span className="hidden sm:inline">New Entry</span>
-              <span className="sm:hidden">New</span>
-            </Button>
+            <div className="flex items-center gap-2">
+              <Button onClick={() => navigate("/cash-seal/monthly")} size="sm" variant="outline" className="gap-1.5 border-teal-300 text-teal-700 hover:bg-teal-50 dark:border-teal-700 dark:text-teal-400" data-testid="button-monthly-report">
+                <BarChart3 className="w-4 h-4" />
+                <span className="hidden sm:inline">Monthly Report</span>
+                <span className="sm:hidden">Report</span>
+              </Button>
+              <Button onClick={handleNew} size="sm" className="bg-teal-600 hover:bg-teal-700 text-white gap-1.5" data-testid="button-new-seal">
+                <Plus className="w-4 h-4" />
+                <span className="hidden sm:inline">New Entry</span>
+                <span className="sm:hidden">New</span>
+              </Button>
+            </div>
           </div>
 
           {recordsLoading ? (

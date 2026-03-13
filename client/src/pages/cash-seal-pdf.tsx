@@ -1,10 +1,79 @@
 import { useRoute } from "wouter";
 import { useCashSeal } from "@/hooks/use-reports";
-import { format } from "date-fns";
+import { format, parseISO } from "date-fns";
 import { Layout } from "@/components/layout";
 import { Button } from "@/components/ui/button";
-import { Loader2, ArrowLeft, FileDown } from "lucide-react";
+import { Loader2, ArrowLeft, Printer } from "lucide-react";
 import { useLocation } from "wouter";
+
+const PS_RATES = { bf: 5, ln: 20, ev: 10, nt: 10 };
+const TP_RATES = { bf: 20, lv: 35, ev: 20, nt: 20 };
+const BANANA_RATE = 4.5;
+const fmt = (n: number) => n.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+
+function parseDate(d: string) {
+  try { return d.includes("T") ? parseISO(d) : new Date(d + "T00:00:00"); } catch { return new Date(); }
+}
+
+// ── Section table for PS or TP ─────────────────────────────────
+interface SealRow { no: number; name: string; cashQty: number; cashTotal: number; onlineQty: number; onlineTotal: number; }
+
+function ReportSection({ title, color, rows }: { title: string; color: "blue" | "green"; rows: SealRow[] }) {
+  const headerBg = color === "blue" ? "#1d4ed8" : "#16a34a";
+  const subHeaderBg = color === "blue" ? "#dbeafe" : "#dcfce7";
+  const subHeaderColor = color === "blue" ? "#1e40af" : "#15803d";
+  const cashTotalSum = rows.reduce((s, r) => s + r.cashTotal, 0);
+  const onlineTotalSum = rows.reduce((s, r) => s + r.onlineTotal, 0);
+  const grandSum = cashTotalSum + onlineTotalSum;
+
+  return (
+    <div className="mb-4">
+      {/* Section header */}
+      <div style={{ background: headerBg }} className="text-white text-center text-sm font-bold py-1.5 rounded-t">
+        {title}
+      </div>
+      <table className="w-full border-collapse text-xs" style={{ borderLeft: "1px solid #ccc", borderRight: "1px solid #ccc" }}>
+        <thead>
+          <tr style={{ background: subHeaderBg }}>
+            <th className="border border-gray-300 px-1.5 py-1 text-center w-8" style={{ color: subHeaderColor }}>Sl No.</th>
+            <th className="border border-gray-300 px-1.5 py-1 text-left" style={{ color: subHeaderColor }}>Name</th>
+            <th className="border border-gray-300 px-1.5 py-1 text-right" style={{ color: subHeaderColor }}>Qty</th>
+            <th className="border border-gray-300 px-1.5 py-1 text-right" style={{ color: subHeaderColor }}>Total</th>
+            <th className="border border-gray-300 px-1.5 py-1 text-right" style={{ color: subHeaderColor }}>Online Qty</th>
+            <th className="border border-gray-300 px-1.5 py-1 text-right" style={{ color: subHeaderColor }}>Online Total</th>
+            <th className="border border-gray-300 px-1.5 py-1 text-right" style={{ color: subHeaderColor }}>Total Amount</th>
+          </tr>
+        </thead>
+        <tbody>
+          {rows.map(row => (
+            <tr key={row.no} className="hover:bg-gray-50">
+              <td className="border border-gray-300 px-1.5 py-1 text-center text-gray-600">{row.no}</td>
+              <td className="border border-gray-300 px-1.5 py-1 font-medium" style={{ color: color === "blue" ? "#166534" : "#166534" }}>{row.name}</td>
+              <td className="border border-gray-300 px-1.5 py-1 text-right font-mono">{row.cashQty > 0 ? row.cashQty : ""}</td>
+              <td className="border border-gray-300 px-1.5 py-1 text-right font-mono" style={{ color: "#dc2626" }}>{row.cashTotal > 0 ? fmt(row.cashTotal) : ""}</td>
+              <td className="border border-gray-300 px-1.5 py-1 text-right font-mono">{row.onlineQty > 0 ? row.onlineQty : ""}</td>
+              <td className="border border-gray-300 px-1.5 py-1 text-right font-mono" style={{ color: "#1d4ed8" }}>{row.onlineTotal > 0 ? fmt(row.onlineTotal) : ""}</td>
+              <td className="border border-gray-300 px-1.5 py-1 text-right font-mono font-semibold">{(row.cashTotal + row.onlineTotal) > 0 ? fmt(row.cashTotal + row.onlineTotal) : ""}</td>
+            </tr>
+          ))}
+        </tbody>
+        <tfoot>
+          <tr style={{ background: subHeaderBg }}>
+            <td colSpan={3} className="border border-gray-300 px-1.5 py-1 text-right font-bold text-xs">Total:</td>
+            <td className="border border-gray-300 px-1.5 py-1 text-right font-bold font-mono text-xs">{fmt(cashTotalSum)}</td>
+            <td className="border border-gray-300 px-1.5 py-1"></td>
+            <td className="border border-gray-300 px-1.5 py-1 text-right font-bold font-mono text-xs">{fmt(onlineTotalSum)}</td>
+            <td className="border border-gray-300 px-1.5 py-1"></td>
+          </tr>
+          <tr style={{ background: subHeaderBg }}>
+            <td colSpan={5} className="border border-gray-300 px-1.5 py-1 text-right font-bold text-xs">Total Cash + Total Online:</td>
+            <td colSpan={2} className="border border-gray-300 px-1.5 py-1 text-right font-bold font-mono text-sm">{fmt(grandSum)}</td>
+          </tr>
+        </tfoot>
+      </table>
+    </div>
+  );
+}
 
 export default function CashSealPDF() {
   const [, params] = useRoute("/cash-seal/:id/pdf");
@@ -15,8 +84,10 @@ export default function CashSealPDF() {
   const handlePrint = () => {
     const originalTitle = document.title;
     if (seal) {
-      const dateStr = format(new Date(seal.date), "dd-MM-yyyy");
-      document.title = `DJ KPF Daily Cash Seal ${seal.serialNumber} ${dateStr}`;
+      try {
+        const dt = parseDate(seal.date);
+        document.title = `CashSeal_KPF_${format(dt, "dd-MM-yyyy")}`;
+      } catch { /* */ }
     }
     window.print();
     document.title = originalTitle;
@@ -37,195 +108,169 @@ export default function CashSealPDF() {
       <Layout>
         <div className="text-center py-12">
           <p className="text-muted-foreground">Cash Seal record not found</p>
-          <Button variant="ghost" onClick={() => navigate("/")} className="mt-4">
-            Back to Dashboard
-          </Button>
+          <Button variant="ghost" onClick={() => navigate("/cash-seal")} className="mt-4"><ArrowLeft className="w-4 h-4 mr-1" /> Back</Button>
         </div>
       </Layout>
     );
   }
 
-  const MORNING_RATE = 5;
-  const LUNCH_RATE = 20;
-  const EVENING_RATE = 10;
-  const NIGHT_RATE = 10;
-  const BANANA_RATE = 4.5;
+  const n = (v: any) => Number(v) || 0;
 
-  const incomeRows = [
-    { desc: "Morning", rate: MORNING_RATE, qty: Number(seal.incomeMorningQty), total: Number(seal.incomeMorningQty) * MORNING_RATE },
-    { desc: "Lunch", rate: LUNCH_RATE, qty: Number(seal.incomeLunchQty), total: Number(seal.incomeLunchQty) * LUNCH_RATE },
-    { desc: "Evening", rate: EVENING_RATE, qty: Number(seal.incomeEveningQty), total: Number(seal.incomeEveningQty) * EVENING_RATE },
-    { desc: "Night", rate: NIGHT_RATE, qty: Number(seal.incomeNightQty), total: Number(seal.incomeNightQty) * NIGHT_RATE },
-    { desc: "CASH Non Veg", rate: Number(seal.incomeNonVegRate), qty: Number(seal.incomeNonVegQty), total: Number(seal.incomeNonVegRate) * Number(seal.incomeNonVegQty) },
-    { desc: "CASH Veg", rate: Number(seal.incomeVegRate), qty: Number(seal.incomeVegQty), total: Number(seal.incomeVegRate) * Number(seal.incomeVegQty) },
-    { desc: "Morning CASH", rate: Number(seal.incomeMorningCashRate), qty: Number(seal.incomeMorningCashQty), total: Number(seal.incomeMorningCashRate) * Number(seal.incomeMorningCashQty) },
-    { desc: "Evening CASH", rate: Number(seal.incomeEveningCashRate), qty: Number(seal.incomeEveningCashQty), total: Number(seal.incomeEveningCashRate) * Number(seal.incomeEveningCashQty) },
-  ].filter(row => row.qty > 0 || row.total > 0);
+  // ── PS rows ──────────────────────────────────────────────────
+  const psRcRate = n(seal.incomePsRechargeRate);
+  const psRows: SealRow[] = [
+    { no: 1, name: "Breakfast", cashQty: n(seal.incomePsBreakfastCashQty), cashTotal: n(seal.incomePsBreakfastCashQty) * PS_RATES.bf, onlineQty: n(seal.incomePsBreakfastOnlineQty), onlineTotal: n(seal.incomePsBreakfastOnlineQty) * PS_RATES.bf },
+    { no: 2, name: "Lunch", cashQty: n(seal.incomePsLunchCashQty), cashTotal: n(seal.incomePsLunchCashQty) * PS_RATES.ln, onlineQty: n(seal.incomePsLunchOnlineQty), onlineTotal: n(seal.incomePsLunchOnlineQty) * PS_RATES.ln },
+    { no: 3, name: "Evening Snacks", cashQty: n(seal.incomePsEveningCashQty), cashTotal: n(seal.incomePsEveningCashQty) * PS_RATES.ev, onlineQty: n(seal.incomePsEveningOnlineQty), onlineTotal: n(seal.incomePsEveningOnlineQty) * PS_RATES.ev },
+    { no: 4, name: "Night Snacks", cashQty: n(seal.incomePsNightCashQty), cashTotal: n(seal.incomePsNightCashQty) * PS_RATES.nt, onlineQty: n(seal.incomePsNightOnlineQty), onlineTotal: n(seal.incomePsNightOnlineQty) * PS_RATES.nt },
+    { no: 5, name: "Recharge", cashQty: n(seal.incomePsRechargeCashQty), cashTotal: n(seal.incomePsRechargeCashQty) * psRcRate, onlineQty: n(seal.incomePsRechargeOnlineQty), onlineTotal: n(seal.incomePsRechargeOnlineQty) * psRcRate },
+  ];
 
-  const totalIncome = incomeRows.reduce((sum, r) => sum + r.total, 0);
+  // ── TP rows ──────────────────────────────────────────────────
+  const tpNvRate = n(seal.incomeTpLunchNvRate);
+  const tpRows: SealRow[] = [
+    { no: 1, name: "Breakfast", cashQty: n(seal.incomeTpBreakfastCashQty), cashTotal: n(seal.incomeTpBreakfastCashQty) * TP_RATES.bf, onlineQty: n(seal.incomeTpBreakfastOnlineQty), onlineTotal: n(seal.incomeTpBreakfastOnlineQty) * TP_RATES.bf },
+    { no: 2, name: "Lunch Veg", cashQty: n(seal.incomeTpLunchVegCashQty), cashTotal: n(seal.incomeTpLunchVegCashQty) * TP_RATES.lv, onlineQty: n(seal.incomeTpLunchVegOnlineQty), onlineTotal: n(seal.incomeTpLunchVegOnlineQty) * TP_RATES.lv },
+    { no: 3, name: "Lunch Non Veg", cashQty: n(seal.incomeTpLunchNvCashQty), cashTotal: n(seal.incomeTpLunchNvCashQty) * tpNvRate, onlineQty: n(seal.incomeTpLunchNvOnlineQty), onlineTotal: n(seal.incomeTpLunchNvOnlineQty) * tpNvRate },
+    { no: 4, name: "Evening Snacks", cashQty: n(seal.incomeTpEveningCashQty), cashTotal: n(seal.incomeTpEveningCashQty) * TP_RATES.ev, onlineQty: n(seal.incomeTpEveningOnlineQty), onlineTotal: n(seal.incomeTpEveningOnlineQty) * TP_RATES.ev },
+    { no: 5, name: "Night", cashQty: n(seal.incomeTpNightCashQty), cashTotal: n(seal.incomeTpNightCashQty) * TP_RATES.nt, onlineQty: n(seal.incomeTpNightOnlineQty), onlineTotal: n(seal.incomeTpNightOnlineQty) * TP_RATES.nt },
+  ];
 
-  const expenseRows = [
-    { desc: "Banana", rate: BANANA_RATE, qty: Number(seal.expenseBananaQty), total: Number(seal.expenseBananaQty) * BANANA_RATE },
-    { desc: "Dahi Bhar", rate: Number(seal.expenseDahiBharRate), qty: Number(seal.expenseDahiBharQty), total: Number(seal.expenseDahiBharQty) * Number(seal.expenseDahiBharRate) },
-  ].filter(row => row.qty > 0 || row.total > 0);
+  const psTotal = psRows.reduce((s, r) => s + r.cashTotal + r.onlineTotal, 0);
+  const tpTotal = tpRows.reduce((s, r) => s + r.cashTotal + r.onlineTotal, 0);
+  const grandIncome = psTotal + tpTotal;
+  const bananaTotal = n(seal.expenseBananaQty) * BANANA_RATE;
+  const dahiBharTotal = n(seal.expenseDahiBharQty) * n(seal.expenseDahiBharRate);
+  const totalExpense = bananaTotal + dahiBharTotal + n(seal.expenseOtherAmount);
+  const balance = grandIncome - totalExpense;
 
-  const otherExpense = Number(seal.expenseOtherAmount);
-  const totalExpense = expenseRows.reduce((sum, r) => sum + r.total, 0) + otherExpense;
-  const balance = totalIncome - totalExpense;
-  const givenToAkbarAli = Number(seal.totalGivenToAkbarAli);
-
-  const fmt = (n: number) => n.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-
-  const renderMobileRows = (rows: typeof incomeRows, colorClass: string) => (
-    <div className="sm:hidden space-y-1.5">
-      {rows.map((row, idx) => (
-        <div key={idx} className="flex items-center justify-between py-1.5 border-b border-dashed border-border/60 last:border-0">
-          <div className="flex items-center gap-2 min-w-0 flex-1">
-            <span className={`w-5 h-5 rounded-full ${colorClass} text-white text-[9px] flex items-center justify-center font-bold shrink-0`}>{idx + 1}</span>
-            <div className="min-w-0">
-              <p className="text-xs font-medium truncate print:text-black">{row.desc}</p>
-              <p className="text-[10px] text-muted-foreground print:text-gray-500">{row.qty} x {fmt(row.rate)}</p>
-            </div>
-          </div>
-          <span className="text-xs font-bold font-mono ml-2 shrink-0 print:text-black">{fmt(row.total)}</span>
-        </div>
-      ))}
-    </div>
-  );
-
-  const renderDesktopTable = (rows: typeof incomeRows) => (
-    <div className="hidden sm:block overflow-x-auto">
-      <table className="w-full text-xs border-collapse">
-        <thead>
-          <tr className="bg-gray-50 dark:bg-muted/50 print:bg-gray-100">
-            <th className="border border-border print:border-gray-300 px-2 py-1.5 text-center font-semibold">#</th>
-            <th className="border border-border print:border-gray-300 px-2 py-1.5 text-left font-semibold">Description</th>
-            <th className="border border-border print:border-gray-300 px-2 py-1.5 text-right font-semibold">Rate</th>
-            <th className="border border-border print:border-gray-300 px-2 py-1.5 text-right font-semibold">Qty</th>
-            <th className="border border-border print:border-gray-300 px-2 py-1.5 text-right font-semibold">Amount</th>
-          </tr>
-        </thead>
-        <tbody>
-          {rows.map((row, idx) => (
-            <tr key={idx}>
-              <td className="border border-border print:border-gray-300 px-2 py-1 text-center text-muted-foreground print:text-gray-600">{idx + 1}</td>
-              <td className="border border-border print:border-gray-300 px-2 py-1 font-medium print:text-black">{row.desc}</td>
-              <td className="border border-border print:border-gray-300 px-2 py-1 text-right font-mono print:text-black">{fmt(row.rate)}</td>
-              <td className="border border-border print:border-gray-300 px-2 py-1 text-right font-mono print:text-black">{row.qty}</td>
-              <td className="border border-border print:border-gray-300 px-2 py-1 text-right font-mono font-semibold print:text-black">{fmt(row.total)}</td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-    </div>
-  );
+  let dateStr = "";
+  try { dateStr = format(parseDate(seal.date), "dd-MM-yyyy, EEEE"); } catch { dateStr = seal.date; }
 
   return (
     <Layout>
-      <div className="max-w-4xl mx-auto px-1 sm:px-0">
-        <div className="flex items-center justify-between mb-4 sm:mb-6 print:hidden">
-          <Button variant="ghost" size="sm" onClick={() => navigate("/")} data-testid="button-back-dashboard">
-            <ArrowLeft className="w-4 h-4 mr-1" /> Back
-          </Button>
-          <Button size="sm" onClick={handlePrint} className="bg-gradient-to-r from-teal-500 to-cyan-600 border-0 text-white shadow-md" data-testid="button-convert-pdf">
-            <FileDown className="w-4 h-4 mr-1" /> Convert to PDF
-          </Button>
+      {/* Action bar (hidden when printing) */}
+      <div className="flex items-center justify-between px-4 py-3 border-b print:hidden bg-white dark:bg-slate-800 sticky top-0 z-10">
+        <Button variant="ghost" size="sm" onClick={() => navigate("/cash-seal")} data-testid="button-back">
+          <ArrowLeft className="w-4 h-4 mr-1" /> Back
+        </Button>
+        <Button size="sm" onClick={handlePrint} className="bg-teal-600 hover:bg-teal-700 text-white gap-1.5" data-testid="button-print">
+          <Printer className="w-4 h-4" /> Print / PDF
+        </Button>
+      </div>
+
+      {/* Print content */}
+      <div className="max-w-3xl mx-auto px-4 py-6 print:px-0 print:py-0 print:max-w-none" id="print-content">
+        {/* Company header */}
+        <div className="text-center mb-3 print:mb-2">
+          <div className="text-base font-bold text-gray-800 print:text-black">DJ Hospitality & Facility Management Private Limited</div>
+          <div className="text-sm text-gray-600 print:text-gray-700">Clint Name: -</div>
         </div>
 
-        <div className="bg-white dark:bg-card border rounded-xl p-4 sm:p-8 print:border-0 print:shadow-none print:p-0" id="pdf-content">
-          <div className="text-center mb-5 sm:mb-6 pb-4 border-b-2 border-teal-200 dark:border-teal-800 print:border-gray-300">
-            <h1 className="text-lg sm:text-2xl font-bold text-foreground print:text-black leading-tight">DJ Hospitality & Facility Management Pvt Ltd</h1>
-            <p className="text-xs sm:text-sm font-semibold text-teal-600 dark:text-teal-400 print:text-gray-600 mt-1 uppercase tracking-wider">Daily Cash Seal KPF</p>
+        {/* Date row */}
+        <div className="text-xs text-gray-700 mb-3 print:mb-2">
+          <span className="font-semibold">Date:</span> {dateStr}
+          {seal.serialNumber && <span className="ml-4"><span className="font-semibold">Serial No:</span> #{seal.serialNumber}</span>}
+        </div>
+
+        {/* Permanent Staff section */}
+        <ReportSection title="Permanent Staff" color="blue" rows={psRows} />
+
+        {/* Third Party section */}
+        <ReportSection title="Third Party" color="green" rows={tpRows} />
+
+        {/* Grand Total Income */}
+        <div className="flex justify-between items-center bg-gray-800 text-white px-3 py-2 text-sm font-bold rounded mb-4 print:rounded-none">
+          <span>Grand Total (PS + Third Party)</span>
+          <span className="font-mono">{fmt(grandIncome)}</span>
+        </div>
+
+        {/* Expense section */}
+        <div className="mb-4">
+          <div className="bg-red-600 text-white text-center text-sm font-bold py-1.5 rounded-t">Expense</div>
+          <table className="w-full border-collapse text-xs" style={{ border: "1px solid #ccc" }}>
+            <thead>
+              <tr className="bg-red-50">
+                <th className="border border-gray-300 px-1.5 py-1 text-left text-red-700">Description</th>
+                <th className="border border-gray-300 px-1.5 py-1 text-right text-red-700">Rate</th>
+                <th className="border border-gray-300 px-1.5 py-1 text-right text-red-700">Qty</th>
+                <th className="border border-gray-300 px-1.5 py-1 text-right text-red-700">Amount</th>
+              </tr>
+            </thead>
+            <tbody>
+              {n(seal.expenseBananaQty) > 0 && (
+                <tr>
+                  <td className="border border-gray-300 px-1.5 py-1">Banana</td>
+                  <td className="border border-gray-300 px-1.5 py-1 text-right font-mono">{fmt(BANANA_RATE)}</td>
+                  <td className="border border-gray-300 px-1.5 py-1 text-right font-mono">{n(seal.expenseBananaQty)}</td>
+                  <td className="border border-gray-300 px-1.5 py-1 text-right font-mono font-semibold">{fmt(bananaTotal)}</td>
+                </tr>
+              )}
+              {n(seal.expenseDahiBharQty) > 0 && (
+                <tr>
+                  <td className="border border-gray-300 px-1.5 py-1">Dahi Bhar</td>
+                  <td className="border border-gray-300 px-1.5 py-1 text-right font-mono">{fmt(n(seal.expenseDahiBharRate))}</td>
+                  <td className="border border-gray-300 px-1.5 py-1 text-right font-mono">{n(seal.expenseDahiBharQty)}</td>
+                  <td className="border border-gray-300 px-1.5 py-1 text-right font-mono font-semibold">{fmt(dahiBharTotal)}</td>
+                </tr>
+              )}
+              {n(seal.expenseOtherAmount) > 0 && (
+                <tr>
+                  <td className="border border-gray-300 px-1.5 py-1" colSpan={3}>Other</td>
+                  <td className="border border-gray-300 px-1.5 py-1 text-right font-mono font-semibold">{fmt(n(seal.expenseOtherAmount))}</td>
+                </tr>
+              )}
+            </tbody>
+            <tfoot>
+              <tr className="bg-red-50">
+                <td colSpan={3} className="border border-gray-300 px-1.5 py-1 text-right font-bold">Total Expense:</td>
+                <td className="border border-gray-300 px-1.5 py-1 text-right font-bold font-mono">{fmt(totalExpense)}</td>
+              </tr>
+            </tfoot>
+          </table>
+        </div>
+
+        {/* Balance summary */}
+        <div className="grid grid-cols-3 gap-3 mb-4 print:gap-2">
+          <div className="border rounded p-2 text-center print:border-gray-400">
+            <div className="text-xs text-gray-500 mb-1">Total Income</div>
+            <div className="font-bold font-mono text-green-700">{fmt(grandIncome)}</div>
           </div>
-
-          <div className="flex flex-wrap items-center justify-between gap-2 mb-5 text-xs sm:text-sm">
-            <div className="flex items-center gap-1.5">
-              <span className="text-muted-foreground print:text-gray-500">Serial No:</span>
-              <span className="font-bold bg-teal-100 dark:bg-teal-900/30 text-teal-700 dark:text-teal-300 px-2 py-0.5 rounded print:bg-gray-100 print:text-black" data-testid="text-serial-number">#{seal.serialNumber}</span>
-            </div>
-            <div>
-              <span className="text-muted-foreground print:text-gray-500">Date: </span>
-              <span className="font-semibold print:text-black" data-testid="text-seal-date">{format(new Date(seal.date), "dd-MM-yyyy, EEEE")}</span>
-            </div>
+          <div className="border rounded p-2 text-center print:border-gray-400">
+            <div className="text-xs text-gray-500 mb-1">Total Expense</div>
+            <div className="font-bold font-mono text-red-700">{fmt(totalExpense)}</div>
           </div>
-
-          <div className="mb-5">
-            <div className="flex items-center justify-between mb-2 pb-1.5 border-b-2 border-emerald-300 dark:border-emerald-700 print:border-gray-400">
-              <h3 className="text-sm font-bold text-emerald-700 dark:text-emerald-400 print:text-black">Income</h3>
-              <span className="text-xs font-bold font-mono text-emerald-700 dark:text-emerald-400 sm:hidden">{fmt(totalIncome)}</span>
-            </div>
-            {renderMobileRows(incomeRows, "bg-emerald-500")}
-            {renderDesktopTable(incomeRows)}
-            <div className="flex justify-between items-center mt-2 pt-2 border-t border-emerald-200 dark:border-emerald-800 print:border-gray-300">
-              <span className="text-xs font-semibold text-emerald-700 dark:text-emerald-400 print:text-black">Total Income</span>
-              <span className="text-sm font-bold font-mono text-emerald-600 print:text-green-700" data-testid="text-total-income">{fmt(totalIncome)}</span>
-            </div>
+          <div className={`border rounded p-2 text-center print:border-gray-400 ${balance >= 0 ? "bg-green-50" : "bg-orange-50"}`}>
+            <div className="text-xs text-gray-500 mb-1">Net Balance</div>
+            <div className={`font-bold font-mono ${balance >= 0 ? "text-green-700" : "text-orange-700"}`}>{fmt(balance)}</div>
           </div>
+        </div>
 
-          <div className="mb-5">
-            <div className="flex items-center justify-between mb-2 pb-1.5 border-b-2 border-rose-300 dark:border-rose-700 print:border-gray-400">
-              <h3 className="text-sm font-bold text-rose-700 dark:text-rose-400 print:text-black">Expense</h3>
-              <span className="text-xs font-bold font-mono text-rose-700 dark:text-rose-400 sm:hidden">{fmt(totalExpense)}</span>
-            </div>
-            {renderMobileRows(expenseRows, "bg-rose-500")}
-            {renderDesktopTable(expenseRows)}
-            {otherExpense > 0 && (
-              <div className="flex items-center justify-between py-1.5 border-b border-dashed border-border/60 sm:mt-1">
-                <span className="text-xs font-medium print:text-black">Other Expense</span>
-                <span className="text-xs font-bold font-mono print:text-black">{fmt(otherExpense)}</span>
-              </div>
-            )}
-            <div className="flex justify-between items-center mt-2 pt-2 border-t border-rose-200 dark:border-rose-800 print:border-gray-300">
-              <span className="text-xs font-semibold text-rose-700 dark:text-rose-400 print:text-black">Total Expense</span>
-              <span className="text-sm font-bold font-mono text-rose-600 print:text-red-700" data-testid="text-total-expense">{fmt(totalExpense)}</span>
-            </div>
+        {n(seal.totalGivenToAkbarAli) > 0 && (
+          <div className="flex justify-between text-sm mb-4">
+            <span className="text-gray-600">Given to Akbar Ali</span>
+            <span className="font-semibold font-mono text-orange-700">{fmt(n(seal.totalGivenToAkbarAli))}</span>
           </div>
+        )}
 
-          <div className="border-t-2 border-gray-300 dark:border-gray-600 print:border-gray-400 pt-4">
-            <div className="grid grid-cols-2 gap-3 sm:gap-4 mb-4">
-              <div className="bg-emerald-50 dark:bg-emerald-950/20 rounded-lg p-3 text-center print:bg-gray-50 print:border print:border-gray-200">
-                <p className="text-[10px] sm:text-xs text-muted-foreground print:text-gray-500 uppercase tracking-wide font-semibold mb-1">Income</p>
-                <p className="text-sm sm:text-lg font-bold font-mono text-emerald-600 print:text-black">{fmt(totalIncome)}</p>
-              </div>
-              <div className="bg-rose-50 dark:bg-rose-950/20 rounded-lg p-3 text-center print:bg-gray-50 print:border print:border-gray-200">
-                <p className="text-[10px] sm:text-xs text-muted-foreground print:text-gray-500 uppercase tracking-wide font-semibold mb-1">Expense</p>
-                <p className="text-sm sm:text-lg font-bold font-mono text-rose-600 print:text-black">{fmt(totalExpense)}</p>
-              </div>
-            </div>
+        {/* Signature */}
+        <div className="grid grid-cols-2 gap-8 mt-12 pt-4 border-t print:mt-16 print:border-gray-400 text-center text-xs text-gray-500">
+          <div><div className="border-t mt-8 pt-2 print:border-gray-400">Prepared By</div></div>
+          <div><div className="border-t mt-8 pt-2 print:border-gray-400">Authorized Signatory</div></div>
+        </div>
 
-            {givenToAkbarAli > 0 && (
-              <div className="flex justify-between items-center text-xs sm:text-sm mb-3 px-1">
-                <span className="text-muted-foreground print:text-gray-500">Given to Akbar Ali</span>
-                <span className="font-mono font-semibold text-orange-600 print:text-orange-700" data-testid="text-given-akbar-ali">{fmt(givenToAkbarAli)}</span>
-              </div>
-            )}
-
-            <div className={`rounded-xl p-4 sm:p-5 text-center ${balance >= 0 ? 'bg-gradient-to-r from-emerald-50 to-green-50 dark:from-emerald-950/30 dark:to-green-950/30 border border-emerald-200 dark:border-emerald-800 print:bg-green-50 print:border-green-200' : 'bg-gradient-to-r from-red-50 to-rose-50 dark:from-red-950/30 dark:to-rose-950/30 border border-red-200 dark:border-red-800 print:bg-red-50 print:border-red-200'}`}>
-              <p className="text-xs text-muted-foreground print:text-gray-500 uppercase tracking-wider font-semibold mb-1">Net Balance</p>
-              <p className={`text-2xl sm:text-3xl font-bold font-mono ${balance >= 0 ? 'text-emerald-600 print:text-green-700' : 'text-red-600 print:text-red-700'}`} data-testid="text-balance">
-                {fmt(balance)}
-              </p>
-            </div>
-          </div>
-
-          <div className="grid grid-cols-2 gap-6 sm:gap-8 mt-10 sm:mt-12 pt-6 sm:pt-8 border-t print:mt-16">
-            <div className="text-center">
-              <div className="border-t border-border print:border-gray-400 pt-2 mt-6 sm:mt-8">
-                <p className="text-xs sm:text-sm text-muted-foreground print:text-gray-500">Prepared By</p>
-              </div>
-            </div>
-            <div className="text-center">
-              <div className="border-t border-border print:border-gray-400 pt-2 mt-6 sm:mt-8">
-                <p className="text-xs sm:text-sm text-muted-foreground print:text-gray-500">Authorized Signatory</p>
-              </div>
-            </div>
-          </div>
-
-          <div className="text-center mt-6 sm:mt-8 text-[10px] sm:text-xs text-muted-foreground print:text-gray-400">
-            Generated on {format(new Date(), "dd-MM-yyyy, hh:mm a")}
-          </div>
+        <div className="text-center text-xs text-gray-400 mt-4 print:mt-6">
+          Generated on {format(new Date(), "dd-MM-yyyy, hh:mm a")}
         </div>
       </div>
+
+      <style>{`
+        @media print {
+          .print\\:hidden { display: none !important; }
+          body { font-size: 11px; }
+          @page { margin: 1cm; }
+        }
+      `}</style>
     </Layout>
   );
 }
