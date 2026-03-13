@@ -61,6 +61,32 @@ export const cashSeals = mysqlTable("cash_seals", {
   incomeOnlineLunchQty: decimal("income_online_lunch_qty", { precision: 10, scale: 2 }).default("0"),
   incomeOnlineEveningSnacksQty: decimal("income_online_evening_snacks_qty", { precision: 10, scale: 2 }).default("0"),
   incomeOnlineNightQty: decimal("income_online_night_qty", { precision: 10, scale: 2 }).default("0"),
+  // Permanent Staff - Cash
+  incomePsBreakfastCashQty: decimal("income_ps_breakfast_cash_qty", { precision: 10, scale: 2 }).default("0"),
+  incomePsLunchCashQty: decimal("income_ps_lunch_cash_qty", { precision: 10, scale: 2 }).default("0"),
+  incomePsEveningCashQty: decimal("income_ps_evening_cash_qty", { precision: 10, scale: 2 }).default("0"),
+  incomePsNightCashQty: decimal("income_ps_night_cash_qty", { precision: 10, scale: 2 }).default("0"),
+  incomePsRechargeRate: decimal("income_ps_recharge_rate", { precision: 10, scale: 2 }).default("0"),
+  incomePsRechargeCashQty: decimal("income_ps_recharge_cash_qty", { precision: 10, scale: 2 }).default("0"),
+  // Permanent Staff - Online
+  incomePsBreakfastOnlineQty: decimal("income_ps_breakfast_online_qty", { precision: 10, scale: 2 }).default("0"),
+  incomePsLunchOnlineQty: decimal("income_ps_lunch_online_qty", { precision: 10, scale: 2 }).default("0"),
+  incomePsEveningOnlineQty: decimal("income_ps_evening_online_qty", { precision: 10, scale: 2 }).default("0"),
+  incomePsNightOnlineQty: decimal("income_ps_night_online_qty", { precision: 10, scale: 2 }).default("0"),
+  incomePsRechargeOnlineQty: decimal("income_ps_recharge_online_qty", { precision: 10, scale: 2 }).default("0"),
+  // Third Party - Cash
+  incomeTpBreakfastCashQty: decimal("income_tp_breakfast_cash_qty", { precision: 10, scale: 2 }).default("0"),
+  incomeTpLunchVegCashQty: decimal("income_tp_lunch_veg_cash_qty", { precision: 10, scale: 2 }).default("0"),
+  incomeTpLunchNvRate: decimal("income_tp_lunch_nv_rate", { precision: 10, scale: 2 }).default("0"),
+  incomeTpLunchNvCashQty: decimal("income_tp_lunch_nv_cash_qty", { precision: 10, scale: 2 }).default("0"),
+  incomeTpEveningCashQty: decimal("income_tp_evening_cash_qty", { precision: 10, scale: 2 }).default("0"),
+  incomeTpNightCashQty: decimal("income_tp_night_cash_qty", { precision: 10, scale: 2 }).default("0"),
+  // Third Party - Online
+  incomeTpBreakfastOnlineQty: decimal("income_tp_breakfast_online_qty", { precision: 10, scale: 2 }).default("0"),
+  incomeTpLunchVegOnlineQty: decimal("income_tp_lunch_veg_online_qty", { precision: 10, scale: 2 }).default("0"),
+  incomeTpLunchNvOnlineQty: decimal("income_tp_lunch_nv_online_qty", { precision: 10, scale: 2 }).default("0"),
+  incomeTpEveningOnlineQty: decimal("income_tp_evening_online_qty", { precision: 10, scale: 2 }).default("0"),
+  incomeTpNightOnlineQty: decimal("income_tp_night_online_qty", { precision: 10, scale: 2 }).default("0"),
 });
 
 // Daily Inventory records

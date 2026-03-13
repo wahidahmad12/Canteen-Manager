@@ -589,19 +589,15 @@ export default function Dashboard() {
                       </thead>
                       <tbody>
                         {cashSeals.map((seal: any, idx: number) => {
-                          const MORNING_RATE = 5, LUNCH_RATE = 20, EVENING_RATE = 10, NIGHT_RATE = 10, BANANA_RATE = 4.5;
-                          const income = (Number(seal.incomeMorningQty) * MORNING_RATE) +
-                            (Number(seal.incomeLunchQty) * LUNCH_RATE) +
-                            (Number(seal.incomeEveningQty) * EVENING_RATE) +
-                            (Number(seal.incomeNightQty) * NIGHT_RATE) +
-                            (Number(seal.incomeNonVegRate) * Number(seal.incomeNonVegQty)) +
-                            (Number(seal.incomeVegRate) * Number(seal.incomeVegQty)) +
-                            (Number(seal.incomeMorningCashRate) * Number(seal.incomeMorningCashQty)) +
-                            (Number(seal.incomeEveningCashRate) * Number(seal.incomeEveningCashQty)) +
-                            (Number(seal.incomeOnlineBreakfastQty) * MORNING_RATE) +
-                            (Number(seal.incomeOnlineLunchQty) * LUNCH_RATE) +
-                            (Number(seal.incomeOnlineEveningSnacksQty) * EVENING_RATE) +
-                            (Number(seal.incomeOnlineNightQty) * NIGHT_RATE);
+                          const BANANA_RATE = 4.5;
+                          const n = (v: any) => Number(v) || 0;
+                          // New PS income
+                          const psIncome = n(seal.incomePsBreakfastCashQty)*5 + n(seal.incomePsLunchCashQty)*20 + n(seal.incomePsEveningCashQty)*10 + n(seal.incomePsNightCashQty)*10 + n(seal.incomePsRechargeRate)*n(seal.incomePsRechargeCashQty) + n(seal.incomePsBreakfastOnlineQty)*5 + n(seal.incomePsLunchOnlineQty)*20 + n(seal.incomePsEveningOnlineQty)*10 + n(seal.incomePsNightOnlineQty)*10 + n(seal.incomePsRechargeRate)*n(seal.incomePsRechargeOnlineQty);
+                          // New TP income
+                          const tpIncome = n(seal.incomeTpBreakfastCashQty)*20 + n(seal.incomeTpLunchVegCashQty)*35 + n(seal.incomeTpLunchNvRate)*n(seal.incomeTpLunchNvCashQty) + n(seal.incomeTpEveningCashQty)*20 + n(seal.incomeTpNightCashQty)*20 + n(seal.incomeTpBreakfastOnlineQty)*20 + n(seal.incomeTpLunchVegOnlineQty)*35 + n(seal.incomeTpLunchNvRate)*n(seal.incomeTpLunchNvOnlineQty) + n(seal.incomeTpEveningOnlineQty)*20 + n(seal.incomeTpNightOnlineQty)*20;
+                          // Legacy income
+                          const legacyIncome = n(seal.incomeMorningQty)*5 + n(seal.incomeLunchQty)*20 + n(seal.incomeEveningQty)*10 + n(seal.incomeNightQty)*10 + n(seal.incomeNonVegRate)*n(seal.incomeNonVegQty) + n(seal.incomeVegRate)*n(seal.incomeVegQty) + n(seal.incomeMorningCashRate)*n(seal.incomeMorningCashQty) + n(seal.incomeEveningCashRate)*n(seal.incomeEveningCashQty) + n(seal.incomeOnlineBreakfastQty)*5 + n(seal.incomeOnlineLunchQty)*20 + n(seal.incomeOnlineEveningSnacksQty)*10 + n(seal.incomeOnlineNightQty)*10;
+                          const income = psIncome + tpIncome + legacyIncome;
                           const expense = (Number(seal.expenseBananaQty) * BANANA_RATE) +
                             (Number(seal.expenseDahiBharQty) * Number(seal.expenseDahiBharRate)) +
                             Number(seal.expenseOtherAmount);

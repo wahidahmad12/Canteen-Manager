@@ -1,41 +1,269 @@
 import { useState, useEffect, useRef } from "react";
 import { Layout } from "@/components/layout";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { DatePicker } from "@/components/ui/date-picker";
+import { Badge } from "@/components/ui/badge";
 import { format, parseISO } from "date-fns";
-import { Save, ArrowLeft, CalendarDays, TrendingUp, TrendingDown, Wallet, Loader2, Banknote, Coffee, Sun, Moon, UtensilsCrossed, HandCoins, Plus, Pencil, List } from "lucide-react";
+import { Save, ArrowLeft, Loader2, Plus, Pencil, FileDown, Users, UserPlus, TrendingUp, TrendingDown, Wallet, IndianRupee } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useCreateCashSeal, useUpdateCashSeal, useCashSeals } from "@/hooks/use-reports";
 import { useLocation } from "wouter";
 
-const MORNING_RATE = 5;
-const LUNCH_RATE = 20;
-const EVENING_RATE = 10;
-const NIGHT_RATE = 10;
+// ── Fixed rates ───────────────────────────────────────────────────
+const PS_RATES = { bf: 5, ln: 20, ev: 10, nt: 10 }; // Permanent Staff
+const TP_RATES = { bf: 20, lv: 35, ev: 20, nt: 20 }; // Third Party
 const BANANA_RATE = 4.5;
+const fmt = (n: number) => "₹" + n.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
+// ── calcTotals for list/dashboard (includes both old + new fields) ─
 function calcTotals(s: any) {
   const n = (v: any) => Number(v) || 0;
-  const income = n(s.incomeMorningQty) * MORNING_RATE
-    + n(s.incomeLunchQty) * LUNCH_RATE
-    + n(s.incomeEveningQty) * EVENING_RATE
-    + n(s.incomeNightQty) * NIGHT_RATE
-    + n(s.incomeNonVegRate) * n(s.incomeNonVegQty)
-    + n(s.incomeVegRate) * n(s.incomeVegQty)
-    + n(s.incomeMorningCashRate) * n(s.incomeMorningCashQty)
-    + n(s.incomeEveningCashRate) * n(s.incomeEveningCashQty)
-    + n(s.incomeOnlineBreakfastQty) * MORNING_RATE
-    + n(s.incomeOnlineLunchQty) * LUNCH_RATE
-    + n(s.incomeOnlineEveningSnacksQty) * EVENING_RATE
-    + n(s.incomeOnlineNightQty) * NIGHT_RATE;
+  // New PS income
+  const psIncome =
+    n(s.incomePsBreakfastCashQty) * PS_RATES.bf +
+    n(s.incomePsLunchCashQty) * PS_RATES.ln +
+    n(s.incomePsEveningCashQty) * PS_RATES.ev +
+    n(s.incomePsNightCashQty) * PS_RATES.nt +
+    n(s.incomePsRechargeRate) * n(s.incomePsRechargeCashQty) +
+    n(s.incomePsBreakfastOnlineQty) * PS_RATES.bf +
+    n(s.incomePsLunchOnlineQty) * PS_RATES.ln +
+    n(s.incomePsEveningOnlineQty) * PS_RATES.ev +
+    n(s.incomePsNightOnlineQty) * PS_RATES.nt +
+    n(s.incomePsRechargeRate) * n(s.incomePsRechargeOnlineQty);
+  // New TP income
+  const tpIncome =
+    n(s.incomeTpBreakfastCashQty) * TP_RATES.bf +
+    n(s.incomeTpLunchVegCashQty) * TP_RATES.lv +
+    n(s.incomeTpLunchNvRate) * n(s.incomeTpLunchNvCashQty) +
+    n(s.incomeTpEveningCashQty) * TP_RATES.ev +
+    n(s.incomeTpNightCashQty) * TP_RATES.nt +
+    n(s.incomeTpBreakfastOnlineQty) * TP_RATES.bf +
+    n(s.incomeTpLunchVegOnlineQty) * TP_RATES.lv +
+    n(s.incomeTpLunchNvRate) * n(s.incomeTpLunchNvOnlineQty) +
+    n(s.incomeTpEveningOnlineQty) * TP_RATES.ev +
+    n(s.incomeTpNightOnlineQty) * TP_RATES.nt;
+  // Legacy income (old records)
+  const legacyIncome =
+    n(s.incomeMorningQty) * 5 + n(s.incomeLunchQty) * 20 +
+    n(s.incomeEveningQty) * 10 + n(s.incomeNightQty) * 10 +
+    n(s.incomeNonVegRate) * n(s.incomeNonVegQty) +
+    n(s.incomeVegRate) * n(s.incomeVegQty) +
+    n(s.incomeMorningCashRate) * n(s.incomeMorningCashQty) +
+    n(s.incomeEveningCashRate) * n(s.incomeEveningCashQty) +
+    n(s.incomeOnlineBreakfastQty) * 5 + n(s.incomeOnlineLunchQty) * 20 +
+    n(s.incomeOnlineEveningSnacksQty) * 10 + n(s.incomeOnlineNightQty) * 10;
+  const income = psIncome + tpIncome + legacyIncome;
   const expense = n(s.expenseBananaQty) * BANANA_RATE
     + n(s.expenseDahiBharQty) * n(s.expenseDahiBharRate)
     + n(s.expenseOtherAmount);
   return { income, expense, balance: income - expense };
 }
 
+// ── Inline number input ───────────────────────────────────────────
+function NumInput({ value, onChange, placeholder = "0", className = "" }: {
+  value: number; onChange: (v: number) => void; placeholder?: string; className?: string;
+}) {
+  return (
+    <Input
+      type="number"
+      min={0}
+      value={value === 0 ? "" : value}
+      onChange={e => onChange(Number(e.target.value) || 0)}
+      placeholder={placeholder}
+      className={`h-8 text-center text-sm font-mono px-1 ${className}`}
+      data-testid="input-qty"
+    />
+  );
+}
+
+// ── Row component for Permanent Staff ─────────────────────────────
+function PsRow({ no, name, rate, cashQty, onCashQty, onlineQty, onOnlineQty, customRate, onCustomRate }: {
+  no: number; name: string; rate: number | null; cashQty: number; onCashQty: (v: number) => void;
+  onlineQty: number; onOnlineQty: (v: number) => void;
+  customRate?: number; onCustomRate?: (v: number) => void;
+}) {
+  const r = customRate !== undefined ? customRate : (rate ?? 0);
+  const cashTotal = cashQty * r;
+  const onlineTotal = onlineQty * r;
+  const rowTotal = cashTotal + onlineTotal;
+
+  return (
+    <>
+      {/* Desktop row */}
+      <tr className="hidden sm:table-row border-b border-blue-100 dark:border-blue-900/40 hover:bg-blue-50/30 dark:hover:bg-blue-900/10 transition-colors">
+        <td className="px-2 py-1.5 text-center text-xs text-slate-500">{no}</td>
+        <td className="px-2 py-1.5 text-sm font-medium text-slate-700 dark:text-slate-200">{name}</td>
+        <td className="px-2 py-1.5 text-center">
+          {customRate !== undefined ? (
+            <NumInput value={customRate} onChange={onCustomRate!} className="w-16 bg-amber-50 dark:bg-amber-900/20" />
+          ) : (
+            <Badge variant="outline" className="text-xs font-mono text-blue-700 border-blue-300 bg-blue-50">₹{rate}</Badge>
+          )}
+        </td>
+        <td className="px-2 py-1.5"><NumInput value={cashQty} onChange={onCashQty} className="w-16" /></td>
+        <td className="px-2 py-1.5 text-right text-sm font-mono text-slate-600 dark:text-slate-300">₹{cashTotal.toFixed(2)}</td>
+        <td className="px-2 py-1.5"><NumInput value={onlineQty} onChange={onOnlineQty} className="w-16 bg-indigo-50 dark:bg-indigo-900/20" /></td>
+        <td className="px-2 py-1.5 text-right text-sm font-mono text-indigo-600">₹{onlineTotal.toFixed(2)}</td>
+        <td className="px-2 py-1.5 text-right text-sm font-mono font-semibold text-blue-700">₹{rowTotal.toFixed(2)}</td>
+      </tr>
+      {/* Mobile card row */}
+      <tr className="sm:hidden border-b border-blue-100 dark:border-blue-900/40">
+        <td colSpan={8} className="px-2 py-2">
+          <div className="flex items-center justify-between mb-1.5">
+            <span className="text-sm font-semibold text-slate-700 dark:text-slate-200">{no}. {name}</span>
+            {customRate !== undefined ? (
+              <NumInput value={customRate} onChange={onCustomRate!} className="w-20 text-xs bg-amber-50" placeholder="Rate" />
+            ) : (
+              <Badge variant="outline" className="text-xs font-mono text-blue-700 border-blue-300 bg-blue-50">₹{rate}</Badge>
+            )}
+          </div>
+          <div className="grid grid-cols-2 gap-2">
+            <div className="bg-slate-50 dark:bg-slate-800/50 rounded-lg p-2 border border-slate-200 dark:border-slate-700">
+              <div className="text-xs text-slate-500 mb-1 font-medium">Cash</div>
+              <NumInput value={cashQty} onChange={onCashQty} className="w-full mb-1" />
+              <div className="text-xs font-mono text-right text-slate-600">= ₹{cashTotal.toFixed(2)}</div>
+            </div>
+            <div className="bg-indigo-50 dark:bg-indigo-900/20 rounded-lg p-2 border border-indigo-200 dark:border-indigo-800">
+              <div className="text-xs text-indigo-600 mb-1 font-medium">Online</div>
+              <NumInput value={onlineQty} onChange={onOnlineQty} className="w-full mb-1 bg-white dark:bg-indigo-900/30" />
+              <div className="text-xs font-mono text-right text-indigo-600">= ₹{onlineTotal.toFixed(2)}</div>
+            </div>
+          </div>
+          {rowTotal > 0 && (
+            <div className="text-right text-xs font-semibold text-blue-700 mt-1">Total: ₹{rowTotal.toFixed(2)}</div>
+          )}
+        </td>
+      </tr>
+    </>
+  );
+}
+
+// ── Row component for Third Party ─────────────────────────────────
+function TpRow({ no, name, rate, cashQty, onCashQty, onlineQty, onOnlineQty, customRate, onCustomRate }: {
+  no: number; name: string; rate: number | null; cashQty: number; onCashQty: (v: number) => void;
+  onlineQty: number; onOnlineQty: (v: number) => void;
+  customRate?: number; onCustomRate?: (v: number) => void;
+}) {
+  const r = customRate !== undefined ? customRate : (rate ?? 0);
+  const cashTotal = cashQty * r;
+  const onlineTotal = onlineQty * r;
+  const rowTotal = cashTotal + onlineTotal;
+
+  return (
+    <>
+      {/* Desktop row */}
+      <tr className="hidden sm:table-row border-b border-green-100 dark:border-green-900/40 hover:bg-green-50/30 dark:hover:bg-green-900/10 transition-colors">
+        <td className="px-2 py-1.5 text-center text-xs text-slate-500">{no}</td>
+        <td className="px-2 py-1.5 text-sm font-medium text-slate-700 dark:text-slate-200">{name}</td>
+        <td className="px-2 py-1.5 text-center">
+          {customRate !== undefined ? (
+            <NumInput value={customRate} onChange={onCustomRate!} className="w-16 bg-amber-50 dark:bg-amber-900/20" />
+          ) : (
+            <Badge variant="outline" className="text-xs font-mono text-green-700 border-green-300 bg-green-50">₹{rate}</Badge>
+          )}
+        </td>
+        <td className="px-2 py-1.5"><NumInput value={cashQty} onChange={onCashQty} className="w-16" /></td>
+        <td className="px-2 py-1.5 text-right text-sm font-mono text-slate-600 dark:text-slate-300">₹{cashTotal.toFixed(2)}</td>
+        <td className="px-2 py-1.5"><NumInput value={onlineQty} onChange={onOnlineQty} className="w-16 bg-indigo-50 dark:bg-indigo-900/20" /></td>
+        <td className="px-2 py-1.5 text-right text-sm font-mono text-indigo-600">₹{onlineTotal.toFixed(2)}</td>
+        <td className="px-2 py-1.5 text-right text-sm font-mono font-semibold text-green-700">₹{rowTotal.toFixed(2)}</td>
+      </tr>
+      {/* Mobile card row */}
+      <tr className="sm:hidden border-b border-green-100 dark:border-green-900/40">
+        <td colSpan={8} className="px-2 py-2">
+          <div className="flex items-center justify-between mb-1.5">
+            <span className="text-sm font-semibold text-slate-700 dark:text-slate-200">{no}. {name}</span>
+            {customRate !== undefined ? (
+              <NumInput value={customRate} onChange={onCustomRate!} className="w-20 text-xs bg-amber-50" placeholder="Rate" />
+            ) : (
+              <Badge variant="outline" className="text-xs font-mono text-green-700 border-green-300 bg-green-50">₹{rate}</Badge>
+            )}
+          </div>
+          <div className="grid grid-cols-2 gap-2">
+            <div className="bg-slate-50 dark:bg-slate-800/50 rounded-lg p-2 border border-slate-200 dark:border-slate-700">
+              <div className="text-xs text-slate-500 mb-1 font-medium">Cash</div>
+              <NumInput value={cashQty} onChange={onCashQty} className="w-full mb-1" />
+              <div className="text-xs font-mono text-right text-slate-600">= ₹{cashTotal.toFixed(2)}</div>
+            </div>
+            <div className="bg-indigo-50 dark:bg-indigo-900/20 rounded-lg p-2 border border-indigo-200 dark:border-indigo-800">
+              <div className="text-xs text-indigo-600 mb-1 font-medium">Online</div>
+              <NumInput value={onlineQty} onChange={onOnlineQty} className="w-full mb-1 bg-white dark:bg-indigo-900/30" />
+              <div className="text-xs font-mono text-right text-indigo-600">= ₹{onlineTotal.toFixed(2)}</div>
+            </div>
+          </div>
+          {rowTotal > 0 && (
+            <div className="text-right text-xs font-semibold text-green-700 mt-1">Total: ₹{rowTotal.toFixed(2)}</div>
+          )}
+        </td>
+      </tr>
+    </>
+  );
+}
+
+// ── Table header for PS/TP sections (module-level for React stability) ─
+function SectionTableHeader({ color }: { color: "blue" | "green" }) {
+  const c = color === "blue" ? "bg-blue-600 text-white" : "bg-green-600 text-white";
+  const sub = color === "blue"
+    ? "bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300"
+    : "bg-green-50 dark:bg-green-900/30 text-green-700 dark:text-green-300";
+  return (
+    <thead>
+      <tr className={`hidden sm:table-row ${c} text-xs`}>
+        <th className="px-2 py-1.5 text-center w-8">Sl</th>
+        <th className="px-2 py-1.5 text-left">Name</th>
+        <th className="px-2 py-1.5 text-center w-20">Rate</th>
+        <th className="px-2 py-1.5 text-center" colSpan={2}>Cash</th>
+        <th className="px-2 py-1.5 text-center" colSpan={2}>Online</th>
+        <th className="px-2 py-1.5 text-right w-24">Total</th>
+      </tr>
+      <tr className={`hidden sm:table-row ${sub} text-xs border-b`}>
+        <th className="px-2 py-1"></th>
+        <th className="px-2 py-1"></th>
+        <th className="px-2 py-1"></th>
+        <th className="px-2 py-1 text-center">Qty</th>
+        <th className="px-2 py-1 text-right">Total</th>
+        <th className="px-2 py-1 text-center">Qty</th>
+        <th className="px-2 py-1 text-right">Total</th>
+        <th className="px-2 py-1"></th>
+      </tr>
+    </thead>
+  );
+}
+
+function SectionTotalRow({ cashTotal, onlineTotal, color }: { cashTotal: number; onlineTotal: number; color: "blue" | "green" }) {
+  const cls = color === "blue"
+    ? "bg-blue-50 dark:bg-blue-900/20 text-blue-800 dark:text-blue-200"
+    : "bg-green-50 dark:bg-green-900/20 text-green-800 dark:text-green-200";
+  const grand = cashTotal + onlineTotal;
+  return (
+    <>
+      <tr className={`hidden sm:table-row ${cls} font-semibold text-xs border-t`}>
+        <td colSpan={3} className="px-2 py-1.5 text-right">Sub Total:</td>
+        <td className="px-2 py-1.5 text-right font-mono">{fmt(cashTotal)}</td>
+        <td></td>
+        <td className="px-2 py-1.5 text-right font-mono">{fmt(onlineTotal)}</td>
+        <td></td>
+        <td></td>
+      </tr>
+      <tr className={`hidden sm:table-row ${cls} font-bold text-xs border-b-2`}>
+        <td colSpan={6} className="px-2 py-1.5 text-right">Total Cash + Total Online:</td>
+        <td colSpan={2} className="px-2 py-1.5 text-right font-mono text-sm">{fmt(grand)}</td>
+      </tr>
+      <tr className={`sm:hidden ${cls}`}>
+        <td colSpan={8} className="px-3 py-2">
+          <div className="flex justify-between text-xs">
+            <span>Cash: <span className="font-mono">{fmt(cashTotal)}</span></span>
+            <span>Online: <span className="font-mono">{fmt(onlineTotal)}</span></span>
+            <span className="font-bold">Total: <span className="font-mono">{fmt(grand)}</span></span>
+          </div>
+        </td>
+      </tr>
+    </>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────
 export default function CashSeal() {
   const [view, setView] = useState<"list" | "form">("list");
   const [editId, setEditId] = useState<number | null>(null);
@@ -48,28 +276,40 @@ export default function CashSeal() {
   const updateMutation = useUpdateCashSeal();
   const { data: records = [], isLoading: recordsLoading } = useCashSeals();
 
-  const [morningQty, setMorningQty] = useState(0);
-  const [lunchQty, setLunchQty] = useState(0);
-  const [eveningQty, setEveningQty] = useState(0);
-  const [nightQty, setNightQty] = useState(0);
-  const [nonVegRate, setNonVegRate] = useState(0);
-  const [nonVegQty, setNonVegQty] = useState(0);
-  const [vegRate, setVegRate] = useState(0);
-  const [vegQty, setVegQty] = useState(0);
-  const [morningCashRate, setMorningCashRate] = useState(0);
-  const [morningCashQty, setMorningCashQty] = useState(0);
-  const [eveningCashRate, setEveningCashRate] = useState(0);
-  const [eveningCashQty, setEveningCashQty] = useState(0);
-  const [onlineBreakfastQty, setOnlineBreakfastQty] = useState(0);
-  const [onlineLunchQty, setOnlineLunchQty] = useState(0);
-  const [onlineEveningSnacksQty, setOnlineEveningSnacksQty] = useState(0);
-  const [onlineNightQty, setOnlineNightQty] = useState(0);
+  // ── Permanent Staff states ──────────────────────────────────────
+  const [psBfCash, setPsBfCash] = useState(0);
+  const [psLnCash, setPsLnCash] = useState(0);
+  const [psEvCash, setPsEvCash] = useState(0);
+  const [psNtCash, setPsNtCash] = useState(0);
+  const [psRcRate, setPsRcRate] = useState(0);
+  const [psRcCash, setPsRcCash] = useState(0);
+  const [psBfOnline, setPsBfOnline] = useState(0);
+  const [psLnOnline, setPsLnOnline] = useState(0);
+  const [psEvOnline, setPsEvOnline] = useState(0);
+  const [psNtOnline, setPsNtOnline] = useState(0);
+  const [psRcOnline, setPsRcOnline] = useState(0);
+
+  // ── Third Party states ─────────────────────────────────────────
+  const [tpBfCash, setTpBfCash] = useState(0);
+  const [tpLvCash, setTpLvCash] = useState(0);
+  const [tpNvRate, setTpNvRate] = useState(0);
+  const [tpNvCash, setTpNvCash] = useState(0);
+  const [tpEvCash, setTpEvCash] = useState(0);
+  const [tpNtCash, setTpNtCash] = useState(0);
+  const [tpBfOnline, setTpBfOnline] = useState(0);
+  const [tpLvOnline, setTpLvOnline] = useState(0);
+  const [tpNvOnline, setTpNvOnline] = useState(0);
+  const [tpEvOnline, setTpEvOnline] = useState(0);
+  const [tpNtOnline, setTpNtOnline] = useState(0);
+
+  // ── Expense states ─────────────────────────────────────────────
   const [bananaQty, setBananaQty] = useState(0);
   const [dahiBharQty, setDahiBharQty] = useState(0);
   const [dahiBharRate, setDahiBharRate] = useState(0);
   const [otherExpense, setOtherExpense] = useState(0);
   const [akbarAliAmount, setAkbarAliAmount] = useState(0);
 
+  // ── Auto-edit from URL param ───────────────────────────────────
   useEffect(() => {
     if (autoEditHandled.current) return;
     if (!records || (records as any[]).length === 0) return;
@@ -87,22 +327,33 @@ export default function CashSeal() {
 
   function loadRecord(rec: any) {
     const n = (v: any) => Number(v) || 0;
-    setMorningQty(n(rec.incomeMorningQty));
-    setLunchQty(n(rec.incomeLunchQty));
-    setEveningQty(n(rec.incomeEveningQty));
-    setNightQty(n(rec.incomeNightQty));
-    setNonVegRate(n(rec.incomeNonVegRate));
-    setNonVegQty(n(rec.incomeNonVegQty));
-    setVegRate(n(rec.incomeVegRate));
-    setVegQty(n(rec.incomeVegQty));
-    setMorningCashRate(n(rec.incomeMorningCashRate));
-    setMorningCashQty(n(rec.incomeMorningCashQty));
-    setEveningCashRate(n(rec.incomeEveningCashRate));
-    setEveningCashQty(n(rec.incomeEveningCashQty));
-    setOnlineBreakfastQty(n(rec.incomeOnlineBreakfastQty));
-    setOnlineLunchQty(n(rec.incomeOnlineLunchQty));
-    setOnlineEveningSnacksQty(n(rec.incomeOnlineEveningSnacksQty));
-    setOnlineNightQty(n(rec.incomeOnlineNightQty));
+    // PS Cash
+    setPsBfCash(n(rec.incomePsBreakfastCashQty));
+    setPsLnCash(n(rec.incomePsLunchCashQty));
+    setPsEvCash(n(rec.incomePsEveningCashQty));
+    setPsNtCash(n(rec.incomePsNightCashQty));
+    setPsRcRate(n(rec.incomePsRechargeRate));
+    setPsRcCash(n(rec.incomePsRechargeCashQty));
+    // PS Online
+    setPsBfOnline(n(rec.incomePsBreakfastOnlineQty));
+    setPsLnOnline(n(rec.incomePsLunchOnlineQty));
+    setPsEvOnline(n(rec.incomePsEveningOnlineQty));
+    setPsNtOnline(n(rec.incomePsNightOnlineQty));
+    setPsRcOnline(n(rec.incomePsRechargeOnlineQty));
+    // TP Cash
+    setTpBfCash(n(rec.incomeTpBreakfastCashQty));
+    setTpLvCash(n(rec.incomeTpLunchVegCashQty));
+    setTpNvRate(n(rec.incomeTpLunchNvRate));
+    setTpNvCash(n(rec.incomeTpLunchNvCashQty));
+    setTpEvCash(n(rec.incomeTpEveningCashQty));
+    setTpNtCash(n(rec.incomeTpNightCashQty));
+    // TP Online
+    setTpBfOnline(n(rec.incomeTpBreakfastOnlineQty));
+    setTpLvOnline(n(rec.incomeTpLunchVegOnlineQty));
+    setTpNvOnline(n(rec.incomeTpLunchNvOnlineQty));
+    setTpEvOnline(n(rec.incomeTpEveningOnlineQty));
+    setTpNtOnline(n(rec.incomeTpNightOnlineQty));
+    // Expense
     setBananaQty(n(rec.expenseBananaQty));
     setDahiBharQty(n(rec.expenseDahiBharQty));
     setDahiBharRate(n(rec.expenseDahiBharRate));
@@ -114,10 +365,12 @@ export default function CashSeal() {
   }
 
   function resetForm() {
-    setMorningQty(0); setLunchQty(0); setEveningQty(0); setNightQty(0);
-    setNonVegRate(0); setNonVegQty(0); setVegRate(0); setVegQty(0);
-    setMorningCashRate(0); setMorningCashQty(0); setEveningCashRate(0); setEveningCashQty(0);
-    setOnlineBreakfastQty(0); setOnlineLunchQty(0); setOnlineEveningSnacksQty(0); setOnlineNightQty(0);
+    setPsBfCash(0); setPsLnCash(0); setPsEvCash(0); setPsNtCash(0);
+    setPsRcRate(0); setPsRcCash(0);
+    setPsBfOnline(0); setPsLnOnline(0); setPsEvOnline(0); setPsNtOnline(0); setPsRcOnline(0);
+    setTpBfCash(0); setTpLvCash(0); setTpNvRate(0); setTpNvCash(0);
+    setTpEvCash(0); setTpNtCash(0);
+    setTpBfOnline(0); setTpLvOnline(0); setTpNvOnline(0); setTpEvOnline(0); setTpNtOnline(0);
     setBananaQty(0); setDahiBharQty(0); setDahiBharRate(0); setOtherExpense(0);
     setAkbarAliAmount(0); setDate(new Date());
   }
@@ -135,42 +388,60 @@ export default function CashSeal() {
   }
 
   function handleBack() {
-    if (view === "form") {
-      setView("list");
-      setEditId(null);
-    } else {
-      navigate("/");
-    }
+    if (view === "form") { setView("list"); setEditId(null); }
+    else { navigate("/"); }
   }
 
-  const morningTotal = morningQty * MORNING_RATE;
-  const lunchTotal = lunchQty * LUNCH_RATE;
-  const eveningTotal = eveningQty * EVENING_RATE;
-  const nightTotal = nightQty * NIGHT_RATE;
-  const nonVegTotal = nonVegRate * nonVegQty;
-  const vegTotal = vegRate * vegQty;
-  const morningCashTotal = morningCashRate * morningCashQty;
-  const eveningCashTotal = eveningCashRate * eveningCashQty;
-  const onlineBreakfastTotal = onlineBreakfastQty * MORNING_RATE;
-  const onlineLunchTotal = onlineLunchQty * LUNCH_RATE;
-  const onlineEveningSnacksTotal = onlineEveningSnacksQty * EVENING_RATE;
-  const onlineNightTotal = onlineNightQty * NIGHT_RATE;
-  const totalOnlinePayment = onlineBreakfastTotal + onlineLunchTotal + onlineEveningSnacksTotal + onlineNightTotal;
-  const totalIncome = morningTotal + lunchTotal + eveningTotal + nightTotal + nonVegTotal + vegTotal + morningCashTotal + eveningCashTotal + totalOnlinePayment;
+  // ── Calculations ───────────────────────────────────────────────
+  // PS totals
+  const psBfCashTotal = psBfCash * PS_RATES.bf;
+  const psLnCashTotal = psLnCash * PS_RATES.ln;
+  const psEvCashTotal = psEvCash * PS_RATES.ev;
+  const psNtCashTotal = psNtCash * PS_RATES.nt;
+  const psRcCashTotal = psRcCash * psRcRate;
+  const psBfOnlineTotal = psBfOnline * PS_RATES.bf;
+  const psLnOnlineTotal = psLnOnline * PS_RATES.ln;
+  const psEvOnlineTotal = psEvOnline * PS_RATES.ev;
+  const psNtOnlineTotal = psNtOnline * PS_RATES.nt;
+  const psRcOnlineTotal = psRcOnline * psRcRate;
+  const psTotalCash = psBfCashTotal + psLnCashTotal + psEvCashTotal + psNtCashTotal + psRcCashTotal;
+  const psTotalOnline = psBfOnlineTotal + psLnOnlineTotal + psEvOnlineTotal + psNtOnlineTotal + psRcOnlineTotal;
+  const psGrandTotal = psTotalCash + psTotalOnline;
+
+  // TP totals
+  const tpBfCashTotal = tpBfCash * TP_RATES.bf;
+  const tpLvCashTotal = tpLvCash * TP_RATES.lv;
+  const tpNvCashTotal = tpNvCash * tpNvRate;
+  const tpEvCashTotal = tpEvCash * TP_RATES.ev;
+  const tpNtCashTotal = tpNtCash * TP_RATES.nt;
+  const tpBfOnlineTotal = tpBfOnline * TP_RATES.bf;
+  const tpLvOnlineTotal = tpLvOnline * TP_RATES.lv;
+  const tpNvOnlineTotal = tpNvOnline * tpNvRate;
+  const tpEvOnlineTotal = tpEvOnline * TP_RATES.ev;
+  const tpNtOnlineTotal = tpNtOnline * TP_RATES.nt;
+  const tpTotalCash = tpBfCashTotal + tpLvCashTotal + tpNvCashTotal + tpEvCashTotal + tpNtCashTotal;
+  const tpTotalOnline = tpBfOnlineTotal + tpLvOnlineTotal + tpNvOnlineTotal + tpEvOnlineTotal + tpNtOnlineTotal;
+  const tpGrandTotal = tpTotalCash + tpTotalOnline;
+
+  const totalIncome = psGrandTotal + tpGrandTotal;
   const bananaTotal = bananaQty * BANANA_RATE;
   const dahiBharTotal = dahiBharQty * dahiBharRate;
   const totalExpense = bananaTotal + dahiBharTotal + otherExpense;
   const balance = totalIncome - totalExpense;
 
   const payload = {
-    incomeMorningQty: morningQty, incomeLunchQty: lunchQty,
-    incomeEveningQty: eveningQty, incomeNightQty: nightQty,
-    incomeNonVegRate: nonVegRate, incomeNonVegQty: nonVegQty,
-    incomeVegRate: vegRate, incomeVegQty: vegQty,
-    incomeMorningCashRate: morningCashRate, incomeMorningCashQty: morningCashQty,
-    incomeEveningCashRate: eveningCashRate, incomeEveningCashQty: eveningCashQty,
-    incomeOnlineBreakfastQty: onlineBreakfastQty, incomeOnlineLunchQty: onlineLunchQty,
-    incomeOnlineEveningSnacksQty: onlineEveningSnacksQty, incomeOnlineNightQty: onlineNightQty,
+    incomePsBreakfastCashQty: psBfCash, incomePsLunchCashQty: psLnCash,
+    incomePsEveningCashQty: psEvCash, incomePsNightCashQty: psNtCash,
+    incomePsRechargeRate: psRcRate, incomePsRechargeCashQty: psRcCash,
+    incomePsBreakfastOnlineQty: psBfOnline, incomePsLunchOnlineQty: psLnOnline,
+    incomePsEveningOnlineQty: psEvOnline, incomePsNightOnlineQty: psNtOnline,
+    incomePsRechargeOnlineQty: psRcOnline,
+    incomeTpBreakfastCashQty: tpBfCash, incomeTpLunchVegCashQty: tpLvCash,
+    incomeTpLunchNvRate: tpNvRate, incomeTpLunchNvCashQty: tpNvCash,
+    incomeTpEveningCashQty: tpEvCash, incomeTpNightCashQty: tpNtCash,
+    incomeTpBreakfastOnlineQty: tpBfOnline, incomeTpLunchVegOnlineQty: tpLvOnline,
+    incomeTpLunchNvOnlineQty: tpNvOnline, incomeTpEveningOnlineQty: tpEvOnline,
+    incomeTpNightOnlineQty: tpNtOnline,
     expenseBananaQty: bananaQty, expenseDahiBharQty: dahiBharQty,
     expenseDahiBharRate: dahiBharRate, expenseOtherAmount: otherExpense,
     totalGivenToAkbarAli: akbarAliAmount,
@@ -180,10 +451,10 @@ export default function CashSeal() {
     try {
       if (editId) {
         await updateMutation.mutateAsync({ id: editId, data: payload });
-        toast({ title: "Success", description: "Cash Seal KPF record updated successfully" });
+        toast({ title: "Updated", description: "Cash Seal KPF record updated successfully" });
       } else {
         await saveMutation.mutateAsync({ date: format(date, 'yyyy-MM-dd'), ...payload });
-        toast({ title: "Success", description: "Daily Cash Seal KPF saved successfully" });
+        toast({ title: "Saved", description: "Cash Seal KPF saved successfully" });
       }
       setView("list");
       setEditId(null);
@@ -193,572 +464,274 @@ export default function CashSeal() {
   };
 
   const isPending = saveMutation.isPending || updateMutation.isPending;
-  const fmt = (n: number) => n.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
   const formatDate = (d: string) => {
     try {
       const dt = d.includes("T") ? parseISO(d) : new Date(d + "T00:00:00");
-      return { date: format(dt, "dd/MM/yyyy"), day: format(dt, "EEE") };
-    } catch { return { date: d, day: "" }; }
+      return format(dt, "dd MMM yyyy");
+    } catch { return d; }
   };
 
+  // ─────────────────────────────────────────────────────────────────
+  // LIST VIEW
+  // ─────────────────────────────────────────────────────────────────
+  if (view === "list") {
+    return (
+      <Layout>
+        <div className="max-w-5xl mx-auto px-3 sm:px-6 py-4 sm:py-6">
+          {/* Header */}
+          <div className="flex items-center justify-between mb-5">
+            <div>
+              <h1 className="text-xl sm:text-2xl font-bold text-slate-800 dark:text-slate-100">Daily Cash Seal KPF</h1>
+              <p className="text-xs sm:text-sm text-slate-500 dark:text-slate-400 mt-0.5">Permanent Staff & Third Party records</p>
+            </div>
+            <Button onClick={handleNew} size="sm" className="bg-teal-600 hover:bg-teal-700 text-white gap-1.5" data-testid="button-new-seal">
+              <Plus className="w-4 h-4" />
+              <span className="hidden sm:inline">New Entry</span>
+              <span className="sm:hidden">New</span>
+            </Button>
+          </div>
+
+          {recordsLoading ? (
+            <div className="flex items-center justify-center py-16">
+              <Loader2 className="w-8 h-8 animate-spin text-teal-600" />
+            </div>
+          ) : (records as any[]).length === 0 ? (
+            <div className="text-center py-16 text-slate-400">
+              <IndianRupee className="w-12 h-12 mx-auto mb-3 opacity-30" />
+              <p className="text-sm">No records yet. Create your first entry.</p>
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {(records as any[]).map((seal: any) => {
+                const { income, expense, balance } = calcTotals(seal);
+                return (
+                  <div key={seal.id} className="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm hover:shadow-md transition-shadow p-3 sm:p-4">
+                    <div className="flex items-center justify-between mb-3">
+                      <div className="flex items-center gap-2">
+                        <div className="w-8 h-8 rounded-lg bg-teal-100 dark:bg-teal-900/40 flex items-center justify-center">
+                          <IndianRupee className="w-4 h-4 text-teal-600" />
+                        </div>
+                        <div>
+                          <div className="font-semibold text-sm text-slate-800 dark:text-slate-100">{formatDate(seal.date || "")}</div>
+                          <div className="text-xs text-slate-400">ID #{seal.id}</div>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-1.5">
+                        <Button size="sm" variant="ghost" className="h-7 text-xs text-teal-600 hover:bg-teal-50 dark:hover:bg-teal-900/20 gap-1" onClick={() => handleEdit(seal)} data-testid={`button-edit-seal-${seal.id}`}>
+                          <Pencil className="w-3.5 h-3.5" /><span className="hidden sm:inline">Edit</span>
+                        </Button>
+                        <Button size="sm" variant="ghost" className="h-7 text-xs text-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-900/20 gap-1" onClick={() => navigate(`/cash-seal/${seal.id}/pdf`)} data-testid={`button-pdf-seal-${seal.id}`}>
+                          <FileDown className="w-3.5 h-3.5" /><span className="hidden sm:inline">PDF</span>
+                        </Button>
+                      </div>
+                    </div>
+                    <div className="grid grid-cols-3 gap-2">
+                      <div className="bg-emerald-50 dark:bg-emerald-900/20 rounded-lg p-2 text-center">
+                        <div className="text-xs text-emerald-600 font-medium mb-0.5">Income</div>
+                        <div className="text-sm font-bold font-mono text-emerald-700">{fmt(income)}</div>
+                      </div>
+                      <div className="bg-rose-50 dark:bg-rose-900/20 rounded-lg p-2 text-center">
+                        <div className="text-xs text-rose-600 font-medium mb-0.5">Expense</div>
+                        <div className="text-sm font-bold font-mono text-rose-700">{fmt(expense)}</div>
+                      </div>
+                      <div className={`rounded-lg p-2 text-center ${balance >= 0 ? "bg-blue-50 dark:bg-blue-900/20" : "bg-orange-50 dark:bg-orange-900/20"}`}>
+                        <div className={`text-xs font-medium mb-0.5 ${balance >= 0 ? "text-blue-600" : "text-orange-600"}`}>Balance</div>
+                        <div className={`text-sm font-bold font-mono ${balance >= 0 ? "text-blue-700" : "text-orange-700"}`}>{fmt(balance)}</div>
+                      </div>
+                    </div>
+                    {Number(seal.totalGivenToAkbarAli) > 0 && (
+                      <div className="mt-2 text-right text-xs text-orange-600">
+                        Akbar Ali: <span className="font-mono font-semibold">{fmt(Number(seal.totalGivenToAkbarAli))}</span>
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      </Layout>
+    );
+  }
+
+  // ─────────────────────────────────────────────────────────────────
+  // FORM VIEW
+  // ─────────────────────────────────────────────────────────────────
   return (
     <Layout>
-      <div className="space-y-6 pb-32 sm:pb-8">
+      <div className="max-w-4xl mx-auto px-3 sm:px-6 py-4 sm:py-6 space-y-4">
+
         {/* Header */}
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-          <div className="flex items-center gap-3 sm:gap-4">
-            <Button variant="outline" size="icon" onClick={handleBack} type="button"
-              className="shrink-0 rounded-xl border-teal-200 hover:bg-teal-50 dark:border-teal-800 dark:hover:bg-teal-900/30" data-testid="button-back">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <Button variant="ghost" size="sm" onClick={handleBack} className="h-8 px-2" data-testid="button-back">
               <ArrowLeft className="w-4 h-4" />
             </Button>
-            <div className="min-w-0">
-              <h1 className="text-lg sm:text-2xl font-bold tracking-tight bg-gradient-to-r from-teal-600 via-cyan-600 to-blue-500 bg-clip-text text-transparent" data-testid="text-page-title">
-                CASH SEAL KPF
+            <div>
+              <h1 className="text-lg sm:text-xl font-bold text-slate-800 dark:text-slate-100">
+                {editId ? "Edit Cash Seal KPF" : "New Cash Seal KPF"}
               </h1>
-              <p className="text-muted-foreground text-xs sm:text-sm">
-                {view === "list" ? "Daily Cash Seal Records" : editId ? "Edit Cash Seal Record" : "New Cash Seal Record"}
-              </p>
+              <p className="text-xs text-slate-500">Daily income & expense record</p>
             </div>
           </div>
-          <div className="flex gap-2 sm:gap-3 ml-12 sm:ml-0">
-            {view === "list" ? (
-              <Button onClick={handleNew}
-                className="shadow-lg shadow-teal-500/20 text-xs sm:text-sm h-9 sm:h-10 rounded-xl bg-gradient-to-r from-teal-500 to-cyan-600 hover:from-teal-600 hover:to-cyan-700 border-0"
-                data-testid="button-new-seal">
-                <Plus className="w-4 h-4 mr-2" /> New Record
-              </Button>
-            ) : (
-              <>
-                <Button variant="outline" type="button" onClick={() => { setView("list"); setEditId(null); }} className="text-xs sm:text-sm h-9 sm:h-10 rounded-xl">
-                  Cancel
-                </Button>
-                <Button onClick={handleSave} disabled={isPending}
-                  className="shadow-lg shadow-teal-500/20 text-xs sm:text-sm h-9 sm:h-10 rounded-xl bg-gradient-to-r from-teal-500 to-cyan-600 hover:from-teal-600 hover:to-cyan-700 border-0"
-                  data-testid="button-save-seal">
-                  {isPending ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Save className="w-4 h-4 mr-2" />}
-                  {editId ? "Update Seal" : "Save Seal"}
-                </Button>
-              </>
-            )}
+          <Button onClick={handleSave} disabled={isPending} size="sm" className="bg-teal-600 hover:bg-teal-700 text-white gap-1.5" data-testid="button-save-seal">
+            {isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
+            {editId ? "Update" : "Save"}
+          </Button>
+        </div>
+
+        {/* Date */}
+        {!editId && (
+          <div className="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 p-3 sm:p-4 flex items-center gap-3">
+            <div className="text-xs font-semibold text-slate-500 uppercase tracking-wide w-10">Date</div>
+            <DatePicker date={date} onDateChange={(d) => d && setDate(d)} />
+          </div>
+        )}
+
+        {/* ── PERMANENT STAFF SECTION ─────────────────────────── */}
+        <div className="bg-white dark:bg-slate-800 rounded-xl border border-blue-200 dark:border-blue-800 overflow-hidden shadow-sm">
+          {/* Section header */}
+          <div className="bg-gradient-to-r from-blue-600 to-blue-500 px-4 py-3 flex items-center gap-2">
+            <Users className="w-4 h-4 text-white" />
+            <h2 className="text-sm font-bold text-white tracking-wide">Permanent Staff</h2>
+          </div>
+
+          <div className="overflow-x-auto">
+            <table className="w-full">
+              <SectionTableHeader color="blue" />
+              <tbody>
+                <PsRow no={1} name="Breakfast" rate={PS_RATES.bf} cashQty={psBfCash} onCashQty={setPsBfCash} onlineQty={psBfOnline} onOnlineQty={setPsBfOnline} />
+                <PsRow no={2} name="Lunch" rate={PS_RATES.ln} cashQty={psLnCash} onCashQty={setPsLnCash} onlineQty={psLnOnline} onOnlineQty={setPsLnOnline} />
+                <PsRow no={3} name="Evening Snacks" rate={PS_RATES.ev} cashQty={psEvCash} onCashQty={setPsEvCash} onlineQty={psEvOnline} onOnlineQty={setPsEvOnline} />
+                <PsRow no={4} name="Night Snacks" rate={PS_RATES.nt} cashQty={psNtCash} onCashQty={setPsNtCash} onlineQty={psNtOnline} onOnlineQty={setPsNtOnline} />
+                <PsRow no={5} name="Recharge" rate={null} cashQty={psRcCash} onCashQty={setPsRcCash} onlineQty={psRcOnline} onOnlineQty={setPsRcOnline} customRate={psRcRate} onCustomRate={setPsRcRate} />
+                <SectionTotalRow cashTotal={psTotalCash} onlineTotal={psTotalOnline} color="blue" />
+              </tbody>
+            </table>
           </div>
         </div>
 
-        {/* LIST VIEW */}
-        {view === "list" && (
-          <Card className="border-0 shadow-lg overflow-hidden" data-testid="card-records-list">
-            <CardHeader className="bg-gradient-to-r from-teal-600 to-cyan-600 text-white pb-3 pt-4">
-              <CardTitle className="flex items-center gap-2 text-base">
-                <List className="w-5 h-5" />
-                Daily Cash Seal Records
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="p-0">
-              {recordsLoading ? (
-                <div className="flex items-center justify-center py-12">
-                  <Loader2 className="w-6 h-6 animate-spin text-teal-500" />
-                </div>
-              ) : records.length === 0 ? (
-                <div className="text-center py-12 text-muted-foreground">
-                  <CalendarDays className="w-10 h-10 mx-auto mb-3 opacity-30" />
-                  <p className="text-sm">No records yet. Click "New Record" to add one.</p>
-                </div>
-              ) : (
-                <>
-                  {/* Mobile cards */}
-                  <div className="sm:hidden divide-y">
-                    {(records as any[]).map((rec: any) => {
-                      const { date: dStr, day } = formatDate(rec.date);
-                      const { income, expense, balance: bal } = calcTotals(rec);
-                      return (
-                        <div key={rec.id} className="p-3 space-y-2">
-                          <div className="flex items-center justify-between">
-                            <div>
-                              <span className="font-semibold text-sm">{dStr}</span>
-                              <span className="ml-2 text-xs text-muted-foreground">{day}</span>
-                            </div>
-                            <Button size="sm" variant="outline" onClick={() => handleEdit(rec)}
-                              className="h-7 text-xs border-teal-200 text-teal-700 hover:bg-teal-50 dark:border-teal-800 dark:text-teal-400"
-                              data-testid={`button-edit-seal-${rec.id}`}>
-                              <Pencil className="w-3 h-3 mr-1" /> Edit
-                            </Button>
-                          </div>
-                          <div className="grid grid-cols-3 gap-2 text-center text-xs">
-                            <div className="bg-emerald-50 dark:bg-emerald-900/20 rounded p-1.5">
-                              <p className="text-muted-foreground">Income</p>
-                              <p className="font-mono font-semibold text-emerald-600 dark:text-emerald-400">₹{fmt(income)}</p>
-                            </div>
-                            <div className="bg-rose-50 dark:bg-rose-900/20 rounded p-1.5">
-                              <p className="text-muted-foreground">Expense</p>
-                              <p className="font-mono font-semibold text-rose-600 dark:text-rose-400">₹{fmt(expense)}</p>
-                            </div>
-                            <div className={`${bal >= 0 ? 'bg-blue-50 dark:bg-blue-900/20' : 'bg-red-50 dark:bg-red-900/20'} rounded p-1.5`}>
-                              <p className="text-muted-foreground">Balance</p>
-                              <p className={`font-mono font-semibold ${bal >= 0 ? 'text-blue-600 dark:text-blue-400' : 'text-red-600 dark:text-red-400'}`}>₹{fmt(bal)}</p>
-                            </div>
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                  {/* Desktop table */}
-                  <div className="hidden sm:block overflow-x-auto">
-                    <table className="w-full border-collapse min-w-[600px]">
-                      <thead>
-                        <tr className="bg-teal-50 dark:bg-teal-950/20 border-b border-teal-200 dark:border-teal-800">
-                          <th className="px-4 py-2.5 text-left text-xs font-semibold text-teal-700 dark:text-teal-400">Date</th>
-                          <th className="px-4 py-2.5 text-left text-xs font-semibold text-teal-700 dark:text-teal-400">Day</th>
-                          <th className="px-4 py-2.5 text-right text-xs font-semibold text-teal-700 dark:text-teal-400">Total Income</th>
-                          <th className="px-4 py-2.5 text-right text-xs font-semibold text-teal-700 dark:text-teal-400">Total Expense</th>
-                          <th className="px-4 py-2.5 text-right text-xs font-semibold text-teal-700 dark:text-teal-400">Balance</th>
-                          <th className="px-4 py-2.5 text-right text-xs font-semibold text-teal-700 dark:text-teal-400">Akbar Ali</th>
-                          <th className="px-4 py-2.5 text-center text-xs font-semibold text-teal-700 dark:text-teal-400">Action</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {(records as any[]).map((rec: any) => {
-                          const { date: dStr, day } = formatDate(rec.date);
-                          const { income, expense, balance: bal } = calcTotals(rec);
-                          return (
-                            <tr key={rec.id} className="border-b hover:bg-teal-50/50 dark:hover:bg-teal-950/10">
-                              <td className="px-4 py-2.5 font-semibold text-sm">{dStr}</td>
-                              <td className="px-4 py-2.5 text-muted-foreground text-sm">{day}</td>
-                              <td className="px-4 py-2.5 text-right font-mono text-sm font-semibold text-emerald-600 dark:text-emerald-400">₹{fmt(income)}</td>
-                              <td className="px-4 py-2.5 text-right font-mono text-sm font-semibold text-rose-600 dark:text-rose-400">₹{fmt(expense)}</td>
-                              <td className={`px-4 py-2.5 text-right font-mono text-sm font-semibold ${bal >= 0 ? 'text-blue-600 dark:text-blue-400' : 'text-red-600 dark:text-red-400'}`}>₹{fmt(bal)}</td>
-                              <td className="px-4 py-2.5 text-right font-mono text-sm text-amber-600 dark:text-amber-400">₹{fmt(Number(rec.totalGivenToAkbarAli) || 0)}</td>
-                              <td className="px-4 py-2.5 text-center">
-                                <Button size="sm" variant="outline" onClick={() => handleEdit(rec)}
-                                  className="h-7 text-xs border-teal-200 text-teal-700 hover:bg-teal-50 dark:border-teal-800 dark:text-teal-400"
-                                  data-testid={`button-edit-seal-${rec.id}`}>
-                                  <Pencil className="w-3 h-3 mr-1" /> Edit
-                                </Button>
-                              </td>
-                            </tr>
-                          );
-                        })}
-                      </tbody>
-                    </table>
-                  </div>
-                </>
-              )}
-            </CardContent>
-          </Card>
-        )}
+        {/* ── THIRD PARTY SECTION ─────────────────────────────── */}
+        <div className="bg-white dark:bg-slate-800 rounded-xl border border-green-200 dark:border-green-800 overflow-hidden shadow-sm">
+          {/* Section header */}
+          <div className="bg-gradient-to-r from-green-600 to-green-500 px-4 py-3 flex items-center gap-2">
+            <UserPlus className="w-4 h-4 text-white" />
+            <h2 className="text-sm font-bold text-white tracking-wide">Third Party</h2>
+          </div>
 
-        {/* FORM VIEW */}
-        {view === "form" && (
-          <>
-            <Card className="border-0 shadow-lg overflow-hidden" data-testid="card-date-info">
-              <CardHeader className="bg-gradient-to-r from-slate-600 to-slate-700 text-white pb-3 pt-4">
-                <CardTitle className="flex items-center gap-2 text-base">
-                  <CalendarDays className="w-5 h-5" /> Date Information
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="grid sm:grid-cols-2 gap-4 p-4 sm:p-6 bg-gradient-to-b from-slate-50/50 to-transparent dark:from-slate-900/20">
-                <div className="space-y-2">
-                  <label className="text-sm font-semibold text-slate-600 dark:text-slate-400 flex items-center gap-1.5">
-                    <CalendarDays className="w-3.5 h-3.5" /> Date
-                  </label>
-                  {editId ? (
-                    <Input value={format(date, "dd/MM/yyyy")} readOnly className="bg-slate-50 dark:bg-slate-900/20 font-semibold" />
-                  ) : (
-                    <DatePicker date={date} setDate={(d) => d && setDate(d)} />
-                  )}
-                </div>
-                <div className="space-y-2">
-                  <label className="text-sm font-semibold text-cyan-600 dark:text-cyan-400 flex items-center gap-1.5">
-                    <Sun className="w-3.5 h-3.5" /> Week Day
-                  </label>
-                  <Input value={format(date, "EEEE")} readOnly className="bg-cyan-50 dark:bg-cyan-900/20 border-cyan-200 dark:border-cyan-800 font-semibold" />
-                </div>
-              </CardContent>
-            </Card>
+          <div className="overflow-x-auto">
+            <table className="w-full">
+              <SectionTableHeader color="green" />
+              <tbody>
+                <TpRow no={1} name="Breakfast" rate={TP_RATES.bf} cashQty={tpBfCash} onCashQty={setTpBfCash} onlineQty={tpBfOnline} onOnlineQty={setTpBfOnline} />
+                <TpRow no={2} name="Lunch Veg" rate={TP_RATES.lv} cashQty={tpLvCash} onCashQty={setTpLvCash} onlineQty={tpLvOnline} onOnlineQty={setTpLvOnline} />
+                <TpRow no={3} name="Lunch Non Veg" rate={null} cashQty={tpNvCash} onCashQty={setTpNvCash} onlineQty={tpNvOnline} onOnlineQty={setTpNvOnline} customRate={tpNvRate} onCustomRate={setTpNvRate} />
+                <TpRow no={4} name="Evening Snacks" rate={TP_RATES.ev} cashQty={tpEvCash} onCashQty={setTpEvCash} onlineQty={tpEvOnline} onOnlineQty={setTpEvOnline} />
+                <TpRow no={5} name="Night" rate={TP_RATES.nt} cashQty={tpNtCash} onCashQty={setTpNtCash} onlineQty={tpNtOnline} onOnlineQty={setTpNtOnline} />
+                <SectionTotalRow cashTotal={tpTotalCash} onlineTotal={tpTotalOnline} color="green" />
+              </tbody>
+            </table>
+          </div>
+        </div>
 
-            {/* INCOME CARD */}
-            <Card className="border-0 shadow-lg overflow-hidden" data-testid="card-income">
-              <CardHeader className="bg-gradient-to-r from-emerald-500 to-teal-500 text-white pb-3 pt-4">
-                <CardTitle className="flex items-center gap-2 text-base sm:text-lg">
-                  <TrendingUp className="w-5 h-5" /> INCOME
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="p-0">
-                <div className="sm:hidden divide-y">
-                  {[
-                    { name: "MORNING", icon: Coffee, rate: MORNING_RATE, qty: morningQty, setQty: setMorningQty, total: morningTotal, color: "amber" },
-                    { name: "LUNCH", icon: UtensilsCrossed, rate: LUNCH_RATE, qty: lunchQty, setQty: setLunchQty, total: lunchTotal, color: "orange" },
-                    { name: "EVENING", icon: Sun, rate: EVENING_RATE, qty: eveningQty, setQty: setEveningQty, total: eveningTotal, color: "rose" },
-                    { name: "NIGHT", icon: Moon, rate: NIGHT_RATE, qty: nightQty, setQty: setNightQty, total: nightTotal, color: "indigo" },
-                  ].map((item, idx) => (
-                    <div key={item.name} className="p-3 space-y-2">
-                      <div className="flex items-center justify-between">
-                        <span className="font-semibold text-sm flex items-center gap-1.5">
-                          <span className="w-6 h-6 rounded-full bg-gradient-to-br from-emerald-400 to-teal-500 text-white text-[10px] flex items-center justify-center font-bold shrink-0">{idx + 1}</span>
-                          {item.name}
-                        </span>
-                        <span className="text-xs text-emerald-600 dark:text-emerald-400 font-mono bg-emerald-50 dark:bg-emerald-900/20 px-2 py-0.5 rounded-full font-semibold">Rate: ₹{item.rate}</span>
-                      </div>
-                      <div className="grid grid-cols-3 gap-2 items-end">
-                        <div>
-                          <label className="text-[10px] text-muted-foreground uppercase font-semibold">Qty</label>
-                          <Input type="number" inputMode="numeric" className="h-9 font-mono text-center no-spinner" value={item.qty || ""} onFocus={(e) => e.target.select()} onChange={(e) => item.setQty(Number(e.target.value) || 0)} />
-                        </div>
-                        <div className="text-center text-muted-foreground text-sm py-2">× ₹{item.rate} =</div>
-                        <div>
-                          <label className="text-[10px] text-muted-foreground uppercase font-semibold">Total</label>
-                          <div className="h-9 flex items-center justify-end font-mono font-bold text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-900/20 rounded-md px-2 text-sm">₹{fmt(item.total)}</div>
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-                  <div className="px-3 pt-2 pb-1">
-                    <p className="text-[10px] text-emerald-600 font-semibold uppercase tracking-wider">Cash Items (custom rate)</p>
-                  </div>
-                  {[
-                    { name: "CASH Non Veg", rate: nonVegRate, setRate: setNonVegRate, qty: nonVegQty, setQty: setNonVegQty, total: nonVegTotal },
-                    { name: "CASH Veg", rate: vegRate, setRate: setVegRate, qty: vegQty, setQty: setVegQty, total: vegTotal },
-                    { name: "Morning CASH", rate: morningCashRate, setRate: setMorningCashRate, qty: morningCashQty, setQty: setMorningCashQty, total: morningCashTotal },
-                    { name: "Evening CASH", rate: eveningCashRate, setRate: setEveningCashRate, qty: eveningCashQty, setQty: setEveningCashQty, total: eveningCashTotal },
-                  ].map((item, idx) => (
-                    <div key={item.name} className="p-3 space-y-2">
-                      <div className="flex items-center gap-1.5">
-                        <span className="w-6 h-6 rounded-full bg-gradient-to-br from-cyan-400 to-blue-500 text-white text-[10px] flex items-center justify-center font-bold shrink-0">{idx + 5}</span>
-                        <span className="font-semibold text-sm">{item.name}</span>
-                      </div>
-                      <div className="grid grid-cols-3 gap-2">
-                        <div>
-                          <label className="text-[10px] text-muted-foreground uppercase font-semibold">Rate ₹</label>
-                          <Input type="number" inputMode="decimal" className="h-9 font-mono text-center no-spinner" placeholder="0" value={item.rate || ""} onFocus={(e) => e.target.select()} onChange={(e) => item.setRate(Number(e.target.value) || 0)} />
-                        </div>
-                        <div>
-                          <label className="text-[10px] text-muted-foreground uppercase font-semibold">Qty</label>
-                          <Input type="number" inputMode="numeric" className="h-9 font-mono text-center no-spinner" value={item.qty || ""} onFocus={(e) => e.target.select()} onChange={(e) => item.setQty(Number(e.target.value) || 0)} />
-                        </div>
-                        <div>
-                          <label className="text-[10px] text-muted-foreground uppercase font-semibold">Total</label>
-                          <div className="h-9 flex items-center justify-end font-mono font-bold text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-900/20 rounded-md px-2 text-sm">₹{fmt(item.total)}</div>
-                        </div>
-                      </div>
-                    </div>
-                  ))}
+        {/* Grand Total Income */}
+        <div className="bg-gradient-to-r from-slate-700 to-slate-600 dark:from-slate-700 dark:to-slate-800 rounded-xl p-3 sm:p-4 flex items-center justify-between shadow">
+          <div className="flex items-center gap-2 text-white">
+            <TrendingUp className="w-5 h-5 text-emerald-400" />
+            <span className="font-bold text-sm sm:text-base">Grand Total Income</span>
+            <span className="text-xs text-slate-300">(PS + Third Party)</span>
+          </div>
+          <span className="text-lg sm:text-xl font-bold font-mono text-emerald-400">{fmt(totalIncome)}</span>
+        </div>
 
-                  {/* Online Payment — mobile */}
-                  <div className="px-3 pt-3 pb-1 bg-indigo-50/50 dark:bg-indigo-950/10 border-t border-indigo-200 dark:border-indigo-800/40">
-                    <p className="text-[10px] text-indigo-700 dark:text-indigo-400 font-semibold uppercase tracking-wider">Online Payment</p>
-                  </div>
-                  {[
-                    { name: "Breakfast", rate: MORNING_RATE, qty: onlineBreakfastQty, setQty: setOnlineBreakfastQty, total: onlineBreakfastTotal },
-                    { name: "Lunch", rate: LUNCH_RATE, qty: onlineLunchQty, setQty: setOnlineLunchQty, total: onlineLunchTotal },
-                    { name: "Evening Snacks", rate: EVENING_RATE, qty: onlineEveningSnacksQty, setQty: setOnlineEveningSnacksQty, total: onlineEveningSnacksTotal },
-                    { name: "Night", rate: NIGHT_RATE, qty: onlineNightQty, setQty: setOnlineNightQty, total: onlineNightTotal },
-                  ].map((item, idx) => (
-                    <div key={"online-" + item.name} className="p-3 space-y-2 border-t border-indigo-100 dark:border-indigo-900/20">
-                      <div className="flex items-center justify-between">
-                        <span className="font-semibold text-sm flex items-center gap-1.5">
-                          <span className="w-6 h-6 rounded-full bg-gradient-to-br from-indigo-400 to-violet-500 text-white text-[10px] flex items-center justify-center font-bold shrink-0">{idx + 1}</span>
-                          {item.name}
-                        </span>
-                        <span className="text-xs text-indigo-600 dark:text-indigo-400 font-mono bg-indigo-50 dark:bg-indigo-900/20 px-2 py-0.5 rounded-full font-semibold">₹{item.rate}</span>
-                      </div>
-                      <div className="grid grid-cols-3 gap-2 items-end">
-                        <div>
-                          <label className="text-[10px] text-muted-foreground uppercase font-semibold">Qty</label>
-                          <Input type="number" inputMode="numeric" className="h-9 font-mono text-center no-spinner" value={item.qty || ""} onFocus={(e) => e.target.select()} onChange={(e) => item.setQty(Number(e.target.value) || 0)} />
-                        </div>
-                        <div className="text-center text-muted-foreground text-sm py-2">× ₹{item.rate} =</div>
-                        <div>
-                          <label className="text-[10px] text-muted-foreground uppercase font-semibold">Total</label>
-                          <div className="h-9 flex items-center justify-end font-mono font-bold text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-900/20 rounded-md px-2 text-sm">₹{fmt(item.total)}</div>
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-
-                <div className="hidden sm:block overflow-x-auto">
-                  <table className="w-full border-collapse min-w-[500px]">
-                    <thead>
-                      <tr className="bg-emerald-50 dark:bg-emerald-950/20 border-b border-emerald-200 dark:border-emerald-800">
-                        <th className="px-3 py-2.5 text-left text-xs font-semibold text-emerald-700 dark:text-emerald-400">#</th>
-                        <th className="px-3 py-2.5 text-left text-xs font-semibold text-emerald-700 dark:text-emerald-400">Name</th>
-                        <th className="px-3 py-2.5 text-center w-24 text-xs font-semibold text-emerald-700 dark:text-emerald-400">Rate</th>
-                        <th className="px-3 py-2.5 text-center w-8 text-xs"></th>
-                        <th className="px-3 py-2.5 text-center w-28 text-xs font-semibold text-emerald-700 dark:text-emerald-400">Qty</th>
-                        <th className="px-3 py-2.5 text-center w-8 text-xs"></th>
-                        <th className="px-3 py-2.5 text-right w-36 text-xs font-semibold text-emerald-700 dark:text-emerald-400">Total</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {[
-                        { name: "MORNING", rate: MORNING_RATE, qty: morningQty, setQty: setMorningQty, total: morningTotal },
-                        { name: "LUNCH", rate: LUNCH_RATE, qty: lunchQty, setQty: setLunchQty, total: lunchTotal },
-                        { name: "EVENING", rate: EVENING_RATE, qty: eveningQty, setQty: setEveningQty, total: eveningTotal },
-                        { name: "NIGHT", rate: NIGHT_RATE, qty: nightQty, setQty: setNightQty, total: nightTotal },
-                      ].map((item, idx) => (
-                        <tr key={item.name} className="border-b hover:bg-emerald-50/50 dark:hover:bg-emerald-950/10">
-                          <td className="px-3 py-2">
-                            <span className="w-6 h-6 rounded-full bg-gradient-to-br from-emerald-400 to-teal-500 text-white text-[10px] inline-flex items-center justify-center font-bold">{idx + 1}</span>
-                          </td>
-                          <td className="px-3 py-2 font-semibold">{item.name}</td>
-                          <td className="px-3 py-2 text-center font-mono">
-                            <span className="bg-emerald-50 dark:bg-emerald-900/20 text-emerald-700 dark:text-emerald-400 px-2 py-0.5 rounded-full text-xs font-semibold">₹{item.rate}</span>
-                          </td>
-                          <td className="px-1 py-2 text-center text-muted-foreground text-xs">×</td>
-                          <td className="px-2 py-1">
-                            <Input type="number" className="h-8 text-center font-mono no-spinner" value={item.qty || ""} onFocus={(e) => e.target.select()} onChange={(e) => item.setQty(Number(e.target.value) || 0)} />
-                          </td>
-                          <td className="px-1 py-2 text-center text-muted-foreground text-xs">=</td>
-                          <td className="px-3 py-2 text-right font-mono font-semibold text-emerald-600 dark:text-emerald-400">₹{fmt(item.total)}</td>
-                        </tr>
-                      ))}
-                      {[
-                        { name: "CASH Non Veg", rate: nonVegRate, setRate: setNonVegRate, qty: nonVegQty, setQty: setNonVegQty, total: nonVegTotal },
-                        { name: "CASH Veg", rate: vegRate, setRate: setVegRate, qty: vegQty, setQty: setVegQty, total: vegTotal },
-                        { name: "Morning CASH", rate: morningCashRate, setRate: setMorningCashRate, qty: morningCashQty, setQty: setMorningCashQty, total: morningCashTotal },
-                        { name: "Evening CASH", rate: eveningCashRate, setRate: setEveningCashRate, qty: eveningCashQty, setQty: setEveningCashQty, total: eveningCashTotal },
-                      ].map((item, idx) => (
-                        <tr key={item.name} className="border-b hover:bg-cyan-50/50 dark:hover:bg-cyan-950/10">
-                          <td className="px-3 py-2">
-                            <span className="w-6 h-6 rounded-full bg-gradient-to-br from-cyan-400 to-blue-500 text-white text-[10px] inline-flex items-center justify-center font-bold">{idx + 5}</span>
-                          </td>
-                          <td className="px-3 py-2 font-semibold">{item.name}</td>
-                          <td className="px-2 py-1">
-                            <Input type="number" placeholder="Rate" className="h-8 text-center font-mono no-spinner" value={item.rate || ""} onFocus={(e) => e.target.select()} onChange={(e) => item.setRate(Number(e.target.value) || 0)} />
-                          </td>
-                          <td className="px-1 py-2 text-center text-muted-foreground text-xs">×</td>
-                          <td className="px-2 py-1">
-                            <Input type="number" className="h-8 text-center font-mono no-spinner" value={item.qty || ""} onFocus={(e) => e.target.select()} onChange={(e) => item.setQty(Number(e.target.value) || 0)} />
-                          </td>
-                          <td className="px-1 py-2 text-center text-muted-foreground text-xs">=</td>
-                          <td className="px-3 py-2 text-right font-mono font-semibold text-cyan-600 dark:text-cyan-400">₹{fmt(item.total)}</td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-
-                {/* Online Payment — desktop */}
-                <div className="border-t border-indigo-200 dark:border-indigo-800/40">
-                  <div className="px-3 py-2 bg-indigo-50 dark:bg-indigo-950/20 flex items-center justify-between">
-                    <p className="text-xs text-indigo-700 dark:text-indigo-400 font-semibold uppercase tracking-wider">Online Payment</p>
-                    <span className="font-mono text-xs font-semibold text-indigo-600 dark:text-indigo-400 bg-indigo-100 dark:bg-indigo-900/30 px-2 py-0.5 rounded-full">Total: ₹{fmt(totalOnlinePayment)}</span>
-                  </div>
-                  <table className="w-full border-collapse min-w-[500px]">
-                    <tbody>
-                      {[
-                        { name: "Breakfast", rate: MORNING_RATE, qty: onlineBreakfastQty, setQty: setOnlineBreakfastQty, total: onlineBreakfastTotal },
-                        { name: "Lunch", rate: LUNCH_RATE, qty: onlineLunchQty, setQty: setOnlineLunchQty, total: onlineLunchTotal },
-                        { name: "Evening Snacks", rate: EVENING_RATE, qty: onlineEveningSnacksQty, setQty: setOnlineEveningSnacksQty, total: onlineEveningSnacksTotal },
-                        { name: "Night", rate: NIGHT_RATE, qty: onlineNightQty, setQty: setOnlineNightQty, total: onlineNightTotal },
-                      ].map((item, idx) => (
-                        <tr key={item.name} className="border-b hover:bg-indigo-50/50 dark:hover:bg-indigo-950/10">
-                          <td className="px-3 py-2 w-10">
-                            <span className="w-6 h-6 rounded-full bg-gradient-to-br from-indigo-400 to-violet-500 text-white text-[10px] inline-flex items-center justify-center font-bold">{idx + 1}</span>
-                          </td>
-                          <td className="px-3 py-2 font-semibold">{item.name}</td>
-                          <td className="px-3 py-2 text-center font-mono w-24">
-                            <span className="bg-indigo-50 dark:bg-indigo-900/20 text-indigo-700 dark:text-indigo-400 px-2 py-0.5 rounded-full text-xs font-semibold">₹{item.rate}</span>
-                          </td>
-                          <td className="px-1 py-2 text-center text-muted-foreground text-xs w-8">×</td>
-                          <td className="px-2 py-1 w-28">
-                            <Input type="number" className="h-8 text-center font-mono no-spinner" value={item.qty || ""} onFocus={(e) => e.target.select()} onChange={(e) => item.setQty(Number(e.target.value) || 0)} />
-                          </td>
-                          <td className="px-1 py-2 text-center text-muted-foreground text-xs w-8">=</td>
-                          <td className="px-3 py-2 text-right font-mono font-semibold text-indigo-600 dark:text-indigo-400 w-36">₹{fmt(item.total)}</td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-
-                <div className="p-3 sm:p-4 bg-gradient-to-r from-emerald-50 to-teal-50 dark:from-emerald-950/20 dark:to-teal-950/20 border-t border-emerald-200 dark:border-emerald-800/30 flex justify-end">
-                  <div className="text-sm font-semibold flex items-center gap-2">
-                    <TrendingUp className="w-4 h-4 text-emerald-500" />
-                    Total Income: <span className="font-mono ml-1 text-base sm:text-lg text-emerald-600 dark:text-emerald-400" data-testid="text-total-income">₹{fmt(totalIncome)}</span>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-
-            {/* EXPENSE CARD */}
-            <Card className="border-0 shadow-lg overflow-hidden" data-testid="card-expense">
-              <CardHeader className="bg-gradient-to-r from-rose-500 to-pink-500 text-white pb-3 pt-4">
-                <CardTitle className="flex items-center gap-2 text-base sm:text-lg">
-                  <TrendingDown className="w-5 h-5" /> EXPENSE
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="p-0">
-                <div className="sm:hidden divide-y">
-                  <div className="p-3 space-y-2">
-                    <div className="flex items-center justify-between">
-                      <span className="font-semibold text-sm flex items-center gap-1.5">
-                        <span className="w-6 h-6 rounded-full bg-gradient-to-br from-rose-400 to-pink-500 text-white text-[10px] flex items-center justify-center font-bold shrink-0">1</span>
-                        Banana
-                      </span>
-                      <span className="text-xs text-rose-600 dark:text-rose-400 font-mono bg-rose-50 dark:bg-rose-900/20 px-2 py-0.5 rounded-full font-semibold">₹{BANANA_RATE}/pc</span>
-                    </div>
-                    <div className="grid grid-cols-3 gap-2 items-end">
-                      <div>
-                        <label className="text-[10px] text-muted-foreground uppercase font-semibold">Qty (Pcs)</label>
-                        <Input type="number" inputMode="numeric" className="h-9 font-mono text-center no-spinner" value={bananaQty || ""} onFocus={(e) => e.target.select()} onChange={(e) => setBananaQty(Number(e.target.value) || 0)} />
-                      </div>
-                      <div className="text-center text-muted-foreground text-sm py-2">× ₹{BANANA_RATE} =</div>
-                      <div>
-                        <label className="text-[10px] text-muted-foreground uppercase font-semibold">Total</label>
-                        <div className="h-9 flex items-center justify-end font-mono font-bold text-rose-600 dark:text-rose-400 bg-rose-50 dark:bg-rose-900/20 rounded-md px-2 text-sm">₹{fmt(bananaTotal)}</div>
-                      </div>
-                    </div>
-                  </div>
-                  <div className="p-3 space-y-2">
-                    <div className="flex items-center gap-1.5">
-                      <span className="w-6 h-6 rounded-full bg-gradient-to-br from-rose-400 to-pink-500 text-white text-[10px] flex items-center justify-center font-bold shrink-0">2</span>
-                      <span className="font-semibold text-sm">Dahi Bhar</span>
-                    </div>
-                    <div className="grid grid-cols-3 gap-2">
-                      <div>
-                        <label className="text-[10px] text-muted-foreground uppercase font-semibold">Qty (Pcs)</label>
-                        <Input type="number" inputMode="numeric" className="h-9 font-mono text-center no-spinner" value={dahiBharQty || ""} onFocus={(e) => e.target.select()} onChange={(e) => setDahiBharQty(Number(e.target.value) || 0)} />
-                      </div>
-                      <div>
-                        <label className="text-[10px] text-muted-foreground uppercase font-semibold">Rate ₹</label>
-                        <Input type="number" inputMode="decimal" className="h-9 font-mono text-center no-spinner" placeholder="0" value={dahiBharRate || ""} onFocus={(e) => e.target.select()} onChange={(e) => setDahiBharRate(Number(e.target.value) || 0)} />
-                      </div>
-                      <div>
-                        <label className="text-[10px] text-muted-foreground uppercase font-semibold">Total</label>
-                        <div className="h-9 flex items-center justify-end font-mono font-bold text-rose-600 dark:text-rose-400 bg-rose-50 dark:bg-rose-900/20 rounded-md px-2 text-sm">₹{fmt(dahiBharTotal)}</div>
-                      </div>
-                    </div>
-                  </div>
-                  <div className="p-3 space-y-2">
-                    <div className="flex items-center gap-1.5">
-                      <span className="w-6 h-6 rounded-full bg-gradient-to-br from-rose-400 to-pink-500 text-white text-[10px] flex items-center justify-center font-bold shrink-0">3</span>
-                      <span className="font-semibold text-sm">Other Expense</span>
-                    </div>
-                    <div className="grid grid-cols-2 gap-2">
-                      <div>
-                        <label className="text-[10px] text-muted-foreground uppercase font-semibold">Amount ₹</label>
-                        <Input type="number" inputMode="decimal" className="h-9 font-mono text-center no-spinner" placeholder="0" value={otherExpense || ""} onFocus={(e) => e.target.select()} onChange={(e) => setOtherExpense(Number(e.target.value) || 0)} />
-                      </div>
-                      <div>
-                        <label className="text-[10px] text-muted-foreground uppercase font-semibold">Total</label>
-                        <div className="h-9 flex items-center justify-end font-mono font-bold text-rose-600 dark:text-rose-400 bg-rose-50 dark:bg-rose-900/20 rounded-md px-2 text-sm">₹{fmt(otherExpense)}</div>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="hidden sm:block overflow-x-auto">
-                  <table className="w-full border-collapse min-w-[400px]">
-                    <thead>
-                      <tr className="bg-rose-50 dark:bg-rose-950/20 border-b border-rose-200 dark:border-rose-800">
-                        <th className="px-3 py-2.5 text-left text-xs font-semibold text-rose-700 dark:text-rose-400">#</th>
-                        <th className="px-3 py-2.5 text-left text-xs font-semibold text-rose-700 dark:text-rose-400">Name</th>
-                        <th className="px-3 py-2.5 text-center w-24 text-xs font-semibold text-rose-700 dark:text-rose-400">Qty</th>
-                        <th className="px-3 py-2.5 text-center w-20 text-xs font-semibold text-rose-700 dark:text-rose-400">UoM</th>
-                        <th className="px-3 py-2.5 text-center w-28 text-xs font-semibold text-rose-700 dark:text-rose-400">Price</th>
-                        <th className="px-3 py-2.5 text-right w-36 text-xs font-semibold text-rose-700 dark:text-rose-400">Total</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      <tr className="border-b hover:bg-rose-50/50 dark:hover:bg-rose-950/10">
-                        <td className="px-3 py-2"><span className="w-6 h-6 rounded-full bg-gradient-to-br from-rose-400 to-pink-500 text-white text-[10px] inline-flex items-center justify-center font-bold">1</span></td>
-                        <td className="px-3 py-2 font-semibold">Banana</td>
-                        <td className="px-2 py-1">
-                          <Input type="number" className="h-8 text-center font-mono no-spinner" value={bananaQty || ""} onFocus={(e) => e.target.select()} onChange={(e) => setBananaQty(Number(e.target.value) || 0)} />
-                        </td>
-                        <td className="px-3 py-2 text-center"><span className="text-xs text-rose-600 dark:text-rose-400 font-mono bg-rose-50 dark:bg-rose-900/20 px-2 py-0.5 rounded-full font-semibold">Pcs</span></td>
-                        <td className="px-3 py-2 text-center font-mono">
-                          <span className="bg-rose-50 dark:bg-rose-900/20 text-rose-700 dark:text-rose-400 px-2 py-0.5 rounded-full text-xs font-semibold">₹{BANANA_RATE}</span>
-                        </td>
-                        <td className="px-3 py-2 text-right font-mono font-semibold text-rose-600 dark:text-rose-400">₹{fmt(bananaTotal)}</td>
-                      </tr>
-                      <tr className="border-b hover:bg-rose-50/50 dark:hover:bg-rose-950/10">
-                        <td className="px-3 py-2"><span className="w-6 h-6 rounded-full bg-gradient-to-br from-rose-400 to-pink-500 text-white text-[10px] inline-flex items-center justify-center font-bold">2</span></td>
-                        <td className="px-3 py-2 font-semibold">Dahi Bhar</td>
-                        <td className="px-2 py-1">
-                          <Input type="number" className="h-8 text-center font-mono no-spinner" value={dahiBharQty || ""} onFocus={(e) => e.target.select()} onChange={(e) => setDahiBharQty(Number(e.target.value) || 0)} />
-                        </td>
-                        <td className="px-3 py-2 text-center"><span className="text-xs text-rose-600 dark:text-rose-400 font-mono bg-rose-50 dark:bg-rose-900/20 px-2 py-0.5 rounded-full font-semibold">Pcs</span></td>
-                        <td className="px-2 py-1">
-                          <Input type="number" placeholder="Rate" className="h-8 text-center font-mono no-spinner" value={dahiBharRate || ""} onFocus={(e) => e.target.select()} onChange={(e) => setDahiBharRate(Number(e.target.value) || 0)} />
-                        </td>
-                        <td className="px-3 py-2 text-right font-mono font-semibold text-rose-600 dark:text-rose-400">₹{fmt(dahiBharTotal)}</td>
-                      </tr>
-                      <tr className="border-b hover:bg-rose-50/50 dark:hover:bg-rose-950/10">
-                        <td className="px-3 py-2"><span className="w-6 h-6 rounded-full bg-gradient-to-br from-rose-400 to-pink-500 text-white text-[10px] inline-flex items-center justify-center font-bold">3</span></td>
-                        <td className="px-3 py-2 font-semibold">Other Expense</td>
-                        <td className="px-3 py-2 text-center font-mono">1</td>
-                        <td className="px-3 py-2 text-center text-muted-foreground">—</td>
-                        <td className="px-2 py-1">
-                          <Input type="number" placeholder="Amount" className="h-8 text-center font-mono no-spinner" value={otherExpense || ""} onFocus={(e) => e.target.select()} onChange={(e) => setOtherExpense(Number(e.target.value) || 0)} />
-                        </td>
-                        <td className="px-3 py-2 text-right font-mono font-semibold text-rose-600 dark:text-rose-400">₹{fmt(otherExpense)}</td>
-                      </tr>
-                    </tbody>
-                  </table>
-                </div>
-                <div className="p-3 sm:p-4 bg-gradient-to-r from-rose-50 to-pink-50 dark:from-rose-950/20 dark:to-pink-950/20 border-t border-rose-200 dark:border-rose-800/30 flex justify-end">
-                  <div className="text-sm font-semibold flex items-center gap-2">
-                    <TrendingDown className="w-4 h-4 text-rose-500" />
-                    Total Expense: <span className="font-mono ml-1 text-base sm:text-lg text-rose-600 dark:text-rose-400" data-testid="text-total-expense">₹{fmt(totalExpense)}</span>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-
-            {/* AKBAR ALI */}
-            <Card className="border-0 shadow-lg overflow-hidden" data-testid="card-akbar-ali">
-              <CardHeader className="bg-gradient-to-r from-amber-500 to-orange-500 text-white pb-3 pt-4">
-                <CardTitle className="flex items-center gap-2 text-base sm:text-lg">
-                  <HandCoins className="w-5 h-5" /> Amount Given to Akbar Ali
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="p-4 sm:p-6 bg-gradient-to-b from-amber-50/50 to-transparent dark:from-amber-950/20">
-                <div className="flex items-center gap-3">
-                  <Banknote className="w-5 h-5 text-amber-500 shrink-0" />
-                  <Input type="number" inputMode="decimal"
-                    className="font-mono text-right text-lg border-amber-200 focus:border-amber-400 dark:border-amber-800 no-spinner"
-                    placeholder="0.00" value={akbarAliAmount || ""} onFocus={(e) => e.target.select()}
-                    onChange={(e) => setAkbarAliAmount(Number(e.target.value) || 0)} data-testid="input-akbar-ali" />
-                </div>
-              </CardContent>
-            </Card>
-
-            {/* SUMMARY BAR */}
-            <div className="fixed bottom-0 left-0 right-0 sm:static bg-background/80 backdrop-blur-md sm:bg-transparent border-t sm:border-0 p-3 sm:p-0 z-10">
-              <Card className="border-0 shadow-xl overflow-hidden">
-                <CardContent className="p-0">
-                  <div className="grid grid-cols-2 sm:grid-cols-4">
-                    <div className="p-3 sm:p-5 bg-gradient-to-br from-emerald-500 to-teal-600 text-white">
-                      <p className="text-[10px] sm:text-xs uppercase tracking-wider font-semibold text-white/80 flex items-center gap-1">
-                        <TrendingUp className="w-3 h-3" /> Income
-                      </p>
-                      <p className="text-lg sm:text-2xl font-bold font-mono" data-testid="text-summary-income">₹{fmt(totalIncome)}</p>
-                    </div>
-                    <div className="p-3 sm:p-5 bg-gradient-to-br from-rose-500 to-pink-600 text-white">
-                      <p className="text-[10px] sm:text-xs uppercase tracking-wider font-semibold text-white/80 flex items-center gap-1">
-                        <TrendingDown className="w-3 h-3" /> Expense
-                      </p>
-                      <p className="text-lg sm:text-2xl font-bold font-mono" data-testid="text-summary-expense">₹{fmt(totalExpense)}</p>
-                    </div>
-                    <div className={`p-3 sm:p-5 ${balance < 0 ? 'bg-gradient-to-br from-red-600 to-rose-700' : 'bg-gradient-to-br from-blue-500 to-indigo-600'} text-white`}>
-                      <p className="text-[10px] sm:text-xs uppercase tracking-wider font-semibold text-white/80 flex items-center gap-1">
-                        <Wallet className="w-3 h-3" /> Balance
-                      </p>
-                      <p className="text-lg sm:text-2xl font-bold font-mono" data-testid="text-summary-balance">₹{fmt(balance)}</p>
-                    </div>
-                    <div className="p-3 sm:p-5 bg-gradient-to-br from-amber-500 to-orange-600 text-white">
-                      <p className="text-[10px] sm:text-xs uppercase tracking-wider font-semibold text-white/80 flex items-center gap-1">
-                        <HandCoins className="w-3 h-3" /> Akbar Ali
-                      </p>
-                      <p className="text-lg sm:text-2xl font-bold font-mono" data-testid="text-summary-akbar">₹{fmt(akbarAliAmount)}</p>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
+        {/* ── EXPENSE SECTION ─────────────────────────────────── */}
+        <div className="bg-white dark:bg-slate-800 rounded-xl border border-rose-200 dark:border-rose-800 overflow-hidden shadow-sm">
+          <div className="bg-gradient-to-r from-rose-600 to-rose-500 px-4 py-3 flex items-center gap-2">
+            <TrendingDown className="w-4 h-4 text-white" />
+            <h2 className="text-sm font-bold text-white tracking-wide">Expense</h2>
+          </div>
+          <div className="p-3 sm:p-4 space-y-3">
+            {/* Banana */}
+            <div className="flex items-center gap-3">
+              <div className="flex-1">
+                <div className="text-sm font-medium text-slate-700 dark:text-slate-200">Banana</div>
+                <div className="text-xs text-slate-400">₹{BANANA_RATE} × qty</div>
+              </div>
+              <NumInput value={bananaQty} onChange={setBananaQty} className="w-24" />
+              <div className="w-28 text-right text-sm font-mono font-semibold text-rose-600">{fmt(bananaTotal)}</div>
             </div>
-          </>
-        )}
+            {/* Dahi Bhar */}
+            <div className="flex items-center gap-3">
+              <div className="flex-1">
+                <div className="text-sm font-medium text-slate-700 dark:text-slate-200">Dahi Bhar</div>
+                <div className="text-xs text-slate-400">rate × qty</div>
+              </div>
+              <div className="flex items-center gap-1.5">
+                <NumInput value={dahiBharRate} onChange={setDahiBharRate} placeholder="Rate" className="w-20 bg-amber-50 dark:bg-amber-900/20" />
+                <span className="text-slate-400 text-xs">×</span>
+                <NumInput value={dahiBharQty} onChange={setDahiBharQty} className="w-20" />
+              </div>
+              <div className="w-28 text-right text-sm font-mono font-semibold text-rose-600">{fmt(dahiBharTotal)}</div>
+            </div>
+            {/* Other */}
+            <div className="flex items-center gap-3">
+              <div className="flex-1">
+                <div className="text-sm font-medium text-slate-700 dark:text-slate-200">Other</div>
+                <div className="text-xs text-slate-400">Direct amount</div>
+              </div>
+              <NumInput value={otherExpense} onChange={setOtherExpense} className="w-24" />
+              <div className="w-28 text-right text-sm font-mono font-semibold text-rose-600">{fmt(otherExpense)}</div>
+            </div>
+            {/* Expense total */}
+            <div className="border-t border-rose-100 dark:border-rose-800 pt-2 flex justify-between items-center">
+              <span className="text-sm font-bold text-rose-700">Total Expense</span>
+              <span className="text-base font-bold font-mono text-rose-700">{fmt(totalExpense)}</span>
+            </div>
+          </div>
+        </div>
+
+        {/* ── AKBAR ALI & SUMMARY ──────────────────────────────── */}
+        <div className="bg-white dark:bg-slate-800 rounded-xl border border-orange-200 dark:border-orange-800 p-3 sm:p-4 shadow-sm">
+          <div className="flex items-center gap-3">
+            <div className="flex-1">
+              <div className="text-sm font-semibold text-slate-700 dark:text-slate-200">Total Given to Akbar Ali</div>
+              <div className="text-xs text-slate-400">Cash handover amount</div>
+            </div>
+            <NumInput value={akbarAliAmount} onChange={setAkbarAliAmount} className="w-32 bg-orange-50 dark:bg-orange-900/20" />
+            <div className="w-28 text-right text-sm font-mono font-semibold text-orange-600">{fmt(akbarAliAmount)}</div>
+          </div>
+        </div>
+
+        {/* Summary bar */}
+        <div className="bg-gradient-to-r from-slate-800 to-slate-700 dark:from-slate-800 dark:to-slate-900 rounded-xl p-3 sm:p-4 shadow-lg">
+          <div className="grid grid-cols-3 gap-3 sm:gap-4">
+            <div className="text-center">
+              <div className="text-xs text-slate-400 mb-1 flex items-center justify-center gap-1">
+                <TrendingUp className="w-3 h-3 text-emerald-400" /> Income
+              </div>
+              <div className="text-base sm:text-lg font-bold font-mono text-emerald-400">{fmt(totalIncome)}</div>
+            </div>
+            <div className="text-center border-x border-slate-600">
+              <div className="text-xs text-slate-400 mb-1 flex items-center justify-center gap-1">
+                <TrendingDown className="w-3 h-3 text-rose-400" /> Expense
+              </div>
+              <div className="text-base sm:text-lg font-bold font-mono text-rose-400">{fmt(totalExpense)}</div>
+            </div>
+            <div className="text-center">
+              <div className="text-xs text-slate-400 mb-1 flex items-center justify-center gap-1">
+                <Wallet className="w-3 h-3 text-sky-400" /> Balance
+              </div>
+              <div className={`text-base sm:text-lg font-bold font-mono ${balance >= 0 ? "text-sky-400" : "text-orange-400"}`}>{fmt(balance)}</div>
+            </div>
+          </div>
+        </div>
+
+        {/* Save button at bottom */}
+        <Button onClick={handleSave} disabled={isPending} className="w-full bg-teal-600 hover:bg-teal-700 text-white h-11 text-base gap-2" data-testid="button-save-bottom">
+          {isPending ? <Loader2 className="w-5 h-5 animate-spin" /> : <Save className="w-5 h-5" />}
+          {editId ? "Update Seal KPF" : "Save Seal KPF"}
+        </Button>
       </div>
     </Layout>
   );
