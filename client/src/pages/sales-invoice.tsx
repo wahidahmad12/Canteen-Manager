@@ -1498,14 +1498,24 @@ function PankajReport({ invoices, clients }: { invoices: any[]; clients: string[
 
       const savedRec = savedRecords.find((r: any) => r.clientName === clientName);
       const givenDate = givenDates[clientName] || "";
-      const pankajStatus = givenDate ? "given" : "not_given";
+      const givenAmt = givenAmounts[clientName] ?? 0;
+      const pankajStatus: "given" | "partial" | "not_given" =
+        givenAmt > 0 && givenAmt >= total ? "given" :
+        givenAmt > 0 && givenAmt < total ? "partial" : "not_given";
+
+      // Latest payment received date across full-paid invoices
+      const paymentDates = fullPaidInvoices
+        .map(i => i.paymentReceivedDate)
+        .filter(Boolean) as string[];
+      const latestPaymentDate = paymentDates.length > 0
+        ? paymentDates.sort().at(-1)!
+        : "";
 
       // Track counts for display
       const fullPaidCount = fullPaidInvoices.length;
       const totalInvCount = clientInvoices.length;
 
-      const givenAmt = givenAmounts[clientName] ?? 0;
-      return { idx: idx + 1, clientName, toReceive, totalReceived, invStatus, gstMinusTds, fixedAmt, total, givenDate, givenAmt, savedId: savedRec?.id || null, pankajStatus, fullPaidCount, totalInvCount };
+      return { idx: idx + 1, clientName, toReceive, totalReceived, invStatus, gstMinusTds, fixedAmt, total, givenDate, givenAmt, latestPaymentDate, savedId: savedRec?.id || null, pankajStatus, fullPaidCount, totalInvCount };
     });
 
   // Apply client + status filters for display
@@ -1643,18 +1653,24 @@ function PankajReport({ invoices, clients }: { invoices: any[]; clients: string[
         <thead><tr>
           <th>Sl No</th><th>Client Name</th>
           <th>To Receive</th><th>GST Amount</th>
-          <th>Fixed Amount</th><th>Total</th><th>Given Date</th><th>Given Amount</th>
+          <th>Fixed Amt</th><th>Total</th><th>Pymnt Date</th><th>Given Date</th><th>Given Amt</th><th>Status</th>
         </tr></thead>
         <tbody>${rows.map(r => {
-          const gd = r.givenDate ? (() => { const p = r.givenDate.split("-"); return `${p[2]}/${p[1]}/${p[0]}`; })() : "-";
+          const fmtD = (d: string) => { const p = d.split("-"); return `${p[2]}/${p[1]}/${p[0]}`; };
+          const gd = r.givenDate ? fmtD(r.givenDate) : "-";
+          const pd = r.latestPaymentDate ? fmtD(r.latestPaymentDate) : "-";
+          const badge = r.pankajStatus === "given" ? "Given" : r.pankajStatus === "partial" ? "Partial" : "Not Given";
+          const badgeStyle = r.pankajStatus === "given" ? "color:#15803d;background:#dcfce7;" : r.pankajStatus === "partial" ? "color:#b45309;background:#fef3c7;" : "color:#4b5563;background:#f3f4f6;";
           return `<tr>
           <td class="center">${r.idx}</td><td>${r.clientName}</td>
           <td class="right">${r.toReceive.toLocaleString("en-IN", {minimumFractionDigits:2})}</td>
           <td class="right">${r.gstMinusTds.toLocaleString("en-IN", {minimumFractionDigits:2})}</td>
           <td class="right">${r.fixedAmt > 0 ? r.fixedAmt.toLocaleString("en-IN", {minimumFractionDigits:2}) : "-"}</td>
           <td class="right" style="font-weight:bold">${r.total.toLocaleString("en-IN", {minimumFractionDigits:2})}</td>
+          <td class="center">${pd}</td>
           <td class="center">${gd}</td>
           <td class="right">${r.givenAmt > 0 ? r.givenAmt.toLocaleString("en-IN", {minimumFractionDigits:2}) : "-"}</td>
+          <td class="center"><span style="padding:2px 6px;border-radius:4px;font-size:10px;font-weight:bold;${badgeStyle}">${badge}</span></td>
         </tr>`;
         }).join("")}</tbody>
         <tfoot><tr>
@@ -1663,7 +1679,7 @@ function PankajReport({ invoices, clients }: { invoices: any[]; clients: string[
           <td class="right">${grandGstMinusTds.toLocaleString("en-IN", {minimumFractionDigits:2})}</td>
           <td class="right">${grandFixedAmt > 0 ? grandFixedAmt.toLocaleString("en-IN", {minimumFractionDigits:2}) : "-"}</td>
           <td class="right">${grandTotal.toLocaleString("en-IN", {minimumFractionDigits:2})}</td>
-          <td></td><td></td>
+          <td></td><td></td><td></td><td></td>
         </tr></tfoot>
       </table>
       <p class="note">GST Amount = GST Amount - TDS Amount &nbsp;|&nbsp; Total = (GST - TDS) + Fixed Amount</p>
@@ -1750,8 +1766,9 @@ function PankajReport({ invoices, clients }: { invoices: any[]; clients: string[
                 <SelectValue placeholder="Pankaj Status" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="all">All (Given/Not)</SelectItem>
-                <SelectItem value="given">Given</SelectItem>
+                <SelectItem value="all">All Pankaj Status</SelectItem>
+                <SelectItem value="given">Given (Full)</SelectItem>
+                <SelectItem value="partial">Partial Given</SelectItem>
                 <SelectItem value="not_given">Not Given</SelectItem>
               </SelectContent>
             </Select>
@@ -1866,6 +1883,7 @@ function PankajReport({ invoices, clients }: { invoices: any[]; clients: string[
                       <th className="text-right py-3.5 px-4 font-semibold text-xs">GST Amount</th>
                       <th className="text-center py-3.5 px-4 font-semibold text-xs">Fixed Amount</th>
                       <th className="text-right py-3.5 px-4 font-semibold text-xs">Total</th>
+                      <th className="text-center py-3.5 px-4 font-semibold text-xs">Pymnt Date</th>
                       <th className="text-center py-3.5 px-4 font-semibold text-xs">Given Date</th>
                       <th className="text-right py-3.5 px-4 font-semibold text-xs">Given Amt</th>
                       <th className="text-center py-3.5 px-4 font-semibold text-xs">Inv. Status</th>
@@ -1891,6 +1909,9 @@ function PankajReport({ invoices, clients }: { invoices: any[]; clients: string[
                           <Input type="number" className="w-24 h-8 text-xs text-center font-mono mx-auto" placeholder="0" disabled={!!r.savedId && !editingRows.has(r.clientName)} value={fixedAmounts[r.clientName] || ""} onChange={(e) => setFixedAmounts(prev => ({ ...prev, [r.clientName]: Number(e.target.value) || 0 }))} data-testid={`input-fixed-amt-${r.idx}`} />
                         </td>
                         <td className="py-3 px-4 text-right font-mono text-sm font-bold text-emerald-600 dark:text-emerald-400">{fmtCurrency(r.total)}</td>
+                        <td className="py-3 px-3 text-center text-xs text-blue-600 font-medium">
+                          {r.latestPaymentDate ? fmtDate(r.latestPaymentDate) : <span className="text-muted-foreground">—</span>}
+                        </td>
                         <td className="py-2 px-2 text-center">
                           <Input type="date" className="w-[130px] h-8 text-xs text-center mx-auto" disabled={!!r.savedId && !editingRows.has(r.clientName)} value={givenDates[r.clientName] || ""} onChange={(e) => setGivenDates(prev => ({ ...prev, [r.clientName]: e.target.value }))} data-testid={`input-given-date-${r.idx}`} />
                         </td>
@@ -1909,6 +1930,8 @@ function PankajReport({ invoices, clients }: { invoices: any[]; clients: string[
                         <td className="py-3 px-2 text-center">
                           {r.pankajStatus === "given" ? (
                             <Badge className="text-[10px] bg-emerald-100 text-emerald-700 border-emerald-300 hover:bg-emerald-100">Given</Badge>
+                          ) : r.pankajStatus === "partial" ? (
+                            <Badge className="text-[10px] bg-amber-100 text-amber-700 border-amber-300 hover:bg-amber-100">Partial</Badge>
                           ) : (
                             <Badge className="text-[10px] bg-slate-100 text-slate-600 border-slate-300 hover:bg-slate-100">Not Given</Badge>
                           )}
@@ -1938,7 +1961,7 @@ function PankajReport({ invoices, clients }: { invoices: any[]; clients: string[
                       <td className="py-3 px-4 text-right font-mono text-sm font-bold text-blue-600">{fmtCurrency(grandGstMinusTds)}</td>
                       <td className="py-3 px-4 text-center font-mono text-sm font-bold">{grandFixedAmt > 0 ? fmtCurrency(grandFixedAmt) : "-"}</td>
                       <td className="py-3 px-4 text-right font-mono text-sm font-bold text-emerald-600">{fmtCurrency(grandTotal)}</td>
-                      <td colSpan={5}></td>
+                      <td colSpan={6}></td>
                     </tr>
                   </tfoot>
                 </table>
@@ -1969,6 +1992,8 @@ function PankajReport({ invoices, clients }: { invoices: any[]; clients: string[
                       )}
                       {r.pankajStatus === "given" ? (
                         <Badge className="text-[10px] bg-emerald-100 text-emerald-700 border-emerald-300 hover:bg-emerald-100">Given</Badge>
+                      ) : r.pankajStatus === "partial" ? (
+                        <Badge className="text-[10px] bg-amber-100 text-amber-700 border-amber-300 hover:bg-amber-100">Partial</Badge>
                       ) : (
                         <Badge className="text-[10px] bg-slate-100 text-slate-600 border-slate-300 hover:bg-slate-100">Not Given</Badge>
                       )}
@@ -1993,6 +2018,12 @@ function PankajReport({ invoices, clients }: { invoices: any[]; clients: string[
                     </div>
                   </div>
                   <div className="mt-3 space-y-2">
+                    {r.latestPaymentDate && (
+                      <div className="flex items-center gap-2 bg-blue-50 dark:bg-blue-950/20 rounded-lg px-2.5 py-1.5">
+                        <CalendarDays className="w-3.5 h-3.5 text-blue-500 flex-shrink-0" />
+                        <span className="text-xs text-blue-600 dark:text-blue-400 font-medium">Payment Received: {fmtDate(r.latestPaymentDate)}</span>
+                      </div>
+                    )}
                     <div className="flex items-center gap-2">
                       <CalendarDays className="w-3.5 h-3.5 text-muted-foreground flex-shrink-0" />
                       <span className="text-xs text-muted-foreground w-24">Given Date:</span>

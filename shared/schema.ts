@@ -777,7 +777,12 @@ export const pankajReports = mysqlTable("pankaj_reports", {
 });
 
 export type PankajReport = typeof pankajReports.$inferSelect;
-export const insertPankajReportSchema = createInsertSchema(pankajReports).omit({ id: true, createdAt: true, updatedAt: true });
+export const insertPankajReportSchema = createInsertSchema(pankajReports)
+  .omit({ id: true, createdAt: true, updatedAt: true })
+  .extend({
+    givenDate: z.string().nullable().optional(),
+    givenAmount: z.string().nullable().optional(),
+  });
 export const selectPankajReportSchema = createSelectSchema(pankajReports, {
   givenDate: z.string().nullable(),
   givenAmount: z.string().nullable(),
