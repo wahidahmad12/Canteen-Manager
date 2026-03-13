@@ -102,6 +102,7 @@ export default function SalesDashboard() {
 
   const [filterClient, setFilterClient] = useState("all");
   const [filterYear, setFilterYear] = useState(String(new Date().getFullYear()));
+  const [filterMonth, setFilterMonth] = useState("all");
 
   const years = useMemo(() => {
     const yrs = Array.from(new Set(invoices.map(i => {
@@ -114,14 +115,14 @@ export default function SalesDashboard() {
   const filtered = useMemo(() => {
     return invoices.filter(inv => {
       if (filterClient !== "all" && inv.clientName !== filterClient) return false;
-      if (filterYear !== "all") {
-        try {
-          if (new Date(inv.billDate).getFullYear() !== Number(filterYear)) return false;
-        } catch { return false; }
-      }
+      try {
+        const d = new Date(inv.billDate);
+        if (filterYear !== "all" && d.getFullYear() !== Number(filterYear)) return false;
+        if (filterMonth !== "all" && d.getMonth() + 1 !== Number(filterMonth)) return false;
+      } catch { return false; }
       return true;
     });
-  }, [invoices, filterClient, filterYear]);
+  }, [invoices, filterClient, filterYear, filterMonth]);
 
   const totalBilled = filtered.reduce((s, i) => s + Number(i.totalBillAmount), 0);
   const totalReceived = filtered.reduce((s, i) => s + Number(i.paymentReceivedAmount), 0);
@@ -216,6 +217,20 @@ export default function SalesDashboard() {
                     <SelectItem value="all">All Years</SelectItem>
                     {years.map(y => (
                       <SelectItem key={y} value={String(y)}>{y}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="w-full sm:w-36">
+                <Label className="text-xs font-semibold text-muted-foreground flex items-center gap-1 mb-1">
+                  <CalendarDays className="w-3 h-3" /> Month
+                </Label>
+                <Select value={filterMonth} onValueChange={setFilterMonth}>
+                  <SelectTrigger className="h-9" data-testid="select-dashboard-month"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Months</SelectItem>
+                    {MONTH_FULL.map((m, i) => (
+                      <SelectItem key={i + 1} value={String(i + 1)}>{m}</SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
