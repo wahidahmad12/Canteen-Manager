@@ -1409,7 +1409,8 @@ function PankajReport({ invoices, clients }: { invoices: any[]; clients: string[
   const [month, setMonth] = useState(String(now.getMonth() + 1));
   const [year, setYear] = useState(String(now.getFullYear()));
   const [filterClient, setFilterClient] = useState("all");
-  const [filterStatus, setFilterStatus] = useState("all");
+  const [filterPankajStatus, setFilterPankajStatus] = useState("all");
+  const [filterInvStatus, setFilterInvStatus] = useState("all");
   const [fixedAmounts, setFixedAmounts] = useState<Record<string, number>>({});
   const [givenDates, setGivenDates] = useState<Record<string, string>>({});
   const { toast } = useToast();
@@ -1457,14 +1458,19 @@ function PankajReport({ invoices, clients }: { invoices: any[]; clients: string[
       const total = Math.round((gstMinusTds + fixedAmt) * 100) / 100;
       const savedRec = savedRecords.find((r: any) => r.clientName === clientName);
       const givenDate = givenDates[clientName] || "";
-      const status = givenDate ? "given" : "not_given";
-      return { idx: idx + 1, clientName, toReceive, gstMinusTds, fixedAmt, total, givenDate, savedId: savedRec?.id || null, status };
+      const totalReceived = clientInvoices.reduce((s, i) => s + Number(i.paymentReceivedAmount), 0);
+      const invStatus: "due" | "partial" | "full" =
+        totalReceived <= 0 ? "due" :
+        totalReceived >= toReceive ? "full" : "partial";
+      const pankajStatus = givenDate ? "given" : "not_given";
+      return { idx: idx + 1, clientName, toReceive, totalReceived, invStatus, gstMinusTds, fixedAmt, total, givenDate, savedId: savedRec?.id || null, pankajStatus };
     });
 
   // Apply client + status filters for display
   const rows = allRows
     .filter(r => filterClient === "all" || r.clientName === filterClient)
-    .filter(r => filterStatus === "all" || r.status === filterStatus)
+    .filter(r => filterPankajStatus === "all" || r.pankajStatus === filterPankajStatus)
+    .filter(r => filterInvStatus === "all" || r.invStatus === filterInvStatus)
     .map((r, i) => ({ ...r, idx: i + 1 }));
 
   const grandToReceive = rows.reduce((s, r) => s + r.toReceive, 0);
@@ -1641,20 +1647,32 @@ function PankajReport({ invoices, clients }: { invoices: any[]; clients: string[
               </SelectContent>
             </Select>
 
-            <Select value={filterStatus} onValueChange={setFilterStatus}>
+            <Select value={filterPankajStatus} onValueChange={setFilterPankajStatus}>
               <SelectTrigger className="w-full sm:w-[150px] h-9 text-sm" data-testid="select-pankaj-status">
-                <SelectValue placeholder="All Status" />
+                <SelectValue placeholder="Pankaj Status" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="all">All Status</SelectItem>
+                <SelectItem value="all">All (Given/Not)</SelectItem>
                 <SelectItem value="given">Given</SelectItem>
                 <SelectItem value="not_given">Not Given</SelectItem>
               </SelectContent>
             </Select>
 
-            {(filterClient !== "all" || filterStatus !== "all") && (
+            <Select value={filterInvStatus} onValueChange={setFilterInvStatus}>
+              <SelectTrigger className="w-full sm:w-[160px] h-9 text-sm" data-testid="select-pankaj-inv-status">
+                <SelectValue placeholder="Invoice Status" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Invoice Status</SelectItem>
+                <SelectItem value="due">Due</SelectItem>
+                <SelectItem value="partial">Partial Received</SelectItem>
+                <SelectItem value="full">Full Paid</SelectItem>
+              </SelectContent>
+            </Select>
+
+            {(filterClient !== "all" || filterPankajStatus !== "all" || filterInvStatus !== "all") && (
               <Button variant="ghost" size="sm" className="h-9 text-muted-foreground text-sm col-span-2 sm:col-span-1"
-                onClick={() => { setFilterClient("all"); setFilterStatus("all"); }}>
+                onClick={() => { setFilterClient("all"); setFilterPankajStatus("all"); setFilterInvStatus("all"); }}>
                 Clear Filters
               </Button>
             )}
@@ -1751,7 +1769,8 @@ function PankajReport({ invoices, clients }: { invoices: any[]; clients: string[
                       <th className="text-center py-3.5 px-4 font-semibold text-xs">Fixed Amount</th>
                       <th className="text-right py-3.5 px-4 font-semibold text-xs">Total</th>
                       <th className="text-center py-3.5 px-4 font-semibold text-xs">Given Date</th>
-                      <th className="text-center py-3.5 px-4 font-semibold text-xs">Status</th>
+                      <th className="text-center py-3.5 px-4 font-semibold text-xs">Inv. Status</th>
+                      <th className="text-center py-3.5 px-4 font-semibold text-xs">Pankaj</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -1771,10 +1790,19 @@ function PankajReport({ invoices, clients }: { invoices: any[]; clients: string[
                           <Input type="date" className="w-[130px] h-8 text-xs text-center mx-auto" value={givenDates[r.clientName] || ""} onChange={(e) => setGivenDates(prev => ({ ...prev, [r.clientName]: e.target.value }))} data-testid={`input-given-date-${r.idx}`} />
                         </td>
                         <td className="py-3 px-2 text-center">
-                          {r.savedId ? (
-                            <Badge variant="outline" className="text-[10px] border-green-300 text-green-600 bg-green-50 dark:bg-green-950/30">Saved</Badge>
+                          {r.invStatus === "full" ? (
+                            <Badge className="text-[10px] bg-green-100 text-green-700 border-green-300 hover:bg-green-100">Full Paid</Badge>
+                          ) : r.invStatus === "partial" ? (
+                            <Badge className="text-[10px] bg-amber-100 text-amber-700 border-amber-300 hover:bg-amber-100">Partial</Badge>
                           ) : (
-                            <Badge variant="outline" className="text-[10px] border-orange-300 text-orange-600 bg-orange-50 dark:bg-orange-950/30">New</Badge>
+                            <Badge className="text-[10px] bg-red-100 text-red-700 border-red-300 hover:bg-red-100">Due</Badge>
+                          )}
+                        </td>
+                        <td className="py-3 px-2 text-center">
+                          {r.pankajStatus === "given" ? (
+                            <Badge className="text-[10px] bg-emerald-100 text-emerald-700 border-emerald-300 hover:bg-emerald-100">Given</Badge>
+                          ) : (
+                            <Badge className="text-[10px] bg-slate-100 text-slate-600 border-slate-300 hover:bg-slate-100">Not Given</Badge>
                           )}
                         </td>
                       </tr>
@@ -1787,7 +1815,7 @@ function PankajReport({ invoices, clients }: { invoices: any[]; clients: string[
                       <td className="py-3 px-4 text-right font-mono text-sm font-bold text-blue-600">{fmtCurrency(grandGstMinusTds)}</td>
                       <td className="py-3 px-4 text-center font-mono text-sm font-bold">{grandFixedAmt > 0 ? fmtCurrency(grandFixedAmt) : "-"}</td>
                       <td className="py-3 px-4 text-right font-mono text-sm font-bold text-emerald-600">{fmtCurrency(grandTotal)}</td>
-                      <td colSpan={2}></td>
+                      <td colSpan={3}></td>
                     </tr>
                   </tfoot>
                 </table>
@@ -1800,16 +1828,25 @@ function PankajReport({ invoices, clients }: { invoices: any[]; clients: string[
               <Card key={r.clientName} className="border-0 shadow-lg overflow-hidden" data-testid={`card-pankaj-mobile-${r.idx}`}>
                 <div className="h-1.5 bg-gradient-to-r from-violet-500 via-purple-500 to-fuchsia-500" />
                 <CardContent className="p-4">
-                  <div className="flex items-center justify-between mb-3">
+                  <div className="flex items-start justify-between mb-3 gap-2">
                     <div className="flex items-center gap-3">
-                      <span className="inline-flex items-center justify-center w-8 h-8 rounded-xl bg-gradient-to-br from-violet-500 to-purple-600 text-white text-sm font-bold shadow-md shadow-violet-200 dark:shadow-violet-900/30">{r.idx}</span>
+                      <span className="inline-flex items-center justify-center w-8 h-8 rounded-xl bg-gradient-to-br from-violet-500 to-purple-600 text-white text-sm font-bold shadow-md shadow-violet-200 dark:shadow-violet-900/30 flex-shrink-0">{r.idx}</span>
                       <p className="font-bold text-sm">{r.clientName}</p>
                     </div>
-                    {r.savedId ? (
-                      <Badge variant="outline" className="text-[10px] border-green-300 text-green-600 bg-green-50">Saved</Badge>
-                    ) : (
-                      <Badge variant="outline" className="text-[10px] border-orange-300 text-orange-600 bg-orange-50">New</Badge>
-                    )}
+                    <div className="flex flex-col items-end gap-1 flex-shrink-0">
+                      {r.invStatus === "full" ? (
+                        <Badge className="text-[10px] bg-green-100 text-green-700 border-green-300 hover:bg-green-100">Full Paid</Badge>
+                      ) : r.invStatus === "partial" ? (
+                        <Badge className="text-[10px] bg-amber-100 text-amber-700 border-amber-300 hover:bg-amber-100">Partial</Badge>
+                      ) : (
+                        <Badge className="text-[10px] bg-red-100 text-red-700 border-red-300 hover:bg-red-100">Due</Badge>
+                      )}
+                      {r.pankajStatus === "given" ? (
+                        <Badge className="text-[10px] bg-emerald-100 text-emerald-700 border-emerald-300 hover:bg-emerald-100">Given</Badge>
+                      ) : (
+                        <Badge className="text-[10px] bg-slate-100 text-slate-600 border-slate-300 hover:bg-slate-100">Not Given</Badge>
+                      )}
+                    </div>
                   </div>
                   <div className="grid grid-cols-2 gap-2.5 text-xs">
                     <div className="bg-amber-50 dark:bg-amber-950/20 rounded-xl p-2.5 text-center">
