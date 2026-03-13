@@ -25,7 +25,11 @@ function calcTotals(s: any) {
     + n(s.incomeNonVegRate) * n(s.incomeNonVegQty)
     + n(s.incomeVegRate) * n(s.incomeVegQty)
     + n(s.incomeMorningCashRate) * n(s.incomeMorningCashQty)
-    + n(s.incomeEveningCashRate) * n(s.incomeEveningCashQty);
+    + n(s.incomeEveningCashRate) * n(s.incomeEveningCashQty)
+    + n(s.incomeOnlineBreakfastQty) * MORNING_RATE
+    + n(s.incomeOnlineLunchQty) * LUNCH_RATE
+    + n(s.incomeOnlineEveningSnacksQty) * EVENING_RATE
+    + n(s.incomeOnlineNightQty) * NIGHT_RATE;
   const expense = n(s.expenseBananaQty) * BANANA_RATE
     + n(s.expenseDahiBharQty) * n(s.expenseDahiBharRate)
     + n(s.expenseOtherAmount);
@@ -55,6 +59,10 @@ export default function CashSeal() {
   const [morningCashQty, setMorningCashQty] = useState(0);
   const [eveningCashRate, setEveningCashRate] = useState(0);
   const [eveningCashQty, setEveningCashQty] = useState(0);
+  const [onlineBreakfastQty, setOnlineBreakfastQty] = useState(0);
+  const [onlineLunchQty, setOnlineLunchQty] = useState(0);
+  const [onlineEveningSnacksQty, setOnlineEveningSnacksQty] = useState(0);
+  const [onlineNightQty, setOnlineNightQty] = useState(0);
   const [bananaQty, setBananaQty] = useState(0);
   const [dahiBharQty, setDahiBharQty] = useState(0);
   const [dahiBharRate, setDahiBharRate] = useState(0);
@@ -75,6 +83,10 @@ export default function CashSeal() {
     setMorningCashQty(n(rec.incomeMorningCashQty));
     setEveningCashRate(n(rec.incomeEveningCashRate));
     setEveningCashQty(n(rec.incomeEveningCashQty));
+    setOnlineBreakfastQty(n(rec.incomeOnlineBreakfastQty));
+    setOnlineLunchQty(n(rec.incomeOnlineLunchQty));
+    setOnlineEveningSnacksQty(n(rec.incomeOnlineEveningSnacksQty));
+    setOnlineNightQty(n(rec.incomeOnlineNightQty));
     setBananaQty(n(rec.expenseBananaQty));
     setDahiBharQty(n(rec.expenseDahiBharQty));
     setDahiBharRate(n(rec.expenseDahiBharRate));
@@ -89,6 +101,7 @@ export default function CashSeal() {
     setMorningQty(0); setLunchQty(0); setEveningQty(0); setNightQty(0);
     setNonVegRate(0); setNonVegQty(0); setVegRate(0); setVegQty(0);
     setMorningCashRate(0); setMorningCashQty(0); setEveningCashRate(0); setEveningCashQty(0);
+    setOnlineBreakfastQty(0); setOnlineLunchQty(0); setOnlineEveningSnacksQty(0); setOnlineNightQty(0);
     setBananaQty(0); setDahiBharQty(0); setDahiBharRate(0); setOtherExpense(0);
     setAkbarAliAmount(0); setDate(new Date());
   }
@@ -122,7 +135,12 @@ export default function CashSeal() {
   const vegTotal = vegRate * vegQty;
   const morningCashTotal = morningCashRate * morningCashQty;
   const eveningCashTotal = eveningCashRate * eveningCashQty;
-  const totalIncome = morningTotal + lunchTotal + eveningTotal + nightTotal + nonVegTotal + vegTotal + morningCashTotal + eveningCashTotal;
+  const onlineBreakfastTotal = onlineBreakfastQty * MORNING_RATE;
+  const onlineLunchTotal = onlineLunchQty * LUNCH_RATE;
+  const onlineEveningSnacksTotal = onlineEveningSnacksQty * EVENING_RATE;
+  const onlineNightTotal = onlineNightQty * NIGHT_RATE;
+  const totalOnlinePayment = onlineBreakfastTotal + onlineLunchTotal + onlineEveningSnacksTotal + onlineNightTotal;
+  const totalIncome = morningTotal + lunchTotal + eveningTotal + nightTotal + nonVegTotal + vegTotal + morningCashTotal + eveningCashTotal + totalOnlinePayment;
   const bananaTotal = bananaQty * BANANA_RATE;
   const dahiBharTotal = dahiBharQty * dahiBharRate;
   const totalExpense = bananaTotal + dahiBharTotal + otherExpense;
@@ -135,6 +153,8 @@ export default function CashSeal() {
     incomeVegRate: vegRate, incomeVegQty: vegQty,
     incomeMorningCashRate: morningCashRate, incomeMorningCashQty: morningCashQty,
     incomeEveningCashRate: eveningCashRate, incomeEveningCashQty: eveningCashQty,
+    incomeOnlineBreakfastQty: onlineBreakfastQty, incomeOnlineLunchQty: onlineLunchQty,
+    incomeOnlineEveningSnacksQty: onlineEveningSnacksQty, incomeOnlineNightQty: onlineNightQty,
     expenseBananaQty: bananaQty, expenseDahiBharQty: dahiBharQty,
     expenseDahiBharRate: dahiBharRate, expenseOtherAmount: otherExpense,
     totalGivenToAkbarAli: akbarAliAmount,
@@ -405,6 +425,38 @@ export default function CashSeal() {
                       </div>
                     </div>
                   ))}
+
+                  {/* Online Payment — mobile */}
+                  <div className="px-3 pt-3 pb-1 bg-indigo-50/50 dark:bg-indigo-950/10 border-t border-indigo-200 dark:border-indigo-800/40">
+                    <p className="text-[10px] text-indigo-700 dark:text-indigo-400 font-semibold uppercase tracking-wider">Online Payment</p>
+                  </div>
+                  {[
+                    { name: "Breakfast", rate: MORNING_RATE, qty: onlineBreakfastQty, setQty: setOnlineBreakfastQty, total: onlineBreakfastTotal },
+                    { name: "Lunch", rate: LUNCH_RATE, qty: onlineLunchQty, setQty: setOnlineLunchQty, total: onlineLunchTotal },
+                    { name: "Evening Snacks", rate: EVENING_RATE, qty: onlineEveningSnacksQty, setQty: setOnlineEveningSnacksQty, total: onlineEveningSnacksTotal },
+                    { name: "Night", rate: NIGHT_RATE, qty: onlineNightQty, setQty: setOnlineNightQty, total: onlineNightTotal },
+                  ].map((item, idx) => (
+                    <div key={"online-" + item.name} className="p-3 space-y-2 border-t border-indigo-100 dark:border-indigo-900/20">
+                      <div className="flex items-center justify-between">
+                        <span className="font-semibold text-sm flex items-center gap-1.5">
+                          <span className="w-6 h-6 rounded-full bg-gradient-to-br from-indigo-400 to-violet-500 text-white text-[10px] flex items-center justify-center font-bold shrink-0">{idx + 1}</span>
+                          {item.name}
+                        </span>
+                        <span className="text-xs text-indigo-600 dark:text-indigo-400 font-mono bg-indigo-50 dark:bg-indigo-900/20 px-2 py-0.5 rounded-full font-semibold">₹{item.rate}</span>
+                      </div>
+                      <div className="grid grid-cols-3 gap-2 items-end">
+                        <div>
+                          <label className="text-[10px] text-muted-foreground uppercase font-semibold">Qty</label>
+                          <Input type="number" inputMode="numeric" className="h-9 font-mono text-center no-spinner" value={item.qty || ""} onFocus={(e) => e.target.select()} onChange={(e) => item.setQty(Number(e.target.value) || 0)} />
+                        </div>
+                        <div className="text-center text-muted-foreground text-sm py-2">× ₹{item.rate} =</div>
+                        <div>
+                          <label className="text-[10px] text-muted-foreground uppercase font-semibold">Total</label>
+                          <div className="h-9 flex items-center justify-end font-mono font-bold text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-900/20 rounded-md px-2 text-sm">₹{fmt(item.total)}</div>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
                 </div>
 
                 <div className="hidden sm:block overflow-x-auto">
@@ -468,6 +520,41 @@ export default function CashSeal() {
                     </tbody>
                   </table>
                 </div>
+
+                {/* Online Payment — desktop */}
+                <div className="border-t border-indigo-200 dark:border-indigo-800/40">
+                  <div className="px-3 py-2 bg-indigo-50 dark:bg-indigo-950/20 flex items-center justify-between">
+                    <p className="text-xs text-indigo-700 dark:text-indigo-400 font-semibold uppercase tracking-wider">Online Payment</p>
+                    <span className="font-mono text-xs font-semibold text-indigo-600 dark:text-indigo-400 bg-indigo-100 dark:bg-indigo-900/30 px-2 py-0.5 rounded-full">Total: ₹{fmt(totalOnlinePayment)}</span>
+                  </div>
+                  <table className="w-full border-collapse min-w-[500px]">
+                    <tbody>
+                      {[
+                        { name: "Breakfast", rate: MORNING_RATE, qty: onlineBreakfastQty, setQty: setOnlineBreakfastQty, total: onlineBreakfastTotal },
+                        { name: "Lunch", rate: LUNCH_RATE, qty: onlineLunchQty, setQty: setOnlineLunchQty, total: onlineLunchTotal },
+                        { name: "Evening Snacks", rate: EVENING_RATE, qty: onlineEveningSnacksQty, setQty: setOnlineEveningSnacksQty, total: onlineEveningSnacksTotal },
+                        { name: "Night", rate: NIGHT_RATE, qty: onlineNightQty, setQty: setOnlineNightQty, total: onlineNightTotal },
+                      ].map((item, idx) => (
+                        <tr key={item.name} className="border-b hover:bg-indigo-50/50 dark:hover:bg-indigo-950/10">
+                          <td className="px-3 py-2 w-10">
+                            <span className="w-6 h-6 rounded-full bg-gradient-to-br from-indigo-400 to-violet-500 text-white text-[10px] inline-flex items-center justify-center font-bold">{idx + 1}</span>
+                          </td>
+                          <td className="px-3 py-2 font-semibold">{item.name}</td>
+                          <td className="px-3 py-2 text-center font-mono w-24">
+                            <span className="bg-indigo-50 dark:bg-indigo-900/20 text-indigo-700 dark:text-indigo-400 px-2 py-0.5 rounded-full text-xs font-semibold">₹{item.rate}</span>
+                          </td>
+                          <td className="px-1 py-2 text-center text-muted-foreground text-xs w-8">×</td>
+                          <td className="px-2 py-1 w-28">
+                            <Input type="number" className="h-8 text-center font-mono no-spinner" value={item.qty || ""} onFocus={(e) => e.target.select()} onChange={(e) => item.setQty(Number(e.target.value) || 0)} />
+                          </td>
+                          <td className="px-1 py-2 text-center text-muted-foreground text-xs w-8">=</td>
+                          <td className="px-3 py-2 text-right font-mono font-semibold text-indigo-600 dark:text-indigo-400 w-36">₹{fmt(item.total)}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+
                 <div className="p-3 sm:p-4 bg-gradient-to-r from-emerald-50 to-teal-50 dark:from-emerald-950/20 dark:to-teal-950/20 border-t border-emerald-200 dark:border-emerald-800/30 flex justify-end">
                   <div className="text-sm font-semibold flex items-center gap-2">
                     <TrendingUp className="w-4 h-4 text-emerald-500" />

@@ -521,6 +521,10 @@ export class DatabaseStorage implements IStorage {
           expenseDahiBharRate: data.expenseDahiBharRate?.toString() || "0",
           expenseOtherAmount: data.expenseOtherAmount?.toString() || "0",
           totalGivenToAkbarAli: data.totalGivenToAkbarAli?.toString() || "0",
+          incomeOnlineBreakfastQty: data.incomeOnlineBreakfastQty?.toString() || "0",
+          incomeOnlineLunchQty: data.incomeOnlineLunchQty?.toString() || "0",
+          incomeOnlineEveningSnacksQty: data.incomeOnlineEveningSnacksQty?.toString() || "0",
+          incomeOnlineNightQty: data.incomeOnlineNightQty?.toString() || "0",
         }).where(eq(cashSeals.id, existing[0].id));
         const [updated] = await tx.select().from(cashSeals).where(eq(cashSeals.id, existing[0].id));
         return { ...updated, date: data.date };
@@ -544,6 +548,10 @@ export class DatabaseStorage implements IStorage {
           expenseDahiBharRate: data.expenseDahiBharRate?.toString() || "0",
           expenseOtherAmount: data.expenseOtherAmount?.toString() || "0",
           totalGivenToAkbarAli: data.totalGivenToAkbarAli?.toString() || "0",
+          incomeOnlineBreakfastQty: data.incomeOnlineBreakfastQty?.toString() || "0",
+          incomeOnlineLunchQty: data.incomeOnlineLunchQty?.toString() || "0",
+          incomeOnlineEveningSnacksQty: data.incomeOnlineEveningSnacksQty?.toString() || "0",
+          incomeOnlineNightQty: data.incomeOnlineNightQty?.toString() || "0",
         });
         const __iid = await getInsertId(tx);
         const [created] = await tx.select().from(cashSeals).where(eq(cashSeals.id, __iid));
@@ -571,6 +579,10 @@ export class DatabaseStorage implements IStorage {
       expenseDahiBharRate: data.expenseDahiBharRate?.toString() || "0",
       expenseOtherAmount: data.expenseOtherAmount?.toString() || "0",
       totalGivenToAkbarAli: data.totalGivenToAkbarAli?.toString() || "0",
+      incomeOnlineBreakfastQty: data.incomeOnlineBreakfastQty?.toString() || "0",
+      incomeOnlineLunchQty: data.incomeOnlineLunchQty?.toString() || "0",
+      incomeOnlineEveningSnacksQty: data.incomeOnlineEveningSnacksQty?.toString() || "0",
+      incomeOnlineNightQty: data.incomeOnlineNightQty?.toString() || "0",
     }).where(eq(cashSeals.id, id));
     return this.getCashSeal(id);
   }

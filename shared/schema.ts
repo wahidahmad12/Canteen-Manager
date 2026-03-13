@@ -57,6 +57,10 @@ export const cashSeals = mysqlTable("cash_seals", {
   expenseDahiBharRate: decimal("expense_dahi_bhar_rate", { precision: 10, scale: 2 }).default("0"),
   expenseOtherAmount: decimal("expense_other_amount", { precision: 10, scale: 2 }).default("0"),
   totalGivenToAkbarAli: decimal("total_given_to_akbar_ali", { precision: 10, scale: 2 }).default("0"),
+  incomeOnlineBreakfastQty: decimal("income_online_breakfast_qty", { precision: 10, scale: 2 }).default("0"),
+  incomeOnlineLunchQty: decimal("income_online_lunch_qty", { precision: 10, scale: 2 }).default("0"),
+  incomeOnlineEveningSnacksQty: decimal("income_online_evening_snacks_qty", { precision: 10, scale: 2 }).default("0"),
+  incomeOnlineNightQty: decimal("income_online_night_qty", { precision: 10, scale: 2 }).default("0"),
 });
 
 // Daily Inventory records
