@@ -981,6 +981,7 @@ export async function registerRoutes(
     let absences = 0;
     let totalPresent = 0;
 
+    let holidayWork = 0;
     for (const rec of records) {
       const daysInMonth = new Date(year, rec.month, 0).getDate();
       for (let d = 1; d <= daysInMonth; d++) {
@@ -988,8 +989,10 @@ export async function registerRoutes(
         if (!val) continue;
         totalDaysInYear++;
         const upper = val.toUpperCase().trim();
-        if (upper === "P" || upper === "H") {
+        if (upper === "P") {
           totalPresent++;
+        } else if (upper === "H" || upper.startsWith("P/") || (upper.includes("HL") && upper !== "PH")) {
+          holidayWork++; // holiday working — not counted for leave entitlement
         } else if (upper === "WO") {
           weeklyOffs++;
         } else if (upper === "PH") {
@@ -1002,7 +1005,7 @@ export async function registerRoutes(
       }
     }
 
-    const actualDaysWorked = totalDaysInYear - (weeklyOffs + paidHolidays + leavesAvailed + absences);
+    const actualDaysWorked = totalDaysInYear - (weeklyOffs + paidHolidays + leavesAvailed + absences + holidayWork);
     const leaveEarned = Math.floor(actualDaysWorked / 20);
 
     const { employees, skillWageRates: swrTable } = await import("@shared/schema");
@@ -1064,6 +1067,7 @@ export async function registerRoutes(
         let paidHolidays = 0;
         let leavesAvailed = 0;
         let absences = 0;
+        let holidayWork = 0;
 
         for (const rec of yearAttendance) {
           const daysInMonth = new Date(year, rec.month, 0).getDate();
@@ -1076,10 +1080,11 @@ export async function registerRoutes(
             else if (upper === "PH") paidHolidays++;
             else if (upper === "CL" || upper === "SL" || upper === "EL") leavesAvailed++;
             else if (upper === "A") absences++;
+            else if (upper === "H" || upper.startsWith("P/") || (upper.includes("HL") && upper !== "PH")) holidayWork++;
           }
         }
 
-        const actualDaysWorked = totalDaysInYear - (weeklyOffs + paidHolidays + leavesAvailed + absences);
+        const actualDaysWorked = totalDaysInYear - (weeklyOffs + paidHolidays + leavesAvailed + absences + holidayWork);
         const leaveEarned = Math.floor(actualDaysWorked / 20);
 
         let dailyRate = Number(emp.dailyRate || 0);
