@@ -1408,7 +1408,9 @@ function PankajReport({ invoices, clients }: { invoices: any[]; clients: string[
   const now = new Date();
   const [month, setMonth] = useState(String(now.getMonth() + 1));
   const [year, setYear] = useState(String(now.getFullYear()));
-  const [filterClient, setFilterClient] = useState("all");
+  const [selectedClients, setSelectedClients] = useState<string[]>([]);
+  const [clientDropdownOpen, setClientDropdownOpen] = useState(false);
+  const dropdownRef = useRef<HTMLDivElement>(null);
   const [filterPankajStatus, setFilterPankajStatus] = useState("all");
   const [filterInvStatus, setFilterInvStatus] = useState("all");
   const [fixedAmounts, setFixedAmounts] = useState<Record<string, number>>({});
@@ -1435,6 +1437,21 @@ function PankajReport({ invoices, clients }: { invoices: any[]; clients: string[
     setFixedAmounts(fa);
     setGivenDates(gd);
   }, [savedRecords]);
+
+  // Close dropdown when clicking outside
+  useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) {
+        setClientDropdownOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, []);
+
+  const toggleClient = (c: string) => setSelectedClients(prev => prev.includes(c) ? prev.filter(x => x !== c) : [...prev, c]);
+  const selectAllClients = (pool: string[]) => setSelectedClients(pool);
+  const clearAllClients = () => setSelectedClients([]);
 
   // All clients that have invoices in the selected month/year
   const allRows = clients
@@ -1468,7 +1485,7 @@ function PankajReport({ invoices, clients }: { invoices: any[]; clients: string[
 
   // Apply client + status filters for display
   const rows = allRows
-    .filter(r => filterClient === "all" || r.clientName === filterClient)
+    .filter(r => selectedClients.length === 0 || selectedClients.includes(r.clientName))
     .filter(r => filterPankajStatus === "all" || r.pankajStatus === filterPankajStatus)
     .filter(r => filterInvStatus === "all" || r.invStatus === filterInvStatus)
     .map((r, i) => ({ ...r, idx: i + 1 }));
@@ -1618,16 +1635,32 @@ function PankajReport({ invoices, clients }: { invoices: any[]; clients: string[
           </div>
           {/* Filters row */}
           <div className="grid grid-cols-2 sm:flex sm:items-center gap-2 flex-wrap">
-            <Select value={filterClient} onValueChange={setFilterClient}>
-              <SelectTrigger className="w-full sm:w-[200px] h-9 text-sm" data-testid="select-pankaj-client">
-                <Building2 className="w-3.5 h-3.5 mr-1.5 text-violet-500 flex-shrink-0" />
-                <SelectValue placeholder="All Clients" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Clients</SelectItem>
-                {clients.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}
-              </SelectContent>
-            </Select>
+            {/* Multi-client checkbox dropdown */}
+            <div className="relative col-span-2 sm:col-span-1" ref={dropdownRef}>
+              <Button variant="outline" size="sm" className="h-9 w-full sm:w-auto sm:min-w-[190px] justify-between border-violet-200 dark:border-violet-800 hover:bg-violet-50 dark:hover:bg-violet-950/30" onClick={() => setClientDropdownOpen(!clientDropdownOpen)} data-testid="button-pankaj-client-select">
+                <span className="flex items-center gap-1.5 text-xs">
+                  <Building2 className="w-3.5 h-3.5 text-violet-500 flex-shrink-0" />
+                  {selectedClients.length === 0 ? "All Clients" : `${selectedClients.length} client${selectedClients.length > 1 ? "s" : ""} selected`}
+                </span>
+                <span className="ml-1 text-muted-foreground">▾</span>
+              </Button>
+              {clientDropdownOpen && (
+                <div className="absolute z-50 mt-1 w-72 bg-white dark:bg-gray-900 border border-violet-100 dark:border-violet-900 rounded-xl shadow-2xl shadow-violet-100/50 dark:shadow-violet-950/50 p-2 max-h-64 overflow-y-auto" data-testid="dropdown-pankaj-clients" onClick={(e) => e.stopPropagation()} onMouseDown={(e) => e.stopPropagation()}>
+                  <div className="flex gap-2 mb-2 px-1">
+                    <Button size="sm" variant="outline" className="h-6 text-[10px] border-violet-200" onClick={(e) => { e.stopPropagation(); selectAllClients(allRows.map(r => r.clientName)); }}>Select All</Button>
+                    <Button size="sm" variant="outline" className="h-6 text-[10px] border-violet-200" onClick={(e) => { e.stopPropagation(); clearAllClients(); }}>Clear All</Button>
+                  </div>
+                  {allRows.map(r => (
+                    <div key={r.clientName} className="flex items-center gap-2.5 px-2.5 py-2 rounded-lg hover:bg-violet-50 dark:hover:bg-violet-950/30 cursor-pointer transition-colors" onClick={(e) => { e.stopPropagation(); toggleClient(r.clientName); }} data-testid={`checkbox-client-${r.clientName}`}>
+                      <div className={`w-5 h-5 rounded-md border-2 flex items-center justify-center text-white text-xs transition-all ${selectedClients.includes(r.clientName) ? "bg-violet-600 border-violet-600 shadow-sm shadow-violet-300" : "border-gray-300 dark:border-gray-600"}`}>
+                        {selectedClients.includes(r.clientName) && <Check className="w-3.5 h-3.5" />}
+                      </div>
+                      <span className="text-sm">{r.clientName}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
 
             <Select value={month} onValueChange={setMonth}>
               <SelectTrigger className="w-full sm:w-[140px] h-9 text-sm" data-testid="select-pankaj-month">
@@ -1670,9 +1703,9 @@ function PankajReport({ invoices, clients }: { invoices: any[]; clients: string[
               </SelectContent>
             </Select>
 
-            {(filterClient !== "all" || filterPankajStatus !== "all" || filterInvStatus !== "all") && (
+            {(selectedClients.length > 0 || filterPankajStatus !== "all" || filterInvStatus !== "all") && (
               <Button variant="ghost" size="sm" className="h-9 text-muted-foreground text-sm col-span-2 sm:col-span-1"
-                onClick={() => { setFilterClient("all"); setFilterPankajStatus("all"); setFilterInvStatus("all"); }}>
+                onClick={() => { clearAllClients(); setFilterPankajStatus("all"); setFilterInvStatus("all"); }}>
                 Clear Filters
               </Button>
             )}
@@ -1751,7 +1784,7 @@ function PankajReport({ invoices, clients }: { invoices: any[]; clients: string[
               <Building2 className="w-7 h-7 text-violet-400" />
             </div>
             <p className="text-muted-foreground text-sm font-medium">No records match the selected filters</p>
-            <Button variant="ghost" size="sm" className="mt-2 text-violet-600" onClick={() => { setFilterClient("all"); setFilterStatus("all"); }}>Clear Filters</Button>
+            <Button variant="ghost" size="sm" className="mt-2 text-violet-600" onClick={() => { clearAllClients(); setFilterPankajStatus("all"); setFilterInvStatus("all"); }}>Clear Filters</Button>
           </CardContent>
         </Card>
       ) : (
