@@ -1100,6 +1100,11 @@ export async function registerRoutes(
 
         if (existingYears.has(year)) {
           const existing = existingRecords.find(r => r.calendarYear === year)!;
+          const enjoyed = Number(existing.leaveEnjoyed || 0);
+          const totalLeaveForAmt = leaveEarned + prevLeaveBalance;
+          const amtRs = enjoyed > 0
+            ? Math.round(dailyRate * enjoyed)
+            : Math.round(dailyRate * totalLeaveForAmt);
           await storage.updateLeaveWithWages(existing.id, {
             daysLeaveEarned: String(leaveEarned),
             daysLeaveBroughtForward: String(prevLeaveBalance),
@@ -1108,7 +1113,7 @@ export async function registerRoutes(
             actualDaysWorked: String(actualDaysWorked),
             rateOfWagesRs: String(dailyRate),
             rateOfWagesP: "0",
-            amountOfWagesRs: String(Math.round(dailyRate * Number(existing.leaveEnjoyed || 0))),
+            amountOfWagesRs: String(amtRs),
             amountOfWagesP: "0",
           });
           const totalLeave = leaveEarned + prevLeaveBalance;
@@ -1121,6 +1126,7 @@ export async function registerRoutes(
             prevLeaveBalance = Math.max(0, totalLeave - Number(existing.leaveEnjoyed || 0));
           }
         } else {
+          const newTotalLeave = leaveEarned + prevLeaveBalance;
           await storage.createLeaveWithWages({
             employeeId,
             clientName,
@@ -1137,12 +1143,12 @@ export async function registerRoutes(
             leaveAllowedDays: "NA",
             rateOfWagesRs: String(dailyRate),
             rateOfWagesP: "0",
-            amountOfWagesRs: "0",
+            amountOfWagesRs: String(Math.round(dailyRate * newTotalLeave)),
             amountOfWagesP: "0",
             dateOfPayment: "",
             remarks: "",
           });
-          prevLeaveBalance = leaveEarned + prevLeaveBalance;
+          prevLeaveBalance = newTotalLeave;
         }
         generated++;
       }

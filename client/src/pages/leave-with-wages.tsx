@@ -408,11 +408,11 @@ export default function LeaveWithWagesPage() {
                             </div>
                             <div className="space-y-1">
                               <Label className="text-xs font-semibold text-green-700 dark:text-green-400">
-                                Amount of Wages Rs. (Col 11) — Auto
+                                Amount of Wages Rs. (Col 11)
                               </Label>
                               <Input
                                 value={formData.amountOfWagesRs}
-                                readOnly
+                                onChange={e => setFormData({ ...formData, amountOfWagesRs: e.target.value })}
                                 className="bg-green-50 dark:bg-green-950 font-bold text-green-800 dark:text-green-300 border-green-300"
                                 data-testid="input-amount-rs"
                               />
@@ -421,7 +421,7 @@ export default function LeaveWithWagesPage() {
                           <div className="grid grid-cols-2 gap-3">
                             <div className="space-y-1">
                               <Label className="text-xs">Amount of Wages P. (Col 11)</Label>
-                              <Input value={formData.amountOfWagesP} readOnly className="bg-muted/30" data-testid="input-amount-p" />
+                              <Input value={formData.amountOfWagesP} onChange={e => setFormData({ ...formData, amountOfWagesP: e.target.value })} data-testid="input-amount-p" />
                             </div>
                             <div className="space-y-1">
                               <Label className="text-xs">Date of Payment (Col 12)</Label>
@@ -494,6 +494,25 @@ export default function LeaveWithWagesPage() {
                         {displayYears.length === 0 && (
                           <tr><td colSpan={isAdmin ? 8 : 7} className="border px-2 py-4 text-center text-muted-foreground">No records yet. Add a year to get started.</td></tr>
                         )}
+                        {leaveRecords.length > 0 && (() => {
+                          const totalAmt = leaveRecords.reduce((sum, r) => sum + Number(r.amountOfWagesRs || 0), 0);
+                          const totalEarned = leaveRecords.reduce((sum, r) => sum + Number(r.daysLeaveEarned || 0), 0);
+                          const totalWorked = leaveRecords.reduce((sum, r) => sum + Number(r.actualDaysWorked || 0), 0);
+                          return (
+                            <tr className="bg-yellow-50 dark:bg-yellow-950 font-bold text-xs border-t-2 border-yellow-400">
+                              <td className="border px-2 py-1.5 font-bold text-yellow-800 dark:text-yellow-300">TOTAL</td>
+                              <td className="border px-2 py-1.5 text-center text-yellow-800 dark:text-yellow-300">{totalEarned.toFixed(1)}</td>
+                              <td className="border px-2 py-1.5 text-center">—</td>
+                              <td className="border px-2 py-1.5 text-center text-yellow-800 dark:text-yellow-300">{totalWorked.toFixed(1)}</td>
+                              <td className="border px-2 py-1.5 text-right">—</td>
+                              <td className="border px-2 py-1.5 text-right font-bold text-green-700 dark:text-green-400">
+                                ₹{totalAmt.toLocaleString("en-IN")}
+                              </td>
+                              <td className="border px-2 py-1.5 text-center">—</td>
+                              {isAdmin && <td className="border px-2 py-1.5" />}
+                            </tr>
+                          );
+                        })()}
                       </tbody>
                     </table>
                   </div>
