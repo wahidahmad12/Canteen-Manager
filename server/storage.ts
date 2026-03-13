@@ -552,6 +552,29 @@ export class DatabaseStorage implements IStorage {
     });
   }
 
+  async updateCashSeal(id: number, data: any): Promise<any> {
+    await db.update(cashSeals).set({
+      incomeMorningQty: data.incomeMorningQty?.toString() || "0",
+      incomeLunchQty: data.incomeLunchQty?.toString() || "0",
+      incomeEveningQty: data.incomeEveningQty?.toString() || "0",
+      incomeNightQty: data.incomeNightQty?.toString() || "0",
+      incomeNonVegRate: data.incomeNonVegRate?.toString() || "0",
+      incomeNonVegQty: data.incomeNonVegQty?.toString() || "0",
+      incomeVegRate: data.incomeVegRate?.toString() || "0",
+      incomeVegQty: data.incomeVegQty?.toString() || "0",
+      incomeMorningCashRate: data.incomeMorningCashRate?.toString() || "0",
+      incomeMorningCashQty: data.incomeMorningCashQty?.toString() || "0",
+      incomeEveningCashRate: data.incomeEveningCashRate?.toString() || "0",
+      incomeEveningCashQty: data.incomeEveningCashQty?.toString() || "0",
+      expenseBananaQty: data.expenseBananaQty?.toString() || "0",
+      expenseDahiBharQty: data.expenseDahiBharQty?.toString() || "0",
+      expenseDahiBharRate: data.expenseDahiBharRate?.toString() || "0",
+      expenseOtherAmount: data.expenseOtherAmount?.toString() || "0",
+      totalGivenToAkbarAli: data.totalGivenToAkbarAli?.toString() || "0",
+    }).where(eq(cashSeals.id, id));
+    return this.getCashSeal(id);
+  }
+
   async getSavedMenus(): Promise<SavedMenu[]> {
     return await db.select().from(savedMenus).orderBy(desc(savedMenus.createdAt));
   }

@@ -509,6 +509,29 @@ export function useCreateCashSeal() {
   });
 }
 
+export function useUpdateCashSeal() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ id, data }: { id: number; data: any }) => {
+      const res = await fetch(`/api/cash-seals/${id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(data),
+        credentials: "include",
+      });
+      if (!res.ok) {
+        const error = await res.json();
+        throw new Error(error.message || "Failed to update cash seal");
+      }
+      return res.json();
+    },
+    onSuccess: (_data, { id }) => {
+      queryClient.invalidateQueries({ queryKey: [api.cashSeals.list.path] });
+      queryClient.invalidateQueries({ queryKey: ['/api/cash-seals', id] });
+    },
+  });
+}
+
 // === SAVED MENU HOOKS ===
 
 export function useSavedMenus(options?: { enabled?: boolean }) {
