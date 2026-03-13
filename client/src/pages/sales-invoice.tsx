@@ -1461,26 +1461,45 @@ function PankajReport({ invoices, clients }: { invoices: any[]; clients: string[
       return d.getMonth() + 1 === Number(month) && d.getFullYear() === Number(year);
     }))
     .map((clientName, idx) => {
+      // All invoices for this client in the selected month/year
       const clientInvoices = invoices.filter(inv => {
         if (!inv.billDate || inv.clientName !== clientName) return false;
         const d = new Date(inv.billDate);
         return d.getMonth() + 1 === Number(month) && d.getFullYear() === Number(year);
       });
-      const totalBill = clientInvoices.reduce((s, i) => s + Number(i.billAmount), 0);
-      const totalGst = clientInvoices.reduce((s, i) => s + Number(i.gstAmount), 0);
-      const totalTds = clientInvoices.reduce((s, i) => s + Number(i.tdsAmount), 0);
+
+      // Compute per-invoice status to find Full Paid ones
+      const fullPaidInvoices = clientInvoices.filter(inv => {
+        const invToReceive = Math.round((Number(inv.totalBillAmount) - Number(inv.tdsAmount)) * 100) / 100;
+        const invReceived = Math.round(Number(inv.paymentReceivedAmount) * 100) / 100;
+        return invToReceive > 0 && invReceived >= invToReceive;
+      });
+
+      // Amounts calculated from FULL PAID invoices only
+      const totalBill = fullPaidInvoices.reduce((s, i) => s + Number(i.billAmount), 0);
+      const totalGst = fullPaidInvoices.reduce((s, i) => s + Number(i.gstAmount), 0);
+      const totalTds = fullPaidInvoices.reduce((s, i) => s + Number(i.tdsAmount), 0);
       const toReceive = Math.round((totalBill + totalGst - totalTds) * 100) / 100;
       const gstMinusTds = Math.round((totalGst - totalTds) * 100) / 100;
       const fixedAmt = fixedAmounts[clientName] || 0;
       const total = Math.round((gstMinusTds + fixedAmt) * 100) / 100;
-      const savedRec = savedRecords.find((r: any) => r.clientName === clientName);
-      const givenDate = givenDates[clientName] || "";
+
+      // Invoice status based on ALL invoices (for the status filter/badge)
+      const totalAllToReceive = clientInvoices.reduce((s, i) => s + Math.round((Number(i.totalBillAmount) - Number(i.tdsAmount)) * 100) / 100, 0);
       const totalReceived = clientInvoices.reduce((s, i) => s + Number(i.paymentReceivedAmount), 0);
       const invStatus: "due" | "partial" | "full" =
         totalReceived <= 0 ? "due" :
-        totalReceived >= toReceive ? "full" : "partial";
+        totalReceived >= totalAllToReceive ? "full" : "partial";
+
+      const savedRec = savedRecords.find((r: any) => r.clientName === clientName);
+      const givenDate = givenDates[clientName] || "";
       const pankajStatus = givenDate ? "given" : "not_given";
-      return { idx: idx + 1, clientName, toReceive, totalReceived, invStatus, gstMinusTds, fixedAmt, total, givenDate, savedId: savedRec?.id || null, pankajStatus };
+
+      // Track counts for display
+      const fullPaidCount = fullPaidInvoices.length;
+      const totalInvCount = clientInvoices.length;
+
+      return { idx: idx + 1, clientName, toReceive, totalReceived, invStatus, gstMinusTds, fixedAmt, total, givenDate, savedId: savedRec?.id || null, pankajStatus, fullPaidCount, totalInvCount };
     });
 
   // Apply client + status filters for display
@@ -1812,7 +1831,12 @@ function PankajReport({ invoices, clients }: { invoices: any[]; clients: string[
                         <td className="py-3 px-4 text-center">
                           <span className="inline-flex items-center justify-center w-7 h-7 rounded-lg bg-gradient-to-br from-violet-100 to-purple-100 dark:from-violet-900 dark:to-purple-900 text-violet-700 dark:text-violet-300 text-xs font-bold">{r.idx}</span>
                         </td>
-                        <td className="py-3 px-4 font-semibold text-sm">{r.clientName}</td>
+                        <td className="py-3 px-4">
+                          <p className="font-semibold text-sm">{r.clientName}</p>
+                          <p className="text-[10px] text-muted-foreground mt-0.5">
+                            {r.fullPaidCount}/{r.totalInvCount} inv full paid
+                          </p>
+                        </td>
                         <td className="py-3 px-4 text-right font-mono text-sm">{fmtCurrency(r.toReceive)}</td>
                         <td className="py-3 px-4 text-right font-mono text-sm text-blue-600 dark:text-blue-400">{fmtCurrency(r.gstMinusTds)}</td>
                         <td className="py-2 px-2 text-center">
@@ -1864,7 +1888,10 @@ function PankajReport({ invoices, clients }: { invoices: any[]; clients: string[
                   <div className="flex items-start justify-between mb-3 gap-2">
                     <div className="flex items-center gap-3">
                       <span className="inline-flex items-center justify-center w-8 h-8 rounded-xl bg-gradient-to-br from-violet-500 to-purple-600 text-white text-sm font-bold shadow-md shadow-violet-200 dark:shadow-violet-900/30 flex-shrink-0">{r.idx}</span>
-                      <p className="font-bold text-sm">{r.clientName}</p>
+                      <div>
+                        <p className="font-bold text-sm">{r.clientName}</p>
+                        <p className="text-[10px] text-muted-foreground">{r.fullPaidCount}/{r.totalInvCount} inv full paid</p>
+                      </div>
                     </div>
                     <div className="flex flex-col items-end gap-1 flex-shrink-0">
                       {r.invStatus === "full" ? (
