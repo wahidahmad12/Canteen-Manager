@@ -771,6 +771,7 @@ export const pankajReports = mysqlTable("pankaj_reports", {
   fixedAmount: decimal("fixed_amount", { precision: 12, scale: 2 }).default("0").notNull(),
   total: decimal("total", { precision: 12, scale: 2 }).default("0").notNull(),
   givenDate: date("given_date"),
+  givenAmount: decimal("given_amount", { precision: 12, scale: 2 }),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 });
@@ -779,6 +780,7 @@ export type PankajReport = typeof pankajReports.$inferSelect;
 export const insertPankajReportSchema = createInsertSchema(pankajReports).omit({ id: true, createdAt: true, updatedAt: true });
 export const selectPankajReportSchema = createSelectSchema(pankajReports, {
   givenDate: z.string().nullable(),
+  givenAmount: z.string().nullable(),
   createdAt: z.string().or(z.date()),
   updatedAt: z.string().or(z.date()),
 });

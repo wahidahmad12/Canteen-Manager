@@ -1415,6 +1415,8 @@ function PankajReport({ invoices, clients }: { invoices: any[]; clients: string[
   const [filterInvStatus, setFilterInvStatus] = useState("all");
   const [fixedAmounts, setFixedAmounts] = useState<Record<string, number>>({});
   const [givenDates, setGivenDates] = useState<Record<string, string>>({});
+  const [givenAmounts, setGivenAmounts] = useState<Record<string, number>>({});
+  const [editingRows, setEditingRows] = useState<Set<string>>(new Set());
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
@@ -1430,12 +1432,15 @@ function PankajReport({ invoices, clients }: { invoices: any[]; clients: string[
   useEffect(() => {
     const fa: Record<string, number> = {};
     const gd: Record<string, string> = {};
+    const ga: Record<string, number> = {};
     savedRecords.forEach((r: any) => {
       fa[r.clientName] = Number(r.fixedAmount) || 0;
       if (r.givenDate) gd[r.clientName] = r.givenDate.split("T")[0];
+      if (r.givenAmount) ga[r.clientName] = Number(r.givenAmount);
     });
     setFixedAmounts(fa);
     setGivenDates(gd);
+    setGivenAmounts(ga);
   }, [savedRecords]);
 
   // Close dropdown when clicking outside
@@ -1499,7 +1504,8 @@ function PankajReport({ invoices, clients }: { invoices: any[]; clients: string[
       const fullPaidCount = fullPaidInvoices.length;
       const totalInvCount = clientInvoices.length;
 
-      return { idx: idx + 1, clientName, toReceive, totalReceived, invStatus, gstMinusTds, fixedAmt, total, givenDate, savedId: savedRec?.id || null, pankajStatus, fullPaidCount, totalInvCount };
+      const givenAmt = givenAmounts[clientName] ?? 0;
+      return { idx: idx + 1, clientName, toReceive, totalReceived, invStatus, gstMinusTds, fixedAmt, total, givenDate, givenAmt, savedId: savedRec?.id || null, pankajStatus, fullPaidCount, totalInvCount };
     });
 
   // Apply client + status filters for display
@@ -1529,6 +1535,7 @@ function PankajReport({ invoices, clients }: { invoices: any[]; clients: string[
           fixedAmount: String(r.fixedAmt),
           total: String(r.total),
           givenDate: r.givenDate || null,
+          givenAmount: r.givenAmt ? String(r.givenAmt) : null,
         };
         if (r.savedId) {
           await apiRequest("PUT", `/api/pankaj-reports/${r.savedId}`, payload);
@@ -1551,6 +1558,44 @@ function PankajReport({ invoices, clients }: { invoices: any[]; clients: string[
       toast({ title: "Error", description: "Failed to save report", variant: "destructive" });
     },
   });
+
+  // Per-row update mutation for editing individual saved rows
+  const updateRowMutation = useMutation({
+    mutationFn: async (r: typeof allRows[0]) => {
+      const payload = {
+        slNo: r.idx,
+        clientName: r.clientName,
+        month: Number(month),
+        year: Number(year),
+        toReceive: String(r.toReceive),
+        gstMinusTds: String(r.gstMinusTds),
+        fixedAmount: String(r.fixedAmt),
+        total: String(r.total),
+        givenDate: r.givenDate || null,
+        givenAmount: r.givenAmt ? String(r.givenAmt) : null,
+      };
+      if (r.savedId) {
+        await apiRequest("PUT", `/api/pankaj-reports/${r.savedId}`, payload);
+      } else {
+        await apiRequest("POST", `/api/pankaj-reports`, payload);
+      }
+    },
+    onSuccess: (_data, r) => {
+      setEditingRows(prev => { const s = new Set(prev); s.delete(r.clientName); return s; });
+      queryClient.invalidateQueries({ queryKey: ["/api/pankaj-reports", month, year] });
+      toast({ title: "Updated", description: `${r.clientName} updated successfully` });
+    },
+    onError: () => {
+      toast({ title: "Error", description: "Failed to update row", variant: "destructive" });
+    },
+  });
+
+  const toggleEditRow = (clientName: string) =>
+    setEditingRows(prev => {
+      const s = new Set(prev);
+      if (s.has(clientName)) s.delete(clientName); else s.add(clientName);
+      return s;
+    });
 
   const monthsList = [
     { v: "1", l: "January" }, { v: "2", l: "February" }, { v: "3", l: "March" },
@@ -1598,7 +1643,7 @@ function PankajReport({ invoices, clients }: { invoices: any[]; clients: string[
         <thead><tr>
           <th>Sl No</th><th>Client Name</th>
           <th>To Receive</th><th>GST Amount</th>
-          <th>Fixed Amount</th><th>Total</th><th>Given Date</th>
+          <th>Fixed Amount</th><th>Total</th><th>Given Date</th><th>Given Amount</th>
         </tr></thead>
         <tbody>${rows.map(r => {
           const gd = r.givenDate ? (() => { const p = r.givenDate.split("-"); return `${p[2]}/${p[1]}/${p[0]}`; })() : "-";
@@ -1609,6 +1654,7 @@ function PankajReport({ invoices, clients }: { invoices: any[]; clients: string[
           <td class="right">${r.fixedAmt > 0 ? r.fixedAmt.toLocaleString("en-IN", {minimumFractionDigits:2}) : "-"}</td>
           <td class="right" style="font-weight:bold">${r.total.toLocaleString("en-IN", {minimumFractionDigits:2})}</td>
           <td class="center">${gd}</td>
+          <td class="right">${r.givenAmt > 0 ? r.givenAmt.toLocaleString("en-IN", {minimumFractionDigits:2}) : "-"}</td>
         </tr>`;
         }).join("")}</tbody>
         <tfoot><tr>
@@ -1617,7 +1663,7 @@ function PankajReport({ invoices, clients }: { invoices: any[]; clients: string[
           <td class="right">${grandGstMinusTds.toLocaleString("en-IN", {minimumFractionDigits:2})}</td>
           <td class="right">${grandFixedAmt > 0 ? grandFixedAmt.toLocaleString("en-IN", {minimumFractionDigits:2}) : "-"}</td>
           <td class="right">${grandTotal.toLocaleString("en-IN", {minimumFractionDigits:2})}</td>
-          <td></td>
+          <td></td><td></td>
         </tr></tfoot>
       </table>
       <p class="note">GST Amount = GST Amount - TDS Amount &nbsp;|&nbsp; Total = (GST - TDS) + Fixed Amount</p>
@@ -1821,8 +1867,10 @@ function PankajReport({ invoices, clients }: { invoices: any[]; clients: string[
                       <th className="text-center py-3.5 px-4 font-semibold text-xs">Fixed Amount</th>
                       <th className="text-right py-3.5 px-4 font-semibold text-xs">Total</th>
                       <th className="text-center py-3.5 px-4 font-semibold text-xs">Given Date</th>
+                      <th className="text-right py-3.5 px-4 font-semibold text-xs">Given Amt</th>
                       <th className="text-center py-3.5 px-4 font-semibold text-xs">Inv. Status</th>
                       <th className="text-center py-3.5 px-4 font-semibold text-xs">Pankaj</th>
+                      <th className="text-center py-3.5 px-4 font-semibold text-xs">Action</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -1840,11 +1888,14 @@ function PankajReport({ invoices, clients }: { invoices: any[]; clients: string[
                         <td className="py-3 px-4 text-right font-mono text-sm">{fmtCurrency(r.toReceive)}</td>
                         <td className="py-3 px-4 text-right font-mono text-sm text-blue-600 dark:text-blue-400">{fmtCurrency(r.gstMinusTds)}</td>
                         <td className="py-2 px-2 text-center">
-                          <Input type="number" className="w-24 h-8 text-xs text-center font-mono mx-auto" placeholder="0" value={fixedAmounts[r.clientName] || ""} onChange={(e) => setFixedAmounts(prev => ({ ...prev, [r.clientName]: Number(e.target.value) || 0 }))} data-testid={`input-fixed-amt-${r.idx}`} />
+                          <Input type="number" className="w-24 h-8 text-xs text-center font-mono mx-auto" placeholder="0" disabled={!!r.savedId && !editingRows.has(r.clientName)} value={fixedAmounts[r.clientName] || ""} onChange={(e) => setFixedAmounts(prev => ({ ...prev, [r.clientName]: Number(e.target.value) || 0 }))} data-testid={`input-fixed-amt-${r.idx}`} />
                         </td>
                         <td className="py-3 px-4 text-right font-mono text-sm font-bold text-emerald-600 dark:text-emerald-400">{fmtCurrency(r.total)}</td>
                         <td className="py-2 px-2 text-center">
-                          <Input type="date" className="w-[130px] h-8 text-xs text-center mx-auto" value={givenDates[r.clientName] || ""} onChange={(e) => setGivenDates(prev => ({ ...prev, [r.clientName]: e.target.value }))} data-testid={`input-given-date-${r.idx}`} />
+                          <Input type="date" className="w-[130px] h-8 text-xs text-center mx-auto" disabled={!!r.savedId && !editingRows.has(r.clientName)} value={givenDates[r.clientName] || ""} onChange={(e) => setGivenDates(prev => ({ ...prev, [r.clientName]: e.target.value }))} data-testid={`input-given-date-${r.idx}`} />
+                        </td>
+                        <td className="py-2 px-2 text-right">
+                          <Input type="number" className="w-28 h-8 text-xs text-right font-mono ml-auto" placeholder="0.00" disabled={!!r.savedId && !editingRows.has(r.clientName)} value={givenAmounts[r.clientName] || ""} onChange={(e) => setGivenAmounts(prev => ({ ...prev, [r.clientName]: Number(e.target.value) || 0 }))} data-testid={`input-given-amt-${r.idx}`} />
                         </td>
                         <td className="py-3 px-2 text-center">
                           {r.invStatus === "full" ? (
@@ -1862,6 +1913,21 @@ function PankajReport({ invoices, clients }: { invoices: any[]; clients: string[
                             <Badge className="text-[10px] bg-slate-100 text-slate-600 border-slate-300 hover:bg-slate-100">Not Given</Badge>
                           )}
                         </td>
+                        <td className="py-2 px-2 text-center">
+                          {r.savedId && !editingRows.has(r.clientName) ? (
+                            <Button size="sm" variant="outline" className="h-7 px-2 text-[11px] border-violet-300 text-violet-700 hover:bg-violet-50" onClick={() => toggleEditRow(r.clientName)} data-testid={`button-edit-row-${r.idx}`}>
+                              <Pencil className="w-3 h-3 mr-1" /> Edit
+                            </Button>
+                          ) : editingRows.has(r.clientName) ? (
+                            <div className="flex gap-1 justify-center">
+                              <Button size="sm" className="h-7 px-2 text-[11px] bg-emerald-600 hover:bg-emerald-700 text-white" onClick={() => updateRowMutation.mutate(r)} disabled={updateRowMutation.isPending} data-testid={`button-save-row-${r.idx}`}>
+                                {updateRowMutation.isPending ? <Loader2 className="w-3 h-3 animate-spin" /> : <Save className="w-3 h-3 mr-1" />}
+                                Save
+                              </Button>
+                              <Button size="sm" variant="ghost" className="h-7 px-2 text-[11px] text-muted-foreground" onClick={() => toggleEditRow(r.clientName)}>✕</Button>
+                            </div>
+                          ) : null}
+                        </td>
                       </tr>
                     ))}
                   </tbody>
@@ -1872,7 +1938,7 @@ function PankajReport({ invoices, clients }: { invoices: any[]; clients: string[
                       <td className="py-3 px-4 text-right font-mono text-sm font-bold text-blue-600">{fmtCurrency(grandGstMinusTds)}</td>
                       <td className="py-3 px-4 text-center font-mono text-sm font-bold">{grandFixedAmt > 0 ? fmtCurrency(grandFixedAmt) : "-"}</td>
                       <td className="py-3 px-4 text-right font-mono text-sm font-bold text-emerald-600">{fmtCurrency(grandTotal)}</td>
-                      <td colSpan={3}></td>
+                      <td colSpan={5}></td>
                     </tr>
                   </tfoot>
                 </table>
@@ -1919,17 +1985,41 @@ function PankajReport({ invoices, clients }: { invoices: any[]; clients: string[
                     </div>
                     <div className="bg-purple-50 dark:bg-purple-950/20 rounded-xl p-2.5 text-center">
                       <p className="text-[10px] text-purple-600 dark:text-purple-400 uppercase tracking-wider font-medium">Fixed Amount</p>
-                      <Input type="number" className="w-20 h-7 text-xs text-center font-mono mx-auto mt-0.5" placeholder="0" value={fixedAmounts[r.clientName] || ""} onChange={(e) => setFixedAmounts(prev => ({ ...prev, [r.clientName]: Number(e.target.value) || 0 }))} data-testid={`input-fixed-amt-mobile-${r.idx}`} />
+                      <Input type="number" className="w-20 h-7 text-xs text-center font-mono mx-auto mt-0.5" placeholder="0" disabled={!!r.savedId && !editingRows.has(r.clientName)} value={fixedAmounts[r.clientName] || ""} onChange={(e) => setFixedAmounts(prev => ({ ...prev, [r.clientName]: Number(e.target.value) || 0 }))} data-testid={`input-fixed-amt-mobile-${r.idx}`} />
                     </div>
                     <div className="bg-emerald-50 dark:bg-emerald-950/20 rounded-xl p-2.5 text-center">
                       <p className="text-[10px] text-emerald-600 dark:text-emerald-400 uppercase tracking-wider font-medium">Total</p>
                       <p className="font-mono font-bold text-emerald-700 dark:text-emerald-300 mt-0.5">{fmtCurrency(r.total)}</p>
                     </div>
                   </div>
-                  <div className="mt-3 flex items-center gap-2">
-                    <CalendarDays className="w-3.5 h-3.5 text-muted-foreground" />
-                    <span className="text-xs text-muted-foreground">Given Date:</span>
-                    <Input type="date" className="w-[130px] h-7 text-xs" value={givenDates[r.clientName] || ""} onChange={(e) => setGivenDates(prev => ({ ...prev, [r.clientName]: e.target.value }))} data-testid={`input-given-date-mobile-${r.idx}`} />
+                  <div className="mt-3 space-y-2">
+                    <div className="flex items-center gap-2">
+                      <CalendarDays className="w-3.5 h-3.5 text-muted-foreground flex-shrink-0" />
+                      <span className="text-xs text-muted-foreground w-24">Given Date:</span>
+                      <Input type="date" className="flex-1 h-8 text-xs" disabled={!!r.savedId && !editingRows.has(r.clientName)} value={givenDates[r.clientName] || ""} onChange={(e) => setGivenDates(prev => ({ ...prev, [r.clientName]: e.target.value }))} data-testid={`input-given-date-mobile-${r.idx}`} />
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <IndianRupee className="w-3.5 h-3.5 text-muted-foreground flex-shrink-0" />
+                      <span className="text-xs text-muted-foreground w-24">Given Amount:</span>
+                      <Input type="number" className="flex-1 h-8 text-xs font-mono" placeholder="0.00" disabled={!!r.savedId && !editingRows.has(r.clientName)} value={givenAmounts[r.clientName] || ""} onChange={(e) => setGivenAmounts(prev => ({ ...prev, [r.clientName]: Number(e.target.value) || 0 }))} data-testid={`input-given-amt-mobile-${r.idx}`} />
+                    </div>
+                    {r.savedId && (
+                      <div className="flex justify-end pt-1">
+                        {!editingRows.has(r.clientName) ? (
+                          <Button size="sm" variant="outline" className="h-8 px-3 text-xs border-violet-300 text-violet-700 hover:bg-violet-50" onClick={() => toggleEditRow(r.clientName)} data-testid={`button-edit-row-mobile-${r.idx}`}>
+                            <Pencil className="w-3 h-3 mr-1" /> Edit
+                          </Button>
+                        ) : (
+                          <div className="flex gap-2">
+                            <Button size="sm" className="h-8 px-3 text-xs bg-emerald-600 hover:bg-emerald-700 text-white" onClick={() => updateRowMutation.mutate(r)} disabled={updateRowMutation.isPending} data-testid={`button-save-row-mobile-${r.idx}`}>
+                              {updateRowMutation.isPending ? <Loader2 className="w-3 h-3 animate-spin mr-1" /> : <Save className="w-3 h-3 mr-1" />}
+                              Save
+                            </Button>
+                            <Button size="sm" variant="ghost" className="h-8 px-3 text-xs text-muted-foreground" onClick={() => toggleEditRow(r.clientName)}>Cancel</Button>
+                          </div>
+                        )}
+                      </div>
+                    )}
                   </div>
                 </CardContent>
               </Card>
