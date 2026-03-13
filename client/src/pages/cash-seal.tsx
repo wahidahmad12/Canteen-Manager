@@ -4,11 +4,12 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { DatePicker } from "@/components/ui/date-picker";
 import { Badge } from "@/components/ui/badge";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { format, parseISO } from "date-fns";
 import {
   Save, ArrowLeft, Loader2, Plus, Pencil, FileDown,
   Users, UserPlus, TrendingUp, TrendingDown, Wallet,
-  IndianRupee, BarChart3
+  IndianRupee, BarChart3, Calendar, Printer, Search
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useCreateCashSeal, useUpdateCashSeal, useCashSeals } from "@/hooks/use-reports";
@@ -205,6 +206,8 @@ export default function CashSeal() {
   const [editId, setEditId] = useState<number | null>(null);
   const autoEditHandled = useRef(false);
   const [date, setDate] = useState<Date>(new Date());
+  const [filterMonth, setFilterMonth] = useState<string>("all");
+  const [filterYear, setFilterYear] = useState<string>(String(new Date().getFullYear()));
   const { toast } = useToast();
   const [, navigate] = useLocation();
   const saveMutation = useCreateCashSeal();
@@ -362,95 +365,276 @@ export default function CashSeal() {
   // LIST VIEW
   // ─────────────────────────────────────────────────────────────────
   if (view === "list") {
+    const currentYear = new Date().getFullYear();
+    const years = Array.from({ length: 5 }, (_, i) => String(currentYear - i));
+    const months = [
+      { value: "all", label: "All Months" },
+      { value: "1", label: "January" }, { value: "2", label: "February" },
+      { value: "3", label: "March" }, { value: "4", label: "April" },
+      { value: "5", label: "May" }, { value: "6", label: "June" },
+      { value: "7", label: "July" }, { value: "8", label: "August" },
+      { value: "9", label: "September" }, { value: "10", label: "October" },
+      { value: "11", label: "November" }, { value: "12", label: "December" },
+    ];
+
+    const getDateObj = (d: string) => {
+      try { return d.includes("T") ? parseISO(d) : new Date(d + "T00:00:00"); } catch { return new Date(); }
+    };
+
+    const allRecords = records as any[];
+    const filtered = allRecords.filter(s => {
+      const dt = getDateObj(s.date || "");
+      if (filterYear !== "all" && dt.getFullYear() !== Number(filterYear)) return false;
+      if (filterMonth !== "all" && (dt.getMonth() + 1) !== Number(filterMonth)) return false;
+      return true;
+    });
+
+    const totals = filtered.reduce((acc, s) => {
+      const t = calcTotals(s);
+      return { income: acc.income + t.income, expense: acc.expense + t.expense, balance: acc.balance + t.balance };
+    }, { income: 0, expense: 0, balance: 0 });
+
+    const statCards = [
+      { label: "Total Records", value: String(filtered.length), isCount: true, grad: "from-blue-600 to-blue-400", icon: IndianRupee },
+      { label: "Total Income", value: fmtN(totals.income), isCount: false, grad: "from-emerald-600 to-teal-400", icon: TrendingUp },
+      { label: "Total Expense", value: fmtN(totals.expense), isCount: false, grad: "from-rose-600 to-orange-400", icon: TrendingDown },
+      { label: "Net Balance", value: fmtN(totals.balance), isCount: false, grad: totals.balance >= 0 ? "from-sky-600 to-cyan-400" : "from-orange-600 to-red-400", icon: Wallet },
+    ];
+
     return (
       <Layout>
-        <div className="max-w-5xl mx-auto px-3 sm:px-6 py-4 sm:py-6">
-          <div className="flex items-center justify-between mb-5">
-            <div>
-              <h1 className="text-xl sm:text-2xl font-bold text-slate-800 dark:text-slate-100">Daily Cash Seal KPF</h1>
-              <p className="text-xs text-slate-500 mt-0.5">Permanent Staff & Third Party records</p>
-            </div>
-            <div className="flex items-center gap-2">
-              <Button onClick={() => navigate("/cash-seal/monthly")} size="sm" variant="outline"
-                className="gap-1.5 border-teal-300 text-teal-700 hover:bg-teal-50 dark:border-teal-700 dark:text-teal-400"
+        <div className="min-h-screen bg-slate-50 dark:bg-slate-900">
+          {/* ── Page Header ── */}
+          <div className="bg-white dark:bg-slate-800 border-b border-slate-200 dark:border-slate-700 px-4 sm:px-6 py-4">
+            <div className="max-w-7xl mx-auto flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-teal-600 to-teal-400 flex items-center justify-center shadow-md flex-shrink-0">
+                  <IndianRupee className="w-5 h-5 text-white" />
+                </div>
+                <div>
+                  <h1 className="text-lg sm:text-xl font-bold text-slate-800 dark:text-slate-100 leading-tight">Daily Cash Seal KPF</h1>
+                  <p className="text-xs text-slate-500 dark:text-slate-400">Track daily income & expenses</p>
+                </div>
+              </div>
+              <Button onClick={() => navigate("/cash-seal/monthly")} variant="outline"
+                className="gap-1.5 border-teal-300 text-teal-700 hover:bg-teal-50 dark:border-teal-700 dark:text-teal-400 h-9"
                 data-testid="button-monthly-report">
                 <BarChart3 className="w-4 h-4" />
-                <span className="hidden sm:inline">Monthly Report</span>
-              </Button>
-              <Button onClick={handleNew} size="sm"
-                className="bg-teal-600 hover:bg-teal-700 text-white gap-1.5"
-                data-testid="button-new-seal">
-                <Plus className="w-4 h-4" />
-                <span className="hidden xs:inline">New</span>
+                <span className="hidden sm:inline text-sm">Monthly Report</span>
               </Button>
             </div>
           </div>
 
-          {recordsLoading ? (
-            <div className="flex items-center justify-center py-16">
-              <Loader2 className="w-8 h-8 animate-spin text-teal-600" />
+          <div className="max-w-7xl mx-auto px-3 sm:px-6 py-4 sm:py-6 space-y-5">
+
+            {/* ── Action row ── */}
+            <div className="flex items-center justify-end gap-2">
+              <Button onClick={handleNew}
+                className="bg-teal-600 hover:bg-teal-700 text-white gap-1.5 h-9 px-4"
+                data-testid="button-new-seal">
+                <Plus className="w-4 h-4" />
+                New Entry
+              </Button>
             </div>
-          ) : (records as any[]).length === 0 ? (
-            <div className="text-center py-16 text-slate-400">
-              <IndianRupee className="w-12 h-12 mx-auto mb-3 opacity-30" />
-              <p className="text-sm">No records yet. Create your first entry.</p>
-            </div>
-          ) : (
-            <div className="space-y-3">
-              {(records as any[]).map((seal: any) => {
-                const { income, expense, balance } = calcTotals(seal);
-                return (
-                  <div key={seal.id}
-                    className="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm p-3 sm:p-4">
-                    <div className="flex items-center justify-between mb-3">
-                      <div className="flex items-center gap-2">
-                        <div className="w-9 h-9 rounded-xl bg-teal-100 dark:bg-teal-900/40 flex items-center justify-center flex-shrink-0">
-                          <IndianRupee className="w-4 h-4 text-teal-600" />
-                        </div>
-                        <div>
-                          <div className="font-semibold text-sm text-slate-800 dark:text-slate-100">{formatDate(seal.date || "")}</div>
-                          <div className="text-xs text-slate-400">#{seal.id}</div>
-                        </div>
-                      </div>
-                      <div className="flex items-center gap-1">
-                        <Button size="sm" variant="ghost"
-                          className="h-8 px-2 text-teal-600 hover:bg-teal-50 dark:hover:bg-teal-900/20"
-                          onClick={() => handleEdit(seal)}
-                          data-testid={`button-edit-seal-${seal.id}`}>
-                          <Pencil className="w-3.5 h-3.5" />
-                          <span className="hidden sm:inline ml-1 text-xs">Edit</span>
-                        </Button>
-                        <Button size="sm" variant="ghost"
-                          className="h-8 px-2 text-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-900/20"
-                          onClick={() => navigate(`/cash-seal/${seal.id}/pdf`)}
-                          data-testid={`button-pdf-seal-${seal.id}`}>
-                          <FileDown className="w-3.5 h-3.5" />
-                          <span className="hidden sm:inline ml-1 text-xs">PDF</span>
-                        </Button>
-                      </div>
-                    </div>
-                    <div className="grid grid-cols-3 gap-2">
-                      {[
-                        { label: "Income", value: income, cls: "bg-emerald-50 dark:bg-emerald-900/20 text-emerald-700" },
-                        { label: "Expense", value: expense, cls: "bg-rose-50 dark:bg-rose-900/20 text-rose-700" },
-                        { label: "Balance", value: balance, cls: balance >= 0 ? "bg-blue-50 dark:bg-blue-900/20 text-blue-700" : "bg-orange-50 dark:bg-orange-900/20 text-orange-700" },
-                      ].map(({ label, value, cls }) => (
-                        <div key={label} className={`${cls} rounded-lg p-2 text-center`}>
-                          <div className="text-[10px] font-medium mb-0.5 opacity-80">{label}</div>
-                          <div className="text-sm font-bold font-mono">{fmtN(value)}</div>
-                        </div>
-                      ))}
-                    </div>
-                    {Number(seal.totalGivenToAkbarAli) > 0 && (
-                      <div className="mt-2 text-right text-xs text-orange-600">
-                        Akbar Ali: <span className="font-mono font-semibold">{fmtN(Number(seal.totalGivenToAkbarAli))}</span>
-                      </div>
-                    )}
+
+            {/* ── Stat cards ── */}
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+              {statCards.map(({ label, value, isCount, grad, icon: Icon }) => (
+                <div key={label} className={`bg-gradient-to-br ${grad} rounded-2xl p-4 text-white shadow-md`}>
+                  <div className="flex items-center gap-2 mb-2 opacity-90">
+                    <Icon className="w-4 h-4" />
+                    <span className="text-xs font-semibold uppercase tracking-wide">{label}</span>
                   </div>
-                );
-              })}
+                  <div className={`font-bold font-mono ${isCount ? "text-4xl" : "text-lg sm:text-xl"} leading-tight`}>{value}</div>
+                </div>
+              ))}
             </div>
-          )}
+
+            {/* ── Filters ── */}
+            <div className="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 p-3 sm:p-4 shadow-sm">
+              <div className="flex flex-wrap items-center gap-3">
+                <div className="flex items-center gap-2 text-slate-500 dark:text-slate-400">
+                  <Calendar className="w-4 h-4" />
+                  <span className="text-sm font-medium">Filter</span>
+                </div>
+                <Select value={filterMonth} onValueChange={setFilterMonth}>
+                  <SelectTrigger className="w-36 h-9 text-sm" data-testid="select-month">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {months.map(m => <SelectItem key={m.value} value={m.value}>{m.label}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+                <Select value={filterYear} onValueChange={setFilterYear}>
+                  <SelectTrigger className="w-28 h-9 text-sm" data-testid="select-year">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Years</SelectItem>
+                    {years.map(y => <SelectItem key={y} value={y}>{y}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+                {(filterMonth !== "all" || filterYear !== "all") && (
+                  <Button variant="ghost" size="sm" className="h-9 text-slate-500 text-sm"
+                    onClick={() => { setFilterMonth("all"); setFilterYear("all"); }}>
+                    Clear
+                  </Button>
+                )}
+                <div className="ml-auto text-sm text-slate-500 dark:text-slate-400">
+                  {filtered.length} record{filtered.length !== 1 ? "s" : ""}
+                </div>
+              </div>
+            </div>
+
+            {/* ── Table ── */}
+            {recordsLoading ? (
+              <div className="flex items-center justify-center py-16">
+                <Loader2 className="w-8 h-8 animate-spin text-teal-600" />
+              </div>
+            ) : filtered.length === 0 ? (
+              <div className="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 text-center py-16 text-slate-400">
+                <IndianRupee className="w-12 h-12 mx-auto mb-3 opacity-30" />
+                <p className="text-sm">{allRecords.length === 0 ? "No records yet. Create your first entry." : "No records match the selected filter."}</p>
+              </div>
+            ) : (
+              <div className="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm overflow-hidden">
+                {/* Desktop table */}
+                <div className="hidden sm:block overflow-x-auto">
+                  <table className="w-full">
+                    <thead>
+                      <tr className="bg-gradient-to-r from-teal-700 to-teal-500 text-white">
+                        {["Sl#", "Date", "PS Income", "TP Income", "Total Income", "Expense", "Balance", "Akbar Ali", "Actions"].map(h => (
+                          <th key={h} className="px-3 py-3 text-xs font-bold uppercase tracking-wide text-left whitespace-nowrap first:rounded-tl-none last:text-center">{h}</th>
+                        ))}
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100 dark:divide-slate-700">
+                      {filtered.map((seal: any, idx: number) => {
+                        const n = (v: any) => Number(v) || 0;
+                        const psTotal = (n(seal.incomePsBreakfastCashQty) + n(seal.incomePsBreakfastOnlineQty)) * PS_RATES.bf
+                          + (n(seal.incomePsLunchCashQty) + n(seal.incomePsLunchOnlineQty)) * PS_RATES.ln
+                          + (n(seal.incomePsEveningCashQty) + n(seal.incomePsEveningOnlineQty)) * PS_RATES.ev
+                          + (n(seal.incomePsNightCashQty) + n(seal.incomePsNightOnlineQty)) * PS_RATES.nt
+                          + (n(seal.incomePsRechargeCashQty) + n(seal.incomePsRechargeOnlineQty)) * n(seal.incomePsRechargeRate);
+                        const tpTotal = (n(seal.incomeTpBreakfastCashQty) + n(seal.incomeTpBreakfastOnlineQty)) * TP_RATES.bf
+                          + (n(seal.incomeTpLunchVegCashQty) + n(seal.incomeTpLunchVegOnlineQty)) * TP_RATES.lv
+                          + (n(seal.incomeTpLunchNvCashQty) + n(seal.incomeTpLunchNvOnlineQty)) * n(seal.incomeTpLunchNvRate)
+                          + (n(seal.incomeTpEveningCashQty) + n(seal.incomeTpEveningOnlineQty)) * TP_RATES.ev
+                          + (n(seal.incomeTpNightCashQty) + n(seal.incomeTpNightOnlineQty)) * TP_RATES.nt;
+                        const { income, expense, balance } = calcTotals(seal);
+                        const isEven = idx % 2 === 0;
+                        return (
+                          <tr key={seal.id} className={`${isEven ? "bg-white dark:bg-slate-800" : "bg-slate-50 dark:bg-slate-800/60"} hover:bg-teal-50/50 dark:hover:bg-teal-900/10 transition-colors`}>
+                            <td className="px-3 py-2.5 text-sm text-slate-500 font-mono">{idx + 1}</td>
+                            <td className="px-3 py-2.5">
+                              <div className="text-sm font-semibold text-slate-800 dark:text-slate-100 whitespace-nowrap">{formatDate(seal.date || "")}</div>
+                            </td>
+                            <td className="px-3 py-2.5 text-sm font-mono text-blue-700 dark:text-blue-400">{psTotal > 0 ? fmtN(psTotal) : <span className="text-slate-300">—</span>}</td>
+                            <td className="px-3 py-2.5 text-sm font-mono text-green-700 dark:text-green-400">{tpTotal > 0 ? fmtN(tpTotal) : <span className="text-slate-300">—</span>}</td>
+                            <td className="px-3 py-2.5">
+                              <span className="text-sm font-bold font-mono text-emerald-700 dark:text-emerald-400">{fmtN(income)}</span>
+                            </td>
+                            <td className="px-3 py-2.5">
+                              <span className="text-sm font-mono text-rose-600 dark:text-rose-400">{expense > 0 ? fmtN(expense) : <span className="text-slate-300">—</span>}</span>
+                            </td>
+                            <td className="px-3 py-2.5">
+                              <span className={`text-sm font-bold font-mono ${balance >= 0 ? "text-sky-700 dark:text-sky-400" : "text-orange-600 dark:text-orange-400"}`}>{fmtN(balance)}</span>
+                            </td>
+                            <td className="px-3 py-2.5 text-sm font-mono text-orange-600">
+                              {Number(seal.totalGivenToAkbarAli) > 0 ? fmtN(Number(seal.totalGivenToAkbarAli)) : <span className="text-slate-300">—</span>}
+                            </td>
+                            <td className="px-3 py-2.5">
+                              <div className="flex items-center justify-center gap-1">
+                                <button onClick={() => handleEdit(seal)}
+                                  className="p-1.5 rounded-lg text-teal-600 hover:bg-teal-100 dark:hover:bg-teal-900/30 transition-colors"
+                                  title="Edit" data-testid={`button-edit-seal-${seal.id}`}>
+                                  <Pencil className="w-3.5 h-3.5" />
+                                </button>
+                                <button onClick={() => navigate(`/cash-seal/${seal.id}/pdf`)}
+                                  className="p-1.5 rounded-lg text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors"
+                                  title="View PDF" data-testid={`button-pdf-seal-${seal.id}`}>
+                                  <Printer className="w-3.5 h-3.5" />
+                                </button>
+                              </div>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                    {/* Footer totals */}
+                    <tfoot>
+                      <tr className="bg-teal-50 dark:bg-teal-900/20 border-t-2 border-teal-200 dark:border-teal-700">
+                        <td colSpan={4} className="px-3 py-2.5 text-xs font-bold uppercase text-teal-700 dark:text-teal-300 tracking-wide">Total ({filtered.length} records)</td>
+                        <td className="px-3 py-2.5 text-sm font-bold font-mono text-emerald-700 dark:text-emerald-300">{fmtN(totals.income)}</td>
+                        <td className="px-3 py-2.5 text-sm font-bold font-mono text-rose-600 dark:text-rose-400">{fmtN(totals.expense)}</td>
+                        <td className="px-3 py-2.5 text-sm font-bold font-mono text-sky-700 dark:text-sky-300">{fmtN(totals.balance)}</td>
+                        <td colSpan={2}></td>
+                      </tr>
+                    </tfoot>
+                  </table>
+                </div>
+
+                {/* Mobile cards */}
+                <div className="sm:hidden divide-y divide-slate-100 dark:divide-slate-700">
+                  {filtered.map((seal: any, idx: number) => {
+                    const { income, expense, balance } = calcTotals(seal);
+                    return (
+                      <div key={seal.id} className="p-3">
+                        <div className="flex items-center justify-between mb-2.5">
+                          <div className="flex items-center gap-2">
+                            <span className="w-6 h-6 rounded-full bg-teal-100 dark:bg-teal-900/40 text-teal-700 text-xs font-bold flex items-center justify-center">{idx + 1}</span>
+                            <div>
+                              <div className="text-sm font-bold text-slate-800 dark:text-slate-100">{formatDate(seal.date || "")}</div>
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-1">
+                            <button onClick={() => handleEdit(seal)}
+                              className="p-2 rounded-lg text-teal-600 hover:bg-teal-50 dark:hover:bg-teal-900/30"
+                              data-testid={`button-edit-seal-${seal.id}`}>
+                              <Pencil className="w-4 h-4" />
+                            </button>
+                            <button onClick={() => navigate(`/cash-seal/${seal.id}/pdf`)}
+                              className="p-2 rounded-lg text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-700"
+                              data-testid={`button-pdf-seal-${seal.id}`}>
+                              <Printer className="w-4 h-4" />
+                            </button>
+                          </div>
+                        </div>
+                        <div className="grid grid-cols-3 gap-1.5">
+                          <div className="bg-emerald-50 dark:bg-emerald-900/20 rounded-lg p-2 text-center">
+                            <div className="text-[10px] text-emerald-600 font-semibold mb-0.5">Income</div>
+                            <div className="text-xs font-bold font-mono text-emerald-700">{fmtN(income)}</div>
+                          </div>
+                          <div className="bg-rose-50 dark:bg-rose-900/20 rounded-lg p-2 text-center">
+                            <div className="text-[10px] text-rose-600 font-semibold mb-0.5">Expense</div>
+                            <div className="text-xs font-bold font-mono text-rose-700">{fmtN(expense)}</div>
+                          </div>
+                          <div className={`rounded-lg p-2 text-center ${balance >= 0 ? "bg-sky-50 dark:bg-sky-900/20" : "bg-orange-50 dark:bg-orange-900/20"}`}>
+                            <div className={`text-[10px] font-semibold mb-0.5 ${balance >= 0 ? "text-sky-600" : "text-orange-600"}`}>Balance</div>
+                            <div className={`text-xs font-bold font-mono ${balance >= 0 ? "text-sky-700" : "text-orange-700"}`}>{fmtN(balance)}</div>
+                          </div>
+                        </div>
+                        {Number(seal.totalGivenToAkbarAli) > 0 && (
+                          <div className="mt-1.5 text-right text-xs text-orange-500">
+                            Akbar Ali: <span className="font-mono font-semibold">{fmtN(Number(seal.totalGivenToAkbarAli))}</span>
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                  {/* Mobile footer */}
+                  <div className="p-3 bg-teal-50 dark:bg-teal-900/20">
+                    <div className="text-xs font-bold text-teal-700 dark:text-teal-300 mb-2">Total ({filtered.length} records)</div>
+                    <div className="grid grid-cols-3 gap-1.5">
+                      <div className="text-center"><div className="text-[10px] text-emerald-600">Income</div><div className="text-xs font-bold font-mono text-emerald-700">{fmtN(totals.income)}</div></div>
+                      <div className="text-center"><div className="text-[10px] text-rose-600">Expense</div><div className="text-xs font-bold font-mono text-rose-700">{fmtN(totals.expense)}</div></div>
+                      <div className="text-center"><div className="text-[10px] text-sky-600">Balance</div><div className="text-xs font-bold font-mono text-sky-700">{fmtN(totals.balance)}</div></div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
         </div>
       </Layout>
     );
