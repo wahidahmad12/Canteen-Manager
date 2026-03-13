@@ -772,6 +772,7 @@ export const pankajReports = mysqlTable("pankaj_reports", {
   total: decimal("total", { precision: 12, scale: 2 }).default("0").notNull(),
   givenDate: date("given_date"),
   givenAmount: decimal("given_amount", { precision: 12, scale: 2 }),
+  payments: text("payments"),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 });
@@ -782,6 +783,7 @@ export const insertPankajReportSchema = createInsertSchema(pankajReports)
   .extend({
     givenDate: z.string().nullable().optional(),
     givenAmount: z.string().nullable().optional(),
+    payments: z.string().nullable().optional(),
   });
 export const selectPankajReportSchema = createSelectSchema(pankajReports, {
   givenDate: z.string().nullable(),
