@@ -1112,7 +1112,14 @@ export async function registerRoutes(
             amountOfWagesP: "0",
           });
           const totalLeave = leaveEarned + prevLeaveBalance;
-          prevLeaveBalance = Math.max(0, totalLeave - Number(existing.leaveEnjoyed || 0));
+          const wasPaid = existing.dateOfPayment && existing.dateOfPayment.trim() !== "" && existing.dateOfPayment.trim().toUpperCase() !== "NA";
+          if (wasPaid) {
+            // Leave was encashed/paid — nothing carries forward to next year
+            prevLeaveBalance = 0;
+          } else {
+            // Leave not yet paid — remaining balance carries forward
+            prevLeaveBalance = Math.max(0, totalLeave - Number(existing.leaveEnjoyed || 0));
+          }
         } else {
           await storage.createLeaveWithWages({
             employeeId,
