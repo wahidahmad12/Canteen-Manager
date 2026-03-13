@@ -1408,11 +1408,10 @@ function PankajReport({ invoices, clients }: { invoices: any[]; clients: string[
   const now = new Date();
   const [month, setMonth] = useState(String(now.getMonth() + 1));
   const [year, setYear] = useState(String(now.getFullYear()));
-  const [selectedClients, setSelectedClients] = useState<string[]>([]);
-  const [clientDropdownOpen, setClientDropdownOpen] = useState(false);
+  const [filterClient, setFilterClient] = useState("all");
+  const [filterStatus, setFilterStatus] = useState("all");
   const [fixedAmounts, setFixedAmounts] = useState<Record<string, number>>({});
   const [givenDates, setGivenDates] = useState<Record<string, string>>({});
-  const dropdownRef = useRef<HTMLDivElement>(null);
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
@@ -1426,59 +1425,47 @@ function PankajReport({ invoices, clients }: { invoices: any[]; clients: string[
   });
 
   useEffect(() => {
-    if (savedRecords.length > 0) {
-      const savedClients = savedRecords.map((r: any) => r.clientName);
-      setSelectedClients(savedClients);
-      const fa: Record<string, number> = {};
-      const gd: Record<string, string> = {};
-      savedRecords.forEach((r: any) => {
-        fa[r.clientName] = Number(r.fixedAmount) || 0;
-        if (r.givenDate) gd[r.clientName] = r.givenDate.split("T")[0];
-      });
-      setFixedAmounts(fa);
-      setGivenDates(gd);
-    } else {
-      setSelectedClients([]);
-      setFixedAmounts({});
-      setGivenDates({});
-    }
+    const fa: Record<string, number> = {};
+    const gd: Record<string, string> = {};
+    savedRecords.forEach((r: any) => {
+      fa[r.clientName] = Number(r.fixedAmount) || 0;
+      if (r.givenDate) gd[r.clientName] = r.givenDate.split("T")[0];
+    });
+    setFixedAmounts(fa);
+    setGivenDates(gd);
   }, [savedRecords]);
 
-  useEffect(() => {
-    if (!clientDropdownOpen) return;
-    const handleClickOutside = (e: MouseEvent) => {
-      if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) {
-        setClientDropdownOpen(false);
-      }
-    };
-    document.addEventListener("mousedown", handleClickOutside);
-    return () => document.removeEventListener("mousedown", handleClickOutside);
-  }, [clientDropdownOpen]);
-
-  const toggleClient = (name: string) => {
-    setSelectedClients(prev => prev.includes(name) ? prev.filter(c => c !== name) : [...prev, name]);
-  };
-
-  const selectAll = () => setSelectedClients([...clients]);
-  const clearAll = () => setSelectedClients([]);
-
-  const rows = selectedClients.map((clientName, idx) => {
-    const clientInvoices = invoices.filter(inv => {
+  // All clients that have invoices in the selected month/year
+  const allRows = clients
+    .filter(clientName => invoices.some(inv => {
       if (!inv.billDate || inv.clientName !== clientName) return false;
       const d = new Date(inv.billDate);
       return d.getMonth() + 1 === Number(month) && d.getFullYear() === Number(year);
+    }))
+    .map((clientName, idx) => {
+      const clientInvoices = invoices.filter(inv => {
+        if (!inv.billDate || inv.clientName !== clientName) return false;
+        const d = new Date(inv.billDate);
+        return d.getMonth() + 1 === Number(month) && d.getFullYear() === Number(year);
+      });
+      const totalBill = clientInvoices.reduce((s, i) => s + Number(i.billAmount), 0);
+      const totalGst = clientInvoices.reduce((s, i) => s + Number(i.gstAmount), 0);
+      const totalTds = clientInvoices.reduce((s, i) => s + Number(i.tdsAmount), 0);
+      const toReceive = Math.round((totalBill + totalGst - totalTds) * 100) / 100;
+      const gstMinusTds = Math.round((totalGst - totalTds) * 100) / 100;
+      const fixedAmt = fixedAmounts[clientName] || 0;
+      const total = Math.round((gstMinusTds + fixedAmt) * 100) / 100;
+      const savedRec = savedRecords.find((r: any) => r.clientName === clientName);
+      const givenDate = givenDates[clientName] || "";
+      const status = givenDate ? "given" : "not_given";
+      return { idx: idx + 1, clientName, toReceive, gstMinusTds, fixedAmt, total, givenDate, savedId: savedRec?.id || null, status };
     });
-    const totalBill = clientInvoices.reduce((s, i) => s + Number(i.billAmount), 0);
-    const totalGst = clientInvoices.reduce((s, i) => s + Number(i.gstAmount), 0);
-    const totalTds = clientInvoices.reduce((s, i) => s + Number(i.tdsAmount), 0);
-    const toReceive = Math.round((totalBill + totalGst - totalTds) * 100) / 100;
-    const gstMinusTds = Math.round((totalGst - totalTds) * 100) / 100;
-    const fixedAmt = fixedAmounts[clientName] || 0;
-    const total = Math.round((gstMinusTds + fixedAmt) * 100) / 100;
-    const savedRec = savedRecords.find((r: any) => r.clientName === clientName);
-    const givenDate = givenDates[clientName] || "";
-    return { idx: idx + 1, clientName, toReceive, gstMinusTds, fixedAmt, total, givenDate, savedId: savedRec?.id || null };
-  });
+
+  // Apply client + status filters for display
+  const rows = allRows
+    .filter(r => filterClient === "all" || r.clientName === filterClient)
+    .filter(r => filterStatus === "all" || r.status === filterStatus)
+    .map((r, i) => ({ ...r, idx: i + 1 }));
 
   const grandToReceive = rows.reduce((s, r) => s + r.toReceive, 0);
   const grandGstMinusTds = rows.reduce((s, r) => s + r.gstMinusTds, 0);
@@ -1487,8 +1474,9 @@ function PankajReport({ invoices, clients }: { invoices: any[]; clients: string[
 
   const saveMutation = useMutation({
     mutationFn: async () => {
-      for (let i = 0; i < rows.length; i++) {
-        const r = rows[i];
+      // Save all clients (allRows), not just the filtered display rows
+      for (let i = 0; i < allRows.length; i++) {
+        const r = allRows[i];
         const payload = {
           slNo: r.idx,
           clientName: r.clientName,
@@ -1507,7 +1495,7 @@ function PankajReport({ invoices, clients }: { invoices: any[]; clients: string[
         }
       }
       const savedIds = savedRecords.map((r: any) => r.id);
-      const currentSavedIds = rows.filter(r => r.savedId).map(r => r.savedId);
+      const currentSavedIds = allRows.filter(r => r.savedId).map(r => r.savedId);
       const toDelete = savedIds.filter((id: number) => !currentSavedIds.includes(id));
       for (const id of toDelete) {
         await apiRequest("DELETE", `/api/pankaj-reports/${id}`);
@@ -1598,69 +1586,82 @@ function PankajReport({ invoices, clients }: { invoices: any[]; clients: string[
 
   return (
     <div>
-      <Card className="border-0 shadow-lg mb-5">
-        <div className="h-1.5 bg-gradient-to-r from-violet-500 via-purple-500 to-fuchsia-500" />
-        <CardContent className="p-3 sm:p-5">
-          <div className="flex items-center gap-2 sm:gap-3 mb-3 sm:mb-4">
-            <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-gradient-to-br from-violet-500 to-purple-600 flex items-center justify-center shadow-lg shadow-violet-200 dark:shadow-violet-900/30">
-              <User className="w-4 h-4 sm:w-5 sm:h-5 text-white" />
+      {/* ── Filter bar (matches main Sales Invoice style) ── */}
+      <Card className="border-0 shadow-sm mb-4">
+        <CardContent className="p-3 sm:p-4">
+          <div className="flex items-center gap-2 mb-3">
+            <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-violet-500 to-purple-600 flex items-center justify-center shadow-md">
+              <User className="w-4 h-4 text-white" />
             </div>
             <div>
-              <h3 className="font-bold text-base sm:text-lg leading-tight" data-testid="text-pankaj-title">Amount Give To Pankaj</h3>
-              <p className="text-xs text-muted-foreground">{monthName} {year}
+              <h3 className="font-bold text-sm leading-tight" data-testid="text-pankaj-title">Amount Give To Pankaj</h3>
+              <p className="text-[10px] text-muted-foreground">
+                {monthName} {year}
                 {hasSavedData && <Badge variant="outline" className="ml-2 text-[10px] border-green-300 text-green-600 bg-green-50 dark:bg-green-950/30">Saved</Badge>}
               </p>
             </div>
-          </div>
-          <div className="grid grid-cols-2 sm:flex sm:items-center gap-2 sm:flex-wrap">
-            <div className="relative col-span-2" ref={dropdownRef}>
-              <Button variant="outline" size="sm" className="h-9 w-full sm:w-auto sm:min-w-[180px] justify-between border-violet-200 dark:border-violet-800 hover:bg-violet-50 dark:hover:bg-violet-950/30" onClick={() => setClientDropdownOpen(!clientDropdownOpen)} data-testid="button-pankaj-client-select">
-                <span className="flex items-center gap-1.5 text-xs">
-                  <Building2 className="w-3.5 h-3.5 text-violet-500" />
-                  {selectedClients.length === 0 ? "Select Clients" : `${selectedClients.length} client${selectedClients.length > 1 ? "s" : ""}`}
-                </span>
+            <div className="ml-auto flex gap-2">
+              <Button size="sm" className="h-9 bg-gradient-to-r from-emerald-600 to-green-600 hover:from-emerald-700 hover:to-green-700 text-white shadow-md" onClick={() => saveMutation.mutate()} disabled={saveMutation.isPending || allRows.length === 0} data-testid="button-save-pankaj">
+                {saveMutation.isPending ? <Loader2 className="w-4 h-4 mr-1 animate-spin" /> : <Save className="w-4 h-4 mr-1" />}
+                {hasSavedData ? "Update" : "Save"}
               </Button>
-              {clientDropdownOpen && (
-                <div className="absolute z-50 mt-1 w-72 bg-white dark:bg-gray-900 border border-violet-100 dark:border-violet-900 rounded-xl shadow-2xl shadow-violet-100/50 dark:shadow-violet-950/50 p-2 max-h-60 overflow-y-auto" data-testid="dropdown-pankaj-clients" onClick={(e) => e.stopPropagation()} onMouseDown={(e) => e.stopPropagation()}>
-                  <div className="flex gap-2 mb-2 px-1">
-                    <Button size="sm" variant="outline" className="h-6 text-[10px] border-violet-200" onClick={(e) => { e.stopPropagation(); selectAll(); }}>Select All</Button>
-                    <Button size="sm" variant="outline" className="h-6 text-[10px] border-violet-200" onClick={(e) => { e.stopPropagation(); clearAll(); }}>Clear All</Button>
-                  </div>
-                  {clients.map(c => (
-                    <div key={c} className="flex items-center gap-2.5 px-2.5 py-2 rounded-lg hover:bg-violet-50 dark:hover:bg-violet-950/30 cursor-pointer transition-colors" onClick={(e) => { e.stopPropagation(); toggleClient(c); }} data-testid={`checkbox-client-${c}`}>
-                      <div className={`w-5 h-5 rounded-md border-2 flex items-center justify-center text-white text-xs transition-all ${selectedClients.includes(c) ? "bg-violet-600 border-violet-600 shadow-sm shadow-violet-300" : "border-gray-300 dark:border-gray-600"}`}>
-                        {selectedClients.includes(c) && <Check className="w-3.5 h-3.5" />}
-                      </div>
-                      <span className="text-sm">{c}</span>
-                    </div>
-                  ))}
-                </div>
-              )}
+              <Button size="sm" className="h-9 bg-gradient-to-r from-violet-600 to-purple-600 hover:from-violet-700 hover:to-purple-700 text-white shadow-md" onClick={handlePrint} data-testid="button-print-pankaj">
+                <Printer className="w-4 h-4 mr-1" /> Print
+              </Button>
             </div>
+          </div>
+          {/* Filters row */}
+          <div className="grid grid-cols-2 sm:flex sm:items-center gap-2 flex-wrap">
+            <Select value={filterClient} onValueChange={setFilterClient}>
+              <SelectTrigger className="w-full sm:w-[200px] h-9 text-sm" data-testid="select-pankaj-client">
+                <Building2 className="w-3.5 h-3.5 mr-1.5 text-violet-500 flex-shrink-0" />
+                <SelectValue placeholder="All Clients" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Clients</SelectItem>
+                {clients.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}
+              </SelectContent>
+            </Select>
+
             <Select value={month} onValueChange={setMonth}>
-              <SelectTrigger className="w-full sm:w-[130px] h-9" data-testid="select-pankaj-month">
+              <SelectTrigger className="w-full sm:w-[140px] h-9 text-sm" data-testid="select-pankaj-month">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
                 {monthsList.map(m => <SelectItem key={m.v} value={m.v}>{m.l}</SelectItem>)}
               </SelectContent>
             </Select>
+
             <Select value={year} onValueChange={setYear}>
-              <SelectTrigger className="w-full sm:w-[90px] h-9" data-testid="select-pankaj-year">
+              <SelectTrigger className="w-full sm:w-[100px] h-9 text-sm" data-testid="select-pankaj-year">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
                 {years.map(y => <SelectItem key={y} value={y}>{y}</SelectItem>)}
               </SelectContent>
             </Select>
-            <div className="flex gap-2 col-span-2 sm:col-span-1 sm:ml-auto">
-              <Button size="sm" className="h-9 flex-1 sm:flex-none bg-gradient-to-r from-emerald-600 to-green-600 hover:from-emerald-700 hover:to-green-700 text-white shadow-md" onClick={() => saveMutation.mutate()} disabled={saveMutation.isPending || rows.length === 0} data-testid="button-save-pankaj">
-                {saveMutation.isPending ? <Loader2 className="w-4 h-4 mr-1.5 animate-spin" /> : <Save className="w-4 h-4 mr-1.5" />}
-                {hasSavedData ? "Update" : "Save"}
+
+            <Select value={filterStatus} onValueChange={setFilterStatus}>
+              <SelectTrigger className="w-full sm:w-[150px] h-9 text-sm" data-testid="select-pankaj-status">
+                <SelectValue placeholder="All Status" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Status</SelectItem>
+                <SelectItem value="given">Given</SelectItem>
+                <SelectItem value="not_given">Not Given</SelectItem>
+              </SelectContent>
+            </Select>
+
+            {(filterClient !== "all" || filterStatus !== "all") && (
+              <Button variant="ghost" size="sm" className="h-9 text-muted-foreground text-sm col-span-2 sm:col-span-1"
+                onClick={() => { setFilterClient("all"); setFilterStatus("all"); }}>
+                Clear Filters
               </Button>
-              <Button size="sm" className="h-9 flex-1 sm:flex-none bg-gradient-to-r from-violet-600 to-purple-600 hover:from-violet-700 hover:to-purple-700 text-white shadow-md shadow-violet-200 dark:shadow-violet-900/30" onClick={handlePrint} data-testid="button-print-pankaj">
-                <Printer className="w-4 h-4 mr-1.5" /> Print
-              </Button>
+            )}
+
+            <div className="col-span-2 sm:col-span-1 sm:ml-auto text-xs text-muted-foreground text-right">
+              {rows.length} client{rows.length !== 1 ? "s" : ""} shown
+              {allRows.length !== rows.length && ` (of ${allRows.length})`}
             </div>
           </div>
         </CardContent>
@@ -1674,7 +1675,7 @@ function PankajReport({ invoices, clients }: { invoices: any[]; clients: string[
               <Building2 className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-violet-600 dark:text-violet-400" />
             </div>
             <p className="text-[9px] sm:text-[10px] uppercase tracking-wider text-muted-foreground font-medium mb-1">Clients</p>
-            <p className="text-2xl sm:text-3xl font-bold text-violet-600" data-testid="text-pankaj-client-count">{selectedClients.length}</p>
+            <p className="text-2xl sm:text-3xl font-bold text-violet-600" data-testid="text-pankaj-client-count">{rows.length}</p>
           </CardContent>
         </Card>
         <Card className="border-0 shadow-lg overflow-hidden group hover:shadow-xl transition-shadow">
@@ -1715,14 +1716,24 @@ function PankajReport({ invoices, clients }: { invoices: any[]; clients: string[
             <Loader2 className="w-8 h-8 animate-spin text-violet-500" />
           </CardContent>
         </Card>
-      ) : selectedClients.length === 0 ? (
+      ) : allRows.length === 0 ? (
         <Card className="border-0 shadow-lg">
           <CardContent className="flex flex-col items-center justify-center py-20">
             <div className="w-16 h-16 rounded-2xl bg-violet-100 dark:bg-violet-900/30 flex items-center justify-center mb-4">
               <Building2 className="w-8 h-8 text-violet-400" />
             </div>
-            <p className="text-muted-foreground text-sm font-medium">Select one or more clients to generate the report</p>
-            <p className="text-muted-foreground/60 text-xs mt-1">Use the client dropdown above to get started</p>
+            <p className="text-muted-foreground text-sm font-medium">No invoices found for {monthName} {year}</p>
+            <p className="text-muted-foreground/60 text-xs mt-1">Try selecting a different month or year</p>
+          </CardContent>
+        </Card>
+      ) : rows.length === 0 ? (
+        <Card className="border-0 shadow-lg">
+          <CardContent className="flex flex-col items-center justify-center py-16">
+            <div className="w-14 h-14 rounded-2xl bg-violet-100 dark:bg-violet-900/30 flex items-center justify-center mb-3">
+              <Building2 className="w-7 h-7 text-violet-400" />
+            </div>
+            <p className="text-muted-foreground text-sm font-medium">No records match the selected filters</p>
+            <Button variant="ghost" size="sm" className="mt-2 text-violet-600" onClick={() => { setFilterClient("all"); setFilterStatus("all"); }}>Clear Filters</Button>
           </CardContent>
         </Card>
       ) : (
