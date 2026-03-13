@@ -1652,14 +1652,17 @@ function PankajReport({ invoices, clients }: { invoices: any[]; clients: string[
       <table>
         <thead><tr>
           <th>Sl No</th><th>Client Name</th>
-          <th>To Receive</th><th>GST Amount</th>
-          <th>Fixed Amt</th><th>Total</th><th>Pymnt Date</th><th>Given Date</th><th>Given Amt</th><th>Status</th>
+          <th>To Receive</th><th>GST Amt</th>
+          <th>Fixed Amt</th><th>Total</th><th>Pymnt Date</th><th>Given Date</th><th>Given Amt</th><th>Pending Amt</th><th>Status</th>
         </tr></thead>
         <tbody>${rows.map(r => {
           const fmtD = (d: string) => { const p = d.split("-"); return `${p[2]}/${p[1]}/${p[0]}`; };
           const gd = r.givenDate ? fmtD(r.givenDate) : "-";
           const pd = r.latestPaymentDate ? fmtD(r.latestPaymentDate) : "-";
-          const badge = r.pankajStatus === "given" ? "Given" : r.pankajStatus === "partial" ? "Partial" : "Not Given";
+          const pendingAmt = r.total - r.givenAmt;
+          const pendingStr = r.givenAmt <= 0 ? "-" : pendingAmt <= 0 ? "0.00" : pendingAmt.toLocaleString("en-IN", {minimumFractionDigits:2});
+          const pendingStyle = pendingAmt <= 0 && r.givenAmt > 0 ? "color:#15803d;" : r.givenAmt > 0 ? "color:#dc2626;" : "";
+          const badge = r.pankajStatus === "given" ? "Full Paid" : r.pankajStatus === "partial" ? "Pending" : "Not Given";
           const badgeStyle = r.pankajStatus === "given" ? "color:#15803d;background:#dcfce7;" : r.pankajStatus === "partial" ? "color:#b45309;background:#fef3c7;" : "color:#4b5563;background:#f3f4f6;";
           return `<tr>
           <td class="center">${r.idx}</td><td>${r.clientName}</td>
@@ -1670,6 +1673,7 @@ function PankajReport({ invoices, clients }: { invoices: any[]; clients: string[
           <td class="center">${pd}</td>
           <td class="center">${gd}</td>
           <td class="right">${r.givenAmt > 0 ? r.givenAmt.toLocaleString("en-IN", {minimumFractionDigits:2}) : "-"}</td>
+          <td class="right" style="${pendingStyle}font-weight:bold">${pendingStr}</td>
           <td class="center"><span style="padding:2px 6px;border-radius:4px;font-size:10px;font-weight:bold;${badgeStyle}">${badge}</span></td>
         </tr>`;
         }).join("")}</tbody>
@@ -1679,7 +1683,7 @@ function PankajReport({ invoices, clients }: { invoices: any[]; clients: string[
           <td class="right">${grandGstMinusTds.toLocaleString("en-IN", {minimumFractionDigits:2})}</td>
           <td class="right">${grandFixedAmt > 0 ? grandFixedAmt.toLocaleString("en-IN", {minimumFractionDigits:2}) : "-"}</td>
           <td class="right">${grandTotal.toLocaleString("en-IN", {minimumFractionDigits:2})}</td>
-          <td></td><td></td><td></td><td></td>
+          <td></td><td></td><td></td><td></td><td></td>
         </tr></tfoot>
       </table>
       <p class="note">GST Amount = GST Amount - TDS Amount &nbsp;|&nbsp; Total = (GST - TDS) + Fixed Amount</p>
@@ -1886,6 +1890,7 @@ function PankajReport({ invoices, clients }: { invoices: any[]; clients: string[
                       <th className="text-center py-3.5 px-4 font-semibold text-xs">Pymnt Date</th>
                       <th className="text-center py-3.5 px-4 font-semibold text-xs">Given Date</th>
                       <th className="text-right py-3.5 px-4 font-semibold text-xs">Given Amt</th>
+                      <th className="text-right py-3.5 px-4 font-semibold text-xs">Pending Amt</th>
                       <th className="text-center py-3.5 px-4 font-semibold text-xs">Inv. Status</th>
                       <th className="text-center py-3.5 px-4 font-semibold text-xs">Pankaj</th>
                       <th className="text-center py-3.5 px-4 font-semibold text-xs">Action</th>
@@ -1912,11 +1917,38 @@ function PankajReport({ invoices, clients }: { invoices: any[]; clients: string[
                         <td className="py-3 px-3 text-center text-xs text-blue-600 font-medium">
                           {r.latestPaymentDate ? fmtDate(r.latestPaymentDate) : <span className="text-muted-foreground">—</span>}
                         </td>
-                        <td className="py-2 px-2 text-center">
-                          <Input type="date" className="w-[130px] h-8 text-xs text-center mx-auto" disabled={!!r.savedId && !editingRows.has(r.clientName)} value={givenDates[r.clientName] || ""} onChange={(e) => setGivenDates(prev => ({ ...prev, [r.clientName]: e.target.value }))} data-testid={`input-given-date-${r.idx}`} />
+                        {/* Given Date – show text when saved, input when editing */}
+                        <td className="py-2 px-2 text-center min-w-[120px]">
+                          {r.savedId && !editingRows.has(r.clientName) ? (
+                            <div className="text-center">
+                              <span className="text-xs font-medium text-violet-700 dark:text-violet-300">
+                                {givenDates[r.clientName] ? fmtDate(givenDates[r.clientName]) : <span className="text-muted-foreground text-[11px]">Not set</span>}
+                              </span>
+                            </div>
+                          ) : (
+                            <Input type="date" className="w-[130px] h-8 text-xs text-center mx-auto" value={givenDates[r.clientName] || ""} onChange={(e) => setGivenDates(prev => ({ ...prev, [r.clientName]: e.target.value }))} data-testid={`input-given-date-${r.idx}`} />
+                          )}
                         </td>
-                        <td className="py-2 px-2 text-right">
-                          <Input type="number" className="w-28 h-8 text-xs text-right font-mono ml-auto" placeholder="0.00" disabled={!!r.savedId && !editingRows.has(r.clientName)} value={givenAmounts[r.clientName] || ""} onChange={(e) => setGivenAmounts(prev => ({ ...prev, [r.clientName]: Number(e.target.value) || 0 }))} data-testid={`input-given-amt-${r.idx}`} />
+                        {/* Given Amt – show text when saved, input when editing */}
+                        <td className="py-2 px-3 text-right min-w-[100px]">
+                          {r.savedId && !editingRows.has(r.clientName) ? (
+                            <div className="text-right">
+                              <span className={`text-xs font-mono font-bold ${r.givenAmt > 0 ? "text-emerald-600 dark:text-emerald-400" : "text-muted-foreground"}`}>
+                                {r.givenAmt > 0 ? fmtCurrency(r.givenAmt) : "—"}
+                              </span>
+                            </div>
+                          ) : (
+                            <Input type="number" className="w-28 h-8 text-xs text-right font-mono ml-auto" placeholder="0.00" value={givenAmounts[r.clientName] || ""} onChange={(e) => setGivenAmounts(prev => ({ ...prev, [r.clientName]: Number(e.target.value) || 0 }))} data-testid={`input-given-amt-${r.idx}`} />
+                          )}
+                        </td>
+                        {/* Pending Amt = Total - Given Amt */}
+                        <td className="py-3 px-3 text-right min-w-[90px]">
+                          {(() => {
+                            const pending = r.total - r.givenAmt;
+                            if (r.givenAmt <= 0) return <span className="text-xs text-muted-foreground">—</span>;
+                            if (pending <= 0) return <span className="text-xs font-mono font-bold text-emerald-600">₹0.00</span>;
+                            return <span className="text-xs font-mono font-bold text-red-600 dark:text-red-400">{fmtCurrency(pending)}</span>;
+                          })()}
                         </td>
                         <td className="py-3 px-2 text-center">
                           {r.invStatus === "full" ? (
@@ -1961,7 +1993,7 @@ function PankajReport({ invoices, clients }: { invoices: any[]; clients: string[
                       <td className="py-3 px-4 text-right font-mono text-sm font-bold text-blue-600">{fmtCurrency(grandGstMinusTds)}</td>
                       <td className="py-3 px-4 text-center font-mono text-sm font-bold">{grandFixedAmt > 0 ? fmtCurrency(grandFixedAmt) : "-"}</td>
                       <td className="py-3 px-4 text-right font-mono text-sm font-bold text-emerald-600">{fmtCurrency(grandTotal)}</td>
-                      <td colSpan={6}></td>
+                      <td colSpan={7}></td>
                     </tr>
                   </tfoot>
                 </table>
@@ -2024,16 +2056,40 @@ function PankajReport({ invoices, clients }: { invoices: any[]; clients: string[
                         <span className="text-xs text-blue-600 dark:text-blue-400 font-medium">Payment Received: {fmtDate(r.latestPaymentDate)}</span>
                       </div>
                     )}
+                    {/* Given Date row */}
                     <div className="flex items-center gap-2">
                       <CalendarDays className="w-3.5 h-3.5 text-muted-foreground flex-shrink-0" />
-                      <span className="text-xs text-muted-foreground w-24">Given Date:</span>
-                      <Input type="date" className="flex-1 h-8 text-xs" disabled={!!r.savedId && !editingRows.has(r.clientName)} value={givenDates[r.clientName] || ""} onChange={(e) => setGivenDates(prev => ({ ...prev, [r.clientName]: e.target.value }))} data-testid={`input-given-date-mobile-${r.idx}`} />
+                      <span className="text-xs text-muted-foreground w-24 flex-shrink-0">Given Date:</span>
+                      {r.savedId && !editingRows.has(r.clientName) ? (
+                        <span className="text-xs font-medium text-violet-700 dark:text-violet-300">
+                          {givenDates[r.clientName] ? fmtDate(givenDates[r.clientName]) : <span className="text-muted-foreground italic">Not set</span>}
+                        </span>
+                      ) : (
+                        <Input type="date" className="flex-1 h-8 text-xs" value={givenDates[r.clientName] || ""} onChange={(e) => setGivenDates(prev => ({ ...prev, [r.clientName]: e.target.value }))} data-testid={`input-given-date-mobile-${r.idx}`} />
+                      )}
                     </div>
+                    {/* Given Amount row */}
                     <div className="flex items-center gap-2">
                       <IndianRupee className="w-3.5 h-3.5 text-muted-foreground flex-shrink-0" />
-                      <span className="text-xs text-muted-foreground w-24">Given Amount:</span>
-                      <Input type="number" className="flex-1 h-8 text-xs font-mono" placeholder="0.00" disabled={!!r.savedId && !editingRows.has(r.clientName)} value={givenAmounts[r.clientName] || ""} onChange={(e) => setGivenAmounts(prev => ({ ...prev, [r.clientName]: Number(e.target.value) || 0 }))} data-testid={`input-given-amt-mobile-${r.idx}`} />
+                      <span className="text-xs text-muted-foreground w-24 flex-shrink-0">Given Amount:</span>
+                      {r.savedId && !editingRows.has(r.clientName) ? (
+                        <span className={`text-xs font-mono font-bold ${r.givenAmt > 0 ? "text-emerald-600 dark:text-emerald-400" : "text-muted-foreground"}`}>
+                          {r.givenAmt > 0 ? fmtCurrency(r.givenAmt) : "—"}
+                        </span>
+                      ) : (
+                        <Input type="number" className="flex-1 h-8 text-xs font-mono" placeholder="0.00" value={givenAmounts[r.clientName] || ""} onChange={(e) => setGivenAmounts(prev => ({ ...prev, [r.clientName]: Number(e.target.value) || 0 }))} data-testid={`input-given-amt-mobile-${r.idx}`} />
+                      )}
                     </div>
+                    {/* Pending Amount row – only shown when givenAmt > 0 */}
+                    {r.givenAmt > 0 && (
+                      <div className={`flex items-center gap-2 rounded-lg px-2.5 py-1.5 ${r.total - r.givenAmt <= 0 ? "bg-emerald-50 dark:bg-emerald-950/20" : "bg-red-50 dark:bg-red-950/20"}`}>
+                        <IndianRupee className={`w-3.5 h-3.5 flex-shrink-0 ${r.total - r.givenAmt <= 0 ? "text-emerald-500" : "text-red-500"}`} />
+                        <span className="text-xs text-muted-foreground flex-shrink-0">Pending:</span>
+                        <span className={`text-xs font-mono font-bold ml-auto ${r.total - r.givenAmt <= 0 ? "text-emerald-600" : "text-red-600 dark:text-red-400"}`}>
+                          {r.total - r.givenAmt <= 0 ? "₹0.00 (Full Paid)" : fmtCurrency(r.total - r.givenAmt)}
+                        </span>
+                      </div>
+                    )}
                     {r.savedId && (
                       <div className="flex justify-end pt-1">
                         {!editingRows.has(r.clientName) ? (
