@@ -406,6 +406,154 @@ export default function CashSeal() {
 
   const isPending = saveMutation.isPending || updateMutation.isPending;
 
+  const handleExportExcel = async () => {
+    const ExcelJS = (await import("exceljs")).default;
+    const wb = new ExcelJS.Workbook();
+    const ws = wb.addWorksheet("Cash Seal KPF");
+
+    const dateStr = format(date, "dd MMM yyyy");
+    const navy  = "FF1E3A5F";
+    const teal  = "FF0F766E";
+    const white = "FFFFFFFF";
+    const green = "FF15803D";
+    const gray  = "FFF1F5F9";
+    const totalBg = "FFE0F2FE";
+    const thin  = { style: "thin" as const, color: { argb: "FFCBD5E1" } };
+    const border = { top: thin, left: thin, bottom: thin, right: thin };
+
+    ws.columns = [
+      { key: "no",    width: 6  },
+      { key: "name",  width: 22 },
+      { key: "rate",  width: 10 },
+      { key: "cq",    width: 12 },
+      { key: "cat",   width: 18 },
+      { key: "oq",    width: 12 },
+      { key: "oat",   width: 18 },
+      { key: "rqt",   width: 14 },
+      { key: "rat",   width: 18 },
+    ];
+
+    const headers = ["#", "Name", "Rate", "Cash Qty", "Cash Amount Total", "Online Qty", "Online Amount Total", "Row Qty Total", "Row Amount Total"];
+
+    const addTitle = (label: string, bg: string) => {
+      const r = ws.addRow([label]);
+      ws.mergeCells(`A${r.number}:I${r.number}`);
+      const c = r.getCell(1);
+      c.font = { bold: true, color: { argb: white }, size: 12 };
+      c.fill = { type: "pattern", pattern: "solid", fgColor: { argb: bg } };
+      c.alignment = { horizontal: "center", vertical: "middle" };
+      r.height = 22;
+    };
+
+    const addHeader = () => {
+      const r = ws.addRow(headers);
+      r.height = 18;
+      headers.forEach((_, i) => {
+        const c = r.getCell(i + 1);
+        c.font = { bold: true, color: { argb: white } };
+        c.fill = { type: "pattern", pattern: "solid", fgColor: { argb: teal } };
+        c.alignment = { horizontal: i >= 3 ? "center" : i === 1 ? "left" : "center", vertical: "middle" };
+        c.border = border;
+      });
+    };
+
+    const addDataRow = (no: number, name: string, rate: number | string, cq: number, cat: number, oq: number, oat: number) => {
+      const rqt = cq + oq;
+      const rat = cat + oat;
+      const r = ws.addRow([no, name, rate, cq, cat, oq, oat, rqt, rat]);
+      r.height = 16;
+      const bg = no % 2 === 0 ? gray : white;
+      [1,2,3,4,5,6,7,8,9].forEach(i => {
+        const c = r.getCell(i);
+        c.fill = { type: "pattern", pattern: "solid", fgColor: { argb: bg } };
+        c.alignment = { horizontal: i <= 2 ? (i===1?"center":"left") : "right", vertical: "middle" };
+        c.border = border;
+        if ([4,5,6,7,8,9].includes(i) && typeof c.value === "number") c.numFmt = i===4||i===6||i===8 ? "0" : "#,##0.00";
+      });
+    };
+
+    const addTotalsRow = (cq: number, cat: number, oq: number, oat: number) => {
+      const rqt = cq + oq;
+      const rat = cat + oat;
+      const r = ws.addRow(["", "", "Total", cq, cat, oq, oat, rqt, rat]);
+      r.height = 17;
+      [1,2,3,4,5,6,7,8,9].forEach(i => {
+        const c = r.getCell(i);
+        c.fill = { type: "pattern", pattern: "solid", fgColor: { argb: totalBg } };
+        c.font = { bold: true, color: { argb: i===9 ? green : "FF0F172A" } };
+        c.alignment = { horizontal: i===3?"right": i>=4?"right":"center", vertical: "middle" };
+        c.border = border;
+        if ([4,5,6,7,8,9].includes(i) && typeof c.value === "number") c.numFmt = i===4||i===6||i===8 ? "0" : "#,##0.00";
+      });
+    };
+
+    // ─── Header ───
+    const titleRow = ws.addRow(["DJ Hospitality & Facility Management Pvt Ltd"]);
+    ws.mergeCells(`A${titleRow.number}:I${titleRow.number}`);
+    const tc = titleRow.getCell(1);
+    tc.font = { bold: true, color: { argb: white }, size: 14 };
+    tc.fill = { type: "pattern", pattern: "solid", fgColor: { argb: navy } };
+    tc.alignment = { horizontal: "center", vertical: "middle" };
+    titleRow.height = 26;
+
+    const subRow = ws.addRow([`Daily Cash Seal KPF — ${dateStr}`]);
+    ws.mergeCells(`A${subRow.number}:I${subRow.number}`);
+    const sc = subRow.getCell(1);
+    sc.font = { bold: true, color: { argb: white }, size: 11 };
+    sc.fill = { type: "pattern", pattern: "solid", fgColor: { argb: teal } };
+    sc.alignment = { horizontal: "center", vertical: "middle" };
+    subRow.height = 20;
+
+    ws.addRow([]);
+
+    // ─── PS section ───
+    addTitle("Permanent Staff (PS)", "FF1E40AF");
+    addHeader();
+    addDataRow(1, "Breakfast",    `₹${PS_RATES.bf}`, psBfCash,  psBfCashT,  psBfOnline,  psBfOnlineT);
+    addDataRow(2, "Lunch",        `₹${PS_RATES.ln}`, psLnCash,  psLnCashT,  psLnOnline,  psLnOnlineT);
+    addDataRow(3, "Evening Snacks",`₹${PS_RATES.ev}`,psEvCash,  psEvCashT,  psEvOnline,  psEvOnlineT);
+    addDataRow(4, "Night Snacks", `₹${PS_RATES.nt}`, psNtCash,  psNtCashT,  psNtOnline,  psNtOnlineT);
+    addDataRow(5, "Recharge",     `₹${psRcRate}`,    psRcCash,  psRcCashT,  psRcOnline,  psRcOnlineT);
+    addTotalsRow(psCashQtyTotal, psTotalCash, psOnlineQtyTotal, psTotalOnline);
+
+    ws.addRow([]);
+
+    // ─── TP section ───
+    addTitle("Third Party (TP)", "FF065F46");
+    addHeader();
+    addDataRow(1, "Breakfast",      `₹${TP_RATES.bf}`, tpBfCash, tpBfCashT, tpBfOnline, tpBfOnlineT);
+    addDataRow(2, "Lunch Veg",      `₹${TP_RATES.lv}`, tpLvCash, tpLvCashT, tpLvOnline, tpLvOnlineT);
+    addDataRow(3, "Lunch Non-Veg",  `₹${tpNvRate}`,    tpNvCash, tpNvCashT, tpNvOnline, tpNvOnlineT);
+    addDataRow(4, "Evening Snacks", `₹${TP_RATES.ev}`, tpEvCash, tpEvCashT, tpEvOnline, tpEvOnlineT);
+    addDataRow(5, "Night",          `₹${TP_RATES.nt}`, tpNtCash, tpNtCashT, tpNtOnline, tpNtOnlineT);
+    addTotalsRow(tpCashQtyTotal, tpTotalCash, tpOnlineQtyTotal, tpTotalOnline);
+
+    ws.addRow([]);
+
+    // ─── Grand Total ───
+    const grandCashQty = psCashQtyTotal + tpCashQtyTotal;
+    const grandCashAmt = psTotalCash + tpTotalCash;
+    const grandOnlineQty = psOnlineQtyTotal + tpOnlineQtyTotal;
+    const grandOnlineAmt = psTotalOnline + tpTotalOnline;
+    const gtr = ws.addRow(["", "", "Grand Total", grandCashQty, grandCashAmt, grandOnlineQty, grandOnlineAmt, grandCashQty + grandOnlineQty, grandCashAmt + grandOnlineAmt]);
+    gtr.height = 20;
+    [1,2,3,4,5,6,7,8,9].forEach(i => {
+      const c = gtr.getCell(i);
+      c.fill = { type: "pattern", pattern: "solid", fgColor: { argb: navy } };
+      c.font = { bold: true, color: { argb: white }, size: i===9?12:11 };
+      c.alignment = { horizontal: i>=3?"right":"center", vertical: "middle" };
+      c.border = border;
+      if ([4,5,6,7,8,9].includes(i) && typeof c.value === "number") c.numFmt = i===4||i===6||i===8 ? "0" : "#,##0.00";
+    });
+
+    const buf = await wb.xlsx.writeBuffer();
+    const blob = new Blob([buf], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url; a.download = `CashSeal_KPF_${format(date, "yyyy-MM-dd")}.xlsx`; a.click();
+    URL.revokeObjectURL(url);
+  };
+
   const formatDate = (d: string) => {
     try {
       return format(d.includes("T") ? parseISO(d) : new Date(d + "T00:00:00"), "dd MMM yyyy");
@@ -751,12 +899,20 @@ export default function CashSeal() {
               <p className="text-[10px] text-slate-400">Income & expense entry</p>
             </div>
           </div>
-          <Button onClick={handleSave} disabled={isPending}
-            className="bg-teal-600 hover:bg-teal-700 text-white gap-1.5 h-9"
-            data-testid="button-save-seal">
-            {isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
-            {editId ? "Update" : "Save"}
-          </Button>
+          <div className="flex items-center gap-2">
+            <Button variant="outline" size="sm" onClick={handleExportExcel}
+              className="h-9 border-emerald-300 text-emerald-700 hover:bg-emerald-50 dark:border-emerald-700 dark:text-emerald-400 gap-1.5"
+              data-testid="button-excel-cashseal">
+              <FileDown className="w-4 h-4" />
+              <span className="hidden sm:inline">Excel</span>
+            </Button>
+            <Button onClick={handleSave} disabled={isPending}
+              className="bg-teal-600 hover:bg-teal-700 text-white gap-1.5 h-9"
+              data-testid="button-save-seal">
+              {isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
+              {editId ? "Update" : "Save"}
+            </Button>
+          </div>
         </div>
 
         {/* Date */}
