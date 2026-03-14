@@ -108,6 +108,7 @@ export interface IStorage {
   deleteInventory(id: number): Promise<void>;
   getCashSeals(): Promise<any[]>;
   getCashSeal(id: number): Promise<any | undefined>;
+  deleteCashSeal(id: number): Promise<void>;
   getSavedMenus(): Promise<SavedMenu[]>;
   getSavedMenu(id: number): Promise<SavedMenu | undefined>;
   createSavedMenu(data: { clientName: string; startDate: string; endDate: string; menuData: string }): Promise<SavedMenu>;
@@ -651,6 +652,10 @@ export class DatabaseStorage implements IStorage {
       incomeTpNightOnlineQty: data.incomeTpNightOnlineQty?.toString() || "0",
     }).where(eq(cashSeals.id, id));
     return this.getCashSeal(id);
+  }
+
+  async deleteCashSeal(id: number): Promise<void> {
+    await db.delete(cashSeals).where(eq(cashSeals.id, id));
   }
 
   async getSavedMenus(): Promise<SavedMenu[]> {

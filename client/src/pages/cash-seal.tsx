@@ -9,10 +9,10 @@ import { format, parseISO } from "date-fns";
 import {
   Save, ArrowLeft, Loader2, Plus, Pencil, FileDown,
   Users, UserPlus, TrendingUp, TrendingDown, Wallet,
-  IndianRupee, BarChart3, Calendar, Printer, Search
+  IndianRupee, BarChart3, Calendar, Printer, Search, Trash2
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import { useCreateCashSeal, useUpdateCashSeal, useCashSeals } from "@/hooks/use-reports";
+import { useCreateCashSeal, useUpdateCashSeal, useDeleteCashSeal, useCashSeals } from "@/hooks/use-reports";
 import { useLocation } from "wouter";
 
 // ── Rates ─────────────────────────────────────────────────────────
@@ -212,7 +212,9 @@ export default function CashSeal() {
   const [, navigate] = useLocation();
   const saveMutation = useCreateCashSeal();
   const updateMutation = useUpdateCashSeal();
+  const deleteMutation = useDeleteCashSeal();
   const { data: records = [], isLoading: recordsLoading } = useCashSeals();
+  const [confirmDeleteId, setConfirmDeleteId] = useState<number | null>(null);
 
   // ── PS state ───────────────────────────────────────────────────
   const [psBfCash, setPsBfCash] = useState(0);
@@ -293,6 +295,15 @@ export default function CashSeal() {
   function handleNew() { setEditId(null); resetForm(); setView("form"); }
   function handleBack() {
     if (view === "form") { setView("list"); setEditId(null); } else { navigate("/"); }
+  }
+  async function handleDelete(id: number) {
+    try {
+      await deleteMutation.mutateAsync(id);
+      toast({ title: "Deleted", description: "Record deleted successfully" });
+      setConfirmDeleteId(null);
+    } catch (e: any) {
+      toast({ title: "Error", description: e.message || "Failed to delete", variant: "destructive" });
+    }
   }
 
   // ── Calculations ───────────────────────────────────────────────
@@ -555,6 +566,27 @@ export default function CashSeal() {
                                   title="View PDF" data-testid={`button-pdf-seal-${seal.id}`}>
                                   <Printer className="w-3.5 h-3.5" />
                                 </button>
+                                {confirmDeleteId === seal.id ? (
+                                  <span className="flex items-center gap-1">
+                                    <button onClick={() => handleDelete(seal.id)}
+                                      disabled={deleteMutation.isPending}
+                                      className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-red-600 text-white hover:bg-red-700 transition-colors"
+                                      data-testid={`button-confirm-delete-seal-${seal.id}`}>
+                                      {deleteMutation.isPending ? "..." : "Yes"}
+                                    </button>
+                                    <button onClick={() => setConfirmDeleteId(null)}
+                                      className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-slate-200 text-slate-700 hover:bg-slate-300 transition-colors"
+                                      data-testid={`button-cancel-delete-seal-${seal.id}`}>
+                                      No
+                                    </button>
+                                  </span>
+                                ) : (
+                                  <button onClick={() => setConfirmDeleteId(seal.id)}
+                                    className="p-1.5 rounded-lg text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
+                                    title="Delete" data-testid={`button-delete-seal-${seal.id}`}>
+                                    <Trash2 className="w-3.5 h-3.5" />
+                                  </button>
+                                )}
                               </div>
                             </td>
                           </tr>
@@ -598,6 +630,25 @@ export default function CashSeal() {
                               data-testid={`button-pdf-seal-${seal.id}`}>
                               <Printer className="w-4 h-4" />
                             </button>
+                            {confirmDeleteId === seal.id ? (
+                              <span className="flex items-center gap-1">
+                                <button onClick={() => handleDelete(seal.id)}
+                                  disabled={deleteMutation.isPending}
+                                  className="px-2 py-1 rounded text-xs font-bold bg-red-600 text-white">
+                                  {deleteMutation.isPending ? "..." : "Yes"}
+                                </button>
+                                <button onClick={() => setConfirmDeleteId(null)}
+                                  className="px-2 py-1 rounded text-xs font-bold bg-slate-200 text-slate-700">
+                                  No
+                                </button>
+                              </span>
+                            ) : (
+                              <button onClick={() => setConfirmDeleteId(seal.id)}
+                                className="p-2 rounded-lg text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20"
+                                data-testid={`button-delete-seal-mobile-${seal.id}`}>
+                                <Trash2 className="w-4 h-4" />
+                              </button>
+                            )}
                           </div>
                         </div>
                         <div className="grid grid-cols-3 gap-1.5">

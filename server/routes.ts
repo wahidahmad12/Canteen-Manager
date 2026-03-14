@@ -364,6 +364,16 @@ export async function registerRoutes(
     }
   });
 
+  app.delete('/api/cash-seals/:id', requirePermission('cashseal'), async (req, res) => {
+    try {
+      const id = Number(req.params.id);
+      await storage.deleteCashSeal(id);
+      res.json({ success: true });
+    } catch (err) {
+      throw err;
+    }
+  });
+
   // === INVENTORY ROUTES ===
   app.get(api.inventory.list.path, requirePermission('inventory'), async (req, res) => {
     const inventories = await storage.getInventories();

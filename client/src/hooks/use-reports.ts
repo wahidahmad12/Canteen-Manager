@@ -532,6 +532,26 @@ export function useUpdateCashSeal() {
   });
 }
 
+export function useDeleteCashSeal() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (id: number) => {
+      const res = await fetch(`/api/cash-seals/${id}`, {
+        method: "DELETE",
+        credentials: "include",
+      });
+      if (!res.ok) {
+        const error = await res.json();
+        throw new Error(error.message || "Failed to delete cash seal");
+      }
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: [api.cashSeals.list.path] });
+    },
+  });
+}
+
 // === SAVED MENU HOOKS ===
 
 export function useSavedMenus(options?: { enabled?: boolean }) {
