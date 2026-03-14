@@ -41,7 +41,41 @@ import SalesDashboard from "./pages/sales-dashboard";
 import EmployeeDashboard from "./pages/employee-dashboard";
 import Login from "./pages/login";
 import { useCurrentUser } from "./hooks/use-reports";
-import { Loader2 } from "lucide-react";
+import logoImg from "@assets/logo1_1771660912341.png";
+
+function SplashScreen() {
+  return (
+    <div className="min-h-screen flex flex-col items-center justify-center bg-gradient-to-br from-slate-900 via-teal-950 to-slate-900 relative overflow-hidden">
+      {/* Background decorative circles */}
+      <div className="absolute top-[-80px] left-[-80px] w-64 h-64 rounded-full bg-teal-500/10 blur-3xl" />
+      <div className="absolute bottom-[-60px] right-[-60px] w-56 h-56 rounded-full bg-cyan-400/10 blur-3xl" />
+      <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-80 h-80 rounded-full bg-teal-700/10 blur-3xl" />
+
+      {/* Logo + title */}
+      <div className="relative flex flex-col items-center gap-5 z-10">
+        <div className="relative">
+          <div className="absolute inset-0 rounded-3xl bg-teal-400/30 blur-xl scale-110 animate-pulse" />
+          <img src={logoImg} alt="DJ Hospitality" className="relative w-24 h-24 rounded-3xl object-cover shadow-2xl shadow-teal-900/60 ring-2 ring-white/10" />
+        </div>
+        <div className="text-center">
+          <h1 className="text-2xl font-bold text-white tracking-wide">DJ Hospitality</h1>
+          <p className="text-sm text-teal-300/80 mt-1 font-medium">& Facility Management</p>
+          <p className="text-xs text-slate-400 mt-0.5">Daily Cash Expance</p>
+        </div>
+        {/* Animated dots */}
+        <div className="flex items-center gap-2 mt-2">
+          {[0, 1, 2].map(i => (
+            <span
+              key={i}
+              className="w-2 h-2 rounded-full bg-teal-400 animate-bounce"
+              style={{ animationDelay: `${i * 0.15}s`, animationDuration: "0.8s" }}
+            />
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
 
 function PermRoute({ perm, children }: { perm: string; children: React.ReactNode }) {
   const { data: user } = useCurrentUser();
@@ -111,11 +145,7 @@ function AppContent() {
   const { data: user, isLoading } = useCurrentUser();
 
   if (isLoading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <Loader2 className="w-8 h-8 animate-spin text-primary" />
-      </div>
-    );
+    return <SplashScreen />;
   }
 
   if (!user) {

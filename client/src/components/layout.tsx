@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { Link, useLocation } from 'wouter';
-import { LayoutDashboard, FilePlus, Settings, Calculator, ClipboardList, UtensilsCrossed, ShoppingCart, LogOut, User, Menu, X, Users, CalendarDays, Wallet, FileText, BookOpen, HardHat, ChevronDown, ChevronRight, IndianRupee, Smartphone, Download, Share } from 'lucide-react';
+import { LayoutDashboard, FilePlus, Settings, Calculator, ClipboardList, UtensilsCrossed, ShoppingCart, LogOut, User, Menu, X, Users, CalendarDays, Wallet, FileText, BookOpen, HardHat, ChevronDown, ChevronRight, IndianRupee, Smartphone, Download, Share, MoreHorizontal } from 'lucide-react';
 import logoImg from '@assets/logo1_1771660912341.png';
 import { useCurrentUser, useLogout } from '@/hooks/use-reports';
 import { Button } from '@/components/ui/button';
@@ -146,32 +146,35 @@ export function Layout({ children }: { children: React.ReactNode }) {
         />
       )}
 
-      <header className="md:hidden flex items-center justify-between px-4 py-3 bg-card border-b border-border sticky top-0 z-20">
-        <div className="flex items-center gap-3">
-          <Button
-            variant="ghost"
-            size="icon"
+      <header className="md:hidden flex items-center justify-between px-4 py-2.5 bg-gradient-to-r from-slate-900 to-teal-900 sticky top-0 z-20 shadow-md">
+        <div className="flex items-center gap-2.5">
+          <button
             onClick={() => setSidebarOpen(true)}
+            className="p-1.5 rounded-lg text-white/80 hover:text-white hover:bg-white/10 transition-colors"
             data-testid="button-menu-toggle"
           >
             <Menu className="w-5 h-5" />
-          </Button>
-          <img src={logoImg} alt="DJ Hospitality" className="w-8 h-8 rounded-lg object-cover" />
-          <h1 className="font-bold text-base leading-none">DJ Hospitality</h1>
+          </button>
+          <img src={logoImg} alt="DJ Hospitality" className="w-7 h-7 rounded-lg object-cover ring-1 ring-white/20" />
+          <div>
+            <h1 className="font-bold text-sm leading-tight text-white">DJ Hospitality</h1>
+            <p className="text-[10px] text-teal-300/80 leading-tight">Canteen Management</p>
+          </div>
         </div>
         {user && (
           <div className="flex items-center gap-2">
-            <span className="text-xs text-muted-foreground hidden sm:inline">{user.displayName}</span>
-            <Button
-              variant="ghost"
-              size="icon"
+            <div className="text-right hidden sm:block">
+              <p className="text-xs font-medium text-white leading-tight">{user.displayName}</p>
+              <p className="text-[10px] text-teal-300/70 leading-tight capitalize">{user.role}</p>
+            </div>
+            <button
               onClick={() => logoutMutation.mutate()}
               disabled={logoutMutation.isPending}
               data-testid="button-logout-mobile"
-              className="h-8 w-8"
+              className="p-1.5 rounded-lg text-white/70 hover:text-white hover:bg-white/10 transition-colors"
             >
               <LogOut className="w-4 h-4" />
-            </Button>
+            </button>
           </div>
         )}
       </header>
@@ -259,7 +262,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
         )}
       </aside>
 
-      <main className="flex-1 p-3 sm:p-4 md:p-8 overflow-x-hidden">
+      <main className="flex-1 p-3 sm:p-4 md:p-8 overflow-x-hidden pb-20 md:pb-8">
         {showInstallBanner && (
           <div className="max-w-6xl mx-auto mb-4">
             <div className="bg-gradient-to-r from-blue-600 to-indigo-600 rounded-xl p-4 shadow-lg text-white relative" data-testid="banner-install-app">
@@ -302,6 +305,59 @@ export function Layout({ children }: { children: React.ReactNode }) {
           {children}
         </div>
       </main>
+
+      {/* ── Bottom Navigation Bar (mobile only) ───────────────────── */}
+      {user && (
+        <nav className="md:hidden fixed bottom-0 left-0 right-0 z-30 bg-slate-900/95 backdrop-blur border-t border-slate-700/60 shadow-2xl safe-area-inset-bottom">
+          <div className="flex items-stretch h-16">
+            {/* Dashboard — always visible */}
+            <Link href="/" onClick={closeSidebar}
+              className={`flex-1 flex flex-col items-center justify-center gap-0.5 transition-colors ${location === '/' ? 'text-teal-400' : 'text-slate-400 hover:text-slate-200'}`}
+              data-testid="bottom-nav-dashboard">
+              <LayoutDashboard className="w-5 h-5" />
+              <span className="text-[10px] font-medium">Home</span>
+            </Link>
+
+            {/* Expense — if permitted */}
+            {perms.includes('expense') && (
+              <Link href="/new" onClick={closeSidebar}
+                className={`flex-1 flex flex-col items-center justify-center gap-0.5 transition-colors ${location === '/new' || location.startsWith('/report') ? 'text-teal-400' : 'text-slate-400 hover:text-slate-200'}`}
+                data-testid="bottom-nav-expense">
+                <FilePlus className="w-5 h-5" />
+                <span className="text-[10px] font-medium">Expense</span>
+              </Link>
+            )}
+
+            {/* Cash Seal — if permitted */}
+            {perms.includes('cashseal') && (
+              <Link href="/cash-seal" onClick={closeSidebar}
+                className={`flex-1 flex flex-col items-center justify-center gap-0.5 transition-colors ${location.startsWith('/cash-seal') ? 'text-teal-400' : 'text-slate-400 hover:text-slate-200'}`}
+                data-testid="bottom-nav-cashseal">
+                <Calculator className="w-5 h-5" />
+                <span className="text-[10px] font-medium">Cash Seal</span>
+              </Link>
+            )}
+
+            {/* Inventory — if permitted */}
+            {perms.includes('inventory') && (
+              <Link href="/inventory" onClick={closeSidebar}
+                className={`flex-1 flex flex-col items-center justify-center gap-0.5 transition-colors ${location.startsWith('/inventory') ? 'text-teal-400' : 'text-slate-400 hover:text-slate-200'}`}
+                data-testid="bottom-nav-inventory">
+                <ClipboardList className="w-5 h-5" />
+                <span className="text-[10px] font-medium">Inventory</span>
+              </Link>
+            )}
+
+            {/* More — opens sidebar */}
+            <button onClick={() => setSidebarOpen(true)}
+              className="flex-1 flex flex-col items-center justify-center gap-0.5 text-slate-400 hover:text-slate-200 transition-colors"
+              data-testid="bottom-nav-more">
+              <MoreHorizontal className="w-5 h-5" />
+              <span className="text-[10px] font-medium">More</span>
+            </button>
+          </div>
+        </nav>
+      )}
     </div>
   );
 }
