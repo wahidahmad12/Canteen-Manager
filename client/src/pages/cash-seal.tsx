@@ -355,6 +355,7 @@ export default function CashSeal() {
   const [dahiBharRate, setDahiBharRate] = useState(0);
   const [otherExpense, setOtherExpense] = useState(0);
   const [akbarAliAmount, setAkbarAliAmount] = useState(0);
+  const [akbarAliManual, setAkbarAliManual] = useState(false);
 
   // ── URL param auto-edit ────────────────────────────────────────
   useEffect(() => {
@@ -386,6 +387,7 @@ export default function CashSeal() {
     setBananaQty(n(rec.expenseBananaQty)); setDahiBharQty(n(rec.expenseDahiBharQty));
     setDahiBharRate(n(rec.expenseDahiBharRate)); setOtherExpense(n(rec.expenseOtherAmount));
     setAkbarAliAmount(n(rec.totalGivenToAkbarAli));
+    setAkbarAliManual(true);
     if (rec.date) { try { setDate(parseISO(rec.date)); } catch { setDate(new Date(rec.date)); } }
   }
 
@@ -395,7 +397,7 @@ export default function CashSeal() {
     setTpBfCash(0); setTpLvCash(0); setTpNvRate(0); setTpNvCash(0); setTpEvCash(0); setTpNtCash(0);
     setTpBfOnline(0); setTpLvOnline(0); setTpNvOnline(0); setTpEvOnline(0); setTpNtOnline(0);
     setBananaQty(0); setDahiBharQty(0); setDahiBharRate(0); setOtherExpense(0);
-    setAkbarAliAmount(0); setDate(new Date());
+    setAkbarAliAmount(0); setAkbarAliManual(false); setDate(new Date());
   }
 
   function handleEdit(rec: any) { setEditId(rec.id); loadRecord(rec); setView("form"); }
@@ -445,6 +447,13 @@ export default function CashSeal() {
   const cashBalance = totalCashIncome - totalExpense;
   const onlineBalance = totalOnlineIncome;
   const balance = totalIncome - totalExpense;
+
+  // Auto-sync Akbar Ali amount with cash balance when not manually overridden
+  useEffect(() => {
+    if (!akbarAliManual) {
+      setAkbarAliAmount(Math.max(0, Math.round(cashBalance * 100) / 100));
+    }
+  }, [cashBalance, akbarAliManual]);
 
   const payload = {
     incomePsBreakfastCashQty: psBfCash, incomePsLunchCashQty: psLnCash,
@@ -1134,13 +1143,34 @@ export default function CashSeal() {
           <div className="bg-gradient-to-r from-orange-600 to-amber-500 px-4 py-3 flex items-center gap-2">
             <Wallet className="w-4 h-4 text-white" />
             <h2 className="text-sm font-bold text-white">Akbar Ali Handover</h2>
+            {!akbarAliManual && (
+              <span className="ml-auto bg-white/20 text-white text-[10px] font-bold px-2 py-0.5 rounded-full tracking-wide">AUTO</span>
+            )}
           </div>
           <div className="px-3 py-3">
-            <div className="flex items-center justify-between mb-2">
-              <div className="text-xs text-slate-400">Total cash given to Akbar Ali</div>
+            <div className="flex items-center justify-between mb-1">
+              <div>
+                <div className="text-xs text-slate-500 dark:text-slate-400">Total cash given to Akbar Ali</div>
+                {!akbarAliManual ? (
+                  <div className="text-[10px] text-emerald-600 dark:text-emerald-400 font-medium">Auto-filled from Cash Balance</div>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => setAkbarAliManual(false)}
+                    className="text-[10px] text-orange-500 hover:text-orange-700 font-medium underline"
+                  >
+                    Reset to auto (Cash Balance = {fmtN(cashBalance)})
+                  </button>
+                )}
+              </div>
               <span className="text-sm font-bold font-mono text-orange-600">{akbarAliAmount > 0 ? fmtN(akbarAliAmount) : "—"}</span>
             </div>
-            <QtyInput value={akbarAliAmount} onChange={setAkbarAliAmount} large className="w-full max-w-[160px] bg-orange-50 dark:bg-orange-900/20" />
+            <QtyInput
+              value={akbarAliAmount}
+              onChange={(val) => { setAkbarAliManual(true); setAkbarAliAmount(val); }}
+              large
+              className="w-full max-w-[160px] bg-orange-50 dark:bg-orange-900/20"
+            />
           </div>
         </div>
 
