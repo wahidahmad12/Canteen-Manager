@@ -130,16 +130,16 @@ function ItemCard({ no, name, fixedRate, customRate, onCustomRate, cashQty, onCa
             </div>
           </div>
         </div>
-        {rowTotal > 0 && (
+        {(rowTotal > 0 || (cashQty + onlineQty) > 0) && (
           <div className={`flex items-center justify-between mt-2 pt-2 border-t ${color === "blue" ? "border-blue-100 dark:border-blue-900/40" : "border-green-100 dark:border-green-900/40"}`}>
-            <span className="text-xs text-slate-400">Row total</span>
-            <span className={`text-sm font-bold font-mono ${color === "blue" ? "text-blue-700" : "text-green-700"}`}>{fmtN(rowTotal)}</span>
+            <span className="text-xs text-slate-400">Row Qty: <span className="font-bold text-slate-600 dark:text-slate-300">{cashQty + onlineQty}</span></span>
+            <span className={`text-sm font-bold font-mono ${color === "blue" ? "text-blue-700" : "text-green-700"}`}>{rowTotal > 0 ? fmtN(rowTotal) : "—"}</span>
           </div>
         )}
       </div>
 
       {/* Desktop table row */}
-      <div className={`hidden sm:grid sm:grid-cols-[30px_1fr_90px_100px_80px_100px_80px_90px] items-center gap-1 px-3 py-2 hover:bg-slate-50/60 dark:hover:bg-slate-700/20`}>
+      <div className={`hidden sm:grid sm:grid-cols-[30px_1fr_90px_100px_80px_100px_80px_70px_90px] items-center gap-1 px-3 py-2 hover:bg-slate-50/60 dark:hover:bg-slate-700/20`}>
         <span className="text-xs text-slate-400 text-center">{no}</span>
         <span className="text-sm font-medium text-slate-700 dark:text-slate-200">{name}</span>
         <span className="text-center">
@@ -156,6 +156,7 @@ function ItemCard({ no, name, fixedRate, customRate, onCustomRate, cashQty, onCa
         <span className="text-right text-xs font-mono text-slate-600 dark:text-slate-300">{cashTotal > 0 ? fmtN(cashTotal) : "—"}</span>
         <QtyInput value={onlineQty} onChange={onOnlineQty} className="bg-indigo-50 dark:bg-indigo-900/20" />
         <span className="text-right text-xs font-mono text-indigo-600">{onlineTotal > 0 ? fmtN(onlineTotal) : "—"}</span>
+        <span className="text-right text-xs font-bold font-mono text-slate-500 dark:text-slate-400">{(cashQty + onlineQty) > 0 ? (cashQty + onlineQty) : "—"}</span>
         <span className={`text-right text-sm font-bold font-mono ${color === "blue" ? "text-blue-700" : "text-green-700"}`}>{rowTotal > 0 ? fmtN(rowTotal) : "—"}</span>
       </div>
     </div>
@@ -180,7 +181,7 @@ function SectionSubtotal({
   return (
     <>
       {/* Desktop: column-aligned totals row */}
-      <div className={`hidden sm:grid sm:grid-cols-[30px_1fr_90px_100px_80px_100px_80px_90px] items-center gap-1 px-3 py-2 border-t ${bg}`}>
+      <div className={`hidden sm:grid sm:grid-cols-[30px_1fr_90px_100px_80px_100px_80px_70px_90px] items-center gap-1 px-3 py-2 border-t ${bg}`}>
         <span />
         <span className={`text-xs font-bold uppercase tracking-wide ${accent}`}>Totals</span>
         <span />
@@ -188,6 +189,7 @@ function SectionSubtotal({
         <span className={`text-right text-xs font-bold font-mono ${accent}`}>{cashTotal > 0 ? fmtN(cashTotal) : "—"}</span>
         <span className={`text-center text-sm font-bold font-mono text-indigo-600 dark:text-indigo-400`}>{onlineQtyTotal > 0 ? onlineQtyTotal : "—"}</span>
         <span className={`text-right text-xs font-bold font-mono text-indigo-600 dark:text-indigo-400`}>{onlineTotal > 0 ? fmtN(onlineTotal) : "—"}</span>
+        <span className={`text-right text-xs font-bold font-mono text-slate-500 dark:text-slate-400`}>{(cashQtyTotal + onlineQtyTotal) > 0 ? (cashQtyTotal + onlineQtyTotal) : "—"}</span>
         <span className={`text-right text-sm font-bold font-mono ${accent}`}>{grand > 0 ? fmtN(grand) : "—"}</span>
       </div>
       {/* Mobile: compact summary cards */}
@@ -209,8 +211,11 @@ function SectionSubtotal({
           </div>
         </div>
         <div className={`flex items-center justify-between text-xs font-bold border-t pt-2 ${isBlue ? "border-blue-100 dark:border-blue-900/40" : "border-green-100 dark:border-green-900/40"}`}>
-          <span className={dimText}>Section Total</span>
-          <span className={`text-sm font-bold font-mono ${accent}`}>{fmtN(grand)}</span>
+          <span className={`${dimText}`}>Row Qty: <span className={`font-bold ${accent}`}>{cashQtyTotal + onlineQtyTotal}</span></span>
+          <div className="flex items-center gap-2">
+            <span className={dimText}>Total</span>
+            <span className={`text-sm font-bold font-mono ${accent}`}>{fmtN(grand)}</span>
+          </div>
         </div>
       </div>
     </>
@@ -223,7 +228,7 @@ function DesktopSectionHeader({ color }: { color: "blue" | "green" }) {
     ? "bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300"
     : "bg-green-50 dark:bg-green-900/30 text-green-700 dark:text-green-300";
   return (
-    <div className={`hidden sm:grid sm:grid-cols-[30px_1fr_90px_100px_80px_100px_80px_90px] items-center gap-1 px-3 py-1.5 text-[10px] font-bold uppercase tracking-wide border-b ${cls}`}>
+    <div className={`hidden sm:grid sm:grid-cols-[30px_1fr_90px_100px_80px_100px_80px_70px_90px] items-center gap-1 px-3 py-1.5 text-[10px] font-bold uppercase tracking-wide border-b ${cls}`}>
       <span className="text-center">#</span>
       <span>Name</span>
       <span className="text-center">Rate</span>
@@ -231,7 +236,8 @@ function DesktopSectionHeader({ color }: { color: "blue" | "green" }) {
       <span className="text-right">Cash Total</span>
       <span className="text-center">Online Qty</span>
       <span className="text-right">Online Total</span>
-      <span className="text-right">Row Total</span>
+      <span className="text-right">Row Qty</span>
+      <span className="text-right">Row Amt</span>
     </div>
   );
 }
