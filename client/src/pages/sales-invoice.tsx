@@ -1873,16 +1873,26 @@ function PankajReport({ invoices, clients }: { invoices: any[]; clients: string[
           const gd = p.date ? fmtD(p.date) : "-";
           const isLast = pi === pmts.length - 1;
 
-          [[1, r.idx], [2, r.clientName], [3, r.toReceive], [4, r.gstMinusTds],
-           [5, r.fixedAmt > 0 ? r.fixedAmt : "-"], [6, r.total], [7, pd]].forEach(([col, val]) => {
-            const c = dr.getCell(col as number);
-            c.value = val;
-            c.border = thinBorder;
-            c.fill = { type: "pattern", pattern: "solid", fgColor: { argb: rowBg } };
-            c.alignment = { horizontal: col === 1 || col === 7 ? "center" : col === 2 ? "left" : "right" as any, vertical: "middle" };
-            if (col === 3 || col === 4 || col === 6) { if (typeof val === "number") c.numFmt = '#,##0.00'; }
-            if (col === 6) c.font = { bold: true };
-          });
+          // Client-level data only on the first instalment row
+          if (pi === 0) {
+            [[1, r.idx], [2, r.clientName], [3, r.toReceive], [4, r.gstMinusTds],
+             [5, r.fixedAmt > 0 ? r.fixedAmt : "-"], [6, r.total], [7, pd]].forEach(([col, val]) => {
+              const c = dr.getCell(col as number);
+              c.value = val;
+              c.border = thinBorder;
+              c.fill = { type: "pattern", pattern: "solid", fgColor: { argb: rowBg } };
+              c.alignment = { horizontal: col === 1 || col === 7 ? "center" : col === 2 ? "left" : "right" as any, vertical: "middle" };
+              if (col === 3 || col === 4 || col === 6) { if (typeof val === "number") c.numFmt = '#,##0.00'; }
+              if (col === 6) c.font = { bold: true };
+            });
+          } else {
+            // Subsequent instalment rows — keep border + bg, no value
+            [1, 2, 3, 4, 5, 6, 7].forEach(col => {
+              const c = dr.getCell(col);
+              c.border = thinBorder;
+              c.fill = { type: "pattern", pattern: "solid", fgColor: { argb: rowBg } };
+            });
+          }
 
           const instCell = dr.getCell(8);
           instCell.value = `Inst. ${pi + 1}`;
