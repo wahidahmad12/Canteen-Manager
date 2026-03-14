@@ -1082,7 +1082,7 @@ export default function CashSeal() {
         {!editId && (
           <div className="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 px-4 py-3 flex items-center gap-3">
             <span className="text-xs font-semibold text-slate-500 uppercase tracking-wide">Date</span>
-            <DatePicker date={date} onDateChange={(d) => d && setDate(d)} />
+            <DatePicker date={date} setDate={(d) => d && setDate(d)} />
           </div>
         )}
 
