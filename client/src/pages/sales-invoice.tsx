@@ -1538,6 +1538,8 @@ function PankajReport({ invoices, clients }: { invoices: any[]; clients: string[
   const grandGstMinusTds = rows.reduce((s, r) => s + r.gstMinusTds, 0);
   const grandFixedAmt = rows.reduce((s, r) => s + r.fixedAmt, 0);
   const grandTotal = rows.reduce((s, r) => s + r.total, 0);
+  const grandGivenAmt = rows.reduce((s, r) => s + r.givenAmt, 0);
+  const grandPendingAmt = rows.reduce((s, r) => s + Math.max(r.total - r.givenAmt, 0), 0);
 
   const buildPayload = (r: typeof allRows[0]) => {
     const pmts = r.payments || [];
@@ -1730,7 +1732,10 @@ function PankajReport({ invoices, clients }: { invoices: any[]; clients: string[
           <td class="right">${grandGstMinusTds.toLocaleString("en-IN", {minimumFractionDigits:2})}</td>
           <td class="right">${grandFixedAmt > 0 ? grandFixedAmt.toLocaleString("en-IN", {minimumFractionDigits:2}) : "-"}</td>
           <td class="right">${grandTotal.toLocaleString("en-IN", {minimumFractionDigits:2})}</td>
-          <td colspan="7"></td>
+          <td colspan="4"></td>
+          <td class="right" style="color:#7c3aed;font-weight:bold">${grandGivenAmt > 0 ? grandGivenAmt.toLocaleString("en-IN", {minimumFractionDigits:2}) : "-"}</td>
+          <td class="right" style="${grandPendingAmt > 0 ? "color:#dc2626;font-weight:bold" : "color:#15803d;font-weight:bold"}">${grandPendingAmt > 0 ? grandPendingAmt.toLocaleString("en-IN", {minimumFractionDigits:2}) : "0.00"}</td>
+          <td></td>
         </tr></tfoot>
       </table>
       <p class="note">GST Amount = GST Amount - TDS Amount &nbsp;|&nbsp; Total = (GST - TDS) + Fixed Amount</p>
@@ -2054,7 +2059,11 @@ function PankajReport({ invoices, clients }: { invoices: any[]; clients: string[
                       <td className="py-3 px-4 text-right font-mono text-sm font-bold text-blue-600">{fmtCurrency(grandGstMinusTds)}</td>
                       <td className="py-3 px-4 text-center font-mono text-sm font-bold">{grandFixedAmt > 0 ? fmtCurrency(grandFixedAmt) : "-"}</td>
                       <td className="py-3 px-4 text-right font-mono text-sm font-bold text-emerald-600">{fmtCurrency(grandTotal)}</td>
-                      <td colSpan={7}></td>
+                      <td className="py-3 px-3"></td>
+                      <td className="py-3 px-3"></td>
+                      <td className="py-3 px-3 text-right font-mono text-sm font-bold text-violet-700 dark:text-violet-300">{grandGivenAmt > 0 ? fmtCurrency(grandGivenAmt) : "—"}</td>
+                      <td className="py-3 px-3 text-right font-mono text-sm font-bold text-red-600 dark:text-red-400">{grandPendingAmt > 0 ? fmtCurrency(grandPendingAmt) : <span className="text-emerald-600">₹0.00</span>}</td>
+                      <td colSpan={3}></td>
                     </tr>
                   </tfoot>
                 </table>
