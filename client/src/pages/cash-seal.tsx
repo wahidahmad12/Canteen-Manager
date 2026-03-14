@@ -436,10 +436,14 @@ export default function CashSeal() {
   const tpCashQtyTotal = tpBfCash + tpLvCash + tpNvCash + tpEvCash + tpNtCash;
   const tpOnlineQtyTotal = tpBfOnline + tpLvOnline + tpNvOnline + tpEvOnline + tpNtOnline;
 
-  const totalIncome = psTotalCash + psTotalOnline + tpTotalCash + tpTotalOnline;
+  const totalCashIncome = psTotalCash + tpTotalCash;
+  const totalOnlineIncome = psTotalOnline + tpTotalOnline;
+  const totalIncome = totalCashIncome + totalOnlineIncome;
   const bananaTotal = bananaQty * BANANA_RATE;
   const dahiBharTotal = dahiBharQty * dahiBharRate;
   const totalExpense = bananaTotal + dahiBharTotal + otherExpense;
+  const cashBalance = totalCashIncome - totalExpense;
+  const onlineBalance = totalOnlineIncome;
   const balance = totalIncome - totalExpense;
 
   const payload = {
@@ -1038,16 +1042,30 @@ export default function CashSeal() {
           />
         </div>
 
-        {/* Grand Total Income */}
-        <div className="bg-gradient-to-r from-slate-800 to-slate-600 rounded-xl px-4 py-3 flex items-center justify-between shadow">
-          <div className="flex items-center gap-2">
-            <TrendingUp className="w-5 h-5 text-emerald-400" />
-            <div>
-              <div className="text-white font-bold text-sm">Grand Total Income</div>
-              <div className="text-slate-300 text-[10px]">Permanent Staff + Third Party</div>
+        {/* Grand Total Income — split by Cash / Online */}
+        <div className="bg-gradient-to-r from-slate-800 to-slate-700 rounded-xl px-4 py-3 shadow">
+          <div className="flex items-center gap-2 mb-2.5">
+            <TrendingUp className="w-4 h-4 text-emerald-400" />
+            <span className="text-white text-xs font-bold uppercase tracking-wide">Grand Total Income</span>
+            <span className="text-slate-400 text-[10px]">(PS + Third Party)</span>
+            <span className="ml-auto text-lg font-extrabold font-mono text-emerald-400">{fmtN(totalIncome)}</span>
+          </div>
+          <div className="grid grid-cols-2 gap-2">
+            <div className="bg-slate-700/60 rounded-lg px-3 py-2 flex items-center justify-between">
+              <div>
+                <div className="text-[10px] text-slate-400 font-semibold uppercase tracking-wide mb-0.5">Cash Income</div>
+                <div className="text-sm font-bold font-mono text-emerald-300">{fmtN(totalCashIncome)}</div>
+              </div>
+              <IndianRupee className="w-4 h-4 text-slate-500" />
+            </div>
+            <div className="bg-indigo-900/40 rounded-lg px-3 py-2 flex items-center justify-between">
+              <div>
+                <div className="text-[10px] text-indigo-300 font-semibold uppercase tracking-wide mb-0.5">Online Income</div>
+                <div className="text-sm font-bold font-mono text-indigo-300">{fmtN(totalOnlineIncome)}</div>
+              </div>
+              <IndianRupee className="w-4 h-4 text-indigo-500" />
             </div>
           </div>
-          <span className="text-xl font-bold font-mono text-emerald-400">{fmtN(totalIncome)}</span>
         </div>
 
         {/* ── EXPENSE ───────────────────────────────────────────── */}
@@ -1127,21 +1145,57 @@ export default function CashSeal() {
         </div>
 
         {/* ── SUMMARY BAR ───────────────────────────────────────── */}
-        <div className="bg-gradient-to-r from-slate-900 to-slate-700 rounded-xl p-3 sm:p-4 shadow-lg">
-          <div className="grid grid-cols-3 gap-2 sm:gap-4">
-            {[
-              { icon: TrendingUp, label: "Income", value: totalIncome, cls: "text-emerald-400" },
-              { icon: TrendingDown, label: "Expense", value: totalExpense, cls: "text-rose-400" },
-              { icon: Wallet, label: "Balance", value: balance, cls: balance >= 0 ? "text-sky-400" : "text-orange-400" },
-            ].map(({ icon: Icon, label, value, cls }) => (
-              <div key={label} className="text-center">
+        <div className="bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 rounded-xl shadow-lg overflow-hidden">
+          {/* Top row: Income split */}
+          <div className="px-3 py-2.5 border-b border-slate-700/60">
+            <div className="text-[9px] text-slate-500 uppercase tracking-widest font-bold mb-2 text-center">Income Breakdown</div>
+            <div className="grid grid-cols-2 gap-2">
+              <div className="text-center">
                 <div className="flex items-center justify-center gap-1 mb-1">
-                  <Icon className={`w-3 h-3 ${cls}`} />
-                  <span className="text-[10px] text-slate-400 uppercase tracking-wide">{label}</span>
+                  <span className="w-2 h-2 rounded-full bg-emerald-400 inline-block"></span>
+                  <span className="text-[10px] text-slate-400 font-semibold uppercase tracking-wide">Cash Income</span>
                 </div>
-                <div className={`text-base sm:text-lg font-bold font-mono ${cls}`}>{fmtN(value)}</div>
+                <div className="text-base font-bold font-mono text-emerald-400">{fmtN(totalCashIncome)}</div>
               </div>
-            ))}
+              <div className="text-center">
+                <div className="flex items-center justify-center gap-1 mb-1">
+                  <span className="w-2 h-2 rounded-full bg-indigo-400 inline-block"></span>
+                  <span className="text-[10px] text-slate-400 font-semibold uppercase tracking-wide">Online Income</span>
+                </div>
+                <div className="text-base font-bold font-mono text-indigo-400">{fmtN(totalOnlineIncome)}</div>
+              </div>
+            </div>
+          </div>
+
+          {/* Middle: Expense (deducted from cash) */}
+          <div className="px-3 py-2.5 border-b border-slate-700/60 flex items-center justify-between">
+            <div className="flex items-center gap-1.5">
+              <TrendingDown className="w-3.5 h-3.5 text-rose-400" />
+              <span className="text-[10px] text-slate-400 font-semibold uppercase tracking-wide">Total Expense</span>
+              <span className="text-[9px] text-slate-600">(deducted from cash)</span>
+            </div>
+            <div className="text-base font-bold font-mono text-rose-400">{fmtN(totalExpense)}</div>
+          </div>
+
+          {/* Bottom row: Balance split */}
+          <div className="px-3 py-2.5">
+            <div className="text-[9px] text-slate-500 uppercase tracking-widest font-bold mb-2 text-center">Balance</div>
+            <div className="grid grid-cols-2 gap-2">
+              <div className={`rounded-lg px-3 py-2 text-center ${cashBalance >= 0 ? "bg-sky-900/30 border border-sky-700/40" : "bg-orange-900/30 border border-orange-700/40"}`}>
+                <div className="text-[10px] text-slate-400 font-semibold uppercase tracking-wide mb-1">Cash Balance</div>
+                <div className={`text-base font-extrabold font-mono ${cashBalance >= 0 ? "text-sky-400" : "text-orange-400"}`}>{fmtN(cashBalance)}</div>
+                <div className="text-[9px] text-slate-500 mt-0.5">Cash − Expense</div>
+              </div>
+              <div className="bg-indigo-900/30 border border-indigo-700/40 rounded-lg px-3 py-2 text-center">
+                <div className="text-[10px] text-indigo-300 font-semibold uppercase tracking-wide mb-1">Online Balance</div>
+                <div className="text-base font-extrabold font-mono text-indigo-400">{fmtN(onlineBalance)}</div>
+                <div className="text-[9px] text-slate-500 mt-0.5">Online (no expense)</div>
+              </div>
+            </div>
+            <div className={`mt-2 flex items-center justify-between px-1`}>
+              <span className="text-[10px] text-slate-500">Overall Balance (Cash + Online)</span>
+              <span className={`text-sm font-extrabold font-mono ${balance >= 0 ? "text-teal-400" : "text-orange-400"}`}>{fmtN(balance)}</span>
+            </div>
           </div>
         </div>
 
