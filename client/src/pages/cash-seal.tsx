@@ -66,13 +66,13 @@ function QtyInput({ value, onChange, placeholder = "0", className = "", large = 
       value={value === 0 ? "" : value}
       onChange={e => onChange(Number(e.target.value) || 0)}
       placeholder={placeholder}
-      className={`text-center font-mono ${large ? "h-12 text-xl font-bold" : "h-9 text-sm"} ${className}`}
+      className={`text-center font-mono ${large ? "h-12 text-lg font-bold" : "h-9 text-sm"} ${className}`}
       data-testid="input-qty"
     />
   );
 }
 
-// ── Mobile item card (inside income sections) ─────────────────────
+// ── Shared item props ─────────────────────────────────────────────
 interface ItemCardProps {
   no: number; name: string;
   fixedRate?: number;
@@ -81,164 +81,229 @@ interface ItemCardProps {
   onlineQty: number; onOnlineQty: (v: number) => void;
   color: "blue" | "green";
 }
-function ItemCard({ no, name, fixedRate, customRate, onCustomRate, cashQty, onCashQty, onlineQty, onOnlineQty, color }: ItemCardProps) {
+
+// ── Mobile item card ──────────────────────────────────────────────
+function ItemMobileCard({ no, name, fixedRate, customRate, onCustomRate, cashQty, onCashQty, onlineQty, onOnlineQty, color }: ItemCardProps) {
   const rate = customRate !== undefined ? customRate : (fixedRate ?? 0);
   const cashTotal = cashQty * rate;
   const onlineTotal = onlineQty * rate;
   const rowTotal = cashTotal + onlineTotal;
-  const accent = color === "blue" ? "text-blue-700 bg-blue-50 border-blue-100" : "text-green-700 bg-green-50 border-green-100";
-  const onlineBg = "bg-indigo-50 dark:bg-indigo-900/20";
-  const cashBg = "bg-slate-50 dark:bg-slate-700/40";
+  const borderColor = color === "blue" ? "border-blue-100 dark:border-blue-900/40" : "border-green-100 dark:border-green-900/40";
+  const accentText = color === "blue" ? "text-blue-700 dark:text-blue-300" : "text-green-700 dark:text-green-300";
 
   return (
-    <div className={`border-b last:border-b-0 ${color === "blue" ? "border-blue-100 dark:border-blue-900/40" : "border-green-100 dark:border-green-900/40"}`}>
-      {/* Mobile card */}
-      <div className="block sm:hidden px-3 py-3">
-        <div className="flex items-center justify-between mb-2.5">
-          <div className="flex items-center gap-2">
-            <span className="w-5 h-5 rounded-full bg-slate-200 dark:bg-slate-600 text-slate-600 dark:text-slate-200 text-[10px] font-bold flex items-center justify-center flex-shrink-0">{no}</span>
-            <span className="text-sm font-semibold text-slate-800 dark:text-slate-100">{name}</span>
-          </div>
-          {customRate !== undefined ? (
-            <div className="flex items-center gap-1">
-              <span className="text-[10px] text-slate-400">₹</span>
-              <Input
-                type="number" inputMode="decimal" min={0}
-                value={customRate === 0 ? "" : customRate}
-                onChange={e => onCustomRate!(Number(e.target.value) || 0)}
-                placeholder="Rate"
-                className="w-16 h-8 text-center text-sm bg-amber-50 dark:bg-amber-900/20 border-amber-300"
-              />
-            </div>
-          ) : (
-            <Badge variant="outline" className={`text-xs font-mono ${color === "blue" ? "text-blue-700 border-blue-300 bg-blue-50" : "text-green-700 border-green-300 bg-green-50"}`}>₹{fixedRate}</Badge>
-          )}
+    <div className={`border-b last:border-b-0 ${borderColor} px-3 py-3`}>
+      {/* Name + rate row */}
+      <div className="flex items-center justify-between mb-3">
+        <div className="flex items-center gap-2">
+          <span className={`w-6 h-6 rounded-full flex items-center justify-center text-[11px] font-bold flex-shrink-0 ${color === "blue" ? "bg-blue-100 dark:bg-blue-900/50 text-blue-700 dark:text-blue-300" : "bg-green-100 dark:bg-green-900/50 text-green-700 dark:text-green-300"}`}>{no}</span>
+          <span className="text-sm font-semibold text-slate-800 dark:text-slate-100">{name}</span>
         </div>
-        <div className="grid grid-cols-2 gap-2">
-          <div className={`${cashBg} rounded-xl p-2.5 border border-slate-200 dark:border-slate-600`}>
-            <div className="text-[10px] uppercase tracking-widest text-slate-400 font-semibold mb-2">Cash</div>
-            <QtyInput value={cashQty} onChange={onCashQty} large className="w-full" />
-            <div className="text-xs font-mono text-right text-slate-600 dark:text-slate-300 mt-1.5 font-semibold">
-              {cashTotal > 0 ? fmtN(cashTotal) : "—"}
-            </div>
-          </div>
-          <div className={`${onlineBg} rounded-xl p-2.5 border border-indigo-200 dark:border-indigo-700`}>
-            <div className="text-[10px] uppercase tracking-widest text-indigo-500 font-semibold mb-2">Online</div>
-            <QtyInput value={onlineQty} onChange={onOnlineQty} large className="w-full bg-white dark:bg-indigo-900/30" />
-            <div className="text-xs font-mono text-right text-indigo-600 mt-1.5 font-semibold">
-              {onlineTotal > 0 ? fmtN(onlineTotal) : "—"}
-            </div>
-          </div>
-        </div>
-        {(rowTotal > 0 || (cashQty + onlineQty) > 0) && (
-          <div className={`flex items-center justify-between mt-2 pt-2 border-t ${color === "blue" ? "border-blue-100 dark:border-blue-900/40" : "border-green-100 dark:border-green-900/40"}`}>
-            <span className="text-xs text-slate-400">Row Qty: <span className="font-bold text-slate-600 dark:text-slate-300">{cashQty + onlineQty}</span></span>
-            <span className={`text-sm font-bold font-mono ${color === "blue" ? "text-blue-700" : "text-green-700"}`}>{rowTotal > 0 ? fmtN(rowTotal) : "—"}</span>
-          </div>
-        )}
-      </div>
-
-      {/* Desktop table row */}
-      <div className={`hidden sm:grid sm:grid-cols-[30px_1fr_90px_100px_80px_100px_80px_70px_90px] items-center gap-1 px-3 py-2 hover:bg-slate-50/60 dark:hover:bg-slate-700/20`}>
-        <span className="text-xs text-slate-400 text-center">{no}</span>
-        <span className="text-sm font-medium text-slate-700 dark:text-slate-200">{name}</span>
-        <span className="text-center">
-          {customRate !== undefined ? (
+        {customRate !== undefined ? (
+          <div className="flex items-center gap-1">
+            <span className="text-[10px] text-slate-400 font-medium">₹</span>
             <Input type="number" inputMode="decimal" min={0}
               value={customRate === 0 ? "" : customRate}
               onChange={e => onCustomRate!(Number(e.target.value) || 0)}
-              placeholder="Rate" className="h-8 text-center text-sm w-full bg-amber-50 dark:bg-amber-900/20" />
-          ) : (
-            <Badge variant="outline" className={`text-xs font-mono ${color === "blue" ? "text-blue-700 border-blue-300 bg-blue-50" : "text-green-700 border-green-300 bg-green-50"}`}>₹{fixedRate}</Badge>
-          )}
-        </span>
-        <QtyInput value={cashQty} onChange={onCashQty} />
-        <span className="text-right text-xs font-mono text-slate-600 dark:text-slate-300">{cashTotal > 0 ? fmtN(cashTotal) : "—"}</span>
-        <QtyInput value={onlineQty} onChange={onOnlineQty} className="bg-indigo-50 dark:bg-indigo-900/20" />
-        <span className="text-right text-xs font-mono text-indigo-600">{onlineTotal > 0 ? fmtN(onlineTotal) : "—"}</span>
-        <span className="text-right text-xs font-bold font-mono text-slate-500 dark:text-slate-400">{(cashQty + onlineQty) > 0 ? (cashQty + onlineQty) : "—"}</span>
-        <span className={`text-right text-sm font-bold font-mono ${color === "blue" ? "text-blue-700" : "text-green-700"}`}>{rowTotal > 0 ? fmtN(rowTotal) : "—"}</span>
+              placeholder="Rate"
+              className="w-20 h-8 text-center text-sm bg-amber-50 dark:bg-amber-900/20 border-amber-300 font-mono"
+            />
+          </div>
+        ) : (
+          <Badge variant="outline" className={`text-xs font-mono px-2 py-0.5 ${color === "blue" ? "text-blue-700 border-blue-300 bg-blue-50 dark:bg-blue-900/30 dark:border-blue-700 dark:text-blue-300" : "text-green-700 border-green-300 bg-green-50 dark:bg-green-900/30 dark:border-green-700 dark:text-green-300"}`}>₹{fixedRate}</Badge>
+        )}
       </div>
+
+      {/* Cash / Online input cards */}
+      <div className="grid grid-cols-2 gap-2.5">
+        <div className="bg-slate-50 dark:bg-slate-700/40 rounded-xl p-2.5 border border-slate-200 dark:border-slate-600">
+          <div className="flex items-center justify-between mb-2">
+            <span className="text-[10px] uppercase tracking-widest text-slate-400 dark:text-slate-500 font-bold">Cash</span>
+            {cashTotal > 0 && <span className="text-[10px] font-mono font-bold text-slate-500 dark:text-slate-300">{fmtN(cashTotal)}</span>}
+          </div>
+          <QtyInput value={cashQty} onChange={onCashQty} large className="w-full" />
+        </div>
+        <div className="bg-indigo-50 dark:bg-indigo-900/20 rounded-xl p-2.5 border border-indigo-200 dark:border-indigo-700">
+          <div className="flex items-center justify-between mb-2">
+            <span className="text-[10px] uppercase tracking-widest text-indigo-500 dark:text-indigo-400 font-bold">Online</span>
+            {onlineTotal > 0 && <span className="text-[10px] font-mono font-bold text-indigo-500 dark:text-indigo-400">{fmtN(onlineTotal)}</span>}
+          </div>
+          <QtyInput value={onlineQty} onChange={onOnlineQty} large className="w-full bg-white dark:bg-indigo-900/30" />
+        </div>
+      </div>
+
+      {/* Row total */}
+      {rowTotal > 0 && (
+        <div className={`flex items-center justify-between mt-2.5 pt-2 border-t border-dashed ${borderColor}`}>
+          <span className="text-[11px] text-slate-400">Total Qty: <span className="font-bold text-slate-600 dark:text-slate-300">{cashQty + onlineQty}</span></span>
+          <span className={`text-sm font-bold font-mono ${accentText}`}>{fmtN(rowTotal)}</span>
+        </div>
+      )}
     </div>
   );
 }
 
-// ── Section subtotal bar ──────────────────────────────────────────
-function SectionSubtotal({
-  cashTotal, onlineTotal, cashQtyTotal, onlineQtyTotal, color
-}: {
+// ── Desktop table row ─────────────────────────────────────────────
+function ItemTableRow({ no, name, fixedRate, customRate, onCustomRate, cashQty, onCashQty, onlineQty, onOnlineQty, color }: ItemCardProps) {
+  const rate = customRate !== undefined ? customRate : (fixedRate ?? 0);
+  const cashTotal = cashQty * rate;
+  const onlineTotal = onlineQty * rate;
+  const rowTotal = cashTotal + onlineTotal;
+  const accentText = color === "blue" ? "text-blue-700 dark:text-blue-400" : "text-green-700 dark:text-green-400";
+
+  return (
+    <tr className="border-b border-slate-100 dark:border-slate-700 hover:bg-slate-50/60 dark:hover:bg-slate-700/20 transition-colors">
+      <td className="py-2 px-2 text-center">
+        <span className={`inline-flex w-5 h-5 rounded-full items-center justify-center text-[10px] font-bold ${color === "blue" ? "bg-blue-100 dark:bg-blue-900/50 text-blue-700 dark:text-blue-300" : "bg-green-100 dark:bg-green-900/50 text-green-700 dark:text-green-300"}`}>{no}</span>
+      </td>
+      <td className="py-2 px-3">
+        <span className="text-sm font-medium text-slate-700 dark:text-slate-200 whitespace-nowrap">{name}</span>
+      </td>
+      <td className="py-2 px-2 text-center">
+        {customRate !== undefined ? (
+          <Input type="number" inputMode="decimal" min={0}
+            value={customRate === 0 ? "" : customRate}
+            onChange={e => onCustomRate!(Number(e.target.value) || 0)}
+            placeholder="Rate" className="h-8 text-center text-sm w-full bg-amber-50 dark:bg-amber-900/20 border-amber-300 font-mono" />
+        ) : (
+          <Badge variant="outline" className={`text-xs font-mono ${color === "blue" ? "text-blue-700 border-blue-300 bg-blue-50 dark:bg-blue-900/30 dark:border-blue-700 dark:text-blue-300" : "text-green-700 border-green-300 bg-green-50 dark:bg-green-900/30 dark:border-green-700 dark:text-green-300"}`}>₹{fixedRate}</Badge>
+        )}
+      </td>
+      <td className="py-2 px-2">
+        <QtyInput value={cashQty} onChange={onCashQty} className="w-full min-w-[72px]" />
+      </td>
+      <td className="py-2 px-3 text-right">
+        <span className="text-sm font-mono font-semibold text-slate-600 dark:text-slate-300">{cashTotal > 0 ? fmtN(cashTotal) : <span className="text-slate-300 dark:text-slate-600">—</span>}</span>
+      </td>
+      <td className="py-2 px-2">
+        <QtyInput value={onlineQty} onChange={onOnlineQty} className="w-full min-w-[72px] bg-indigo-50 dark:bg-indigo-900/20" />
+      </td>
+      <td className="py-2 px-3 text-right">
+        <span className="text-sm font-mono font-semibold text-indigo-600 dark:text-indigo-400">{onlineTotal > 0 ? fmtN(onlineTotal) : <span className="text-slate-300 dark:text-slate-600">—</span>}</span>
+      </td>
+      <td className="py-2 px-3 text-right">
+        <span className="text-sm font-mono font-bold text-slate-500 dark:text-slate-400">{(cashQty + onlineQty) > 0 ? (cashQty + onlineQty) : <span className="text-slate-300 dark:text-slate-600">—</span>}</span>
+      </td>
+      <td className="py-2 px-3 text-right">
+        <span className={`text-sm font-bold font-mono ${accentText}`}>{rowTotal > 0 ? fmtN(rowTotal) : <span className="text-slate-300 dark:text-slate-600">—</span>}</span>
+      </td>
+    </tr>
+  );
+}
+
+// ── Section table header row ──────────────────────────────────────
+function SectionTableHead({ color }: { color: "blue" | "green" }) {
+  const cls = color === "blue"
+    ? "bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 border-blue-100 dark:border-blue-800"
+    : "bg-green-50 dark:bg-green-900/30 text-green-700 dark:text-green-300 border-green-100 dark:border-green-800";
+  return (
+    <thead>
+      <tr className={`text-[10px] font-bold uppercase tracking-wide border-b ${cls}`}>
+        <th className="py-2 px-2 text-center w-10">#</th>
+        <th className="py-2 px-3 text-left">Name</th>
+        <th className="py-2 px-2 text-center w-20">Rate</th>
+        <th className="py-2 px-2 text-center w-24">Cash Qty</th>
+        <th className="py-2 px-3 text-right w-28">Cash Total</th>
+        <th className="py-2 px-2 text-center w-24">Online Qty</th>
+        <th className="py-2 px-3 text-right w-28">Online Total</th>
+        <th className="py-2 px-3 text-right w-20">Row Qty</th>
+        <th className="py-2 px-3 text-right w-28">Row Amt</th>
+      </tr>
+    </thead>
+  );
+}
+
+interface SubtotalProps {
   cashTotal: number; onlineTotal: number;
   cashQtyTotal: number; onlineQtyTotal: number;
   color: "blue" | "green";
-}) {
+}
+
+// ── Desktop table footer row ──────────────────────────────────────
+function SubtotalTableFoot({ cashTotal, onlineTotal, cashQtyTotal, onlineQtyTotal, color }: SubtotalProps) {
   const grand = cashTotal + onlineTotal;
   const isBlue = color === "blue";
-  const bg = isBlue
-    ? "bg-blue-50 dark:bg-blue-900/30 border-blue-200 dark:border-blue-800"
-    : "bg-green-50 dark:bg-green-900/30 border-green-200 dark:border-green-800";
+  const bg = isBlue ? "bg-blue-50 dark:bg-blue-900/30" : "bg-green-50 dark:bg-green-900/30";
+  const border = isBlue ? "border-t-2 border-blue-200 dark:border-blue-700" : "border-t-2 border-green-200 dark:border-green-700";
   const accent = isBlue ? "text-blue-700 dark:text-blue-300" : "text-green-700 dark:text-green-300";
-  const dimText = "text-slate-400 dark:text-slate-500";
   return (
-    <>
-      {/* Desktop: column-aligned totals row */}
-      <div className={`hidden sm:grid sm:grid-cols-[30px_1fr_90px_100px_80px_100px_80px_70px_90px] items-center gap-1 px-3 py-2 border-t ${bg}`}>
-        <span />
-        <span className={`text-xs font-bold uppercase tracking-wide ${accent}`}>Totals</span>
-        <span />
-        <span className={`text-center text-sm font-bold font-mono ${accent}`}>{cashQtyTotal > 0 ? cashQtyTotal : "—"}</span>
-        <span className={`text-right text-xs font-bold font-mono ${accent}`}>{cashTotal > 0 ? fmtN(cashTotal) : "—"}</span>
-        <span className={`text-center text-sm font-bold font-mono text-indigo-600 dark:text-indigo-400`}>{onlineQtyTotal > 0 ? onlineQtyTotal : "—"}</span>
-        <span className={`text-right text-xs font-bold font-mono text-indigo-600 dark:text-indigo-400`}>{onlineTotal > 0 ? fmtN(onlineTotal) : "—"}</span>
-        <span className={`text-right text-xs font-bold font-mono text-slate-500 dark:text-slate-400`}>{(cashQtyTotal + onlineQtyTotal) > 0 ? (cashQtyTotal + onlineQtyTotal) : "—"}</span>
-        <span className={`text-right text-sm font-bold font-mono ${accent}`}>{grand > 0 ? fmtN(grand) : "—"}</span>
-      </div>
-      {/* Mobile: compact summary cards */}
-      <div className={`sm:hidden border-t ${bg} px-3 py-2.5`}>
-        <div className="grid grid-cols-2 gap-2 mb-2">
-          <div className="bg-white/70 dark:bg-slate-800/60 rounded-lg p-2 border border-slate-200 dark:border-slate-700">
-            <div className={`text-[10px] font-semibold uppercase tracking-wide mb-1 ${dimText}`}>Cash</div>
-            <div className="flex items-center justify-between">
-              <span className={`text-xs font-bold ${accent}`}>Qty: {cashQtyTotal > 0 ? cashQtyTotal : "—"}</span>
-              <span className={`text-xs font-bold font-mono ${accent}`}>{cashTotal > 0 ? fmtN(cashTotal) : "—"}</span>
-            </div>
-          </div>
-          <div className="bg-white/70 dark:bg-slate-800/60 rounded-lg p-2 border border-indigo-100 dark:border-indigo-900/50">
-            <div className="text-[10px] font-semibold uppercase tracking-wide mb-1 text-indigo-400">Online</div>
-            <div className="flex items-center justify-between">
-              <span className="text-xs font-bold text-indigo-600 dark:text-indigo-400">Qty: {onlineQtyTotal > 0 ? onlineQtyTotal : "—"}</span>
-              <span className="text-xs font-bold font-mono text-indigo-600 dark:text-indigo-400">{onlineTotal > 0 ? fmtN(onlineTotal) : "—"}</span>
-            </div>
-          </div>
-        </div>
-        <div className={`flex items-center justify-between text-xs font-bold border-t pt-2 ${isBlue ? "border-blue-100 dark:border-blue-900/40" : "border-green-100 dark:border-green-900/40"}`}>
-          <span className={`${dimText}`}>Row Qty: <span className={`font-bold ${accent}`}>{cashQtyTotal + onlineQtyTotal}</span></span>
-          <div className="flex items-center gap-2">
-            <span className={dimText}>Total</span>
-            <span className={`text-sm font-bold font-mono ${accent}`}>{fmtN(grand)}</span>
-          </div>
-        </div>
-      </div>
-    </>
+    <tfoot>
+      <tr className={`${bg} ${border}`}>
+        <td />
+        <td className={`py-2.5 px-3 text-xs font-bold uppercase tracking-wider ${accent}`}>TOTALS</td>
+        <td />
+        <td className={`py-2.5 px-2 text-center text-sm font-bold font-mono ${accent}`}>{cashQtyTotal > 0 ? cashQtyTotal : "—"}</td>
+        <td className={`py-2.5 px-3 text-right text-sm font-bold font-mono ${accent}`}>{cashTotal > 0 ? fmtN(cashTotal) : "—"}</td>
+        <td className="py-2.5 px-2 text-center text-sm font-bold font-mono text-indigo-600 dark:text-indigo-400">{onlineQtyTotal > 0 ? onlineQtyTotal : "—"}</td>
+        <td className="py-2.5 px-3 text-right text-sm font-bold font-mono text-indigo-600 dark:text-indigo-400">{onlineTotal > 0 ? fmtN(onlineTotal) : "—"}</td>
+        <td className="py-2.5 px-3 text-right text-sm font-bold font-mono text-slate-500 dark:text-slate-400">{(cashQtyTotal + onlineQtyTotal) > 0 ? (cashQtyTotal + onlineQtyTotal) : "—"}</td>
+        <td className={`py-2.5 px-3 text-right text-sm font-bold font-mono ${accent}`}>{grand > 0 ? fmtN(grand) : "—"}</td>
+      </tr>
+    </tfoot>
   );
 }
 
-// ── Desktop header row for income sections ────────────────────────
-function DesktopSectionHeader({ color }: { color: "blue" | "green" }) {
-  const cls = color === "blue"
-    ? "bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300"
-    : "bg-green-50 dark:bg-green-900/30 text-green-700 dark:text-green-300";
+// ── Mobile subtotal summary ───────────────────────────────────────
+function SubtotalMobile({ cashTotal, onlineTotal, cashQtyTotal, onlineQtyTotal, color }: SubtotalProps) {
+  const grand = cashTotal + onlineTotal;
+  const isBlue = color === "blue";
+  const bg = isBlue ? "bg-blue-50/80 dark:bg-blue-900/30" : "bg-green-50/80 dark:bg-green-900/30";
+  const accent = isBlue ? "text-blue-700 dark:text-blue-300" : "text-green-700 dark:text-green-300";
+  const border = isBlue ? "border-blue-200 dark:border-blue-800" : "border-green-200 dark:border-green-800";
   return (
-    <div className={`hidden sm:grid sm:grid-cols-[30px_1fr_90px_100px_80px_100px_80px_70px_90px] items-center gap-1 px-3 py-1.5 text-[10px] font-bold uppercase tracking-wide border-b ${cls}`}>
-      <span className="text-center">#</span>
-      <span>Name</span>
-      <span className="text-center">Rate</span>
-      <span className="text-center">Cash Qty</span>
-      <span className="text-right">Cash Total</span>
-      <span className="text-center">Online Qty</span>
-      <span className="text-right">Online Total</span>
-      <span className="text-right">Row Qty</span>
-      <span className="text-right">Row Amt</span>
+    <div className={`border-t ${border} ${bg} px-3 py-3`}>
+      <div className="grid grid-cols-2 gap-2 mb-2.5">
+        <div className="bg-white/80 dark:bg-slate-800/60 rounded-xl p-2.5 border border-slate-100 dark:border-slate-700">
+          <div className="text-[10px] font-bold uppercase tracking-wide text-slate-400 mb-1.5">Cash</div>
+          <div className="flex items-center justify-between">
+            <span className={`text-xs font-bold ${accent}`}>Qty: {cashQtyTotal > 0 ? cashQtyTotal : "—"}</span>
+            <span className={`text-xs font-bold font-mono ${accent}`}>{cashTotal > 0 ? fmtN(cashTotal) : "—"}</span>
+          </div>
+        </div>
+        <div className="bg-white/80 dark:bg-slate-800/60 rounded-xl p-2.5 border border-indigo-100 dark:border-indigo-900/50">
+          <div className="text-[10px] font-bold uppercase tracking-wide text-indigo-400 mb-1.5">Online</div>
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-bold text-indigo-600 dark:text-indigo-400">Qty: {onlineQtyTotal > 0 ? onlineQtyTotal : "—"}</span>
+            <span className="text-xs font-bold font-mono text-indigo-600 dark:text-indigo-400">{onlineTotal > 0 ? fmtN(onlineTotal) : "—"}</span>
+          </div>
+        </div>
+      </div>
+      <div className={`flex items-center justify-between pt-2 border-t border-dashed ${border}`}>
+        <span className="text-xs text-slate-400">Total Qty: <span className={`font-bold ${accent}`}>{cashQtyTotal + onlineQtyTotal}</span></span>
+        <span className={`text-base font-bold font-mono ${accent}`}>{fmtN(grand)}</span>
+      </div>
     </div>
+  );
+}
+
+// ── Unified section wrapper ───────────────────────────────────────
+interface SectionProps {
+  color: "blue" | "green";
+  items: ItemCardProps[];
+  cashTotal: number; onlineTotal: number;
+  cashQtyTotal: number; onlineQtyTotal: number;
+}
+function IncomeSection({ color, items, cashTotal, onlineTotal, cashQtyTotal, onlineQtyTotal }: SectionProps) {
+  return (
+    <>
+      {/* Mobile: stacked cards + summary */}
+      <div className="md:hidden">
+        <div className="divide-y divide-slate-100 dark:divide-slate-700/50">
+          {items.map(item => <ItemMobileCard key={item.no} {...item} />)}
+        </div>
+        <SubtotalMobile cashTotal={cashTotal} onlineTotal={onlineTotal} cashQtyTotal={cashQtyTotal} onlineQtyTotal={onlineQtyTotal} color={color} />
+      </div>
+      {/* Desktop: proper HTML table */}
+      <div className="hidden md:block overflow-x-auto">
+        <table className="w-full min-w-[680px] border-collapse">
+          <SectionTableHead color={color} />
+          <tbody>
+            {items.map(item => <ItemTableRow key={item.no} {...item} />)}
+          </tbody>
+          <SubtotalTableFoot cashTotal={cashTotal} onlineTotal={onlineTotal} cashQtyTotal={cashQtyTotal} onlineQtyTotal={onlineQtyTotal} color={color} />
+        </table>
+      </div>
+    </>
   );
 }
 
@@ -936,20 +1001,19 @@ export default function CashSeal() {
               <Users className="w-4 h-4 text-white" />
               <h2 className="text-sm font-bold text-white">Permanent Staff</h2>
             </div>
-            <span className="text-xs text-blue-100">Rates: ₹5 / ₹20 / ₹10 / ₹10</span>
+            <span className="text-xs text-blue-100 font-medium">Rates: ₹5 / ₹20 / ₹10 / ₹10</span>
           </div>
-          <DesktopSectionHeader color="blue" />
-          <ItemCard no={1} name="Breakfast" fixedRate={PS_RATES.bf} color="blue"
-            cashQty={psBfCash} onCashQty={setPsBfCash} onlineQty={psBfOnline} onOnlineQty={setPsBfOnline} />
-          <ItemCard no={2} name="Lunch" fixedRate={PS_RATES.ln} color="blue"
-            cashQty={psLnCash} onCashQty={setPsLnCash} onlineQty={psLnOnline} onOnlineQty={setPsLnOnline} />
-          <ItemCard no={3} name="Evening Snacks" fixedRate={PS_RATES.ev} color="blue"
-            cashQty={psEvCash} onCashQty={setPsEvCash} onlineQty={psEvOnline} onOnlineQty={setPsEvOnline} />
-          <ItemCard no={4} name="Night Snacks" fixedRate={PS_RATES.nt} color="blue"
-            cashQty={psNtCash} onCashQty={setPsNtCash} onlineQty={psNtOnline} onOnlineQty={setPsNtOnline} />
-          <ItemCard no={5} name="Recharge" customRate={psRcRate} onCustomRate={setPsRcRate} color="blue"
-            cashQty={psRcCash} onCashQty={setPsRcCash} onlineQty={psRcOnline} onOnlineQty={setPsRcOnline} />
-          <SectionSubtotal cashTotal={psTotalCash} onlineTotal={psTotalOnline} cashQtyTotal={psCashQtyTotal} onlineQtyTotal={psOnlineQtyTotal} color="blue" />
+          <IncomeSection color="blue"
+            cashTotal={psTotalCash} onlineTotal={psTotalOnline}
+            cashQtyTotal={psCashQtyTotal} onlineQtyTotal={psOnlineQtyTotal}
+            items={[
+              { no: 1, name: "Breakfast", fixedRate: PS_RATES.bf, color: "blue", cashQty: psBfCash, onCashQty: setPsBfCash, onlineQty: psBfOnline, onOnlineQty: setPsBfOnline },
+              { no: 2, name: "Lunch", fixedRate: PS_RATES.ln, color: "blue", cashQty: psLnCash, onCashQty: setPsLnCash, onlineQty: psLnOnline, onOnlineQty: setPsLnOnline },
+              { no: 3, name: "Evening Snacks", fixedRate: PS_RATES.ev, color: "blue", cashQty: psEvCash, onCashQty: setPsEvCash, onlineQty: psEvOnline, onOnlineQty: setPsEvOnline },
+              { no: 4, name: "Night Snacks", fixedRate: PS_RATES.nt, color: "blue", cashQty: psNtCash, onCashQty: setPsNtCash, onlineQty: psNtOnline, onOnlineQty: setPsNtOnline },
+              { no: 5, name: "Recharge", customRate: psRcRate, onCustomRate: setPsRcRate, color: "blue", cashQty: psRcCash, onCashQty: setPsRcCash, onlineQty: psRcOnline, onOnlineQty: setPsRcOnline },
+            ]}
+          />
         </div>
 
         {/* ── THIRD PARTY ───────────────────────────────────────── */}
@@ -959,20 +1023,19 @@ export default function CashSeal() {
               <UserPlus className="w-4 h-4 text-white" />
               <h2 className="text-sm font-bold text-white">Third Party</h2>
             </div>
-            <span className="text-xs text-green-100">Rates: ₹20 / ₹35 / ₹20 / ₹20</span>
+            <span className="text-xs text-green-100 font-medium">Rates: ₹20 / ₹35 / ₹20 / ₹20</span>
           </div>
-          <DesktopSectionHeader color="green" />
-          <ItemCard no={1} name="Breakfast" fixedRate={TP_RATES.bf} color="green"
-            cashQty={tpBfCash} onCashQty={setTpBfCash} onlineQty={tpBfOnline} onOnlineQty={setTpBfOnline} />
-          <ItemCard no={2} name="Lunch Veg" fixedRate={TP_RATES.lv} color="green"
-            cashQty={tpLvCash} onCashQty={setTpLvCash} onlineQty={tpLvOnline} onOnlineQty={setTpLvOnline} />
-          <ItemCard no={3} name="Lunch Non Veg" customRate={tpNvRate} onCustomRate={setTpNvRate} color="green"
-            cashQty={tpNvCash} onCashQty={setTpNvCash} onlineQty={tpNvOnline} onOnlineQty={setTpNvOnline} />
-          <ItemCard no={4} name="Evening Snacks" fixedRate={TP_RATES.ev} color="green"
-            cashQty={tpEvCash} onCashQty={setTpEvCash} onlineQty={tpEvOnline} onOnlineQty={setTpEvOnline} />
-          <ItemCard no={5} name="Night" fixedRate={TP_RATES.nt} color="green"
-            cashQty={tpNtCash} onCashQty={setTpNtCash} onlineQty={tpNtOnline} onOnlineQty={setTpNtOnline} />
-          <SectionSubtotal cashTotal={tpTotalCash} onlineTotal={tpTotalOnline} cashQtyTotal={tpCashQtyTotal} onlineQtyTotal={tpOnlineQtyTotal} color="green" />
+          <IncomeSection color="green"
+            cashTotal={tpTotalCash} onlineTotal={tpTotalOnline}
+            cashQtyTotal={tpCashQtyTotal} onlineQtyTotal={tpOnlineQtyTotal}
+            items={[
+              { no: 1, name: "Breakfast", fixedRate: TP_RATES.bf, color: "green", cashQty: tpBfCash, onCashQty: setTpBfCash, onlineQty: tpBfOnline, onOnlineQty: setTpBfOnline },
+              { no: 2, name: "Lunch Veg", fixedRate: TP_RATES.lv, color: "green", cashQty: tpLvCash, onCashQty: setTpLvCash, onlineQty: tpLvOnline, onOnlineQty: setTpLvOnline },
+              { no: 3, name: "Lunch Non Veg", customRate: tpNvRate, onCustomRate: setTpNvRate, color: "green", cashQty: tpNvCash, onCashQty: setTpNvCash, onlineQty: tpNvOnline, onOnlineQty: setTpNvOnline },
+              { no: 4, name: "Evening Snacks", fixedRate: TP_RATES.ev, color: "green", cashQty: tpEvCash, onCashQty: setTpEvCash, onlineQty: tpEvOnline, onOnlineQty: setTpEvOnline },
+              { no: 5, name: "Night", fixedRate: TP_RATES.nt, color: "green", cashQty: tpNtCash, onCashQty: setTpNtCash, onlineQty: tpNtOnline, onOnlineQty: setTpNtOnline },
+            ]}
+          />
         </div>
 
         {/* Grand Total Income */}
