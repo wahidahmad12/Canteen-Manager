@@ -1294,12 +1294,15 @@ export class DatabaseStorage implements IStorage {
         return d.getMonth() + 1 === month && d.getFullYear() === year;
       });
       let overtimeHrs = 0;
+      let overtimeAmountSum = 0;
       for (const ot of empOtRecords) {
         overtimeHrs += Number(ot.overtimeHours) || 0;
+        // Auto-fetch actual OT amount from OT register
+        overtimeAmountSum += Number(ot.overtimeAmount) || 0;
       }
       overtimeHrs = Math.round(overtimeHrs * 100) / 100;
-      const overtimeRate = Math.round((dailyRate * 2) / 8 * 100) / 100;
-      const overtimeAmount = Math.round(overtimeRate * overtimeHrs);
+      const overtimeRate = Math.round((dailyRate * 1.05) / 4 * 100) / 100;
+      const overtimeAmount = Math.round(overtimeAmountSum);
       const grossWage = basicWage + hra5 + fixedHra + overtimeAmount + da;
       const pfDeduction = Math.round(basicWage * 0.12 * 100) / 100;
       const esicDeduction = grossWage <= 21000 ? Math.round(grossWage * 0.0075 * 100) / 100 : 0;

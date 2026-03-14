@@ -808,18 +808,40 @@ export async function registerRoutes(
   app.get("/api/salary", requireAuth, async (req, res) => {
     const { clientName, month, year, months: monthsParam } = req.query;
     if (!clientName || !year) return res.status(400).json({ message: "clientName, year required" });
+
+    // Helper: merge OT register amounts into salary records for a given month
+    const mergeOt = async (records: any[], m: number, y: number) => {
+      const allOt = await storage.getOvertimeRecords(clientName as string);
+      return records.map(rec => {
+        const empOt = allOt.filter((ot: any) => {
+          if (ot.employeeId !== rec.employeeId) return false;
+          const d = new Date(ot.date);
+          return d.getMonth() + 1 === m && d.getFullYear() === y;
+        });
+        if (empOt.length === 0) return rec;
+        let otHrs = 0, otAmt = 0;
+        for (const ot of empOt) {
+          otHrs += Number(ot.overtimeHours) || 0;
+          otAmt += Number(ot.overtimeAmount) || 0;
+        }
+        otHrs = Math.round(otHrs * 100) / 100;
+        otAmt = Math.round(otAmt);
+        return { ...rec, overtimeHours: String(otHrs), overtimeAmount: String(otAmt) };
+      });
+    };
+
     if (monthsParam) {
       const monthsList = (monthsParam as string).split(',').map(Number);
       const allRecords = [];
       for (const m of monthsList) {
         const records = await storage.getSalaryRecords(clientName as string, m, Number(year));
-        allRecords.push(...records);
+        allRecords.push(...(await mergeOt(records, m, Number(year))));
       }
       return res.json(allRecords);
     }
     if (!month) return res.status(400).json({ message: "month required" });
     const records = await storage.getSalaryRecords(clientName as string, Number(month), Number(year));
-    res.json(records);
+    res.json(await mergeOt(records, Number(month), Number(year)));
   });
 
   app.get("/api/salary/:id", requireAuth, async (req, res) => {
