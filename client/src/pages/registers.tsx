@@ -914,7 +914,8 @@ function OvertimeTab({ clientName, clientAddress, employees, empMap, filterMonth
   });
 
   const calcOtRate = (dailyRate: number) => {
-    return (dailyRate * 2) / 8;
+    // Formula: (Basic Rate + Basic Rate×5%) / 4
+    return (dailyRate * 1.05) / 4;
   };
 
   const calcOtAmount = (hours: string, rate: string) => {
@@ -971,9 +972,9 @@ function OvertimeTab({ clientName, clientAddress, employees, empMap, filterMonth
       overtimeAmount: record.overtimeAmount || "",
       paidDate: record.paidDate?.split("T")[0] || record.paidDate || "",
     });
-    // derive daily rate from OT rate: dailyRate = otRate * 4
+    // derive daily rate from OT rate: dailyRate = otRate * 4 / 1.05
     const otR = parseFloat(record.overtimeRate) || 0;
-    setFormulaDailyRate(otR > 0 ? Math.round(otR * 4 * 100) / 100 : null);
+    setFormulaDailyRate(otR > 0 ? Math.round((otR * 4 / 1.05) * 100) / 100 : null);
     setOpen(true);
   };
 
@@ -1219,28 +1220,34 @@ function OvertimeTab({ clientName, clientAddress, employees, empMap, filterMonth
 
                 {/* Formula breakdown */}
                 <div className="rounded-lg bg-amber-50 border border-amber-200 px-3 py-2.5 text-xs text-amber-900 space-y-1.5">
-                  <div className="font-bold text-amber-800 mb-1">OT Rate Formula</div>
+                  <div className="font-bold text-amber-800 mb-1">OT Rate Calculation Formula</div>
+                  <div className="font-mono text-[11px] bg-amber-100 rounded px-2 py-1 text-amber-900 border border-amber-300 tracking-tight">
+                    ROUND(((Basic + Basic×5%) ÷ 4) × OT Hrs, 0)
+                  </div>
                   {formulaDailyRate ? (
                     <>
-                      <div className="flex items-center justify-between">
-                        <span className="text-slate-600">Daily Rate</span>
+                      <div className="flex items-center justify-between border-t border-amber-200 pt-1">
+                        <span className="text-slate-600">Basic Rate</span>
                         <span className="font-mono font-semibold">₹{formulaDailyRate.toFixed(2)}</span>
                       </div>
+                      <div className="flex items-center justify-between">
+                        <span className="text-slate-600">Basic + 5% = {formulaDailyRate.toFixed(2)} × 1.05</span>
+                        <span className="font-mono font-semibold">₹{(formulaDailyRate * 1.05).toFixed(2)}</span>
+                      </div>
                       <div className="flex items-center justify-between border-t border-amber-200 pt-1">
-                        <span className="text-slate-600">OT Rate = Daily ÷ 8 × 2</span>
+                        <span className="text-slate-600">OT Rate = ÷ 4</span>
                         <span className="font-mono font-semibold text-amber-700">₹{formData.overtimeRate || "0.00"}/hr</span>
                       </div>
                       {formData.overtimeHours && parseFloat(formData.overtimeHours) > 0 && (
                         <div className="flex items-center justify-between border-t border-amber-200 pt-1">
-                          <span className="text-slate-600">OT Amt = {formData.overtimeRate} × {formData.overtimeHours} hrs</span>
+                          <span className="text-slate-600">ROUND({formData.overtimeRate} × {formData.overtimeHours} hrs, 0)</span>
                           <span className="font-mono font-bold text-green-700">₹{formData.overtimeAmount || "0"}</span>
                         </div>
                       )}
                     </>
                   ) : (
-                    <div className="text-slate-500 italic">
-                      Select employee &amp; date to auto-calculate.<br/>
-                      <span className="not-italic font-medium">Formula: Daily Rate ÷ 8 hrs × 2 = OT Rate/hr</span>
+                    <div className="text-slate-500 mt-1">
+                      Select employee &amp; date to auto-calculate.
                     </div>
                   )}
                 </div>

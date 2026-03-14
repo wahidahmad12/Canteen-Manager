@@ -935,7 +935,8 @@ export async function registerRoutes(
           dailyRate = Number(skillRate.dailyRate);
         }
       }
-      const overtimeRate = Math.round((dailyRate * 2) / 8 * 100) / 100;
+      // Formula: ROUND(((Basic Rate + Basic Rate×5%) / 4) × OT Hrs, 0)
+      const overtimeRate = Math.round((dailyRate * 1.05) / 4 * 100) / 100;
       const hours = Number(ot.overtimeHours) || 0;
       const overtimeAmount = Math.round(overtimeRate * hours);
       await storage.updateOvertimeRecord(ot.id, {
