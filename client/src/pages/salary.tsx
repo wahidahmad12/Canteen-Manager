@@ -54,6 +54,7 @@ interface SalaryRecord {
   professionalTax: string;
   advanceDeduction: string;
   fineDeduction: string;
+  lwf: string;
   otherDeduction: string;
   totalDeduction: string;
   netPay: string;
@@ -135,7 +136,7 @@ function buildSlipHTML(salary: SalaryRecord, employee: Employee | undefined, att
   const n = (v: string | undefined | null) => Number(v) || 0;
   const basicRate = skillBasicRate !== undefined ? skillBasicRate : n(employee?.dailyRate);
   const basic = n(salary.basicWage);
-  const hra5 = Math.round(basic * 0.05);
+  const hra5 = n(salary.otherAllowance);
   const fixedHRA = n(salary.hra);
   const totalGross = n(salary.grossWage);
   const pfDed = n(salary.pfDeduction);
@@ -516,7 +517,7 @@ export default function SalaryRegister() {
     const skillBasedRate = skillRateMap.get(`${skillCategory}_${month}_${year}`);
     const basicRate = skillBasedRate !== undefined ? skillBasedRate : n(emp?.dailyRate);
     const basicWage = n(s.basicWage);
-    const hra5 = Math.round(basicWage * 0.05);
+    const hra5 = n(s.otherAllowance);
     const fixedHRA = n(s.hra);
     const otAllow = n(s.overtimeAmount);
     const totalGross = n(s.grossWage);

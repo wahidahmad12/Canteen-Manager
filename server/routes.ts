@@ -809,7 +809,7 @@ export async function registerRoutes(
     const { clientName, month, year, months: monthsParam } = req.query;
     if (!clientName || !year) return res.status(400).json({ message: "clientName, year required" });
 
-    // Helper: merge OT register amounts into salary records for a given month
+    // Helper: merge OT register amounts into salary records and cascade-recalculate dependent fields
     const mergeOt = async (records: any[], m: number, y: number) => {
       const allOt = await storage.getOvertimeRecords(clientName as string);
       return records.map(rec => {
@@ -826,7 +826,31 @@ export async function registerRoutes(
         }
         otHrs = Math.round(otHrs * 100) / 100;
         otAmt = Math.round(otAmt);
-        return { ...rec, overtimeHours: String(otHrs), overtimeAmount: String(otAmt) };
+        // Cascade-recalculate all fields that depend on OT amount
+        const basicWage = Number(rec.basicWage) || 0;
+        const hra5 = Number(rec.otherAllowance) || 0;
+        const fixedHra = Number(rec.hra) || 0;
+        const da = Number(rec.da) || 0;
+        const grossWage = Math.round((basicWage + hra5 + fixedHra + otAmt + da) * 100) / 100;
+        const pfDeduction = Number(rec.pfDeduction) || 0;
+        const esicDeduction = grossWage <= 21000 ? Math.round(grossWage * 0.0075 * 100) / 100 : 0;
+        const professionalTax = grossWage > 40000 ? 200 : grossWage > 25000 ? 150 : grossWage > 15000 ? 130 : grossWage > 10000 ? 110 : 0;
+        const lwf = Number(rec.lwf) || 0;
+        const advanceDeduction = Number(rec.advanceDeduction) || 0;
+        const fineDeduction = Number(rec.fineDeduction) || 0;
+        const otherDeduction = Number(rec.otherDeduction) || 0;
+        const totalDeduction = Math.round((pfDeduction + esicDeduction + professionalTax + lwf + advanceDeduction + fineDeduction + otherDeduction) * 100) / 100;
+        const netPay = Math.round((grossWage - totalDeduction) * 100) / 100;
+        return {
+          ...rec,
+          overtimeHours: String(otHrs),
+          overtimeAmount: String(otAmt),
+          grossWage: String(grossWage),
+          esicDeduction: String(esicDeduction),
+          professionalTax: String(professionalTax),
+          totalDeduction: String(totalDeduction),
+          netPay: String(netPay),
+        };
       });
     };
 
