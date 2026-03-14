@@ -827,6 +827,7 @@ function OvertimeTab({ clientName, clientAddress, employees, empMap, filterMonth
   const [editingId, setEditingId] = useState<number | null>(null);
   const [formData, setFormData] = useState({ employeeId: "", date: "", normalHours: "", overtimeHours: "", overtimeRate: "", overtimeAmount: "", paidDate: "" });
   const emptyForm = { employeeId: "", date: "", normalHours: "", overtimeHours: "", overtimeRate: "", overtimeAmount: "", paidDate: "" };
+  const [formulaDailyRate, setFormulaDailyRate] = useState<number | null>(null);
 
   const { data: overtime, isLoading } = useQuery({
     queryKey: ["/api/overtime", clientName],
@@ -942,6 +943,7 @@ function OvertimeTab({ clientName, clientAddress, employees, empMap, filterMonth
       if (skillRate && skillRate > 0) dailyRate = skillRate;
     }
     const rate = calcOtRate(dailyRate).toFixed(2);
+    setFormulaDailyRate(dailyRate > 0 ? dailyRate : null);
     setFormData(prev => ({ ...prev, overtimeRate: rate, overtimeAmount: calcOtAmount(prev.overtimeHours, rate) }));
   };
 
@@ -969,11 +971,14 @@ function OvertimeTab({ clientName, clientAddress, employees, empMap, filterMonth
       overtimeAmount: record.overtimeAmount || "",
       paidDate: record.paidDate?.split("T")[0] || record.paidDate || "",
     });
+    // derive daily rate from OT rate: dailyRate = otRate * 4
+    const otR = parseFloat(record.overtimeRate) || 0;
+    setFormulaDailyRate(otR > 0 ? Math.round(otR * 4 * 100) / 100 : null);
     setOpen(true);
   };
 
   const openAdd = () => {
-    setEditingId(null); setFormData(emptyForm); setOpen(true);
+    setEditingId(null); setFormData(emptyForm); setFormulaDailyRate(null); setOpen(true);
   };
 
   const handleSubmit = () => {
@@ -1211,6 +1216,35 @@ function OvertimeTab({ clientName, clientAddress, employees, empMap, filterMonth
                     <Input inputMode="decimal" placeholder="0.00" value={formData.overtimeAmount} readOnly className="bg-muted" data-testid="input-overtime-amount" />
                   </div>
                 </div>
+
+                {/* Formula breakdown */}
+                <div className="rounded-lg bg-amber-50 border border-amber-200 px-3 py-2.5 text-xs text-amber-900 space-y-1.5">
+                  <div className="font-bold text-amber-800 mb-1">OT Rate Formula</div>
+                  {formulaDailyRate ? (
+                    <>
+                      <div className="flex items-center justify-between">
+                        <span className="text-slate-600">Daily Rate</span>
+                        <span className="font-mono font-semibold">₹{formulaDailyRate.toFixed(2)}</span>
+                      </div>
+                      <div className="flex items-center justify-between border-t border-amber-200 pt-1">
+                        <span className="text-slate-600">OT Rate = Daily ÷ 8 × 2</span>
+                        <span className="font-mono font-semibold text-amber-700">₹{formData.overtimeRate || "0.00"}/hr</span>
+                      </div>
+                      {formData.overtimeHours && parseFloat(formData.overtimeHours) > 0 && (
+                        <div className="flex items-center justify-between border-t border-amber-200 pt-1">
+                          <span className="text-slate-600">OT Amt = {formData.overtimeRate} × {formData.overtimeHours} hrs</span>
+                          <span className="font-mono font-bold text-green-700">₹{formData.overtimeAmount || "0"}</span>
+                        </div>
+                      )}
+                    </>
+                  ) : (
+                    <div className="text-slate-500 italic">
+                      Select employee &amp; date to auto-calculate.<br/>
+                      <span className="not-italic font-medium">Formula: Daily Rate ÷ 8 hrs × 2 = OT Rate/hr</span>
+                    </div>
+                  )}
+                </div>
+
                 <div>
                   <Label>Paid Date</Label>
                   <Input type="date" value={formData.paidDate} onChange={(e) => setFormData(prev => ({ ...prev, paidDate: e.target.value }))} data-testid="input-overtime-paid-date" />
