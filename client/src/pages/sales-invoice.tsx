@@ -18,7 +18,7 @@ import {
   FileText, Plus, Save, Loader2, Pencil, Trash2, Search,
   CalendarDays, Building2, Receipt, IndianRupee, Percent,
   CheckCircle2, XCircle, X, BarChart3, ClipboardList, AlertTriangle,
-  Printer, User, Check, TrendingUp
+  Printer, User, Check, TrendingUp, FileDown
 } from "lucide-react";
 import { Link } from "wouter";
 
@@ -1744,6 +1744,244 @@ function PankajReport({ invoices, clients }: { invoices: any[]; clients: string[
     printWindow.document.close();
   };
 
+  const handleExportExcel = async () => {
+    if (rows.length === 0) return;
+    const ExcelJS = (await import("exceljs")).default;
+    const wb = new ExcelJS.Workbook();
+    const ws = wb.addWorksheet("Amount Give To Pankaj");
+
+    const TOTAL_COLS = 13;
+    const fmtD = (d: string) => { const p = d.split("-"); return `${p[2]}/${p[1]}/${p[0]}`; };
+    const today = new Date();
+    const dateStr = `${String(today.getDate()).padStart(2,"0")}/${String(today.getMonth()+1).padStart(2,"0")}/${today.getFullYear()}`;
+
+    const thinBorder: Partial<ExcelJS.Borders> = {
+      top: { style: "thin" }, bottom: { style: "thin" },
+      left: { style: "thin" }, right: { style: "thin" },
+    };
+    const violet = "FF7C3AED";
+    const green = "FF15803D";
+    const red = "FFDC2626";
+    const amber = "FFB45309";
+    const grey = "FFF5F5F5";
+    const darkBg = "FF1A237E";
+    const white = "FFFFFFFF";
+
+    // Row 1 — Company
+    ws.mergeCells(1, 1, 1, TOTAL_COLS);
+    const r1 = ws.getRow(1);
+    r1.getCell(1).value = "DJ Hospitality & Facility Management Private Limited";
+    r1.getCell(1).font = { bold: true, size: 14 };
+    r1.getCell(1).alignment = { horizontal: "center", vertical: "middle" };
+    r1.height = 24;
+
+    // Row 2 — Title
+    ws.mergeCells(2, 1, 2, TOTAL_COLS);
+    const r2 = ws.getRow(2);
+    r2.getCell(1).value = "Amount Give To Pankaj";
+    r2.getCell(1).font = { bold: true, size: 13 };
+    r2.getCell(1).alignment = { horizontal: "center", vertical: "middle" };
+    r2.height = 20;
+
+    // Row 3 — Date / Month meta
+    ws.mergeCells(3, 1, 3, 6);
+    ws.getRow(3).getCell(1).value = `Date: ${dateStr}`;
+    ws.getRow(3).getCell(1).font = { bold: true, size: 10 };
+    ws.mergeCells(3, 8, 3, TOTAL_COLS);
+    ws.getRow(3).getCell(8).value = `Month: ${monthName} ${year}`;
+    ws.getRow(3).getCell(8).font = { bold: true, size: 10 };
+    ws.getRow(3).getCell(8).alignment = { horizontal: "right" };
+    ws.getRow(3).height = 16;
+
+    // Row 4 — blank spacer
+    ws.getRow(4).height = 6;
+
+    // Row 5 — Column headers
+    const headers = [
+      "Sl", "Client Name", "To Receive", "GST Amt", "Fixed Amt", "Total",
+      "Pymnt Date", "Instalment #", "Given Date", "Given Amt",
+      "Total Given", "Pending Amt", "Status"
+    ];
+    const headerRow = ws.getRow(5);
+    headers.forEach((h, i) => {
+      const cell = headerRow.getCell(i + 1);
+      cell.value = h;
+      cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: darkBg } };
+      cell.font = { bold: true, color: { argb: white }, size: 10 };
+      cell.border = thinBorder;
+      cell.alignment = { horizontal: "center", vertical: "middle", wrapText: true };
+    });
+    headerRow.height = 30;
+
+    // Column widths
+    ws.getColumn(1).width = 5;
+    ws.getColumn(2).width = 30;
+    ws.getColumn(3).width = 14;
+    ws.getColumn(4).width = 13;
+    ws.getColumn(5).width = 12;
+    ws.getColumn(6).width = 14;
+    ws.getColumn(7).width = 13;
+    ws.getColumn(8).width = 13;
+    ws.getColumn(9).width = 13;
+    ws.getColumn(10).width = 13;
+    ws.getColumn(11).width = 13;
+    ws.getColumn(12).width = 13;
+    ws.getColumn(13).width = 12;
+
+    // Data rows
+    let rowIdx = 6;
+    rows.forEach(r => {
+      const pmts = r.payments || [];
+      const pendingAmt = Math.max(r.total - r.givenAmt, 0);
+      const badge = r.pankajStatus === "given" ? "Full Paid" : r.pankajStatus === "partial" ? "Pending" : "Not Given";
+      const badgeColor = r.pankajStatus === "given" ? green : r.pankajStatus === "partial" ? amber : "FF4B5563";
+      const pd = r.latestPaymentDate ? fmtD(r.latestPaymentDate) : "-";
+
+      if (pmts.length === 0) {
+        const dr = ws.getRow(rowIdx++);
+        const rowBg = (rowIdx % 2 === 0) ? "FFFAF5FF" : white;
+        const cells: [number, any, string, boolean][] = [
+          [1, r.idx, "center", false],
+          [2, r.clientName, "left", false],
+          [3, r.toReceive, "right", false],
+          [4, r.gstMinusTds, "right", false],
+          [5, r.fixedAmt > 0 ? r.fixedAmt : "-", "right", false],
+          [6, r.total, "right", true],
+          [7, pd, "center", false],
+          [8, "-", "center", false],
+          [9, "-", "center", false],
+          [10, "-", "right", false],
+          [11, "-", "right", false],
+          [12, "-", "right", false],
+          [13, badge, "center", false],
+        ];
+        cells.forEach(([col, val, align, bold]) => {
+          const c = dr.getCell(col);
+          c.value = val;
+          c.border = thinBorder;
+          c.alignment = { horizontal: align as any, vertical: "middle" };
+          c.fill = { type: "pattern", pattern: "solid", fgColor: { argb: rowBg } };
+          if (bold) c.font = { bold: true };
+          if (col === 3 || col === 4 || col === 6) c.numFmt = '#,##0.00';
+          if (col === 13) c.font = { bold: true, color: { argb: badgeColor } };
+        });
+      } else {
+        pmts.forEach((p: any, pi: number) => {
+          const dr = ws.getRow(rowIdx++);
+          const instBg = "FFFAF5FF";
+          const rowBg = pi % 2 === 0 ? "FFFAF5FF" : "FFF3F0FF";
+          const gd = p.date ? fmtD(p.date) : "-";
+          const isLast = pi === pmts.length - 1;
+
+          [[1, r.idx], [2, r.clientName], [3, r.toReceive], [4, r.gstMinusTds],
+           [5, r.fixedAmt > 0 ? r.fixedAmt : "-"], [6, r.total], [7, pd]].forEach(([col, val]) => {
+            const c = dr.getCell(col as number);
+            c.value = val;
+            c.border = thinBorder;
+            c.fill = { type: "pattern", pattern: "solid", fgColor: { argb: rowBg } };
+            c.alignment = { horizontal: col === 1 || col === 7 ? "center" : col === 2 ? "left" : "right" as any, vertical: "middle" };
+            if (col === 3 || col === 4 || col === 6) { if (typeof val === "number") c.numFmt = '#,##0.00'; }
+            if (col === 6) c.font = { bold: true };
+          });
+
+          const instCell = dr.getCell(8);
+          instCell.value = `Inst. ${pi + 1}`;
+          instCell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: instBg } };
+          instCell.font = { bold: true, color: { argb: violet } };
+          instCell.border = thinBorder;
+          instCell.alignment = { horizontal: "center", vertical: "middle" };
+
+          const gdCell = dr.getCell(9);
+          gdCell.value = gd;
+          gdCell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: instBg } };
+          gdCell.border = thinBorder;
+          gdCell.alignment = { horizontal: "center", vertical: "middle" };
+
+          const amtCell = dr.getCell(10);
+          amtCell.value = Number(p.amount);
+          amtCell.numFmt = '#,##0.00';
+          amtCell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: instBg } };
+          amtCell.font = { bold: true, color: { argb: green } };
+          amtCell.border = thinBorder;
+          amtCell.alignment = { horizontal: "right", vertical: "middle" };
+
+          if (isLast) {
+            const tgCell = dr.getCell(11);
+            tgCell.value = r.givenAmt;
+            tgCell.numFmt = '#,##0.00';
+            tgCell.font = { bold: true, color: { argb: violet } };
+            tgCell.border = thinBorder;
+            tgCell.alignment = { horizontal: "right", vertical: "middle" };
+            tgCell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: instBg } };
+
+            const paCell = dr.getCell(12);
+            paCell.value = pendingAmt > 0 ? pendingAmt : (r.givenAmt > 0 ? 0 : "-" as any);
+            if (typeof paCell.value === "number") paCell.numFmt = '#,##0.00';
+            paCell.font = { bold: pendingAmt > 0, color: { argb: pendingAmt <= 0 && r.givenAmt > 0 ? green : pendingAmt > 0 ? red : "FF4B5563" } };
+            paCell.border = thinBorder;
+            paCell.alignment = { horizontal: "right", vertical: "middle" };
+            paCell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: instBg } };
+
+            const stCell = dr.getCell(13);
+            stCell.value = badge;
+            stCell.font = { bold: true, color: { argb: badgeColor } };
+            stCell.border = thinBorder;
+            stCell.alignment = { horizontal: "center", vertical: "middle" };
+            stCell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: instBg } };
+          } else {
+            [11, 12, 13].forEach(col => {
+              const c = dr.getCell(col);
+              c.border = thinBorder;
+              c.fill = { type: "pattern", pattern: "solid", fgColor: { argb: rowBg } };
+            });
+          }
+        });
+      }
+    });
+
+    // Grand Total row
+    const gtRow = ws.getRow(rowIdx);
+    ws.mergeCells(rowIdx, 1, rowIdx, 2);
+    gtRow.getCell(1).value = "Grand Total";
+    gtRow.getCell(1).font = { bold: true, size: 11 };
+    gtRow.getCell(1).alignment = { horizontal: "center", vertical: "middle" };
+    gtRow.getCell(1).fill = { type: "pattern", pattern: "solid", fgColor: { argb: grey } };
+    gtRow.getCell(1).border = thinBorder;
+
+    [[3, grandToReceive], [4, grandGstMinusTds], [5, grandFixedAmt > 0 ? grandFixedAmt : "-"], [6, grandTotal],
+     [11, grandGivenAmt > 0 ? grandGivenAmt : "-"], [12, grandPendingAmt > 0 ? grandPendingAmt : 0]
+    ].forEach(([col, val]) => {
+      const c = gtRow.getCell(col as number);
+      c.value = val;
+      if (typeof val === "number") c.numFmt = '#,##0.00';
+      c.font = { bold: true, color: { argb: col === 11 ? violet : col === 12 ? (grandPendingAmt > 0 ? red : green) : "FF000000" } };
+      c.border = thinBorder;
+      c.alignment = { horizontal: "right", vertical: "middle" };
+      c.fill = { type: "pattern", pattern: "solid", fgColor: { argb: grey } };
+    });
+    [7, 8, 9, 10, 13].forEach(col => {
+      const c = gtRow.getCell(col);
+      c.border = thinBorder;
+      c.fill = { type: "pattern", pattern: "solid", fgColor: { argb: grey } };
+    });
+    gtRow.height = 20;
+
+    // Note row
+    ws.mergeCells(rowIdx + 2, 1, rowIdx + 2, TOTAL_COLS);
+    ws.getRow(rowIdx + 2).getCell(1).value = "GST Amount = GST Amount – TDS Amount  |  Total = (GST – TDS) + Fixed Amount";
+    ws.getRow(rowIdx + 2).getCell(1).font = { italic: true, size: 9, color: { argb: "FF555555" } };
+
+    // Download
+    const buf = await wb.xlsx.writeBuffer();
+    const blob = new Blob([buf], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `Pankaj_Report_${monthName}_${year}.xlsx`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
   return (
     <div>
       {/* ── Filter bar (matches main Sales Invoice style) ── */}
@@ -1764,6 +2002,9 @@ function PankajReport({ invoices, clients }: { invoices: any[]; clients: string[
               <Button size="sm" className="h-9 bg-gradient-to-r from-emerald-600 to-green-600 hover:from-emerald-700 hover:to-green-700 text-white shadow-md" onClick={() => saveMutation.mutate()} disabled={saveMutation.isPending || allRows.length === 0} data-testid="button-save-pankaj">
                 {saveMutation.isPending ? <Loader2 className="w-4 h-4 mr-1 animate-spin" /> : <Save className="w-4 h-4 mr-1" />}
                 {hasSavedData ? "Update" : "Save"}
+              </Button>
+              <Button size="sm" variant="outline" className="h-9 border-emerald-300 text-emerald-700 hover:bg-emerald-50 dark:border-emerald-700 dark:text-emerald-400" onClick={handleExportExcel} disabled={rows.length === 0} data-testid="button-excel-pankaj">
+                <FileDown className="w-4 h-4 mr-1" /> Excel
               </Button>
               <Button size="sm" className="h-9 bg-gradient-to-r from-violet-600 to-purple-600 hover:from-violet-700 hover:to-purple-700 text-white shadow-md" onClick={handlePrint} data-testid="button-print-pankaj">
                 <Printer className="w-4 h-4 mr-1" /> Print
