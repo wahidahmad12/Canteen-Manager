@@ -357,6 +357,10 @@ export default function CashSeal() {
   const [akbarAliAmount, setAkbarAliAmount] = useState(0);
   const [akbarAliManual, setAkbarAliManual] = useState(false);
 
+  // ── Dirty-state tracking ───────────────────────────────────────
+  const originalRec = useRef<any>(null);
+  const [showUnsavedDialog, setShowUnsavedDialog] = useState(false);
+
   // ── URL param auto-edit ────────────────────────────────────────
   useEffect(() => {
     if (autoEditHandled.current) return;
@@ -388,6 +392,7 @@ export default function CashSeal() {
     setDahiBharRate(n(rec.expenseDahiBharRate)); setOtherExpense(n(rec.expenseOtherAmount));
     setAkbarAliAmount(n(rec.totalGivenToAkbarAli));
     setAkbarAliManual(true);
+    originalRec.current = rec;
     if (rec.date) { try { setDate(parseISO(rec.date)); } catch { setDate(new Date(rec.date)); } }
   }
 
@@ -398,12 +403,45 @@ export default function CashSeal() {
     setTpBfOnline(0); setTpLvOnline(0); setTpNvOnline(0); setTpEvOnline(0); setTpNtOnline(0);
     setBananaQty(0); setDahiBharQty(0); setDahiBharRate(0); setOtherExpense(0);
     setAkbarAliAmount(0); setAkbarAliManual(false); setDate(new Date());
+    originalRec.current = null;
   }
 
   function handleEdit(rec: any) { setEditId(rec.id); loadRecord(rec); setView("form"); }
   function handleNew() { setEditId(null); resetForm(); setView("form"); }
+
+  function getIsDirty() {
+    if (!editId || !originalRec.current) return false;
+    const n = (v: any) => Number(v) || 0;
+    const r = originalRec.current;
+    return (
+      psBfCash !== n(r.incomePsBreakfastCashQty) || psLnCash !== n(r.incomePsLunchCashQty) ||
+      psEvCash !== n(r.incomePsEveningCashQty) || psNtCash !== n(r.incomePsNightCashQty) ||
+      psRcRate !== n(r.incomePsRechargeRate) || psRcCash !== n(r.incomePsRechargeCashQty) ||
+      psBfOnline !== n(r.incomePsBreakfastOnlineQty) || psLnOnline !== n(r.incomePsLunchOnlineQty) ||
+      psEvOnline !== n(r.incomePsEveningOnlineQty) || psNtOnline !== n(r.incomePsNightOnlineQty) ||
+      psRcOnline !== n(r.incomePsRechargeOnlineQty) ||
+      tpBfCash !== n(r.incomeTpBreakfastCashQty) || tpLvCash !== n(r.incomeTpLunchVegCashQty) ||
+      tpNvRate !== n(r.incomeTpLunchNvRate) || tpNvCash !== n(r.incomeTpLunchNvCashQty) ||
+      tpEvCash !== n(r.incomeTpEveningCashQty) || tpNtCash !== n(r.incomeTpNightCashQty) ||
+      tpBfOnline !== n(r.incomeTpBreakfastOnlineQty) || tpLvOnline !== n(r.incomeTpLunchVegOnlineQty) ||
+      tpNvOnline !== n(r.incomeTpLunchNvOnlineQty) || tpEvOnline !== n(r.incomeTpEveningOnlineQty) ||
+      tpNtOnline !== n(r.incomeTpNightOnlineQty) ||
+      bananaQty !== n(r.expenseBananaQty) || dahiBharQty !== n(r.expenseDahiBharQty) ||
+      dahiBharRate !== n(r.expenseDahiBharRate) || otherExpense !== n(r.expenseOtherAmount) ||
+      akbarAliAmount !== n(r.totalGivenToAkbarAli)
+    );
+  }
+
   function handleBack() {
-    if (view === "form") { setView("list"); setEditId(null); } else { navigate("/"); }
+    if (view === "form") {
+      if (editId && getIsDirty()) {
+        setShowUnsavedDialog(true);
+      } else {
+        setView("list"); setEditId(null);
+      }
+    } else {
+      navigate("/");
+    }
   }
   async function handleDelete(id: number) {
     try {
@@ -968,6 +1006,47 @@ export default function CashSeal() {
   // ─────────────────────────────────────────────────────────────────
   return (
     <Layout>
+      {/* ── Unsaved Changes Dialog ─────────────────────────────── */}
+      {showUnsavedDialog && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4">
+          <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-2xl w-full max-w-sm p-6 border border-slate-200 dark:border-slate-700">
+            <div className="flex items-center gap-3 mb-3">
+              <div className="w-10 h-10 rounded-full bg-amber-100 dark:bg-amber-900/40 flex items-center justify-center flex-shrink-0">
+                <Save className="w-5 h-5 text-amber-600 dark:text-amber-400" />
+              </div>
+              <div>
+                <h3 className="font-bold text-slate-800 dark:text-slate-100 text-base">Unsaved Changes</h3>
+                <p className="text-xs text-slate-500 dark:text-slate-400">You have made changes. Do you want to save before closing?</p>
+              </div>
+            </div>
+            <div className="flex flex-col gap-2 mt-4">
+              <Button
+                onClick={async () => { setShowUnsavedDialog(false); await handleSave(); }}
+                disabled={isPending}
+                className="w-full bg-teal-600 hover:bg-teal-700 text-white gap-2"
+                data-testid="button-unsaved-save">
+                {isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
+                Save & Close
+              </Button>
+              <Button
+                variant="outline"
+                onClick={() => { setShowUnsavedDialog(false); setView("list"); setEditId(null); }}
+                className="w-full border-rose-300 text-rose-600 hover:bg-rose-50 dark:border-rose-700 dark:text-rose-400"
+                data-testid="button-unsaved-discard">
+                Discard Changes
+              </Button>
+              <Button
+                variant="ghost"
+                onClick={() => setShowUnsavedDialog(false)}
+                className="w-full text-slate-500"
+                data-testid="button-unsaved-cancel">
+                Cancel (Keep Editing)
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
       <div className="max-w-3xl mx-auto px-3 sm:px-5 py-4 sm:py-6 space-y-4">
 
         {/* Sticky header bar */}
