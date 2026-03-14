@@ -13,6 +13,7 @@ export const dailyReports = mysqlTable("daily_reports", {
   date: date("date").notNull().unique(), // One report per day
   openingBalance: decimal("opening_balance", { precision: 10, scale: 2 }).default("0").notNull(),
   receivedAmount: decimal("received_amount", { precision: 10, scale: 2 }).default("0").notNull(),
+  giveByWahid: decimal("give_by_wahid", { precision: 10, scale: 2 }).default("0"),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 });
@@ -557,6 +558,7 @@ export const insertDailyReportSchema = createInsertSchema(dailyReports).omit({
 }).extend({
   openingBalance: z.coerce.number().min(0),
   receivedAmount: z.coerce.number().min(0),
+  giveByWahid: z.coerce.number().min(0).optional(),
 });
 
 export const insertExpenseItemSchema = createInsertSchema(expenseItems).omit({ 

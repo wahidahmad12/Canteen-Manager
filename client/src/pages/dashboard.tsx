@@ -97,16 +97,17 @@ export default function Dashboard() {
     const chartData = [...reports].sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime()).slice(-10).map((r: any) => {
       const opening = Number(r.openingBalance) || 0;
       const received = Number(r.receivedAmount) || 0;
+      const wahid = Number(r.giveByWahid) || 0;
       const expense = r.items?.reduce((sum: number, item: any) => sum + (Number(item.amount) || 0), 0) || 0;
-      totalCash += opening + received;
+      totalCash += opening + received + wahid;
       totalExpense += expense;
-      totalReceived += received;
+      totalReceived += received + wahid;
       totalOpening += opening;
       return {
         date: format(new Date(r.date), "dd-MM"),
-        cash: opening + received,
+        cash: opening + received + wahid,
         expense,
-        balance: (opening + received) - expense,
+        balance: (opening + received + wahid) - expense,
       };
     });
     return { totalCash, totalExpense, totalReceived, totalOpening, chartData };

@@ -295,7 +295,7 @@ export class DatabaseStorage implements IStorage {
     const items = await db.select().from(expenseItems).where(eq(expenseItems.reportId, report.id));
     
     const totalExpense = items.reduce((sum, item) => sum + Number(item.amount), 0);
-    const totalCash = Number(report.openingBalance) + Number(report.receivedAmount);
+    const totalCash = Number(report.openingBalance) + Number(report.receivedAmount) + Number(report.giveByWahid || 0);
     return totalCash - totalExpense;
   }
 
@@ -305,6 +305,7 @@ export class DatabaseStorage implements IStorage {
         date: request.date,
         openingBalance: request.openingBalance.toString(),
         receivedAmount: request.receivedAmount.toString(),
+        giveByWahid: (request.giveByWahid ?? 0).toString(),
       });
       const __iid = await getInsertId(tx);
       const [report] = await tx.select().from(dailyReports).where(eq(dailyReports.id, __iid));
@@ -335,6 +336,7 @@ export class DatabaseStorage implements IStorage {
           ...(request.date ? { date: request.date } : {}),
           ...(request.openingBalance !== undefined ? { openingBalance: request.openingBalance.toString() } : {}),
           ...(request.receivedAmount !== undefined ? { receivedAmount: request.receivedAmount.toString() } : {}),
+          ...(request.giveByWahid !== undefined ? { giveByWahid: request.giveByWahid.toString() } : {}),
           updatedAt: new Date(),
         })
         .where(eq(dailyReports.id, id));

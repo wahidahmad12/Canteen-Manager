@@ -58,7 +58,8 @@ export default function ReportPDF() {
 
   const openingBalance = Number(report.openingBalance) || 0;
   const receivedAmount = Number(report.receivedAmount) || 0;
-  const totalCash = openingBalance + receivedAmount;
+  const giveByWahid = Number((report as any).giveByWahid) || 0;
+  const totalCash = openingBalance + receivedAmount + giveByWahid;
   const balanceInHand = totalCash - grandTotalExpense;
 
   const fmt = (n: number) => n.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -171,15 +172,21 @@ export default function ReportPDF() {
             </div>
           </div>
 
-          <div className="grid grid-cols-3 gap-2 sm:gap-4 mb-5 sm:mb-6">
+          <div className={`grid gap-2 sm:gap-4 mb-5 sm:mb-6 ${giveByWahid > 0 ? 'grid-cols-4' : 'grid-cols-3'}`}>
             <div className="bg-blue-50 dark:bg-blue-950/20 rounded-lg p-2.5 sm:p-4 text-center print:bg-gray-50 print:border print:border-gray-200">
               <p className="text-[10px] sm:text-xs text-muted-foreground print:text-gray-500 uppercase tracking-wide font-semibold mb-1">Opening Bal.</p>
               <p className="text-sm sm:text-lg font-bold font-mono print:text-black" data-testid="text-opening-balance">{fmt(openingBalance)}</p>
             </div>
             <div className="bg-emerald-50 dark:bg-emerald-950/20 rounded-lg p-2.5 sm:p-4 text-center print:bg-gray-50 print:border print:border-gray-200">
-              <p className="text-[10px] sm:text-xs text-muted-foreground print:text-gray-500 uppercase tracking-wide font-semibold mb-1">Received</p>
+              <p className="text-[10px] sm:text-xs text-muted-foreground print:text-gray-500 uppercase tracking-wide font-semibold mb-1">Cash Seal (Akbar Ali)</p>
               <p className="text-sm sm:text-lg font-bold font-mono text-emerald-600 print:text-black" data-testid="text-received-amount">{fmt(receivedAmount)}</p>
             </div>
+            {giveByWahid > 0 && (
+              <div className="bg-orange-50 dark:bg-orange-950/20 rounded-lg p-2.5 sm:p-4 text-center print:bg-gray-50 print:border print:border-gray-200">
+                <p className="text-[10px] sm:text-xs text-muted-foreground print:text-gray-500 uppercase tracking-wide font-semibold mb-1">Give By Wahid</p>
+                <p className="text-sm sm:text-lg font-bold font-mono text-orange-600 print:text-black">{fmt(giveByWahid)}</p>
+              </div>
+            )}
             <div className="bg-indigo-50 dark:bg-indigo-950/20 rounded-lg p-2.5 sm:p-4 text-center print:bg-gray-50 print:border print:border-gray-200">
               <p className="text-[10px] sm:text-xs text-muted-foreground print:text-gray-500 uppercase tracking-wide font-semibold mb-1">Total Cash</p>
               <p className="text-sm sm:text-lg font-bold font-mono text-indigo-600 print:text-black" data-testid="text-total-cash">{fmt(totalCash)}</p>

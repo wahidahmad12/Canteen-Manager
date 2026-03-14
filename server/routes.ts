@@ -329,6 +329,14 @@ export async function registerRoutes(
   });
 
   // === CASH SEAL ROUTES ===
+  // Get Cash Seal Akbar Ali amount by date (for auto-fill in expense report)
+  app.get('/api/cash-seals/by-date/:date', requireAuth, async (req, res) => {
+    const dateStr = req.params.date;
+    const seals = await storage.getCashSeals();
+    const seal = seals.find((s: any) => s.date === dateStr);
+    res.json({ totalGivenToAkbarAli: seal ? Number(seal.totalGivenToAkbarAli) || 0 : 0 });
+  });
+
   app.get(api.cashSeals.list.path, requirePermission('cashseal'), async (req, res) => {
     const seals = await storage.getCashSeals();
     res.json(seals);
