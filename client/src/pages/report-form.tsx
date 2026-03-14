@@ -341,91 +341,112 @@ export default function ReportForm() {
               General Information
             </CardTitle>
           </CardHeader>
-          <CardContent className="p-4 sm:p-6 space-y-4 bg-gradient-to-b from-blue-50/50 to-transparent dark:from-blue-950/20">
-            <div className="space-y-2">
-              <label className="text-sm font-semibold text-blue-700 dark:text-blue-400 flex items-center gap-1.5">
-                <CalendarDays className="w-3.5 h-3.5" /> Date
-              </label>
-              <DatePicker 
-                date={form.watch("date")}
-                setDate={(date) => date && form.setValue("date", date)}
-              />
+          <CardContent className="p-3 sm:p-5 space-y-3 bg-gradient-to-b from-blue-50/60 to-white dark:from-blue-950/30 dark:to-transparent">
+
+            {/* Date Row */}
+            <div className="flex items-center gap-3 bg-white dark:bg-slate-800 rounded-xl border border-blue-100 dark:border-blue-800 px-4 py-3 shadow-sm">
+              <div className="flex-shrink-0 w-9 h-9 rounded-full bg-blue-100 dark:bg-blue-900 flex items-center justify-center">
+                <CalendarDays className="w-5 h-5 text-blue-600 dark:text-blue-400" />
+              </div>
+              <div className="flex-1 min-w-0">
+                <div className="text-xs font-semibold text-blue-600 dark:text-blue-400 uppercase tracking-wide mb-1">Date</div>
+                <DatePicker
+                  date={form.watch("date")}
+                  setDate={(date) => date && form.setValue("date", date)}
+                />
+              </div>
             </div>
 
-            {/* 3-column cash summary table */}
-            <div className="overflow-x-auto rounded-lg border border-blue-200 dark:border-blue-800">
-              <table className="w-full text-sm border-collapse">
-                <thead>
-                  <tr>
-                    <th className="border border-blue-200 dark:border-blue-700 bg-emerald-100 dark:bg-emerald-900/40 text-emerald-800 dark:text-emerald-300 px-3 py-2 font-semibold text-center">Opening Balance (₹)</th>
-                    <th className="border border-blue-200 dark:border-blue-700 bg-violet-100 dark:bg-violet-900/40 text-violet-800 dark:text-violet-300 px-3 py-2 font-semibold text-center">Received Amount (₹) &amp; Give By Wahid</th>
-                    <th className="border border-blue-200 dark:border-blue-700 bg-teal-100 dark:bg-teal-900/40 text-teal-800 dark:text-teal-300 px-3 py-2 font-semibold text-center">Total Cash Received (₹)</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  <tr>
-                    {/* Opening Balance */}
-                    <td className="border border-blue-200 dark:border-blue-700 px-3 py-3 align-top">
-                      <Input
-                        type="text"
-                        inputMode="decimal"
-                        className="font-mono no-spinner border-emerald-200 focus:border-emerald-400 dark:border-emerald-800 text-center"
-                        value={Math.round(Number(openingBalance) * 100) / 100}
-                        onChange={(e) => {
-                          const val = e.target.value;
-                          if (val === '' || val === '-') { form.setValue("openingBalance", 0); }
-                          else { const num = parseFloat(val); if (!isNaN(num)) form.setValue("openingBalance", Math.round(num * 100) / 100); }
-                        }}
-                        onFocus={(e) => e.target.select()}
-                        data-testid="input-opening-balance"
-                      />
-                    </td>
-                    {/* Received Amount (Cash Seal) + Give By Wahid */}
-                    <td className="border border-blue-200 dark:border-blue-700 px-3 py-3 align-top space-y-2">
-                      <div>
-                        <div className="text-xs text-slate-500 dark:text-slate-400 mb-1 font-medium">From Cash Seal (Akbar Ali) — auto</div>
-                        <Input
-                          type="text"
-                          inputMode="decimal"
-                          className="font-mono no-spinner border-violet-200 focus:border-violet-400 dark:border-violet-800 bg-violet-50 dark:bg-violet-900/20 text-center"
-                          value={receivedAmount}
-                          onChange={(e) => {
-                            const val = e.target.value;
-                            if (val === '' || val === '-') { form.setValue("receivedAmount", 0); }
-                            else { const num = parseFloat(val); if (!isNaN(num)) form.setValue("receivedAmount", num); }
-                          }}
-                          onFocus={(e) => e.target.select()}
-                          data-testid="input-received-amount"
-                        />
-                      </div>
-                      <div>
-                        <div className="text-xs text-slate-500 dark:text-slate-400 mb-1 font-medium">Give By Wahid</div>
-                        <Input
-                          type="text"
-                          inputMode="decimal"
-                          className="font-mono no-spinner border-orange-200 focus:border-orange-400 dark:border-orange-800 bg-orange-50 dark:bg-orange-900/20 text-center"
-                          value={Number(giveByWahid) || ""}
-                          placeholder="0"
-                          onChange={(e) => {
-                            const val = e.target.value;
-                            if (val === '' || val === '-') { form.setValue("giveByWahid", 0); }
-                            else { const num = parseFloat(val); if (!isNaN(num)) form.setValue("giveByWahid", Math.round(num * 100) / 100); }
-                          }}
-                          onFocus={(e) => e.target.select()}
-                          data-testid="input-give-by-wahid"
-                        />
-                      </div>
-                    </td>
-                    {/* Total Cash Received */}
-                    <td className="border border-blue-200 dark:border-blue-700 px-3 py-3 align-middle text-center">
-                      <div className="text-2xl font-bold font-mono text-teal-700 dark:text-teal-300" data-testid="text-total-cash-received">
-                        ₹{totalCash.toFixed(2)}
-                      </div>
-                      <div className="text-xs text-slate-500 mt-1">Opening + Cash Seal + Wahid</div>
-                    </td>
-                  </tr>
-                </tbody>
-              </table>
+            {/* 3 cash cards — stacked on mobile, row on desktop */}
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+
+              {/* Opening Balance Card */}
+              <div className="rounded-xl overflow-hidden shadow-sm border border-emerald-200 dark:border-emerald-800">
+                <div className="bg-gradient-to-r from-emerald-500 to-green-500 px-3 py-2 flex items-center gap-2">
+                  <Wallet className="w-4 h-4 text-white flex-shrink-0" />
+                  <span className="text-white text-xs font-bold uppercase tracking-wide">Opening Balance</span>
+                </div>
+                <div className="bg-white dark:bg-slate-800 px-3 py-3">
+                  <div className="text-[10px] text-slate-400 dark:text-slate-500 mb-1.5">From previous day closing</div>
+                  <Input
+                    type="text"
+                    inputMode="decimal"
+                    className="font-mono no-spinner border-emerald-200 focus:border-emerald-500 dark:border-emerald-700 text-center text-base font-bold text-emerald-700 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-900/20 h-10"
+                    value={Math.round(Number(openingBalance) * 100) / 100}
+                    onChange={(e) => {
+                      const val = e.target.value;
+                      if (val === '' || val === '-') { form.setValue("openingBalance", 0); }
+                      else { const num = parseFloat(val); if (!isNaN(num)) form.setValue("openingBalance", Math.round(num * 100) / 100); }
+                    }}
+                    onFocus={(e) => e.target.select()}
+                    data-testid="input-opening-balance"
+                  />
+                </div>
+              </div>
+
+              {/* Received Amount + Give By Wahid Card */}
+              <div className="rounded-xl overflow-hidden shadow-sm border border-violet-200 dark:border-violet-800">
+                <div className="bg-gradient-to-r from-violet-500 to-purple-500 px-3 py-2 flex items-center gap-2">
+                  <Banknote className="w-4 h-4 text-white flex-shrink-0" />
+                  <span className="text-white text-xs font-bold uppercase tracking-wide">Received &amp; Give By Wahid</span>
+                </div>
+                <div className="bg-white dark:bg-slate-800 px-3 py-3 space-y-2.5">
+                  <div>
+                    <div className="flex items-center gap-1.5 mb-1">
+                      <span className="inline-block w-2 h-2 rounded-full bg-violet-400"></span>
+                      <span className="text-[10px] font-semibold text-violet-600 dark:text-violet-400 uppercase tracking-wide">Cash Seal — Akbar Ali (auto)</span>
+                    </div>
+                    <Input
+                      type="text"
+                      inputMode="decimal"
+                      className="font-mono no-spinner border-violet-200 focus:border-violet-500 dark:border-violet-700 text-center text-base font-bold text-violet-700 dark:text-violet-300 bg-violet-50 dark:bg-violet-900/20 h-10"
+                      value={receivedAmount}
+                      onChange={(e) => {
+                        const val = e.target.value;
+                        if (val === '' || val === '-') { form.setValue("receivedAmount", 0); }
+                        else { const num = parseFloat(val); if (!isNaN(num)) form.setValue("receivedAmount", num); }
+                      }}
+                      onFocus={(e) => e.target.select()}
+                      data-testid="input-received-amount"
+                    />
+                  </div>
+                  <div className="border-t border-dashed border-violet-100 dark:border-violet-800 pt-2">
+                    <div className="flex items-center gap-1.5 mb-1">
+                      <span className="inline-block w-2 h-2 rounded-full bg-orange-400"></span>
+                      <span className="text-[10px] font-semibold text-orange-600 dark:text-orange-400 uppercase tracking-wide">Give By Wahid</span>
+                    </div>
+                    <Input
+                      type="text"
+                      inputMode="decimal"
+                      className="font-mono no-spinner border-orange-200 focus:border-orange-500 dark:border-orange-700 text-center text-base font-bold text-orange-700 dark:text-orange-300 bg-orange-50 dark:bg-orange-900/20 h-10"
+                      value={Number(giveByWahid) || ""}
+                      placeholder="0"
+                      onChange={(e) => {
+                        const val = e.target.value;
+                        if (val === '' || val === '-') { form.setValue("giveByWahid", 0); }
+                        else { const num = parseFloat(val); if (!isNaN(num)) form.setValue("giveByWahid", Math.round(num * 100) / 100); }
+                      }}
+                      onFocus={(e) => e.target.select()}
+                      data-testid="input-give-by-wahid"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Total Cash Received Card */}
+              <div className="rounded-xl overflow-hidden shadow-sm border border-teal-200 dark:border-teal-800">
+                <div className="bg-gradient-to-r from-teal-500 to-cyan-500 px-3 py-2 flex items-center gap-2">
+                  <IndianRupee className="w-4 h-4 text-white flex-shrink-0" />
+                  <span className="text-white text-xs font-bold uppercase tracking-wide">Total Cash Received</span>
+                </div>
+                <div className="bg-gradient-to-br from-teal-50 to-cyan-50 dark:from-teal-900/20 dark:to-cyan-900/20 px-3 py-4 flex flex-col items-center justify-center min-h-[96px]">
+                  <div className="text-[10px] text-teal-500 dark:text-teal-400 uppercase tracking-wide mb-1 font-semibold">Opening + Cash Seal + Wahid</div>
+                  <div className="text-3xl sm:text-2xl lg:text-3xl font-extrabold font-mono text-teal-700 dark:text-teal-300 leading-tight" data-testid="text-total-cash-received">
+                    ₹{totalCash.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                  </div>
+                </div>
+              </div>
+
             </div>
           </CardContent>
         </Card>
