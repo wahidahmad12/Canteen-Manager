@@ -1454,6 +1454,11 @@ export async function registerRoutes(
       if (!poNumber || !poDate || !clientName) {
         return res.status(400).json({ message: "PO Number, PO Date, and Client Name are required" });
       }
+      const allPOs = await storage.getPurchaseOrders();
+      const duplicate = allPOs.find(p => p.poNumber.trim().toLowerCase() === poNumber.trim().toLowerCase());
+      if (duplicate) {
+        return res.status(400).json({ message: `PO Number "${poNumber.trim()}" already exists (Client: ${duplicate.clientName})` });
+      }
       const po = await storage.createPurchaseOrder({
         poNumber, poDate, poAmount: String(poAmount || 0), clientName,
         createdBy: req.session.displayName || req.session.username || '',
@@ -1469,6 +1474,13 @@ export async function registerRoutes(
       const existing = await storage.getPurchaseOrder(Number(req.params.id));
       if (!existing) return res.status(404).json({ message: "Purchase order not found" });
       const { poNumber, poDate, poAmount, clientName } = req.body;
+      if (poNumber !== undefined) {
+        const allPOs = await storage.getPurchaseOrders();
+        const duplicate = allPOs.find(p => p.poNumber.trim().toLowerCase() === poNumber.trim().toLowerCase() && p.id !== existing.id);
+        if (duplicate) {
+          return res.status(400).json({ message: `PO Number "${poNumber.trim()}" already exists (Client: ${duplicate.clientName})` });
+        }
+      }
       const po = await storage.updatePurchaseOrder(Number(req.params.id), {
         ...(poNumber !== undefined && { poNumber }),
         ...(poDate !== undefined && { poDate }),

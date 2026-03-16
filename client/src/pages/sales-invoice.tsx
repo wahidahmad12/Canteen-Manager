@@ -125,8 +125,13 @@ function InvoiceFormDialog({ invoice, onClose, clients, purchaseOrders, allInvoi
 
   const createMutation = useMutation({
     mutationFn: async (data: any) => {
-      const res = await apiRequest("POST", "/api/sales-invoices", data);
-      return res.json();
+      const res = await fetch("/api/sales-invoices", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(data), credentials: "include",
+      });
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.message || "Failed to create sales invoice");
+      return json;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/sales-invoices"] });
@@ -141,8 +146,13 @@ function InvoiceFormDialog({ invoice, onClose, clients, purchaseOrders, allInvoi
 
   const updateMutation = useMutation({
     mutationFn: async (data: any) => {
-      const res = await apiRequest("PUT", `/api/sales-invoices/${invoice!.id}`, data);
-      return res.json();
+      const res = await fetch(`/api/sales-invoices/${invoice!.id}`, {
+        method: "PUT", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(data), credentials: "include",
+      });
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.message || "Failed to update sales invoice");
+      return json;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/sales-invoices"] });
@@ -401,8 +411,13 @@ function POFormDialog({ po, onClose, clients }: { po?: PurchaseOrderType | null;
 
   const createMutation = useMutation({
     mutationFn: async (data: any) => {
-      const res = await apiRequest("POST", "/api/purchase-orders", data);
-      return res.json();
+      const res = await fetch("/api/purchase-orders", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(data), credentials: "include",
+      });
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.message || "Failed to create Purchase Order");
+      return json;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/purchase-orders"] });
@@ -416,8 +431,13 @@ function POFormDialog({ po, onClose, clients }: { po?: PurchaseOrderType | null;
 
   const updateMutation = useMutation({
     mutationFn: async (data: any) => {
-      const res = await apiRequest("PUT", `/api/purchase-orders/${po!.id}`, data);
-      return res.json();
+      const res = await fetch(`/api/purchase-orders/${po!.id}`, {
+        method: "PUT", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(data), credentials: "include",
+      });
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.message || "Failed to update Purchase Order");
+      return json;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/purchase-orders"] });
