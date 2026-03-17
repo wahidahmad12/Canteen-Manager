@@ -82,6 +82,40 @@ interface ItemCardProps {
   color: "blue" | "green";
 }
 
+// ── Amount input helper (bidirectional) ───────────────────────────
+function AmountInput({ rate, qty, onQty, className = "", placeholder = "0.00" }: {
+  rate: number; qty: number; onQty: (v: number) => void;
+  className?: string; placeholder?: string;
+}) {
+  const [localAmt, setLocalAmt] = useState<string>(qty > 0 && rate > 0 ? String(qty * rate) : "");
+  useEffect(() => {
+    setLocalAmt(qty > 0 && rate > 0 ? String(qty * rate) : "");
+  }, [qty, rate]);
+
+  const disabled = rate === 0;
+  return (
+    <Input
+      type="number"
+      inputMode="decimal"
+      min={0}
+      disabled={disabled}
+      value={localAmt}
+      onChange={e => setLocalAmt(e.target.value)}
+      onBlur={() => {
+        if (rate > 0) {
+          const amt = Number(localAmt) || 0;
+          const newQty = amt > 0 ? Math.round(amt / rate) : 0;
+          onQty(newQty);
+          setLocalAmt(newQty > 0 ? String(newQty * rate) : "");
+        }
+      }}
+      placeholder={disabled ? "Set rate first" : placeholder}
+      className={`text-center font-mono text-sm h-9 ${disabled ? "opacity-40 cursor-not-allowed" : ""} ${className}`}
+      data-testid="input-amount"
+    />
+  );
+}
+
 // ── Mobile item card ──────────────────────────────────────────────
 function ItemMobileCard({ no, name, fixedRate, customRate, onCustomRate, cashQty, onCashQty, onlineQty, onOnlineQty, color }: ItemCardProps) {
   const rate = customRate !== undefined ? customRate : (fixedRate ?? 0);
@@ -117,18 +151,30 @@ function ItemMobileCard({ no, name, fixedRate, customRate, onCustomRate, cashQty
       {/* Cash / Online input cards */}
       <div className="grid grid-cols-2 gap-2.5">
         <div className="bg-slate-50 dark:bg-slate-700/40 rounded-xl p-2.5 border border-slate-200 dark:border-slate-600">
-          <div className="flex items-center justify-between mb-2">
-            <span className="text-[10px] uppercase tracking-widest text-slate-400 dark:text-slate-500 font-bold">Cash</span>
-            {cashTotal > 0 && <span className="text-[10px] font-mono font-bold text-slate-500 dark:text-slate-300">{fmtN(cashTotal)}</span>}
+          <span className="text-[10px] uppercase tracking-widest text-slate-400 dark:text-slate-500 font-bold block mb-1.5">Cash</span>
+          <div className="flex flex-col gap-1.5">
+            <div>
+              <div className="text-[9px] text-slate-400 mb-0.5 text-center">Qty</div>
+              <QtyInput value={cashQty} onChange={onCashQty} large className="w-full" />
+            </div>
+            <div>
+              <div className="text-[9px] text-slate-400 mb-0.5 text-center">Amount (₹)</div>
+              <AmountInput rate={rate} qty={cashQty} onQty={onCashQty} className="w-full bg-white dark:bg-slate-700" />
+            </div>
           </div>
-          <QtyInput value={cashQty} onChange={onCashQty} large className="w-full" />
         </div>
         <div className="bg-indigo-50 dark:bg-indigo-900/20 rounded-xl p-2.5 border border-indigo-200 dark:border-indigo-700">
-          <div className="flex items-center justify-between mb-2">
-            <span className="text-[10px] uppercase tracking-widest text-indigo-500 dark:text-indigo-400 font-bold">Online</span>
-            {onlineTotal > 0 && <span className="text-[10px] font-mono font-bold text-indigo-500 dark:text-indigo-400">{fmtN(onlineTotal)}</span>}
+          <span className="text-[10px] uppercase tracking-widest text-indigo-500 dark:text-indigo-400 font-bold block mb-1.5">Online</span>
+          <div className="flex flex-col gap-1.5">
+            <div>
+              <div className="text-[9px] text-indigo-400 mb-0.5 text-center">Qty</div>
+              <QtyInput value={onlineQty} onChange={onOnlineQty} large className="w-full bg-white dark:bg-indigo-900/30" />
+            </div>
+            <div>
+              <div className="text-[9px] text-indigo-400 mb-0.5 text-center">Amount (₹)</div>
+              <AmountInput rate={rate} qty={onlineQty} onQty={onOnlineQty} className="w-full bg-white dark:bg-indigo-900/30" />
+            </div>
           </div>
-          <QtyInput value={onlineQty} onChange={onOnlineQty} large className="w-full bg-white dark:bg-indigo-900/30" />
         </div>
       </div>
 
@@ -172,14 +218,14 @@ function ItemTableRow({ no, name, fixedRate, customRate, onCustomRate, cashQty, 
       <td className="py-2 px-2">
         <QtyInput value={cashQty} onChange={onCashQty} className="w-full min-w-[72px]" />
       </td>
-      <td className="py-2 px-3 text-right">
-        <span className="text-sm font-mono font-semibold text-slate-600 dark:text-slate-300">{cashTotal > 0 ? fmtN(cashTotal) : <span className="text-slate-300 dark:text-slate-600">—</span>}</span>
+      <td className="py-2 px-2">
+        <AmountInput rate={rate} qty={cashQty} onQty={onCashQty} className="w-full min-w-[90px] bg-slate-50 dark:bg-slate-700/30" />
       </td>
       <td className="py-2 px-2">
         <QtyInput value={onlineQty} onChange={onOnlineQty} className="w-full min-w-[72px] bg-indigo-50 dark:bg-indigo-900/20" />
       </td>
-      <td className="py-2 px-3 text-right">
-        <span className="text-sm font-mono font-semibold text-indigo-600 dark:text-indigo-400">{onlineTotal > 0 ? fmtN(onlineTotal) : <span className="text-slate-300 dark:text-slate-600">—</span>}</span>
+      <td className="py-2 px-2">
+        <AmountInput rate={rate} qty={onlineQty} onQty={onOnlineQty} className="w-full min-w-[90px] bg-indigo-50 dark:bg-indigo-900/20" />
       </td>
       <td className="py-2 px-3 text-right">
         <span className="text-sm font-mono font-bold text-slate-500 dark:text-slate-400">{(cashQty + onlineQty) > 0 ? (cashQty + onlineQty) : <span className="text-slate-300 dark:text-slate-600">—</span>}</span>
@@ -203,9 +249,9 @@ function SectionTableHead({ color }: { color: "blue" | "green" }) {
         <th className="py-2 px-3 text-left">Name</th>
         <th className="py-2 px-2 text-center w-20">Rate</th>
         <th className="py-2 px-2 text-center w-24">Cash Qty</th>
-        <th className="py-2 px-3 text-right w-28">Cash Total</th>
+        <th className="py-2 px-2 text-center w-28">Cash Amt ₹</th>
         <th className="py-2 px-2 text-center w-24">Online Qty</th>
-        <th className="py-2 px-3 text-right w-28">Online Total</th>
+        <th className="py-2 px-2 text-center w-28">Online Amt ₹</th>
         <th className="py-2 px-3 text-right w-20">Row Qty</th>
         <th className="py-2 px-3 text-right w-28">Row Amt</th>
       </tr>
