@@ -57,7 +57,14 @@ function calcTotals(s: any) {
   return { income, expense, balance: income - expense };
 }
 
-// ── Number input ──────────────────────────────────────────────────
+// ── Qty display formatter (shows decimals cleanly) ────────────────
+const fmtQty = (n: number): string => {
+  if (n === 0) return "0";
+  if (Number.isInteger(n)) return String(n);
+  return parseFloat(n.toFixed(4)).toString();
+};
+
+// ── Number input (supports decimals) ─────────────────────────────
 function QtyInput({ value, onChange, placeholder = "0", className = "", large = false }: {
   value: number; onChange: (v: number) => void; placeholder?: string;
   className?: string; large?: boolean;
@@ -65,7 +72,8 @@ function QtyInput({ value, onChange, placeholder = "0", className = "", large = 
   return (
     <Input
       type="number"
-      inputMode="numeric"
+      inputMode="decimal"
+      step="any"
       min={0}
       value={value === 0 ? "" : value}
       onChange={e => onChange(Number(e.target.value) || 0)}
@@ -120,9 +128,9 @@ function AmountInput({ rate, qty, onQty, className = "", placeholder = "0.00", l
           setLocalAmt(amt > 0 ? String(amt) : "");
         } else if (rate > 0) {
           const amt = Number(localAmt) || 0;
-          const newQty = amt > 0 ? Math.round(amt / rate) : 0;
+          const newQty = amt > 0 ? amt / rate : 0;
           onQty(newQty);
-          setLocalAmt(newQty > 0 ? String(newQty * rate) : "");
+          setLocalAmt(amt > 0 ? String(amt) : "");
         }
       }}
       placeholder={disabled ? "Set rate first" : placeholder}
@@ -175,7 +183,7 @@ function ItemMobileCard({ no, name, fixedRate, customRate, onCustomRate, cashQty
                 <AmountInput rate={rate} qty={cashQty} onQty={onCashQty} liveMode className="w-full bg-white dark:bg-slate-700" />
               </div>
               <div className="text-center text-[11px] text-slate-500 dark:text-slate-400 font-mono">
-                Qty: <span className="font-bold text-slate-700 dark:text-slate-200">{cashQty % 1 === 0 ? cashQty : cashQty.toFixed(2)}</span>
+                Qty: <span className="font-bold text-slate-700 dark:text-slate-200">{fmtQty(cashQty)}</span>
               </div>
             </div>
           ) : (
@@ -200,7 +208,7 @@ function ItemMobileCard({ no, name, fixedRate, customRate, onCustomRate, cashQty
                 <AmountInput rate={rate} qty={onlineQty} onQty={onOnlineQty} liveMode className="w-full bg-white dark:bg-indigo-900/30" />
               </div>
               <div className="text-center text-[11px] text-indigo-500 dark:text-indigo-400 font-mono">
-                Qty: <span className="font-bold text-indigo-700 dark:text-indigo-200">{onlineQty % 1 === 0 ? onlineQty : onlineQty.toFixed(2)}</span>
+                Qty: <span className="font-bold text-indigo-700 dark:text-indigo-200">{fmtQty(onlineQty)}</span>
               </div>
             </div>
           ) : (
@@ -221,7 +229,7 @@ function ItemMobileCard({ no, name, fixedRate, customRate, onCustomRate, cashQty
       {/* Row total */}
       {rowTotal > 0 && (
         <div className={`flex items-center justify-between mt-2.5 pt-2 border-t border-dashed ${borderColor}`}>
-          <span className="text-[11px] text-slate-400">Total Qty: <span className="font-bold text-slate-600 dark:text-slate-300">{cashQty + onlineQty}</span></span>
+          <span className="text-[11px] text-slate-400">Total Qty: <span className="font-bold text-slate-600 dark:text-slate-300">{fmtQty(cashQty + onlineQty)}</span></span>
           <span className={`text-sm font-bold font-mono ${accentText}`}>{fmtN(rowTotal)}</span>
         </div>
       )}
@@ -257,7 +265,7 @@ function ItemTableRow({ no, name, fixedRate, customRate, onCustomRate, cashQty, 
       </td>
       <td className="py-2 px-2">
         {amountMode
-          ? <span className="block text-center text-sm font-mono font-bold text-slate-600 dark:text-slate-300 min-w-[72px]">{cashQty % 1 === 0 ? cashQty : cashQty.toFixed(2)}</span>
+          ? <span className="block text-center text-sm font-mono font-bold text-slate-600 dark:text-slate-300 min-w-[72px]">{fmtQty(cashQty)}</span>
           : <QtyInput value={cashQty} onChange={onCashQty} className="w-full min-w-[72px]" />}
       </td>
       <td className="py-2 px-2">
@@ -265,14 +273,14 @@ function ItemTableRow({ no, name, fixedRate, customRate, onCustomRate, cashQty, 
       </td>
       <td className="py-2 px-2">
         {amountMode
-          ? <span className="block text-center text-sm font-mono font-bold text-indigo-600 dark:text-indigo-300 min-w-[72px]">{onlineQty % 1 === 0 ? onlineQty : onlineQty.toFixed(2)}</span>
+          ? <span className="block text-center text-sm font-mono font-bold text-indigo-600 dark:text-indigo-300 min-w-[72px]">{fmtQty(onlineQty)}</span>
           : <QtyInput value={onlineQty} onChange={onOnlineQty} className="w-full min-w-[72px] bg-indigo-50 dark:bg-indigo-900/20" />}
       </td>
       <td className="py-2 px-2">
         <AmountInput rate={rate} qty={onlineQty} onQty={onOnlineQty} liveMode={amountMode} className="w-full min-w-[90px] bg-indigo-50 dark:bg-indigo-900/20" />
       </td>
       <td className="py-2 px-3 text-right">
-        <span className="text-sm font-mono font-bold text-slate-500 dark:text-slate-400">{(cashQty + onlineQty) > 0 ? (cashQty + onlineQty) : <span className="text-slate-300 dark:text-slate-600">—</span>}</span>
+        <span className="text-sm font-mono font-bold text-slate-500 dark:text-slate-400">{(cashQty + onlineQty) > 0 ? fmtQty(cashQty + onlineQty) : <span className="text-slate-300 dark:text-slate-600">—</span>}</span>
       </td>
       <td className="py-2 px-3 text-right">
         <span className={`text-sm font-bold font-mono ${accentText}`}>{rowTotal > 0 ? fmtN(rowTotal) : <span className="text-slate-300 dark:text-slate-600">—</span>}</span>
@@ -322,11 +330,11 @@ function SubtotalTableFoot({ cashTotal, onlineTotal, cashQtyTotal, onlineQtyTota
         <td />
         <td className={`py-2.5 px-3 text-xs font-bold uppercase tracking-wider ${accent}`}>TOTALS</td>
         <td />
-        <td className={`py-2.5 px-2 text-center text-sm font-bold font-mono ${accent}`}>{cashQtyTotal > 0 ? cashQtyTotal : "—"}</td>
+        <td className={`py-2.5 px-2 text-center text-sm font-bold font-mono ${accent}`}>{cashQtyTotal > 0 ? fmtQty(cashQtyTotal) : "—"}</td>
         <td className={`py-2.5 px-3 text-right text-sm font-bold font-mono ${accent}`}>{cashTotal > 0 ? fmtN(cashTotal) : "—"}</td>
-        <td className="py-2.5 px-2 text-center text-sm font-bold font-mono text-indigo-600 dark:text-indigo-400">{onlineQtyTotal > 0 ? onlineQtyTotal : "—"}</td>
+        <td className="py-2.5 px-2 text-center text-sm font-bold font-mono text-indigo-600 dark:text-indigo-400">{onlineQtyTotal > 0 ? fmtQty(onlineQtyTotal) : "—"}</td>
         <td className="py-2.5 px-3 text-right text-sm font-bold font-mono text-indigo-600 dark:text-indigo-400">{onlineTotal > 0 ? fmtN(onlineTotal) : "—"}</td>
-        <td className="py-2.5 px-3 text-right text-sm font-bold font-mono text-slate-500 dark:text-slate-400">{(cashQtyTotal + onlineQtyTotal) > 0 ? (cashQtyTotal + onlineQtyTotal) : "—"}</td>
+        <td className="py-2.5 px-3 text-right text-sm font-bold font-mono text-slate-500 dark:text-slate-400">{(cashQtyTotal + onlineQtyTotal) > 0 ? fmtQty(cashQtyTotal + onlineQtyTotal) : "—"}</td>
         <td className={`py-2.5 px-3 text-right text-sm font-bold font-mono ${accent}`}>{grand > 0 ? fmtN(grand) : "—"}</td>
       </tr>
     </tfoot>
@@ -346,20 +354,20 @@ function SubtotalMobile({ cashTotal, onlineTotal, cashQtyTotal, onlineQtyTotal, 
         <div className="bg-white/80 dark:bg-slate-800/60 rounded-xl p-2.5 border border-slate-100 dark:border-slate-700">
           <div className="text-[10px] font-bold uppercase tracking-wide text-slate-400 mb-1.5">Cash</div>
           <div className="flex items-center justify-between">
-            <span className={`text-xs font-bold ${accent}`}>Qty: {cashQtyTotal > 0 ? cashQtyTotal : "—"}</span>
+            <span className={`text-xs font-bold ${accent}`}>Qty: {cashQtyTotal > 0 ? fmtQty(cashQtyTotal) : "—"}</span>
             <span className={`text-xs font-bold font-mono ${accent}`}>{cashTotal > 0 ? fmtN(cashTotal) : "—"}</span>
           </div>
         </div>
         <div className="bg-white/80 dark:bg-slate-800/60 rounded-xl p-2.5 border border-indigo-100 dark:border-indigo-900/50">
           <div className="text-[10px] font-bold uppercase tracking-wide text-indigo-400 mb-1.5">Online</div>
           <div className="flex items-center justify-between">
-            <span className="text-xs font-bold text-indigo-600 dark:text-indigo-400">Qty: {onlineQtyTotal > 0 ? onlineQtyTotal : "—"}</span>
+            <span className="text-xs font-bold text-indigo-600 dark:text-indigo-400">Qty: {onlineQtyTotal > 0 ? fmtQty(onlineQtyTotal) : "—"}</span>
             <span className="text-xs font-bold font-mono text-indigo-600 dark:text-indigo-400">{onlineTotal > 0 ? fmtN(onlineTotal) : "—"}</span>
           </div>
         </div>
       </div>
       <div className={`flex items-center justify-between pt-2 border-t border-dashed ${border}`}>
-        <span className="text-xs text-slate-400">Total Qty: <span className={`font-bold ${accent}`}>{cashQtyTotal + onlineQtyTotal}</span></span>
+        <span className="text-xs text-slate-400">Total Qty: <span className={`font-bold ${accent}`}>{fmtQty(cashQtyTotal + onlineQtyTotal)}</span></span>
         <span className={`text-base font-bold font-mono ${accent}`}>{fmtN(grand)}</span>
       </div>
     </div>
