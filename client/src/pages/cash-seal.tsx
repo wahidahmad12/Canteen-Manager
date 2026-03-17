@@ -13,6 +13,7 @@ import {
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useCreateCashSeal, useUpdateCashSeal, useDeleteCashSeal, useCashSeals } from "@/hooks/use-reports";
+import { queryClient } from "@/lib/queryClient";
 import { useLocation } from "wouter";
 
 // ── Rates ─────────────────────────────────────────────────────────
@@ -637,11 +638,13 @@ export default function CashSeal() {
     try {
       if (editId) {
         await updateMutation.mutateAsync({ id: editId, data: payload });
-        toast({ title: "Updated", description: "Record updated successfully" });
+        toast({ title: "Updated", description: "Record updated & Expense Report synced" });
       } else {
         await saveMutation.mutateAsync({ date: format(date, "yyyy-MM-dd"), ...payload });
-        toast({ title: "Saved", description: "Cash Seal KPF saved" });
+        toast({ title: "Saved", description: "Cash Seal KPF saved & Expense Report synced" });
       }
+      // Invalidate expense reports so the linked report reflects the new Akbar Ali amount
+      queryClient.invalidateQueries({ queryKey: ['/api/reports'] });
       setView("list"); setEditId(null);
     } catch (e: any) {
       toast({ title: "Error", description: e.message || "Failed to save", variant: "destructive" });

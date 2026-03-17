@@ -353,6 +353,10 @@ export async function registerRoutes(
     try {
       const input = api.cashSeals.create.input.parse(req.body);
       const seal = await storage.createCashSeal(input);
+      // Auto-sync Akbar Ali total → expense report receivedAmount
+      if (seal?.reportId) {
+        await storage.syncCashSealToReport(seal.reportId, Number(input.totalGivenToAkbarAli) || 0);
+      }
       res.status(201).json(seal);
     } catch (err) {
       if (err instanceof z.ZodError) {
@@ -366,6 +370,10 @@ export async function registerRoutes(
     try {
       const id = Number(req.params.id);
       const seal = await storage.updateCashSeal(id, req.body);
+      // Auto-sync Akbar Ali total → expense report receivedAmount
+      if (seal?.reportId) {
+        await storage.syncCashSealToReport(seal.reportId, Number(req.body.totalGivenToAkbarAli) || 0);
+      }
       res.json(seal);
     } catch (err) {
       throw err;

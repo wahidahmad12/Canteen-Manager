@@ -202,6 +202,22 @@ export default function ReportForm() {
     }
   }, [selectedDate, isEditMode, form]);
 
+  // In edit mode: always refresh the Akbar Ali (receivedAmount) from the cash seal
+  // This ensures it stays in sync if the cash seal was saved after the report was created
+  useEffect(() => {
+    if (isEditMode && report) {
+      const dateStr = typeof report.date === 'string' ? report.date : format(new Date(report.date), 'yyyy-MM-dd');
+      fetch(`/api/cash-seals/by-date/${dateStr}`)
+        .then(res => res.json())
+        .then(data => {
+          if (data.totalGivenToAkbarAli !== undefined && Number(data.totalGivenToAkbarAli) > 0) {
+            form.setValue("receivedAmount", Math.round(Number(data.totalGivenToAkbarAli) * 100) / 100);
+          }
+        })
+        .catch(() => {});
+    }
+  }, [report, isEditMode, form]);
+
   const { fields, append, remove, update } = useFieldArray({
     control: form.control,
     name: "items",
