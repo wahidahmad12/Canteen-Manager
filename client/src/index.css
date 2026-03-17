@@ -189,3 +189,28 @@
   print-color-adjust: exact;
   font-weight: bold;
 }
+
+/* ── Mobile scrollable tab bar ─────────────────────────────── */
+.tabs-scroll-wrap {
+  position: relative;
+  margin-left: -0.5rem;
+  margin-right: -0.5rem;
+  padding-left: 0.5rem;
+  padding-right: 0.5rem;
+  padding-bottom: 4px;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+.tabs-scroll-wrap::-webkit-scrollbar { display: none; }
+.tabs-scroll-wrap { scrollbar-width: none; -ms-overflow-style: none; }
+/* Fade hint on right edge when scrollable */
+.tabs-scroll-wrap::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 4px;
+  width: 28px;
+  background: linear-gradient(to right, transparent, var(--background));
+  pointer-events: none;
+}

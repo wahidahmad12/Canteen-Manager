@@ -490,9 +490,9 @@ export default function BonusReturn() {
               </Card>
             ) : (
               <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
-                <TabsList className="no-print">
-                  <TabsTrigger value="formc" className="gap-2" data-testid="tab-formc"><FileText className="w-4 h-4" /> Form C</TabsTrigger>
-                  <TabsTrigger value="formd" className="gap-2" data-testid="tab-formd"><FileText className="w-4 h-4" /> Form D</TabsTrigger>
+                <TabsList className="no-print w-full sm:w-auto h-auto">
+                  <TabsTrigger value="formc" className="gap-2 flex-1 sm:flex-none min-h-[44px] text-xs sm:text-sm" data-testid="tab-formc"><FileText className="w-3.5 h-3.5 shrink-0" /> Form C</TabsTrigger>
+                  <TabsTrigger value="formd" className="gap-2 flex-1 sm:flex-none min-h-[44px] text-xs sm:text-sm" data-testid="tab-formd"><FileText className="w-3.5 h-3.5 shrink-0" /> Form D</TabsTrigger>
                 </TabsList>
               <TabsContent value="formc" className="space-y-4">
                 <Card className="no-print border-2 border-indigo-200 shadow-lg">

@@ -769,23 +769,23 @@ export default function SalesInvoicePage() {
         </div>
 
         <Tabs value={activeTab} onValueChange={setActiveTab} className="mb-5">
-          <div className="overflow-x-auto -mx-2 px-2 pb-1">
-            <TabsList className="bg-violet-100 dark:bg-violet-950/30 w-max min-w-full sm:w-auto">
-              <TabsTrigger value="invoices" className="data-[state=active]:bg-white dark:data-[state=active]:bg-gray-800 flex items-center gap-1 text-xs sm:text-sm sm:gap-1.5" data-testid="tab-invoices">
-                <FileText className="w-3.5 h-3.5" /> <span className="hidden sm:inline">Sales</span> Invoices
+          <div className="tabs-scroll-wrap">
+            <TabsList className="bg-violet-100 dark:bg-violet-950/30 inline-flex min-w-full sm:w-auto">
+              <TabsTrigger value="invoices" className="data-[state=active]:bg-white dark:data-[state=active]:bg-gray-800 flex items-center gap-1 text-xs sm:text-sm sm:gap-1.5 whitespace-nowrap min-h-[44px] flex-1 sm:flex-none" data-testid="tab-invoices">
+                <FileText className="w-3.5 h-3.5 shrink-0" /> <span className="hidden sm:inline">Sales&nbsp;</span>Invoices
               </TabsTrigger>
-              <TabsTrigger value="purchase-orders" className="data-[state=active]:bg-white dark:data-[state=active]:bg-gray-800 flex items-center gap-1 text-xs sm:text-sm sm:gap-1.5" data-testid="tab-purchase-orders">
-                <ClipboardList className="w-3.5 h-3.5" /> PO
-                {purchaseOrders.length > 0 && <Badge variant="secondary" className="ml-0.5 sm:ml-1 h-5 text-[10px]">{purchaseOrders.length}</Badge>}
+              <TabsTrigger value="purchase-orders" className="data-[state=active]:bg-white dark:data-[state=active]:bg-gray-800 flex items-center gap-1 text-xs sm:text-sm sm:gap-1.5 whitespace-nowrap min-h-[44px] flex-1 sm:flex-none" data-testid="tab-purchase-orders">
+                <ClipboardList className="w-3.5 h-3.5 shrink-0" /> <span className="hidden sm:inline">Purchase&nbsp;</span>PO
+                {purchaseOrders.length > 0 && <Badge variant="secondary" className="ml-0.5 h-5 text-[10px]">{purchaseOrders.length}</Badge>}
               </TabsTrigger>
-              <TabsTrigger value="gst-report" className="data-[state=active]:bg-white dark:data-[state=active]:bg-gray-800 flex items-center gap-1 text-xs sm:text-sm sm:gap-1.5" data-testid="tab-gst-report">
-                <Percent className="w-3.5 h-3.5" /> GST
+              <TabsTrigger value="gst-report" className="data-[state=active]:bg-white dark:data-[state=active]:bg-gray-800 flex items-center gap-1 text-xs sm:text-sm sm:gap-1.5 whitespace-nowrap min-h-[44px] flex-1 sm:flex-none" data-testid="tab-gst-report">
+                <Percent className="w-3.5 h-3.5 shrink-0" /> GST
               </TabsTrigger>
-              <TabsTrigger value="tds-report" className="data-[state=active]:bg-white dark:data-[state=active]:bg-gray-800 flex items-center gap-1 text-xs sm:text-sm sm:gap-1.5" data-testid="tab-tds-report">
-                <IndianRupee className="w-3.5 h-3.5" /> TDS
+              <TabsTrigger value="tds-report" className="data-[state=active]:bg-white dark:data-[state=active]:bg-gray-800 flex items-center gap-1 text-xs sm:text-sm sm:gap-1.5 whitespace-nowrap min-h-[44px] flex-1 sm:flex-none" data-testid="tab-tds-report">
+                <IndianRupee className="w-3.5 h-3.5 shrink-0" /> TDS
               </TabsTrigger>
-              <TabsTrigger value="pankaj-report" className="data-[state=active]:bg-white dark:data-[state=active]:bg-gray-800 flex items-center gap-1 text-xs sm:text-sm sm:gap-1.5" data-testid="tab-pankaj-report">
-                <User className="w-3.5 h-3.5" /> Pankaj
+              <TabsTrigger value="pankaj-report" className="data-[state=active]:bg-white dark:data-[state=active]:bg-gray-800 flex items-center gap-1 text-xs sm:text-sm sm:gap-1.5 whitespace-nowrap min-h-[44px] flex-1 sm:flex-none" data-testid="tab-pankaj-report">
+                <User className="w-3.5 h-3.5 shrink-0" /> Pankaj
               </TabsTrigger>
             </TabsList>
           </div>

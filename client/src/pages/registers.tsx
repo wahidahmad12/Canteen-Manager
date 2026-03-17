@@ -1812,26 +1812,24 @@ export default function RegistersPage() {
           </Card>
         ) : (
           <Tabs defaultValue="fines" className="space-y-4">
-            <div className="overflow-x-auto -mx-1 px-1 pb-1">
-              <TabsList className="inline-flex w-auto min-w-full sm:grid sm:w-full sm:grid-cols-4 h-auto rounded-xl p-1" data-testid="tabs-registers">
-                <TabsTrigger value="fines" className="text-xs sm:text-sm py-2 px-2 sm:px-3 whitespace-nowrap rounded-lg gap-1" data-testid="tab-fines">
-                  <Gavel className="w-3.5 h-3.5 shrink-0" />
-                  <span>Fines</span>
-                </TabsTrigger>
-                <TabsTrigger value="advances" className="text-xs sm:text-sm py-2 px-2 sm:px-3 whitespace-nowrap rounded-lg gap-1" data-testid="tab-advances">
-                  <Banknote className="w-3.5 h-3.5 shrink-0" />
-                  <span>Advances</span>
-                </TabsTrigger>
-                <TabsTrigger value="overtime" className="text-xs sm:text-sm py-2 px-2 sm:px-3 whitespace-nowrap rounded-lg gap-1" data-testid="tab-overtime">
-                  <Clock className="w-3.5 h-3.5 shrink-0" />
-                  <span>Overtime</span>
-                </TabsTrigger>
-                <TabsTrigger value="damage" className="text-xs sm:text-sm py-2 px-2 sm:px-3 whitespace-nowrap rounded-lg gap-1" data-testid="tab-damage">
-                  <AlertTriangle className="w-3.5 h-3.5 shrink-0" />
-                  <span>Damage/Loss</span>
-                </TabsTrigger>
-              </TabsList>
-            </div>
+            <TabsList className="grid w-full grid-cols-2 sm:grid-cols-4 h-auto rounded-xl p-1" data-testid="tabs-registers">
+              <TabsTrigger value="fines" className="text-xs sm:text-sm py-2.5 px-2 sm:px-3 rounded-lg gap-1.5 min-h-[44px]" data-testid="tab-fines">
+                <Gavel className="w-3.5 h-3.5 shrink-0" />
+                <span>Fines</span>
+              </TabsTrigger>
+              <TabsTrigger value="advances" className="text-xs sm:text-sm py-2.5 px-2 sm:px-3 rounded-lg gap-1.5 min-h-[44px]" data-testid="tab-advances">
+                <Banknote className="w-3.5 h-3.5 shrink-0" />
+                <span>Advances</span>
+              </TabsTrigger>
+              <TabsTrigger value="overtime" className="text-xs sm:text-sm py-2.5 px-2 sm:px-3 rounded-lg gap-1.5 min-h-[44px]" data-testid="tab-overtime">
+                <Clock className="w-3.5 h-3.5 shrink-0" />
+                <span>Overtime</span>
+              </TabsTrigger>
+              <TabsTrigger value="damage" className="text-xs sm:text-sm py-2.5 px-2 sm:px-3 rounded-lg gap-1.5 min-h-[44px]" data-testid="tab-damage">
+                <AlertTriangle className="w-3.5 h-3.5 shrink-0" />
+                <span>Damage/Loss</span>
+              </TabsTrigger>
+            </TabsList>
 
             <TabsContent value="fines">
               <FinesTab clientName={selectedClient} clientAddress={clientAddress} employees={employees || []} empMap={empMap} filterMonth={filterMonth} filterYear={filterYear} />

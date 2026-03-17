@@ -454,12 +454,12 @@ export default function EpfoEsicPage() {
         </Card>
 
         <Tabs defaultValue="epfo">
-          <TabsList className="w-full sm:w-auto">
-            <TabsTrigger value="epfo" data-testid="tab-epfo" className="flex-1 sm:flex-none gap-1">
-              EPFO <span className="text-xs text-muted-foreground">({epfoData.length})</span>
+          <TabsList className="w-full sm:w-auto h-auto">
+            <TabsTrigger value="epfo" data-testid="tab-epfo" className="flex-1 sm:flex-none gap-1 min-h-[44px] text-xs sm:text-sm">
+              EPFO <span className="text-xs opacity-70">({epfoData.length})</span>
             </TabsTrigger>
-            <TabsTrigger value="esic" data-testid="tab-esic" className="flex-1 sm:flex-none gap-1">
-              ESIC <span className="text-xs text-muted-foreground">({esicData.length})</span>
+            <TabsTrigger value="esic" data-testid="tab-esic" className="flex-1 sm:flex-none gap-1 min-h-[44px] text-xs sm:text-sm">
+              ESIC <span className="text-xs opacity-70">({esicData.length})</span>
             </TabsTrigger>
           </TabsList>
 

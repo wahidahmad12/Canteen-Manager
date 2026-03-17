@@ -204,12 +204,12 @@ export default function Letterhead() {
         </div>
 
         <Tabs value={activeTab} onValueChange={setActiveTab}>
-          <TabsList className="w-full sm:w-auto" data-testid="tabs-letterhead">
-            <TabsTrigger value="compose" className="flex-1 sm:flex-none gap-1" data-testid="tab-compose">
-              <Edit className="w-3.5 h-3.5" /> Compose
+          <TabsList className="w-full sm:w-auto h-auto" data-testid="tabs-letterhead">
+            <TabsTrigger value="compose" className="flex-1 sm:flex-none gap-1 min-h-[44px] text-xs sm:text-sm" data-testid="tab-compose">
+              <Edit className="w-3.5 h-3.5 shrink-0" /> Compose
             </TabsTrigger>
-            <TabsTrigger value="saved" className="flex-1 sm:flex-none gap-1" data-testid="tab-saved">
-              <FileText className="w-3.5 h-3.5" /> Saved Letters <span className="text-xs text-muted-foreground">({allLetters.length})</span>
+            <TabsTrigger value="saved" className="flex-1 sm:flex-none gap-1 min-h-[44px] text-xs sm:text-sm" data-testid="tab-saved">
+              <FileText className="w-3.5 h-3.5 shrink-0" /> Saved <span className="text-xs opacity-70">({allLetters.length})</span>
             </TabsTrigger>
           </TabsList>
 

@@ -411,11 +411,11 @@ export default function Dashboard() {
 
         <Tabs defaultValue={defaultTab} className="space-y-4">
           {tabItems.length > 0 && (
-            <div className="overflow-x-auto -mx-1 px-1 pb-1">
-              <TabsList className="inline-flex w-auto min-w-full sm:grid sm:w-full h-auto bg-gradient-to-r from-slate-100 to-slate-50 dark:from-slate-800 dark:to-slate-900 rounded-xl p-1" style={{ gridTemplateColumns: `repeat(${Math.min(tabItems.length, 6)}, 1fr)` }} data-testid="tabs-dashboard">
+            <div className="tabs-scroll-wrap">
+              <TabsList className="inline-flex min-w-full sm:grid sm:w-full h-auto bg-gradient-to-r from-slate-100 to-slate-50 dark:from-slate-800 dark:to-slate-900 rounded-xl p-1" style={{ gridTemplateColumns: `repeat(${Math.min(tabItems.length, 6)}, 1fr)` }} data-testid="tabs-dashboard">
                 {tabItems.map(tab => (
-                  <TabsTrigger key={tab.value} value={tab.value} className="text-xs sm:text-sm py-2 px-2 sm:px-3 whitespace-nowrap rounded-lg data-[state=active]:bg-gradient-to-r data-[state=active]:from-indigo-500 data-[state=active]:to-purple-600 data-[state=active]:text-white data-[state=active]:shadow-md" data-testid={`tab-${tab.value}`}>
-                    <tab.icon className="w-3.5 h-3.5 sm:w-4 sm:h-4 mr-1 sm:mr-2 shrink-0" />
+                  <TabsTrigger key={tab.value} value={tab.value} className="text-xs sm:text-sm py-2.5 px-2.5 sm:px-3 whitespace-nowrap min-h-[44px] rounded-lg data-[state=active]:bg-gradient-to-r data-[state=active]:from-indigo-500 data-[state=active]:to-purple-600 data-[state=active]:text-white data-[state=active]:shadow-md" data-testid={`tab-${tab.value}`}>
+                    <tab.icon className="w-3.5 h-3.5 sm:w-4 sm:h-4 mr-1 sm:mr-1.5 shrink-0" />
                     <span>{tab.label}</span>
                   </TabsTrigger>
                 ))}
