@@ -80,12 +80,18 @@ export const cashSeals = mysqlTable("cash_seals", {
   incomeTpLunchVegCashQty: decimal("income_tp_lunch_veg_cash_qty", { precision: 10, scale: 2 }).default("0"),
   incomeTpLunchNvRate: decimal("income_tp_lunch_nv_rate", { precision: 10, scale: 2 }).default("0"),
   incomeTpLunchNvCashQty: decimal("income_tp_lunch_nv_cash_qty", { precision: 10, scale: 2 }).default("0"),
+  incomeTpLunchEggCashQty: decimal("income_tp_lunch_egg_cash_qty", { precision: 10, scale: 2 }).default("0"),
+  incomeTpLunchFishCashQty: decimal("income_tp_lunch_fish_cash_qty", { precision: 10, scale: 2 }).default("0"),
+  incomeTpLunchChickenCashQty: decimal("income_tp_lunch_chicken_cash_qty", { precision: 10, scale: 2 }).default("0"),
   incomeTpEveningCashQty: decimal("income_tp_evening_cash_qty", { precision: 10, scale: 2 }).default("0"),
   incomeTpNightCashQty: decimal("income_tp_night_cash_qty", { precision: 10, scale: 2 }).default("0"),
   // Third Party - Online
   incomeTpBreakfastOnlineQty: decimal("income_tp_breakfast_online_qty", { precision: 10, scale: 2 }).default("0"),
   incomeTpLunchVegOnlineQty: decimal("income_tp_lunch_veg_online_qty", { precision: 10, scale: 2 }).default("0"),
   incomeTpLunchNvOnlineQty: decimal("income_tp_lunch_nv_online_qty", { precision: 10, scale: 2 }).default("0"),
+  incomeTpLunchEggOnlineQty: decimal("income_tp_lunch_egg_online_qty", { precision: 10, scale: 2 }).default("0"),
+  incomeTpLunchFishOnlineQty: decimal("income_tp_lunch_fish_online_qty", { precision: 10, scale: 2 }).default("0"),
+  incomeTpLunchChickenOnlineQty: decimal("income_tp_lunch_chicken_online_qty", { precision: 10, scale: 2 }).default("0"),
   incomeTpEveningOnlineQty: decimal("income_tp_evening_online_qty", { precision: 10, scale: 2 }).default("0"),
   incomeTpNightOnlineQty: decimal("income_tp_night_online_qty", { precision: 10, scale: 2 }).default("0"),
 });

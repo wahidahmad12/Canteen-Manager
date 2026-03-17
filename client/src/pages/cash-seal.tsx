@@ -17,7 +17,7 @@ import { useLocation } from "wouter";
 
 // ── Rates ─────────────────────────────────────────────────────────
 const PS_RATES = { bf: 5, ln: 20, ev: 10, nt: 10 };
-const TP_RATES = { bf: 20, lv: 35, ev: 20, nt: 20 };
+const TP_RATES = { bf: 20, lv: 35, ev: 20, nt: 20, eg: 45, fs: 55, ck: 65 };
 const BANANA_RATE = 4.5;
 const fmtN = (n: number) =>
   "₹" + n.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -35,9 +35,13 @@ function calcTotals(s: any) {
   const tpIncome =
     n(s.incomeTpBreakfastCashQty) * TP_RATES.bf + n(s.incomeTpLunchVegCashQty) * TP_RATES.lv +
     n(s.incomeTpLunchNvRate) * n(s.incomeTpLunchNvCashQty) +
+    n(s.incomeTpLunchEggCashQty) * TP_RATES.eg + n(s.incomeTpLunchFishCashQty) * TP_RATES.fs +
+    n(s.incomeTpLunchChickenCashQty) * TP_RATES.ck +
     n(s.incomeTpEveningCashQty) * TP_RATES.ev + n(s.incomeTpNightCashQty) * TP_RATES.nt +
     n(s.incomeTpBreakfastOnlineQty) * TP_RATES.bf + n(s.incomeTpLunchVegOnlineQty) * TP_RATES.lv +
     n(s.incomeTpLunchNvRate) * n(s.incomeTpLunchNvOnlineQty) +
+    n(s.incomeTpLunchEggOnlineQty) * TP_RATES.eg + n(s.incomeTpLunchFishOnlineQty) * TP_RATES.fs +
+    n(s.incomeTpLunchChickenOnlineQty) * TP_RATES.ck +
     n(s.incomeTpEveningOnlineQty) * TP_RATES.ev + n(s.incomeTpNightOnlineQty) * TP_RATES.nt;
   const legacyIncome =
     n(s.incomeMorningQty) * 5 + n(s.incomeLunchQty) * 20 +
@@ -387,11 +391,17 @@ export default function CashSeal() {
   const [tpLvCash, setTpLvCash] = useState(0);
   const [tpNvRate, setTpNvRate] = useState(0);
   const [tpNvCash, setTpNvCash] = useState(0);
+  const [tpEgCash, setTpEgCash] = useState(0);
+  const [tpFsCash, setTpFsCash] = useState(0);
+  const [tpCkCash, setTpCkCash] = useState(0);
   const [tpEvCash, setTpEvCash] = useState(0);
   const [tpNtCash, setTpNtCash] = useState(0);
   const [tpBfOnline, setTpBfOnline] = useState(0);
   const [tpLvOnline, setTpLvOnline] = useState(0);
   const [tpNvOnline, setTpNvOnline] = useState(0);
+  const [tpEgOnline, setTpEgOnline] = useState(0);
+  const [tpFsOnline, setTpFsOnline] = useState(0);
+  const [tpCkOnline, setTpCkOnline] = useState(0);
   const [tpEvOnline, setTpEvOnline] = useState(0);
   const [tpNtOnline, setTpNtOnline] = useState(0);
 
@@ -430,10 +440,14 @@ export default function CashSeal() {
     setPsRcOnline(n(rec.incomePsRechargeOnlineQty));
     setTpBfCash(n(rec.incomeTpBreakfastCashQty)); setTpLvCash(n(rec.incomeTpLunchVegCashQty));
     setTpNvRate(n(rec.incomeTpLunchNvRate)); setTpNvCash(n(rec.incomeTpLunchNvCashQty));
+    setTpEgCash(n(rec.incomeTpLunchEggCashQty)); setTpFsCash(n(rec.incomeTpLunchFishCashQty));
+    setTpCkCash(n(rec.incomeTpLunchChickenCashQty));
     setTpEvCash(n(rec.incomeTpEveningCashQty)); setTpNtCash(n(rec.incomeTpNightCashQty));
     setTpBfOnline(n(rec.incomeTpBreakfastOnlineQty)); setTpLvOnline(n(rec.incomeTpLunchVegOnlineQty));
-    setTpNvOnline(n(rec.incomeTpLunchNvOnlineQty)); setTpEvOnline(n(rec.incomeTpEveningOnlineQty));
-    setTpNtOnline(n(rec.incomeTpNightOnlineQty));
+    setTpNvOnline(n(rec.incomeTpLunchNvOnlineQty));
+    setTpEgOnline(n(rec.incomeTpLunchEggOnlineQty)); setTpFsOnline(n(rec.incomeTpLunchFishOnlineQty));
+    setTpCkOnline(n(rec.incomeTpLunchChickenOnlineQty));
+    setTpEvOnline(n(rec.incomeTpEveningOnlineQty)); setTpNtOnline(n(rec.incomeTpNightOnlineQty));
     setBananaQty(n(rec.expenseBananaQty)); setDahiBharQty(n(rec.expenseDahiBharQty));
     setDahiBharRate(n(rec.expenseDahiBharRate)); setOtherExpense(n(rec.expenseOtherAmount));
     setAkbarAliAmount(n(rec.totalGivenToAkbarAli));
@@ -445,8 +459,10 @@ export default function CashSeal() {
   function resetForm() {
     setPsBfCash(0); setPsLnCash(0); setPsEvCash(0); setPsNtCash(0); setPsRcRate(0); setPsRcCash(0);
     setPsBfOnline(0); setPsLnOnline(0); setPsEvOnline(0); setPsNtOnline(0); setPsRcOnline(0);
-    setTpBfCash(0); setTpLvCash(0); setTpNvRate(0); setTpNvCash(0); setTpEvCash(0); setTpNtCash(0);
-    setTpBfOnline(0); setTpLvOnline(0); setTpNvOnline(0); setTpEvOnline(0); setTpNtOnline(0);
+    setTpBfCash(0); setTpLvCash(0); setTpNvRate(0); setTpNvCash(0);
+    setTpEgCash(0); setTpFsCash(0); setTpCkCash(0); setTpEvCash(0); setTpNtCash(0);
+    setTpBfOnline(0); setTpLvOnline(0); setTpNvOnline(0);
+    setTpEgOnline(0); setTpFsOnline(0); setTpCkOnline(0); setTpEvOnline(0); setTpNtOnline(0);
     setBananaQty(0); setDahiBharQty(0); setDahiBharRate(0); setOtherExpense(0);
     setAkbarAliAmount(0); setAkbarAliManual(false); setDate(new Date());
     originalRec.current = null;
@@ -468,10 +484,14 @@ export default function CashSeal() {
       psRcOnline !== n(r.incomePsRechargeOnlineQty) ||
       tpBfCash !== n(r.incomeTpBreakfastCashQty) || tpLvCash !== n(r.incomeTpLunchVegCashQty) ||
       tpNvRate !== n(r.incomeTpLunchNvRate) || tpNvCash !== n(r.incomeTpLunchNvCashQty) ||
+      tpEgCash !== n(r.incomeTpLunchEggCashQty) || tpFsCash !== n(r.incomeTpLunchFishCashQty) ||
+      tpCkCash !== n(r.incomeTpLunchChickenCashQty) ||
       tpEvCash !== n(r.incomeTpEveningCashQty) || tpNtCash !== n(r.incomeTpNightCashQty) ||
       tpBfOnline !== n(r.incomeTpBreakfastOnlineQty) || tpLvOnline !== n(r.incomeTpLunchVegOnlineQty) ||
-      tpNvOnline !== n(r.incomeTpLunchNvOnlineQty) || tpEvOnline !== n(r.incomeTpEveningOnlineQty) ||
-      tpNtOnline !== n(r.incomeTpNightOnlineQty) ||
+      tpNvOnline !== n(r.incomeTpLunchNvOnlineQty) ||
+      tpEgOnline !== n(r.incomeTpLunchEggOnlineQty) || tpFsOnline !== n(r.incomeTpLunchFishOnlineQty) ||
+      tpCkOnline !== n(r.incomeTpLunchChickenOnlineQty) ||
+      tpEvOnline !== n(r.incomeTpEveningOnlineQty) || tpNtOnline !== n(r.incomeTpNightOnlineQty) ||
       bananaQty !== n(r.expenseBananaQty) || dahiBharQty !== n(r.expenseDahiBharQty) ||
       dahiBharRate !== n(r.expenseDahiBharRate) || otherExpense !== n(r.expenseOtherAmount) ||
       akbarAliAmount !== n(r.totalGivenToAkbarAli)
@@ -513,14 +533,18 @@ export default function CashSeal() {
 
   const tpBfCashT = tpBfCash * TP_RATES.bf;  const tpLvCashT = tpLvCash * TP_RATES.lv;
   const tpNvCashT = tpNvCash * tpNvRate;
+  const tpEgCashT = tpEgCash * TP_RATES.eg; const tpFsCashT = tpFsCash * TP_RATES.fs;
+  const tpCkCashT = tpCkCash * TP_RATES.ck;
   const tpEvCashT = tpEvCash * TP_RATES.ev;  const tpNtCashT = tpNtCash * TP_RATES.nt;
   const tpBfOnlineT = tpBfOnline * TP_RATES.bf; const tpLvOnlineT = tpLvOnline * TP_RATES.lv;
   const tpNvOnlineT = tpNvOnline * tpNvRate;
+  const tpEgOnlineT = tpEgOnline * TP_RATES.eg; const tpFsOnlineT = tpFsOnline * TP_RATES.fs;
+  const tpCkOnlineT = tpCkOnline * TP_RATES.ck;
   const tpEvOnlineT = tpEvOnline * TP_RATES.ev; const tpNtOnlineT = tpNtOnline * TP_RATES.nt;
-  const tpTotalCash = tpBfCashT + tpLvCashT + tpNvCashT + tpEvCashT + tpNtCashT;
-  const tpTotalOnline = tpBfOnlineT + tpLvOnlineT + tpNvOnlineT + tpEvOnlineT + tpNtOnlineT;
-  const tpCashQtyTotal = tpBfCash + tpLvCash + tpNvCash + tpEvCash + tpNtCash;
-  const tpOnlineQtyTotal = tpBfOnline + tpLvOnline + tpNvOnline + tpEvOnline + tpNtOnline;
+  const tpTotalCash = tpBfCashT + tpLvCashT + tpNvCashT + tpEgCashT + tpFsCashT + tpCkCashT + tpEvCashT + tpNtCashT;
+  const tpTotalOnline = tpBfOnlineT + tpLvOnlineT + tpNvOnlineT + tpEgOnlineT + tpFsOnlineT + tpCkOnlineT + tpEvOnlineT + tpNtOnlineT;
+  const tpCashQtyTotal = tpBfCash + tpLvCash + tpNvCash + tpEgCash + tpFsCash + tpCkCash + tpEvCash + tpNtCash;
+  const tpOnlineQtyTotal = tpBfOnline + tpLvOnline + tpNvOnline + tpEgOnline + tpFsOnline + tpCkOnline + tpEvOnline + tpNtOnline;
 
   const totalCashIncome = psTotalCash + tpTotalCash;
   const totalOnlineIncome = psTotalOnline + tpTotalOnline;
@@ -548,10 +572,14 @@ export default function CashSeal() {
     incomePsRechargeOnlineQty: psRcOnline,
     incomeTpBreakfastCashQty: tpBfCash, incomeTpLunchVegCashQty: tpLvCash,
     incomeTpLunchNvRate: tpNvRate, incomeTpLunchNvCashQty: tpNvCash,
+    incomeTpLunchEggCashQty: tpEgCash, incomeTpLunchFishCashQty: tpFsCash,
+    incomeTpLunchChickenCashQty: tpCkCash,
     incomeTpEveningCashQty: tpEvCash, incomeTpNightCashQty: tpNtCash,
     incomeTpBreakfastOnlineQty: tpBfOnline, incomeTpLunchVegOnlineQty: tpLvOnline,
-    incomeTpLunchNvOnlineQty: tpNvOnline, incomeTpEveningOnlineQty: tpEvOnline,
-    incomeTpNightOnlineQty: tpNtOnline,
+    incomeTpLunchNvOnlineQty: tpNvOnline,
+    incomeTpLunchEggOnlineQty: tpEgOnline, incomeTpLunchFishOnlineQty: tpFsOnline,
+    incomeTpLunchChickenOnlineQty: tpCkOnline,
+    incomeTpEveningOnlineQty: tpEvOnline, incomeTpNightOnlineQty: tpNtOnline,
     expenseBananaQty: bananaQty, expenseDahiBharQty: dahiBharQty,
     expenseDahiBharRate: dahiBharRate, expenseOtherAmount: otherExpense,
     totalGivenToAkbarAli: akbarAliAmount,
@@ -689,11 +717,13 @@ export default function CashSeal() {
     // ─── TP section ───
     addTitle("Third Party (TP)", "FF065F46");
     addHeader();
-    addDataRow(1, "Breakfast",      `₹${TP_RATES.bf}`, tpBfCash, tpBfCashT, tpBfOnline, tpBfOnlineT);
-    addDataRow(2, "Lunch Veg",      `₹${TP_RATES.lv}`, tpLvCash, tpLvCashT, tpLvOnline, tpLvOnlineT);
-    addDataRow(3, "Lunch Non-Veg",  `₹${tpNvRate}`,    tpNvCash, tpNvCashT, tpNvOnline, tpNvOnlineT);
-    addDataRow(4, "Evening Snacks", `₹${TP_RATES.ev}`, tpEvCash, tpEvCashT, tpEvOnline, tpEvOnlineT);
-    addDataRow(5, "Night",          `₹${TP_RATES.nt}`, tpNtCash, tpNtCashT, tpNtOnline, tpNtOnlineT);
+    addDataRow(1, "Breakfast",         `₹${TP_RATES.bf}`, tpBfCash, tpBfCashT, tpBfOnline, tpBfOnlineT);
+    addDataRow(2, "Lunch Veg",         `₹${TP_RATES.lv}`, tpLvCash, tpLvCashT, tpLvOnline, tpLvOnlineT);
+    addDataRow(3, "Egg Lunch",         `₹${TP_RATES.eg}`, tpEgCash, tpEgCashT, tpEgOnline, tpEgOnlineT);
+    addDataRow(4, "Fish Lunch",        `₹${TP_RATES.fs}`, tpFsCash, tpFsCashT, tpFsOnline, tpFsOnlineT);
+    addDataRow(5, "Chicken Lunch",     `₹${TP_RATES.ck}`, tpCkCash, tpCkCashT, tpCkOnline, tpCkOnlineT);
+    addDataRow(6, "Evening Snacks",    `₹${TP_RATES.ev}`, tpEvCash, tpEvCashT, tpEvOnline, tpEvOnlineT);
+    addDataRow(7, "Night",             `₹${TP_RATES.nt}`, tpNtCash, tpNtCashT, tpNtOnline, tpNtOnlineT);
     addTotalsRow(tpCashQtyTotal, tpTotalCash, tpOnlineQtyTotal, tpTotalOnline);
 
     ws.addRow([]);
@@ -1167,11 +1197,13 @@ export default function CashSeal() {
             cashTotal={tpTotalCash} onlineTotal={tpTotalOnline}
             cashQtyTotal={tpCashQtyTotal} onlineQtyTotal={tpOnlineQtyTotal}
             items={[
-              { no: 1, name: "Breakfast", fixedRate: TP_RATES.bf, color: "green", cashQty: tpBfCash, onCashQty: setTpBfCash, onlineQty: tpBfOnline, onOnlineQty: setTpBfOnline },
-              { no: 2, name: "Lunch Veg", fixedRate: TP_RATES.lv, color: "green", cashQty: tpLvCash, onCashQty: setTpLvCash, onlineQty: tpLvOnline, onOnlineQty: setTpLvOnline },
-              { no: 3, name: "Lunch Non Veg", customRate: tpNvRate, onCustomRate: setTpNvRate, color: "green", cashQty: tpNvCash, onCashQty: setTpNvCash, onlineQty: tpNvOnline, onOnlineQty: setTpNvOnline },
-              { no: 4, name: "Evening Snacks", fixedRate: TP_RATES.ev, color: "green", cashQty: tpEvCash, onCashQty: setTpEvCash, onlineQty: tpEvOnline, onOnlineQty: setTpEvOnline },
-              { no: 5, name: "Night", fixedRate: TP_RATES.nt, color: "green", cashQty: tpNtCash, onCashQty: setTpNtCash, onlineQty: tpNtOnline, onOnlineQty: setTpNtOnline },
+              { no: 1, name: "Breakfast",                  fixedRate: TP_RATES.bf, color: "green", cashQty: tpBfCash, onCashQty: setTpBfCash, onlineQty: tpBfOnline, onOnlineQty: setTpBfOnline },
+              { no: 2, name: "Lunch Veg",                  fixedRate: TP_RATES.lv, color: "green", cashQty: tpLvCash, onCashQty: setTpLvCash, onlineQty: tpLvOnline, onOnlineQty: setTpLvOnline },
+              { no: 3, name: "Egg Lunch  ₹45",             fixedRate: TP_RATES.eg, color: "green", cashQty: tpEgCash, onCashQty: setTpEgCash, onlineQty: tpEgOnline, onOnlineQty: setTpEgOnline },
+              { no: 4, name: "Fish Lunch  ₹55 (Mon/Thu)",  fixedRate: TP_RATES.fs, color: "green", cashQty: tpFsCash, onCashQty: setTpFsCash, onlineQty: tpFsOnline, onOnlineQty: setTpFsOnline },
+              { no: 5, name: "Chicken Lunch  ₹65 (Wed/Fri/Sun)", fixedRate: TP_RATES.ck, color: "green", cashQty: tpCkCash, onCashQty: setTpCkCash, onlineQty: tpCkOnline, onOnlineQty: setTpCkOnline },
+              { no: 6, name: "Evening Snacks",             fixedRate: TP_RATES.ev, color: "green", cashQty: tpEvCash, onCashQty: setTpEvCash, onlineQty: tpEvOnline, onOnlineQty: setTpEvOnline },
+              { no: 7, name: "Night",                      fixedRate: TP_RATES.nt, color: "green", cashQty: tpNtCash, onCashQty: setTpNtCash, onlineQty: tpNtOnline, onOnlineQty: setTpNtOnline },
             ]}
           />
         </div>
