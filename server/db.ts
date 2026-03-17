@@ -3,14 +3,12 @@ import mysql from "mysql2/promise";
 import * as schema from "@shared/schema";
 
 const tidbUrl = process.env.TIDB_DATABASE_URL;
-const googleUrl = process.env.GOOGLE_DATABASE_URL;
-const replitUrl = process.env.DATABASE_URL;
 
-const connectionUrl = tidbUrl || googleUrl || replitUrl;
-
-if (!connectionUrl) {
+if (!tidbUrl) {
   throw new Error(
-    "Database connection URL must be set. Configure TIDB_DATABASE_URL, GOOGLE_DATABASE_URL or DATABASE_URL.",
+    "[db] CRITICAL: TIDB_DATABASE_URL is not set. " +
+    "The app will NOT fall back to any other database to prevent accidental data loss. " +
+    "Set TIDB_DATABASE_URL in Replit Secrets (shared environment) and restart.",
   );
 }
 
@@ -19,7 +17,7 @@ export let db: ReturnType<typeof drizzle<typeof schema>> = null as any;
 
 async function initPool(): Promise<void> {
   pool = mysql.createPool({
-    uri: connectionUrl!,
+    uri: tidbUrl!,
     ssl: { rejectUnauthorized: true },
     waitForConnections: true,
     connectionLimit: 10,
@@ -28,7 +26,8 @@ async function initPool(): Promise<void> {
 
   const conn = await pool.getConnection();
   conn.release();
-  console.log("[db] Connected to TiDB Cloud");
+  const host = tidbUrl!.split("@")[1]?.split("/")[0] ?? "unknown";
+  console.log(`[db] Connected to TiDB Cloud (${host})`);
   db = drizzle(pool, { schema, mode: "default" });
 }
 

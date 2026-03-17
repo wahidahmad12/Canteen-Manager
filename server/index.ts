@@ -82,7 +82,7 @@ app.use((req, res, next) => {
 
   const MySQLStore = expressMySqlSession(session as any);
   const sessionPool = mysql.createPool({
-    uri: process.env.TIDB_DATABASE_URL || process.env.GOOGLE_DATABASE_URL || process.env.DATABASE_URL,
+    uri: process.env.TIDB_DATABASE_URL,
     ssl: { rejectUnauthorized: true },
     waitForConnections: true,
     connectionLimit: 5,
