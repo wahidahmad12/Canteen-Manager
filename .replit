@@ -47,5 +47,4 @@ waitForPort = 5000
 [userenv]
 
 [userenv.shared]
-GOOGLE_DATABASE_URL = "postgresql://postgres:Shi%401251995@34.100.151.246:5432/djpkf"
 TIDB_DATABASE_URL = "mysql://2Ro6q6fVJwNZr3P.root:Vte7ggDzFrOeFYAc@gateway01.ap-southeast-1.prod.aws.tidbcloud.com:4000/test"
