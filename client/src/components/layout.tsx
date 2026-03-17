@@ -14,7 +14,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [labourOpen, setLabourOpen] = useState(() => labourWorksPaths.some(p => location.startsWith(p)));
 
-  const perms = user?.role === 'admin' ? ['expense', 'cashseal', 'inventory', 'menu', 'purchase', 'labour'] : (user?.permissions || []);
+  const perms = user?.role === 'admin' ? ['expense', 'cashseal', 'inventory', 'menu', 'purchase', 'labour', 'salesinvoice'] : (user?.permissions || []);
 
   const deferredPrompt = useRef<any>(null);
   const [showInstallBanner, setShowInstallBanner] = useState(false);
@@ -77,7 +77,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
     { href: '/inventory', label: 'Daily Inventory', icon: ClipboardList, perm: 'inventory' },
     { href: '/menu', label: 'Menu Manager', icon: UtensilsCrossed, perm: 'menu' },
     { href: '/purchase-request', label: 'Purchase Request', icon: ShoppingCart, perm: 'purchase' },
-    { href: '/sales-invoice', label: 'Sales Invoice Ledger', icon: FileText, perm: null },
+    { href: '/sales-invoice', label: 'Sales Invoice Ledger', icon: FileText, perm: 'salesinvoice' },
   ].filter(item => item.perm === null || perms.includes(item.perm));
 
   const labourSubItems = [

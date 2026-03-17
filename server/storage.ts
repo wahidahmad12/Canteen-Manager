@@ -778,7 +778,7 @@ export class DatabaseStorage implements IStorage {
       displayName: data.displayName,
       role: data.role,
       clientName: data.clientName,
-      permissions: data.permissions || ['expense', 'cashseal', 'inventory', 'menu'],
+      permissions: data.permissions || ['expense', 'cashseal', 'inventory', 'menu', 'salesinvoice'],
       employeeId: data.employeeId || null,
     });
 

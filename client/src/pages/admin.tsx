@@ -142,6 +142,7 @@ export default function Admin() {
     menu: 'Menu Manager',
     purchase: 'Purchase Request',
     labour: 'Labour Works',
+    salesinvoice: 'Sales Invoice Ledger',
   };
 
   const togglePerm = (perm: string) => {

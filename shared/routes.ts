@@ -604,7 +604,7 @@ export const api = {
         displayName: z.string().min(1),
         role: z.string().default("user"),
         clientName: z.string().nullable().default(null),
-        permissions: z.array(z.string()).default(['expense', 'cashseal', 'inventory', 'menu']),
+        permissions: z.array(z.string()).default(['expense', 'cashseal', 'inventory', 'menu', 'salesinvoice']),
         employeeId: z.number().nullable().optional(),
       }),
       responses: {

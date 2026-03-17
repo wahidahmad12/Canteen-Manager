@@ -1507,7 +1507,7 @@ export async function registerRoutes(
     }
   });
 
-  app.get("/api/sales-invoices/next-bill-number", requireAuth, async (req, res) => {
+  app.get("/api/sales-invoices/next-bill-number", requirePermission("salesinvoice"), async (req, res) => {
     try {
       const { stateCode, year } = req.query;
       if (!stateCode || !year) return res.status(400).json({ message: "stateCode and year are required" });
@@ -1528,7 +1528,7 @@ export async function registerRoutes(
     }
   });
 
-  app.get("/api/sales-invoices", requireAuth, async (req, res) => {
+  app.get("/api/sales-invoices", requirePermission("salesinvoice"), async (req, res) => {
     try {
       const invoices = await storage.getSalesInvoices();
       res.json(invoices);
@@ -1537,13 +1537,13 @@ export async function registerRoutes(
     }
   });
 
-  app.get("/api/sales-invoices/:id", requireAuth, async (req, res) => {
+  app.get("/api/sales-invoices/:id", requirePermission("salesinvoice"), async (req, res) => {
     const invoice = await storage.getSalesInvoice(Number(req.params.id));
     if (!invoice) return res.status(404).json({ message: "Sales invoice not found" });
     res.json(invoice);
   });
 
-  app.post("/api/sales-invoices", requireAuth, async (req, res) => {
+  app.post("/api/sales-invoices", requirePermission("salesinvoice"), async (req, res) => {
     try {
       const { clientName, billDate, billNumber, billAmount, gstPercent, gstAmount, totalBillAmount, tdsPercent, tdsAmount, paymentReceivedDate, paymentReceivedAmount, poId, bypassPO } = req.body;
       if (!clientName || !billDate || !billNumber) {
@@ -1587,7 +1587,7 @@ export async function registerRoutes(
     }
   });
 
-  app.put("/api/sales-invoices/:id", requireAuth, async (req, res) => {
+  app.put("/api/sales-invoices/:id", requirePermission("salesinvoice"), async (req, res) => {
     try {
       const existing = await storage.getSalesInvoice(Number(req.params.id));
       if (!existing) return res.status(404).json({ message: "Sales invoice not found" });
