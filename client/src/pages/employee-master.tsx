@@ -23,6 +23,36 @@ const fmtDate = (d: string | null | undefined): string => {
   return `${dd}-${m}-${y}`;
 };
 
+// YYYY-MM-DD → DD-MM-YYYY for display in text input
+const storeToDisplay = (v: string): string => {
+  if (!v) return "";
+  const s = v.split("T")[0].split(" ")[0];
+  const [y, m, d] = s.split("-");
+  if (y && m && d) return `${d}-${m}-${y}`;
+  return v;
+};
+
+// DD-MM-YYYY → YYYY-MM-DD for storage; returns raw string while typing
+const displayToStore = (raw: string): string => {
+  const clean = raw.replace(/[^\d-]/g, "");
+  const parts = clean.split("-");
+  if (parts.length === 3 && parts[0].length === 2 && parts[1].length === 2 && parts[2].length === 4) {
+    return `${parts[2]}-${parts[1].padStart(2, "0")}-${parts[0].padStart(2, "0")}`;
+  }
+  return clean;
+};
+
+// Auto-insert dashes while typing: "101" → "10-1", "1006" → "10-06", "10062000" → "10-06-2000"
+const autoFormatDate = (prev: string, next: string): string => {
+  const digits = next.replace(/\D/g, "").slice(0, 8);
+  let result = "";
+  for (let i = 0; i < digits.length; i++) {
+    if (i === 2 || i === 4) result += "-";
+    result += digits[i];
+  }
+  return result;
+};
+
 interface Employee {
   id: number;
   employeeCode: string;
@@ -190,13 +220,13 @@ export default function EmployeeMaster() {
       dailyRate: emp.dailyRate || "",
       fixedHra: emp.fixedHra || "",
       gender: emp.gender || "Male",
-      dob: emp.dob ? String(emp.dob).split("T")[0].split(" ")[0] : "",
+      dob: emp.dob ? storeToDisplay(String(emp.dob)) : "",
       address: emp.address || "",
       permanentAddress: emp.permanentAddress || "",
       localAddress: emp.localAddress || "",
       skills: emp.skills || "",
-      joiningDate: emp.joiningDate ? String(emp.joiningDate).split("T")[0].split(" ")[0] : "",
-      leavingDate: emp.leavingDate ? String(emp.leavingDate).split("T")[0].split(" ")[0] : "",
+      joiningDate: emp.joiningDate ? storeToDisplay(String(emp.joiningDate)) : "",
+      leavingDate: emp.leavingDate ? storeToDisplay(String(emp.leavingDate)) : "",
       leavingReason: emp.leavingReason || "",
       mobile: emp.mobile || "",
       isActive: emp.isActive,
@@ -211,9 +241,9 @@ export default function EmployeeMaster() {
     }
     const payload = {
       ...form,
-      dob: form.dob || null,
-      joiningDate: form.joiningDate || null,
-      leavingDate: form.leavingDate || null,
+      dob: form.dob ? displayToStore(form.dob) || null : null,
+      joiningDate: form.joiningDate ? displayToStore(form.joiningDate) || null : null,
+      leavingDate: form.leavingDate ? displayToStore(form.leavingDate) || null : null,
     };
     if (editingId) {
       updateMutation.mutate({ id: editingId, data: payload as any });
@@ -475,7 +505,10 @@ export default function EmployeeMaster() {
                 </div>
                 <div>
                   <Label htmlFor="dob">Date of Birth</Label>
-                  <Input id="dob" type="date" value={form.dob} onChange={e => setField("dob", e.target.value)} data-testid="input-dob" />
+                  <Input id="dob" type="text" inputMode="numeric" placeholder="DD-MM-YYYY"
+                    value={form.dob}
+                    onChange={e => setField("dob", autoFormatDate(form.dob, e.target.value))}
+                    data-testid="input-dob" />
                 </div>
               </div>
             </div>
@@ -516,7 +549,10 @@ export default function EmployeeMaster() {
                 </div>
                 <div>
                   <Label htmlFor="joiningDate">Joining Date</Label>
-                  <Input id="joiningDate" type="date" value={form.joiningDate} onChange={e => setField("joiningDate", e.target.value)} data-testid="input-joining-date" />
+                  <Input id="joiningDate" type="text" inputMode="numeric" placeholder="DD-MM-YYYY"
+                    value={form.joiningDate}
+                    onChange={e => setField("joiningDate", autoFormatDate(form.joiningDate, e.target.value))}
+                    data-testid="input-joining-date" />
                 </div>
               </div>
             </div>
@@ -610,7 +646,10 @@ export default function EmployeeMaster() {
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     <div>
                       <Label htmlFor="leavingDate">Leaving Date</Label>
-                      <Input id="leavingDate" type="date" value={form.leavingDate} onChange={e => setField("leavingDate", e.target.value)} data-testid="input-leaving-date" />
+                      <Input id="leavingDate" type="text" inputMode="numeric" placeholder="DD-MM-YYYY"
+                        value={form.leavingDate ?? ""}
+                        onChange={e => setField("leavingDate", autoFormatDate(form.leavingDate ?? "", e.target.value))}
+                        data-testid="input-leaving-date" />
                     </div>
                     <div>
                       <Label htmlFor="leavingReason">Leaving Reason</Label>
