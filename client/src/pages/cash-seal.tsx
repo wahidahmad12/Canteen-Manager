@@ -84,19 +84,20 @@ interface ItemCardProps {
   cashQty: number; onCashQty: (v: number) => void;
   onlineQty: number; onOnlineQty: (v: number) => void;
   color: "blue" | "green";
+  amountMode?: boolean;
 }
 
 // ── Amount input helper (bidirectional) ───────────────────────────
-function AmountInput({ rate, qty, onQty, className = "", placeholder = "0.00" }: {
+function AmountInput({ rate, qty, onQty, className = "", placeholder = "0.00", liveMode = false }: {
   rate: number; qty: number; onQty: (v: number) => void;
-  className?: string; placeholder?: string;
+  className?: string; placeholder?: string; liveMode?: boolean;
 }) {
   const [localAmt, setLocalAmt] = useState<string>(qty > 0 && rate > 0 ? String(qty * rate) : "");
   useEffect(() => {
     setLocalAmt(qty > 0 && rate > 0 ? String(qty * rate) : "");
   }, [qty, rate]);
 
-  const disabled = rate === 0;
+  const disabled = !liveMode && rate === 0;
   return (
     <Input
       type="number"
@@ -104,9 +105,20 @@ function AmountInput({ rate, qty, onQty, className = "", placeholder = "0.00" }:
       min={0}
       disabled={disabled}
       value={localAmt}
-      onChange={e => setLocalAmt(e.target.value)}
+      onChange={e => {
+        setLocalAmt(e.target.value);
+        if (liveMode) {
+          const amt = Number(e.target.value) || 0;
+          onQty(rate > 0 ? amt / rate : amt);
+        }
+      }}
       onBlur={() => {
-        if (rate > 0) {
+        if (liveMode) {
+          const amt = Number(localAmt) || 0;
+          const newQty = rate > 0 ? amt / rate : amt;
+          onQty(newQty);
+          setLocalAmt(amt > 0 ? String(amt) : "");
+        } else if (rate > 0) {
           const amt = Number(localAmt) || 0;
           const newQty = amt > 0 ? Math.round(amt / rate) : 0;
           onQty(newQty);
@@ -121,7 +133,7 @@ function AmountInput({ rate, qty, onQty, className = "", placeholder = "0.00" }:
 }
 
 // ── Mobile item card ──────────────────────────────────────────────
-function ItemMobileCard({ no, name, fixedRate, customRate, onCustomRate, cashQty, onCashQty, onlineQty, onOnlineQty, color }: ItemCardProps) {
+function ItemMobileCard({ no, name, fixedRate, customRate, onCustomRate, cashQty, onCashQty, onlineQty, onOnlineQty, color, amountMode }: ItemCardProps) {
   const rate = customRate !== undefined ? customRate : (fixedRate ?? 0);
   const cashTotal = cashQty * rate;
   const onlineTotal = onlineQty * rate;
@@ -156,29 +168,53 @@ function ItemMobileCard({ no, name, fixedRate, customRate, onCustomRate, cashQty
       <div className="grid grid-cols-2 gap-2.5">
         <div className="bg-slate-50 dark:bg-slate-700/40 rounded-xl p-2.5 border border-slate-200 dark:border-slate-600">
           <span className="text-[10px] uppercase tracking-widest text-slate-400 dark:text-slate-500 font-bold block mb-1.5">Cash</span>
-          <div className="flex flex-col gap-1.5">
-            <div>
-              <div className="text-[9px] text-slate-400 mb-0.5 text-center">Qty</div>
-              <QtyInput value={cashQty} onChange={onCashQty} large className="w-full" />
+          {amountMode ? (
+            <div className="flex flex-col gap-1.5">
+              <div>
+                <div className="text-[9px] text-slate-400 mb-0.5 text-center">Cash Amt (₹)</div>
+                <AmountInput rate={rate} qty={cashQty} onQty={onCashQty} liveMode className="w-full bg-white dark:bg-slate-700" />
+              </div>
+              <div className="text-center text-[11px] text-slate-500 dark:text-slate-400 font-mono">
+                Qty: <span className="font-bold text-slate-700 dark:text-slate-200">{cashQty % 1 === 0 ? cashQty : cashQty.toFixed(2)}</span>
+              </div>
             </div>
-            <div>
-              <div className="text-[9px] text-slate-400 mb-0.5 text-center">Amount (₹)</div>
-              <AmountInput rate={rate} qty={cashQty} onQty={onCashQty} className="w-full bg-white dark:bg-slate-700" />
+          ) : (
+            <div className="flex flex-col gap-1.5">
+              <div>
+                <div className="text-[9px] text-slate-400 mb-0.5 text-center">Qty</div>
+                <QtyInput value={cashQty} onChange={onCashQty} large className="w-full" />
+              </div>
+              <div>
+                <div className="text-[9px] text-slate-400 mb-0.5 text-center">Amount (₹)</div>
+                <AmountInput rate={rate} qty={cashQty} onQty={onCashQty} className="w-full bg-white dark:bg-slate-700" />
+              </div>
             </div>
-          </div>
+          )}
         </div>
         <div className="bg-indigo-50 dark:bg-indigo-900/20 rounded-xl p-2.5 border border-indigo-200 dark:border-indigo-700">
           <span className="text-[10px] uppercase tracking-widest text-indigo-500 dark:text-indigo-400 font-bold block mb-1.5">Online</span>
-          <div className="flex flex-col gap-1.5">
-            <div>
-              <div className="text-[9px] text-indigo-400 mb-0.5 text-center">Qty</div>
-              <QtyInput value={onlineQty} onChange={onOnlineQty} large className="w-full bg-white dark:bg-indigo-900/30" />
+          {amountMode ? (
+            <div className="flex flex-col gap-1.5">
+              <div>
+                <div className="text-[9px] text-indigo-400 mb-0.5 text-center">Online Amt (₹)</div>
+                <AmountInput rate={rate} qty={onlineQty} onQty={onOnlineQty} liveMode className="w-full bg-white dark:bg-indigo-900/30" />
+              </div>
+              <div className="text-center text-[11px] text-indigo-500 dark:text-indigo-400 font-mono">
+                Qty: <span className="font-bold text-indigo-700 dark:text-indigo-200">{onlineQty % 1 === 0 ? onlineQty : onlineQty.toFixed(2)}</span>
+              </div>
             </div>
-            <div>
-              <div className="text-[9px] text-indigo-400 mb-0.5 text-center">Amount (₹)</div>
-              <AmountInput rate={rate} qty={onlineQty} onQty={onOnlineQty} className="w-full bg-white dark:bg-indigo-900/30" />
+          ) : (
+            <div className="flex flex-col gap-1.5">
+              <div>
+                <div className="text-[9px] text-indigo-400 mb-0.5 text-center">Qty</div>
+                <QtyInput value={onlineQty} onChange={onOnlineQty} large className="w-full bg-white dark:bg-indigo-900/30" />
+              </div>
+              <div>
+                <div className="text-[9px] text-indigo-400 mb-0.5 text-center">Amount (₹)</div>
+                <AmountInput rate={rate} qty={onlineQty} onQty={onOnlineQty} className="w-full bg-white dark:bg-indigo-900/30" />
+              </div>
             </div>
-          </div>
+          )}
         </div>
       </div>
 
@@ -194,7 +230,7 @@ function ItemMobileCard({ no, name, fixedRate, customRate, onCustomRate, cashQty
 }
 
 // ── Desktop table row ─────────────────────────────────────────────
-function ItemTableRow({ no, name, fixedRate, customRate, onCustomRate, cashQty, onCashQty, onlineQty, onOnlineQty, color }: ItemCardProps) {
+function ItemTableRow({ no, name, fixedRate, customRate, onCustomRate, cashQty, onCashQty, onlineQty, onOnlineQty, color, amountMode }: ItemCardProps) {
   const rate = customRate !== undefined ? customRate : (fixedRate ?? 0);
   const cashTotal = cashQty * rate;
   const onlineTotal = onlineQty * rate;
@@ -220,16 +256,20 @@ function ItemTableRow({ no, name, fixedRate, customRate, onCustomRate, cashQty, 
         )}
       </td>
       <td className="py-2 px-2">
-        <QtyInput value={cashQty} onChange={onCashQty} className="w-full min-w-[72px]" />
+        {amountMode
+          ? <span className="block text-center text-sm font-mono font-bold text-slate-600 dark:text-slate-300 min-w-[72px]">{cashQty % 1 === 0 ? cashQty : cashQty.toFixed(2)}</span>
+          : <QtyInput value={cashQty} onChange={onCashQty} className="w-full min-w-[72px]" />}
       </td>
       <td className="py-2 px-2">
-        <AmountInput rate={rate} qty={cashQty} onQty={onCashQty} className="w-full min-w-[90px] bg-slate-50 dark:bg-slate-700/30" />
+        <AmountInput rate={rate} qty={cashQty} onQty={onCashQty} liveMode={amountMode} className="w-full min-w-[90px] bg-slate-50 dark:bg-slate-700/30" />
       </td>
       <td className="py-2 px-2">
-        <QtyInput value={onlineQty} onChange={onOnlineQty} className="w-full min-w-[72px] bg-indigo-50 dark:bg-indigo-900/20" />
+        {amountMode
+          ? <span className="block text-center text-sm font-mono font-bold text-indigo-600 dark:text-indigo-300 min-w-[72px]">{onlineQty % 1 === 0 ? onlineQty : onlineQty.toFixed(2)}</span>
+          : <QtyInput value={onlineQty} onChange={onOnlineQty} className="w-full min-w-[72px] bg-indigo-50 dark:bg-indigo-900/20" />}
       </td>
       <td className="py-2 px-2">
-        <AmountInput rate={rate} qty={onlineQty} onQty={onOnlineQty} className="w-full min-w-[90px] bg-indigo-50 dark:bg-indigo-900/20" />
+        <AmountInput rate={rate} qty={onlineQty} onQty={onOnlineQty} liveMode={amountMode} className="w-full min-w-[90px] bg-indigo-50 dark:bg-indigo-900/20" />
       </td>
       <td className="py-2 px-3 text-right">
         <span className="text-sm font-mono font-bold text-slate-500 dark:text-slate-400">{(cashQty + onlineQty) > 0 ? (cashQty + onlineQty) : <span className="text-slate-300 dark:text-slate-600">—</span>}</span>
@@ -378,7 +418,7 @@ export default function CashSeal() {
   const [psLnCash, setPsLnCash] = useState(0);
   const [psEvCash, setPsEvCash] = useState(0);
   const [psNtCash, setPsNtCash] = useState(0);
-  const [psRcRate, setPsRcRate] = useState(0);
+  const [psRcRate, setPsRcRate] = useState(1);
   const [psRcCash, setPsRcCash] = useState(0);
   const [psBfOnline, setPsBfOnline] = useState(0);
   const [psLnOnline, setPsLnOnline] = useState(0);
@@ -434,7 +474,7 @@ export default function CashSeal() {
     const n = (v: any) => Number(v) || 0;
     setPsBfCash(n(rec.incomePsBreakfastCashQty)); setPsLnCash(n(rec.incomePsLunchCashQty));
     setPsEvCash(n(rec.incomePsEveningCashQty)); setPsNtCash(n(rec.incomePsNightCashQty));
-    setPsRcRate(n(rec.incomePsRechargeRate)); setPsRcCash(n(rec.incomePsRechargeCashQty));
+    setPsRcRate(n(rec.incomePsRechargeRate) || 1); setPsRcCash(n(rec.incomePsRechargeCashQty));
     setPsBfOnline(n(rec.incomePsBreakfastOnlineQty)); setPsLnOnline(n(rec.incomePsLunchOnlineQty));
     setPsEvOnline(n(rec.incomePsEveningOnlineQty)); setPsNtOnline(n(rec.incomePsNightOnlineQty));
     setPsRcOnline(n(rec.incomePsRechargeOnlineQty));
@@ -457,7 +497,7 @@ export default function CashSeal() {
   }
 
   function resetForm() {
-    setPsBfCash(0); setPsLnCash(0); setPsEvCash(0); setPsNtCash(0); setPsRcRate(0); setPsRcCash(0);
+    setPsBfCash(0); setPsLnCash(0); setPsEvCash(0); setPsNtCash(0); setPsRcRate(1); setPsRcCash(0);
     setPsBfOnline(0); setPsLnOnline(0); setPsEvOnline(0); setPsNtOnline(0); setPsRcOnline(0);
     setTpBfCash(0); setTpLvCash(0); setTpNvRate(0); setTpNvCash(0);
     setTpEgCash(0); setTpFsCash(0); setTpCkCash(0); setTpEvCash(0); setTpNtCash(0);
@@ -1182,7 +1222,7 @@ export default function CashSeal() {
               { no: 2, name: "Lunch", fixedRate: PS_RATES.ln, color: "blue", cashQty: psLnCash, onCashQty: setPsLnCash, onlineQty: psLnOnline, onOnlineQty: setPsLnOnline },
               { no: 3, name: "Evening Snacks", fixedRate: PS_RATES.ev, color: "blue", cashQty: psEvCash, onCashQty: setPsEvCash, onlineQty: psEvOnline, onOnlineQty: setPsEvOnline },
               { no: 4, name: "Night Snacks", fixedRate: PS_RATES.nt, color: "blue", cashQty: psNtCash, onCashQty: setPsNtCash, onlineQty: psNtOnline, onOnlineQty: setPsNtOnline },
-              { no: 5, name: "Recharge", customRate: psRcRate, onCustomRate: setPsRcRate, color: "blue", cashQty: psRcCash, onCashQty: setPsRcCash, onlineQty: psRcOnline, onOnlineQty: setPsRcOnline },
+              { no: 5, name: "Recharge", customRate: psRcRate, onCustomRate: setPsRcRate, color: "blue", cashQty: psRcCash, onCashQty: setPsRcCash, onlineQty: psRcOnline, onOnlineQty: setPsRcOnline, amountMode: true },
             ]}
           />
         </div>
