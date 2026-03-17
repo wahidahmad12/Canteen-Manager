@@ -540,6 +540,7 @@ export default function SalesInvoicePage() {
   const [editingInvoice, setEditingInvoice] = useState<SalesInvoice | null>(null);
   const [poDialogOpen, setPoDialogOpen] = useState(false);
   const [editingPO, setEditingPO] = useState<PurchaseOrderType | null>(null);
+  const [viewingPo, setViewingPo] = useState<PurchaseOrderType | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
   const [filterClient, setFilterClient] = useState("all");
   const [filterMonth, setFilterMonth] = useState("all");
@@ -673,6 +674,98 @@ export default function SalesInvoicePage() {
               {poDialogOpen && <POFormDialog key={editingPO?.id || 'new-po'} po={editingPO} onClose={closePoDialog} clients={clients} />}
             </DialogContent>
           </Dialog>
+
+          {/* PO Linked Invoices Dialog */}
+          <Dialog open={!!viewingPo} onOpenChange={(o) => { if (!o) setViewingPo(null); }}>
+            <DialogContent className="max-w-3xl max-h-[85vh] flex flex-col">
+              <DialogHeader>
+                <DialogTitle className="flex items-center gap-2 text-base">
+                  <ClipboardList className="w-5 h-5 text-violet-600" />
+                  <span>Invoices linked to PO: <span className="text-violet-700 dark:text-violet-300">{viewingPo?.poNumber}</span></span>
+                </DialogTitle>
+                <p className="text-xs text-muted-foreground mt-0.5">{viewingPo?.clientName} &nbsp;•&nbsp; PO Amount: <span className="font-mono font-semibold">{fmtCurrency(viewingPo?.poAmount ?? 0)}</span> &nbsp;•&nbsp; Date: {fmtDate(viewingPo?.poDate)}</p>
+              </DialogHeader>
+              {viewingPo && (() => {
+                const linked = invoices.filter(inv => inv.poId === viewingPo.id);
+                const totalBill = linked.reduce((s, i) => s + Number(i.billAmount), 0);
+                const totalReceived = linked.reduce((s, i) => s + Number(i.paymentReceivedAmount), 0);
+                const balance = Number(viewingPo.poAmount) - totalBill;
+                return (
+                  <div className="flex flex-col gap-3 overflow-hidden">
+                    {/* Summary strip */}
+                    <div className="grid grid-cols-4 gap-2">
+                      {[
+                        { label: "Invoices", value: String(linked.length), cls: "bg-violet-50 dark:bg-violet-950/20 text-violet-700 dark:text-violet-300" },
+                        { label: "Total Billed", value: fmtCurrency(totalBill), cls: "bg-amber-50 dark:bg-amber-950/20 text-amber-700 dark:text-amber-300" },
+                        { label: "Received", value: fmtCurrency(totalReceived), cls: "bg-green-50 dark:bg-green-950/20 text-green-700 dark:text-green-300" },
+                        { label: "PO Balance", value: fmtCurrency(balance), cls: `${balance >= 0 ? "bg-cyan-50 dark:bg-cyan-950/20 text-cyan-700 dark:text-cyan-300" : "bg-red-50 dark:bg-red-950/20 text-red-700 dark:text-red-300"}` },
+                      ].map(s => (
+                        <div key={s.label} className={`rounded-lg p-2 text-center ${s.cls}`}>
+                          <p className="text-[10px] opacity-70 font-medium">{s.label}</p>
+                          <p className="font-mono font-bold text-xs sm:text-sm">{s.value}</p>
+                        </div>
+                      ))}
+                    </div>
+                    {/* Invoice list */}
+                    <div className="overflow-y-auto flex-1 border rounded-lg">
+                      {linked.length === 0 ? (
+                        <p className="text-center text-sm text-muted-foreground py-8">No invoices linked to this PO.</p>
+                      ) : (
+                        <table className="w-full text-xs">
+                          <thead className="sticky top-0 bg-violet-50 dark:bg-violet-950/30 text-violet-700 dark:text-violet-300">
+                            <tr>
+                              <th className="py-2 px-2 text-center font-semibold">#</th>
+                              <th className="py-2 px-2 text-left font-semibold">Bill No</th>
+                              <th className="py-2 px-2 text-center font-semibold">Date</th>
+                              <th className="py-2 px-2 text-right font-semibold">Bill Amt</th>
+                              <th className="py-2 px-2 text-right font-semibold">GST</th>
+                              <th className="py-2 px-2 text-right font-semibold">Total</th>
+                              <th className="py-2 px-2 text-center font-semibold">Status</th>
+                              <th className="py-2 px-2 text-right font-semibold">Received</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {linked.map((inv, idx) => {
+                              const paid = Number(inv.paymentReceivedAmount) > 0;
+                              const pending = Number(inv.totalBillAmount) - Number(inv.paymentReceivedAmount);
+                              return (
+                                <tr key={inv.id} className={`border-t border-violet-100 dark:border-violet-900/30 ${idx % 2 === 0 ? '' : 'bg-slate-50/50 dark:bg-slate-800/20'}`}>
+                                  <td className="py-1.5 px-2 text-center text-muted-foreground">{inv.slNo}</td>
+                                  <td className="py-1.5 px-2 font-mono font-medium text-slate-700 dark:text-slate-200">{inv.billNumber}</td>
+                                  <td className="py-1.5 px-2 text-center text-muted-foreground">{fmtDate(inv.billDate)}</td>
+                                  <td className="py-1.5 px-2 text-right font-mono">{fmtCurrency(inv.billAmount)}</td>
+                                  <td className="py-1.5 px-2 text-right font-mono text-slate-500">{fmtCurrency(inv.gstAmount)}</td>
+                                  <td className="py-1.5 px-2 text-right font-mono font-semibold">{fmtCurrency(inv.totalBillAmount)}</td>
+                                  <td className="py-1.5 px-2 text-center">
+                                    {paid && pending <= 0
+                                      ? <span className="text-[10px] bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300 px-1.5 py-0.5 rounded-full font-medium">Paid</span>
+                                      : paid
+                                      ? <span className="text-[10px] bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300 px-1.5 py-0.5 rounded-full font-medium">Partial</span>
+                                      : <span className="text-[10px] bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400 px-1.5 py-0.5 rounded-full font-medium">Pending</span>}
+                                  </td>
+                                  <td className="py-1.5 px-2 text-right font-mono text-green-600 dark:text-green-400">{fmtCurrency(inv.paymentReceivedAmount)}</td>
+                                </tr>
+                              );
+                            })}
+                          </tbody>
+                          <tfoot className="bg-violet-50 dark:bg-violet-950/20 sticky bottom-0">
+                            <tr className="border-t-2 border-violet-200 dark:border-violet-700">
+                              <td colSpan={3} className="py-2 px-2 text-right font-bold text-violet-700 dark:text-violet-300">Total</td>
+                              <td className="py-2 px-2 text-right font-mono font-bold">{fmtCurrency(totalBill)}</td>
+                              <td className="py-2 px-2 text-right font-mono font-bold text-slate-500">{fmtCurrency(linked.reduce((s,i) => s+Number(i.gstAmount), 0))}</td>
+                              <td className="py-2 px-2 text-right font-mono font-bold">{fmtCurrency(linked.reduce((s,i) => s+Number(i.totalBillAmount), 0))}</td>
+                              <td />
+                              <td className="py-2 px-2 text-right font-mono font-bold text-green-600 dark:text-green-400">{fmtCurrency(totalReceived)}</td>
+                            </tr>
+                          </tfoot>
+                        </table>
+                      )}
+                    </div>
+                  </div>
+                );
+              })()}
+            </DialogContent>
+          </Dialog>
         </div>
 
         <Tabs value={activeTab} onValueChange={setActiveTab} className="mb-5">
@@ -759,10 +852,16 @@ export default function SalesInvoicePage() {
                             <p className={`text-[10px] ${balance > 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>Balance</p>
                             <p className={`font-mono font-bold text-xs sm:text-sm ${balance > 0 ? 'text-green-800 dark:text-green-200' : 'text-red-800 dark:text-red-200'}`}>{fmtCurrency(balance)}</p>
                           </div>
-                          <div className="bg-violet-50 dark:bg-violet-950/20 rounded-lg p-2 text-center">
-                            <p className="text-[10px] text-violet-600 dark:text-violet-400">Invoices</p>
-                            <p className="font-mono font-bold text-xs sm:text-sm text-violet-800 dark:text-violet-200">{linked}</p>
-                          </div>
+                          <button
+                            onClick={() => linked > 0 && setViewingPo(po)}
+                            className={`bg-violet-50 dark:bg-violet-950/20 rounded-lg p-2 text-center w-full transition-all ${linked > 0 ? 'cursor-pointer hover:bg-violet-100 dark:hover:bg-violet-900/30 hover:shadow-md ring-1 ring-transparent hover:ring-violet-300 dark:hover:ring-violet-700' : 'cursor-default'}`}
+                            data-testid={`button-po-invoices-${po.id}`}
+                          >
+                            <p className="text-[10px] text-violet-600 dark:text-violet-400 flex items-center justify-center gap-1">
+                              Invoices {linked > 0 && <span className="text-[9px] opacity-60">(tap)</span>}
+                            </p>
+                            <p className={`font-mono font-bold text-xs sm:text-sm ${linked > 0 ? 'text-violet-700 dark:text-violet-300' : 'text-violet-800 dark:text-violet-200'}`}>{linked}</p>
+                          </button>
                         </div>
                         <div className="mt-2">
                           <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-1.5">
