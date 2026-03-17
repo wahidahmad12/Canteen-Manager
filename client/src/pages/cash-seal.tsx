@@ -1159,6 +1159,9 @@ export default function CashSeal() {
           <div className="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 px-4 py-3 flex items-center gap-3">
             <span className="text-xs font-semibold text-slate-500 uppercase tracking-wide">Date</span>
             <DatePicker date={date} setDate={(d) => d && setDate(d)} />
+            <span className="ml-auto text-xs font-bold px-2.5 py-1 rounded-full bg-teal-100 text-teal-700 dark:bg-teal-900/40 dark:text-teal-300 tracking-wide">
+              {["Sunday","Monday","Tuesday","Wednesday","Thursday","Friday","Saturday"][date.getDay()]}
+            </span>
           </div>
         )}
 
@@ -1193,19 +1196,29 @@ export default function CashSeal() {
             </div>
             <span className="text-xs text-green-100 font-medium">Rates: ₹20 / ₹35 / ₹20 / ₹20</span>
           </div>
-          <IncomeSection color="green"
-            cashTotal={tpTotalCash} onlineTotal={tpTotalOnline}
-            cashQtyTotal={tpCashQtyTotal} onlineQtyTotal={tpOnlineQtyTotal}
-            items={[
-              { no: 1, name: "Breakfast",                  fixedRate: TP_RATES.bf, color: "green", cashQty: tpBfCash, onCashQty: setTpBfCash, onlineQty: tpBfOnline, onOnlineQty: setTpBfOnline },
-              { no: 2, name: "Lunch Veg",                  fixedRate: TP_RATES.lv, color: "green", cashQty: tpLvCash, onCashQty: setTpLvCash, onlineQty: tpLvOnline, onOnlineQty: setTpLvOnline },
-              { no: 3, name: "Egg Lunch  ₹45",             fixedRate: TP_RATES.eg, color: "green", cashQty: tpEgCash, onCashQty: setTpEgCash, onlineQty: tpEgOnline, onOnlineQty: setTpEgOnline },
-              { no: 4, name: "Fish Lunch  ₹55 (Mon/Thu)",  fixedRate: TP_RATES.fs, color: "green", cashQty: tpFsCash, onCashQty: setTpFsCash, onlineQty: tpFsOnline, onOnlineQty: setTpFsOnline },
-              { no: 5, name: "Chicken Lunch  ₹65 (Wed/Fri/Sun)", fixedRate: TP_RATES.ck, color: "green", cashQty: tpCkCash, onCashQty: setTpCkCash, onlineQty: tpCkOnline, onOnlineQty: setTpCkOnline },
-              { no: 6, name: "Evening Snacks",             fixedRate: TP_RATES.ev, color: "green", cashQty: tpEvCash, onCashQty: setTpEvCash, onlineQty: tpEvOnline, onOnlineQty: setTpEvOnline },
-              { no: 7, name: "Night",                      fixedRate: TP_RATES.nt, color: "green", cashQty: tpNtCash, onCashQty: setTpNtCash, onlineQty: tpNtOnline, onOnlineQty: setTpNtOnline },
-            ]}
-          />
+          {(() => {
+            const dow = date.getDay(); // 0=Sun,1=Mon,2=Tue,3=Wed,4=Thu,5=Fri,6=Sat
+            const showFish    = dow === 1 || dow === 4; // Mon, Thu
+            const showChicken = dow === 0 || dow === 3 || dow === 5; // Sun, Wed, Fri
+            // Tue & Sat: only Egg; Mon & Thu: Egg + Fish; Sun/Wed/Fri: Egg + Chicken
+            let no = 2;
+            const tpItems: any[] = [
+              { no: 1, name: "Breakfast",  fixedRate: TP_RATES.bf, color: "green", cashQty: tpBfCash, onCashQty: setTpBfCash, onlineQty: tpBfOnline, onOnlineQty: setTpBfOnline },
+              { no: ++no, name: "Lunch Veg", fixedRate: TP_RATES.lv, color: "green", cashQty: tpLvCash, onCashQty: setTpLvCash, onlineQty: tpLvOnline, onOnlineQty: setTpLvOnline },
+              { no: ++no, name: "Egg Lunch ₹45", fixedRate: TP_RATES.eg, color: "green", cashQty: tpEgCash, onCashQty: setTpEgCash, onlineQty: tpEgOnline, onOnlineQty: setTpEgOnline },
+              ...(showFish    ? [{ no: ++no, name: "Fish Lunch ₹55",    fixedRate: TP_RATES.fs, color: "green", cashQty: tpFsCash, onCashQty: setTpFsCash, onlineQty: tpFsOnline, onOnlineQty: setTpFsOnline }] : []),
+              ...(showChicken ? [{ no: ++no, name: "Chicken Lunch ₹65", fixedRate: TP_RATES.ck, color: "green", cashQty: tpCkCash, onCashQty: setTpCkCash, onlineQty: tpCkOnline, onOnlineQty: setTpCkOnline }] : []),
+              { no: ++no, name: "Evening Snacks", fixedRate: TP_RATES.ev, color: "green", cashQty: tpEvCash, onCashQty: setTpEvCash, onlineQty: tpEvOnline, onOnlineQty: setTpEvOnline },
+              { no: ++no, name: "Night",          fixedRate: TP_RATES.nt, color: "green", cashQty: tpNtCash, onCashQty: setTpNtCash, onlineQty: tpNtOnline, onOnlineQty: setTpNtOnline },
+            ];
+            return (
+              <IncomeSection color="green"
+                cashTotal={tpTotalCash} onlineTotal={tpTotalOnline}
+                cashQtyTotal={tpCashQtyTotal} onlineQtyTotal={tpOnlineQtyTotal}
+                items={tpItems}
+              />
+            );
+          })()}
         </div>
 
         {/* Grand Total Income — split by Cash / Online */}
