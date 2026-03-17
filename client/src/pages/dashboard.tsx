@@ -455,7 +455,65 @@ export default function Dashboard() {
                   </CardTitle>
                 </CardHeader>
                 <CardContent className="p-0">
-                  <div className="overflow-x-auto">
+                  {/* Mobile cards */}
+                  <div className="sm:hidden divide-y">
+                    {sortedReports.map((report) => {
+                      const opening = Number(report.openingBalance) || 0;
+                      const received = Number(report.receivedAmount) || 0;
+                      const totalCash = opening + received;
+                      const totalExpense = report.items?.reduce((s: number, i: any) => s + (Number(i.amount) || 0), 0) || 0;
+                      return (
+                        <div key={report.id} className="p-3 flex flex-col gap-2" data-testid={`mobile-card-report-${report.id}`}>
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-2.5">
+                              <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-indigo-500 to-purple-500 text-white flex items-center justify-center font-bold text-sm shrink-0 shadow-sm">
+                                {format(new Date(report.date), "dd")}
+                              </div>
+                              <div>
+                                <div className="font-semibold text-sm">{format(new Date(report.date), "dd-MM-yyyy")}</div>
+                                <div className="text-[10px] text-muted-foreground">{format(new Date(report.date), "EEEE")} · #{report.reportNumber}</div>
+                              </div>
+                            </div>
+                            <div className="flex gap-1">
+                              <Link href={`/report/${report.id}/pdf`}>
+                                <Button size="sm" variant="ghost" className="h-8 w-8 p-0 text-emerald-600" data-testid={`button-pdf-report-${report.id}`}><FileDown className="w-4 h-4" /></Button>
+                              </Link>
+                              <Link href={`/report/${report.id}`}>
+                                <Button size="sm" variant="ghost" className="h-8 px-2 text-xs text-indigo-600" data-testid={`button-view-report-${report.id}`}>View <ArrowRight className="w-3 h-3 ml-1" /></Button>
+                              </Link>
+                              {isAdmin && (
+                                <AlertDialog>
+                                  <AlertDialogTrigger asChild>
+                                    <Button size="sm" variant="ghost" className="h-8 w-8 p-0 text-destructive" data-testid={`button-delete-report-${report.id}`}><Trash2 className="w-4 h-4" /></Button>
+                                  </AlertDialogTrigger>
+                                  <AlertDialogContent>
+                                    <AlertDialogHeader><AlertDialogTitle>Are you sure?</AlertDialogTitle><AlertDialogDescription>This will permanently delete the report for {format(new Date(report.date), "dd-MM-yyyy")}.</AlertDialogDescription></AlertDialogHeader>
+                                    <AlertDialogFooter><AlertDialogCancel>Cancel</AlertDialogCancel><AlertDialogAction onClick={() => deleteMutation.mutate(report.id)} className="bg-destructive hover:bg-destructive/90 text-destructive-foreground">Delete</AlertDialogAction></AlertDialogFooter>
+                                  </AlertDialogContent>
+                                </AlertDialog>
+                              )}
+                            </div>
+                          </div>
+                          <div className="grid grid-cols-3 gap-1.5 text-center">
+                            <div className="bg-slate-50 dark:bg-slate-800/50 rounded-lg p-1.5">
+                              <div className="text-[10px] text-muted-foreground">Total Cash</div>
+                              <div className="font-mono text-xs font-bold text-indigo-600">{fmt(totalCash)}</div>
+                            </div>
+                            <div className="bg-rose-50 dark:bg-rose-950/20 rounded-lg p-1.5">
+                              <div className="text-[10px] text-muted-foreground">Expense</div>
+                              <div className="font-mono text-xs font-semibold text-rose-600">{fmt(totalExpense)}</div>
+                            </div>
+                            <div className="bg-emerald-50 dark:bg-emerald-950/20 rounded-lg p-1.5">
+                              <div className="text-[10px] text-muted-foreground">Received</div>
+                              <div className="font-mono text-xs font-semibold text-emerald-600">{fmt(received)}</div>
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                  {/* Desktop table */}
+                  <div className="hidden sm:block overflow-x-auto">
                     <table className="w-full text-sm">
                       <thead>
                         <tr className="bg-indigo-50 dark:bg-indigo-950/20 border-b border-indigo-200 dark:border-indigo-800/50">
@@ -474,21 +532,13 @@ export default function Dashboard() {
                           const received = Number(report.receivedAmount) || 0;
                           const totalCash = opening + received;
                           const totalExpense = report.items?.reduce((sum: number, item: any) => sum + (Number(item.amount) || 0), 0) || 0;
-                          
                           return (
                             <tr key={report.id} className="border-b last:border-0 hover:bg-indigo-50/50 dark:hover:bg-indigo-950/10 transition-colors group">
-                              <td className="px-3 py-2.5">
-                                <span className="w-7 h-7 rounded-full bg-gradient-to-br from-indigo-400 to-purple-500 text-white text-[10px] inline-flex items-center justify-center font-bold">#{report.reportNumber}</span>
-                              </td>
+                              <td className="px-3 py-2.5"><span className="w-7 h-7 rounded-full bg-gradient-to-br from-indigo-400 to-purple-500 text-white text-[10px] inline-flex items-center justify-center font-bold">#{report.reportNumber}</span></td>
                               <td className="px-3 py-2.5 font-medium">
                                 <div className="flex items-center gap-2.5">
-                                  <div className="w-9 h-9 rounded-lg bg-gradient-to-br from-indigo-500 to-purple-500 text-white flex items-center justify-center font-bold text-xs shrink-0 shadow-sm">
-                                    {format(new Date(report.date), "dd")}
-                                  </div>
-                                  <div className="flex flex-col min-w-0">
-                                    <span className="text-sm truncate">{format(new Date(report.date), "MM-yyyy")}</span>
-                                    <span className="text-[10px] text-muted-foreground truncate">{format(new Date(report.date), "EEEE")}</span>
-                                  </div>
+                                  <div className="w-9 h-9 rounded-lg bg-gradient-to-br from-indigo-500 to-purple-500 text-white flex items-center justify-center font-bold text-xs shrink-0 shadow-sm">{format(new Date(report.date), "dd")}</div>
+                                  <div className="flex flex-col min-w-0"><span className="text-sm truncate">{format(new Date(report.date), "MM-yyyy")}</span><span className="text-[10px] text-muted-foreground truncate">{format(new Date(report.date), "EEEE")}</span></div>
                                 </div>
                               </td>
                               <td className="px-3 py-2.5 text-right font-mono text-xs text-muted-foreground">{fmt(opening)}</td>
@@ -497,43 +547,9 @@ export default function Dashboard() {
                               <td className="px-3 py-2.5 text-right font-mono text-xs text-rose-600 font-semibold">{fmt(totalExpense)}</td>
                               <td className="px-3 py-2.5 text-right">
                                 <div className="flex items-center justify-end gap-1">
-                                  <Link href={`/report/${report.id}/pdf`}>
-                                    <Button size="sm" variant="ghost" className="h-7 text-xs text-emerald-600" data-testid={`button-pdf-report-${report.id}`}>
-                                      <FileDown className="w-3.5 h-3.5 mr-0.5" />
-                                      <span className="hidden sm:inline">PDF</span>
-                                    </Button>
-                                  </Link>
-                                  <Link href={`/report/${report.id}`}>
-                                    <Button size="sm" variant="ghost" className="h-7 text-xs text-indigo-600" data-testid={`button-view-report-${report.id}`}>
-                                      View <ArrowRight className="w-3 h-3 ml-1" />
-                                    </Button>
-                                  </Link>
-                                  {isAdmin && (
-                                  <AlertDialog>
-                                    <AlertDialogTrigger asChild>
-                                      <Button size="sm" variant="ghost" className="h-7 text-xs text-destructive" data-testid={`button-delete-report-${report.id}`}>
-                                        <Trash2 className="w-3.5 h-3.5" />
-                                      </Button>
-                                    </AlertDialogTrigger>
-                                    <AlertDialogContent>
-                                      <AlertDialogHeader>
-                                        <AlertDialogTitle>Are you sure?</AlertDialogTitle>
-                                        <AlertDialogDescription>
-                                          This will permanently delete the report for {format(new Date(report.date), "dd-MM-yyyy")}.
-                                        </AlertDialogDescription>
-                                      </AlertDialogHeader>
-                                      <AlertDialogFooter>
-                                        <AlertDialogCancel>Cancel</AlertDialogCancel>
-                                        <AlertDialogAction 
-                                          onClick={() => deleteMutation.mutate(report.id)}
-                                          className="bg-destructive hover:bg-destructive/90 text-destructive-foreground"
-                                        >
-                                          Delete
-                                        </AlertDialogAction>
-                                      </AlertDialogFooter>
-                                    </AlertDialogContent>
-                                  </AlertDialog>
-                                  )}
+                                  <Link href={`/report/${report.id}/pdf`}><Button size="sm" variant="ghost" className="h-7 text-xs text-emerald-600" data-testid={`button-pdf-report-${report.id}`}><FileDown className="w-3.5 h-3.5 mr-0.5" />PDF</Button></Link>
+                                  <Link href={`/report/${report.id}`}><Button size="sm" variant="ghost" className="h-7 text-xs text-indigo-600" data-testid={`button-view-report-${report.id}`}>View <ArrowRight className="w-3 h-3 ml-1" /></Button></Link>
+                                  {isAdmin && (<AlertDialog><AlertDialogTrigger asChild><Button size="sm" variant="ghost" className="h-7 text-xs text-destructive" data-testid={`button-delete-report-${report.id}`}><Trash2 className="w-3.5 h-3.5" /></Button></AlertDialogTrigger><AlertDialogContent><AlertDialogHeader><AlertDialogTitle>Are you sure?</AlertDialogTitle><AlertDialogDescription>This will permanently delete the report for {format(new Date(report.date), "dd-MM-yyyy")}.</AlertDialogDescription></AlertDialogHeader><AlertDialogFooter><AlertDialogCancel>Cancel</AlertDialogCancel><AlertDialogAction onClick={() => deleteMutation.mutate(report.id)} className="bg-destructive hover:bg-destructive/90 text-destructive-foreground">Delete</AlertDialogAction></AlertDialogFooter></AlertDialogContent></AlertDialog>)}
                                 </div>
                               </td>
                             </tr>
@@ -575,7 +591,57 @@ export default function Dashboard() {
                   </CardTitle>
                 </CardHeader>
                 <CardContent className="p-0">
-                  <div className="overflow-x-auto">
+                  {/* Mobile cards */}
+                  <div className="sm:hidden divide-y">
+                    {cashSeals.map((seal: any) => {
+                      const n = (v: any) => Number(v) || 0;
+                      const psIncome = n(seal.incomePsBreakfastCashQty)*5 + n(seal.incomePsLunchCashQty)*20 + n(seal.incomePsEveningCashQty)*10 + n(seal.incomePsNightCashQty)*10 + n(seal.incomePsRechargeRate)*n(seal.incomePsRechargeCashQty) + n(seal.incomePsBreakfastOnlineQty)*5 + n(seal.incomePsLunchOnlineQty)*20 + n(seal.incomePsEveningOnlineQty)*10 + n(seal.incomePsNightOnlineQty)*10 + n(seal.incomePsRechargeRate)*n(seal.incomePsRechargeOnlineQty);
+                      const tpIncome = n(seal.incomeTpBreakfastCashQty)*20 + n(seal.incomeTpLunchVegCashQty)*35 + n(seal.incomeTpLunchNvRate)*n(seal.incomeTpLunchNvCashQty) + n(seal.incomeTpEveningCashQty)*20 + n(seal.incomeTpNightCashQty)*20 + n(seal.incomeTpBreakfastOnlineQty)*20 + n(seal.incomeTpLunchVegOnlineQty)*35 + n(seal.incomeTpLunchNvRate)*n(seal.incomeTpLunchNvOnlineQty) + n(seal.incomeTpEveningOnlineQty)*20 + n(seal.incomeTpNightOnlineQty)*20;
+                      const legacyIncome = n(seal.incomeMorningQty)*5 + n(seal.incomeLunchQty)*20 + n(seal.incomeEveningQty)*10 + n(seal.incomeNightQty)*10 + n(seal.incomeNonVegRate)*n(seal.incomeNonVegQty) + n(seal.incomeVegRate)*n(seal.incomeVegQty) + n(seal.incomeMorningCashRate)*n(seal.incomeMorningCashQty) + n(seal.incomeEveningCashRate)*n(seal.incomeEveningCashQty) + n(seal.incomeOnlineBreakfastQty)*5 + n(seal.incomeOnlineLunchQty)*20 + n(seal.incomeOnlineEveningSnacksQty)*10 + n(seal.incomeOnlineNightQty)*10;
+                      const income = psIncome + tpIncome + legacyIncome;
+                      const expense = (n(seal.expenseBananaQty) * 4.5) + (n(seal.expenseDahiBharQty) * n(seal.expenseDahiBharRate)) + n(seal.expenseOtherAmount);
+                      const balance = income - expense;
+                      return (
+                        <div key={seal.id} className="p-3 flex flex-col gap-2" data-testid={`mobile-card-seal-${seal.id}`}>
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-2.5">
+                              <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-teal-500 to-cyan-500 text-white flex items-center justify-center font-bold text-sm shrink-0 shadow-sm">
+                                {format(new Date(seal.date), "dd")}
+                              </div>
+                              <div>
+                                <div className="font-semibold text-sm">{format(new Date(seal.date), "dd-MM-yyyy")}</div>
+                                <div className="text-[10px] text-muted-foreground">{format(new Date(seal.date), "EEEE")} · #{seal.serialNumber}</div>
+                              </div>
+                            </div>
+                            <div className="flex gap-1">
+                              <Link href={`/cash-seal?edit=${seal.id}`}><Button size="sm" variant="ghost" className="h-8 w-8 p-0 text-teal-600" data-testid={`button-edit-seal-${seal.id}`}><Pencil className="w-4 h-4" /></Button></Link>
+                              <Link href={`/cash-seal/${seal.id}/pdf`}><Button size="sm" variant="ghost" className="h-8 w-8 p-0 text-emerald-600" data-testid={`button-pdf-seal-${seal.id}`}><FileDown className="w-4 h-4" /></Button></Link>
+                            </div>
+                          </div>
+                          <div className="grid grid-cols-4 gap-1 text-center">
+                            <div className="bg-emerald-50 dark:bg-emerald-950/20 rounded-lg p-1.5">
+                              <div className="text-[10px] text-muted-foreground">Income</div>
+                              <div className="font-mono text-[11px] font-bold text-emerald-600">{fmt(income)}</div>
+                            </div>
+                            <div className="bg-rose-50 dark:bg-rose-950/20 rounded-lg p-1.5">
+                              <div className="text-[10px] text-muted-foreground">Expense</div>
+                              <div className="font-mono text-[11px] font-semibold text-rose-600">{fmt(expense)}</div>
+                            </div>
+                            <div className="bg-blue-50 dark:bg-blue-950/20 rounded-lg p-1.5">
+                              <div className="text-[10px] text-muted-foreground">Balance</div>
+                              <div className="font-mono text-[11px] font-bold text-blue-600">{fmt(balance)}</div>
+                            </div>
+                            <div className="bg-orange-50 dark:bg-orange-950/20 rounded-lg p-1.5">
+                              <div className="text-[10px] text-muted-foreground">Akbar Ali</div>
+                              <div className="font-mono text-[11px] font-semibold text-orange-600">{fmt(n(seal.totalGivenToAkbarAli))}</div>
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                  {/* Desktop table */}
+                  <div className="hidden sm:block overflow-x-auto">
                     <table className="w-full text-sm">
                       <thead>
                         <tr className="bg-teal-50 dark:bg-teal-950/20 border-b border-teal-200 dark:border-teal-800/50">
@@ -589,35 +655,22 @@ export default function Dashboard() {
                         </tr>
                       </thead>
                       <tbody>
-                        {cashSeals.map((seal: any, idx: number) => {
+                        {cashSeals.map((seal: any) => {
                           const BANANA_RATE = 4.5;
                           const n = (v: any) => Number(v) || 0;
-                          // New PS income
                           const psIncome = n(seal.incomePsBreakfastCashQty)*5 + n(seal.incomePsLunchCashQty)*20 + n(seal.incomePsEveningCashQty)*10 + n(seal.incomePsNightCashQty)*10 + n(seal.incomePsRechargeRate)*n(seal.incomePsRechargeCashQty) + n(seal.incomePsBreakfastOnlineQty)*5 + n(seal.incomePsLunchOnlineQty)*20 + n(seal.incomePsEveningOnlineQty)*10 + n(seal.incomePsNightOnlineQty)*10 + n(seal.incomePsRechargeRate)*n(seal.incomePsRechargeOnlineQty);
-                          // New TP income
                           const tpIncome = n(seal.incomeTpBreakfastCashQty)*20 + n(seal.incomeTpLunchVegCashQty)*35 + n(seal.incomeTpLunchNvRate)*n(seal.incomeTpLunchNvCashQty) + n(seal.incomeTpEveningCashQty)*20 + n(seal.incomeTpNightCashQty)*20 + n(seal.incomeTpBreakfastOnlineQty)*20 + n(seal.incomeTpLunchVegOnlineQty)*35 + n(seal.incomeTpLunchNvRate)*n(seal.incomeTpLunchNvOnlineQty) + n(seal.incomeTpEveningOnlineQty)*20 + n(seal.incomeTpNightOnlineQty)*20;
-                          // Legacy income
                           const legacyIncome = n(seal.incomeMorningQty)*5 + n(seal.incomeLunchQty)*20 + n(seal.incomeEveningQty)*10 + n(seal.incomeNightQty)*10 + n(seal.incomeNonVegRate)*n(seal.incomeNonVegQty) + n(seal.incomeVegRate)*n(seal.incomeVegQty) + n(seal.incomeMorningCashRate)*n(seal.incomeMorningCashQty) + n(seal.incomeEveningCashRate)*n(seal.incomeEveningCashQty) + n(seal.incomeOnlineBreakfastQty)*5 + n(seal.incomeOnlineLunchQty)*20 + n(seal.incomeOnlineEveningSnacksQty)*10 + n(seal.incomeOnlineNightQty)*10;
                           const income = psIncome + tpIncome + legacyIncome;
-                          const expense = (Number(seal.expenseBananaQty) * BANANA_RATE) +
-                            (Number(seal.expenseDahiBharQty) * Number(seal.expenseDahiBharRate)) +
-                            Number(seal.expenseOtherAmount);
+                          const expense = (n(seal.expenseBananaQty) * BANANA_RATE) + (n(seal.expenseDahiBharQty) * n(seal.expenseDahiBharRate)) + n(seal.expenseOtherAmount);
                           const balance = income - expense;
-                          
                           return (
                             <tr key={seal.id} className="border-b last:border-0 hover:bg-teal-50/50 dark:hover:bg-teal-950/10 transition-colors">
-                              <td className="px-3 py-2.5">
-                                <span className="w-7 h-7 rounded-full bg-gradient-to-br from-teal-400 to-cyan-500 text-white text-[10px] inline-flex items-center justify-center font-bold">#{seal.serialNumber}</span>
-                              </td>
+                              <td className="px-3 py-2.5"><span className="w-7 h-7 rounded-full bg-gradient-to-br from-teal-400 to-cyan-500 text-white text-[10px] inline-flex items-center justify-center font-bold">#{seal.serialNumber}</span></td>
                               <td className="px-3 py-2.5 font-medium">
                                 <div className="flex items-center gap-2.5">
-                                  <div className="w-9 h-9 rounded-lg bg-gradient-to-br from-teal-500 to-cyan-500 text-white flex items-center justify-center font-bold text-xs shrink-0 shadow-sm">
-                                    {format(new Date(seal.date), "dd")}
-                                  </div>
-                                  <div className="flex flex-col min-w-0">
-                                    <span className="text-sm truncate">{format(new Date(seal.date), "MM-yyyy")}</span>
-                                    <span className="text-[10px] text-muted-foreground truncate">{format(new Date(seal.date), "EEEE")}</span>
-                                  </div>
+                                  <div className="w-9 h-9 rounded-lg bg-gradient-to-br from-teal-500 to-cyan-500 text-white flex items-center justify-center font-bold text-xs shrink-0 shadow-sm">{format(new Date(seal.date), "dd")}</div>
+                                  <div className="flex flex-col min-w-0"><span className="text-sm truncate">{format(new Date(seal.date), "MM-yyyy")}</span><span className="text-[10px] text-muted-foreground truncate">{format(new Date(seal.date), "EEEE")}</span></div>
                                 </div>
                               </td>
                               <td className="px-3 py-2.5 text-right font-mono text-xs text-emerald-600 font-semibold">{fmt(income)}</td>
@@ -626,18 +679,8 @@ export default function Dashboard() {
                               <td className="px-3 py-2.5 text-right font-mono text-xs text-orange-600 font-semibold">{fmt(Number(seal.totalGivenToAkbarAli))}</td>
                               <td className="px-3 py-2.5 text-right">
                                 <div className="flex items-center justify-end gap-1">
-                                  <Link href={`/cash-seal?edit=${seal.id}`}>
-                                    <Button size="sm" variant="ghost" className="h-7 text-xs text-teal-600 hover:text-teal-700 hover:bg-teal-50 dark:hover:bg-teal-900/20" data-testid={`button-edit-seal-${seal.id}`}>
-                                      <Pencil className="w-3.5 h-3.5 mr-0.5" />
-                                      <span className="hidden sm:inline">Edit</span>
-                                    </Button>
-                                  </Link>
-                                  <Link href={`/cash-seal/${seal.id}/pdf`}>
-                                    <Button size="sm" variant="ghost" className="h-7 text-xs text-emerald-600" data-testid={`button-pdf-seal-${seal.id}`}>
-                                      <FileDown className="w-3.5 h-3.5 mr-0.5" />
-                                      <span className="hidden sm:inline">PDF</span>
-                                    </Button>
-                                  </Link>
+                                  <Link href={`/cash-seal?edit=${seal.id}`}><Button size="sm" variant="ghost" className="h-7 text-xs text-teal-600" data-testid={`button-edit-seal-${seal.id}`}><Pencil className="w-3.5 h-3.5 mr-0.5" />Edit</Button></Link>
+                                  <Link href={`/cash-seal/${seal.id}/pdf`}><Button size="sm" variant="ghost" className="h-7 text-xs text-emerald-600" data-testid={`button-pdf-seal-${seal.id}`}><FileDown className="w-3.5 h-3.5 mr-0.5" />PDF</Button></Link>
                                 </div>
                               </td>
                             </tr>
@@ -679,7 +722,48 @@ export default function Dashboard() {
                   </CardTitle>
                 </CardHeader>
                 <CardContent className="p-0">
-                  <div className="overflow-x-auto">
+                  {/* Mobile cards */}
+                  <div className="sm:hidden divide-y">
+                    {sortedInventories.map((inv) => {
+                      const totalKitchenUsed = inv.kitchenStock?.reduce((s: number, i: any) => s + (Number(i.used) || 0), 0) || 0;
+                      const totalBiscuitUsed = inv.biscuits?.reduce((s: number, i: any) => s + (Number(i.used) || 0), 0) || 0;
+                      return (
+                        <div key={inv.id} className="p-3 flex flex-col gap-2" data-testid={`mobile-card-inventory-${inv.id}`}>
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-2.5">
+                              <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-orange-500 to-amber-500 text-white flex items-center justify-center font-bold text-sm shrink-0 shadow-sm">
+                                {format(new Date(inv.date), "dd")}
+                              </div>
+                              <div>
+                                <div className="font-semibold text-sm">{format(new Date(inv.date), "dd-MM-yyyy")}</div>
+                                <div className="text-[10px] text-muted-foreground">{format(new Date(inv.date), "EEEE")} · #{(inv as any).serialNumber}</div>
+                              </div>
+                            </div>
+                            <div className="flex gap-1">
+                              <Link href={`/inventory/${inv.id}/pdf`}><Button size="sm" variant="ghost" className="h-8 w-8 p-0 text-emerald-600" data-testid={`button-pdf-inventory-${inv.id}`}><FileDown className="w-4 h-4" /></Button></Link>
+                              <Button size="sm" variant="ghost" className="h-8 px-2 text-xs text-orange-600" data-testid={`button-view-inventory-${inv.id}`}>View <ArrowRight className="w-3 h-3 ml-1" /></Button>
+                            </div>
+                          </div>
+                          <div className="grid grid-cols-3 gap-1.5 text-center">
+                            <div className="bg-indigo-50 dark:bg-indigo-950/20 rounded-lg p-1.5">
+                              <div className="text-[10px] text-muted-foreground">Kitchen</div>
+                              <div className="font-mono text-xs font-bold text-indigo-600">{inv.kitchenStock?.length || 0} items</div>
+                            </div>
+                            <div className="bg-amber-50 dark:bg-amber-950/20 rounded-lg p-1.5">
+                              <div className="text-[10px] text-muted-foreground">Biscuits</div>
+                              <div className="font-mono text-xs font-semibold text-amber-600">{inv.biscuits?.length || 0} items</div>
+                            </div>
+                            <div className="bg-rose-50 dark:bg-rose-950/20 rounded-lg p-1.5">
+                              <div className="text-[10px] text-muted-foreground">Total Used</div>
+                              <div className="font-mono text-xs font-semibold text-rose-600">{(totalKitchenUsed + totalBiscuitUsed).toFixed(0)}</div>
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                  {/* Desktop table */}
+                  <div className="hidden sm:block overflow-x-auto">
                     <table className="w-full text-sm">
                       <thead>
                         <tr className="bg-orange-50 dark:bg-orange-950/20 border-b border-orange-200 dark:border-orange-800/50">
@@ -692,44 +776,25 @@ export default function Dashboard() {
                         </tr>
                       </thead>
                       <tbody>
-                        {sortedInventories.map((inv, idx) => {
+                        {sortedInventories.map((inv) => {
                           const totalKitchenUsed = inv.kitchenStock?.reduce((sum: number, item: any) => sum + (Number(item.used) || 0), 0) || 0;
                           const totalBiscuitUsed = inv.biscuits?.reduce((sum: number, item: any) => sum + (Number(item.used) || 0), 0) || 0;
-                          
                           return (
                             <tr key={inv.id} className="border-b last:border-0 hover:bg-orange-50/50 dark:hover:bg-orange-950/10 transition-colors">
-                              <td className="px-3 py-2.5">
-                                <span className="w-7 h-7 rounded-full bg-gradient-to-br from-orange-400 to-amber-500 text-white text-[10px] inline-flex items-center justify-center font-bold">#{(inv as any).serialNumber}</span>
-                              </td>
+                              <td className="px-3 py-2.5"><span className="w-7 h-7 rounded-full bg-gradient-to-br from-orange-400 to-amber-500 text-white text-[10px] inline-flex items-center justify-center font-bold">#{(inv as any).serialNumber}</span></td>
                               <td className="px-3 py-2.5 font-medium">
                                 <div className="flex items-center gap-2.5">
-                                  <div className="w-9 h-9 rounded-lg bg-gradient-to-br from-orange-500 to-amber-500 text-white flex items-center justify-center font-bold text-xs shrink-0 shadow-sm">
-                                    {format(new Date(inv.date), "dd")}
-                                  </div>
-                                  <div className="flex flex-col min-w-0">
-                                    <span className="text-sm truncate">{format(new Date(inv.date), "MM-yyyy")}</span>
-                                    <span className="text-[10px] text-muted-foreground truncate">{format(new Date(inv.date), "EEEE")}</span>
-                                  </div>
+                                  <div className="w-9 h-9 rounded-lg bg-gradient-to-br from-orange-500 to-amber-500 text-white flex items-center justify-center font-bold text-xs shrink-0 shadow-sm">{format(new Date(inv.date), "dd")}</div>
+                                  <div className="flex flex-col min-w-0"><span className="text-sm truncate">{format(new Date(inv.date), "MM-yyyy")}</span><span className="text-[10px] text-muted-foreground truncate">{format(new Date(inv.date), "EEEE")}</span></div>
                                 </div>
                               </td>
-                              <td className="px-3 py-2.5 text-center">
-                                <span className="font-mono text-xs bg-indigo-50 dark:bg-indigo-900/20 text-indigo-600 dark:text-indigo-400 px-2 py-0.5 rounded-full font-semibold">{inv.kitchenStock?.length || 0}</span>
-                              </td>
-                              <td className="px-3 py-2.5 text-center">
-                                <span className="font-mono text-xs bg-amber-50 dark:bg-amber-900/20 text-amber-600 dark:text-amber-400 px-2 py-0.5 rounded-full font-semibold">{inv.biscuits?.length || 0}</span>
-                              </td>
+                              <td className="px-3 py-2.5 text-center"><span className="font-mono text-xs bg-indigo-50 dark:bg-indigo-900/20 text-indigo-600 px-2 py-0.5 rounded-full font-semibold">{inv.kitchenStock?.length || 0}</span></td>
+                              <td className="px-3 py-2.5 text-center"><span className="font-mono text-xs bg-amber-50 dark:bg-amber-900/20 text-amber-600 px-2 py-0.5 rounded-full font-semibold">{inv.biscuits?.length || 0}</span></td>
                               <td className="px-3 py-2.5 text-right font-mono text-xs text-rose-600 font-semibold">{(totalKitchenUsed + totalBiscuitUsed).toFixed(0)} items</td>
                               <td className="px-3 py-2.5 text-right">
                                 <div className="flex items-center justify-end gap-1">
-                                  <Link href={`/inventory/${inv.id}/pdf`}>
-                                    <Button size="sm" variant="ghost" className="h-7 text-xs text-emerald-600" data-testid={`button-pdf-inventory-${inv.id}`}>
-                                      <FileDown className="w-3.5 h-3.5 mr-0.5" />
-                                      <span className="hidden sm:inline">PDF</span>
-                                    </Button>
-                                  </Link>
-                                  <Button size="sm" variant="ghost" className="h-7 text-xs text-orange-600" data-testid={`button-view-inventory-${inv.id}`}>
-                                    View <ArrowRight className="w-3 h-3 ml-1" />
-                                  </Button>
+                                  <Link href={`/inventory/${inv.id}/pdf`}><Button size="sm" variant="ghost" className="h-7 text-xs text-emerald-600" data-testid={`button-pdf-inventory-${inv.id}`}><FileDown className="w-3.5 h-3.5 mr-0.5" />PDF</Button></Link>
+                                  <Button size="sm" variant="ghost" className="h-7 text-xs text-orange-600" data-testid={`button-view-inventory-${inv.id}`}>View <ArrowRight className="w-3 h-3 ml-1" /></Button>
                                 </div>
                               </td>
                             </tr>
@@ -871,7 +936,39 @@ export default function Dashboard() {
                   </CardTitle>
                 </CardHeader>
                 <CardContent className="p-0">
-                  <div className="overflow-x-auto">
+                  {/* Mobile cards */}
+                  <div className="sm:hidden divide-y">
+                    {purchaseRequests.map((pr: any) => (
+                      <div key={pr.id} className="p-3 flex flex-col gap-2" data-testid={`mobile-card-purchase-${pr.id}`}>
+                        <div className="flex items-center justify-between gap-2">
+                          <div className="flex items-center gap-2.5 min-w-0">
+                            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-amber-500 to-orange-500 text-white flex items-center justify-center shrink-0 shadow-sm">
+                              <ShoppingCart className="w-4 h-4" />
+                            </div>
+                            <div className="min-w-0">
+                              <div className="font-semibold text-sm truncate">{pr.clientName}</div>
+                              <div className="text-[10px] text-muted-foreground">{format(new Date(pr.date), "dd-MM-yyyy")} · #{pr.serialNumber} · {pr.items?.length || 0} items</div>
+                            </div>
+                          </div>
+                          <span className={`shrink-0 inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold ${pr.status === 'approved' ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400' : pr.status === 'rejected' ? 'bg-rose-100 text-rose-700 dark:bg-rose-900/30 dark:text-rose-400' : 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400'}`}>
+                            {pr.status === 'approved' ? 'Approved' : pr.status === 'rejected' ? 'Rejected' : 'Pending'}
+                          </span>
+                        </div>
+                        <div className="flex gap-1 justify-end">
+                          {pr.status === 'approved' && (<>
+                            <Link href={`/purchase-request/${pr.id}/pdf`}><Button size="sm" variant="outline" className="h-7 text-xs gap-1" data-testid={`button-view-pdf-${pr.id}`}><FileDown className="w-3 h-3" />PDF</Button></Link>
+                            <Link href={`/purchase-invoice/from/${pr.id}`}><Button size="sm" variant="outline" className="h-7 text-xs gap-1 text-orange-600" data-testid={`button-create-invoice-${pr.id}`}><Receipt className="w-3 h-3" />Invoice</Button></Link>
+                          </>)}
+                          {isAdmin && (pr.status === 'pending' || pr.status === 'approved') && (
+                            <Link href={`/purchase-request/${pr.id}/review`}><Button size="sm" variant="outline" className={`h-7 text-xs gap-1 ${pr.status === 'pending' ? 'text-emerald-600' : 'text-blue-600'}`} data-testid={`button-review-purchase-${pr.id}`}>{pr.status === 'pending' ? <><Check className="w-3 h-3" />Review</> : <><Pencil className="w-3 h-3" />Edit</>}</Button></Link>
+                          )}
+                          {isAdmin && (<AlertDialog><AlertDialogTrigger asChild><Button size="sm" variant="ghost" className="h-7 w-7 p-0 text-destructive" data-testid={`button-delete-purchase-${pr.id}`}><Trash2 className="w-3.5 h-3.5" /></Button></AlertDialogTrigger><AlertDialogContent><AlertDialogHeader><AlertDialogTitle>Delete purchase request?</AlertDialogTitle><AlertDialogDescription>This will permanently delete the purchase request for {pr.clientName} ({format(new Date(pr.date), "dd-MM-yyyy")}).</AlertDialogDescription></AlertDialogHeader><AlertDialogFooter><AlertDialogCancel>Cancel</AlertDialogCancel><AlertDialogAction onClick={() => deletePurchaseMutation.mutate(pr.id)} className="bg-destructive hover:bg-destructive/90 text-destructive-foreground">Delete</AlertDialogAction></AlertDialogFooter></AlertDialogContent></AlertDialog>)}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                  {/* Desktop table */}
+                  <div className="hidden sm:block overflow-x-auto">
                     <table className="w-full text-sm">
                       <thead>
                         <tr className="bg-amber-50 dark:bg-amber-950/20 border-b border-amber-200 dark:border-amber-800/50">
@@ -885,58 +982,31 @@ export default function Dashboard() {
                         </tr>
                       </thead>
                       <tbody>
-                        {purchaseRequests.map((pr: any, idx: number) => (
+                        {purchaseRequests.map((pr: any) => (
                           <tr key={pr.id} className="border-b last:border-0 hover:bg-amber-50/50 dark:hover:bg-amber-950/10 transition-colors">
-                            <td className="px-3 py-2.5">
-                              <span className="w-7 h-7 rounded-full bg-gradient-to-br from-amber-400 to-orange-500 text-white text-[10px] inline-flex items-center justify-center font-bold">#{pr.serialNumber}</span>
-                            </td>
+                            <td className="px-3 py-2.5"><span className="w-7 h-7 rounded-full bg-gradient-to-br from-amber-400 to-orange-500 text-white text-[10px] inline-flex items-center justify-center font-bold">#{pr.serialNumber}</span></td>
                             <td className="px-3 py-2.5 font-medium">
                               <div className="flex items-center gap-2.5">
-                                <div className="w-9 h-9 rounded-lg bg-gradient-to-br from-amber-500 to-orange-500 text-white flex items-center justify-center shrink-0 shadow-sm">
-                                  <ShoppingCart className="w-4 h-4" />
-                                </div>
+                                <div className="w-9 h-9 rounded-lg bg-gradient-to-br from-amber-500 to-orange-500 text-white flex items-center justify-center shrink-0 shadow-sm"><ShoppingCart className="w-4 h-4" /></div>
                                 <span className="truncate text-sm">{pr.clientName}</span>
                               </div>
                             </td>
                             <td className="px-3 py-2.5 text-xs text-muted-foreground">{pr.createdBy || '-'}</td>
                             <td className="px-3 py-2.5 text-xs text-muted-foreground">{format(new Date(pr.date), "dd-MM-yyyy")}</td>
+                            <td className="px-3 py-2.5 text-center"><span className="font-mono text-xs bg-amber-50 dark:bg-amber-900/20 text-amber-600 px-2 py-0.5 rounded-full font-semibold">{pr.items?.length || 0}</span></td>
                             <td className="px-3 py-2.5 text-center">
-                              <span className="font-mono text-xs bg-amber-50 dark:bg-amber-900/20 text-amber-600 dark:text-amber-400 px-2 py-0.5 rounded-full font-semibold">{pr.items?.length || 0}</span>
-                            </td>
-                            <td className="px-3 py-2.5 text-center">
-                              <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-semibold shadow-sm ${
-                                pr.status === 'approved' ? 'bg-gradient-to-r from-emerald-400 to-green-500 text-white' :
-                                pr.status === 'rejected' ? 'bg-gradient-to-r from-rose-400 to-red-500 text-white' :
-                                'bg-gradient-to-r from-amber-400 to-yellow-500 text-white'
-                              }`}>
+                              <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-semibold shadow-sm ${pr.status === 'approved' ? 'bg-gradient-to-r from-emerald-400 to-green-500 text-white' : pr.status === 'rejected' ? 'bg-gradient-to-r from-rose-400 to-red-500 text-white' : 'bg-gradient-to-r from-amber-400 to-yellow-500 text-white'}`}>
                                 {pr.status === 'approved' ? 'Approved' : pr.status === 'rejected' ? 'Rejected' : 'Pending'}
                               </span>
                             </td>
                             <td className="px-3 py-2.5 text-right">
                               <div className="flex items-center justify-end gap-1">
-                                {pr.status === 'approved' && (
-                                  <>
-                                    <Link href={`/purchase-request/${pr.id}/pdf`}>
-                                      <Button size="sm" variant="ghost" className="h-7 text-xs text-indigo-600" data-testid={`button-view-pdf-${pr.id}`}>
-                                        <FileDown className="w-3.5 h-3.5 mr-0.5" />
-                                        <span className="hidden sm:inline">PDF</span>
-                                      </Button>
-                                    </Link>
-                                    <Link href={`/purchase-invoice/from/${pr.id}`}>
-                                      <Button size="sm" variant="ghost" className="h-7 text-xs text-orange-600" data-testid={`button-create-invoice-${pr.id}`}>
-                                        <Receipt className="w-3.5 h-3.5 mr-0.5" />
-                                        <span className="hidden sm:inline">Invoice</span>
-                                      </Button>
-                                    </Link>
-                                  </>
-                                )}
+                                {pr.status === 'approved' && (<>
+                                  <Link href={`/purchase-request/${pr.id}/pdf`}><Button size="sm" variant="ghost" className="h-7 text-xs text-indigo-600" data-testid={`button-view-pdf-${pr.id}`}><FileDown className="w-3.5 h-3.5 mr-0.5" />PDF</Button></Link>
+                                  <Link href={`/purchase-invoice/from/${pr.id}`}><Button size="sm" variant="ghost" className="h-7 text-xs text-orange-600" data-testid={`button-create-invoice-${pr.id}`}><Receipt className="w-3.5 h-3.5 mr-0.5" />Invoice</Button></Link>
+                                </>)}
                                 {isAdmin && (pr.status === 'pending' || pr.status === 'approved') && (
-                                  <Link href={`/purchase-request/${pr.id}/review`}>
-                                    <Button size="sm" variant="ghost" className={`h-7 text-xs ${pr.status === 'pending' ? 'text-emerald-600' : 'text-blue-600'}`} data-testid={`button-review-purchase-${pr.id}`}>
-                                      {pr.status === 'pending' ? <Check className="w-3.5 h-3.5 mr-0.5" /> : <Pencil className="w-3.5 h-3.5 mr-0.5" />}
-                                      <span>{pr.status === 'pending' ? 'Review' : 'Edit'}</span>
-                                    </Button>
-                                  </Link>
+                                  <Link href={`/purchase-request/${pr.id}/review`}><Button size="sm" variant="ghost" className={`h-7 text-xs ${pr.status === 'pending' ? 'text-emerald-600' : 'text-blue-600'}`} data-testid={`button-review-purchase-${pr.id}`}>{pr.status === 'pending' ? <Check className="w-3.5 h-3.5 mr-0.5" /> : <Pencil className="w-3.5 h-3.5 mr-0.5" />}<span>{pr.status === 'pending' ? 'Review' : 'Edit'}</span></Button></Link>
                                 )}
                                 {isAdmin && (
                                 <AlertDialog>
@@ -1002,7 +1072,37 @@ export default function Dashboard() {
                   </CardTitle>
                 </CardHeader>
                 <CardContent className="p-0">
-                  <div className="overflow-x-auto">
+                  {/* Mobile cards */}
+                  <div className="sm:hidden divide-y">
+                    {purchaseInvoices.map((inv: any) => (
+                      <div key={inv.id} className="p-3 flex flex-col gap-2" data-testid={`mobile-card-invoice-${inv.id}`}>
+                        <div className="flex items-center justify-between gap-2">
+                          <div className="flex items-center gap-2.5 min-w-0">
+                            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-rose-500 to-pink-500 text-white flex items-center justify-center shrink-0 shadow-sm">
+                              <Receipt className="w-4 h-4" />
+                            </div>
+                            <div className="min-w-0">
+                              <div className="font-semibold text-sm truncate">{inv.clientName}</div>
+                              <div className="text-[10px] text-muted-foreground truncate">{inv.vendorName} · {format(new Date(inv.date), "dd-MM-yyyy")} · #{inv.serialNumber}</div>
+                            </div>
+                          </div>
+                          <span className={`shrink-0 inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold ${inv.paymentGiven ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400' : 'bg-rose-100 text-rose-700 dark:bg-rose-900/30 dark:text-rose-400'}`} data-testid={`badge-payment-${inv.id}`}>
+                            {inv.paymentGiven ? 'Paid' : 'Unpaid'}
+                          </span>
+                        </div>
+                        <div className="flex items-center justify-between">
+                          <div className="font-mono text-sm font-bold text-indigo-600">{fmt(Number(inv.grandTotal))}</div>
+                          <div className="flex gap-1">
+                            <Link href={`/purchase-invoice/${inv.id}/pdf`}><Button size="sm" variant="ghost" className="h-7 w-7 p-0 text-indigo-600" data-testid={`button-invoice-pdf-${inv.id}`}><FileDown className="w-4 h-4" /></Button></Link>
+                            <Link href={`/purchase-invoice/${inv.id}/edit`}><Button size="sm" variant="ghost" className="h-7 w-7 p-0 text-blue-600" data-testid={`button-edit-invoice-${inv.id}`}><Pencil className="w-4 h-4" /></Button></Link>
+                            {isAdmin && (<AlertDialog><AlertDialogTrigger asChild><Button size="sm" variant="ghost" className="h-7 w-7 p-0 text-destructive" data-testid={`button-delete-invoice-${inv.id}`}><Trash2 className="w-4 h-4" /></Button></AlertDialogTrigger><AlertDialogContent><AlertDialogHeader><AlertDialogTitle>Delete purchase invoice?</AlertDialogTitle><AlertDialogDescription>This will permanently delete the invoice for {inv.clientName} - {inv.vendorName} ({format(new Date(inv.date), "dd-MM-yyyy")}).</AlertDialogDescription></AlertDialogHeader><AlertDialogFooter><AlertDialogCancel>Cancel</AlertDialogCancel><AlertDialogAction onClick={() => deleteInvoiceMutation.mutate(inv.id)} className="bg-destructive hover:bg-destructive/90 text-destructive-foreground">Delete</AlertDialogAction></AlertDialogFooter></AlertDialogContent></AlertDialog>)}
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                  {/* Desktop table */}
+                  <div className="hidden sm:block overflow-x-auto">
                     <table className="w-full text-sm">
                       <thead>
                         <tr className="bg-rose-50 dark:bg-rose-950/20 border-b border-rose-200 dark:border-rose-800/50">
@@ -1017,16 +1117,12 @@ export default function Dashboard() {
                         </tr>
                       </thead>
                       <tbody>
-                        {purchaseInvoices.map((inv: any, idx: number) => (
+                        {purchaseInvoices.map((inv: any) => (
                           <tr key={inv.id} className="border-b last:border-0 hover:bg-rose-50/50 dark:hover:bg-rose-950/10 transition-colors">
-                            <td className="px-3 py-2.5">
-                              <span className="w-7 h-7 rounded-full bg-gradient-to-br from-rose-400 to-pink-500 text-white text-[10px] inline-flex items-center justify-center font-bold">#{inv.serialNumber}</span>
-                            </td>
+                            <td className="px-3 py-2.5"><span className="w-7 h-7 rounded-full bg-gradient-to-br from-rose-400 to-pink-500 text-white text-[10px] inline-flex items-center justify-center font-bold">#{inv.serialNumber}</span></td>
                             <td className="px-3 py-2.5 font-medium">
                               <div className="flex items-center gap-2.5">
-                                <div className="w-9 h-9 rounded-lg bg-gradient-to-br from-rose-500 to-pink-500 text-white flex items-center justify-center shrink-0 shadow-sm">
-                                  <Receipt className="w-4 h-4" />
-                                </div>
+                                <div className="w-9 h-9 rounded-lg bg-gradient-to-br from-rose-500 to-pink-500 text-white flex items-center justify-center shrink-0 shadow-sm"><Receipt className="w-4 h-4" /></div>
                                 <span className="truncate text-sm">{inv.clientName}</span>
                               </div>
                             </td>
@@ -1041,44 +1137,9 @@ export default function Dashboard() {
                             </td>
                             <td className="px-3 py-2.5 text-right">
                               <div className="flex items-center justify-end gap-1">
-                                <Link href={`/purchase-invoice/${inv.id}/pdf`}>
-                                  <Button size="sm" variant="ghost" className="h-7 text-xs text-indigo-600" data-testid={`button-invoice-pdf-${inv.id}`}>
-                                    <FileDown className="w-3.5 h-3.5 mr-0.5" />
-                                    <span className="hidden sm:inline">PDF</span>
-                                  </Button>
-                                </Link>
-                                <Link href={`/purchase-invoice/${inv.id}/edit`}>
-                                  <Button size="sm" variant="ghost" className="h-7 text-xs text-blue-600" data-testid={`button-edit-invoice-${inv.id}`}>
-                                    <Pencil className="w-3.5 h-3.5 mr-0.5" />
-                                    <span className="hidden sm:inline">Edit</span>
-                                  </Button>
-                                </Link>
-                                {isAdmin && (
-                                <AlertDialog>
-                                  <AlertDialogTrigger asChild>
-                                    <Button size="sm" variant="ghost" className="h-7 text-xs text-destructive" data-testid={`button-delete-invoice-${inv.id}`}>
-                                      <Trash2 className="w-3.5 h-3.5" />
-                                    </Button>
-                                  </AlertDialogTrigger>
-                                  <AlertDialogContent>
-                                    <AlertDialogHeader>
-                                      <AlertDialogTitle>Delete purchase invoice?</AlertDialogTitle>
-                                      <AlertDialogDescription>
-                                        This will permanently delete the invoice for {inv.clientName} - {inv.vendorName} ({format(new Date(inv.date), "dd-MM-yyyy")}).
-                                      </AlertDialogDescription>
-                                    </AlertDialogHeader>
-                                    <AlertDialogFooter>
-                                      <AlertDialogCancel>Cancel</AlertDialogCancel>
-                                      <AlertDialogAction
-                                        onClick={() => deleteInvoiceMutation.mutate(inv.id)}
-                                        className="bg-destructive hover:bg-destructive/90 text-destructive-foreground"
-                                      >
-                                        Delete
-                                      </AlertDialogAction>
-                                    </AlertDialogFooter>
-                                  </AlertDialogContent>
-                                </AlertDialog>
-                                )}
+                                <Link href={`/purchase-invoice/${inv.id}/pdf`}><Button size="sm" variant="ghost" className="h-7 text-xs text-indigo-600" data-testid={`button-invoice-pdf-${inv.id}`}><FileDown className="w-3.5 h-3.5 mr-0.5" />PDF</Button></Link>
+                                <Link href={`/purchase-invoice/${inv.id}/edit`}><Button size="sm" variant="ghost" className="h-7 text-xs text-blue-600" data-testid={`button-edit-invoice-${inv.id}`}><Pencil className="w-3.5 h-3.5 mr-0.5" />Edit</Button></Link>
+                                {isAdmin && (<AlertDialog><AlertDialogTrigger asChild><Button size="sm" variant="ghost" className="h-7 text-xs text-destructive" data-testid={`button-delete-invoice-${inv.id}`}><Trash2 className="w-3.5 h-3.5" /></Button></AlertDialogTrigger><AlertDialogContent><AlertDialogHeader><AlertDialogTitle>Delete purchase invoice?</AlertDialogTitle><AlertDialogDescription>This will permanently delete the invoice for {inv.clientName} - {inv.vendorName} ({format(new Date(inv.date), "dd-MM-yyyy")}).</AlertDialogDescription></AlertDialogHeader><AlertDialogFooter><AlertDialogCancel>Cancel</AlertDialogCancel><AlertDialogAction onClick={() => deleteInvoiceMutation.mutate(inv.id)} className="bg-destructive hover:bg-destructive/90 text-destructive-foreground">Delete</AlertDialogAction></AlertDialogFooter></AlertDialogContent></AlertDialog>)}
                               </div>
                             </td>
                           </tr>
