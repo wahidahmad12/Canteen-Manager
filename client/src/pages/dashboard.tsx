@@ -1068,7 +1068,14 @@ export default function Dashboard() {
                   <CardTitle className="flex items-center gap-2 text-base">
                     <Receipt className="w-5 h-5" />
                     Purchase Invoices
-                    <span className="ml-auto text-sm font-normal bg-white/20 px-2.5 py-0.5 rounded-full">{purchaseInvoices.length}</span>
+                    <span className="ml-auto flex items-center gap-2">
+                      <Link href="/purchase-invoice">
+                        <Button size="sm" variant="ghost" className="h-7 text-white/90 hover:text-white hover:bg-white/20 text-xs gap-1" data-testid="button-new-purchase-invoice">
+                          <Plus className="w-3.5 h-3.5" /> New Invoice
+                        </Button>
+                      </Link>
+                      <span className="text-sm font-normal bg-white/20 px-2.5 py-0.5 rounded-full">{purchaseInvoices.length}</span>
+                    </span>
                   </CardTitle>
                 </CardHeader>
                 <CardContent className="p-0">
