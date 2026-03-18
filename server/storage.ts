@@ -1130,12 +1130,14 @@ export class DatabaseStorage implements IStorage {
 
   async getLastPurchasePrices(): Promise<{ itemName: string; unitPrice: number; gstRate: number }[]> {
     const result = await db.execute(sql`
-      SELECT DISTINCT ON (item_name)
-        item_name,
-        unit_price,
-        gst_rate
-      FROM purchase_invoice_items
-      ORDER BY item_name, id DESC
+      SELECT t.item_name, t.unit_price, t.gst_rate
+      FROM purchase_invoice_items t
+      INNER JOIN (
+        SELECT item_name, MAX(id) AS max_id
+        FROM purchase_invoice_items
+        GROUP BY item_name
+      ) latest ON t.id = latest.max_id
+      ORDER BY t.item_name
     `);
     return (result.rows || []).map((row: any) => ({
       itemName: row.item_name,
