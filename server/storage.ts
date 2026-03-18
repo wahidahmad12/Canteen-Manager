@@ -139,8 +139,8 @@ export interface IStorage {
   getSavedItemNames(source?: string): Promise<SavedItemName[]>;
   saveItemNames(names: string[], source: string, categoryId?: number): Promise<void>;
   getVendors(): Promise<Vendor[]>;
-  createVendor(data: { name: string; phone?: string; address?: string; gstNo?: string }): Promise<Vendor>;
-  updateVendor(id: number, data: { name: string; phone?: string; address?: string; gstNo?: string }): Promise<Vendor>;
+  createVendor(data: { name: string; phone?: string; address?: string; gstNo?: string; linkedClients?: string[] }): Promise<Vendor>;
+  updateVendor(id: number, data: { name: string; phone?: string; address?: string; gstNo?: string; linkedClients?: string[] }): Promise<Vendor>;
   deleteVendor(id: number): Promise<void>;
   getPurchaseInvoices(): Promise<PurchaseInvoiceWithItems[]>;
   getPurchaseInvoice(id: number): Promise<PurchaseInvoiceWithItems | undefined>;
@@ -950,24 +950,28 @@ export class DatabaseStorage implements IStorage {
     return await db.select().from(vendors).orderBy(vendors.name);
   }
 
-  async createVendor(data: { name: string; phone?: string; address?: string; gstNo?: string }): Promise<Vendor> {
+  async createVendor(data: { name: string; phone?: string; address?: string; gstNo?: string; linkedClients?: string[] }): Promise<Vendor> {
     const [vendor] = await db.transaction(async (tx) => {
-
-      await tx.insert(vendors).values(data);
-
+      const insertData: Record<string, any> = {
+        name: data.name,
+        phone: data.phone ?? "",
+        address: data.address ?? "",
+        gstNo: data.gstNo ?? "",
+        linkedClients: data.linkedClients && data.linkedClients.length > 0 ? JSON.stringify(data.linkedClients) : null,
+      };
+      await tx.insert(vendors).values(insertData);
       const __iid = await getInsertId(tx);
-
       return await tx.select().from(vendors).where(eq(vendors.id, __iid));
-
     });
     return vendor;
   }
 
-  async updateVendor(id: number, data: { name: string; phone?: string; address?: string; gstNo?: string }): Promise<Vendor> {
+  async updateVendor(id: number, data: { name: string; phone?: string; address?: string; gstNo?: string; linkedClients?: string[] }): Promise<Vendor> {
     const updateData: Record<string, any> = { name: data.name };
     if (data.phone !== undefined) updateData.phone = data.phone;
     if (data.address !== undefined) updateData.address = data.address;
     if (data.gstNo !== undefined) updateData.gstNo = data.gstNo;
+    updateData.linkedClients = data.linkedClients && data.linkedClients.length > 0 ? JSON.stringify(data.linkedClients) : null;
     await db.update(vendors).set(updateData).where(eq(vendors.id, id));
     const [vendor] = await db.select().from(vendors).where(eq(vendors.id, id));
     if (!vendor) throw new Error("Vendor not found");

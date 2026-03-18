@@ -26,7 +26,9 @@ import {
   useDeleteVendor,
 } from "@/hooks/use-reports";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Loader2, Plus, Pencil, Trash2, Save, X, Lock, KeyRound, Building2, Users, UserPlus, Store, Package, Search, Shield, ShieldCheck, ArrowLeft, Settings, Phone, MapPin, Crown, User, ShoppingCart, Coins, RefreshCw } from "lucide-react";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Loader2, Plus, Pencil, Trash2, Save, X, Lock, KeyRound, Building2, Users, UserPlus, Store, Package, Search, Shield, ShieldCheck, ArrowLeft, Settings, Phone, MapPin, Crown, User, ShoppingCart, Coins, RefreshCw, Link2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useLocation } from "wouter";
 
@@ -106,11 +108,18 @@ export default function Admin() {
   const [newVendorPhone, setNewVendorPhone] = useState("");
   const [newVendorAddress, setNewVendorAddress] = useState("");
   const [newVendorGstNo, setNewVendorGstNo] = useState("");
+  const [newVendorLinkedClients, setNewVendorLinkedClients] = useState<string[]>([]);
   const [editingVendorId, setEditingVendorId] = useState<number | null>(null);
   const [editingVendorName, setEditingVendorName] = useState("");
   const [editingVendorPhone, setEditingVendorPhone] = useState("");
   const [editingVendorAddress, setEditingVendorAddress] = useState("");
   const [editingVendorGstNo, setEditingVendorGstNo] = useState("");
+  const [editingVendorLinkedClients, setEditingVendorLinkedClients] = useState<string[]>([]);
+
+  const parseLinkedClients = (raw: string | null | undefined): string[] => {
+    if (!raw) return [];
+    try { return JSON.parse(raw); } catch { return []; }
+  };
 
   const { data: currentUser } = useCurrentUser();
   const { data: userList, isLoading: usersLoading } = useUsers();
@@ -274,11 +283,12 @@ export default function Admin() {
   const handleCreateVendor = async () => {
     if (!newVendorName.trim()) return;
     try {
-      await createVendorMutation.mutateAsync({ name: newVendorName.trim(), phone: newVendorPhone.trim(), address: newVendorAddress.trim(), gstNo: newVendorGstNo.trim() });
+      await createVendorMutation.mutateAsync({ name: newVendorName.trim(), phone: newVendorPhone.trim(), address: newVendorAddress.trim(), gstNo: newVendorGstNo.trim(), linkedClients: newVendorLinkedClients });
       setNewVendorName("");
       setNewVendorPhone("");
       setNewVendorAddress("");
       setNewVendorGstNo("");
+      setNewVendorLinkedClients([]);
       toast({ title: "Success", description: "Vendor added" });
     } catch (e: any) {
       toast({ title: "Error", description: e.message || "Failed to add vendor", variant: "destructive" });
@@ -288,7 +298,7 @@ export default function Admin() {
   const handleUpdateVendor = async (id: number) => {
     if (!editingVendorName.trim()) return;
     try {
-      await updateVendorMutation.mutateAsync({ id, name: editingVendorName.trim(), phone: editingVendorPhone.trim(), address: editingVendorAddress.trim(), gstNo: editingVendorGstNo.trim() });
+      await updateVendorMutation.mutateAsync({ id, name: editingVendorName.trim(), phone: editingVendorPhone.trim(), address: editingVendorAddress.trim(), gstNo: editingVendorGstNo.trim(), linkedClients: editingVendorLinkedClients });
       setEditingVendorId(null);
       toast({ title: "Success", description: "Vendor updated" });
     } catch (e: any) {
@@ -694,6 +704,30 @@ export default function Admin() {
                   className="border-orange-200 dark:border-orange-800 focus-visible:ring-orange-400"
                   data-testid="input-new-vendor-gstno"
                 />
+                <div className="sm:col-span-2">
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <Button type="button" variant="outline" className="w-full border-orange-200 dark:border-orange-800 justify-start text-left font-normal" data-testid="button-new-vendor-clients">
+                        <Link2 className="w-4 h-4 mr-2 text-orange-500 shrink-0" />
+                        {newVendorLinkedClients.length > 0 ? newVendorLinkedClients.join(", ") : <span className="text-muted-foreground">Link to clients...</span>}
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-72 p-2" align="start">
+                      <p className="text-xs font-semibold text-muted-foreground uppercase px-2 pb-2">Select Clients</p>
+                      <div className="space-y-1 max-h-48 overflow-y-auto">
+                        {clients?.map((c) => (
+                          <label key={c.id} className="flex items-center gap-2 px-2 py-1.5 rounded-md hover:bg-orange-50 dark:hover:bg-orange-950/20 cursor-pointer text-sm">
+                            <Checkbox
+                              checked={newVendorLinkedClients.includes(c.name)}
+                              onCheckedChange={(chk) => setNewVendorLinkedClients(prev => chk ? [...prev, c.name] : prev.filter(n => n !== c.name))}
+                            />
+                            {c.name}
+                          </label>
+                        ))}
+                      </div>
+                    </PopoverContent>
+                  </Popover>
+                </div>
               </div>
               <Button onClick={handleCreateVendor} disabled={createVendorMutation.isPending} className="w-full sm:w-auto bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-600 hover:to-amber-600 border-0 shadow-md" data-testid="button-add-vendor">
                 {createVendorMutation.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4 mr-2" />}
@@ -741,6 +775,30 @@ export default function Admin() {
                             className="h-9 border-orange-300"
                             data-testid={`input-edit-vendor-gstno-${vendor.id}`}
                           />
+                          <div className="sm:col-span-2">
+                            <Popover>
+                              <PopoverTrigger asChild>
+                                <Button type="button" variant="outline" className="w-full h-9 border-orange-300 justify-start text-left font-normal text-sm" data-testid={`button-edit-vendor-clients-${vendor.id}`}>
+                                  <Link2 className="w-4 h-4 mr-2 text-orange-500 shrink-0" />
+                                  {editingVendorLinkedClients.length > 0 ? editingVendorLinkedClients.join(", ") : <span className="text-muted-foreground">Link to clients...</span>}
+                                </Button>
+                              </PopoverTrigger>
+                              <PopoverContent className="w-72 p-2" align="start">
+                                <p className="text-xs font-semibold text-muted-foreground uppercase px-2 pb-2">Select Clients</p>
+                                <div className="space-y-1 max-h-48 overflow-y-auto">
+                                  {clients?.map((c) => (
+                                    <label key={c.id} className="flex items-center gap-2 px-2 py-1.5 rounded-md hover:bg-orange-50 dark:hover:bg-orange-950/20 cursor-pointer text-sm">
+                                      <Checkbox
+                                        checked={editingVendorLinkedClients.includes(c.name)}
+                                        onCheckedChange={(chk) => setEditingVendorLinkedClients(prev => chk ? [...prev, c.name] : prev.filter(n => n !== c.name))}
+                                      />
+                                      {c.name}
+                                    </label>
+                                  ))}
+                                </div>
+                              </PopoverContent>
+                            </Popover>
+                          </div>
                         </div>
                         <div className="flex gap-2">
                           <Button
@@ -770,7 +828,15 @@ export default function Admin() {
                               {vendor.phone && <div className="flex items-center gap-1"><Phone className="w-3 h-3 text-orange-400" /> {vendor.phone}</div>}
                               {vendor.address && <div className="flex items-center gap-1"><MapPin className="w-3 h-3 text-orange-400" /> {vendor.address}</div>}
                               {vendor.gstNo && <div className="flex items-center gap-1"><span className="text-xs font-mono bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400 px-1.5 py-0.5 rounded">GST: {vendor.gstNo}</span></div>}
-                              {!vendor.phone && !vendor.address && !vendor.gstNo && <div className="italic text-xs">No details added</div>}
+                              {parseLinkedClients(vendor.linkedClients).length > 0 && (
+                                <div className="flex items-start gap-1 flex-wrap pt-0.5">
+                                  <Link2 className="w-3 h-3 text-blue-400 mt-0.5 shrink-0" />
+                                  {parseLinkedClients(vendor.linkedClients).map((cl) => (
+                                    <span key={cl} className="text-xs bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 px-1.5 py-0.5 rounded-full">{cl}</span>
+                                  ))}
+                                </div>
+                              )}
+                              {!vendor.phone && !vendor.address && !vendor.gstNo && !vendor.linkedClients && <div className="italic text-xs">No details added</div>}
                             </div>
                           </div>
                         </div>
@@ -785,6 +851,7 @@ export default function Admin() {
                               setEditingVendorPhone(vendor.phone || "");
                               setEditingVendorAddress(vendor.address || "");
                               setEditingVendorGstNo(vendor.gstNo || "");
+                              setEditingVendorLinkedClients(parseLinkedClients(vendor.linkedClients));
                             }}
                             data-testid={`button-edit-vendor-${vendor.id}`}
                           >

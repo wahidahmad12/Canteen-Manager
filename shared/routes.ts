@@ -480,7 +480,7 @@ export const api = {
     create: {
       method: 'POST' as const,
       path: '/api/vendors' as const,
-      input: z.object({ name: z.string().min(1), phone: z.string().default(""), address: z.string().default(""), gstNo: z.string().default("") }),
+      input: z.object({ name: z.string().min(1), phone: z.string().default(""), address: z.string().default(""), gstNo: z.string().default(""), linkedClients: z.array(z.string()).optional() }),
       responses: {
         201: selectVendorSchema,
         400: errorSchemas.validation,
@@ -489,7 +489,7 @@ export const api = {
     update: {
       method: 'PUT' as const,
       path: '/api/vendors/:id' as const,
-      input: z.object({ name: z.string().min(1), phone: z.string().optional(), address: z.string().optional(), gstNo: z.string().optional() }),
+      input: z.object({ name: z.string().min(1), phone: z.string().optional(), address: z.string().optional(), gstNo: z.string().optional(), linkedClients: z.array(z.string()).optional() }),
       responses: {
         200: selectVendorSchema,
         404: errorSchemas.notFound,

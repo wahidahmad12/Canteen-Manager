@@ -180,6 +180,7 @@ export const vendors = mysqlTable("vendors", {
   phone: varchar("phone", { length: 500 }).default(""),
   address: varchar("address", { length: 500 }).default(""),
   gstNo: varchar("gst_no", { length: 500 }).default(""),
+  linkedClients: text("linked_clients"),
   createdAt: timestamp("created_at").defaultNow(),
 });
 
