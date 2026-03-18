@@ -140,7 +140,7 @@ export default function Admin() {
     cashseal: 'Daily Cash Seal',
     inventory: 'Daily Inventory',
     menu: 'Menu Manager',
-    purchase: 'Purchase Request',
+    purchase: 'Purchase Request & Invoices',
     labour: 'Labour Works',
     salesinvoice: 'Sales Invoice Ledger',
   };
