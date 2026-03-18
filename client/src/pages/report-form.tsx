@@ -225,17 +225,21 @@ export default function ReportForm() {
 
   useEffect(() => {
     if (report) {
+      const loadedItems = report.items && report.items.length > 0
+        ? report.items.map((item: any) => ({
+            ...item,
+            qty: Number(item.qty),
+            rate: Number(item.rate),
+            amount: Number(item.amount),
+          }))
+        : DEFAULT_FIXED_ITEMS.map(item => ({ ...item, reportId: 0 }));
+
       form.reset({
         date: new Date(report.date),
         openingBalance: Math.round(Number(report.openingBalance) * 100) / 100,
         receivedAmount: Math.round(Number(report.receivedAmount) * 100) / 100,
         giveByWahid: Math.round(Number(report.giveByWahid || 0) * 100) / 100,
-        items: report.items.map((item: any) => ({
-          ...item,
-          qty: Number(item.qty),
-          rate: Number(item.rate),
-          amount: Number(item.amount),
-        })),
+        items: loadedItems,
       });
     }
   }, [report, form]);
