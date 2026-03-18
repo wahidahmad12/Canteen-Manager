@@ -589,6 +589,11 @@ export async function registerRoutes(
     res.json(prices);
   });
 
+  app.get(api.purchaseInvoices.nextDjNo.path, requirePermission('purchase'), async (req, res) => {
+    const djInvoiceNo = await storage.getNextDjInvoiceNo();
+    res.json({ djInvoiceNo });
+  });
+
   app.get(api.purchaseInvoices.list.path, requirePermission('purchase'), async (req, res) => {
     const invoices = await storage.getPurchaseInvoices();
     if (req.session.role !== 'admin') {
@@ -639,6 +644,29 @@ export async function registerRoutes(
 
   app.delete(api.purchaseInvoices.delete.path, requireAdmin, async (req, res) => {
     await storage.deletePurchaseInvoice(Number(req.params.id));
+    res.status(204).send();
+  });
+
+  app.get(api.purchaseInvoices.getPayments.path, requirePermission('purchase'), async (req, res) => {
+    const payments = await storage.getPurchaseInvoicePayments(Number(req.params.id));
+    res.json(payments);
+  });
+
+  app.post(api.purchaseInvoices.addPayment.path, requirePermission('purchase'), async (req, res) => {
+    try {
+      const input = api.purchaseInvoices.addPayment.input.parse(req.body);
+      const payment = await storage.addPurchaseInvoicePayment({ ...input, invoiceId: Number(req.params.id) });
+      res.status(201).json(payment);
+    } catch (err) {
+      if (err instanceof z.ZodError) {
+        return res.status(400).json({ message: err.errors[0].message });
+      }
+      throw err;
+    }
+  });
+
+  app.delete(api.purchaseInvoices.deletePayment.path, requireAdmin, async (req, res) => {
+    await storage.deletePurchaseInvoicePayment(Number(req.params.id));
     res.status(204).send();
   });
 

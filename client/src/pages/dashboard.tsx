@@ -1089,18 +1089,29 @@ export default function Dashboard() {
                               <Receipt className="w-4 h-4" />
                             </div>
                             <div className="min-w-0">
-                              <div className="font-semibold text-sm truncate">{inv.clientName}</div>
-                              <div className="text-[10px] text-muted-foreground truncate">{inv.vendorName} · {format(new Date(inv.date), "dd-MM-yyyy")} · #{inv.serialNumber}</div>
+                              <div className="font-semibold text-sm truncate flex items-center gap-1.5">
+                                {inv.clientName}
+                                {inv.djInvoiceNo && <span className="font-mono text-[10px] bg-rose-100 dark:bg-rose-900/30 text-rose-700 dark:text-rose-400 px-1.5 py-0.5 rounded shrink-0">{inv.djInvoiceNo}</span>}
+                              </div>
+                              <div className="text-[10px] text-muted-foreground truncate">{inv.vendorName} · {format(new Date(inv.date), "dd-MM-yyyy")}</div>
                             </div>
                           </div>
-                          <span className={`shrink-0 inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold ${inv.paymentGiven ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400' : 'bg-rose-100 text-rose-700 dark:bg-rose-900/30 dark:text-rose-400'}`} data-testid={`badge-payment-${inv.id}`}>
-                            {inv.paymentGiven ? 'Paid' : 'Unpaid'}
-                          </span>
+                          {(() => {
+                            const paid = (inv.payments || []).reduce((s: number, p: any) => s + Number(p.amount), 0);
+                            const total = Number(inv.grandTotal);
+                            const isPaid = paid >= total && total > 0;
+                            const isPartial = paid > 0 && paid < total;
+                            return (
+                              <span className={`shrink-0 inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold ${isPaid ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400' : isPartial ? 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400' : 'bg-rose-100 text-rose-700 dark:bg-rose-900/30 dark:text-rose-400'}`} data-testid={`badge-payment-${inv.id}`}>
+                                {isPaid ? 'Paid' : isPartial ? `Partial ₹${paid.toFixed(0)}` : 'Unpaid'}
+                              </span>
+                            );
+                          })()}
                         </div>
                         <div className="flex items-center justify-between">
                           <div className="font-mono text-sm font-bold text-indigo-600">{fmt(Number(inv.grandTotal))}</div>
                           <div className="flex gap-1">
-                            <Link href={`/purchase-invoice/${inv.id}/pdf`}><Button size="sm" variant="ghost" className="h-7 w-7 p-0 text-indigo-600" data-testid={`button-invoice-pdf-${inv.id}`}><FileDown className="w-4 h-4" /></Button></Link>
+                            <Link href={`/purchase-invoice/${inv.id}/edit`}><Button size="sm" variant="ghost" className="h-7 text-xs text-violet-600 gap-0.5" data-testid={`button-payment-invoice-${inv.id}`}><IndianRupee className="w-3.5 h-3.5" />Pay</Button></Link>
                             <Link href={`/purchase-invoice/${inv.id}/edit`}><Button size="sm" variant="ghost" className="h-7 w-7 p-0 text-blue-600" data-testid={`button-edit-invoice-${inv.id}`}><Pencil className="w-4 h-4" /></Button></Link>
                             {isAdmin && (<AlertDialog><AlertDialogTrigger asChild><Button size="sm" variant="ghost" className="h-7 w-7 p-0 text-destructive" data-testid={`button-delete-invoice-${inv.id}`}><Trash2 className="w-4 h-4" /></Button></AlertDialogTrigger><AlertDialogContent><AlertDialogHeader><AlertDialogTitle>Delete purchase invoice?</AlertDialogTitle><AlertDialogDescription>This will permanently delete the invoice for {inv.clientName} - {inv.vendorName} ({format(new Date(inv.date), "dd-MM-yyyy")}).</AlertDialogDescription></AlertDialogHeader><AlertDialogFooter><AlertDialogCancel>Cancel</AlertDialogCancel><AlertDialogAction onClick={() => deleteInvoiceMutation.mutate(inv.id)} className="bg-destructive hover:bg-destructive/90 text-destructive-foreground">Delete</AlertDialogAction></AlertDialogFooter></AlertDialogContent></AlertDialog>)}
                           </div>
@@ -1113,44 +1124,58 @@ export default function Dashboard() {
                     <table className="w-full text-sm">
                       <thead>
                         <tr className="bg-rose-50 dark:bg-rose-950/20 border-b border-rose-200 dark:border-rose-800/50">
-                          <th className="px-3 py-2.5 text-left text-xs font-semibold text-rose-700 dark:text-rose-400">S.No</th>
+                          <th className="px-3 py-2.5 text-left text-xs font-semibold text-rose-700 dark:text-rose-400">DJ No.</th>
                           <th className="px-3 py-2.5 text-left text-xs font-semibold text-rose-700 dark:text-rose-400">Client Name</th>
                           <th className="px-3 py-2.5 text-left text-xs font-semibold text-rose-700 dark:text-rose-400">Vendor</th>
-                          <th className="px-3 py-2.5 text-left text-xs font-semibold text-rose-700 dark:text-rose-400">Invoice No</th>
                           <th className="px-3 py-2.5 text-left text-xs font-semibold text-rose-700 dark:text-rose-400">Date</th>
                           <th className="px-3 py-2.5 text-right text-xs font-semibold text-rose-700 dark:text-rose-400">Grand Total</th>
-                          <th className="px-3 py-2.5 text-center text-xs font-semibold text-rose-700 dark:text-rose-400">Payment</th>
+                          <th className="px-3 py-2.5 text-right text-xs font-semibold text-rose-700 dark:text-rose-400">Paid</th>
+                          <th className="px-3 py-2.5 text-right text-xs font-semibold text-rose-700 dark:text-rose-400">Balance</th>
+                          <th className="px-3 py-2.5 text-center text-xs font-semibold text-rose-700 dark:text-rose-400">Status</th>
                           <th className="px-3 py-2.5 text-right text-xs font-semibold text-rose-700 dark:text-rose-400">Actions</th>
                         </tr>
                       </thead>
                       <tbody>
-                        {purchaseInvoices.map((inv: any) => (
+                        {purchaseInvoices.map((inv: any) => {
+                          const totalPaid = (inv.payments || []).reduce((s: number, p: any) => s + Number(p.amount), 0);
+                          const grandTotal = Number(inv.grandTotal);
+                          const balance = grandTotal - totalPaid;
+                          const isPaid = totalPaid >= grandTotal && grandTotal > 0;
+                          const isPartial = totalPaid > 0 && totalPaid < grandTotal;
+                          return (
                           <tr key={inv.id} className="border-b last:border-0 hover:bg-rose-50/50 dark:hover:bg-rose-950/10 transition-colors">
-                            <td className="px-3 py-2.5"><span className="w-7 h-7 rounded-full bg-gradient-to-br from-rose-400 to-pink-500 text-white text-[10px] inline-flex items-center justify-center font-bold">#{inv.serialNumber}</span></td>
+                            <td className="px-3 py-2.5">
+                              <span className="font-mono text-xs font-bold text-rose-600 dark:text-rose-400 bg-rose-50 dark:bg-rose-950/30 px-2 py-1 rounded">{inv.djInvoiceNo || `#${inv.serialNumber}`}</span>
+                            </td>
                             <td className="px-3 py-2.5 font-medium">
                               <div className="flex items-center gap-2.5">
                                 <div className="w-9 h-9 rounded-lg bg-gradient-to-br from-rose-500 to-pink-500 text-white flex items-center justify-center shrink-0 shadow-sm"><Receipt className="w-4 h-4" /></div>
-                                <span className="truncate text-sm">{inv.clientName}</span>
+                                <div className="min-w-0">
+                                  <div className="truncate text-sm">{inv.clientName}</div>
+                                  <div className="text-[10px] text-muted-foreground truncate">{inv.vendorName}</div>
+                                </div>
                               </div>
                             </td>
-                            <td className="px-3 py-2.5 text-xs text-muted-foreground">{inv.vendorName}</td>
-                            <td className="px-3 py-2.5 text-xs font-mono text-muted-foreground">{inv.vendorInvoiceNo || '-'}</td>
+                            <td className="px-3 py-2.5 text-xs text-muted-foreground">{inv.vendorInvoiceNo || '-'}</td>
                             <td className="px-3 py-2.5 text-xs text-muted-foreground">{format(new Date(inv.date), "dd-MM-yyyy")}</td>
-                            <td className="px-3 py-2.5 text-right font-mono text-xs font-bold text-indigo-600">{fmt(Number(inv.grandTotal))}</td>
+                            <td className="px-3 py-2.5 text-right font-mono text-xs font-bold text-indigo-600">{fmt(grandTotal)}</td>
+                            <td className="px-3 py-2.5 text-right font-mono text-xs font-semibold text-emerald-600">{totalPaid > 0 ? fmt(totalPaid) : '-'}</td>
+                            <td className="px-3 py-2.5 text-right font-mono text-xs font-semibold text-rose-600">{!isPaid && balance > 0 ? fmt(balance) : '-'}</td>
                             <td className="px-3 py-2.5 text-center">
-                              <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-semibold shadow-sm ${inv.paymentGiven ? 'bg-gradient-to-r from-emerald-400 to-green-500 text-white' : 'bg-gradient-to-r from-rose-400 to-red-500 text-white'}`} data-testid={`badge-payment-${inv.id}`}>
-                                {inv.paymentGiven ? 'Paid' : 'Unpaid'}
+                              <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-semibold shadow-sm ${isPaid ? 'bg-gradient-to-r from-emerald-400 to-green-500 text-white' : isPartial ? 'bg-gradient-to-r from-amber-400 to-yellow-500 text-white' : 'bg-gradient-to-r from-rose-400 to-red-500 text-white'}`} data-testid={`badge-payment-${inv.id}`}>
+                                {isPaid ? 'Paid' : isPartial ? 'Partial' : 'Unpaid'}
                               </span>
                             </td>
                             <td className="px-3 py-2.5 text-right">
                               <div className="flex items-center justify-end gap-1">
-                                <Link href={`/purchase-invoice/${inv.id}/pdf`}><Button size="sm" variant="ghost" className="h-7 text-xs text-indigo-600" data-testid={`button-invoice-pdf-${inv.id}`}><FileDown className="w-3.5 h-3.5 mr-0.5" />PDF</Button></Link>
+                                <Link href={`/purchase-invoice/${inv.id}/edit`}><Button size="sm" variant="ghost" className="h-7 text-xs text-violet-600" data-testid={`button-payment-invoice-${inv.id}`}><IndianRupee className="w-3.5 h-3.5 mr-0.5" />Pay</Button></Link>
                                 <Link href={`/purchase-invoice/${inv.id}/edit`}><Button size="sm" variant="ghost" className="h-7 text-xs text-blue-600" data-testid={`button-edit-invoice-${inv.id}`}><Pencil className="w-3.5 h-3.5 mr-0.5" />Edit</Button></Link>
                                 {isAdmin && (<AlertDialog><AlertDialogTrigger asChild><Button size="sm" variant="ghost" className="h-7 text-xs text-destructive" data-testid={`button-delete-invoice-${inv.id}`}><Trash2 className="w-3.5 h-3.5" /></Button></AlertDialogTrigger><AlertDialogContent><AlertDialogHeader><AlertDialogTitle>Delete purchase invoice?</AlertDialogTitle><AlertDialogDescription>This will permanently delete the invoice for {inv.clientName} - {inv.vendorName} ({format(new Date(inv.date), "dd-MM-yyyy")}).</AlertDialogDescription></AlertDialogHeader><AlertDialogFooter><AlertDialogCancel>Cancel</AlertDialogCancel><AlertDialogAction onClick={() => deleteInvoiceMutation.mutate(inv.id)} className="bg-destructive hover:bg-destructive/90 text-destructive-foreground">Delete</AlertDialogAction></AlertDialogFooter></AlertDialogContent></AlertDialog>)}
                               </div>
                             </td>
                           </tr>
-                        ))}
+                          );
+                        })}
                       </tbody>
                     </table>
                   </div>

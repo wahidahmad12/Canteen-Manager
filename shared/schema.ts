@@ -187,6 +187,7 @@ export const vendors = mysqlTable("vendors", {
 export const purchaseInvoices = mysqlTable("purchase_invoices", {
   id: int("id").autoincrement().primaryKey(),
   serialNumber: int("serial_number"),
+  djInvoiceNo: varchar("dj_invoice_no", { length: 20 }),
   purchaseRequestId: int("purchase_request_id").references(() => purchaseRequests.id),
   clientName: text("client_name").notNull(),
   vendorName: text("vendor_name").notNull(),
@@ -197,6 +198,16 @@ export const purchaseInvoices = mysqlTable("purchase_invoices", {
   grandTotal: decimal("grand_total", { precision: 12, scale: 2 }).default("0"),
   paymentGiven: boolean("payment_given").default(false).notNull(),
   createdBy: text("created_by"),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+// Purchase invoice payment records (partial payments)
+export const purchaseInvoicePayments = mysqlTable("purchase_invoice_payments", {
+  id: int("id").autoincrement().primaryKey(),
+  invoiceId: int("invoice_id").notNull().references(() => purchaseInvoices.id, { onDelete: 'cascade' }),
+  paymentDate: varchar("payment_date", { length: 10 }).notNull(),
+  amount: decimal("amount", { precision: 12, scale: 2 }).notNull(),
+  notes: varchar("notes", { length: 500 }),
   createdAt: timestamp("created_at").defaultNow(),
 });
 
@@ -692,18 +703,24 @@ export const selectVendorSchema = createSelectSchema(vendors, { createdAt: z.str
 // Purchase invoice types and schemas
 export type PurchaseInvoice = typeof purchaseInvoices.$inferSelect;
 export type PurchaseInvoiceItem = typeof purchaseInvoiceItems.$inferSelect;
-export type PurchaseInvoiceWithItems = PurchaseInvoice & { items: PurchaseInvoiceItem[] };
+export type PurchaseInvoicePayment = typeof purchaseInvoicePayments.$inferSelect;
+export type PurchaseInvoiceWithItems = PurchaseInvoice & { items: PurchaseInvoiceItem[]; payments?: PurchaseInvoicePayment[] };
 
 export const insertPurchaseInvoiceSchema = createInsertSchema(purchaseInvoices).omit({ id: true, serialNumber: true, createdAt: true });
 export const insertPurchaseInvoiceItemSchema = createInsertSchema(purchaseInvoiceItems).omit({ id: true });
+export const insertPurchaseInvoicePaymentSchema = createInsertSchema(purchaseInvoicePayments).omit({ id: true, createdAt: true });
 export const selectPurchaseInvoiceSchema = createSelectSchema(purchaseInvoices, {
   date: z.string(),
   createdAt: z.string().or(z.date()),
 });
 export const selectPurchaseInvoiceItemSchema = createSelectSchema(purchaseInvoiceItems);
+export const selectPurchaseInvoicePaymentSchema = createSelectSchema(purchaseInvoicePayments, {
+  createdAt: z.string().or(z.date()).optional(),
+});
 
 export const purchaseInvoiceWithItemsSchema = selectPurchaseInvoiceSchema.extend({
   items: z.array(selectPurchaseInvoiceItemSchema),
+  payments: z.array(selectPurchaseInvoicePaymentSchema).optional(),
 });
 
 // === SALARY & PAYROLL TYPES ===

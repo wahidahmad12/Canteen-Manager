@@ -5,12 +5,17 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { DatePicker } from "@/components/ui/date-picker";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { format } from "date-fns";
-import { FileText, Plus, Trash2, Save, Loader2, ArrowLeft, Receipt, Store, ChevronDown, ChevronUp } from "lucide-react";
+import { format, parse } from "date-fns";
+import { FileText, Plus, Trash2, Save, Loader2, ArrowLeft, Receipt, Store, ChevronDown, ChevronUp, IndianRupee, CalendarCheck, CheckCircle2, Clock } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import { useCreatePurchaseInvoice, useClientNames, useVendors, useCreateVendor, usePurchaseRequests, usePurchaseInvoice, useUpdatePurchaseInvoice, useLastPurchasePrices, useItemMaster } from "@/hooks/use-reports";
+import { useCreatePurchaseInvoice, useClientNames, useVendors, useCreateVendor, usePurchaseRequests, usePurchaseInvoice, useUpdatePurchaseInvoice, useLastPurchasePrices, useItemMaster, useNextDjInvoiceNo, useAddPurchaseInvoicePayment, useDeletePurchaseInvoicePayment } from "@/hooks/use-reports";
 import { useLocation, useRoute, Link } from "wouter";
 import { Label } from "@/components/ui/label";
+import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel,
+  AlertDialogContent, AlertDialogDescription, AlertDialogFooter,
+  AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 
 interface InvoiceItem {
   itemName: string;
@@ -40,6 +45,7 @@ export default function PurchaseInvoice() {
   const [vendorName, setVendorName] = useState("");
   const [newVendorName, setNewVendorName] = useState("");
   const [vendorInvoiceNo, setVendorInvoiceNo] = useState("");
+  const [djInvoiceNo, setDjInvoiceNo] = useState("");
   const [purchaseRequestId, setPurchaseRequestId] = useState<number | null>(null);
   const [items, setItems] = useState<InvoiceItem[]>([
     { itemName: "", uom: "Kg", qty: 0, unitPrice: 0, totalPrice: 0, gstRate: 0, gstAmount: 0, netAmount: 0 },
@@ -54,11 +60,26 @@ export default function PurchaseInvoice() {
   const { data: purchaseRequests } = usePurchaseRequests();
   const { data: lastPrices } = useLastPurchasePrices();
   const { data: purchaseItemMaster } = useItemMaster("purchase");
-  const [paymentGiven, setPaymentGiven] = useState(false);
+  const { data: nextDjNo } = useNextDjInvoiceNo();
+  const addPaymentMutation = useAddPurchaseInvoicePayment();
+  const deletePaymentMutation = useDeletePurchaseInvoicePayment();
+
   const [showNewVendor, setShowNewVendor] = useState(false);
   const [showPrSection, setShowPrSection] = useState(false);
 
+  // Payment form state
+  const [newPaymentDate, setNewPaymentDate] = useState<Date>(new Date());
+  const [newPaymentAmount, setNewPaymentAmount] = useState("");
+  const [newPaymentNotes, setNewPaymentNotes] = useState("");
+
   const approvedPRs = (purchaseRequests || []).filter((pr: any) => pr.status === 'approved');
+
+  // Auto-fill DJ Invoice No for new invoices
+  useEffect(() => {
+    if (!editId && nextDjNo && !djInvoiceNo) {
+      setDjInvoiceNo(nextDjNo);
+    }
+  }, [nextDjNo, editId]);
 
   useEffect(() => {
     if (existingInvoice && editId) {
@@ -66,8 +87,8 @@ export default function PurchaseInvoice() {
       setClientName(existingInvoice.clientName);
       setVendorName(existingInvoice.vendorName);
       setVendorInvoiceNo(existingInvoice.vendorInvoiceNo || "");
+      setDjInvoiceNo(existingInvoice.djInvoiceNo || "");
       setPurchaseRequestId(existingInvoice.purchaseRequestId || null);
-      setPaymentGiven(existingInvoice.paymentGiven || false);
       if (existingInvoice.items?.length > 0) {
         setItems(existingInvoice.items.map((item: any) => ({
           itemName: item.itemName,
@@ -97,11 +118,7 @@ export default function PurchaseInvoice() {
               itemName: item.itemName,
               uom: item.uom,
               qty: Number(item.approveQty) || 0,
-              unitPrice: 0,
-              totalPrice: 0,
-              gstRate: 0,
-              gstAmount: 0,
-              netAmount: 0,
+              unitPrice: 0, totalPrice: 0, gstRate: 0, gstAmount: 0, netAmount: 0,
             };
             return applyLastPrice(base);
           }));
@@ -119,16 +136,7 @@ export default function PurchaseInvoice() {
       const approvedItems = (pr.items || []).filter((item: any) => item.approved);
       if (approvedItems.length > 0) {
         setItems(approvedItems.map((item: any) => {
-          const base: InvoiceItem = {
-            itemName: item.itemName,
-            uom: item.uom,
-            qty: Number(item.approveQty) || 0,
-            unitPrice: 0,
-            totalPrice: 0,
-            gstRate: 0,
-            gstAmount: 0,
-            netAmount: 0,
-          };
+          const base: InvoiceItem = { itemName: item.itemName, uom: item.uom, qty: Number(item.approveQty) || 0, unitPrice: 0, totalPrice: 0, gstRate: 0, gstAmount: 0, netAmount: 0 };
           return applyLastPrice(base);
         }));
       }
@@ -138,8 +146,7 @@ export default function PurchaseInvoice() {
   const recalcFromUnitPrice = (item: InvoiceItem): InvoiceItem => {
     const totalPrice = item.qty * item.unitPrice;
     const gstAmount = totalPrice * item.gstRate / 100;
-    const netAmount = totalPrice + gstAmount;
-    return { ...item, totalPrice, gstAmount, netAmount };
+    return { ...item, totalPrice, gstAmount, netAmount: totalPrice + gstAmount };
   };
 
   const recalcFromNetAmount = (item: InvoiceItem): InvoiceItem => {
@@ -153,19 +160,19 @@ export default function PurchaseInvoice() {
   const recalcItem = (item: InvoiceItem): InvoiceItem =>
     item.lastEdited === "netAmount" ? recalcFromNetAmount(item) : recalcFromUnitPrice(item);
 
+  const applyLastPrice = (item: InvoiceItem): InvoiceItem => {
+    if (!lastPrices || item.unitPrice > 0) return item;
+    const match = lastPrices.find(p => p.itemName.toLowerCase() === item.itemName.toLowerCase());
+    if (match) return recalcItem({ ...item, unitPrice: match.unitPrice, gstRate: match.gstRate });
+    return item;
+  };
+
   const addItem = () =>
     setItems([...items, { itemName: "", uom: "Kg", qty: 0, unitPrice: 0, totalPrice: 0, gstRate: 0, gstAmount: 0, netAmount: 0 }]);
 
   const removeItem = (index: number) => {
     if (items.length <= 1) return;
     setItems(items.filter((_, i) => i !== index));
-  };
-
-  const applyLastPrice = (item: InvoiceItem): InvoiceItem => {
-    if (!lastPrices || item.unitPrice > 0) return item;
-    const match = lastPrices.find(p => p.itemName.toLowerCase() === item.itemName.toLowerCase());
-    if (match) return recalcItem({ ...item, unitPrice: match.unitPrice, gstRate: match.gstRate });
-    return item;
   };
 
   const updateItem = (index: number, field: keyof InvoiceItem, value: any) => {
@@ -207,25 +214,48 @@ export default function PurchaseInvoice() {
 
     const payload = {
       purchaseRequestId: purchaseRequestId || null,
+      djInvoiceNo: djInvoiceNo.trim() || undefined,
       clientName,
       vendorName,
       vendorInvoiceNo,
       date: format(date, "yyyy-MM-dd"),
-      paymentGiven,
       items: validItems.map(({ lastEdited, ...rest }) => rest),
     };
 
     if (editId) {
       updateMutation.mutate({ id: editId, ...payload }, {
-        onSuccess: () => { toast({ title: "Invoice updated successfully" }); navigate("/"); },
+        onSuccess: () => { toast({ title: "Invoice updated successfully" }); },
         onError: (err) => toast({ title: "Error", description: err.message, variant: "destructive" }),
       });
     } else {
       createMutation.mutate(payload, {
-        onSuccess: () => { toast({ title: "Invoice created successfully" }); navigate("/"); },
+        onSuccess: (inv: any) => {
+          toast({ title: `Invoice ${djInvoiceNo} created successfully` });
+          navigate(`/purchase-invoice/${inv.id}/edit`);
+        },
         onError: (err) => toast({ title: "Error", description: err.message, variant: "destructive" }),
       });
     }
+  };
+
+  const handleAddPayment = () => {
+    if (!editId) { toast({ title: "Please save the invoice first before adding payments", variant: "destructive" }); return; }
+    const amount = parseFloat(newPaymentAmount);
+    if (!newPaymentDate || !amount || amount <= 0) { toast({ title: "Error", description: "Please enter a valid date and amount", variant: "destructive" }); return; }
+    addPaymentMutation.mutate({
+      invoiceId: editId,
+      paymentDate: format(newPaymentDate, "yyyy-MM-dd"),
+      amount,
+      notes: newPaymentNotes.trim() || undefined,
+    }, {
+      onSuccess: () => {
+        toast({ title: "Payment recorded" });
+        setNewPaymentAmount("");
+        setNewPaymentNotes("");
+        setNewPaymentDate(new Date());
+      },
+      onError: (err) => toast({ title: "Error", description: err.message, variant: "destructive" }),
+    });
   };
 
   const totals = items.reduce((acc, item) => ({
@@ -233,6 +263,11 @@ export default function PurchaseInvoice() {
     gstAmount: acc.gstAmount + item.gstAmount,
     netAmount: acc.netAmount + item.netAmount,
   }), { totalPrice: 0, gstAmount: 0, netAmount: 0 });
+
+  const payments = (existingInvoice as any)?.payments || [];
+  const totalPaid = payments.reduce((sum: number, p: any) => sum + Number(p.amount), 0);
+  const balance = totals.netAmount - totalPaid;
+  const isPaid = balance <= 0 && totals.netAmount > 0;
 
   const isPending = createMutation.isPending || updateMutation.isPending;
 
@@ -247,7 +282,7 @@ export default function PurchaseInvoice() {
       <div className="max-w-5xl mx-auto space-y-4">
         {/* Header */}
         <div className="flex items-center gap-3">
-          <Link href="/">
+          <Link href="/purchase-invoice">
             <Button variant="ghost" size="sm" className="gap-1.5 text-muted-foreground hover:text-foreground" data-testid="button-back">
               <ArrowLeft className="w-4 h-4" /> Back
             </Button>
@@ -263,8 +298,11 @@ export default function PurchaseInvoice() {
                   <Receipt className="w-5 h-5" />
                 </div>
                 <div>
-                  <h1 className="text-lg font-bold">{editId ? "Edit Purchase Invoice" : "New Purchase Invoice"}</h1>
-                  <p className="text-rose-100 text-xs">{editId ? "Update invoice details below" : "Create a direct purchase invoice"}</p>
+                  <h1 className="text-lg font-bold flex items-center gap-2">
+                    {editId ? "Edit Purchase Invoice" : "New Purchase Invoice"}
+                    {djInvoiceNo && <span className="bg-white/20 text-white text-sm px-2.5 py-0.5 rounded-full font-mono">{djInvoiceNo}</span>}
+                  </h1>
+                  <p className="text-rose-100 text-xs">{editId ? "Update invoice details and manage payments" : "Create a direct purchase invoice"}</p>
                 </div>
               </div>
               <Button
@@ -280,8 +318,21 @@ export default function PurchaseInvoice() {
           </div>
 
           <CardContent className="p-4 sm:p-6 space-y-5">
-            {/* Basic details */}
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
+              {/* DJ Invoice No */}
+              <div className="space-y-1.5">
+                <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">DJ Invoice No.</Label>
+                <div className="relative">
+                  <Input
+                    value={djInvoiceNo}
+                    onChange={(e) => setDjInvoiceNo(e.target.value.toUpperCase())}
+                    placeholder="DJ001"
+                    className="font-mono font-bold text-rose-600 dark:text-rose-400 pl-3"
+                    data-testid="input-dj-invoice-no"
+                  />
+                </div>
+              </div>
+
               <div className="space-y-1.5">
                 <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Date</Label>
                 <DatePicker date={date} setDate={(d) => d && setDate(d)} />
@@ -306,7 +357,7 @@ export default function PurchaseInvoice() {
                 {showNewVendor ? (
                   <div className="flex gap-2">
                     <Input placeholder="New vendor name" value={newVendorName} onChange={(e) => setNewVendorName(e.target.value)} data-testid="input-new-vendor" />
-                    <Button size="sm" onClick={handleAddVendor} disabled={createVendorMutation.isPending} data-testid="button-save-vendor">
+                    <Button size="sm" onClick={handleAddVendor} disabled={createVendorMutation.isPending}>
                       {createVendorMutation.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : "Add"}
                     </Button>
                     <Button size="sm" variant="ghost" onClick={() => setShowNewVendor(false)}>Cancel</Button>
@@ -321,7 +372,7 @@ export default function PurchaseInvoice() {
                         ))}
                       </SelectContent>
                     </Select>
-                    <Button size="sm" variant="outline" onClick={() => setShowNewVendor(true)} title="Add new vendor" data-testid="button-new-vendor">
+                    <Button size="sm" variant="outline" onClick={() => setShowNewVendor(true)} title="Add new vendor">
                       <Store className="w-4 h-4" />
                     </Button>
                   </div>
@@ -332,26 +383,6 @@ export default function PurchaseInvoice() {
                 <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Vendor Invoice No.</Label>
                 <Input placeholder="Invoice number" value={vendorInvoiceNo} onChange={(e) => setVendorInvoiceNo(e.target.value)} data-testid="input-vendor-invoice-no" />
               </div>
-
-              {/* Payment toggle */}
-              <div className="space-y-1.5">
-                <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Payment Status</Label>
-                <button
-                  type="button"
-                  role="switch"
-                  aria-checked={paymentGiven}
-                  onClick={() => setPaymentGiven(!paymentGiven)}
-                  className={`flex items-center gap-3 w-full h-10 px-3 rounded-md border transition-colors ${paymentGiven ? 'bg-emerald-50 border-emerald-300 dark:bg-emerald-950/20 dark:border-emerald-700' : 'bg-muted/30 border-input'}`}
-                  data-testid="switch-payment-given"
-                >
-                  <span className={`relative inline-flex h-5 w-9 shrink-0 rounded-full border-2 border-transparent transition-colors ${paymentGiven ? 'bg-emerald-500' : 'bg-gray-300 dark:bg-gray-600'}`}>
-                    <span className={`inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform ${paymentGiven ? 'translate-x-4' : 'translate-x-0'}`} />
-                  </span>
-                  <span className={`text-sm font-medium ${paymentGiven ? 'text-emerald-700 dark:text-emerald-400' : 'text-muted-foreground'}`}>
-                    {paymentGiven ? "Payment Given" : "Payment Pending"}
-                  </span>
-                </button>
-              </div>
             </div>
 
             {/* Optional: Load from PR */}
@@ -361,7 +392,6 @@ export default function PurchaseInvoice() {
                   type="button"
                   onClick={() => setShowPrSection(!showPrSection)}
                   className="w-full flex items-center justify-between px-4 py-2.5 text-sm font-medium text-rose-700 dark:text-rose-400 hover:bg-rose-50/50 dark:hover:bg-rose-950/10 rounded-lg transition-colors"
-                  data-testid="button-toggle-pr"
                 >
                   <span className="flex items-center gap-2">
                     <FileText className="w-4 h-4" />
@@ -373,7 +403,7 @@ export default function PurchaseInvoice() {
                 {showPrSection && (
                   <div className="px-4 pb-3">
                     <Select value={purchaseRequestId?.toString() || ""} onValueChange={loadFromPR}>
-                      <SelectTrigger data-testid="select-purchase-request">
+                      <SelectTrigger>
                         <SelectValue placeholder="Select an approved PR to load items" />
                       </SelectTrigger>
                       <SelectContent>
@@ -384,7 +414,6 @@ export default function PurchaseInvoice() {
                         ))}
                       </SelectContent>
                     </Select>
-                    <p className="text-xs text-muted-foreground mt-1.5">Selecting a PR will auto-fill the client and approved items.</p>
                   </div>
                 )}
               </div>
@@ -434,29 +463,29 @@ export default function PurchaseInvoice() {
                       </td>
                       <td className="py-2 px-2">
                         <Select value={item.uom} onValueChange={(v) => updateItem(index, "uom", v)}>
-                          <SelectTrigger className="h-8" data-testid={`select-uom-${index}`}><SelectValue /></SelectTrigger>
+                          <SelectTrigger className="h-8"><SelectValue /></SelectTrigger>
                           <SelectContent>{UOM_OPTIONS.map(u => <SelectItem key={u} value={u}>{u}</SelectItem>)}</SelectContent>
                         </Select>
                       </td>
                       <td className="py-2 px-2">
-                        <Input type="number" value={item.qty || ""} onChange={(e) => updateItem(index, "qty", Number(e.target.value) || 0)} className="h-8 text-right" data-testid={`input-qty-${index}`} />
+                        <Input type="number" value={item.qty || ""} onChange={(e) => updateItem(index, "qty", Number(e.target.value) || 0)} className="h-8 text-right" />
                       </td>
                       <td className="py-2 px-2">
-                        <Input type="number" value={item.unitPrice || ""} onChange={(e) => updateItem(index, "unitPrice", Number(e.target.value) || 0)} className="h-8 text-right" data-testid={`input-unit-price-${index}`} />
+                        <Input type="number" value={item.unitPrice || ""} onChange={(e) => updateItem(index, "unitPrice", Number(e.target.value) || 0)} className="h-8 text-right" />
                       </td>
                       <td className="py-2 px-2 text-right font-mono text-xs text-muted-foreground">{item.totalPrice.toFixed(2)}</td>
                       <td className="py-2 px-2">
                         <Select value={item.gstRate.toString()} onValueChange={(v) => updateItem(index, "gstRate", Number(v))}>
-                          <SelectTrigger className="h-8" data-testid={`select-gst-${index}`}><SelectValue /></SelectTrigger>
+                          <SelectTrigger className="h-8"><SelectValue /></SelectTrigger>
                           <SelectContent>{GST_RATES.map(r => <SelectItem key={r} value={r.toString()}>{r}%</SelectItem>)}</SelectContent>
                         </Select>
                       </td>
                       <td className="py-2 px-2 text-right font-mono text-xs text-muted-foreground">{item.gstAmount.toFixed(2)}</td>
                       <td className="py-2 px-2">
-                        <Input type="number" value={item.netAmount || ""} onChange={(e) => updateItem(index, "netAmount", Number(e.target.value) || 0)} className="h-8 text-right font-mono font-semibold text-rose-600 dark:text-rose-400" data-testid={`input-net-amount-${index}`} />
+                        <Input type="number" value={item.netAmount || ""} onChange={(e) => updateItem(index, "netAmount", Number(e.target.value) || 0)} className="h-8 text-right font-mono font-semibold text-rose-600 dark:text-rose-400" />
                       </td>
                       <td className="py-2 px-2">
-                        <Button size="sm" variant="ghost" onClick={() => removeItem(index)} className="h-8 w-8 p-0 text-destructive hover:bg-destructive/10" disabled={items.length <= 1} data-testid={`button-remove-item-${index}`}>
+                        <Button size="sm" variant="ghost" onClick={() => removeItem(index)} className="h-8 w-8 p-0 text-destructive hover:bg-destructive/10" disabled={items.length <= 1}>
                           <Trash2 className="w-4 h-4" />
                         </Button>
                       </td>
@@ -479,7 +508,7 @@ export default function PurchaseInvoice() {
             {/* Mobile item cards */}
             <div className="md:hidden divide-y">
               {items.map((item, index) => (
-                <div key={index} className="p-3 space-y-3" data-testid={`mobile-invoice-item-${index}`}>
+                <div key={index} className="p-3 space-y-3">
                   <div className="flex items-center justify-between">
                     <span className="text-xs font-semibold text-muted-foreground bg-slate-100 dark:bg-slate-800 px-2 py-0.5 rounded-full">Item #{index + 1}</span>
                     <Button size="icon" variant="ghost" className="h-7 w-7 text-destructive hover:bg-destructive/10" onClick={() => removeItem(index)} disabled={items.length <= 1}>
@@ -521,30 +550,18 @@ export default function PurchaseInvoice() {
                     </div>
                     <div>
                       <Label className="text-xs font-semibold text-rose-600 dark:text-rose-400">Net Amt</Label>
-                      <Input type="number" value={item.netAmount || ""} onChange={(e) => updateItem(index, "netAmount", Number(e.target.value) || 0)} className="h-9 mt-1 text-right font-mono font-semibold text-rose-600 dark:text-rose-400" data-testid={`input-net-amount-${index}`} />
+                      <Input type="number" value={item.netAmount || ""} onChange={(e) => updateItem(index, "netAmount", Number(e.target.value) || 0)} className="h-9 mt-1 text-right font-mono font-semibold text-rose-600 dark:text-rose-400" />
                     </div>
                   </div>
                 </div>
               ))}
-
-              {/* Mobile totals */}
               <div className="p-3 bg-rose-50 dark:bg-rose-950/20 space-y-1.5">
-                <div className="flex justify-between text-sm text-muted-foreground">
-                  <span>Total Price</span>
-                  <span className="font-mono">₹{totals.totalPrice.toFixed(2)}</span>
-                </div>
-                <div className="flex justify-between text-sm text-muted-foreground">
-                  <span>Total GST</span>
-                  <span className="font-mono">₹{totals.gstAmount.toFixed(2)}</span>
-                </div>
-                <div className="flex justify-between text-base font-bold text-rose-600 dark:text-rose-400 border-t border-rose-200 dark:border-rose-800/50 pt-1.5">
-                  <span>Grand Total</span>
-                  <span className="font-mono">₹{totals.netAmount.toFixed(2)}</span>
-                </div>
+                <div className="flex justify-between text-sm text-muted-foreground"><span>Total Price</span><span className="font-mono">₹{totals.totalPrice.toFixed(2)}</span></div>
+                <div className="flex justify-between text-sm text-muted-foreground"><span>Total GST</span><span className="font-mono">₹{totals.gstAmount.toFixed(2)}</span></div>
+                <div className="flex justify-between text-base font-bold text-rose-600 dark:text-rose-400 border-t border-rose-200 dark:border-rose-800/50 pt-1.5"><span>Grand Total</span><span className="font-mono">₹{totals.netAmount.toFixed(2)}</span></div>
               </div>
             </div>
 
-            {/* Add item bottom */}
             <div className="p-3 border-t">
               <Button variant="outline" onClick={addItem} className="w-full gap-1.5" data-testid="button-add-item-bottom">
                 <Plus className="w-4 h-4" /> Add Another Item
@@ -553,7 +570,136 @@ export default function PurchaseInvoice() {
           </CardContent>
         </Card>
 
-        {/* Save button bottom (mobile) */}
+        {/* Payment Tracking Card — shown in both new and edit mode */}
+        <Card className="border-0 shadow-lg overflow-hidden">
+          <CardHeader className={`pb-3 pt-4 text-white ${isPaid ? 'bg-gradient-to-r from-emerald-500 to-green-600' : 'bg-gradient-to-r from-violet-600 to-purple-700'}`}>
+            <CardTitle className="flex items-center justify-between text-base">
+              <div className="flex items-center gap-2">
+                {isPaid ? <CheckCircle2 className="w-5 h-5" /> : <IndianRupee className="w-5 h-5" />}
+                Payment Tracking
+                {isPaid && <span className="bg-white/20 text-white text-xs px-2 py-0.5 rounded-full font-semibold">FULLY PAID</span>}
+              </div>
+              {editId && (
+                <div className="flex items-center gap-3 text-xs text-white/80">
+                  <span>Grand Total: <span className="font-mono font-bold text-white">₹{totals.netAmount.toFixed(2)}</span></span>
+                  <span>Paid: <span className="font-mono font-bold text-white">₹{totalPaid.toFixed(2)}</span></span>
+                  {!isPaid && balance > 0 && <span>Balance: <span className="font-mono font-bold text-yellow-200">₹{balance.toFixed(2)}</span></span>}
+                </div>
+              )}
+            </CardTitle>
+          </CardHeader>
+
+          <CardContent className="p-4 sm:p-6 space-y-4">
+            {!editId && (
+              <p className="text-sm text-muted-foreground text-center py-2 bg-muted/30 rounded-lg">
+                Save the invoice first, then come back to record payments here.
+              </p>
+            )}
+
+            {editId && (
+              <>
+                {/* Payment progress bar */}
+                {totals.netAmount > 0 && (
+                  <div className="space-y-1.5">
+                    <div className="flex justify-between text-xs text-muted-foreground">
+                      <span>Payment Progress</span>
+                      <span className="font-semibold">{Math.min(100, Math.round((totalPaid / totals.netAmount) * 100))}%</span>
+                    </div>
+                    <div className="h-2.5 bg-muted rounded-full overflow-hidden">
+                      <div
+                        className={`h-full rounded-full transition-all ${isPaid ? 'bg-emerald-500' : 'bg-violet-500'}`}
+                        style={{ width: `${Math.min(100, (totalPaid / totals.netAmount) * 100)}%` }}
+                      />
+                    </div>
+                  </div>
+                )}
+
+                {/* Existing payments list */}
+                {payments.length > 0 && (
+                  <div className="space-y-2">
+                    <h4 className="text-sm font-semibold text-muted-foreground flex items-center gap-1.5">
+                      <CalendarCheck className="w-4 h-4" /> Payment Records ({djInvoiceNo})
+                    </h4>
+                    <div className="border rounded-lg divide-y overflow-hidden">
+                      {payments.map((p: any, idx: number) => (
+                        <div key={p.id} className="flex items-center justify-between px-3 py-2.5 bg-white dark:bg-transparent hover:bg-slate-50 dark:hover:bg-slate-800/20" data-testid={`payment-record-${p.id}`}>
+                          <div className="flex items-center gap-2.5">
+                            <div className="w-7 h-7 rounded-full bg-violet-100 dark:bg-violet-900/30 text-violet-600 dark:text-violet-400 flex items-center justify-center text-xs font-bold shrink-0">{idx + 1}</div>
+                            <div>
+                              <div className="text-sm font-semibold">₹{Number(p.amount).toFixed(2)}</div>
+                              <div className="text-xs text-muted-foreground">{format(new Date(p.paymentDate), "dd-MM-yyyy")}{p.notes && ` · ${p.notes}`}</div>
+                            </div>
+                          </div>
+                          <AlertDialog>
+                            <AlertDialogTrigger asChild>
+                              <Button size="icon" variant="ghost" className="h-7 w-7 text-destructive hover:bg-destructive/10" data-testid={`button-delete-payment-${p.id}`}>
+                                <Trash2 className="w-3.5 h-3.5" />
+                              </Button>
+                            </AlertDialogTrigger>
+                            <AlertDialogContent>
+                              <AlertDialogHeader>
+                                <AlertDialogTitle>Delete this payment record?</AlertDialogTitle>
+                                <AlertDialogDescription>Payment of ₹{Number(p.amount).toFixed(2)} on {format(new Date(p.paymentDate), "dd-MM-yyyy")} will be removed.</AlertDialogDescription>
+                              </AlertDialogHeader>
+                              <AlertDialogFooter>
+                                <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                <AlertDialogAction onClick={() => deletePaymentMutation.mutate(p.id)} className="bg-destructive hover:bg-destructive/90 text-destructive-foreground">Delete</AlertDialogAction>
+                              </AlertDialogFooter>
+                            </AlertDialogContent>
+                          </AlertDialog>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Add payment form */}
+                <div className="space-y-3 border border-dashed border-violet-200 dark:border-violet-800/50 rounded-lg p-4">
+                  <h4 className="text-sm font-semibold flex items-center gap-1.5 text-violet-700 dark:text-violet-400">
+                    <Plus className="w-4 h-4" /> Add Payment Record
+                  </h4>
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                    <div className="space-y-1">
+                      <Label className="text-xs text-muted-foreground">Payment Date</Label>
+                      <DatePicker date={newPaymentDate} setDate={(d) => d && setNewPaymentDate(d)} />
+                    </div>
+                    <div className="space-y-1">
+                      <Label className="text-xs text-muted-foreground">Amount (₹)</Label>
+                      <Input
+                        type="number"
+                        placeholder="0.00"
+                        value={newPaymentAmount}
+                        onChange={(e) => setNewPaymentAmount(e.target.value)}
+                        className="font-mono"
+                        data-testid="input-payment-amount"
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <Label className="text-xs text-muted-foreground">Notes (optional)</Label>
+                      <Input
+                        placeholder="e.g. Cheque No."
+                        value={newPaymentNotes}
+                        onChange={(e) => setNewPaymentNotes(e.target.value)}
+                        data-testid="input-payment-notes"
+                      />
+                    </div>
+                  </div>
+                  <Button
+                    onClick={handleAddPayment}
+                    disabled={addPaymentMutation.isPending || !newPaymentAmount}
+                    className="w-full bg-gradient-to-r from-violet-600 to-purple-700 hover:from-violet-700 hover:to-purple-800 text-white gap-2"
+                    data-testid="button-add-payment"
+                  >
+                    {addPaymentMutation.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Clock className="w-4 h-4" />}
+                    Record Payment
+                  </Button>
+                </div>
+              </>
+            )}
+          </CardContent>
+        </Card>
+
+        {/* Bottom save button */}
         <div className="pb-4">
           <Button onClick={handleSave} disabled={isPending} className="w-full bg-gradient-to-r from-rose-500 to-pink-600 hover:from-rose-600 hover:to-pink-700 text-white shadow-lg gap-2" size="lg" data-testid="button-save-invoice-bottom">
             {isPending ? <Loader2 className="w-5 h-5 animate-spin" /> : <Save className="w-5 h-5" />}

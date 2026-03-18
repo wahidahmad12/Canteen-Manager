@@ -997,3 +997,53 @@ export function useDeletePurchaseInvoice() {
     },
   });
 }
+
+export function useNextDjInvoiceNo() {
+  return useQuery({
+    queryKey: [api.purchaseInvoices.nextDjNo.path],
+    queryFn: async () => {
+      const res = await fetch(api.purchaseInvoices.nextDjNo.path, { credentials: "include" });
+      if (!res.ok) throw new Error("Failed to fetch DJ invoice number");
+      const data = await res.json();
+      return data.djInvoiceNo as string;
+    },
+    staleTime: 0,
+  });
+}
+
+export function useAddPurchaseInvoicePayment() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ invoiceId, ...data }: { invoiceId: number; paymentDate: string; amount: number; notes?: string }) => {
+      const url = buildUrl(api.purchaseInvoices.addPayment.path, { id: invoiceId });
+      const res = await fetch(url, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(data),
+        credentials: "include",
+      });
+      if (!res.ok) {
+        const error = await res.json();
+        throw new Error(error.message || "Failed to add payment");
+      }
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: [api.purchaseInvoices.list.path] });
+    },
+  });
+}
+
+export function useDeletePurchaseInvoicePayment() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (paymentId: number) => {
+      const url = buildUrl(api.purchaseInvoices.deletePayment.path, { id: paymentId });
+      const res = await fetch(url, { method: "DELETE", credentials: "include" });
+      if (!res.ok) throw new Error("Failed to delete payment");
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: [api.purchaseInvoices.list.path] });
+    },
+  });
+}

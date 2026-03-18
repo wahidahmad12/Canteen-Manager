@@ -525,6 +525,7 @@ export const api = {
       path: '/api/purchase-invoices' as const,
       input: z.object({
         purchaseRequestId: z.number().nullable().optional(),
+        djInvoiceNo: z.string().optional(),
         clientName: z.string().min(1),
         vendorName: z.string().min(1),
         vendorInvoiceNo: z.string().default(""),
@@ -551,6 +552,7 @@ export const api = {
       path: '/api/purchase-invoices/:id' as const,
       input: z.object({
         purchaseRequestId: z.number().nullable().optional(),
+        djInvoiceNo: z.string().optional(),
         clientName: z.string().min(1).optional(),
         vendorName: z.string().min(1).optional(),
         vendorInvoiceNo: z.string().optional(),
@@ -590,6 +592,52 @@ export const api = {
           unitPrice: z.number(),
           gstRate: z.number(),
         })),
+      },
+    },
+    nextDjNo: {
+      method: 'GET' as const,
+      path: '/api/purchase-invoices/next-dj-no' as const,
+      responses: {
+        200: z.object({ djInvoiceNo: z.string() }),
+      },
+    },
+    getPayments: {
+      method: 'GET' as const,
+      path: '/api/purchase-invoices/:id/payments' as const,
+      responses: {
+        200: z.array(z.object({
+          id: z.number(),
+          invoiceId: z.number(),
+          paymentDate: z.string(),
+          amount: z.string(),
+          notes: z.string().nullable(),
+          createdAt: z.string().or(z.date()).optional(),
+        })),
+      },
+    },
+    addPayment: {
+      method: 'POST' as const,
+      path: '/api/purchase-invoices/:id/payments' as const,
+      input: z.object({
+        paymentDate: z.string().min(1),
+        amount: z.coerce.number().positive(),
+        notes: z.string().optional(),
+      }),
+      responses: {
+        201: z.object({
+          id: z.number(),
+          invoiceId: z.number(),
+          paymentDate: z.string(),
+          amount: z.string(),
+          notes: z.string().nullable(),
+        }),
+      },
+    },
+    deletePayment: {
+      method: 'DELETE' as const,
+      path: '/api/purchase-invoice-payments/:id' as const,
+      responses: {
+        204: z.void(),
       },
     },
   },

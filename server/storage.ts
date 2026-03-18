@@ -18,6 +18,7 @@ import {
   vendors,
   purchaseInvoices,
   purchaseInvoiceItems,
+  purchaseInvoicePayments,
   itemMaster,
   employees,
   attendance,
@@ -51,6 +52,7 @@ import {
   type SavedItemName,
   type Vendor,
   type PurchaseInvoiceWithItems,
+  type PurchaseInvoicePayment,
   type ItemMaster,
   type Employee,
   type Attendance,
@@ -980,7 +982,8 @@ export class DatabaseStorage implements IStorage {
     const invoices = await db.select().from(purchaseInvoices).orderBy(desc(purchaseInvoices.createdAt));
     return await Promise.all(invoices.map(async (inv) => {
       const items = await db.select().from(purchaseInvoiceItems).where(eq(purchaseInvoiceItems.invoiceId, inv.id));
-      return { ...inv, items };
+      const payments = await db.select().from(purchaseInvoicePayments).where(eq(purchaseInvoicePayments.invoiceId, inv.id)).orderBy(purchaseInvoicePayments.paymentDate);
+      return { ...inv, items, payments };
     }));
   }
 
@@ -988,16 +991,27 @@ export class DatabaseStorage implements IStorage {
     const [inv] = await db.select().from(purchaseInvoices).where(eq(purchaseInvoices.id, id));
     if (!inv) return undefined;
     const items = await db.select().from(purchaseInvoiceItems).where(eq(purchaseInvoiceItems.invoiceId, id));
-    return { ...inv, items };
+    const payments = await db.select().from(purchaseInvoicePayments).where(eq(purchaseInvoicePayments.invoiceId, id)).orderBy(purchaseInvoicePayments.paymentDate);
+    return { ...inv, items, payments };
   }
 
-  async createPurchaseInvoice(data: { purchaseRequestId?: number | null; clientName: string; vendorName: string; vendorInvoiceNo: string; date: string; paymentGiven?: boolean; createdBy?: string; items: { itemName: string; uom: string; qty: number; unitPrice: number; totalPrice: number; gstRate: number; gstAmount: number; netAmount: number }[] }): Promise<PurchaseInvoiceWithItems> {
+  async getNextDjInvoiceNo(): Promise<string> {
+    const [row] = await db.execute(sql`SELECT dj_invoice_no FROM purchase_invoices WHERE dj_invoice_no IS NOT NULL ORDER BY id DESC LIMIT 1`) as any;
+    const rows = Array.isArray(row) ? row : [];
+    if (rows.length === 0) return 'DJ001';
+    const last = rows[0]?.dj_invoice_no || 'DJ000';
+    const num = parseInt(last.replace(/\D/g, ''), 10) || 0;
+    return 'DJ' + String(num + 1).padStart(3, '0');
+  }
+
+  async createPurchaseInvoice(data: { purchaseRequestId?: number | null; clientName: string; vendorName: string; vendorInvoiceNo: string; date: string; paymentGiven?: boolean; djInvoiceNo?: string; createdBy?: string; items: { itemName: string; uom: string; qty: number; unitPrice: number; totalPrice: number; gstRate: number; gstAmount: number; netAmount: number }[] }): Promise<PurchaseInvoiceWithItems> {
     return await db.transaction(async (tx) => {
       const totalAmount = data.items.reduce((sum, i) => sum + i.totalPrice, 0);
       const totalGst = data.items.reduce((sum, i) => sum + i.gstAmount, 0);
       const grandTotal = data.items.reduce((sum, i) => sum + i.netAmount, 0);
       await tx.insert(purchaseInvoices).values({
         purchaseRequestId: data.purchaseRequestId || null,
+        djInvoiceNo: data.djInvoiceNo || null,
         clientName: data.clientName,
         vendorName: data.vendorName,
         vendorInvoiceNo: data.vendorInvoiceNo || "",
@@ -1026,11 +1040,11 @@ export class DatabaseStorage implements IStorage {
         );
       }
       const items = await tx.select().from(purchaseInvoiceItems).where(eq(purchaseInvoiceItems.invoiceId, inv.id));
-      return { ...inv, items };
+      return { ...inv, items, payments: [] };
     });
   }
 
-  async updatePurchaseInvoice(id: number, data: { purchaseRequestId?: number | null; clientName?: string; vendorName?: string; vendorInvoiceNo?: string; date?: string; paymentGiven?: boolean; items?: { id?: number; itemName: string; uom: string; qty: number; unitPrice: number; totalPrice: number; gstRate: number; gstAmount: number; netAmount: number }[] }): Promise<PurchaseInvoiceWithItems> {
+  async updatePurchaseInvoice(id: number, data: { purchaseRequestId?: number | null; clientName?: string; vendorName?: string; vendorInvoiceNo?: string; date?: string; paymentGiven?: boolean; djInvoiceNo?: string; items?: { id?: number; itemName: string; uom: string; qty: number; unitPrice: number; totalPrice: number; gstRate: number; gstAmount: number; netAmount: number }[] }): Promise<PurchaseInvoiceWithItems> {
     return await db.transaction(async (tx) => {
       const updateFields: any = {};
       if (data.clientName) updateFields.clientName = data.clientName;
@@ -1039,6 +1053,7 @@ export class DatabaseStorage implements IStorage {
       if (data.date) updateFields.date = data.date;
       if (data.purchaseRequestId !== undefined) updateFields.purchaseRequestId = data.purchaseRequestId;
       if (data.paymentGiven !== undefined) updateFields.paymentGiven = data.paymentGiven;
+      if (data.djInvoiceNo !== undefined) updateFields.djInvoiceNo = data.djInvoiceNo;
       if (data.items) {
         const totalAmount = data.items.reduce((sum, i) => sum + i.totalPrice, 0);
         const totalGst = data.items.reduce((sum, i) => sum + i.gstAmount, 0);
@@ -1069,12 +1084,33 @@ export class DatabaseStorage implements IStorage {
         }
       }
       const items = await tx.select().from(purchaseInvoiceItems).where(eq(purchaseInvoiceItems.invoiceId, id));
-      return { ...inv, items };
+      const payments = await tx.select().from(purchaseInvoicePayments).where(eq(purchaseInvoicePayments.invoiceId, id)).orderBy(purchaseInvoicePayments.paymentDate);
+      return { ...inv, items, payments };
     });
   }
 
   async deletePurchaseInvoice(id: number): Promise<void> {
     await db.delete(purchaseInvoices).where(eq(purchaseInvoices.id, id));
+  }
+
+  async getPurchaseInvoicePayments(invoiceId: number): Promise<PurchaseInvoicePayment[]> {
+    return await db.select().from(purchaseInvoicePayments).where(eq(purchaseInvoicePayments.invoiceId, invoiceId)).orderBy(purchaseInvoicePayments.paymentDate);
+  }
+
+  async addPurchaseInvoicePayment(data: { invoiceId: number; paymentDate: string; amount: number; notes?: string }): Promise<PurchaseInvoicePayment> {
+    await db.insert(purchaseInvoicePayments).values({
+      invoiceId: data.invoiceId,
+      paymentDate: data.paymentDate,
+      amount: data.amount.toString(),
+      notes: data.notes || null,
+    });
+    const id = await getInsertId(db);
+    const [payment] = await db.select().from(purchaseInvoicePayments).where(eq(purchaseInvoicePayments.id, id));
+    return payment;
+  }
+
+  async deletePurchaseInvoicePayment(id: number): Promise<void> {
+    await db.delete(purchaseInvoicePayments).where(eq(purchaseInvoicePayments.id, id));
   }
 
   async getLastVegetablePrices(): Promise<{ description: string; rate: number }[]> {
