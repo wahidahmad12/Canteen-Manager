@@ -34,6 +34,7 @@ interface VendorSummary {
   totalBalance: number;
   invoiceCount: number;
   paidCount: number;
+  partialCount: number;
   unpaidCount: number;
 }
 
@@ -81,19 +82,23 @@ export default function VendorReport() {
 
   const filteredInvoices = useMemo(() => {
     if (!invoices) return [];
-    return invoices.filter((inv: any) => {
-      const invDate = new Date(inv.date);
-      if (fromDate && invDate < fromDate) return false;
-      if (toDate) {
-        const end = new Date(toDate);
-        end.setHours(23, 59, 59, 999);
-        if (invDate > end) return false;
-      }
-      if (vendorFilter !== "all" && inv.vendorName !== vendorFilter) return false;
-      if (clientFilter !== "all" && inv.clientName !== clientFilter) return false;
-      return true;
-    });
+    return invoices
+      .filter((inv: any) => {
+        const invDate = new Date(inv.date);
+        if (fromDate && invDate < fromDate) return false;
+        if (toDate) {
+          const end = new Date(toDate);
+          end.setHours(23, 59, 59, 999);
+          if (invDate > end) return false;
+        }
+        if (vendorFilter !== "all" && inv.vendorName !== vendorFilter) return false;
+        if (clientFilter !== "all" && inv.clientName !== clientFilter) return false;
+        return true;
+      })
+      .sort((a: any, b: any) => new Date(a.date).getTime() - new Date(b.date).getTime());
   }, [invoices, fromDate, toDate, vendorFilter, clientFilter]);
+
+  const getInvPaid = (inv: any) => (inv.payments || []).reduce((s: number, p: any) => s + Number(p.amount), 0);
 
   const summaryData = useMemo(() => {
     const map = new Map<string, VendorSummary>();
@@ -111,21 +116,22 @@ export default function VendorReport() {
         totalBalance: 0,
         invoiceCount: 0,
         paidCount: 0,
+        partialCount: 0,
         unpaidCount: 0,
       };
 
       const grand = Number(inv.grandTotal) || 0;
+      const paid = getInvPaid(inv);
+      const balance = grand - paid;
       existing.totalBillAmount += Number(inv.totalAmount) || 0;
       existing.totalGst += Number(inv.totalGst) || 0;
       existing.grandTotal += grand;
-      if (inv.paymentGiven) {
-        existing.totalPaid += grand;
-        existing.paidCount++;
-      } else {
-        existing.totalBalance += grand;
-        existing.unpaidCount++;
-      }
+      existing.totalPaid += paid;
+      existing.totalBalance += Math.max(0, balance);
       existing.invoiceCount++;
+      if (paid >= grand && grand > 0) existing.paidCount++;
+      else if (paid > 0) existing.partialCount++;
+      else existing.unpaidCount++;
 
       map.set(key, existing);
     });
@@ -147,9 +153,10 @@ export default function VendorReport() {
         totalBalance: acc.totalBalance + row.totalBalance,
         invoiceCount: acc.invoiceCount + row.invoiceCount,
         paidCount: acc.paidCount + row.paidCount,
+        partialCount: acc.partialCount + row.partialCount,
         unpaidCount: acc.unpaidCount + row.unpaidCount,
       }),
-      { totalBillAmount: 0, totalGst: 0, grandTotal: 0, totalPaid: 0, totalBalance: 0, invoiceCount: 0, paidCount: 0, unpaidCount: 0 }
+      { totalBillAmount: 0, totalGst: 0, grandTotal: 0, totalPaid: 0, totalBalance: 0, invoiceCount: 0, paidCount: 0, partialCount: 0, unpaidCount: 0 }
     );
   }, [summaryData]);
 
@@ -186,12 +193,11 @@ export default function VendorReport() {
     ws.addRow([]);
 
     const groupLabel = groupBy === "vendor" ? "Vendor Name" : "Client Name";
-    const headers = [groupLabel, "Invoices", "Total Bill", "GST", "Grand Total", "Paid", "Balance", "Paid Count", "Unpaid Count"];
+    const headers = [groupLabel, "Invoices", "Total Bill", "GST", "Grand Total", "Paid", "Balance", "Paid", "Partial", "Unpaid"];
     const headerRow = ws.addRow(headers);
     headerRow.eachCell((cell) => {
-      cell.font = { bold: true, size: 10 };
-      cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FF6366F1" } };
       cell.font = { bold: true, size: 10, color: { argb: "FFFFFFFF" } };
+      cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FF6366F1" } };
       cell.border = { top: { style: "thin" }, bottom: { style: "thin" }, left: { style: "thin" }, right: { style: "thin" } };
       cell.alignment = { horizontal: "center" };
     });
@@ -200,7 +206,7 @@ export default function VendorReport() {
       const name = groupBy === "vendor" ? row.vendorName : row.clientName;
       const r = ws.addRow([
         name, row.invoiceCount, row.totalBillAmount, row.totalGst,
-        row.grandTotal, row.totalPaid, row.totalBalance, row.paidCount, row.unpaidCount
+        row.grandTotal, row.totalPaid, row.totalBalance, row.paidCount, row.partialCount, row.unpaidCount
       ]);
       r.eachCell((cell) => {
         cell.border = { top: { style: "thin" }, bottom: { style: "thin" }, left: { style: "thin" }, right: { style: "thin" } };
@@ -216,7 +222,7 @@ export default function VendorReport() {
     const totRow = ws.addRow([
       "Total", grandTotals.invoiceCount, grandTotals.totalBillAmount, grandTotals.totalGst,
       grandTotals.grandTotal, grandTotals.totalPaid, grandTotals.totalBalance,
-      grandTotals.paidCount, grandTotals.unpaidCount
+      grandTotals.paidCount, grandTotals.partialCount, grandTotals.unpaidCount
     ]);
     totRow.eachCell((cell) => {
       cell.font = { bold: true, size: 10 };
@@ -226,11 +232,53 @@ export default function VendorReport() {
 
     ws.getColumn(1).width = 30;
     ws.getColumn(2).width = 10;
-    for (let i = 3; i <= 9; i++) ws.getColumn(i).width = 16;
+    for (let i = 3; i <= 10; i++) ws.getColumn(i).width = 16;
 
     [3, 4, 5, 6, 7].forEach(col => {
       ws.getColumn(col).numFmt = '#,##0.00';
     });
+
+    const ws2 = workbook.addWorksheet("Invoice Details");
+    const detailHeaders = ["#", "Date", "DJ No.", "Vendor Invoice No", "Vendor", "Client", "Grand Total", "Paid", "Balance", "Status"];
+    const dh = ws2.addRow(detailHeaders);
+    dh.eachCell((cell) => {
+      cell.font = { bold: true, size: 10, color: { argb: "FFFFFFFF" } };
+      cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FF3B82F6" } };
+      cell.border = { top: { style: "thin" }, bottom: { style: "thin" }, left: { style: "thin" }, right: { style: "thin" } };
+      cell.alignment = { horizontal: "center" };
+    });
+    filteredInvoices.forEach((inv: any, i: number) => {
+      const paid2 = getInvPaid(inv);
+      const grand2 = Number(inv.grandTotal) || 0;
+      const bal2 = Math.max(0, grand2 - paid2);
+      const status2 = paid2 >= grand2 && grand2 > 0 ? "Paid" : paid2 > 0 ? "Partial" : "Unpaid";
+      const dr = ws2.addRow([
+        i + 1,
+        format(new Date(inv.date), "dd-MM-yyyy"),
+        inv.djInvoiceNo || `#${inv.serialNumber}`,
+        inv.vendorInvoiceNo || "-",
+        inv.vendorName,
+        inv.clientName,
+        grand2, paid2, bal2, status2
+      ]);
+      dr.eachCell((cell) => {
+        cell.border = { top: { style: "thin" }, bottom: { style: "thin" }, left: { style: "thin" }, right: { style: "thin" } };
+        cell.font = { size: 10 };
+      });
+      if (i % 2 === 1) {
+        dr.eachCell((cell) => {
+          cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFEFF6FF" } };
+        });
+      }
+    });
+    ws2.getColumn(1).width = 5;
+    ws2.getColumn(2).width = 14;
+    ws2.getColumn(3).width = 12;
+    ws2.getColumn(4).width = 18;
+    ws2.getColumn(5).width = 25;
+    ws2.getColumn(6).width = 25;
+    [7, 8, 9].forEach(col => { ws2.getColumn(col).width = 15; ws2.getColumn(col).numFmt = '#,##0.00'; });
+    ws2.getColumn(10).width = 10;
 
     const buffer = await workbook.xlsx.writeBuffer();
     const blob = new Blob([buffer], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
@@ -428,7 +476,7 @@ export default function VendorReport() {
                 <div>
                   <p className="text-[10px] sm:text-xs font-medium text-white/80 print:text-gray-500">Payment Given</p>
                   <p className="text-base sm:text-xl font-bold mt-1 print:text-green-700" data-testid="text-total-paid">₹{fmt(grandTotals.totalPaid)}</p>
-                  <p className="text-[10px] text-white/60 mt-0.5">{grandTotals.paidCount} paid</p>
+                  <p className="text-[10px] text-white/60 mt-0.5">{grandTotals.paidCount} fully paid • {grandTotals.partialCount} partial</p>
                 </div>
                 <div className="p-2 bg-white/20 rounded-xl print:hidden">
                   <Check className="w-4 h-4 sm:w-5 sm:h-5" />
@@ -443,7 +491,7 @@ export default function VendorReport() {
                 <div>
                   <p className="text-[10px] sm:text-xs font-medium text-white/80 print:text-gray-500">Balance to Pay</p>
                   <p className="text-base sm:text-xl font-bold mt-1 print:text-red-700" data-testid="text-total-balance">₹{fmt(grandTotals.totalBalance)}</p>
-                  <p className="text-[10px] text-white/60 mt-0.5">{grandTotals.unpaidCount} unpaid</p>
+                  <p className="text-[10px] text-white/60 mt-0.5">{grandTotals.unpaidCount} unpaid • {grandTotals.partialCount} partial</p>
                 </div>
                 <div className="p-2 bg-white/20 rounded-xl print:hidden">
                   <CreditCard className="w-4 h-4 sm:w-5 sm:h-5" />
@@ -489,12 +537,13 @@ export default function VendorReport() {
                     <th className="text-right py-2.5 px-3 font-semibold text-violet-700 dark:text-violet-400 print:text-black">Grand Total</th>
                     <th className="text-right py-2.5 px-3 font-semibold text-violet-700 dark:text-violet-400 print:text-black">Paid</th>
                     <th className="text-right py-2.5 px-3 font-semibold text-violet-700 dark:text-violet-400 print:text-black">Balance</th>
+                    <th className="text-center py-2.5 px-3 font-semibold text-violet-700 dark:text-violet-400 print:text-black">Status</th>
                   </tr>
                 </thead>
                 <tbody>
                   {summaryData.length === 0 ? (
                     <tr>
-                      <td colSpan={8} className="text-center py-8 text-muted-foreground">No data found for the selected filters</td>
+                      <td colSpan={9} className="text-center py-8 text-muted-foreground">No data found for the selected filters</td>
                     </tr>
                   ) : (
                     <>
@@ -514,6 +563,11 @@ export default function VendorReport() {
                           <td className="py-2.5 px-3 text-right font-mono font-bold text-indigo-600 dark:text-indigo-400">₹{fmt(row.grandTotal)}</td>
                           <td className="py-2.5 px-3 text-right font-mono font-semibold text-emerald-600 dark:text-emerald-400 print:text-green-700">₹{fmt(row.totalPaid)}</td>
                           <td className="py-2.5 px-3 text-right font-mono font-bold text-rose-600 dark:text-rose-400 print:text-red-700">₹{fmt(row.totalBalance)}</td>
+                          <td className="py-2.5 px-3 text-center text-[10px] space-x-1">
+                            {row.paidCount > 0 && <span className="inline-block bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400 px-1.5 py-0.5 rounded font-semibold">{row.paidCount}P</span>}
+                            {row.partialCount > 0 && <span className="inline-block bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400 px-1.5 py-0.5 rounded font-semibold">{row.partialCount}~</span>}
+                            {row.unpaidCount > 0 && <span className="inline-block bg-rose-100 text-rose-700 dark:bg-rose-900/30 dark:text-rose-400 px-1.5 py-0.5 rounded font-semibold">{row.unpaidCount}U</span>}
+                          </td>
                         </tr>
                       ))}
                       <tr className="border-t-2 border-violet-200 dark:border-violet-800 bg-gradient-to-r from-violet-50 to-purple-50 dark:from-violet-950/30 dark:to-purple-950/30 print:bg-gray-100">
@@ -528,6 +582,11 @@ export default function VendorReport() {
                         <td className="py-3 px-3 text-right font-mono font-bold text-indigo-700 dark:text-indigo-400">₹{fmt(grandTotals.grandTotal)}</td>
                         <td className="py-3 px-3 text-right font-mono font-bold text-emerald-600 print:text-green-700">₹{fmt(grandTotals.totalPaid)}</td>
                         <td className="py-3 px-3 text-right font-mono font-bold text-rose-600 print:text-red-700">₹{fmt(grandTotals.totalBalance)}</td>
+                        <td className="py-3 px-3 text-center text-[10px] space-x-1">
+                          {grandTotals.paidCount > 0 && <span className="inline-block bg-emerald-100 text-emerald-700 px-1.5 py-0.5 rounded font-semibold">{grandTotals.paidCount}P</span>}
+                          {grandTotals.partialCount > 0 && <span className="inline-block bg-amber-100 text-amber-700 px-1.5 py-0.5 rounded font-semibold">{grandTotals.partialCount}~</span>}
+                          {grandTotals.unpaidCount > 0 && <span className="inline-block bg-rose-100 text-rose-700 px-1.5 py-0.5 rounded font-semibold">{grandTotals.unpaidCount}U</span>}
+                        </td>
                       </tr>
                     </>
                   )}
@@ -591,40 +650,51 @@ export default function VendorReport() {
                   <tr className="border-b bg-blue-50 dark:bg-blue-950/20 print:bg-gray-100">
                     <th className="text-left py-2 px-3 font-semibold text-blue-700 dark:text-blue-400 text-xs print:text-black">#</th>
                     <th className="text-left py-2 px-3 font-semibold text-blue-700 dark:text-blue-400 text-xs print:text-black">Date</th>
-                    <th className="text-left py-2 px-3 font-semibold text-blue-700 dark:text-blue-400 text-xs print:text-black">Invoice No</th>
+                    <th className="text-left py-2 px-3 font-semibold text-blue-700 dark:text-blue-400 text-xs print:text-black">DJ No.</th>
+                    <th className="text-left py-2 px-3 font-semibold text-blue-700 dark:text-blue-400 text-xs print:text-black">Vendor Invoice No</th>
                     <th className="text-left py-2 px-3 font-semibold text-blue-700 dark:text-blue-400 text-xs print:text-black">Vendor</th>
                     <th className="text-left py-2 px-3 font-semibold text-blue-700 dark:text-blue-400 text-xs print:text-black">Client</th>
-                    <th className="text-right py-2 px-3 font-semibold text-blue-700 dark:text-blue-400 text-xs print:text-black">Amount</th>
-                    <th className="text-right py-2 px-3 font-semibold text-blue-700 dark:text-blue-400 text-xs print:text-black">GST</th>
                     <th className="text-right py-2 px-3 font-semibold text-blue-700 dark:text-blue-400 text-xs print:text-black">Grand Total</th>
-                    <th className="text-center py-2 px-3 font-semibold text-blue-700 dark:text-blue-400 text-xs print:text-black">Payment</th>
+                    <th className="text-right py-2 px-3 font-semibold text-blue-700 dark:text-blue-400 text-xs print:text-black">Paid</th>
+                    <th className="text-right py-2 px-3 font-semibold text-blue-700 dark:text-blue-400 text-xs print:text-black">Balance</th>
+                    <th className="text-center py-2 px-3 font-semibold text-blue-700 dark:text-blue-400 text-xs print:text-black">Status</th>
                   </tr>
                 </thead>
                 <tbody>
                   {filteredInvoices.length === 0 ? (
                     <tr>
-                      <td colSpan={9} className="text-center py-6 text-muted-foreground text-xs">No invoices found</td>
+                      <td colSpan={10} className="text-center py-6 text-muted-foreground text-xs">No invoices found</td>
                     </tr>
                   ) : (
-                    filteredInvoices.map((inv: any, i: number) => (
+                    filteredInvoices.map((inv: any, i: number) => {
+                      const paid = getInvPaid(inv);
+                      const grand = Number(inv.grandTotal) || 0;
+                      const balance = grand - paid;
+                      const isPaid = paid >= grand && grand > 0;
+                      const isPartial = paid > 0 && paid < grand;
+                      return (
                       <tr key={inv.id} className="border-b last:border-b-0 hover:bg-blue-50/50 dark:hover:bg-blue-950/10 print:hover:bg-transparent text-xs">
                         <td className="py-2 px-3">
                           <span className="w-5 h-5 rounded-full bg-gradient-to-br from-blue-400 to-cyan-500 text-white text-[9px] inline-flex items-center justify-center font-bold print:bg-gray-200 print:text-black">{i + 1}</span>
                         </td>
                         <td className="py-2 px-3 font-medium">{format(new Date(inv.date), "dd-MM-yyyy")}</td>
-                        <td className="py-2 px-3 font-mono text-muted-foreground">{inv.vendorInvoiceNo || `PI-${inv.serialNumber}`}</td>
+                        <td className="py-2 px-3">
+                          <span className="font-mono font-bold text-rose-600 dark:text-rose-400 bg-rose-50 dark:bg-rose-950/30 px-1.5 py-0.5 rounded text-[10px]">{inv.djInvoiceNo || `#${inv.serialNumber}`}</span>
+                        </td>
+                        <td className="py-2 px-3 font-mono text-muted-foreground">{inv.vendorInvoiceNo || '-'}</td>
                         <td className="py-2 px-3 font-medium">{inv.vendorName}</td>
                         <td className="py-2 px-3 text-muted-foreground">{inv.clientName}</td>
-                        <td className="py-2 px-3 text-right font-mono">₹{fmt(Number(inv.totalAmount) || 0)}</td>
-                        <td className="py-2 px-3 text-right font-mono text-amber-600">₹{fmt(Number(inv.totalGst) || 0)}</td>
-                        <td className="py-2 px-3 text-right font-mono font-bold text-indigo-600">₹{fmt(Number(inv.grandTotal) || 0)}</td>
+                        <td className="py-2 px-3 text-right font-mono font-bold text-indigo-600">₹{fmt(grand)}</td>
+                        <td className="py-2 px-3 text-right font-mono font-semibold text-emerald-600">{paid > 0 ? `₹${fmt(paid)}` : '-'}</td>
+                        <td className="py-2 px-3 text-right font-mono font-semibold text-rose-600">{!isPaid && balance > 0 ? `₹${fmt(balance)}` : '-'}</td>
                         <td className="py-2 px-3 text-center">
-                          <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-semibold shadow-sm ${inv.paymentGiven ? "bg-gradient-to-r from-emerald-400 to-green-500 text-white print:bg-green-100 print:text-green-700 print:border print:border-green-600" : "bg-gradient-to-r from-rose-400 to-red-500 text-white print:bg-red-100 print:text-red-700 print:border print:border-red-600"}`}>
-                            {inv.paymentGiven ? "Paid" : "Unpaid"}
+                          <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold shadow-sm ${isPaid ? "bg-gradient-to-r from-emerald-400 to-green-500 text-white print:bg-green-100 print:text-green-700" : isPartial ? "bg-gradient-to-r from-amber-400 to-yellow-500 text-white print:bg-yellow-100 print:text-yellow-700" : "bg-gradient-to-r from-rose-400 to-red-500 text-white print:bg-red-100 print:text-red-700"}`}>
+                            {isPaid ? "Paid" : isPartial ? "Partial" : "Unpaid"}
                           </span>
                         </td>
                       </tr>
-                    ))
+                      );
+                    })
                   )}
                 </tbody>
               </table>
@@ -634,27 +704,38 @@ export default function VendorReport() {
               {filteredInvoices.length === 0 ? (
                 <p className="text-center py-6 text-muted-foreground text-xs">No invoices found</p>
               ) : (
-                filteredInvoices.map((inv: any, i: number) => (
+                filteredInvoices.map((inv: any, i: number) => {
+                  const paid = getInvPaid(inv);
+                  const grand = Number(inv.grandTotal) || 0;
+                  const balance = grand - paid;
+                  const isPaid = paid >= grand && grand > 0;
+                  const isPartial = paid > 0 && paid < grand;
+                  return (
                   <div key={inv.id} className="border-0 shadow-sm rounded-xl p-3 text-xs space-y-1.5 bg-gradient-to-r from-blue-50/50 to-cyan-50/50 dark:from-blue-950/10 dark:to-cyan-950/10">
                     <div className="flex items-center justify-between">
                       <span className="font-semibold text-sm flex items-center gap-1.5">
                         <span className="w-5 h-5 rounded-full bg-gradient-to-br from-blue-400 to-cyan-500 text-white text-[9px] flex items-center justify-center font-bold shrink-0">{i + 1}</span>
                         {inv.vendorName}
                       </span>
-                      <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-semibold shadow-sm ${inv.paymentGiven ? "bg-gradient-to-r from-emerald-400 to-green-500 text-white" : "bg-gradient-to-r from-rose-400 to-red-500 text-white"}`}>
-                        {inv.paymentGiven ? "Paid" : "Unpaid"}
+                      <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-semibold shadow-sm ${isPaid ? "bg-gradient-to-r from-emerald-400 to-green-500 text-white" : isPartial ? "bg-gradient-to-r from-amber-400 to-yellow-500 text-white" : "bg-gradient-to-r from-rose-400 to-red-500 text-white"}`}>
+                        {isPaid ? "Paid" : isPartial ? "Partial" : "Unpaid"}
                       </span>
                     </div>
                     <div className="flex justify-between text-muted-foreground">
                       <span>{format(new Date(inv.date), "dd-MM-yyyy")}</span>
-                      <span className="font-mono">{inv.vendorInvoiceNo || `PI-${inv.serialNumber}`}</span>
+                      <span className="font-mono font-bold text-rose-600 dark:text-rose-400">{inv.djInvoiceNo || `#${inv.serialNumber}`}</span>
                     </div>
                     <div className="flex justify-between items-center pt-1 border-t border-blue-100 dark:border-blue-800/30">
                       <span className="text-muted-foreground">{inv.clientName}</span>
-                      <span className="font-bold text-sm text-indigo-600 dark:text-indigo-400">₹{fmt(Number(inv.grandTotal) || 0)}</span>
+                      <div className="text-right">
+                        <div className="font-bold text-sm text-indigo-600 dark:text-indigo-400">₹{fmt(grand)}</div>
+                        {paid > 0 && <div className="text-[10px] text-emerald-600">Paid: ₹{fmt(paid)}</div>}
+                        {!isPaid && balance > 0 && <div className="text-[10px] text-rose-600">Bal: ₹{fmt(balance)}</div>}
+                      </div>
                     </div>
                   </div>
-                ))
+                  );
+                })
               )}
             </div>
           </CardContent>
@@ -686,7 +767,7 @@ export default function VendorReport() {
                   <p className="text-[10px] sm:text-xs uppercase tracking-wider font-semibold text-white/80 flex items-center gap-1">
                     <Receipt className="w-3 h-3" /> Invoices
                   </p>
-                  <p className="text-base sm:text-xl font-bold font-mono">{grandTotals.paidCount} <span className="text-xs font-normal">paid</span> / {grandTotals.unpaidCount} <span className="text-xs font-normal">unpaid</span></p>
+                  <p className="text-base sm:text-xl font-bold font-mono">{grandTotals.paidCount} <span className="text-xs font-normal">paid</span> / {grandTotals.partialCount} <span className="text-xs font-normal">partial</span> / {grandTotals.unpaidCount} <span className="text-xs font-normal">unpaid</span></p>
                 </div>
               </div>
             </CardContent>
