@@ -29,6 +29,7 @@ interface InvoiceItem {
   gstAmount: number;
   netAmount: number;
   lastEdited?: "unitPrice" | "netAmount";
+  prDate?: string;
 }
 
 const UOM_OPTIONS = ["Kg", "Gm", "Ltr", "Ml", "Pcs", "Pkt", "Box", "Dz", "Nos", "Bag", "Tin", "Cyl", "Plats", "Cup", "Set"];
@@ -156,7 +157,7 @@ export default function PurchaseInvoice() {
     selectedPRs.forEach((pr: any) => {
       const approvedItems = (pr.items || []).filter((item: any) => item.approved);
       approvedItems.forEach((item: any) => {
-        const base: InvoiceItem = { itemName: item.itemName, uom: item.uom, qty: Number(item.approveQty) || 0, unitPrice: 0, totalPrice: 0, gstRate: 0, gstAmount: 0, netAmount: 0 };
+        const base: InvoiceItem = { itemName: item.itemName, uom: item.uom, qty: Number(item.approveQty) || 0, unitPrice: 0, totalPrice: 0, gstRate: 0, gstAmount: 0, netAmount: 0, prDate: pr.date };
         allItems.push(applyLastPrice(base));
       });
     });
@@ -246,7 +247,7 @@ export default function PurchaseInvoice() {
       vendorName,
       vendorInvoiceNo,
       date: format(date, "yyyy-MM-dd"),
-      items: validItems.map(({ lastEdited, ...rest }) => rest),
+      items: validItems.map(({ lastEdited, prDate, ...rest }) => rest),
     };
 
     if (editId) {
@@ -526,6 +527,9 @@ export default function PurchaseInvoice() {
                       <td className="py-2 px-3 text-muted-foreground text-xs">{index + 1}</td>
                       <td className="py-2 px-2">
                         <Input value={item.itemName} onChange={(e) => updateItem(index, "itemName", e.target.value)} list="invoice-item-suggestions" placeholder="Item name" className="h-8" data-testid={`input-item-name-${index}`} />
+                        {item.prDate && (
+                          <div className="text-[10px] text-rose-500 dark:text-rose-400 font-medium mt-0.5 pl-1">PR: {format(new Date(item.prDate), "dd-MM-yyyy")}</div>
+                        )}
                       </td>
                       <td className="py-2 px-2">
                         <Select value={item.uom} onValueChange={(v) => updateItem(index, "uom", v)}>
@@ -584,6 +588,9 @@ export default function PurchaseInvoice() {
                   <div>
                     <Label className="text-xs text-muted-foreground">Item Name</Label>
                     <Input value={item.itemName} onChange={(e) => updateItem(index, "itemName", e.target.value)} list="invoice-item-suggestions" placeholder="Enter item name" className="h-9 mt-1" />
+                    {item.prDate && (
+                      <div className="text-[10px] text-rose-500 dark:text-rose-400 font-medium mt-1 pl-0.5">PR Date: {format(new Date(item.prDate), "dd-MM-yyyy")}</div>
+                    )}
                   </div>
                   <div className="grid grid-cols-3 gap-2">
                     <div>
