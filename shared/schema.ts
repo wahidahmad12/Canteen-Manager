@@ -576,6 +576,7 @@ export const insertDailyReportSchema = createInsertSchema(dailyReports).omit({
   createdAt: true, 
   updatedAt: true 
 }).extend({
+  date: z.string(),
   openingBalance: z.coerce.number().min(0),
   receivedAmount: z.coerce.number().min(0),
   giveByWahid: z.coerce.number().min(0).optional(),
