@@ -5,8 +5,10 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { DatePicker } from "@/components/ui/date-picker";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Checkbox } from "@/components/ui/checkbox";
 import { format, parse } from "date-fns";
-import { FileText, Plus, Trash2, Save, Loader2, ArrowLeft, Receipt, Store, ChevronDown, ChevronUp, IndianRupee, CalendarCheck, CheckCircle2, Clock } from "lucide-react";
+import { FileText, Plus, Trash2, Save, Loader2, ArrowLeft, Receipt, Store, ChevronDown, ChevronUp, IndianRupee, CalendarCheck, CheckCircle2, Clock, ListChecks, X } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useCreatePurchaseInvoice, useClientNames, useVendors, useCreateVendor, usePurchaseRequests, usePurchaseInvoice, useUpdatePurchaseInvoice, useLastPurchasePrices, useItemMaster, useNextDjInvoiceNo, useAddPurchaseInvoicePayment, useDeletePurchaseInvoicePayment } from "@/hooks/use-reports";
 import { useLocation, useRoute, Link } from "wouter";
@@ -47,6 +49,8 @@ export default function PurchaseInvoice() {
   const [vendorInvoiceNo, setVendorInvoiceNo] = useState("");
   const [djInvoiceNo, setDjInvoiceNo] = useState("");
   const [purchaseRequestId, setPurchaseRequestId] = useState<number | null>(null);
+  const [selectedPrIds, setSelectedPrIds] = useState<number[]>([]);
+  const [prPopoverOpen, setPrPopoverOpen] = useState(false);
   const [items, setItems] = useState<InvoiceItem[]>([
     { itemName: "", uom: "Kg", qty: 0, unitPrice: 0, totalPrice: 0, gstRate: 0, gstAmount: 0, netAmount: 0 },
   ]);
@@ -110,6 +114,7 @@ export default function PurchaseInvoice() {
       if (pr) {
         setClientName(pr.clientName);
         setPurchaseRequestId(pr.id);
+        setSelectedPrIds([pr.id]);
         setShowPrSection(true);
         const approvedItems = (pr.items || []).filter((item: any) => item.approved);
         if (approvedItems.length > 0) {
@@ -127,20 +132,40 @@ export default function PurchaseInvoice() {
     }
   }, [fromPrId, purchaseRequests, lastPrices]);
 
-  const loadFromPR = (prId: string) => {
-    if (!prId) { setPurchaseRequestId(null); return; }
-    const pr = approvedPRs.find((p: any) => p.id === Number(prId));
-    if (pr) {
-      setPurchaseRequestId(pr.id);
-      setClientName(pr.clientName);
-      const approvedItems = (pr.items || []).filter((item: any) => item.approved);
-      if (approvedItems.length > 0) {
-        setItems(approvedItems.map((item: any) => {
-          const base: InvoiceItem = { itemName: item.itemName, uom: item.uom, qty: Number(item.approveQty) || 0, unitPrice: 0, totalPrice: 0, gstRate: 0, gstAmount: 0, netAmount: 0 };
-          return applyLastPrice(base);
-        }));
-      }
+  const togglePrSelection = (prId: number) => {
+    setSelectedPrIds(prev =>
+      prev.includes(prId) ? prev.filter(id => id !== prId) : [...prev, prId]
+    );
+  };
+
+  const loadItemsFromSelectedPRs = () => {
+    if (selectedPrIds.length === 0) return;
+    const selectedPRs = approvedPRs.filter((p: any) => selectedPrIds.includes(p.id));
+    if (selectedPRs.length === 0) return;
+
+    // Auto-set client name from the first selected PR if not set
+    if (!clientName && selectedPRs[0]?.clientName) {
+      setClientName(selectedPRs[0].clientName);
     }
+    // Set purchaseRequestId to first PR's id (for legacy single-link support)
+    setPurchaseRequestId(selectedPRs[0].id);
+
+    // Combine all approved items from all selected PRs
+    const allItems: InvoiceItem[] = [];
+    selectedPRs.forEach((pr: any) => {
+      const approvedItems = (pr.items || []).filter((item: any) => item.approved);
+      approvedItems.forEach((item: any) => {
+        const base: InvoiceItem = { itemName: item.itemName, uom: item.uom, qty: Number(item.approveQty) || 0, unitPrice: 0, totalPrice: 0, gstRate: 0, gstAmount: 0, netAmount: 0 };
+        allItems.push(applyLastPrice(base));
+      });
+    });
+
+    if (allItems.length > 0) {
+      setItems(allItems);
+      toast({ title: `${allItems.length} items loaded from ${selectedPRs.length} Purchase Request${selectedPRs.length > 1 ? 's' : ''}` });
+    }
+    setPrPopoverOpen(false);
+    setShowPrSection(false);
   };
 
   const recalcFromUnitPrice = (item: InvoiceItem): InvoiceItem => {
@@ -385,36 +410,68 @@ export default function PurchaseInvoice() {
               </div>
             </div>
 
-            {/* Optional: Load from PR */}
+            {/* Optional: Load from multiple PRs */}
             {!editId && approvedPRs.length > 0 && (
-              <div className="border border-dashed border-rose-200 dark:border-rose-800/50 rounded-lg">
-                <button
-                  type="button"
-                  onClick={() => setShowPrSection(!showPrSection)}
-                  className="w-full flex items-center justify-between px-4 py-2.5 text-sm font-medium text-rose-700 dark:text-rose-400 hover:bg-rose-50/50 dark:hover:bg-rose-950/10 rounded-lg transition-colors"
-                >
-                  <span className="flex items-center gap-2">
-                    <FileText className="w-4 h-4" />
-                    Load items from approved Purchase Request
-                    {purchaseRequestId && <span className="bg-rose-100 dark:bg-rose-900/30 text-rose-700 dark:text-rose-400 text-xs px-2 py-0.5 rounded-full">Linked</span>}
-                  </span>
-                  {showPrSection ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
-                </button>
-                {showPrSection && (
-                  <div className="px-4 pb-3">
-                    <Select value={purchaseRequestId?.toString() || ""} onValueChange={loadFromPR}>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select an approved PR to load items" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {approvedPRs.map((pr: any) => (
-                          <SelectItem key={pr.id} value={pr.id.toString()}>
-                            #{pr.serialNumber} — {pr.clientName} ({format(new Date(pr.date), "dd-MM-yyyy")})
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
+              <div className="border border-dashed border-rose-200 dark:border-rose-800/50 rounded-xl p-3 space-y-2">
+                <div className="flex items-center gap-2 text-sm font-medium text-rose-700 dark:text-rose-400">
+                  <ListChecks className="w-4 h-4" />
+                  Load items from Purchase Requests
+                  {selectedPrIds.length > 0 && (
+                    <span className="bg-rose-100 dark:bg-rose-900/30 text-rose-700 dark:text-rose-400 text-xs px-2 py-0.5 rounded-full font-semibold">
+                      {selectedPrIds.length} selected
+                    </span>
+                  )}
+                </div>
+
+                <Popover open={prPopoverOpen} onOpenChange={setPrPopoverOpen}>
+                  <PopoverTrigger asChild>
+                    <Button type="button" variant="outline" className="w-full justify-start border-rose-200 dark:border-rose-800 text-left font-normal" data-testid="button-select-prs">
+                      <FileText className="w-4 h-4 mr-2 text-rose-500 shrink-0" />
+                      {selectedPrIds.length === 0
+                        ? <span className="text-muted-foreground">Select approved Purchase Requests…</span>
+                        : <span className="truncate">{approvedPRs.filter((p: any) => selectedPrIds.includes(p.id)).map((p: any) => `#${p.serialNumber}`).join(", ")}</span>
+                      }
+                      <ChevronDown className="w-4 h-4 ml-auto shrink-0 text-muted-foreground" />
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-96 p-2" align="start">
+                    <p className="text-xs font-semibold text-muted-foreground uppercase px-2 pb-2">Approved Purchase Requests</p>
+                    <div className="space-y-1 max-h-60 overflow-y-auto">
+                      {approvedPRs.map((pr: any) => (
+                        <label key={pr.id} className={`flex items-start gap-2.5 px-2 py-2 rounded-lg cursor-pointer transition-colors ${selectedPrIds.includes(pr.id) ? 'bg-rose-50 dark:bg-rose-950/20' : 'hover:bg-slate-50 dark:hover:bg-slate-800/50'}`}>
+                          <Checkbox
+                            checked={selectedPrIds.includes(pr.id)}
+                            onCheckedChange={() => togglePrSelection(pr.id)}
+                            className="mt-0.5 shrink-0"
+                          />
+                          <div className="min-w-0">
+                            <div className="text-sm font-medium">PR #{pr.serialNumber} — {pr.clientName}</div>
+                            <div className="text-xs text-muted-foreground">{format(new Date(pr.date), "dd-MM-yyyy")} · {(pr.items || []).filter((i: any) => i.approved).length} approved items</div>
+                          </div>
+                        </label>
+                      ))}
+                    </div>
+                    <div className="pt-2 border-t mt-2 flex gap-2">
+                      <Button size="sm" variant="ghost" className="text-xs" onClick={() => setSelectedPrIds(approvedPRs.map((p: any) => p.id))}>
+                        Select All
+                      </Button>
+                      <Button size="sm" variant="ghost" className="text-xs" onClick={() => setSelectedPrIds([])}>
+                        Clear
+                      </Button>
+                    </div>
+                  </PopoverContent>
+                </Popover>
+
+                {selectedPrIds.length > 0 && (
+                  <Button
+                    type="button"
+                    onClick={loadItemsFromSelectedPRs}
+                    className="w-full bg-gradient-to-r from-rose-500 to-pink-600 hover:from-rose-600 hover:to-pink-700 border-0 text-white"
+                    data-testid="button-load-pr-items"
+                  >
+                    <ListChecks className="w-4 h-4 mr-2" />
+                    Load Items from {selectedPrIds.length} Selected PR{selectedPrIds.length > 1 ? 's' : ''}
+                  </Button>
                 )}
               </div>
             )}
