@@ -76,7 +76,8 @@ export default function PurchaseInvoice() {
   const [newPaymentAmount, setNewPaymentAmount] = useState("");
   const [newPaymentNotes, setNewPaymentNotes] = useState("");
 
-  const approvedPRs = (purchaseRequests || []).filter((pr: any) => pr.status === 'approved' && !pr.invoiced);
+  const allApprovedPRs = (purchaseRequests || []).filter((pr: any) => pr.status === 'approved');
+  const approvedPRs = allApprovedPRs.filter((pr: any) => !pr.invoiced);
 
   // Auto-fill DJ Invoice No for new invoices
   useEffect(() => {
@@ -412,7 +413,7 @@ export default function PurchaseInvoice() {
             </div>
 
             {/* Optional: Load from multiple PRs */}
-            {!editId && approvedPRs.length > 0 && (
+            {!editId && allApprovedPRs.length > 0 && (
               <div className="border border-dashed border-rose-200 dark:border-rose-800/50 rounded-xl p-3 space-y-2">
                 <div className="flex items-center gap-2 text-sm font-medium text-rose-700 dark:text-rose-400">
                   <ListChecks className="w-4 h-4" />
@@ -430,7 +431,7 @@ export default function PurchaseInvoice() {
                       <FileText className="w-4 h-4 mr-2 text-rose-500 shrink-0" />
                       {selectedPrIds.length === 0
                         ? <span className="text-muted-foreground">Select approved Purchase Requests…</span>
-                        : <span className="truncate">{approvedPRs.filter((p: any) => selectedPrIds.includes(p.id)).map((p: any) => (p as any).prCode || `#${p.serialNumber}`).join(", ")}</span>
+                        : <span className="truncate">{allApprovedPRs.filter((p: any) => selectedPrIds.includes(p.id)).map((p: any) => (p as any).prCode || `#${p.serialNumber}`).join(", ")}</span>
                       }
                       <ChevronDown className="w-4 h-4 ml-auto shrink-0 text-muted-foreground" />
                     </Button>
@@ -438,19 +439,26 @@ export default function PurchaseInvoice() {
                   <PopoverContent className="w-96 p-2" align="start">
                     <p className="text-xs font-semibold text-muted-foreground uppercase px-2 pb-2">Approved Purchase Requests</p>
                     <div className="space-y-1 max-h-60 overflow-y-auto">
-                      {approvedPRs.map((pr: any) => (
-                        <label key={pr.id} className={`flex items-start gap-2.5 px-2 py-2 rounded-lg cursor-pointer transition-colors ${selectedPrIds.includes(pr.id) ? 'bg-rose-50 dark:bg-rose-950/20' : 'hover:bg-slate-50 dark:hover:bg-slate-800/50'}`}>
-                          <Checkbox
-                            checked={selectedPrIds.includes(pr.id)}
-                            onCheckedChange={() => togglePrSelection(pr.id)}
-                            className="mt-0.5 shrink-0"
-                          />
-                          <div className="min-w-0">
-                            <div className="text-sm font-medium">{(pr as any).prCode || `#${pr.serialNumber}`} — {pr.clientName}</div>
-                            <div className="text-xs text-muted-foreground">{format(new Date(pr.date), "dd-MM-yyyy")} · {(pr.items || []).filter((i: any) => i.approved).length} approved items</div>
-                          </div>
-                        </label>
-                      ))}
+                      {allApprovedPRs.map((pr: any) => {
+                        const isInvoiced = !!pr.invoiced;
+                        return (
+                          <label key={pr.id} className={`flex items-start gap-2.5 px-2 py-2 rounded-lg transition-colors ${isInvoiced ? 'opacity-50 cursor-not-allowed' : selectedPrIds.includes(pr.id) ? 'bg-rose-50 dark:bg-rose-950/20 cursor-pointer' : 'hover:bg-slate-50 dark:hover:bg-slate-800/50 cursor-pointer'}`}>
+                            <Checkbox
+                              checked={selectedPrIds.includes(pr.id)}
+                              onCheckedChange={() => !isInvoiced && togglePrSelection(pr.id)}
+                              disabled={isInvoiced}
+                              className="mt-0.5 shrink-0"
+                            />
+                            <div className="min-w-0 flex-1">
+                              <div className="text-sm font-medium flex items-center gap-1.5">
+                                {(pr as any).prCode || `#${pr.serialNumber}`} — {pr.clientName}
+                                {isInvoiced && <span className="text-[10px] bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400 px-1.5 py-0.5 rounded font-semibold">Invoiced</span>}
+                              </div>
+                              <div className="text-xs text-muted-foreground">{format(new Date(pr.date), "dd-MM-yyyy")} · {(pr.items || []).filter((i: any) => i.approved).length} approved items</div>
+                            </div>
+                          </label>
+                        );
+                      })}
                     </div>
                     <div className="pt-2 border-t mt-2 flex gap-2">
                       <Button size="sm" variant="ghost" className="text-xs" onClick={() => setSelectedPrIds(approvedPRs.map((p: any) => p.id))}>
