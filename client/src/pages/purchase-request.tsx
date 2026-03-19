@@ -73,8 +73,9 @@ export default function PurchaseRequest() {
         items: validItems,
       },
       {
-        onSuccess: () => {
-          toast({ title: "Success", description: "Purchase request saved successfully" });
+        onSuccess: (data: any) => {
+          const code = data?.prCode || data?.serialNumber;
+          toast({ title: "Success", description: `Purchase request ${code ? `(${code}) ` : ''}saved successfully` });
           navigate("/");
         },
         onError: (err: any) => {

@@ -18,7 +18,7 @@ export default function PurchaseRequestPDF() {
     const originalTitle = document.title;
     if (pr) {
       const dateStr = format(new Date(pr.date), "dd-MM-yyyy");
-      document.title = `DJ Hospitality Purchase Request for ${pr.clientName} ${pr.serialNumber} ${dateStr}`;
+      document.title = `DJ Hospitality Purchase Request ${(pr as any).prCode || pr.serialNumber} for ${pr.clientName} ${dateStr}`;
     }
     window.print();
     document.title = originalTitle;
@@ -77,7 +77,7 @@ export default function PurchaseRequestPDF() {
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 sm:gap-3 mb-5 text-xs sm:text-sm">
             <div className="flex justify-between sm:justify-start gap-1">
               <span className="text-muted-foreground print:text-gray-500">Serial No:</span>
-              <span className="font-bold bg-violet-100 dark:bg-violet-900/30 text-violet-700 dark:text-violet-300 px-2 py-0.5 rounded print:bg-gray-100 print:text-black">#{pr.serialNumber}</span>
+              <span className="font-bold bg-violet-100 dark:bg-violet-900/30 text-violet-700 dark:text-violet-300 px-2 py-0.5 rounded print:bg-gray-100 print:text-black">{(pr as any).prCode || `#${pr.serialNumber}`}</span>
             </div>
             <div className="flex justify-between sm:justify-end gap-1">
               <span className="text-muted-foreground print:text-gray-500">Date:</span>

@@ -154,6 +154,7 @@ export const savedMenus = mysqlTable("saved_menus", {
 export const purchaseRequests = mysqlTable("purchase_requests", {
   id: int("id").autoincrement().primaryKey(),
   serialNumber: int("serial_number"),
+  prCode: varchar("pr_code", { length: 50 }),
   clientName: text("client_name").notNull(),
   date: date("date").notNull(),
   status: varchar("status", { length: 500 }).notNull().default("pending"),

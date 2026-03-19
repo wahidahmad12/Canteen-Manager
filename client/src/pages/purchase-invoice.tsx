@@ -429,7 +429,7 @@ export default function PurchaseInvoice() {
                       <FileText className="w-4 h-4 mr-2 text-rose-500 shrink-0" />
                       {selectedPrIds.length === 0
                         ? <span className="text-muted-foreground">Select approved Purchase Requests…</span>
-                        : <span className="truncate">{approvedPRs.filter((p: any) => selectedPrIds.includes(p.id)).map((p: any) => `#${p.serialNumber}`).join(", ")}</span>
+                        : <span className="truncate">{approvedPRs.filter((p: any) => selectedPrIds.includes(p.id)).map((p: any) => (p as any).prCode || `#${p.serialNumber}`).join(", ")}</span>
                       }
                       <ChevronDown className="w-4 h-4 ml-auto shrink-0 text-muted-foreground" />
                     </Button>
@@ -445,7 +445,7 @@ export default function PurchaseInvoice() {
                             className="mt-0.5 shrink-0"
                           />
                           <div className="min-w-0">
-                            <div className="text-sm font-medium">PR #{pr.serialNumber} — {pr.clientName}</div>
+                            <div className="text-sm font-medium">{(pr as any).prCode || `#${pr.serialNumber}`} — {pr.clientName}</div>
                             <div className="text-xs text-muted-foreground">{format(new Date(pr.date), "dd-MM-yyyy")} · {(pr.items || []).filter((i: any) => i.approved).length} approved items</div>
                           </div>
                         </label>

@@ -851,12 +851,38 @@ export class DatabaseStorage implements IStorage {
     return { ...req, items };
   }
 
+  private generateClientAbbr(clientName: string): string {
+    const words = clientName.trim().split(/\s+/).filter(Boolean);
+    if (words.length === 1) return words[0].slice(0, 3).toUpperCase();
+    return words.map(w => w[0]).join('').toUpperCase();
+  }
+
+  private async getNextPrCode(clientName: string, year: string): Promise<string> {
+    const abbr = this.generateClientAbbr(clientName);
+    const prefix = `DJ-${abbr}-${year}-`;
+    const existing = await db.select({ prCode: purchaseRequests.prCode })
+      .from(purchaseRequests)
+      .where(sql`${purchaseRequests.prCode} LIKE ${prefix + '%'}`);
+    let maxNum = 0;
+    for (const row of existing) {
+      if (row.prCode) {
+        const parts = row.prCode.split('-');
+        const num = parseInt(parts[parts.length - 1], 10);
+        if (!isNaN(num) && num > maxNum) maxNum = num;
+      }
+    }
+    return `${prefix}${maxNum + 1}`;
+  }
+
   async createPurchaseRequest(data: { clientName: string; date: string; createdBy?: string; items: { itemName: string; uom: string; requestQty: number }[] }): Promise<PurchaseRequestWithItems> {
+    const year = data.date.slice(2, 4); // YY from YYYY-MM-DD
+    const prCode = await this.getNextPrCode(data.clientName, year);
     return await db.transaction(async (tx) => {
       await tx.insert(purchaseRequests).values({
         clientName: data.clientName,
         date: data.date,
         createdBy: data.createdBy || null,
+        prCode,
       });
       const __iid = await getInsertId(tx);
       const [req] = await tx.select().from(purchaseRequests).where(eq(purchaseRequests.id, __iid));

@@ -947,7 +947,7 @@ export default function Dashboard() {
                             </div>
                             <div className="min-w-0">
                               <div className="font-semibold text-sm truncate">{pr.clientName}</div>
-                              <div className="text-[10px] text-muted-foreground">{format(new Date(pr.date), "dd-MM-yyyy")} · #{pr.serialNumber} · {pr.items?.length || 0} items</div>
+                              <div className="text-[10px] text-muted-foreground">{format(new Date(pr.date), "dd-MM-yyyy")} · {(pr as any).prCode || `#${pr.serialNumber}`} · {pr.items?.length || 0} items</div>
                             </div>
                           </div>
                           <span className={`shrink-0 inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold ${pr.status === 'approved' ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400' : pr.status === 'rejected' ? 'bg-rose-100 text-rose-700 dark:bg-rose-900/30 dark:text-rose-400' : 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400'}`}>
@@ -984,7 +984,7 @@ export default function Dashboard() {
                       <tbody>
                         {purchaseRequests.map((pr: any) => (
                           <tr key={pr.id} className="border-b last:border-0 hover:bg-amber-50/50 dark:hover:bg-amber-950/10 transition-colors">
-                            <td className="px-3 py-2.5"><span className="w-7 h-7 rounded-full bg-gradient-to-br from-amber-400 to-orange-500 text-white text-[10px] inline-flex items-center justify-center font-bold">#{pr.serialNumber}</span></td>
+                            <td className="px-3 py-2.5"><span className="font-mono text-xs font-bold text-amber-700 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/30 px-2 py-1 rounded whitespace-nowrap">{(pr as any).prCode || `#${pr.serialNumber}`}</span></td>
                             <td className="px-3 py-2.5 font-medium">
                               <div className="flex items-center gap-2.5">
                                 <div className="w-9 h-9 rounded-lg bg-gradient-to-br from-amber-500 to-orange-500 text-white flex items-center justify-center shrink-0 shadow-sm"><ShoppingCart className="w-4 h-4" /></div>
