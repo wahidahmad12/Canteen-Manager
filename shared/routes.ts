@@ -525,6 +525,7 @@ export const api = {
       path: '/api/purchase-invoices' as const,
       input: z.object({
         purchaseRequestId: z.number().nullable().optional(),
+        allPrIds: z.array(z.number()).optional(),
         djInvoiceNo: z.string().optional(),
         clientName: z.string().min(1),
         vendorName: z.string().min(1),

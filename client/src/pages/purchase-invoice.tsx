@@ -76,7 +76,7 @@ export default function PurchaseInvoice() {
   const [newPaymentAmount, setNewPaymentAmount] = useState("");
   const [newPaymentNotes, setNewPaymentNotes] = useState("");
 
-  const approvedPRs = (purchaseRequests || []).filter((pr: any) => pr.status === 'approved');
+  const approvedPRs = (purchaseRequests || []).filter((pr: any) => pr.status === 'approved' && !pr.invoiced);
 
   // Auto-fill DJ Invoice No for new invoices
   useEffect(() => {
@@ -239,6 +239,7 @@ export default function PurchaseInvoice() {
 
     const payload = {
       purchaseRequestId: purchaseRequestId || null,
+      allPrIds: selectedPrIds.length > 0 ? selectedPrIds : undefined,
       djInvoiceNo: djInvoiceNo.trim() || undefined,
       clientName,
       vendorName,

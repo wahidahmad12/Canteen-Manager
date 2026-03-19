@@ -158,6 +158,7 @@ export const purchaseRequests = mysqlTable("purchase_requests", {
   clientName: text("client_name").notNull(),
   date: date("date").notNull(),
   status: varchar("status", { length: 500 }).notNull().default("pending"),
+  invoiced: int("invoiced").default(0),
   createdBy: text("created_by"),
   approvedBy: text("approved_by"),
   createdAt: timestamp("created_at").defaultNow(),

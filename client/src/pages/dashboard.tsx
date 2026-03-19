@@ -1,6 +1,6 @@
 import { Link } from "wouter";
 import { useMemo } from "react";
-import { Plus, Loader2, FileText, ArrowRight, Calculator, ClipboardList, UtensilsCrossed, ShoppingCart, Trash2, Check, FileDown, Pencil, Receipt, BarChart3, IndianRupee, TrendingUp, TrendingDown, Wallet, CreditCard, DollarSign, Store, FileSpreadsheet } from "lucide-react";
+import { Plus, Loader2, FileText, ArrowRight, Calculator, ClipboardList, UtensilsCrossed, ShoppingCart, Trash2, Check, CheckCircle2, FileDown, Pencil, Receipt, BarChart3, IndianRupee, TrendingUp, TrendingDown, Wallet, CreditCard, DollarSign, Store, FileSpreadsheet } from "lucide-react";
 import { useReports, useDeleteReport, useInventories, useCashSeals, useSavedMenus, useDeleteSavedMenu, usePurchaseRequests, useDeletePurchaseRequest, useUpdatePurchaseRequest, useCurrentUser, usePurchaseInvoices, useDeletePurchaseInvoice } from "@/hooks/use-reports";
 import { format } from "date-fns";
 import { Layout } from "@/components/layout";
@@ -957,7 +957,11 @@ export default function Dashboard() {
                         <div className="flex gap-1 justify-end">
                           {pr.status === 'approved' && (<>
                             <Link href={`/purchase-request/${pr.id}/pdf`}><Button size="sm" variant="outline" className="h-7 text-xs gap-1" data-testid={`button-view-pdf-${pr.id}`}><FileDown className="w-3 h-3" />PDF</Button></Link>
-                            <Link href={`/purchase-invoice/from/${pr.id}`}><Button size="sm" variant="outline" className="h-7 text-xs gap-1 text-orange-600" data-testid={`button-create-invoice-${pr.id}`}><Receipt className="w-3 h-3" />Invoice</Button></Link>
+                            {pr.invoiced ? (
+                              <Button size="sm" variant="outline" className="h-7 text-xs gap-1 text-emerald-600 cursor-default opacity-70" disabled data-testid={`button-invoiced-${pr.id}`}><CheckCircle2 className="w-3 h-3" />Invoiced</Button>
+                            ) : (
+                              <Link href={`/purchase-invoice/from/${pr.id}`}><Button size="sm" variant="outline" className="h-7 text-xs gap-1 text-orange-600" data-testid={`button-create-invoice-${pr.id}`}><Receipt className="w-3 h-3" />Invoice</Button></Link>
+                            )}
                           </>)}
                           {isAdmin && (pr.status === 'pending' || pr.status === 'approved') && (
                             <Link href={`/purchase-request/${pr.id}/review`}><Button size="sm" variant="outline" className={`h-7 text-xs gap-1 ${pr.status === 'pending' ? 'text-emerald-600' : 'text-blue-600'}`} data-testid={`button-review-purchase-${pr.id}`}>{pr.status === 'pending' ? <><Check className="w-3 h-3" />Review</> : <><Pencil className="w-3 h-3" />Edit</>}</Button></Link>
@@ -1003,7 +1007,11 @@ export default function Dashboard() {
                               <div className="flex items-center justify-end gap-1">
                                 {pr.status === 'approved' && (<>
                                   <Link href={`/purchase-request/${pr.id}/pdf`}><Button size="sm" variant="ghost" className="h-7 text-xs text-indigo-600" data-testid={`button-view-pdf-${pr.id}`}><FileDown className="w-3.5 h-3.5 mr-0.5" />PDF</Button></Link>
-                                  <Link href={`/purchase-invoice/from/${pr.id}`}><Button size="sm" variant="ghost" className="h-7 text-xs text-orange-600" data-testid={`button-create-invoice-${pr.id}`}><Receipt className="w-3.5 h-3.5 mr-0.5" />Invoice</Button></Link>
+                                  {pr.invoiced ? (
+                                    <Button size="sm" variant="ghost" className="h-7 text-xs text-emerald-600 cursor-default opacity-70" disabled data-testid={`button-invoiced-${pr.id}`}><CheckCircle2 className="w-3.5 h-3.5 mr-0.5" />Invoiced</Button>
+                                  ) : (
+                                    <Link href={`/purchase-invoice/from/${pr.id}`}><Button size="sm" variant="ghost" className="h-7 text-xs text-orange-600" data-testid={`button-create-invoice-${pr.id}`}><Receipt className="w-3.5 h-3.5 mr-0.5" />Invoice</Button></Link>
+                                  )}
                                 </>)}
                                 {isAdmin && (pr.status === 'pending' || pr.status === 'approved') && (
                                   <Link href={`/purchase-request/${pr.id}/review`}><Button size="sm" variant="ghost" className={`h-7 text-xs ${pr.status === 'pending' ? 'text-emerald-600' : 'text-blue-600'}`} data-testid={`button-review-purchase-${pr.id}`}>{pr.status === 'pending' ? <Check className="w-3.5 h-3.5 mr-0.5" /> : <Pencil className="w-3.5 h-3.5 mr-0.5" />}<span>{pr.status === 'pending' ? 'Review' : 'Edit'}</span></Button></Link>
