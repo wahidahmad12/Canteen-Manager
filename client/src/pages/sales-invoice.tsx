@@ -67,6 +67,120 @@ function fmtCurrency(v: string | number) {
   return "₹" + n.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }
 
+function ViewInvoiceDialog({ invoice, onClose, poName, onEdit }: { invoice: SalesInvoice; onClose: () => void; poName: string | null; onEdit: () => void }) {
+  const toReceive = Math.round((Number(invoice.totalBillAmount) - Number(invoice.tdsAmount)) * 100) / 100;
+  const received = Math.round(Number(invoice.paymentReceivedAmount) * 100) / 100;
+  const balance = Math.round((toReceive - received) * 100) / 100;
+  const status = toReceive > 0 && received >= toReceive ? "full" : toReceive > 0 && received > 0 && received < toReceive ? "partial" : "due";
+  return (
+    <Dialog open onOpenChange={onClose}>
+      <DialogContent className="max-w-lg w-full max-h-[90vh] overflow-y-auto p-0">
+        <div className={`h-1.5 rounded-t-lg ${status === "full" ? "bg-gradient-to-r from-green-400 to-emerald-500" : status === "partial" ? "bg-gradient-to-r from-amber-400 to-yellow-500" : "bg-gradient-to-r from-orange-400 to-red-500"}`} />
+        <div className="p-5 space-y-4">
+          <DialogHeader>
+            <DialogTitle className="flex items-center justify-between gap-2">
+              <div className="flex items-center gap-2">
+                <div className="w-8 h-8 rounded-full bg-gradient-to-br from-violet-500 to-purple-600 flex items-center justify-center text-white text-xs font-bold">{invoice.slNo}</div>
+                <div>
+                  <p className="text-base font-bold leading-tight">{invoice.clientName}</p>
+                  <p className="text-xs text-muted-foreground font-normal">{invoice.billNumber}</p>
+                </div>
+              </div>
+              {status === "full" ? (
+                <Badge className="bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400 text-xs shrink-0"><CheckCircle2 className="w-3.5 h-3.5 mr-1" /> Full Paid</Badge>
+              ) : status === "partial" ? (
+                <Badge className="bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400 text-xs shrink-0"><IndianRupee className="w-3.5 h-3.5 mr-1" /> Partial Received</Badge>
+              ) : (
+                <Badge variant="outline" className="text-red-600 border-red-300 dark:border-red-700 text-xs shrink-0"><XCircle className="w-3.5 h-3.5 mr-1" /> Payment Due</Badge>
+              )}
+            </DialogTitle>
+          </DialogHeader>
+
+          <div className="grid grid-cols-2 gap-3 text-sm">
+            <div className="space-y-1">
+              <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide">Bill Date</p>
+              <p className="font-medium">{fmtDate(invoice.billDate)}</p>
+            </div>
+            <div className="space-y-1">
+              <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide">Bill Number</p>
+              <p className="font-mono font-medium">{invoice.billNumber}</p>
+            </div>
+            {poName && (
+              <div className="col-span-2 space-y-1">
+                <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide">Purchase Order</p>
+                <Badge variant="outline" className="text-[11px] border-cyan-300 text-cyan-700 dark:border-cyan-700 dark:text-cyan-400">{poName}</Badge>
+              </div>
+            )}
+          </div>
+
+          <div className="bg-slate-50 dark:bg-slate-900/40 rounded-xl p-3 space-y-2">
+            <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wide">Bill Breakdown</p>
+            <div className="space-y-1.5 text-sm">
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">Bill Amount</span>
+                <span className="font-mono font-semibold">{fmtCurrency(invoice.billAmount)}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">GST ({Number(invoice.gstPercent)}%)</span>
+                <span className="font-mono text-orange-600">+ {fmtCurrency(invoice.gstAmount)}</span>
+              </div>
+              <div className="flex justify-between border-t pt-1.5 font-semibold">
+                <span>Total Bill</span>
+                <span className="font-mono text-violet-700 dark:text-violet-400">{fmtCurrency(invoice.totalBillAmount)}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">TDS ({Number(invoice.tdsPercent)}%)</span>
+                <span className="font-mono text-red-500">− {fmtCurrency(invoice.tdsAmount)}</span>
+              </div>
+              <div className="flex justify-between border-t pt-1.5 font-bold text-blue-700 dark:text-blue-400">
+                <span>Net Receivable</span>
+                <span className="font-mono">{fmtCurrency(toReceive)}</span>
+              </div>
+            </div>
+          </div>
+
+          <div className="bg-green-50 dark:bg-green-950/20 rounded-xl p-3 space-y-2 border border-green-200 dark:border-green-800">
+            <p className="text-[10px] font-bold text-green-700 dark:text-green-400 uppercase tracking-wide">Payment Details</p>
+            <div className="grid grid-cols-2 gap-2 text-sm">
+              <div>
+                <p className="text-[10px] text-muted-foreground">Payment Date</p>
+                <p className="font-medium">{fmtDate(invoice.paymentReceivedDate)}</p>
+              </div>
+              <div>
+                <p className="text-[10px] text-muted-foreground">Amount Received</p>
+                <p className="font-mono font-semibold text-green-700 dark:text-green-400">{fmtCurrency(received)}</p>
+              </div>
+            </div>
+            {invoice.utrNo && (
+              <div>
+                <p className="text-[10px] text-muted-foreground">UTR / Reference No.</p>
+                <p className="font-mono font-semibold text-cyan-700 dark:text-cyan-400 text-sm break-all">{invoice.utrNo}</p>
+              </div>
+            )}
+            {balance > 0 && (
+              <div className="border-t border-green-200 dark:border-green-800 pt-2">
+                <div className="flex justify-between items-center text-sm">
+                  <span className="text-orange-600 dark:text-orange-400 font-medium">Balance Pending</span>
+                  <span className="font-mono font-bold text-orange-600 dark:text-orange-400">{fmtCurrency(balance)}</span>
+                </div>
+              </div>
+            )}
+          </div>
+
+          {invoice.createdBy && (
+            <p className="text-[10px] text-muted-foreground flex items-center gap-1"><User className="w-3 h-3" /> Created by {invoice.createdBy}</p>
+          )}
+
+          <div className="flex justify-end gap-2 pt-1">
+            <Button variant="outline" onClick={onClose} size="sm">Close</Button>
+            <Button size="sm" className="bg-gradient-to-r from-indigo-500 to-blue-500 hover:from-indigo-600 hover:to-blue-600 text-white" onClick={onEdit}><Pencil className="w-3.5 h-3.5 mr-1.5" /> Edit Invoice</Button>
+          </div>
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 function InvoiceFormDialog({ invoice, onClose, clients, purchaseOrders, allInvoices }: { invoice?: SalesInvoice | null; onClose: () => void; clients: any[]; purchaseOrders: PurchaseOrderType[]; allInvoices: SalesInvoice[] }) {
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -545,6 +659,7 @@ export default function SalesInvoicePage() {
   const [activeTab, setActiveTab] = useState("invoices");
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingInvoice, setEditingInvoice] = useState<SalesInvoice | null>(null);
+  const [viewingInvoice, setViewingInvoice] = useState<SalesInvoice | null>(null);
   const [poDialogOpen, setPoDialogOpen] = useState(false);
   const [editingPO, setEditingPO] = useState<PurchaseOrderType | null>(null);
   const [viewingPo, setViewingPo] = useState<PurchaseOrderType | null>(null);
@@ -617,7 +732,8 @@ export default function SalesInvoicePage() {
   const paidCount = filteredInvoices.filter(i => { const tr = Math.round((Number(i.totalBillAmount) - Number(i.tdsAmount)) * 100) / 100; const rc = Math.round(Number(i.paymentReceivedAmount) * 100) / 100; return tr > 0 && rc >= tr; }).length;
 
   const openNew = () => { setEditingInvoice(null); setDialogOpen(true); };
-  const openEdit = (inv: SalesInvoice) => { setEditingInvoice(inv); setDialogOpen(true); };
+  const openEdit = (inv: SalesInvoice) => { setViewingInvoice(null); setEditingInvoice(inv); setDialogOpen(true); };
+  const openView = (inv: SalesInvoice) => { setViewingInvoice(inv); };
   const closeDialog = () => { setDialogOpen(false); setEditingInvoice(null); };
   const openNewPO = () => { setEditingPO(null); setPoDialogOpen(true); };
   const openEditPO = (po: PurchaseOrderType) => { setEditingPO(po); setPoDialogOpen(true); };
@@ -674,6 +790,8 @@ export default function SalesInvoicePage() {
               {dialogOpen && <InvoiceFormDialog key={editingInvoice?.id || 'new'} invoice={editingInvoice} onClose={closeDialog} clients={clients} purchaseOrders={purchaseOrders} allInvoices={invoices} />}
             </DialogContent>
           </Dialog>
+
+          {viewingInvoice && <ViewInvoiceDialog invoice={viewingInvoice} onClose={() => setViewingInvoice(null)} poName={getPoName(viewingInvoice.poId)} onEdit={() => openEdit(viewingInvoice)} />}
 
           <Dialog open={poDialogOpen} onOpenChange={(o) => { if (!o) closePoDialog(); }}>
             <DialogContent className="max-w-lg">
@@ -1157,7 +1275,7 @@ export default function SalesInvoicePage() {
                         const receivedAmt = Math.round(Number(inv.paymentReceivedAmount) * 100) / 100;
                         const paymentStatus = toReceiveAmt > 0 && receivedAmt >= toReceiveAmt ? "full" : toReceiveAmt > 0 && receivedAmt > 0 && receivedAmt < toReceiveAmt ? "partial" : "due";
                         return (
-                          <tr key={inv.id} className={`border-b border-gray-100 dark:border-gray-800 hover:bg-violet-50/50 dark:hover:bg-violet-950/20 transition-colors ${idx % 2 === 0 ? "bg-white dark:bg-gray-950" : "bg-gray-50/50 dark:bg-gray-900/50"}`} data-testid={`row-invoice-${inv.id}`}>
+                          <tr key={inv.id} className={`border-b border-gray-100 dark:border-gray-800 hover:bg-violet-50/50 dark:hover:bg-violet-950/20 transition-colors cursor-pointer ${idx % 2 === 0 ? "bg-white dark:bg-gray-950" : "bg-gray-50/50 dark:bg-gray-900/50"}`} onClick={() => openView(inv)} data-testid={`row-invoice-${inv.id}`}>
                             <td className="py-2.5 px-3">
                               <span className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-violet-100 dark:bg-violet-900 text-violet-700 dark:text-violet-300 text-xs font-bold">{inv.slNo}</span>
                             </td>
@@ -1184,7 +1302,7 @@ export default function SalesInvoicePage() {
                                 <Badge variant="outline" className="text-red-600 border-red-300 dark:border-red-700 text-[10px]"><XCircle className="w-3 h-3 mr-0.5" /> Due</Badge>
                               )}
                             </td>
-                            <td className="py-2.5 px-3 text-center">
+                            <td className="py-2.5 px-3 text-center" onClick={(e) => e.stopPropagation()}>
                               <div className="flex items-center justify-center gap-1">
                                 <Button size="icon" variant="ghost" className="h-7 w-7 text-blue-500 hover:text-blue-700 hover:bg-blue-50" onClick={() => openEdit(inv)} data-testid={`button-edit-${inv.id}`}><Pencil className="w-3.5 h-3.5" /></Button>
                                 <Button size="icon" variant="ghost" className="h-7 w-7 text-red-400 hover:text-red-600 hover:bg-red-50" onClick={() => { if (confirm("Delete this invoice?")) deleteMutation.mutate(inv.id); }} data-testid={`button-delete-${inv.id}`}><Trash2 className="w-3.5 h-3.5" /></Button>
@@ -1221,7 +1339,7 @@ export default function SalesInvoicePage() {
                 const mReceived = Math.round(Number(inv.paymentReceivedAmount) * 100) / 100;
                 const mStatus = mToReceive > 0 && mReceived >= mToReceive ? "full" : mToReceive > 0 && mReceived > 0 && mReceived < mToReceive ? "partial" : "due";
                 return (
-                  <Card key={inv.id} className="border-0 shadow-md overflow-hidden" data-testid={`card-invoice-mobile-${inv.id}`}>
+                  <Card key={inv.id} className="border-0 shadow-md overflow-hidden cursor-pointer" onClick={() => openView(inv)} data-testid={`card-invoice-mobile-${inv.id}`}>
                     <div className={`h-1 ${mStatus === "full" ? 'bg-gradient-to-r from-green-400 to-emerald-500' : mStatus === "partial" ? 'bg-gradient-to-r from-amber-400 to-yellow-500' : 'bg-gradient-to-r from-orange-400 to-red-500'}`} />
                     <CardContent className="p-3">
                       <div className="flex items-start justify-between mb-2">
@@ -1285,7 +1403,7 @@ export default function SalesInvoicePage() {
                         </div>
                       )}
 
-                      <div className="flex justify-end gap-2 mt-3 pt-2 border-t">
+                      <div className="flex justify-end gap-2 mt-3 pt-2 border-t" onClick={(e) => e.stopPropagation()}>
                         <Button size="sm" variant="outline" className="h-7 text-xs border-blue-200 text-blue-600" onClick={() => openEdit(inv)} data-testid={`button-edit-mobile-${inv.id}`}>
                           <Pencil className="w-3 h-3 mr-1" /> Edit
                         </Button>
