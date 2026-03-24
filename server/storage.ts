@@ -115,6 +115,7 @@ export interface IStorage {
   getSavedMenus(): Promise<SavedMenu[]>;
   getSavedMenu(id: number): Promise<SavedMenu | undefined>;
   createSavedMenu(data: { clientName: string; startDate: string; endDate: string; menuData: string }): Promise<SavedMenu>;
+  updateSavedMenu(id: number, data: { clientName?: string; startDate?: string; endDate?: string; menuData?: string }): Promise<SavedMenu>;
   deleteSavedMenu(id: number): Promise<void>;
   getClientNames(): Promise<ClientName[]>;
   createClientName(item: { name: string; address?: string; gstNo?: string; stateName?: string; stateCode?: string; agreementValidTill?: string | null }): Promise<ClientName>;
@@ -707,6 +708,12 @@ export class DatabaseStorage implements IStorage {
 
     });
     return menu;
+  }
+
+  async updateSavedMenu(id: number, data: { clientName?: string; startDate?: string; endDate?: string; menuData?: string }): Promise<SavedMenu> {
+    await db.update(savedMenus).set(data).where(eq(savedMenus.id, id));
+    const [updated] = await db.select().from(savedMenus).where(eq(savedMenus.id, id));
+    return updated;
   }
 
   async deleteSavedMenu(id: number): Promise<void> {

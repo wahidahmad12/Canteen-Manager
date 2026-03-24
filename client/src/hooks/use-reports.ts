@@ -602,6 +602,28 @@ export function useCreateSavedMenu() {
   });
 }
 
+export function useUpdateSavedMenu() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ id, data }: { id: number; data: { clientName?: string; startDate?: string; endDate?: string; menuData?: string } }) => {
+      const res = await fetch(`/api/menus/${id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(data),
+        credentials: "include",
+      });
+      if (!res.ok) {
+        const error = await res.json();
+        throw new Error(error.message || "Failed to update menu");
+      }
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: [api.menus.list.path] });
+    },
+  });
+}
+
 export function useDeleteSavedMenu() {
   const queryClient = useQueryClient();
   return useMutation({

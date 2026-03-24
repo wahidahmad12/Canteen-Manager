@@ -4,9 +4,9 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
-import { RotateCcw, Download, Loader2, FileSpreadsheet, Save, Plus, X, Upload } from "lucide-react";
+import { RotateCcw, Download, Loader2, FileSpreadsheet, Save, Plus, X, Upload, Eye, Pencil, Trash2, History, RefreshCw } from "lucide-react";
 import { format, addDays, getDay } from "date-fns";
-import { useClientNames, useCreateSavedMenu, useSavedMenu, useSavedItemNames } from "@/hooks/use-reports";
+import { useClientNames, useCreateSavedMenu, useSavedMenu, useSavedMenus, useUpdateSavedMenu, useDeleteSavedMenu, useSavedItemNames } from "@/hooks/use-reports";
 import { useToast } from "@/hooks/use-toast";
 import { useSearch } from "wouter";
 
@@ -91,7 +91,14 @@ export default function MenuManager() {
   const [activeMealType, setActiveMealType] = useState<MealType>("lunch");
   const captureRef = useRef<HTMLDivElement>(null);
   const importRef = useRef<HTMLInputElement>(null);
+  const savedImportRef = useRef<HTMLInputElement>(null);
   const saveMenuMutation = useCreateSavedMenu();
+  const updateMenuMutation = useUpdateSavedMenu();
+  const deleteMenuMutation = useDeleteSavedMenu();
+  const { data: allSavedMenus, isLoading: savedMenusLoading } = useSavedMenus();
+  const [viewingMenu, setViewingMenu] = useState<{ id: number; clientName: string; startDate: string; endDate: string; menuData: string; createdAt: string } | null>(null);
+  const [importForSavedId, setImportForSavedId] = useState<number | null>(null);
+  const [confirmDeleteId, setConfirmDeleteId] = useState<number | null>(null);
   const { toast } = useToast();
 
   const searchString = useSearch();
@@ -254,6 +261,167 @@ export default function MenuManager() {
       toast({ title: "Success", description: "Menu saved successfully" });
     } catch (e: any) {
       toast({ title: "Error", description: e.message || "Failed to save menu", variant: "destructive" });
+    }
+  };
+
+  const handleLoadSavedMenuIntoEditor = (menu: { clientName: string; startDate: string; endDate: string; menuData: string }) => {
+    setClient(menu.clientName);
+    const sd = menu.startDate?.includes("T") ? menu.startDate.split("T")[0] : menu.startDate;
+    setStartDate(sd);
+    try {
+      const saved = JSON.parse(menu.menuData);
+      setCellValues({ ...initValues(), ...saved });
+    } catch {
+      setCellValues(initValues());
+    }
+    toast({ title: "Menu Loaded", description: `${menu.clientName} menu loaded into editor.` });
+  };
+
+  const handleUpdateSavedMenu = async (id: number) => {
+    try {
+      await updateMenuMutation.mutateAsync({
+        id,
+        data: {
+          clientName: client,
+          startDate: format(rangeStart, "yyyy-MM-dd"),
+          endDate: format(rangeEnd, "yyyy-MM-dd"),
+          menuData: JSON.stringify(cellValues),
+        },
+      });
+      toast({ title: "Saved", description: "Menu updated successfully." });
+    } catch (e: any) {
+      toast({ title: "Error", description: e.message || "Failed to update menu.", variant: "destructive" });
+    }
+  };
+
+  const handleDeleteSavedMenu = async (id: number) => {
+    try {
+      await deleteMenuMutation.mutateAsync(id);
+      setConfirmDeleteId(null);
+      toast({ title: "Deleted", description: "Saved menu removed." });
+    } catch (e: any) {
+      toast({ title: "Error", description: e.message || "Failed to delete menu.", variant: "destructive" });
+    }
+  };
+
+  const handleExportSavedExcel = async (menu: { clientName: string; startDate: string; endDate: string; menuData: string }) => {
+    try {
+      const sd = menu.startDate?.includes("T") ? menu.startDate.split("T")[0] : menu.startDate;
+      const parsedSd = new Date(sd + "T00:00:00");
+      const isHUL = menu.clientName === "Hindustan Unilever Limited" || menu.clientName === "United Breweries Limited";
+      const dd = isHUL ? 7 : 6;
+      const w1 = getWeekDates(parsedSd, dd, !isHUL);
+      const w2 = getWeekDates(addDays(w1[w1.length - 1], 1), dd, !isHUL);
+      const savedCells: Record<string, string> = JSON.parse(menu.menuData || "{}");
+      const lunchDinnerCats = [...baseCategories, ...(isHUL ? hul_extras : unichem_extras)];
+
+      const ExcelJS = (await import("exceljs")).default;
+      const { saveAs } = await import("file-saver");
+      const workbook = new ExcelJS.Workbook();
+
+      for (const mt of MEAL_TYPES) {
+        const cats = (mt.key === "lunch" || mt.key === "dinner") ? lunchDinnerCats : snackCategories;
+        const worksheet = workbook.addWorksheet(mt.label);
+        const navyFill = { type: "pattern", pattern: "solid", fgColor: { argb: "FF1A3A5A" } } as const;
+        const grayFill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFF1F4F7" } } as const;
+        const whiteFont = { name: "Arial", color: { argb: "FFFFFFFF" }, bold: true, size: 11 };
+        const navyFont = { name: "Arial", color: { argb: "FF1A3A5A" }, bold: true, size: 10 };
+        const blackFont = { name: "Arial", color: { argb: "FF000000" }, size: 10 };
+        const border = { top: { style: "thin" as const }, left: { style: "thin" as const }, bottom: { style: "thin" as const }, right: { style: "thin" as const } };
+
+        const titleRow = worksheet.addRow([`${menu.clientName} — ${mt.label}   (${format(w1[0], "dd MMM")} – ${format(w2[w2.length-1], "dd MMM yyyy")})`]);
+        titleRow.font = whiteFont; titleRow.fill = navyFill; titleRow.height = 24;
+        worksheet.mergeCells(titleRow.number, 1, titleRow.number, 1 + dd);
+
+        for (let weekNum = 1; weekNum <= 2; weekNum++) {
+          const dates = weekNum === 1 ? w1 : w2;
+          const wkRow = worksheet.addRow([`WEEK ${weekNum} SCHEDULE`, ...dates.map(d => format(d, "EEE dd"))]);
+          wkRow.font = whiteFont; wkRow.fill = navyFill; wkRow.height = 20;
+          wkRow.eachCell(c => { c.border = border; c.alignment = { horizontal: "center", vertical: "middle" }; });
+          cats.forEach(cat => {
+            const row = worksheet.addRow([cat.name, ...dates.map((_, di) => savedCells[`${mt.prefix}w${weekNum}_c${cat.id}_d${di}`] || cat.def)]);
+            const catCell = row.getCell(1);
+            catCell.font = navyFont; catCell.fill = grayFill;
+            row.eachCell((c, ci) => {
+              c.border = border;
+              c.alignment = { horizontal: ci === 1 ? "left" : "center", vertical: "middle", wrapText: true };
+              if (ci > 1) { c.font = blackFont; }
+            });
+            row.height = 22;
+          });
+        }
+        worksheet.getColumn(1).width = 25;
+        for (let i = 2; i <= dd + 1; i++) worksheet.getColumn(i).width = 18;
+      }
+
+      const buf = await workbook.xlsx.writeBuffer();
+      saveAs(new Blob([buf]), `DJ_Menu_${menu.clientName.replace(/\s+/g, "_")}_${format(parsedSd, "dd-MM-yyyy")}.xlsx`);
+    } catch (err: any) {
+      toast({ title: "Export Failed", description: err.message, variant: "destructive" });
+    }
+  };
+
+  const handleExportSavedImage = async (menu: { clientName: string; startDate: string; endDate: string; menuData: string }) => {
+    handleLoadSavedMenuIntoEditor(menu);
+    toast({ title: "Menu Loaded", description: "Menu loaded into editor. Now click the Image button to export." });
+  };
+
+  const handleImportForSaved = (id: number) => {
+    setImportForSavedId(id);
+    savedImportRef.current?.click();
+  };
+
+  const handleSavedImportExcel = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || importForSavedId === null) return;
+    e.target.value = "";
+    try {
+      const ExcelJS = (await import("exceljs")).default;
+      const buf = await file.arrayBuffer();
+      const wb = new ExcelJS.Workbook();
+      await wb.xlsx.load(buf);
+
+      const savedMenu = allSavedMenus?.find(m => m.id === importForSavedId);
+      if (!savedMenu) return;
+      const sd = savedMenu.startDate?.includes("T") ? savedMenu.startDate.split("T")[0] : savedMenu.startDate;
+      const parsedSd = new Date(sd + "T00:00:00");
+      const isHUL = savedMenu.clientName === "Hindustan Unilever Limited" || savedMenu.clientName === "United Breweries Limited";
+      const dd = isHUL ? 7 : 6;
+      const w1 = getWeekDates(parsedSd, dd, !isHUL);
+      const w2 = getWeekDates(addDays(w1[w1.length - 1], 1), dd, !isHUL);
+      const lunchDinnerCats = [...baseCategories, ...(isHUL ? hul_extras : unichem_extras)];
+
+      const existingData: Record<string, string> = JSON.parse(savedMenu.menuData || "{}");
+
+      for (const mt of MEAL_TYPES) {
+        const cats = (mt.key === "lunch" || mt.key === "dinner") ? lunchDinnerCats : snackCategories;
+        const ws = wb.getWorksheet(mt.label);
+        if (!ws) continue;
+        let weekNum = 0; let readingData = false;
+        ws.eachRow(row => {
+          const vals = row.values as (string | number | null | undefined)[];
+          const colA = String(vals[1] ?? "").trim().toUpperCase();
+          if (colA.includes("WEEK 1")) { weekNum = 1; readingData = false; return; }
+          if (colA.includes("WEEK 2")) { weekNum = 2; readingData = false; return; }
+          if (weekNum === 0) return;
+          if (!readingData) { if (colA === "CATEGORY" || colA.includes("WEEK")) readingData = true; return; }
+          if (!vals[1]) { readingData = false; return; }
+          const cat = cats.find(c => c.name.toLowerCase() === String(vals[1]).trim().toLowerCase());
+          if (!cat) return;
+          const dates = weekNum === 1 ? w1 : w2;
+          vals.slice(2).forEach((cellVal, colIdx) => {
+            if (colIdx >= dates.length) return;
+            const val = String(cellVal ?? "").trim();
+            if (val) existingData[`${mt.prefix}w${weekNum}_c${cat.id}_d${colIdx}`] = val;
+          });
+        });
+      }
+
+      await updateMenuMutation.mutateAsync({ id: importForSavedId, data: { menuData: JSON.stringify(existingData) } });
+      toast({ title: "Imported", description: "Saved menu updated from Excel file." });
+      setImportForSavedId(null);
+    } catch (err: any) {
+      toast({ title: "Import Failed", description: err.message || "Could not read Excel file.", variant: "destructive" });
     }
   };
 
@@ -748,6 +916,14 @@ export default function MenuManager() {
         data-testid="input-menu-import-file"
         onChange={handleImportExcel}
       />
+      <input
+        ref={savedImportRef}
+        type="file"
+        accept=".xlsx"
+        className="hidden"
+        data-testid="input-saved-menu-import-file"
+        onChange={handleSavedImportExcel}
+      />
 
       <div
         ref={captureRef}
@@ -858,6 +1034,160 @@ export default function MenuManager() {
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* ===== SAVED MENUS SECTION ===== */}
+      <div className="mt-8">
+        <div className="flex items-center gap-3 mb-4">
+          <History className="w-5 h-5 text-primary" />
+          <h3 className="text-lg font-bold">Saved Menus</h3>
+          <Badge variant="secondary">{allSavedMenus?.length ?? 0}</Badge>
+        </div>
+
+        {savedMenusLoading ? (
+          <div className="flex justify-center py-8"><Loader2 className="w-6 h-6 animate-spin text-primary" /></div>
+        ) : !allSavedMenus?.length ? (
+          <div className="text-center py-10 text-muted-foreground bg-muted/30 rounded-xl border border-dashed">
+            No saved menus yet. Use Save All above to save a menu.
+          </div>
+        ) : (
+          <div className="flex flex-col gap-3">
+            {allSavedMenus.map(menu => {
+              const sd = menu.startDate?.includes("T") ? menu.startDate.split("T")[0] : menu.startDate;
+              const ed = menu.endDate?.includes("T") ? menu.endDate.split("T")[0] : menu.endDate;
+              const createdAt = menu.createdAt ? new Date(menu.createdAt) : null;
+              return (
+                <div key={menu.id} className="bg-card border rounded-xl p-4 flex flex-col sm:flex-row sm:items-center gap-3" data-testid={`saved-menu-row-${menu.id}`}>
+                  <div className="flex-1 min-w-0">
+                    <div className="font-semibold text-sm truncate" data-testid={`saved-menu-client-${menu.id}`}>{menu.clientName}</div>
+                    <div className="text-xs text-muted-foreground mt-0.5">
+                      {sd} → {ed}
+                      {createdAt && !isNaN(createdAt.getTime()) && (
+                        <span className="ml-2 text-xs opacity-60">Saved: {format(createdAt, "dd MMM yyyy")}</span>
+                      )}
+                    </div>
+                  </div>
+                  <div className="flex flex-wrap gap-1.5">
+                    <Button size="sm" variant="outline" className="h-8 text-xs gap-1" onClick={() => setViewingMenu(menu)} data-testid={`button-view-saved-${menu.id}`}>
+                      <Eye className="w-3.5 h-3.5" /> View
+                    </Button>
+                    <Button size="sm" variant="outline" className="h-8 text-xs gap-1" onClick={() => handleLoadSavedMenuIntoEditor(menu)} data-testid={`button-edit-saved-${menu.id}`}>
+                      <Pencil className="w-3.5 h-3.5" /> Edit
+                    </Button>
+                    <Button size="sm" variant="outline" className="h-8 text-xs gap-1 text-blue-600 border-blue-300 hover:bg-blue-50" onClick={() => handleUpdateSavedMenu(menu.id)} disabled={updateMenuMutation.isPending} data-testid={`button-save-saved-${menu.id}`}>
+                      {updateMenuMutation.isPending ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <RefreshCw className="w-3.5 h-3.5" />} Save
+                    </Button>
+                    <Button size="sm" variant="outline" className="h-8 text-xs gap-1 text-green-700 border-green-300 hover:bg-green-50" onClick={() => handleExportSavedExcel(menu)} data-testid={`button-excel-saved-${menu.id}`}>
+                      <FileSpreadsheet className="w-3.5 h-3.5" /> Excel
+                    </Button>
+                    <Button size="sm" variant="outline" className="h-8 text-xs gap-1 text-orange-600 border-orange-300 hover:bg-orange-50" onClick={() => handleExportSavedImage(menu)} data-testid={`button-image-saved-${menu.id}`}>
+                      <Download className="w-3.5 h-3.5" /> Image
+                    </Button>
+                    <Button size="sm" variant="outline" className="h-8 text-xs gap-1 text-purple-600 border-purple-300 hover:bg-purple-50" onClick={() => handleImportForSaved(menu.id)} data-testid={`button-import-saved-${menu.id}`}>
+                      <Upload className="w-3.5 h-3.5" /> Import
+                    </Button>
+                    <Button size="sm" variant="destructive" className="h-8 text-xs gap-1" onClick={() => setConfirmDeleteId(menu.id)} data-testid={`button-delete-saved-${menu.id}`}>
+                      <Trash2 className="w-3.5 h-3.5" /> Delete
+                    </Button>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </div>
+
+      {/* ===== VIEW MENU DIALOG ===== */}
+      {viewingMenu && (
+        <Dialog open={!!viewingMenu} onOpenChange={open => { if (!open) setViewingMenu(null); }}>
+          <DialogContent className="max-w-4xl w-full max-h-[90vh] overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle>View Saved Menu — {viewingMenu.clientName}</DialogTitle>
+            </DialogHeader>
+            <div className="text-sm text-muted-foreground mb-4">
+              {viewingMenu.startDate?.split("T")[0]} → {viewingMenu.endDate?.split("T")[0]}
+            </div>
+            {(() => {
+              const sd = viewingMenu.startDate?.includes("T") ? viewingMenu.startDate.split("T")[0] : viewingMenu.startDate;
+              const parsedSd = new Date(sd + "T00:00:00");
+              const isHUL = viewingMenu.clientName === "Hindustan Unilever Limited" || viewingMenu.clientName === "United Breweries Limited";
+              const dd = isHUL ? 7 : 6;
+              const w1 = getWeekDates(parsedSd, dd, !isHUL);
+              const w2 = getWeekDates(addDays(w1[w1.length - 1], 1), dd, !isHUL);
+              const cells: Record<string, string> = (() => { try { return JSON.parse(viewingMenu.menuData || "{}"); } catch { return {}; } })();
+              const lunchDinnerCats = [...baseCategories, ...(isHUL ? hul_extras : unichem_extras)];
+
+              return (
+                <div>
+                  {MEAL_TYPES.map(mt => {
+                    const cats = (mt.key === "lunch" || mt.key === "dinner") ? lunchDinnerCats : snackCategories;
+                    return (
+                      <div key={mt.key} className="mb-6">
+                        <div className="font-bold text-white text-sm px-3 py-2 rounded-t-md mb-0" style={{ background: mt.color }}>{mt.label}</div>
+                        {[1, 2].map(weekNum => {
+                          const dates = weekNum === 1 ? w1 : w2;
+                          return (
+                            <div key={weekNum} className="overflow-x-auto mb-3">
+                              <table style={{ width: "100%", borderCollapse: "collapse", minWidth: "600px", border: `2px solid ${mt.color}` }}>
+                                <thead>
+                                  <tr style={{ background: mt.color }}>
+                                    <th style={{ color: "white", padding: "6px 10px", textAlign: "left", fontSize: "12px", width: "140px" }}>Week {weekNum}</th>
+                                    {dates.map((d, i) => (
+                                      <th key={i} style={{ color: "white", padding: "6px 4px", textAlign: "center", fontSize: "11px" }}>{format(d, "EEE dd")}</th>
+                                    ))}
+                                  </tr>
+                                </thead>
+                                <tbody>
+                                  {cats.map(cat => (
+                                    <tr key={cat.id}>
+                                      <td style={{ border: "1px solid #ccc", padding: "4px 8px", fontSize: "11px", fontWeight: 600, background: "#f5f7fa", color: mt.color }}>{cat.name}</td>
+                                      {dates.map((_, di) => (
+                                        <td key={di} style={{ border: "1px solid #ccc", padding: "4px", textAlign: "center", fontSize: "11px", color: cat.isRed ? "#d32f2f" : "#000", fontWeight: cat.isRed ? "bold" : "normal" }}>
+                                          {cells[`${mt.prefix}w${weekNum}_c${cat.id}_d${di}`] || cat.def}
+                                        </td>
+                                      ))}
+                                    </tr>
+                                  ))}
+                                </tbody>
+                              </table>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    );
+                  })}
+                  <div className="flex gap-2 mt-4 flex-wrap">
+                    <Button className="bg-[#1a3a5a] text-white" onClick={() => { handleLoadSavedMenuIntoEditor(viewingMenu); setViewingMenu(null); }} data-testid="button-view-dialog-edit">
+                      <Pencil className="w-4 h-4 mr-1" /> Load into Editor
+                    </Button>
+                    <Button variant="outline" onClick={() => { handleExportSavedExcel(viewingMenu); }} data-testid="button-view-dialog-excel">
+                      <FileSpreadsheet className="w-4 h-4 mr-1" /> Export Excel
+                    </Button>
+                    <Button variant="outline" onClick={() => setViewingMenu(null)} data-testid="button-view-dialog-close">Close</Button>
+                  </div>
+                </div>
+              );
+            })()}
+          </DialogContent>
+        </Dialog>
+      )}
+
+      {/* ===== CONFIRM DELETE DIALOG ===== */}
+      {confirmDeleteId !== null && (
+        <Dialog open={true} onOpenChange={open => { if (!open) setConfirmDeleteId(null); }}>
+          <DialogContent className="max-w-sm">
+            <DialogHeader>
+              <DialogTitle>Delete Saved Menu?</DialogTitle>
+            </DialogHeader>
+            <p className="text-sm text-muted-foreground">This action cannot be undone. The saved menu will be permanently removed.</p>
+            <div className="flex gap-2 mt-4 justify-end">
+              <Button variant="outline" onClick={() => setConfirmDeleteId(null)} data-testid="button-cancel-delete-menu">Cancel</Button>
+              <Button variant="destructive" onClick={() => handleDeleteSavedMenu(confirmDeleteId)} disabled={deleteMenuMutation.isPending} data-testid="button-confirm-delete-menu">
+                {deleteMenuMutation.isPending ? <Loader2 className="w-4 h-4 mr-1 animate-spin" /> : <Trash2 className="w-4 h-4 mr-1" />} Delete
+              </Button>
+            </div>
+          </DialogContent>
+        </Dialog>
+      )}
     </Layout>
   );
 }

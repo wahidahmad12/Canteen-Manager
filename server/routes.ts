@@ -471,6 +471,29 @@ export async function registerRoutes(
     }
   });
 
+  app.put('/api/menus/:id', requirePermission('menu'), async (req, res) => {
+    try {
+      const { clientName, startDate, endDate, menuData } = req.body;
+      const menu = await storage.updateSavedMenu(Number(req.params.id), {
+        ...(clientName !== undefined && { clientName }),
+        ...(startDate !== undefined && { startDate }),
+        ...(endDate !== undefined && { endDate }),
+        ...(menuData !== undefined && { menuData }),
+      });
+      if (!menu) return res.status(404).json({ message: "Menu not found" });
+      if (menuData) {
+        try {
+          const parsed = JSON.parse(menuData);
+          const names = Array.from(new Set(Object.values(parsed).filter((v): v is string => typeof v === 'string' && v.trim().length > 0)));
+          if (names.length > 0) await storage.saveItemNames(names as string[], 'menu');
+        } catch {}
+      }
+      res.json(menu);
+    } catch (err: any) {
+      res.status(500).json({ message: err.message });
+    }
+  });
+
   app.delete(api.menus.delete.path, requireAdmin, async (req, res) => {
     await storage.deleteSavedMenu(Number(req.params.id));
     res.status(204).send();
