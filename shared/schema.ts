@@ -549,6 +549,7 @@ export const salesInvoices = mysqlTable("sales_invoices", {
   tdsAmount: decimal("tds_amount", { precision: 12, scale: 2 }).default("0").notNull(),
   paymentReceivedDate: text("payment_received_date"),
   paymentReceivedAmount: decimal("payment_received_amount", { precision: 12, scale: 2 }).default("0").notNull(),
+  utrNo: varchar("utr_no", { length: 100 }),
   createdBy: text("created_by"),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),

@@ -46,6 +46,7 @@ interface SalesInvoice {
   tdsAmount: string;
   paymentReceivedDate: string | null;
   paymentReceivedAmount: string;
+  utrNo: string | null;
   createdBy: string | null;
 }
 
@@ -84,6 +85,7 @@ function InvoiceFormDialog({ invoice, onClose, clients, purchaseOrders, allInvoi
     invoice?.paymentReceivedDate ? new Date(invoice.paymentReceivedDate) : undefined
   );
   const [paymentReceivedAmount, setPaymentReceivedAmount] = useState(invoice ? Number(invoice.paymentReceivedAmount) : 0);
+  const [utrNo, setUtrNo] = useState(invoice?.utrNo || "");
 
   const gstAmount = Math.round(billAmount * gstPercent / 100 * 100) / 100;
   const totalBillAmount = Math.round((billAmount + gstAmount) * 100) / 100;
@@ -194,6 +196,7 @@ function InvoiceFormDialog({ invoice, onClose, clients, purchaseOrders, allInvoi
       tdsAmount,
       paymentReceivedDate: paymentReceivedDate ? format(paymentReceivedDate, "yyyy-MM-dd") : null,
       paymentReceivedAmount,
+      utrNo: utrNo.trim() || null,
       poId: selectedPoId !== "none" ? Number(selectedPoId) : null,
       bypassPO,
     };
@@ -386,6 +389,10 @@ function InvoiceFormDialog({ invoice, onClose, clients, purchaseOrders, allInvoi
             <Input type="number" value={paymentReceivedAmount || ""} onChange={(e) => setPaymentReceivedAmount(Number(e.target.value))} className="h-9 font-mono text-sm" min={0} data-testid="input-payment-received" />
           </div>
         </div>
+        <div className="space-y-1">
+          <Label className="text-xs text-green-600 dark:text-green-400 flex items-center gap-1"><FileText className="w-3 h-3" /> UTR No. (Transaction Reference)</Label>
+          <Input value={utrNo} onChange={(e) => setUtrNo(e.target.value)} placeholder="Enter UTR / reference number" className="h-9 font-mono text-sm tracking-wider" data-testid="input-utr-no" />
+        </div>
       </div>
 
       <div className="flex justify-end gap-3 pt-2">
@@ -546,6 +553,7 @@ export default function SalesInvoicePage() {
   const [filterMonth, setFilterMonth] = useState("all");
   const [filterYear, setFilterYear] = useState(String(new Date().getFullYear()));
   const [filterStatus, setFilterStatus] = useState("all");
+  const [filterUtrNo, setFilterUtrNo] = useState("");
 
   const deleteMutation = useMutation({
     mutationFn: async (id: number) => {
@@ -591,6 +599,10 @@ export default function SalesInvoicePage() {
       if (filterStatus === "pending" && st !== "pending") return false;
       if (filterStatus === "received" && st !== "received") return false;
       if (filterStatus === "partial" && st !== "partial") return false;
+    }
+    if (filterUtrNo.trim()) {
+      const u = filterUtrNo.trim().toLowerCase();
+      if (!inv.utrNo || !inv.utrNo.toLowerCase().includes(u)) return false;
     }
     if (searchTerm) {
       const s = searchTerm.toLowerCase();
@@ -1078,8 +1090,20 @@ export default function SalesInvoicePage() {
                     </SelectContent>
                   </Select>
                 </div>
-                {(filterClient !== "all" || filterMonth !== "all" || filterYear !== String(new Date().getFullYear()) || filterStatus !== "all" || searchTerm) && (
-                  <Button variant="ghost" size="sm" className="text-muted-foreground h-9 self-end" onClick={() => { setFilterClient("all"); setFilterMonth("all"); setFilterYear(String(new Date().getFullYear())); setFilterStatus("all"); setSearchTerm(""); }} data-testid="button-clear-filters">
+                <div className="sm:w-44">
+                  <Label className="text-xs font-semibold text-muted-foreground flex items-center gap-1 mb-1">
+                    <FileText className="w-3 h-3" /> UTR No.
+                  </Label>
+                  <Input
+                    placeholder="Search UTR..."
+                    value={filterUtrNo}
+                    onChange={(e) => setFilterUtrNo(e.target.value)}
+                    className="h-9 font-mono text-sm"
+                    data-testid="input-filter-utr"
+                  />
+                </div>
+                {(filterClient !== "all" || filterMonth !== "all" || filterYear !== String(new Date().getFullYear()) || filterStatus !== "all" || searchTerm || filterUtrNo) && (
+                  <Button variant="ghost" size="sm" className="text-muted-foreground h-9 self-end" onClick={() => { setFilterClient("all"); setFilterMonth("all"); setFilterYear(String(new Date().getFullYear())); setFilterStatus("all"); setSearchTerm(""); setFilterUtrNo(""); }} data-testid="button-clear-filters">
                     <X className="w-3.5 h-3.5 mr-1" /> Clear
                   </Button>
                 )}
@@ -1122,6 +1146,7 @@ export default function SalesInvoicePage() {
                         <th className="text-right py-3 px-3 font-semibold text-xs">To Receive</th>
                         <th className="text-left py-3 px-3 font-semibold text-xs">Pmt Date</th>
                         <th className="text-right py-3 px-3 font-semibold text-xs">Pmt Rcvd</th>
+                        <th className="text-left py-3 px-3 font-semibold text-xs">UTR No.</th>
                         <th className="text-center py-3 px-3 font-semibold text-xs">Status</th>
                         <th className="text-center py-3 px-3 font-semibold text-xs w-20">Actions</th>
                       </tr>
@@ -1149,6 +1174,7 @@ export default function SalesInvoicePage() {
                             <td className="py-2.5 px-3 text-right font-mono text-xs font-bold text-blue-600">{fmtCurrency(toReceiveAmt)}</td>
                             <td className="py-2.5 px-3 text-xs">{fmtDate(inv.paymentReceivedDate)}</td>
                             <td className="py-2.5 px-3 text-right font-mono text-xs text-green-600">{fmtCurrency(inv.paymentReceivedAmount)}</td>
+                            <td className="py-2.5 px-3 text-xs font-mono text-cyan-700 dark:text-cyan-400">{inv.utrNo || <span className="text-muted-foreground">—</span>}</td>
                             <td className="py-2.5 px-3 text-center">
                               {paymentStatus === "full" ? (
                                 <Badge className="bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400 text-[10px]"><CheckCircle2 className="w-3 h-3 mr-0.5" /> Full Paid</Badge>
@@ -1180,6 +1206,7 @@ export default function SalesInvoicePage() {
                         <td className="py-2.5 px-3 text-right font-mono text-xs text-blue-600">{fmtCurrency(filteredInvoices.reduce((s, i) => s + Number(i.billAmount) + Number(i.gstAmount) - Number(i.tdsAmount), 0))}</td>
                         <td className="py-2.5 px-3"></td>
                         <td className="py-2.5 px-3 text-right font-mono text-xs text-green-600">{fmtCurrency(totalReceived)}</td>
+                        <td className="py-2.5 px-3"></td>
                         <td colSpan={2} className="py-2.5 px-3 text-center text-xs">{paidCount} paid</td>
                       </tr>
                     </tfoot>
@@ -1251,6 +1278,12 @@ export default function SalesInvoicePage() {
                           <p className="font-mono font-bold text-[11px]">{fmtDate(inv.paymentReceivedDate)}</p>
                         </div>
                       </div>
+                      {inv.utrNo && (
+                        <div className="mt-1.5 bg-cyan-50 dark:bg-cyan-950/20 rounded-lg p-1.5">
+                          <p className="text-[9px] text-cyan-600 dark:text-cyan-400">UTR No.</p>
+                          <p className="font-mono font-bold text-[11px] text-cyan-700 dark:text-cyan-300 break-all">{inv.utrNo}</p>
+                        </div>
+                      )}
 
                       <div className="flex justify-end gap-2 mt-3 pt-2 border-t">
                         <Button size="sm" variant="outline" className="h-7 text-xs border-blue-200 text-blue-600" onClick={() => openEdit(inv)} data-testid={`button-edit-mobile-${inv.id}`}>

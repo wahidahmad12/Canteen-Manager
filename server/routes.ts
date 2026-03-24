@@ -1581,7 +1581,7 @@ export async function registerRoutes(
 
   app.post("/api/sales-invoices", requirePermission("salesinvoice"), async (req, res) => {
     try {
-      const { clientName, billDate, billNumber, billAmount, gstPercent, gstAmount, totalBillAmount, tdsPercent, tdsAmount, paymentReceivedDate, paymentReceivedAmount, poId, bypassPO } = req.body;
+      const { clientName, billDate, billNumber, billAmount, gstPercent, gstAmount, totalBillAmount, tdsPercent, tdsAmount, paymentReceivedDate, paymentReceivedAmount, utrNo, poId, bypassPO } = req.body;
       if (!clientName || !billDate || !billNumber) {
         return res.status(400).json({ message: "Client name, bill date, and bill number are required" });
       }
@@ -1614,6 +1614,7 @@ export async function registerRoutes(
         tdsAmount: String(tdsAmount || 0),
         paymentReceivedDate: paymentReceivedDate || null,
         paymentReceivedAmount: String(paymentReceivedAmount || 0),
+        utrNo: utrNo?.trim() || null,
         poId: poId ? Number(poId) : null,
         createdBy: req.session.displayName || req.session.username || '',
       });
@@ -1627,7 +1628,7 @@ export async function registerRoutes(
     try {
       const existing = await storage.getSalesInvoice(Number(req.params.id));
       if (!existing) return res.status(404).json({ message: "Sales invoice not found" });
-      const { clientName, billDate, billNumber, billAmount, gstPercent, gstAmount, totalBillAmount, tdsPercent, tdsAmount, paymentReceivedDate, paymentReceivedAmount, poId, bypassPO } = req.body;
+      const { clientName, billDate, billNumber, billAmount, gstPercent, gstAmount, totalBillAmount, tdsPercent, tdsAmount, paymentReceivedDate, paymentReceivedAmount, utrNo, poId, bypassPO } = req.body;
       if (billNumber !== undefined) {
         const allInvForDup = await storage.getSalesInvoices();
         const duplicateBill = allInvForDup.find(inv => inv.billNumber === billNumber.trim() && inv.id !== existing.id);
@@ -1665,6 +1666,7 @@ export async function registerRoutes(
         ...(tdsAmount !== undefined && { tdsAmount: String(tdsAmount) }),
         ...(paymentReceivedDate !== undefined && { paymentReceivedDate: paymentReceivedDate || null }),
         ...(paymentReceivedAmount !== undefined && { paymentReceivedAmount: String(paymentReceivedAmount) }),
+        ...(utrNo !== undefined && { utrNo: utrNo?.trim() || null }),
         ...(poId !== undefined && { poId: poId ? Number(poId) : null }),
       });
       res.json(invoice);
