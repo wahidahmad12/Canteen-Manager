@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
-import { RotateCcw, Download, Loader2, FileSpreadsheet, Save, Plus, X, Trash2, Upload } from "lucide-react";
+import { RotateCcw, Download, Loader2, FileSpreadsheet, Save, Plus, X, Upload } from "lucide-react";
 import { format, addDays, getDay } from "date-fns";
 import { useClientNames, useCreateSavedMenu, useSavedMenu, useSavedItemNames } from "@/hooks/use-reports";
 import { useToast } from "@/hooks/use-toast";
@@ -39,6 +39,23 @@ const hul_extras: Category[] = [
   { id: 9, name: "9. Sweets", options: ["Gulab Jamun", "Rasgulla", "Kheer", "Siwai"], def: "Gulab Jamun" },
 ];
 
+const snackCategories: Category[] = [
+  { id: 101, name: "1. Main Item", options: ["Bread", "Puri", "Pav", "Poha", "Upma", "Roti", "Paratha", "Pasta", "Khichri", "Biscuit", "Banana"], def: "Bread" },
+  { id: 102, name: "2. Sabji", options: ["Aloo Sabji", "Mix Veg", "Chana Masala", "Dal Fry", "Paneer Bhurji"], def: "Aloo Sabji" },
+  { id: 103, name: "3. Sweets", options: ["Gulab Jamun", "Rasgulla", "Kheer", "Halwa", "Ladoo"], def: "Gulab Jamun" },
+  { id: 104, name: "4. Fruits", options: ["Banana", "Apple", "Orange", "Seasonal Fruit", "Mixed Fruit"], def: "Banana" },
+];
+
+type MealType = "lunch" | "dinner" | "breakfast" | "evening" | "night";
+
+const MEAL_TYPES: { key: MealType; label: string; color: string; prefix: string }[] = [
+  { key: "lunch", label: "Lunch Menu", color: "#1a3a5a", prefix: "" },
+  { key: "dinner", label: "Dinner Menu", color: "#4a1a5a", prefix: "dinner_" },
+  { key: "breakfast", label: "Breakfast", color: "#5a3a1a", prefix: "breakfast_" },
+  { key: "evening", label: "Evening Snacks", color: "#1a5a3a", prefix: "evening_" },
+  { key: "night", label: "Night Snacks", color: "#1a3a5a", prefix: "night_" },
+];
+
 const DEFAULT_CLIENTS = [
   "Unichem Laboratories Ltd",
   "Hindustan Unilever Limited",
@@ -71,6 +88,7 @@ export default function MenuManager() {
 
   const [client, setClient] = useState("");
   const [startDate, setStartDate] = useState(format(new Date(), "yyyy-MM-dd"));
+  const [activeMealType, setActiveMealType] = useState<MealType>("lunch");
   const captureRef = useRef<HTMLDivElement>(null);
   const importRef = useRef<HTMLInputElement>(null);
   const saveMenuMutation = useCreateSavedMenu();
@@ -101,9 +119,17 @@ export default function MenuManager() {
 
   const isHUL_UB = client === "Hindustan Unilever Limited" || client === "United Breweries Limited";
   const daysToDisplay = isHUL_UB ? 7 : 6;
-  const categories = useMemo(() => {
+  const lunchDinnerCategories = useMemo(() => {
     return [...baseCategories, ...(isHUL_UB ? hul_extras : unichem_extras)];
   }, [isHUL_UB]);
+
+  const activeCats = useMemo(() => {
+    return (activeMealType === "lunch" || activeMealType === "dinner") ? lunchDinnerCategories : snackCategories;
+  }, [activeMealType, lunchDinnerCategories]);
+
+  const allCategoriesForDialog = useMemo(() => {
+    return [...lunchDinnerCategories, ...snackCategories];
+  }, [lunchDinnerCategories]);
 
   const parsedStart = useMemo(() => {
     const d = new Date(startDate + "T00:00:00");
@@ -119,16 +145,19 @@ export default function MenuManager() {
 
   const initValues = useCallback(() => {
     const vals: Record<string, string> = {};
-    for (let week = 1; week <= 2; week++) {
-      const dates = week === 1 ? week1Dates : week2Dates;
-      categories.forEach(cat => {
-        dates.forEach((_, di) => {
-          vals[`w${week}_c${cat.id}_d${di}`] = cat.def;
+    MEAL_TYPES.forEach(({ prefix, key }) => {
+      const cats = (key === "lunch" || key === "dinner") ? lunchDinnerCategories : snackCategories;
+      for (let week = 1; week <= 2; week++) {
+        const dates = week === 1 ? week1Dates : week2Dates;
+        cats.forEach(cat => {
+          dates.forEach((_, di) => {
+            vals[`${prefix}w${week}_c${cat.id}_d${di}`] = cat.def;
+          });
         });
-      });
-    }
+      }
+    });
     return vals;
-  }, [categories, week1Dates, week2Dates]);
+  }, [lunchDinnerCategories, week1Dates, week2Dates]);
 
   const [cellValues, setCellValues] = useState<Record<string, string>>({});
   const [initialized, setInitialized] = useState(false);
@@ -142,7 +171,7 @@ export default function MenuManager() {
 
   const handleAddItem = () => {
     if (!newItemName.trim() || addItemCatId === null) return;
-    const cat = categories.find(c => c.id === addItemCatId);
+    const cat = allCategoriesForDialog.find(c => c.id === addItemCatId);
     if (!cat) return;
     const allOpts = getCatOptions(cat);
     if (allOpts.some(o => o.toLowerCase() === newItemName.trim().toLowerCase())) {
@@ -195,17 +224,19 @@ export default function MenuManager() {
   };
 
   const handleReset = () => {
-    const defaults: Record<string, string> = {};
+    const mt = MEAL_TYPES.find(m => m.key === activeMealType)!;
+    const cats = (activeMealType === "lunch" || activeMealType === "dinner") ? lunchDinnerCategories : snackCategories;
+    const defaults: Record<string, string> = { ...cellValues };
     for (let week = 1; week <= 2; week++) {
       const dates = week === 1 ? week1Dates : week2Dates;
-      categories.forEach(cat => {
+      cats.forEach(cat => {
         dates.forEach((_, di) => {
-          defaults[`w${week}_c${cat.id}_d${di}`] = cat.def;
+          defaults[`${mt.prefix}w${week}_c${cat.id}_d${di}`] = cat.def;
         });
       });
     }
     setCellValues(defaults);
-    toast({ title: "Menu reset to defaults" });
+    toast({ title: `${mt.label} reset to defaults` });
   };
 
   const handleClientChange = (val: string) => {
@@ -231,6 +262,7 @@ export default function MenuManager() {
     if (!el) return;
     const mod = await import("html2canvas");
     const html2canvas = (mod as any).default || mod;
+    const mt = MEAL_TYPES.find(m => m.key === activeMealType)!;
     const canvas = await html2canvas(el, {
       scale: 3,
       useCORS: true,
@@ -238,7 +270,7 @@ export default function MenuManager() {
       windowWidth: 1800,
     });
     const link = document.createElement("a");
-    link.download = `DJ_Menu_Schedule_${format(rangeStart, "dd-MM-yyyy")}.jpg`;
+    link.download = `DJ_${mt.label.replace(/ /g, "_")}_${format(rangeStart, "dd-MM-yyyy")}.jpg`;
     link.href = canvas.toDataURL("image/jpeg", 1.0);
     link.click();
   };
@@ -265,6 +297,8 @@ export default function MenuManager() {
       right: { style: "thin" as const },
     };
 
+    const mt = MEAL_TYPES.find(m => m.key === activeMealType)!;
+    const cats = (activeMealType === "lunch" || activeMealType === "dinner") ? lunchDinnerCategories : snackCategories;
     const totalCols = Math.max(week1Dates.length, week2Dates.length) + 1;
     const lastCol = String.fromCharCode(64 + totalCols);
 
@@ -278,7 +312,7 @@ export default function MenuManager() {
     clientRow.alignment = { horizontal: "center" };
     worksheet.mergeCells(`A2:${lastCol}2`);
 
-    const dateText = `LUNCH MENU: ${format(rangeStart, "dd-MM-yyyy")} TO ${format(rangeEnd, "dd-MM-yyyy")}`;
+    const dateText = `${mt.label.toUpperCase()}: ${format(rangeStart, "dd-MM-yyyy")} TO ${format(rangeEnd, "dd-MM-yyyy")}`;
     const dateRow = worksheet.addRow([dateText]);
     dateRow.font = { size: 11, bold: true, color: { argb: "FF555555" } };
     dateRow.alignment = { horizontal: "center" };
@@ -305,10 +339,10 @@ export default function MenuManager() {
         cell.border = borderStyle;
       });
 
-      categories.forEach((cat) => {
+      cats.forEach((cat) => {
         const rowData = [cat.name];
         dates.forEach((_, di) => {
-          rowData.push(cellValues[`w${weekNum}_c${cat.id}_d${di}`] || cat.def);
+          rowData.push(cellValues[`${mt.prefix}w${weekNum}_c${cat.id}_d${di}`] || cat.def);
         });
 
         const excelRow = worksheet.addRow(rowData);
@@ -343,7 +377,7 @@ export default function MenuManager() {
 
     const safeClientName = client.toLowerCase().replace(/ /g, "_").replace(/[^a-z0-9_]/g, "");
     const dateSuffix = `_${format(rangeStart, "dd-MM-yyyy")}_${format(rangeEnd, "dd-MM-yyyy")}`;
-    const fileName = `Menu_${safeClientName}${dateSuffix}.xlsx`;
+    const fileName = `${mt.label.replace(/ /g, "_")}_${safeClientName}${dateSuffix}.xlsx`;
 
     const buffer = await workbook.xlsx.writeBuffer();
     saveAs(new Blob([buffer]), fileName);
@@ -362,6 +396,8 @@ export default function MenuManager() {
       const ws = workbook.getWorksheet("Menu");
       if (!ws) throw new Error("No 'Menu' sheet found. Please use a file exported from this app.");
 
+      const mt = MEAL_TYPES.find(m => m.key === activeMealType)!;
+      const cats = (activeMealType === "lunch" || activeMealType === "dinner") ? lunchDinnerCategories : snackCategories;
       const newValues: Record<string, string> = { ...cellValues };
       const newCustomItems: Record<number, string[]> = {};
       Object.entries(customItems).forEach(([k, v]) => {
@@ -387,7 +423,7 @@ export default function MenuManager() {
 
         if (!colA) { readingData = false; return; }
 
-        const cat = categories.find(c => c.name.toLowerCase() === colA.toLowerCase());
+        const cat = cats.find(c => c.name.toLowerCase() === colA.toLowerCase());
         if (!cat) return;
 
         const dates = weekNum === 1 ? week1Dates : week2Dates;
@@ -396,7 +432,7 @@ export default function MenuManager() {
           const val = String(cellVal ?? "").trim();
           if (!val) return;
 
-          const key = `w${weekNum}_c${cat.id}_d${colIdx}`;
+          const key = `${mt.prefix}w${weekNum}_c${cat.id}_d${colIdx}`;
           newValues[key] = val;
 
           const existing = [...cat.options, ...(newCustomItems[cat.id] || [])];
@@ -420,11 +456,13 @@ export default function MenuManager() {
     }
   };
 
-  const renderWeekTable = (weekNum: number, dates: Date[]) => (
+  const activeMt = MEAL_TYPES.find(m => m.key === activeMealType)!;
+
+  const renderWeekTable = (weekNum: number, dates: Date[], prefix: string, cats: Category[]) => (
     <div key={weekNum}>
       <div
         style={{
-          background: "#1a3a5a",
+          background: activeMt.color,
           color: "white",
           padding: "10px",
           marginTop: weekNum > 1 ? "30px" : "10px",
@@ -443,7 +481,7 @@ export default function MenuManager() {
             width: "100%",
             borderCollapse: "collapse",
             marginBottom: "20px",
-            border: "2px solid #1a3a5a",
+            border: `2px solid ${activeMt.color}`,
             fontFamily: "'Segoe UI', Arial, sans-serif",
             minWidth: "900px",
             tableLayout: "fixed",
@@ -457,7 +495,7 @@ export default function MenuManager() {
                   textAlign: "left",
                   paddingLeft: "10px",
                   background: "#eef2f3",
-                  color: "#1a3a5a",
+                  color: activeMt.color,
                   fontWeight: 800,
                   fontSize: "14px",
                   border: "1px solid #444",
@@ -471,7 +509,7 @@ export default function MenuManager() {
                   key={i}
                   style={{
                     background: "#eef2f3",
-                    color: "#1a3a5a",
+                    color: activeMt.color,
                     fontWeight: 800,
                     fontSize: "14px",
                     border: "1px solid #444",
@@ -489,7 +527,7 @@ export default function MenuManager() {
             </tr>
           </thead>
           <tbody>
-            {categories.map(cat => (
+            {cats.map(cat => (
               <tr key={cat.id}>
                 <td
                   style={{
@@ -497,7 +535,7 @@ export default function MenuManager() {
                     paddingLeft: "10px",
                     background: cat.isRed ? "#ffebee" : "#f1f4f7",
                     fontWeight: "bold",
-                    color: cat.isRed ? "#d32f2f" : "#1a3a5a",
+                    color: cat.isRed ? "#d32f2f" : activeMt.color,
                     border: "1px solid #444",
                     height: "45px",
                     fontSize: "13px",
@@ -511,7 +549,7 @@ export default function MenuManager() {
                       title={`Add item to ${cat.name}`}
                       data-testid={`button-add-item-cat-${cat.id}`}
                       style={{
-                        background: "#1a3a5a",
+                        background: activeMt.color,
                         color: "white",
                         border: "none",
                         borderRadius: "4px",
@@ -530,7 +568,7 @@ export default function MenuManager() {
                   </div>
                 </td>
                 {dates.map((_, di) => {
-                  const key = `w${weekNum}_c${cat.id}_d${di}`;
+                  const key = `${prefix}w${weekNum}_c${cat.id}_d${di}`;
                   return (
                     <td
                       key={di}
@@ -546,9 +584,7 @@ export default function MenuManager() {
                         type="text"
                         list={`list_${cat.id}`}
                         value={cellValues[key] || ""}
-                        onChange={e => {
-                          handleCellChange(key, e.target.value);
-                        }}
+                        onChange={e => handleCellChange(key, e.target.value)}
                         onBlur={e => {
                           const val = e.target.value.trim();
                           const opts = getCatOptions(cat);
@@ -557,7 +593,7 @@ export default function MenuManager() {
                             handleCellChange(key, match || cellValues[key] || cat.def);
                           }
                         }}
-                        data-testid={`input-menu-w${weekNum}-c${cat.id}-d${di}`}
+                        data-testid={`input-menu-${prefix}w${weekNum}-c${cat.id}-d${di}`}
                         style={{
                           width: "98%",
                           height: "100%",
@@ -583,9 +619,11 @@ export default function MenuManager() {
     </div>
   );
 
+  const dialogCat = allCategoriesForDialog.find(c => c.id === addItemCatId);
+
   return (
     <Layout>
-      {categories.map(cat => (
+      {allCategoriesForDialog.map(cat => (
         <datalist key={cat.id} id={`list_${cat.id}`}>
           {getCatOptions(cat).map(opt => (
             <option key={opt} value={opt} />
@@ -598,12 +636,12 @@ export default function MenuManager() {
           <h2 className="text-2xl font-bold tracking-tight" data-testid="text-menu-title">
             Menu Manager
           </h2>
-          <p className="text-muted-foreground mt-1">Create and manage weekly lunch menus</p>
+          <p className="text-muted-foreground mt-1">Create and manage weekly meal menus</p>
         </div>
       </div>
 
       <div
-        className="flex flex-wrap items-center gap-3 sm:gap-4 p-3 sm:p-4 rounded-xl mb-6"
+        className="flex flex-wrap items-center gap-3 sm:gap-4 p-3 sm:p-4 rounded-xl mb-4"
         style={{ background: "#1a3a5a" }}
       >
         <div className="flex items-center gap-2 w-full sm:w-auto">
@@ -640,7 +678,7 @@ export default function MenuManager() {
             data-testid="button-menu-save"
           >
             {saveMenuMutation.isPending ? <Loader2 className="w-4 h-4 mr-1 animate-spin" /> : <Save className="w-4 h-4 mr-1" />}
-            Save
+            Save All
           </Button>
           <Button
             onClick={handleDownload}
@@ -677,6 +715,31 @@ export default function MenuManager() {
           </Button>
         </div>
       </div>
+
+      <div className="flex flex-wrap gap-1.5 mb-4">
+        {MEAL_TYPES.map(mt => (
+          <button
+            key={mt.key}
+            onClick={() => setActiveMealType(mt.key)}
+            data-testid={`tab-meal-${mt.key}`}
+            style={{
+              background: activeMealType === mt.key ? mt.color : "#e8eaed",
+              color: activeMealType === mt.key ? "white" : "#555",
+              border: "none",
+              borderRadius: "6px",
+              padding: "8px 16px",
+              fontWeight: 700,
+              fontSize: "13px",
+              cursor: "pointer",
+              transition: "all 0.15s",
+              letterSpacing: "0.3px",
+            }}
+          >
+            {mt.label}
+          </button>
+        ))}
+      </div>
+
       <input
         ref={importRef}
         type="file"
@@ -694,7 +757,7 @@ export default function MenuManager() {
         <div
           style={{
             textAlign: "center",
-            borderBottom: "4px solid #6b8e23",
+            borderBottom: `4px solid ${activeMt.color}`,
             paddingBottom: "20px",
             marginBottom: "20px",
           }}
@@ -727,17 +790,18 @@ export default function MenuManager() {
             style={{
               fontSize: "16px",
               fontWeight: "bold",
-              color: "#555",
+              color: activeMt.color,
               marginTop: "8px",
+              textTransform: "uppercase",
             }}
             data-testid="text-menu-date-range"
           >
-            LUNCH MENU: {format(rangeStart, "dd-MM-yyyy")} TO {format(rangeEnd, "dd-MM-yyyy")}
+            {activeMt.label.toUpperCase()}: {format(rangeStart, "dd-MM-yyyy")} TO {format(rangeEnd, "dd-MM-yyyy")}
           </div>
         </div>
 
-        {renderWeekTable(1, week1Dates)}
-        {renderWeekTable(2, week2Dates)}
+        {renderWeekTable(1, week1Dates, activeMt.prefix, activeCats)}
+        {renderWeekTable(2, week2Dates, activeMt.prefix, activeCats)}
       </div>
 
       <Dialog open={addItemCatId !== null} onOpenChange={(o) => { if (!o) setAddItemCatId(null); }}>
@@ -745,7 +809,7 @@ export default function MenuManager() {
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <Plus className="w-5 h-5 text-blue-600" />
-              Add Item to {categories.find(c => c.id === addItemCatId)?.name}
+              Add Item to {dialogCat?.name}
             </DialogTitle>
           </DialogHeader>
           <div className="space-y-4">
@@ -763,11 +827,11 @@ export default function MenuManager() {
               </Button>
             </div>
 
-            {addItemCatId !== null && (
+            {addItemCatId !== null && dialogCat && (
               <div>
                 <p className="text-xs text-muted-foreground mb-2 font-medium">Current items:</p>
                 <div className="flex flex-wrap gap-1.5 max-h-48 overflow-y-auto">
-                  {getCatOptions(categories.find(c => c.id === addItemCatId)!).map(item => {
+                  {getCatOptions(dialogCat).map(item => {
                     const isCustom = (customItems[addItemCatId] || []).includes(item);
                     return (
                       <Badge
