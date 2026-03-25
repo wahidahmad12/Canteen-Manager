@@ -114,7 +114,10 @@ function UblDateEntryTab({ month, year }: { month: number; year: number }) {
       const updated = [...prev];
       const row = { ...updated[idx] };
       (row as any)[field] = (field === 'entryDate' || field === 'weekDay') ? value : (parseInt(value) || 0);
-      if (field === 'entryDate') row.weekDay = getWeekDay(value);
+      if (field === 'entryDate') {
+        row.weekDay = getWeekDay(value);
+        if (value) { const d = new Date(value+"T00:00:00"); row.month = d.getMonth()+1; row.year = d.getFullYear(); }
+      }
       row._dirty = true;
       updated[idx] = row;
       return updated;
@@ -452,7 +455,10 @@ function UblLunchEntryTab({ month, year }: { month: number; year: number }) {
       const updated = [...prev];
       const row = { ...updated[idx] };
       (row as any)[field] = (field === 'entryDate' || field === 'weekDay') ? value : (parseInt(value)||0);
-      if (field === 'entryDate') row.weekDay = getWeekDay(value);
+      if (field === 'entryDate') {
+        row.weekDay = getWeekDay(value);
+        if (value) { const d = new Date(value+"T00:00:00"); row.month = d.getMonth()+1; row.year = d.getFullYear(); }
+      }
       row._dirty = true;
       updated[idx] = row;
       return updated;
@@ -771,7 +777,10 @@ function CiplaDateEntryTab({ month, year }: { month: number; year: number }) {
       const updated = [...prev];
       const row = { ...updated[idx] };
       (row as any)[field] = (field==='entryDate'||field==='weekDay') ? value : (parseInt(value)||0);
-      if (field === 'entryDate') row.weekDay = getWeekDay(value);
+      if (field === 'entryDate') {
+        row.weekDay = getWeekDay(value);
+        if (value) { const d = new Date(value+"T00:00:00"); row.month = d.getMonth()+1; row.year = d.getFullYear(); }
+      }
       row._dirty = true;
       updated[idx] = row;
       return updated;
