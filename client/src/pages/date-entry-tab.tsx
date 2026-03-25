@@ -225,6 +225,8 @@ function UblDateEntryTab({ month, year }: { month: number; year: number }) {
   const numFld = (row: UblRow, idx: number, field: keyof UblRow, w=42) => (
     <input type="number" min={0} value={(row as any)[field]||""}
       onChange={e=>handleCellChange(idx,field,e.target.value)}
+      data-field={String(field)} data-row={idx}
+      onKeyDown={e=>{ if(e.key==='Enter'){ e.preventDefault(); const next=document.querySelector(`#ubl1-desk input[data-field="${String(field)}"][data-row="${idx+1}"]`) as HTMLInputElement; if(next) next.focus(); }}}
       style={{width:w,border:"none",background:"transparent",textAlign:"center",fontSize:12,padding:0,outline:"none"}}/>
   );
 
@@ -406,7 +408,7 @@ function UblDateEntryTab({ month, year }: { month: number; year: number }) {
       </div>
 
       {/* ── Desktop Table View (hidden on mobile) ── */}
-      <div className="hidden md:block overflow-x-auto rounded-xl border shadow-sm">
+      <div id="ubl1-desk" className="hidden md:block overflow-x-auto rounded-xl border shadow-sm">
         <table style={{borderCollapse:"collapse",minWidth:1400,fontFamily:"Arial,sans-serif",fontSize:12}}>
           <thead>
             <tr style={{background:"#1a3a5a",color:"white"}}>
@@ -665,6 +667,8 @@ function UblLunchEntryTab({ month, year }: { month: number; year: number }) {
   const numFld = (row: UblLunchRow, idx: number, field: keyof UblLunchRow, w=56) => (
     <input type="number" min={0} value={(row as any)[field]||""}
       onChange={e=>handleCellChange(idx,field,e.target.value)}
+      data-field={String(field)} data-row={idx}
+      onKeyDown={e=>{ if(e.key==='Enter'){ e.preventDefault(); const next=document.querySelector(`#ubl2-desk input[data-field="${String(field)}"][data-row="${idx+1}"]`) as HTMLInputElement; if(next) next.focus(); }}}
       style={{width:w,border:"none",background:"transparent",textAlign:"center",fontSize:12,padding:0,outline:"none"}}/>
   );
 
@@ -819,7 +823,7 @@ function UblLunchEntryTab({ month, year }: { month: number; year: number }) {
       </div>
 
       {/* ── Desktop Table View ── */}
-      <div className="hidden md:block overflow-x-auto rounded-xl border shadow-sm">
+      <div id="ubl2-desk" className="hidden md:block overflow-x-auto rounded-xl border shadow-sm">
         <table style={{borderCollapse:"collapse",minWidth:700,fontFamily:"Arial,sans-serif",fontSize:12}}>
           <thead>
             <tr style={{background:"#1a3a5a",color:"white"}}>
@@ -1087,6 +1091,8 @@ function CiplaDateEntryTab({ month, year }: { month: number; year: number }) {
   const numFld = (row: CiplaRow, idx: number, field: keyof CiplaRow, w=50) => (
     <input type="number" min={0} value={(row as any)[field]||""}
       onChange={e=>handleCellChange(idx,field,e.target.value)}
+      data-field={String(field)} data-row={idx}
+      onKeyDown={e=>{ if(e.key==='Enter'){ e.preventDefault(); const next=document.querySelector(`#ubl3-desk input[data-field="${String(field)}"][data-row="${idx+1}"]`) as HTMLInputElement; if(next) next.focus(); }}}
       style={{width:w,border:"none",background:"transparent",textAlign:"center",fontSize:12,padding:0,outline:"none"}}/>
   );
 
@@ -1267,7 +1273,7 @@ function CiplaDateEntryTab({ month, year }: { month: number; year: number }) {
       </div>
 
       {/* ── Desktop Table View ── */}
-      <div className="hidden md:block overflow-x-auto rounded-xl border shadow-sm">
+      <div id="ubl3-desk" className="hidden md:block overflow-x-auto rounded-xl border shadow-sm">
         <table style={{borderCollapse:"collapse",minWidth:900,fontFamily:"Arial,sans-serif",fontSize:12}}>
           <thead>
             <tr style={{background:"#1a3a5a",color:"white"}}>
