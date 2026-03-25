@@ -198,24 +198,20 @@ function UblDateEntryTab({ month, year }: { month: number; year: number }) {
     win.print();
   };
 
-  const totalTea = rows.reduce((s,r)=>s+(r.tea1||0)+(r.tea2||0)+(r.tea3||0)+(r.tea4||0)+(r.tea5||0)+(r.tea6||0),0);
-  const totalBiscuit = rows.reduce((s,r)=>s+(r.biscuit1||0)+(r.biscuit2||0),0);
+  const totalTea = rows.reduce((s,r)=>s+(r.tea1||0)+(r.tea4||0)+(r.tea5||0)+(r.tea6||0),0);
+  const totalBiscuit = rows.reduce((s,r)=>s+(r.biscuit1||0),0);
   const totalBreakfast = rows.reduce((s,r)=>s+(r.breakfast||0),0);
   const totalLunch = rows.reduce((s,r)=>s+(r.lunch||0),0);
   const totalMutton = rows.reduce((s,r)=>s+(r.mutton||0),0);
-  const totalTiffin = rows.reduce((s,r)=>s+(r.tiffin||0),0);
-  const totalBoiledEgg = rows.reduce((s,r)=>s+(r.boiledEgg||0),0);
   const totalDinner = rows.reduce((s,r)=>s+(r.dinner||0),0);
 
   const summary = [
     { label:"Breakfast", qty:totalBreakfast, rate:UBL_RATES.breakfast, total:totalBreakfast*UBL_RATES.breakfast },
     { label:"Lunch", qty:totalLunch, rate:UBL_RATES.lunch, total:totalLunch*UBL_RATES.lunch },
     { label:"Lunch Mutton", qty:totalMutton, rate:UBL_RATES.mutton, total:totalMutton*UBL_RATES.mutton },
-    { label:"Teffin", qty:totalTiffin, rate:UBL_RATES.tiffin, total:totalTiffin*UBL_RATES.tiffin },
     { label:"Dinner", qty:totalDinner, rate:UBL_RATES.dinner, total:totalDinner*UBL_RATES.dinner },
     { label:"Tea", qty:totalTea, rate:UBL_RATES.tea, total:totalTea*UBL_RATES.tea },
     { label:"Biscuit", qty:totalBiscuit, rate:UBL_RATES.biscuit, total:totalBiscuit*UBL_RATES.biscuit },
-    { label:"Boiled Egg", qty:totalBoiledEgg, rate:UBL_RATES.boiledEgg, total:totalBoiledEgg*UBL_RATES.boiledEgg },
   ];
   const grandTotal = summary.reduce((s,x)=>s+x.total,0);
 
@@ -239,17 +235,15 @@ function UblDateEntryTab({ month, year }: { month: number; year: number }) {
             <th rowSpan={2} style={{width:75}}>Date</th>
             <th rowSpan={2} style={{width:35}}>Month</th>
             <th rowSpan={2} style={{width:40}}>Week Day</th>
-            <th colSpan={3} style={{background:"#4a5568",color:"white"}}>5:30 AM to 9:00 AM</th>
-            <th colSpan={3} style={{background:"#2d6a4f",color:"white"}}>11:30 AM to 1:30 PM</th>
-            <th colSpan={4} style={{background:"#6b2d2d",color:"white"}}>3:30 PM to 7:00 PM</th>
+            <th colSpan={3} style={{background:"#4a5568",color:"white"}}>6:30 AM to 9:00 AM</th>
+            <th colSpan={2} style={{background:"#2d6a4f",color:"white"}}>11:30 AM to 1:30 PM</th>
             <th colSpan={2} style={{background:"#1a3a5a",color:"white"}}>10:00 PM to 11:30 PM</th>
             <th colSpan={1} style={{background:"#4a2040",color:"white"}}>12:00 AM</th>
             <th colSpan={1} style={{background:"#1a4060",color:"white"}}>4:00 AM</th>
           </tr>
           <tr>
             <th>Tea</th><th>Biscuit</th><th>Breakfast</th>
-            <th>Lunch</th><th>Mutton</th><th>Tea</th>
-            <th>Biscuit</th><th>Teffin</th><th>BoiledEgg</th><th>Tea</th>
+            <th>Lunch</th><th>Mutton</th>
             <th>Dinner</th><th>Tea</th><th>Tea</th><th>Tea</th>
           </tr>
         </thead>
@@ -262,8 +256,7 @@ function UblDateEntryTab({ month, year }: { month: number; year: number }) {
                 <td>{safeFormat(row.entryDate)}</td>
                 <td>{row.month}</td><td>{row.weekDay}</td>
                 <td>{row.tea1||""}</td><td>{row.biscuit1||""}</td><td>{row.breakfast||""}</td>
-                <td>{row.lunch||""}</td><td>{row.mutton||""}</td><td>{row.tea2||""}</td>
-                <td>{row.biscuit2||""}</td><td>{row.tiffin||""}</td><td>{row.boiledEgg||""}</td><td>{row.tea3||""}</td>
+                <td>{row.lunch||""}</td><td>{row.mutton||""}</td>
                 <td>{row.dinner||""}</td><td>{row.tea4||""}</td>
                 <td>{row.tea5||""}</td><td>{row.tea6||""}</td>
               </tr>
@@ -272,13 +265,9 @@ function UblDateEntryTab({ month, year }: { month: number; year: number }) {
           <tr style={{fontWeight:"bold",background:"#e8f0fe"}}>
             <td colSpan={4}>Total</td>
             <td>{rows.reduce((s,r)=>s+(r.tea1||0),0)}</td>
-            <td>{rows.reduce((s,r)=>s+(r.biscuit1||0),0)}</td>
+            <td>{totalBiscuit}</td>
             <td>{totalBreakfast}</td>
             <td>{totalLunch}</td><td>{totalMutton}</td>
-            <td>{rows.reduce((s,r)=>s+(r.tea2||0),0)}</td>
-            <td>{rows.reduce((s,r)=>s+(r.biscuit2||0),0)}</td>
-            <td>{totalTiffin}</td><td>{totalBoiledEgg}</td>
-            <td>{rows.reduce((s,r)=>s+(r.tea3||0),0)}</td>
             <td>{totalDinner}</td>
             <td>{rows.reduce((s,r)=>s+(r.tea4||0),0)}</td>
             <td>{rows.reduce((s,r)=>s+(r.tea5||0),0)}</td>
@@ -335,7 +324,7 @@ function UblDateEntryTab({ month, year }: { month: number; year: number }) {
                 {row._dirty && <span className="text-orange-500 font-bold text-xs shrink-0">●</span>}
               </div>
               <div className="mb-2">
-                <div className="text-xs font-semibold text-gray-500 mb-1 bg-gray-100 dark:bg-gray-800 rounded px-2 py-0.5">☀ 5:30–9:00 AM</div>
+                <div className="text-xs font-semibold text-gray-500 mb-1 bg-gray-100 dark:bg-gray-800 rounded px-2 py-0.5">☀ 6:30–9:00 AM</div>
                 <div className="grid grid-cols-3 gap-1">
                   {([["tea1","Tea"],["biscuit1","Biscuit"],["breakfast","Breakfast"]] as [keyof UblRow, string][]).map(([f,label])=>(
                     <div key={f} className="flex flex-col items-center bg-gray-50 dark:bg-gray-800/50 rounded-lg p-1.5">
@@ -346,20 +335,10 @@ function UblDateEntryTab({ month, year }: { month: number; year: number }) {
               </div>
               <div className="mb-2">
                 <div className="text-xs font-semibold text-gray-500 mb-1 bg-green-50 dark:bg-green-900/20 rounded px-2 py-0.5">🍽 11:30AM–1:30PM</div>
-                <div className="grid grid-cols-3 gap-1">
-                  {([["lunch","Lunch"],["mutton","Mutton"],["tea2","Tea"]] as [keyof UblRow, string][]).map(([f,label])=>(
+                <div className="grid grid-cols-2 gap-1">
+                  {([["lunch","Lunch"],["mutton","Mutton"]] as [keyof UblRow, string][]).map(([f,label])=>(
                     <div key={f} className="flex flex-col items-center bg-gray-50 dark:bg-gray-800/50 rounded-lg p-1.5">
                       <span className="text-xs text-gray-400 mb-1">{label}</span>{mblFld(f)}
-                    </div>
-                  ))}
-                </div>
-              </div>
-              <div className="mb-2">
-                <div className="text-xs font-semibold text-gray-500 mb-1 bg-orange-50 dark:bg-orange-900/20 rounded px-2 py-0.5">🌇 3:30–7:00 PM</div>
-                <div className="grid grid-cols-4 gap-1">
-                  {([["biscuit2","Biscuit"],["tiffin","Teffin"],["boiledEgg","Egg"],["tea3","Tea"]] as [keyof UblRow, string][]).map(([f,label])=>(
-                    <div key={f} className="flex flex-col items-center bg-gray-50 dark:bg-gray-800/50 rounded-lg p-1.5">
-                      <span className="text-xs text-gray-400 mb-0.5 text-center leading-tight">{label}</span>{mblFld(f)}
                     </div>
                   ))}
                 </div>
@@ -413,16 +392,15 @@ function UblDateEntryTab({ month, year }: { month: number; year: number }) {
               <th rowSpan={2} style={{padding:"6px 4px",border:"1px solid #334",width:100}}>Date</th>
               <th rowSpan={2} style={{padding:"6px 4px",border:"1px solid #334",width:50}}>Month</th>
               <th rowSpan={2} style={{padding:"6px 4px",border:"1px solid #334",width:44}}>Day</th>
-              <th colSpan={3} style={{padding:"4px",border:"1px solid #334",background:"#4a5568"}}>5:30-9:00 AM</th>
-              <th colSpan={3} style={{padding:"4px",border:"1px solid #334",background:"#2d6a4f"}}>11:30AM-1:30PM</th>
-              <th colSpan={4} style={{padding:"4px",border:"1px solid #334",background:"#6b2d2d"}}>3:30-7:00 PM</th>
+              <th colSpan={3} style={{padding:"4px",border:"1px solid #334",background:"#4a5568"}}>6:30-9:00 AM</th>
+              <th colSpan={2} style={{padding:"4px",border:"1px solid #334",background:"#2d6a4f"}}>11:30AM-1:30PM</th>
               <th colSpan={2} style={{padding:"4px",border:"1px solid #334",background:"#1a3a5a"}}>10-11:30 PM</th>
               <th style={{padding:"4px",border:"1px solid #334",background:"#4a2040"}}>12AM</th>
               <th style={{padding:"4px",border:"1px solid #334",background:"#1a4060"}}>4AM</th>
               <th rowSpan={2} style={{padding:"4px",border:"1px solid #334",width:40}}>Act</th>
             </tr>
             <tr style={{background:"#2a4a6a",color:"white"}}>
-              {["Tea","Biscuit","Breakfast","Lunch","Mutton","Tea","Biscuit","Teffin","BoiledEgg","Tea","Dinner","Tea","Tea","Tea"].map((c,i)=>(
+              {["Tea","Biscuit","Breakfast","Lunch","Mutton","Dinner","Tea","Tea","Tea"].map((c,i)=>(
                 <th key={i} style={{padding:"4px 2px",border:"1px solid #334",fontSize:10}}>{c}</th>
               ))}
             </tr>
@@ -439,7 +417,7 @@ function UblDateEntryTab({ month, year }: { month: number; year: number }) {
                   </td>
                   <td style={{textAlign:"center",border:"1px solid #ccc",fontSize:11}}>{row.month}</td>
                   <td style={{textAlign:"center",border:"1px solid #ccc",fontSize:11}}>{row.weekDay}</td>
-                  {(["tea1","biscuit1","breakfast","lunch","mutton","tea2","biscuit2","tiffin","boiledEgg","tea3","dinner","tea4","tea5","tea6"] as (keyof UblRow)[]).map(f=>(
+                  {(["tea1","biscuit1","breakfast","lunch","mutton","dinner","tea4","tea5","tea6"] as (keyof UblRow)[]).map(f=>(
                     <td key={f} style={{border:"1px solid #ccc",padding:0,textAlign:"center"}}>{numFld(row,idx,f)}</td>
                   ))}
                   <td style={{border:"1px solid #ccc",padding:"2px",textAlign:"center"}}>
@@ -451,7 +429,7 @@ function UblDateEntryTab({ month, year }: { month: number; year: number }) {
             })}
             <tr style={{background:"#e8f0fe",fontWeight:"bold"}}>
               <td colSpan={4} style={{textAlign:"center",border:"1px solid #ccc",padding:"4px"}}>Total</td>
-              {(["tea1","biscuit1","breakfast","lunch","mutton","tea2","biscuit2","tiffin","boiledEgg","tea3","dinner","tea4","tea5","tea6"] as (keyof UblRow)[]).map(f=>(
+              {(["tea1","biscuit1","breakfast","lunch","mutton","dinner","tea4","tea5","tea6"] as (keyof UblRow)[]).map(f=>(
                 <td key={f} style={{border:"1px solid #ccc",textAlign:"center",padding:"4px",fontSize:12}}>
                   {rows.reduce((s,r)=>s+((r as any)[f]||0),0)}
                 </td>
