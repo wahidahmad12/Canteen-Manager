@@ -6,7 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
 import { format } from "date-fns";
-import { Plus, Trash2, Printer, Loader2, Save, AlertTriangle, CheckCircle2 } from "lucide-react";
+import { Plus, Trash2, Printer, Loader2, Save, AlertTriangle, CheckCircle2, FileDown, FileUp } from "lucide-react";
 
 const MONTHS = ["January","February","March","April","May","June","July","August","September","October","November","December"];
 const WEEKDAYS = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
@@ -83,6 +83,7 @@ function UblDateEntryTab({ month, year }: { month: number; year: number }) {
   const qc = useQueryClient();
   const { toast } = useToast();
   const printRef = useRef<HTMLDivElement>(null);
+  const importRef1 = useRef<HTMLInputElement>(null);
   const [localRows, setLocalRows] = useState<UblRow[]>([]);
   useEffect(() => { setLocalRows([]); }, [month, year]);
 
@@ -201,6 +202,77 @@ function UblDateEntryTab({ month, year }: { month: number; year: number }) {
     win.print();
   };
 
+  const UBL1_COLS = [
+    { header:"Date", field:"entryDate" },
+    { header:"Month", field:"month" },
+    { header:"Day", field:"weekDay" },
+    { header:"Tea (5:30AM)", field:"tea1" },
+    { header:"Biscuit (5:30AM)", field:"biscuit1" },
+    { header:"Breakfast", field:"breakfast" },
+    { header:"Lunch", field:"lunch" },
+    { header:"Mutton", field:"mutton" },
+    { header:"Tea (3:30PM)", field:"tea3" },
+    { header:"Biscuit (3:30PM)", field:"biscuit2" },
+    { header:"Teffin", field:"tiffin" },
+    { header:"Egg", field:"boiledEgg" },
+    { header:"Dinner", field:"dinner" },
+    { header:"Tea (12AM)", field:"tea5" },
+    { header:"Tea (4AM)", field:"tea6" },
+  ];
+
+  const handleExportExcel1 = async () => {
+    const ExcelJS = (await import("exceljs")).default;
+    const wb = new ExcelJS.Workbook();
+    const ws = wb.addWorksheet("UBL Date Entry");
+    const thin = { top:{style:"thin"as const}, bottom:{style:"thin"as const}, left:{style:"thin"as const}, right:{style:"thin"as const} };
+    // Header
+    const hdr = ws.addRow(UBL1_COLS.map(c=>c.header));
+    hdr.eachCell(cell => { cell.font={bold:true,color:{argb:"FFFFFFFF"}}; cell.fill={type:"pattern",pattern:"solid",fgColor:{argb:"FF1A3A5A"}}; cell.border=thin; cell.alignment={horizontal:"center"}; });
+    ws.columns = UBL1_COLS.map((c,i)=>({ width: i===0?14:12 }));
+    // Data
+    rows.forEach(r => {
+      const row = ws.addRow(UBL1_COLS.map(c => (r as any)[c.field] ?? ""));
+      row.eachCell(cell => { cell.border=thin; cell.alignment={horizontal:"center"}; });
+    });
+    const buf = await wb.xlsx.writeBuffer();
+    const blob = new Blob([buf], { type:"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
+    const a = document.createElement("a"); a.href=URL.createObjectURL(blob);
+    a.download=`UBL_DateEntry_${MONTHS[month-1]}_${year}.xlsx`; a.click();
+  };
+
+  const handleImportExcel1 = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]; if (!file) return;
+    e.target.value = "";
+    try {
+      const ExcelJS = (await import("exceljs")).default;
+      const wb = new ExcelJS.Workbook();
+      await wb.xlsx.load(await file.arrayBuffer());
+      const ws = wb.worksheets[0];
+      const headers: string[] = [];
+      ws.getRow(1).eachCell(cell => headers.push(String(cell.value ?? "")));
+      const fieldMap: Record<string,string> = {};
+      UBL1_COLS.forEach(c => { const i = headers.indexOf(c.header); if(i>=0) fieldMap[i]=c.field; });
+      const imported: UblRow[] = [];
+      ws.eachRow((row, ri) => {
+        if (ri === 1) return;
+        const r: any = { month, year, weekDay:"", _dirty:true, tea2:0, tea4:0 };
+        row.eachCell((cell, ci) => {
+          const f = fieldMap[ci-1];
+          if (!f) return;
+          const v = cell.value;
+          r[f] = (f==="entryDate"||f==="weekDay") ? String(v??"") : (parseInt(String(v||0))||0);
+        });
+        if (!r.entryDate) return;
+        if (!r.weekDay) r.weekDay = getWeekDay(r.entryDate);
+        imported.push(r as UblRow);
+      });
+      setLocalRows(imported);
+      toast({ title:`Imported ${imported.length} rows`, description:"Review and click Save All to persist." });
+    } catch(err:any) {
+      toast({ title:"Import Failed", description:err.message, variant:"destructive" });
+    }
+  };
+
   const totalTea = rows.reduce((s,r)=>s+(r.tea1||0)+(r.tea3||0)+(r.tea5||0)+(r.tea6||0),0);
   const totalBiscuit = rows.reduce((s,r)=>s+(r.biscuit1||0)+(r.biscuit2||0),0);
   const totalBreakfast = rows.reduce((s,r)=>s+(r.breakfast||0),0);
@@ -312,6 +384,9 @@ function UblDateEntryTab({ month, year }: { month: number; year: number }) {
           <Plus className="w-4 h-4 mr-1.5"/>Add Row</Button>
         <Button size="sm" onClick={handleSaveAll} className="bg-green-600 text-white h-10 px-4 text-sm" disabled={createMutation.isPending||updateMutation.isPending}><Save className="w-4 h-4 mr-1.5"/>Save All</Button>
         <Button size="sm" variant="outline" onClick={handlePrint} className="h-10 px-4 text-sm"><Printer className="w-4 h-4 mr-1.5"/>Print</Button>
+        <Button size="sm" variant="outline" onClick={handleExportExcel1} className="h-10 px-4 text-sm text-green-700 border-green-300 hover:bg-green-50" disabled={rows.length===0}><FileDown className="w-4 h-4 mr-1.5"/>Export Excel</Button>
+        <Button size="sm" variant="outline" onClick={()=>importRef1.current?.click()} className="h-10 px-4 text-sm text-blue-700 border-blue-300 hover:bg-blue-50"><FileUp className="w-4 h-4 mr-1.5"/>Import Excel</Button>
+        <input ref={importRef1} type="file" accept=".xlsx,.xls" className="hidden" onChange={handleImportExcel1}/>
         <div className="flex items-center gap-2 text-xs text-muted-foreground ml-auto">
           <span className="inline-block w-3 h-3 rounded" style={{background:"#ffa500"}}></span>Sunday
           <span className="inline-block w-3 h-3 rounded" style={{background:"#90EE90"}}></span>Wednesday
@@ -522,6 +597,7 @@ function UblLunchEntryTab({ month, year }: { month: number; year: number }) {
   const qc = useQueryClient();
   const { toast } = useToast();
   const printRef = useRef<HTMLDivElement>(null);
+  const importRef2 = useRef<HTMLInputElement>(null);
   const [localRows, setLocalRows] = useState<UblLunchRow[]>([]);
   useEffect(() => { setLocalRows([]); }, [month, year]);
 
@@ -664,6 +740,66 @@ function UblLunchEntryTab({ month, year }: { month: number; year: number }) {
     win.print();
   };
 
+  const UBL2_COLS = [
+    { header:"Date", field:"entryDate" },
+    { header:"Month", field:"month" },
+    { header:"Day", field:"weekDay" },
+    { header:"Permanent", field:"perment" },
+    { header:"Casual", field:"casual" },
+    { header:"Contractual", field:"contractual" },
+    { header:"Canteen", field:"canteen" },
+  ];
+
+  const handleExportExcel2 = async () => {
+    const ExcelJS = (await import("exceljs")).default;
+    const wb = new ExcelJS.Workbook();
+    const ws = wb.addWorksheet("UBL Lunch Entry");
+    const thin = { top:{style:"thin"as const}, bottom:{style:"thin"as const}, left:{style:"thin"as const}, right:{style:"thin"as const} };
+    const hdr = ws.addRow(UBL2_COLS.map(c=>c.header));
+    hdr.eachCell(cell => { cell.font={bold:true,color:{argb:"FFFFFFFF"}}; cell.fill={type:"pattern",pattern:"solid",fgColor:{argb:"FF1A3A5A"}}; cell.border=thin; cell.alignment={horizontal:"center"}; });
+    ws.columns = UBL2_COLS.map((_,i)=>({ width: i===0?14:14 }));
+    rows.forEach(r => {
+      const row = ws.addRow(UBL2_COLS.map(c => (r as any)[c.field] ?? ""));
+      row.eachCell(cell => { cell.border=thin; cell.alignment={horizontal:"center"}; });
+    });
+    const buf = await wb.xlsx.writeBuffer();
+    const blob = new Blob([buf], { type:"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
+    const a = document.createElement("a"); a.href=URL.createObjectURL(blob);
+    a.download=`UBL_Lunch_${MONTHS[month-1]}_${year}.xlsx`; a.click();
+  };
+
+  const handleImportExcel2 = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]; if (!file) return;
+    e.target.value = "";
+    try {
+      const ExcelJS = (await import("exceljs")).default;
+      const wb = new ExcelJS.Workbook();
+      await wb.xlsx.load(await file.arrayBuffer());
+      const ws = wb.worksheets[0];
+      const headers: string[] = [];
+      ws.getRow(1).eachCell(cell => headers.push(String(cell.value ?? "")));
+      const fieldMap: Record<string,string> = {};
+      UBL2_COLS.forEach(c => { const i = headers.indexOf(c.header); if(i>=0) fieldMap[i]=c.field; });
+      const imported: UblLunchRow[] = [];
+      ws.eachRow((row, ri) => {
+        if (ri === 1) return;
+        const r: any = { month, year, weekDay:"", _dirty:true };
+        row.eachCell((cell, ci) => {
+          const f = fieldMap[ci-1]; if (!f) return;
+          const v = cell.value;
+          r[f] = (f==="entryDate"||f==="weekDay") ? String(v??"") : (parseInt(String(v||0))||0);
+        });
+        if (!r.entryDate) return;
+        if (!r.weekDay) r.weekDay = getWeekDay(r.entryDate);
+        imported.push(r as UblLunchRow);
+      });
+      setLocalRows(imported);
+      toast({ title:`Imported ${imported.length} rows`, description:"Review and click Save All to persist." });
+    } catch(err:any) {
+      toast({ title:"Import Failed", description:err.message, variant:"destructive" });
+    }
+  };
+
   const numFld = (row: UblLunchRow, idx: number, field: keyof UblLunchRow, w=56) => (
     <input type="number" min={0} value={(row as any)[field]||""}
       onChange={e=>handleCellChange(idx,field,e.target.value)}
@@ -756,6 +892,9 @@ function UblLunchEntryTab({ month, year }: { month: number; year: number }) {
           <Plus className="w-4 h-4 mr-1.5"/>Add Row</Button>
         <Button size="sm" onClick={handleSaveAll} className="bg-green-600 text-white h-10 px-4 text-sm" disabled={createMutation.isPending||updateMutation.isPending}><Save className="w-4 h-4 mr-1.5"/>Save All</Button>
         <Button size="sm" variant="outline" onClick={handlePrint} className="h-10 px-4 text-sm"><Printer className="w-4 h-4 mr-1.5"/>Print</Button>
+        <Button size="sm" variant="outline" onClick={handleExportExcel2} className="h-10 px-4 text-sm text-green-700 border-green-300 hover:bg-green-50" disabled={rows.length===0}><FileDown className="w-4 h-4 mr-1.5"/>Export Excel</Button>
+        <Button size="sm" variant="outline" onClick={()=>importRef2.current?.click()} className="h-10 px-4 text-sm text-blue-700 border-blue-300 hover:bg-blue-50"><FileUp className="w-4 h-4 mr-1.5"/>Import Excel</Button>
+        <input ref={importRef2} type="file" accept=".xlsx,.xls" className="hidden" onChange={handleImportExcel2}/>
         <div className="flex items-center gap-2 text-xs text-muted-foreground ml-auto">
           <span className="inline-block w-3 h-3 rounded" style={{background:"#ffa500"}}></span>Sunday
           <span className="inline-block w-3 h-3 rounded bg-red-200"></span>Mismatch
@@ -935,6 +1074,7 @@ function CiplaDateEntryTab({ month, year }: { month: number; year: number }) {
   const qc = useQueryClient();
   const { toast } = useToast();
   const printRef = useRef<HTMLDivElement>(null);
+  const importRef3 = useRef<HTMLInputElement>(null);
   const [localRows, setLocalRows] = useState<CiplaRow[]>([]);
   const [machineEdit, setMachineEdit] = useState<{bf: string; lu: string; di: string} | null>(null);
   useEffect(() => { setLocalRows([]); }, [month, year]);
@@ -1088,6 +1228,74 @@ function CiplaDateEntryTab({ month, year }: { month: number; year: number }) {
     win.print();
   };
 
+  const CIPLA_COLS = [
+    { header:"Date", field:"entryDate" },
+    { header:"Month", field:"month" },
+    { header:"Day", field:"weekDay" },
+    { header:"Breakfast Coopen", field:"breakfastCoopen" },
+    { header:"Breakfast Coin", field:"breakfastCoin" },
+    { header:"Breakfast Sign", field:"breakfastSign" },
+    { header:"Lunch Coopen", field:"lunchCoopen" },
+    { header:"Lunch Coin", field:"lunchCoin" },
+    { header:"Lunch Sign", field:"lunchSign" },
+    { header:"Dinner Coopen", field:"dinnerCoopen" },
+    { header:"Dinner Coin", field:"dinnerCoin" },
+    { header:"Dinner Sign", field:"dinnerSign" },
+    { header:"Breakfast Machine", field:"breakfastMachine" },
+    { header:"Lunch Machine", field:"lunchMachine" },
+    { header:"Dinner Machine", field:"dinnerMachine" },
+  ];
+
+  const handleExportExcel3 = async () => {
+    const ExcelJS = (await import("exceljs")).default;
+    const wb = new ExcelJS.Workbook();
+    const ws = wb.addWorksheet("Cipla Date Entry");
+    const thin = { top:{style:"thin"as const}, bottom:{style:"thin"as const}, left:{style:"thin"as const}, right:{style:"thin"as const} };
+    const hdr = ws.addRow(CIPLA_COLS.map(c=>c.header));
+    hdr.eachCell(cell => { cell.font={bold:true,color:{argb:"FFFFFFFF"}}; cell.fill={type:"pattern",pattern:"solid",fgColor:{argb:"FF1A3A5A"}}; cell.border=thin; cell.alignment={horizontal:"center"}; });
+    ws.columns = CIPLA_COLS.map((_,i)=>({ width: i===0?14:16 }));
+    rows.forEach(r => {
+      const row = ws.addRow(CIPLA_COLS.map(c => (r as any)[c.field] ?? ""));
+      row.eachCell(cell => { cell.border=thin; cell.alignment={horizontal:"center"}; });
+    });
+    const buf = await wb.xlsx.writeBuffer();
+    const blob = new Blob([buf], { type:"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
+    const a = document.createElement("a"); a.href=URL.createObjectURL(blob);
+    a.download=`Cipla_DateEntry_${MONTHS[month-1]}_${year}.xlsx`; a.click();
+  };
+
+  const handleImportExcel3 = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]; if (!file) return;
+    e.target.value = "";
+    try {
+      const ExcelJS = (await import("exceljs")).default;
+      const wb = new ExcelJS.Workbook();
+      await wb.xlsx.load(await file.arrayBuffer());
+      const ws = wb.worksheets[0];
+      const headers: string[] = [];
+      ws.getRow(1).eachCell(cell => headers.push(String(cell.value ?? "")));
+      const fieldMap: Record<string,string> = {};
+      CIPLA_COLS.forEach(c => { const i = headers.indexOf(c.header); if(i>=0) fieldMap[i]=c.field; });
+      const imported: CiplaRow[] = [];
+      ws.eachRow((row, ri) => {
+        if (ri === 1) return;
+        const r: any = { month, year, weekDay:"", _dirty:true };
+        row.eachCell((cell, ci) => {
+          const f = fieldMap[ci-1]; if (!f) return;
+          const v = cell.value;
+          r[f] = (f==="entryDate"||f==="weekDay") ? String(v??"") : (parseInt(String(v||0))||0);
+        });
+        if (!r.entryDate) return;
+        if (!r.weekDay) r.weekDay = getWeekDay(r.entryDate);
+        imported.push(r as CiplaRow);
+      });
+      setLocalRows(imported);
+      toast({ title:`Imported ${imported.length} rows`, description:"Review and click Save All to persist." });
+    } catch(err:any) {
+      toast({ title:"Import Failed", description:err.message, variant:"destructive" });
+    }
+  };
+
   const numFld = (row: CiplaRow, idx: number, field: keyof CiplaRow, w=50) => (
     <input type="number" min={0} value={(row as any)[field]||""}
       onChange={e=>handleCellChange(idx,field,e.target.value)}
@@ -1169,6 +1377,9 @@ function CiplaDateEntryTab({ month, year }: { month: number; year: number }) {
           <Plus className="w-4 h-4 mr-1.5"/>Add Row</Button>
         <Button size="sm" onClick={handleSaveAll} className="bg-green-600 text-white h-10 px-4 text-sm" disabled={createMutation.isPending||updateMutation.isPending}><Save className="w-4 h-4 mr-1.5"/>Save All</Button>
         <Button size="sm" variant="outline" onClick={handlePrint} className="h-10 px-4 text-sm"><Printer className="w-4 h-4 mr-1.5"/>Print</Button>
+        <Button size="sm" variant="outline" onClick={handleExportExcel3} className="h-10 px-4 text-sm text-green-700 border-green-300 hover:bg-green-50" disabled={rows.length===0}><FileDown className="w-4 h-4 mr-1.5"/>Export Excel</Button>
+        <Button size="sm" variant="outline" onClick={()=>importRef3.current?.click()} className="h-10 px-4 text-sm text-blue-700 border-blue-300 hover:bg-blue-50"><FileUp className="w-4 h-4 mr-1.5"/>Import Excel</Button>
+        <input ref={importRef3} type="file" accept=".xlsx,.xls" className="hidden" onChange={handleImportExcel3}/>
       </div>
 
       {/* ── Mobile Card View ── */}
