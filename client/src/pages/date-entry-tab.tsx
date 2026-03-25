@@ -338,7 +338,7 @@ function UblDateEntryTab({ month, year }: { month: number; year: number }) {
               <tr key={i} style={{background:bg}}>
                 <td>{i+1}</td>
                 <td>{safeFormat(row.entryDate)}</td>
-                <td>{row.month}</td><td>{row.weekDay}</td>
+                <td>{parseInt(row.entryDate.split('-')[1])||row.month}</td><td>{row.weekDay}</td>
                 <td>{row.tea1||""}</td><td>{row.biscuit1||""}</td><td>{row.breakfast||""}</td>
                 <td>{row.lunch||""}</td><td>{row.mutton||""}</td>
                 <td>{row.tea3||""}</td><td>{row.biscuit2||""}</td><td>{row.tiffin||""}</td><td>{row.boiledEgg||""}</td>
@@ -516,7 +516,7 @@ function UblDateEntryTab({ month, year }: { month: number; year: number }) {
                     <input type="date" value={row.entryDate} onChange={e=>handleCellChange(idx,"entryDate",e.target.value)}
                       style={{width:100,border:"none",background:"transparent",fontSize:11,padding:"3px 2px"}}/>
                   </td>
-                  <td style={{textAlign:"center",border:"1px solid #ccc",fontSize:11}}>{row.month}</td>
+                  <td style={{textAlign:"center",border:"1px solid #ccc",fontSize:11}}>{parseInt(row.entryDate.split('-')[1])||row.month}</td>
                   <td style={{textAlign:"center",border:"1px solid #ccc",fontSize:11}}>{row.weekDay}</td>
                   {(["tea1","biscuit1","breakfast","lunch","mutton","tea3","biscuit2","tiffin","boiledEgg","dinner","tea5","tea6"] as (keyof UblRow)[]).map(f=>(
                     <td key={f} style={{border:"1px solid #ccc",padding:0,textAlign:"center"}}>{numFld(row,idx,f)}</td>
@@ -1340,7 +1340,7 @@ function CiplaDateEntryTab({ month, year }: { month: number; year: number }) {
               <tr key={i} style={{background:isSunday(row.entryDate)?"#ffa500":"transparent"}}>
                 <td>{i+1}</td>
                 <td>{safeFormat(row.entryDate)}</td>
-                <td>{row.month}</td><td>{row.weekDay}</td>
+                <td>{parseInt(row.entryDate.split('-')[1])||row.month}</td><td>{row.weekDay}</td>
                 <td>{row.breakfastCoopen||""}</td><td>{row.breakfastCoin||""}</td><td>{row.breakfastSign||""}</td><td>{bfTotal||""}</td>
                 <td>{row.lunchCoopen||""}</td><td>{row.lunchCoin||""}</td><td>{row.lunchSign||""}</td><td>{luTotal||""}</td>
                 <td>{row.dinnerCoopen||""}</td><td>{row.dinnerCoin||""}</td><td>{row.dinnerSign||""}</td><td>{diTotal||""}</td>
@@ -1520,7 +1520,7 @@ function CiplaDateEntryTab({ month, year }: { month: number; year: number }) {
                     <input type="date" value={row.entryDate} onChange={e=>handleCellChange(idx,"entryDate",e.target.value)}
                       style={{width:100,border:"none",background:"transparent",fontSize:11,padding:"3px 2px"}}/>
                   </td>
-                  <td style={{textAlign:"center",border:"1px solid #ccc",fontSize:11}}>{row.month}</td>
+                  <td style={{textAlign:"center",border:"1px solid #ccc",fontSize:11}}>{parseInt(row.entryDate.split('-')[1])||row.month}</td>
                   <td style={{textAlign:"center",border:"1px solid #ccc",fontSize:11}}>{row.weekDay}</td>
                   <td style={{border:"1px solid #ccc",padding:0,textAlign:"center"}}>{numFld(row,idx,"breakfastCoopen")}</td>
                   <td style={{border:"1px solid #ccc",padding:0,textAlign:"center"}}>{numFld(row,idx,"breakfastCoin")}</td>
