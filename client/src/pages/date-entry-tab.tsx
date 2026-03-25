@@ -265,15 +265,106 @@ function UblDateEntryTab({ month, year }: { month: number; year: number }) {
   return (
     <div>
       <div className="flex flex-wrap gap-2 mb-3">
-        <Button size="sm" onClick={handleAddRow} className="bg-blue-600 text-white"><Plus className="w-3.5 h-3.5 mr-1"/>Add Row</Button>
-        <Button size="sm" onClick={handleSaveAll} className="bg-green-600 text-white" disabled={createMutation.isPending||updateMutation.isPending}><Save className="w-3.5 h-3.5 mr-1"/>Save All</Button>
-        <Button size="sm" variant="outline" onClick={handlePrint}><Printer className="w-3.5 h-3.5 mr-1"/>Print</Button>
+        <Button size="sm" onClick={handleAddRow} className="bg-blue-600 text-white h-10 px-4 text-sm"><Plus className="w-4 h-4 mr-1.5"/>Add Row</Button>
+        <Button size="sm" onClick={handleSaveAll} className="bg-green-600 text-white h-10 px-4 text-sm" disabled={createMutation.isPending||updateMutation.isPending}><Save className="w-4 h-4 mr-1.5"/>Save All</Button>
+        <Button size="sm" variant="outline" onClick={handlePrint} className="h-10 px-4 text-sm"><Printer className="w-4 h-4 mr-1.5"/>Print</Button>
         <div className="flex items-center gap-2 text-xs text-muted-foreground ml-auto">
           <span className="inline-block w-3 h-3 rounded" style={{background:"#ffa500"}}></span>Sunday
           <span className="inline-block w-3 h-3 rounded" style={{background:"#90EE90"}}></span>Wednesday
         </div>
       </div>
-      <div className="overflow-x-auto rounded-xl border shadow-sm">
+
+      {/* ── Mobile Card View (hidden on md+) ── */}
+      <div className="block md:hidden space-y-2">
+        {rows.map((row, idx) => {
+          const sunDay = isSunday(row.entryDate);
+          const wedDay = isWed(row.entryDate);
+          const cardBg = sunDay ? "bg-amber-50 border-amber-300 dark:bg-amber-900/20" : wedDay ? "bg-green-50 border-green-200 dark:bg-green-900/20" : "bg-white dark:bg-gray-900 border-gray-200";
+          const mblFld = (f: keyof UblRow) => (
+            <input type="number" min={0} value={(row as any)[f]??0} onChange={e=>handleCellChange(idx,f,e.target.value)}
+              className="w-full text-center border border-gray-200 dark:border-gray-600 rounded-lg text-sm font-medium dark:bg-gray-900 dark:text-white" style={{minHeight:38,padding:"4px 2px"}}/>
+          );
+          return (
+            <div key={idx} className={`border rounded-xl p-3 shadow-sm ${cardBg}`}>
+              <div className="flex items-center gap-2 mb-2.5">
+                <span className="text-xs font-bold text-gray-400 shrink-0">#{idx+1}</span>
+                <input type="date" value={row.entryDate} onChange={e=>handleCellChange(idx,"entryDate",e.target.value)}
+                  className="flex-1 border border-gray-300 dark:border-gray-600 rounded-lg px-2 dark:bg-gray-800 dark:text-white" style={{minHeight:40,fontSize:14}}/>
+                <span className="text-xs font-semibold bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-300 rounded px-2 py-1 shrink-0">{row.weekDay}</span>
+                {row._dirty && <span className="text-orange-500 font-bold text-xs shrink-0">●</span>}
+              </div>
+              <div className="mb-2">
+                <div className="text-xs font-semibold text-gray-500 mb-1 bg-gray-100 dark:bg-gray-800 rounded px-2 py-0.5">☀ 5:30–9:00 AM</div>
+                <div className="grid grid-cols-3 gap-1">
+                  {([["tea1","Tea"],["biscuit1","Biscuit"],["breakfast","Breakfast"]] as [keyof UblRow, string][]).map(([f,label])=>(
+                    <div key={f} className="flex flex-col items-center bg-gray-50 dark:bg-gray-800/50 rounded-lg p-1.5">
+                      <span className="text-xs text-gray-400 mb-1">{label}</span>{mblFld(f)}
+                    </div>
+                  ))}
+                </div>
+              </div>
+              <div className="mb-2">
+                <div className="text-xs font-semibold text-gray-500 mb-1 bg-green-50 dark:bg-green-900/20 rounded px-2 py-0.5">🍽 11:30AM–1:30PM</div>
+                <div className="grid grid-cols-3 gap-1">
+                  {([["lunch","Lunch"],["mutton","Mutton"],["tea2","Tea"]] as [keyof UblRow, string][]).map(([f,label])=>(
+                    <div key={f} className="flex flex-col items-center bg-gray-50 dark:bg-gray-800/50 rounded-lg p-1.5">
+                      <span className="text-xs text-gray-400 mb-1">{label}</span>{mblFld(f)}
+                    </div>
+                  ))}
+                </div>
+              </div>
+              <div className="mb-2">
+                <div className="text-xs font-semibold text-gray-500 mb-1 bg-orange-50 dark:bg-orange-900/20 rounded px-2 py-0.5">🌇 3:30–7:00 PM</div>
+                <div className="grid grid-cols-4 gap-1">
+                  {([["biscuit2","Biscuit"],["tiffin","Teffin"],["boiledEgg","Egg"],["tea3","Tea"]] as [keyof UblRow, string][]).map(([f,label])=>(
+                    <div key={f} className="flex flex-col items-center bg-gray-50 dark:bg-gray-800/50 rounded-lg p-1.5">
+                      <span className="text-xs text-gray-400 mb-0.5 text-center leading-tight">{label}</span>{mblFld(f)}
+                    </div>
+                  ))}
+                </div>
+              </div>
+              <div className="mb-3">
+                <div className="text-xs font-semibold text-gray-500 mb-1 bg-blue-50 dark:bg-blue-900/20 rounded px-2 py-0.5">🌙 10PM / 12AM / 4AM</div>
+                <div className="grid grid-cols-4 gap-1">
+                  {([["dinner","Dinner"],["tea4","10PM"],["tea5","12AM"],["tea6","4AM"]] as [keyof UblRow, string][]).map(([f,label])=>(
+                    <div key={f} className="flex flex-col items-center bg-gray-50 dark:bg-gray-800/50 rounded-lg p-1.5">
+                      <span className="text-xs text-gray-400 mb-0.5 text-center leading-tight">{label}</span>{mblFld(f)}
+                    </div>
+                  ))}
+                </div>
+              </div>
+              <div className="flex gap-2">
+                <button onClick={()=>handleSaveRow(row,idx)} className="flex-1 bg-blue-600 hover:bg-blue-700 text-white rounded-xl py-2.5 text-sm font-medium flex items-center justify-center gap-1.5">
+                  <Save className="w-4 h-4"/>Save
+                </button>
+                <button onClick={()=>handleDeleteRow(row,idx)} className="bg-red-500 hover:bg-red-600 text-white rounded-xl px-4 py-2.5 flex items-center justify-center">
+                  <Trash2 className="w-4 h-4"/>
+                </button>
+              </div>
+            </div>
+          );
+        })}
+        {rows.length > 0 && (
+          <div className="border rounded-xl overflow-hidden shadow-sm">
+            <div className="bg-slate-700 text-white px-3 py-2 text-sm font-bold">Billing Summary</div>
+            <div className="divide-y">
+              {summary.map((s,i)=>(
+                <div key={s.label} className="flex justify-between items-center px-3 py-2 text-sm" style={{background:i%2===0?"#fff":"#f9f9f9"}}>
+                  <span className="text-gray-600">{s.label} <span className="text-gray-400">×{s.qty}</span></span>
+                  <span className="font-semibold">₹{s.total.toLocaleString("en-IN",{minimumFractionDigits:0})}</span>
+                </div>
+              ))}
+              <div className="flex justify-between items-center px-3 py-2.5 bg-blue-600 text-white font-bold text-sm">
+                <span>Grand Total</span>
+                <span>₹{grandTotal.toLocaleString("en-IN",{minimumFractionDigits:2})}</span>
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* ── Desktop Table View (hidden on mobile) ── */}
+      <div className="hidden md:block overflow-x-auto rounded-xl border shadow-sm">
         <table style={{borderCollapse:"collapse",minWidth:1400,fontFamily:"Arial,sans-serif",fontSize:12}}>
           <thead>
             <tr style={{background:"#1a3a5a",color:"white"}}>
@@ -329,7 +420,7 @@ function UblDateEntryTab({ month, year }: { month: number; year: number }) {
           </tbody>
         </table>
       </div>
-      <div className="mt-4 flex justify-end">
+      <div className="mt-4 hidden md:flex justify-end">
         <div className="border rounded-xl overflow-hidden shadow-sm" style={{minWidth:320}}>
           <table style={{width:"100%",borderCollapse:"collapse",fontSize:12}}>
             <thead>
@@ -597,17 +688,77 @@ function UblLunchEntryTab({ month, year }: { month: number; year: number }) {
       ) : null}
 
       <div className="flex flex-wrap gap-2 mb-3">
-        <Button size="sm" onClick={handleAddRow} className="bg-blue-600 text-white"><Plus className="w-3.5 h-3.5 mr-1"/>Add Row</Button>
-        <Button size="sm" onClick={handleSaveAll} className="bg-green-600 text-white" disabled={createMutation.isPending||updateMutation.isPending}><Save className="w-3.5 h-3.5 mr-1"/>Save All</Button>
-        <Button size="sm" variant="outline" onClick={handlePrint}><Printer className="w-3.5 h-3.5 mr-1"/>Print</Button>
+        <Button size="sm" onClick={handleAddRow} className="bg-blue-600 text-white h-10 px-4 text-sm"><Plus className="w-4 h-4 mr-1.5"/>Add Row</Button>
+        <Button size="sm" onClick={handleSaveAll} className="bg-green-600 text-white h-10 px-4 text-sm" disabled={createMutation.isPending||updateMutation.isPending}><Save className="w-4 h-4 mr-1.5"/>Save All</Button>
+        <Button size="sm" variant="outline" onClick={handlePrint} className="h-10 px-4 text-sm"><Printer className="w-4 h-4 mr-1.5"/>Print</Button>
         <div className="flex items-center gap-2 text-xs text-muted-foreground ml-auto">
           <span className="inline-block w-3 h-3 rounded" style={{background:"#ffa500"}}></span>Sunday
           <span className="inline-block w-3 h-3 rounded bg-red-200"></span>Mismatch
         </div>
       </div>
 
-      {/* Editable Table */}
-      <div className="overflow-x-auto rounded-xl border shadow-sm">
+      {/* ── Mobile Card View ── */}
+      <div className="block md:hidden space-y-2">
+        {rows.map((row, idx) => {
+          const total = (row.perment||0)+(row.casual||0)+(row.contractual||0)+(row.canteen||0);
+          const f1Total = f1LunchMap[row.entryDate];
+          const mismatch = f1Total !== undefined && f1Total !== total;
+          const isSun = isSunday(row.entryDate);
+          const cardBg = isSun ? "bg-amber-50 border-amber-300 dark:bg-amber-900/20" : mismatch ? "bg-red-50 border-red-200 dark:bg-red-900/20" : "bg-white dark:bg-gray-900 border-gray-200";
+          const mblFld = (f: keyof UblLunchRow) => (
+            <input type="number" min={0} value={(row as any)[f]??0} onChange={e=>handleCellChange(idx,f,e.target.value)}
+              className="w-full text-center border border-gray-200 dark:border-gray-600 rounded-lg text-sm font-medium dark:bg-gray-900 dark:text-white" style={{minHeight:40,padding:"4px 2px"}}/>
+          );
+          return (
+            <div key={idx} className={`border rounded-xl p-3 shadow-sm ${cardBg}`}>
+              <div className="flex items-center gap-2 mb-3">
+                <span className="text-xs font-bold text-gray-400 shrink-0">#{idx+1}</span>
+                <input type="date" value={row.entryDate} onChange={e=>handleCellChange(idx,"entryDate",e.target.value)}
+                  className="flex-1 border border-gray-300 dark:border-gray-600 rounded-lg px-2 dark:bg-gray-800 dark:text-white" style={{minHeight:40,fontSize:14}}/>
+                <span className="text-xs font-semibold bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-300 rounded px-2 py-1 shrink-0">{row.weekDay}</span>
+              </div>
+              <div className="grid grid-cols-2 gap-2 mb-2">
+                {([["perment","Perment"],["casual","Casual"],["contractual","Contractual"],["canteen","Canteen"]] as [keyof UblLunchRow,string][]).map(([f,label])=>(
+                  <div key={f} className="flex flex-col items-center bg-gray-50 dark:bg-gray-800/50 rounded-lg p-2">
+                    <span className="text-xs text-gray-500 mb-1">{label}</span>
+                    {mblFld(f)}
+                  </div>
+                ))}
+              </div>
+              <div className={`flex items-center justify-between rounded-lg px-3 py-2 mb-3 text-sm font-semibold ${mismatch ? "bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300" : "bg-blue-50 dark:bg-blue-900/20 text-blue-800 dark:text-blue-300"}`}>
+                <span>Total: {total}</span>
+                {f1Total !== undefined && <span className="text-xs">{mismatch ? `⚠ F1 Lunch+Mutton=${f1Total}` : `✓ F1=${f1Total}`}</span>}
+              </div>
+              <div className="flex gap-2">
+                <button onClick={()=>handleSaveRow(row,idx)} className="flex-1 bg-blue-600 hover:bg-blue-700 text-white rounded-xl py-2.5 text-sm font-medium flex items-center justify-center gap-1.5">
+                  <Save className="w-4 h-4"/>Save
+                </button>
+                <button onClick={()=>handleDeleteRow(row,idx)} className="bg-red-500 hover:bg-red-600 text-white rounded-xl px-4 py-2.5 flex items-center justify-center">
+                  <Trash2 className="w-4 h-4"/>
+                </button>
+              </div>
+            </div>
+          );
+        })}
+        {rows.length > 0 && (
+          <div className="border rounded-xl overflow-hidden shadow-sm">
+            <div className="bg-slate-700 text-white px-3 py-2 text-sm font-bold">Period Totals</div>
+            <div className="grid grid-cols-2 gap-0 divide-y divide-x">
+              {[["Perment",totPerment],["Casual",totCasual],["Contractual",totContractual],["Canteen",totCanteen]].map(([l,v],i)=>(
+                <div key={l} className="flex justify-between px-3 py-2 text-sm" style={{background:i%2===0?"#fff":"#f9f9f9"}}>
+                  <span className="text-gray-600">{l}</span><span className="font-bold">{v}</span>
+                </div>
+              ))}
+            </div>
+            <div className="flex justify-between px-3 py-2.5 bg-blue-600 text-white font-bold text-sm">
+              <span>Grand Total</span><span>{grandTotal}</span>
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* ── Desktop Table View ── */}
+      <div className="hidden md:block overflow-x-auto rounded-xl border shadow-sm">
         <table style={{borderCollapse:"collapse",minWidth:700,fontFamily:"Arial,sans-serif",fontSize:12}}>
           <thead>
             <tr style={{background:"#1a3a5a",color:"white"}}>
@@ -930,11 +1081,114 @@ function CiplaDateEntryTab({ month, year }: { month: number; year: number }) {
   return (
     <div>
       <div className="flex flex-wrap gap-2 mb-3">
-        <Button size="sm" onClick={handleAddRow} className="bg-blue-600 text-white"><Plus className="w-3.5 h-3.5 mr-1"/>Add Row</Button>
-        <Button size="sm" onClick={handleSaveAll} className="bg-green-600 text-white" disabled={createMutation.isPending||updateMutation.isPending}><Save className="w-3.5 h-3.5 mr-1"/>Save All</Button>
-        <Button size="sm" variant="outline" onClick={handlePrint}><Printer className="w-3.5 h-3.5 mr-1"/>Print</Button>
+        <Button size="sm" onClick={handleAddRow} className="bg-blue-600 text-white h-10 px-4 text-sm"><Plus className="w-4 h-4 mr-1.5"/>Add Row</Button>
+        <Button size="sm" onClick={handleSaveAll} className="bg-green-600 text-white h-10 px-4 text-sm" disabled={createMutation.isPending||updateMutation.isPending}><Save className="w-4 h-4 mr-1.5"/>Save All</Button>
+        <Button size="sm" variant="outline" onClick={handlePrint} className="h-10 px-4 text-sm"><Printer className="w-4 h-4 mr-1.5"/>Print</Button>
       </div>
-      <div className="overflow-x-auto rounded-xl border shadow-sm">
+
+      {/* ── Mobile Card View ── */}
+      <div className="block md:hidden space-y-2">
+        {rows.map((row, idx) => {
+          const bfTotal=(row.breakfastCoopen||0)+(row.breakfastCoin||0)+(row.breakfastSign||0);
+          const luTotal=(row.lunchCoopen||0)+(row.lunchCoin||0)+(row.lunchSign||0);
+          const diTotal=(row.dinnerCoopen||0)+(row.dinnerCoin||0)+(row.dinnerSign||0);
+          const isSun=isSunday(row.entryDate);
+          const cardBg=isSun?"bg-amber-50 border-amber-300 dark:bg-amber-900/20":"bg-white dark:bg-gray-900 border-gray-200";
+          const mblFld=(f:keyof CiplaRow)=>(
+            <input type="number" min={0} value={(row as any)[f]??0} onChange={e=>handleCellChange(idx,f,e.target.value)}
+              className="w-full text-center border border-gray-200 dark:border-gray-600 rounded-lg text-sm font-medium dark:bg-gray-900 dark:text-white" style={{minHeight:40,padding:"4px 2px"}}/>
+          );
+          return (
+            <div key={idx} className={`border rounded-xl p-3 shadow-sm ${cardBg}`}>
+              <div className="flex items-center gap-2 mb-2.5">
+                <span className="text-xs font-bold text-gray-400 shrink-0">#{idx+1}</span>
+                <input type="date" value={row.entryDate} onChange={e=>handleCellChange(idx,"entryDate",e.target.value)}
+                  className="flex-1 border border-gray-300 dark:border-gray-600 rounded-lg px-2 dark:bg-gray-800 dark:text-white" style={{minHeight:40,fontSize:14}}/>
+                <span className="text-xs font-semibold bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-300 rounded px-2 py-1 shrink-0">{row.weekDay}</span>
+              </div>
+              <div className="mb-2">
+                <div className="text-xs font-semibold text-gray-600 mb-1 bg-gray-100 dark:bg-gray-800 rounded px-2 py-0.5 flex justify-between">
+                  <span>🍳 Breakfast</span><span className="font-bold text-blue-700 dark:text-blue-300">= {bfTotal||0}</span>
+                </div>
+                <div className="grid grid-cols-3 gap-1">
+                  {([["breakfastCoopen","Coopen"],["breakfastCoin","Coin"],["breakfastSign","Sign"]] as [keyof CiplaRow,string][]).map(([f,label])=>(
+                    <div key={f} className="flex flex-col items-center bg-gray-50 dark:bg-gray-800/50 rounded-lg p-1.5">
+                      <span className="text-xs text-gray-400 mb-1">{label}</span>{mblFld(f)}
+                    </div>
+                  ))}
+                </div>
+              </div>
+              <div className="mb-2">
+                <div className="text-xs font-semibold text-gray-600 mb-1 bg-green-50 dark:bg-green-900/20 rounded px-2 py-0.5 flex justify-between">
+                  <span>🍽 Lunch</span><span className="font-bold text-green-700 dark:text-green-300">= {luTotal||0}</span>
+                </div>
+                <div className="grid grid-cols-3 gap-1">
+                  {([["lunchCoopen","Coopen"],["lunchCoin","Coin"],["lunchSign","Sign"]] as [keyof CiplaRow,string][]).map(([f,label])=>(
+                    <div key={f} className="flex flex-col items-center bg-gray-50 dark:bg-gray-800/50 rounded-lg p-1.5">
+                      <span className="text-xs text-gray-400 mb-1">{label}</span>{mblFld(f)}
+                    </div>
+                  ))}
+                </div>
+              </div>
+              <div className="mb-3">
+                <div className="text-xs font-semibold text-gray-600 mb-1 bg-blue-50 dark:bg-blue-900/20 rounded px-2 py-0.5 flex justify-between">
+                  <span>🌙 Dinner</span><span className="font-bold text-blue-700 dark:text-blue-300">= {diTotal||0}</span>
+                </div>
+                <div className="grid grid-cols-3 gap-1">
+                  {([["dinnerCoopen","Coopen"],["dinnerCoin","Coin"],["dinnerSign","Sign"]] as [keyof CiplaRow,string][]).map(([f,label])=>(
+                    <div key={f} className="flex flex-col items-center bg-gray-50 dark:bg-gray-800/50 rounded-lg p-1.5">
+                      <span className="text-xs text-gray-400 mb-1">{label}</span>{mblFld(f)}
+                    </div>
+                  ))}
+                </div>
+              </div>
+              <div className="flex gap-2">
+                <button onClick={()=>handleSaveRow(row,idx)} className="flex-1 bg-blue-600 hover:bg-blue-700 text-white rounded-xl py-2.5 text-sm font-medium flex items-center justify-center gap-1.5">
+                  <Save className="w-4 h-4"/>Save
+                </button>
+                <button onClick={()=>handleDeleteRow(row,idx)} className="bg-red-500 hover:bg-red-600 text-white rounded-xl px-4 py-2.5 flex items-center justify-center">
+                  <Trash2 className="w-4 h-4"/>
+                </button>
+              </div>
+            </div>
+          );
+        })}
+        {/* Mobile Machine Data + Summary */}
+        <div className="border rounded-xl overflow-hidden shadow-sm">
+          <div className="flex items-center justify-between bg-slate-700 text-white px-3 py-2">
+            <span className="text-sm font-bold">Billing Summary</span>
+            <button onClick={()=>machineSaveMutation.mutate({bfMachine:parseInt(curMachineEdit.bf)||0,luMachine:parseInt(curMachineEdit.lu)||0,diMachine:parseInt(curMachineEdit.di)||0})}
+              disabled={machineSaveMutation.isPending}
+              className="bg-green-500 hover:bg-green-600 text-white rounded-lg px-3 py-1 text-xs font-bold">
+              {machineSaveMutation.isPending?"Saving...":"Save Machine"}
+            </button>
+          </div>
+          {([
+            {label:"🍳 Breakfast",coopen:totBfCoopen,coin:totBfCoin,total:totBfTotal,mKey:"bf" as const,diff:totBfCoopen-(parseInt(curMachineEdit.bf)||0)},
+            {label:"🍽 Lunch",coopen:totLuCoopen,coin:totLuCoin,total:totLuTotal,mKey:"lu" as const,diff:totLuCoopen-(parseInt(curMachineEdit.lu)||0)},
+            {label:"🌙 Dinner",coopen:totDiCoopen,coin:totDiCoin,total:totDiTotal,mKey:"di" as const,diff:totDiCoopen-(parseInt(curMachineEdit.di)||0)},
+          ]).map((s,i)=>(
+            <div key={s.label} className="border-b p-3" style={{background:i%2===0?"#fff":"#f9f9f9"}}>
+              <div className="text-sm font-semibold text-gray-700 mb-2">{s.label}</div>
+              <div className="grid grid-cols-4 gap-2 text-xs text-center mb-2">
+                <div><div className="text-gray-400 mb-1">Coopen</div><div className="font-bold">{s.coopen||0}</div></div>
+                <div><div className="text-gray-400 mb-1">Coin</div><div className="font-bold">{s.coin||0}</div></div>
+                <div><div className="text-gray-400 mb-1">Total</div><div className="font-bold">{s.total||0}</div></div>
+                <div><div className="text-gray-400 mb-1">Diff</div><div className={`font-bold ${s.diff!==0?"text-red-600":"text-green-600"}`}>{(parseInt(curMachineEdit[s.mKey])||0)>0||s.coopen>0?s.diff:""}</div></div>
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="text-xs text-amber-700 font-medium">Machine:</span>
+                <input type="number" min={0} value={curMachineEdit[s.mKey]}
+                  onChange={e=>setMachineEdit({...curMachineEdit,[s.mKey]:e.target.value})}
+                  className="flex-1 border-2 border-amber-400 rounded-lg text-sm text-center font-medium" style={{minHeight:36,padding:"4px"}}/>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* ── Desktop Table View ── */}
+      <div className="hidden md:block overflow-x-auto rounded-xl border shadow-sm">
         <table style={{borderCollapse:"collapse",minWidth:900,fontFamily:"Arial,sans-serif",fontSize:12}}>
           <thead>
             <tr style={{background:"#1a3a5a",color:"white"}}>
@@ -1007,8 +1261,8 @@ function CiplaDateEntryTab({ month, year }: { month: number; year: number }) {
           </tbody>
         </table>
       </div>
-      {/* Summary */}
-      <div className="mt-4 flex justify-end">
+      {/* Summary — desktop only */}
+      <div className="mt-4 hidden md:flex justify-end">
         <div className="border rounded-xl overflow-hidden shadow-sm" style={{minWidth:520}}>
           <div style={{background:"#1a3a5a",color:"white",padding:"8px 12px",display:"flex",justifyContent:"space-between",alignItems:"center"}}>
             <span style={{fontWeight:"bold",fontSize:13}}>Billing Summary</span>
@@ -1093,11 +1347,11 @@ export function DateEntryTab() {
   return (
     <div>
       {/* Filter Bar */}
-      <div className="flex flex-wrap items-center gap-3 mb-5 p-4 rounded-xl bg-muted/40 border">
+      <div className="flex flex-col sm:flex-row sm:flex-wrap sm:items-center gap-3 mb-5 p-4 rounded-xl bg-muted/40 border">
         <div className="flex items-center gap-2">
-          <label className="text-sm font-medium text-muted-foreground">Client:</label>
+          <label className="text-sm font-medium text-muted-foreground shrink-0">Client:</label>
           <Select value={selectedClient} onValueChange={setSelectedClient}>
-            <SelectTrigger className="w-52 h-9" data-testid="select-date-entry-client"><SelectValue/></SelectTrigger>
+            <SelectTrigger className="flex-1 sm:w-52 h-10" data-testid="select-date-entry-client"><SelectValue/></SelectTrigger>
             <SelectContent>
               {CLIENT_OPTIONS.map(o=>(
                 <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>
@@ -1105,25 +1359,27 @@ export function DateEntryTab() {
             </SelectContent>
           </Select>
         </div>
-        <div className="flex items-center gap-2">
-          <label className="text-sm font-medium text-muted-foreground">Billing Month:</label>
-          <Select value={month} onValueChange={setMonth}>
-            <SelectTrigger className="w-32 h-9" data-testid="select-date-entry-month"><SelectValue/></SelectTrigger>
-            <SelectContent>
-              {MONTHS.map((m,i)=>(<SelectItem key={i} value={String(i+1)}>{m}</SelectItem>))}
-            </SelectContent>
-          </Select>
+        <div className="flex gap-2">
+          <div className="flex items-center gap-2 flex-1">
+            <label className="text-sm font-medium text-muted-foreground shrink-0">Month:</label>
+            <Select value={month} onValueChange={setMonth}>
+              <SelectTrigger className="flex-1 sm:w-32 h-10" data-testid="select-date-entry-month"><SelectValue/></SelectTrigger>
+              <SelectContent>
+                {MONTHS.map((m,i)=>(<SelectItem key={i} value={String(i+1)}>{m}</SelectItem>))}
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="flex items-center gap-2">
+            <label className="text-sm font-medium text-muted-foreground shrink-0">Year:</label>
+            <Select value={year} onValueChange={setYear}>
+              <SelectTrigger className="w-24 h-10" data-testid="select-date-entry-year"><SelectValue/></SelectTrigger>
+              <SelectContent>
+                {years.map(y=><SelectItem key={y} value={y}>{y}</SelectItem>)}
+              </SelectContent>
+            </Select>
+          </div>
         </div>
-        <div className="flex items-center gap-2">
-          <label className="text-sm font-medium text-muted-foreground">Year:</label>
-          <Select value={year} onValueChange={setYear}>
-            <SelectTrigger className="w-24 h-9" data-testid="select-date-entry-year"><SelectValue/></SelectTrigger>
-            <SelectContent>
-              {years.map(y=><SelectItem key={y} value={y}>{y}</SelectItem>)}
-            </SelectContent>
-          </Select>
-        </div>
-        <Badge variant="outline" className="text-xs font-medium bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300 border-blue-200 dark:border-blue-700 ml-auto">
+        <Badge variant="outline" className="text-xs font-medium bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300 border-blue-200 dark:border-blue-700 sm:ml-auto w-fit">
           Period: {billingLabel}
         </Badge>
       </div>
