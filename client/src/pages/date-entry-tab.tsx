@@ -11,13 +11,29 @@ import { Plus, Trash2, Printer, Loader2, Save, AlertTriangle, CheckCircle2 } fro
 const MONTHS = ["January","February","March","April","May","June","July","August","September","October","November","December"];
 const WEEKDAYS = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
 
+function normDate(dateStr: string): string {
+  if (!dateStr) return "";
+  return dateStr.includes("T") ? dateStr.split("T")[0] : dateStr;
+}
+
+function safeFormat(dateStr: string): string {
+  if (!dateStr) return "";
+  try {
+    const s = normDate(dateStr);
+    const d = new Date(s + "T00:00:00");
+    if (isNaN(d.getTime())) return s;
+    return format(d, "dd-MM-yyyy");
+  } catch { return dateStr; }
+}
+
 function getWeekDay(dateStr: string) {
   if (!dateStr) return "";
-  const d = new Date(dateStr + "T00:00:00");
+  const d = new Date(normDate(dateStr) + "T00:00:00");
+  if (isNaN(d.getTime())) return "";
   return WEEKDAYS[d.getDay()] || "";
 }
-const isSunday = (dateStr: string) => { try { return new Date(dateStr+"T00:00:00").getDay() === 0; } catch { return false; } };
-const isWed = (dateStr: string) => { try { return new Date(dateStr+"T00:00:00").getDay() === 3; } catch { return false; } };
+const isSunday = (dateStr: string) => { try { return new Date(normDate(dateStr)+"T00:00:00").getDay() === 0; } catch { return false; } };
+const isWed = (dateStr: string) => { try { return new Date(normDate(dateStr)+"T00:00:00").getDay() === 3; } catch { return false; } };
 
 // Billing period: 21st of selected month → 20th of next month
 function getBillingRange(month: number, year: number): { startDate: string; endDate: string; label: string } {
@@ -66,7 +82,8 @@ function UblDateEntryTab({ month, year }: { month: number; year: number }) {
     queryKey: ['/api/ubl-date-entries', month, year],
     queryFn: async () => {
       const res = await fetch(`/api/ubl-date-entries?month=${month}&year=${year}`, { credentials: "include" });
-      return res.json();
+      const data = await res.json();
+      return data.map((r: UblRow) => ({ ...r, entryDate: normDate(r.entryDate) }));
     },
   });
 
@@ -118,7 +135,7 @@ function UblDateEntryTab({ month, year }: { month: number; year: number }) {
     if (rows.length === 0) {
       nextDate = `${year}-${String(month).padStart(2,'0')}-21`;
     } else {
-      const lastDate = rows[rows.length - 1].entryDate;
+      const lastDate = normDate(rows[rows.length - 1].entryDate);
       const d = new Date(lastDate + "T00:00:00");
       d.setDate(d.getDate() + 1);
       nextDate = d.toISOString().split('T')[0];
@@ -234,7 +251,7 @@ function UblDateEntryTab({ month, year }: { month: number; year: number }) {
             return (
               <tr key={i} style={{background:bg}}>
                 <td>{i+1}</td>
-                <td>{row.entryDate?format(new Date(row.entryDate+"T00:00:00"),"dd-MM-yyyy"):""}</td>
+                <td>{safeFormat(row.entryDate)}</td>
                 <td>{row.month}</td><td>{row.weekDay}</td>
                 <td>{row.tea1||""}</td><td>{row.biscuit1||""}</td><td>{row.breakfast||""}</td>
                 <td>{row.lunch||""}</td><td>{row.mutton||""}</td><td>{row.tea2||""}</td>
@@ -500,7 +517,8 @@ function UblLunchEntryTab({ month, year }: { month: number; year: number }) {
     queryKey: ['/api/ubl-lunch-entries', month, year],
     queryFn: async () => {
       const res = await fetch(`/api/ubl-lunch-entries?month=${month}&year=${year}`, { credentials:"include" });
-      return res.json();
+      const data = await res.json();
+      return data.map((r: UblLunchRow) => ({ ...r, entryDate: normDate(r.entryDate) }));
     },
   });
 
@@ -509,7 +527,8 @@ function UblLunchEntryTab({ month, year }: { month: number; year: number }) {
     queryKey: ['/api/ubl-date-entries', month, year],
     queryFn: async () => {
       const res = await fetch(`/api/ubl-date-entries?month=${month}&year=${year}`, { credentials:"include" });
-      return res.json();
+      const data = await res.json();
+      return data.map((r: UblRow) => ({ ...r, entryDate: normDate(r.entryDate) }));
     },
   });
   // Build a lookup: date -> lunch+mutton from Format 1
@@ -564,7 +583,7 @@ function UblLunchEntryTab({ month, year }: { month: number; year: number }) {
     if (rows.length === 0) {
       nextDate = `${year}-${String(month).padStart(2,'0')}-21`;
     } else {
-      const lastDate = rows[rows.length - 1].entryDate;
+      const lastDate = normDate(rows[rows.length - 1].entryDate);
       const d = new Date(lastDate + "T00:00:00");
       d.setDate(d.getDate() + 1);
       nextDate = d.toISOString().split('T')[0];
@@ -666,7 +685,7 @@ function UblLunchEntryTab({ month, year }: { month: number; year: number }) {
             const mismatch = f1Total !== undefined && f1Total !== total;
             return (
               <tr key={i} className={isSun?"orange":""} style={{background:isSun?"#ffa500":mismatch?"#ffe5e5":"transparent"}}>
-                <td>{row.entryDate?format(new Date(row.entryDate+"T00:00:00"),"dd-MM-yyyy"):""}</td>
+                <td>{safeFormat(row.entryDate)}</td>
                 <td>{row.weekDay}</td>
                 <td>{row.perment||""}</td>
                 <td>{row.casual||""}</td>
@@ -704,7 +723,7 @@ function UblLunchEntryTab({ month, year }: { month: number; year: number }) {
               const f1Total = f1LunchMap[r.entryDate] ?? 0;
               return (
                 <span key={r.entryDate} className="inline-block mr-2 bg-red-100 dark:bg-red-800 rounded px-1">
-                  {r.entryDate?format(new Date(r.entryDate+"T00:00:00"),"dd-MM-yyyy"):"?"}: Format2={f2Total} vs Format1 Lunch+Mutton={f1Total}
+                  {safeFormat(r.entryDate)||"?"}: Format2={f2Total} vs Format1 Lunch+Mutton={f1Total}
                 </span>
               );
             })}
@@ -909,7 +928,8 @@ function CiplaDateEntryTab({ month, year }: { month: number; year: number }) {
     queryKey: ['/api/cipla-date-entries', month, year],
     queryFn: async () => {
       const res = await fetch(`/api/cipla-date-entries?month=${month}&year=${year}`, { credentials:"include" });
-      return res.json();
+      const data = await res.json();
+      return data.map((r: CiplaRow) => ({ ...r, entryDate: normDate(r.entryDate) }));
     },
   });
 
@@ -983,7 +1003,7 @@ function CiplaDateEntryTab({ month, year }: { month: number; year: number }) {
     if (rows.length === 0) {
       nextDate = `${year}-${String(month).padStart(2,'0')}-21`;
     } else {
-      const lastDate = rows[rows.length - 1].entryDate;
+      const lastDate = normDate(rows[rows.length - 1].entryDate);
       const d = new Date(lastDate + "T00:00:00");
       d.setDate(d.getDate() + 1);
       nextDate = d.toISOString().split('T')[0];
@@ -1091,7 +1111,7 @@ function CiplaDateEntryTab({ month, year }: { month: number; year: number }) {
             return (
               <tr key={i} style={{background:isSunday(row.entryDate)?"#ffa500":"transparent"}}>
                 <td>{i+1}</td>
-                <td>{row.entryDate?format(new Date(row.entryDate+"T00:00:00"),"dd-MM-yyyy"):""}</td>
+                <td>{safeFormat(row.entryDate)}</td>
                 <td>{row.month}</td><td>{row.weekDay}</td>
                 <td>{row.breakfastCoopen||""}</td><td>{row.breakfastCoin||""}</td><td>{row.breakfastSign||""}</td><td>{bfTotal||""}</td>
                 <td>{row.lunchCoopen||""}</td><td>{row.lunchCoin||""}</td><td>{row.lunchSign||""}</td><td>{luTotal||""}</td>
