@@ -111,10 +111,24 @@ function UblDateEntryTab({ month, year }: { month: number; year: number }) {
     });
   };
 
+  const { endDate: billingEnd1 } = getBillingRange(month, year);
+
   const handleAddRow = () => {
-    const defaultDate = `${year}-${String(month).padStart(2,'0')}-21`;
+    let nextDate: string;
+    if (rows.length === 0) {
+      nextDate = `${year}-${String(month).padStart(2,'0')}-21`;
+    } else {
+      const lastDate = rows[rows.length - 1].entryDate;
+      const d = new Date(lastDate + "T00:00:00");
+      d.setDate(d.getDate() + 1);
+      nextDate = d.toISOString().split('T')[0];
+    }
+    if (nextDate > billingEnd1) {
+      toast({ title: "Billing period complete", description: `All dates up to ${billingEnd1} already added.`, variant: "destructive" });
+      return;
+    }
     syncRows();
-    setLocalRows(prev => [...prev, ublRowDefaults(defaultDate, month, year)]);
+    setLocalRows(prev => [...prev, ublRowDefaults(nextDate, month, year)]);
   };
 
   const handleSaveRow = async (row: UblRow, idx: number) => {
@@ -265,7 +279,9 @@ function UblDateEntryTab({ month, year }: { month: number; year: number }) {
   return (
     <div>
       <div className="flex flex-wrap gap-2 mb-3">
-        <Button size="sm" onClick={handleAddRow} className="bg-blue-600 text-white h-10 px-4 text-sm"><Plus className="w-4 h-4 mr-1.5"/>Add Row</Button>
+        <Button size="sm" onClick={handleAddRow} className="bg-blue-600 text-white h-10 px-4 text-sm"
+          disabled={rows.length > 0 && rows[rows.length-1].entryDate >= billingEnd1}>
+          <Plus className="w-4 h-4 mr-1.5"/>Add Row</Button>
         <Button size="sm" onClick={handleSaveAll} className="bg-green-600 text-white h-10 px-4 text-sm" disabled={createMutation.isPending||updateMutation.isPending}><Save className="w-4 h-4 mr-1.5"/>Save All</Button>
         <Button size="sm" variant="outline" onClick={handlePrint} className="h-10 px-4 text-sm"><Printer className="w-4 h-4 mr-1.5"/>Print</Button>
         <div className="flex items-center gap-2 text-xs text-muted-foreground ml-auto">
@@ -541,10 +557,24 @@ function UblLunchEntryTab({ month, year }: { month: number; year: number }) {
     });
   };
 
+  const { endDate: billingEnd2 } = getBillingRange(month, year);
+
   const handleAddRow = () => {
-    const defaultDate = `${year}-${String(month).padStart(2,'0')}-21`;
+    let nextDate: string;
+    if (rows.length === 0) {
+      nextDate = `${year}-${String(month).padStart(2,'0')}-21`;
+    } else {
+      const lastDate = rows[rows.length - 1].entryDate;
+      const d = new Date(lastDate + "T00:00:00");
+      d.setDate(d.getDate() + 1);
+      nextDate = d.toISOString().split('T')[0];
+    }
+    if (nextDate > billingEnd2) {
+      toast({ title: "Billing period complete", description: `All dates up to ${billingEnd2} already added.`, variant: "destructive" });
+      return;
+    }
     syncRows();
-    setLocalRows(prev => [...prev, lunchRowDefaults(defaultDate, month, year)]);
+    setLocalRows(prev => [...prev, lunchRowDefaults(nextDate, month, year)]);
   };
 
   const handleSaveRow = async (row: UblLunchRow, idx: number) => {
@@ -688,7 +718,9 @@ function UblLunchEntryTab({ month, year }: { month: number; year: number }) {
       ) : null}
 
       <div className="flex flex-wrap gap-2 mb-3">
-        <Button size="sm" onClick={handleAddRow} className="bg-blue-600 text-white h-10 px-4 text-sm"><Plus className="w-4 h-4 mr-1.5"/>Add Row</Button>
+        <Button size="sm" onClick={handleAddRow} className="bg-blue-600 text-white h-10 px-4 text-sm"
+          disabled={rows.length > 0 && rows[rows.length-1].entryDate >= billingEnd2}>
+          <Plus className="w-4 h-4 mr-1.5"/>Add Row</Button>
         <Button size="sm" onClick={handleSaveAll} className="bg-green-600 text-white h-10 px-4 text-sm" disabled={createMutation.isPending||updateMutation.isPending}><Save className="w-4 h-4 mr-1.5"/>Save All</Button>
         <Button size="sm" variant="outline" onClick={handlePrint} className="h-10 px-4 text-sm"><Printer className="w-4 h-4 mr-1.5"/>Print</Button>
         <div className="flex items-center gap-2 text-xs text-muted-foreground ml-auto">
@@ -944,10 +976,24 @@ function CiplaDateEntryTab({ month, year }: { month: number; year: number }) {
     });
   };
 
+  const { endDate: billingEnd3 } = getBillingRange(month, year);
+
   const handleAddRow = () => {
-    const defaultDate = `${year}-${String(month).padStart(2,'0')}-21`;
+    let nextDate: string;
+    if (rows.length === 0) {
+      nextDate = `${year}-${String(month).padStart(2,'0')}-21`;
+    } else {
+      const lastDate = rows[rows.length - 1].entryDate;
+      const d = new Date(lastDate + "T00:00:00");
+      d.setDate(d.getDate() + 1);
+      nextDate = d.toISOString().split('T')[0];
+    }
+    if (nextDate > billingEnd3) {
+      toast({ title: "Billing period complete", description: `All dates up to ${billingEnd3} already added.`, variant: "destructive" });
+      return;
+    }
     syncRows();
-    setLocalRows(prev => [...prev, ciplaRowDefaults(defaultDate, month, year)]);
+    setLocalRows(prev => [...prev, ciplaRowDefaults(nextDate, month, year)]);
   };
 
   const handleSaveRow = async (row: CiplaRow, idx: number) => {
@@ -1081,7 +1127,9 @@ function CiplaDateEntryTab({ month, year }: { month: number; year: number }) {
   return (
     <div>
       <div className="flex flex-wrap gap-2 mb-3">
-        <Button size="sm" onClick={handleAddRow} className="bg-blue-600 text-white h-10 px-4 text-sm"><Plus className="w-4 h-4 mr-1.5"/>Add Row</Button>
+        <Button size="sm" onClick={handleAddRow} className="bg-blue-600 text-white h-10 px-4 text-sm"
+          disabled={rows.length > 0 && rows[rows.length-1].entryDate >= billingEnd3}>
+          <Plus className="w-4 h-4 mr-1.5"/>Add Row</Button>
         <Button size="sm" onClick={handleSaveAll} className="bg-green-600 text-white h-10 px-4 text-sm" disabled={createMutation.isPending||updateMutation.isPending}><Save className="w-4 h-4 mr-1.5"/>Save All</Button>
         <Button size="sm" variant="outline" onClick={handlePrint} className="h-10 px-4 text-sm"><Printer className="w-4 h-4 mr-1.5"/>Print</Button>
       </div>
