@@ -37,8 +37,10 @@ import {
   salesInvoices,
   ublDateEntries,
   ciplaDateEntries,
+  ublLunchEntries,
   type UblDateEntry,
   type CiplaDateEntry,
+  type UblLunchEntry,
   type DailyReport, 
   type ExpenseItem,
   type CreateReportRequest,
@@ -240,6 +242,11 @@ export interface IStorage {
   createCiplaDateEntry(data: any): Promise<CiplaDateEntry>;
   updateCiplaDateEntry(id: number, data: any): Promise<CiplaDateEntry>;
   deleteCiplaDateEntry(id: number): Promise<void>;
+  // UBL Lunch Entries (Format 2)
+  getUblLunchEntries(month: number, year: number): Promise<UblLunchEntry[]>;
+  createUblLunchEntry(data: any): Promise<UblLunchEntry>;
+  updateUblLunchEntry(id: number, data: any): Promise<UblLunchEntry>;
+  deleteUblLunchEntry(id: number): Promise<void>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -1899,6 +1906,23 @@ export class DatabaseStorage implements IStorage {
   }
   async deleteCiplaDateEntry(id: number): Promise<void> {
     await db.delete(ciplaDateEntries).where(eq(ciplaDateEntries.id, id));
+  }
+
+  async getUblLunchEntries(month: number, year: number): Promise<UblLunchEntry[]> {
+    return await db.select().from(ublLunchEntries)
+      .where(and(eq(ublLunchEntries.month, month), eq(ublLunchEntries.year, year)))
+      .orderBy(ublLunchEntries.entryDate);
+  }
+  async createUblLunchEntry(data: any): Promise<UblLunchEntry> {
+    return await insertAndGet<UblLunchEntry>(ublLunchEntries, data);
+  }
+  async updateUblLunchEntry(id: number, data: any): Promise<UblLunchEntry> {
+    await db.update(ublLunchEntries).set({ ...data, updatedAt: new Date() }).where(eq(ublLunchEntries.id, id));
+    const [updated] = await db.select().from(ublLunchEntries).where(eq(ublLunchEntries.id, id));
+    return updated;
+  }
+  async deleteUblLunchEntry(id: number): Promise<void> {
+    await db.delete(ublLunchEntries).where(eq(ublLunchEntries.id, id));
   }
 }
 

@@ -1736,6 +1736,30 @@ export async function registerRoutes(
     res.status(204).send();
   });
 
+  // === UBL LUNCH ENTRY ROUTES (Format 2) ===
+  app.get('/api/ubl-lunch-entries', requirePermission('salesinvoice'), async (req, res) => {
+    const month = Number(req.query.month) || new Date().getMonth() + 1;
+    const year = Number(req.query.year) || new Date().getFullYear();
+    const entries = await storage.getUblLunchEntries(month, year);
+    res.json(entries);
+  });
+  app.post('/api/ubl-lunch-entries', requirePermission('salesinvoice'), async (req, res) => {
+    try {
+      const entry = await storage.createUblLunchEntry(req.body);
+      res.status(201).json(entry);
+    } catch (err: any) { res.status(500).json({ message: err.message }); }
+  });
+  app.put('/api/ubl-lunch-entries/:id', requirePermission('salesinvoice'), async (req, res) => {
+    try {
+      const entry = await storage.updateUblLunchEntry(Number(req.params.id), req.body);
+      res.json(entry);
+    } catch (err: any) { res.status(500).json({ message: err.message }); }
+  });
+  app.delete('/api/ubl-lunch-entries/:id', requirePermission('salesinvoice'), async (req, res) => {
+    await storage.deleteUblLunchEntry(Number(req.params.id));
+    res.status(204).send();
+  });
+
   // === UBL DATE ENTRY ROUTES ===
   app.get('/api/ubl-date-entries', requirePermission('salesinvoice'), async (req, res) => {
     const month = Number(req.query.month) || new Date().getMonth() + 1;

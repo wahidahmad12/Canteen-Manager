@@ -884,6 +884,28 @@ export const selectCiplaDateEntrySchema = createSelectSchema(ciplaDateEntries, {
   weekDay: z.string().nullable(),
 });
 
+// === UBL LUNCH ENTRIES (Lunch Per Day count format) ===
+export const ublLunchEntries = mysqlTable("ubl_lunch_entries", {
+  id: int("id").autoincrement().primaryKey(),
+  entryDate: date("entry_date").notNull(),
+  month: int("month").notNull(),
+  year: int("year").notNull(),
+  weekDay: varchar("week_day", { length: 10 }),
+  perment: int("perment").default(0),
+  casual: int("casual").default(0),
+  contractual: int("contractual").default(0),
+  canteen: int("canteen").default(7),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+export type UblLunchEntry = typeof ublLunchEntries.$inferSelect;
+export const insertUblLunchEntrySchema = createInsertSchema(ublLunchEntries).omit({ id: true, createdAt: true, updatedAt: true });
+export const selectUblLunchEntrySchema = createSelectSchema(ublLunchEntries, {
+  createdAt: z.string().or(z.date()),
+  updatedAt: z.string().or(z.date()),
+  weekDay: z.string().nullable(),
+});
+
 export const ALL_PAYROLL_PERMISSIONS = [...ALL_PERMISSIONS, 'salary'] as const;
 
 export type HalfYearlyReturn = typeof halfYearlyReturns.$inferSelect;
