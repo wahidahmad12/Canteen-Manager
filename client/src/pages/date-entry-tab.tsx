@@ -29,19 +29,6 @@ function getBillingRange(month: number, year: number): { startDate: string; endD
   return { startDate, endDate, label };
 }
 
-// Return all dates YYYY-MM-DD in a billing range
-function billingRangeDates(month: number, year: number): string[] {
-  const { startDate, endDate } = getBillingRange(month, year);
-  const dates: string[] = [];
-  const cur = new Date(startDate + "T00:00:00");
-  const end = new Date(endDate + "T00:00:00");
-  while (cur <= end) {
-    dates.push(cur.toISOString().slice(0, 10));
-    cur.setDate(cur.getDate() + 1);
-  }
-  return dates;
-}
-
 // ============================================================
 // UBL Format 1 — Bill Data Sheet (Food Items)
 // ============================================================
@@ -125,11 +112,9 @@ function UblDateEntryTab({ month, year }: { month: number; year: number }) {
   };
 
   const handleAddRow = () => {
-    const allDates = billingRangeDates(month, year);
-    const existingDates = new Set(rows.map(r => r.entryDate));
-    const nextDate = allDates.find(d => !existingDates.has(d)) || allDates[0];
+    const defaultDate = `${year}-${String(month).padStart(2,'0')}-21`;
     syncRows();
-    setLocalRows(prev => [...prev, ublRowDefaults(nextDate, month, year)]);
+    setLocalRows(prev => [...prev, ublRowDefaults(defaultDate, month, year)]);
   };
 
   const handleSaveRow = async (row: UblRow, idx: number) => {
@@ -466,11 +451,9 @@ function UblLunchEntryTab({ month, year }: { month: number; year: number }) {
   };
 
   const handleAddRow = () => {
-    const allDates = billingRangeDates(month, year);
-    const existingDates = new Set(rows.map(r => r.entryDate));
-    const nextDate = allDates.find(d => !existingDates.has(d)) || allDates[0];
+    const defaultDate = `${year}-${String(month).padStart(2,'0')}-21`;
     syncRows();
-    setLocalRows(prev => [...prev, lunchRowDefaults(nextDate, month, year)]);
+    setLocalRows(prev => [...prev, lunchRowDefaults(defaultDate, month, year)]);
   };
 
   const handleSaveRow = async (row: UblLunchRow, idx: number) => {
@@ -788,11 +771,9 @@ function CiplaDateEntryTab({ month, year }: { month: number; year: number }) {
   };
 
   const handleAddRow = () => {
-    const allDates = billingRangeDates(month, year);
-    const existingDates = new Set(rows.map(r => r.entryDate));
-    const nextDate = allDates.find(d => !existingDates.has(d)) || allDates[0];
+    const defaultDate = `${year}-${String(month).padStart(2,'0')}-21`;
     syncRows();
-    setLocalRows(prev => [...prev, ciplaRowDefaults(nextDate, month, year)]);
+    setLocalRows(prev => [...prev, ciplaRowDefaults(defaultDate, month, year)]);
   };
 
   const handleSaveRow = async (row: CiplaRow, idx: number) => {
