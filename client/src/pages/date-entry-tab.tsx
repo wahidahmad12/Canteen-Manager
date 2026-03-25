@@ -130,6 +130,9 @@ function UblDateEntryTab({ month, year }: { month: number; year: number }) {
         row.weekDay = getWeekDay(value);
         if (value) { const d = new Date(value+"T00:00:00"); row.month = d.getMonth()+1; row.year = d.getFullYear(); }
       }
+      if (field === 'tiffin') {
+        row.boiledEgg = parseInt(value) || 0;
+      }
       row._dirty = true;
       updated[idx] = row;
       return updated;
@@ -239,7 +242,7 @@ function UblDateEntryTab({ month, year }: { month: number; year: number }) {
             <th rowSpan={2} style={{width:75}}>Date</th>
             <th rowSpan={2} style={{width:35}}>Month</th>
             <th rowSpan={2} style={{width:40}}>Week Day</th>
-            <th colSpan={3} style={{background:"#4a5568",color:"white"}}>6:30 AM to 9:00 AM</th>
+            <th colSpan={3} style={{background:"#4a5568",color:"white"}}>5:30 AM to 9:00 AM</th>
             <th colSpan={2} style={{background:"#2d6a4f",color:"white"}}>11:30 AM to 1:30 PM</th>
             <th colSpan={4} style={{background:"#6b2d2d",color:"white"}}>3:30 PM to 7:00 PM</th>
             <th colSpan={1} style={{background:"#1a3a5a",color:"white"}}>10:00 PM</th>
@@ -333,7 +336,7 @@ function UblDateEntryTab({ month, year }: { month: number; year: number }) {
                 {row._dirty && <span className="text-orange-500 font-bold text-xs shrink-0">●</span>}
               </div>
               <div className="mb-2">
-                <div className="text-xs font-semibold text-gray-500 mb-1 bg-gray-100 dark:bg-gray-800 rounded px-2 py-0.5">☀ 6:30–9:00 AM</div>
+                <div className="text-xs font-semibold text-gray-500 mb-1 bg-gray-100 dark:bg-gray-800 rounded px-2 py-0.5">☀ 5:30–9:00 AM</div>
                 <div className="grid grid-cols-3 gap-1">
                   {([["tea1","Tea"],["biscuit1","Biscuit"],["breakfast","Breakfast"]] as [keyof UblRow, string][]).map(([f,label])=>(
                     <div key={f} className="flex flex-col items-center bg-gray-50 dark:bg-gray-800/50 rounded-lg p-1.5">
@@ -411,7 +414,7 @@ function UblDateEntryTab({ month, year }: { month: number; year: number }) {
               <th rowSpan={2} style={{padding:"6px 4px",border:"1px solid #334",width:100}}>Date</th>
               <th rowSpan={2} style={{padding:"6px 4px",border:"1px solid #334",width:50}}>Month</th>
               <th rowSpan={2} style={{padding:"6px 4px",border:"1px solid #334",width:44}}>Day</th>
-              <th colSpan={3} style={{padding:"4px",border:"1px solid #334",background:"#4a5568"}}>6:30-9:00 AM</th>
+              <th colSpan={3} style={{padding:"4px",border:"1px solid #334",background:"#4a5568"}}>5:30-9:00 AM</th>
               <th colSpan={2} style={{padding:"4px",border:"1px solid #334",background:"#2d6a4f"}}>11:30AM-1:30PM</th>
               <th colSpan={4} style={{padding:"4px",border:"1px solid #334",background:"#6b2d2d"}}>3:30PM-7PM</th>
               <th style={{padding:"4px",border:"1px solid #334",background:"#1a3a5a"}}>10PM</th>
