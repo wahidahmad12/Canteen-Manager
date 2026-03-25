@@ -1222,14 +1222,16 @@ function CiplaDateEntryTab({ month, year }: { month: number; year: number }) {
     const win = window.open('','_blank');
     if (!win) return;
     win.document.write(`<html><head><title>Cipla Bill Data Sheet</title><style>
-      body{font-family:Arial,sans-serif;margin:10px;font-size:11px;}
-      h3,h4,p{text-align:center;margin:2px 0;}
-      table{width:100%;border-collapse:collapse;margin-top:8px;}
-      th,td{border:1px solid #333;padding:3px 4px;text-align:center;font-size:10px;}
-      th{background:#1a3a5a;color:white;font-size:9px;}
-      .orange{background:#ffa500 !important;}
-      .total-row{font-weight:bold;background:#e8f0fe;}
-      @media print{@page{margin:8mm;size:A3 landscape;}}
+      *{box-sizing:border-box;}
+      body{font-family:"Times New Roman",Times,serif;margin:0;font-size:12pt;-webkit-print-color-adjust:exact;print-color-adjust:exact;}
+      h3{text-align:center;margin:2px 0;font-size:13pt;font-weight:bold;}
+      h4,p{text-align:center;margin:1px 0;font-size:11pt;}
+      table{width:100%;border-collapse:collapse;margin-top:6px;table-layout:auto;}
+      th,td{border:1px solid #333;padding:1px 3px;text-align:center;font-size:12pt;font-family:"Times New Roman",Times,serif;white-space:nowrap;}
+      th{background:#1a3a5a!important;color:white!important;font-size:10pt;font-weight:bold;}
+      .total-row{font-weight:bold;background:#e8f0fe!important;}
+      .orange-row{background:#ffa500!important;}
+      @media print{@page{margin:5mm;size:A4 portrait;}body{margin:0;}table{page-break-inside:auto;}tr{page-break-inside:avoid;}}
     </style></head><body>${content}</body></html>`);
     win.document.close();
     win.print();
@@ -1322,10 +1324,10 @@ function CiplaDateEntryTab({ month, year }: { month: number; year: number }) {
       <table>
         <thead>
           <tr>
-            <th rowSpan={2} style={{width:30}}>Sl.</th>
-            <th rowSpan={2} style={{width:75}}>Date</th>
-            <th rowSpan={2} style={{width:40}}>Month</th>
-            <th rowSpan={2} style={{width:40}}>Week Day</th>
+            <th rowSpan={2}>Sl.</th>
+            <th rowSpan={2}>Date</th>
+            <th rowSpan={2}>Mth</th>
+            <th rowSpan={2}>Day</th>
             <th colSpan={4} style={{background:"#4a5568",color:"white"}}>Breakfast</th>
             <th colSpan={4} style={{background:"#2d6a4f",color:"white"}}>Lunch</th>
             <th colSpan={4} style={{background:"#1a3a5a",color:"white"}}>Dinner</th>
