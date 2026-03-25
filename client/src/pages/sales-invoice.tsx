@@ -493,11 +493,34 @@ function InvoiceFormDialog({ invoice, onClose, clients, purchaseOrders, allInvoi
       </div>
 
       <div className="bg-gradient-to-r from-green-50 to-emerald-50 dark:from-green-950/20 dark:to-emerald-950/20 rounded-xl p-3 space-y-3 border border-green-200 dark:border-green-800">
-        <p className="text-xs font-bold text-green-700 dark:text-green-400 uppercase tracking-wide">Payment Received</p>
+        <div className="flex items-center justify-between">
+          <p className="text-xs font-bold text-green-700 dark:text-green-400 uppercase tracking-wide">Payment Received</p>
+          {(paymentReceivedDate || paymentReceivedAmount > 0 || utrNo) && (
+            <Button
+              type="button"
+              size="sm"
+              variant="ghost"
+              className="h-7 text-xs text-red-500 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-950/30 gap-1 px-2"
+              onClick={() => { setPaymentReceivedDate(undefined); setPaymentReceivedAmount(0); setUtrNo(""); }}
+              data-testid="button-clear-payment"
+            >
+              <Trash2 className="w-3 h-3" /> Delete Payment
+            </Button>
+          )}
+        </div>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <div className="space-y-1">
             <Label className="text-xs text-green-600 dark:text-green-400 flex items-center gap-1"><CalendarDays className="w-3 h-3" /> Payment Date</Label>
-            <DatePicker date={paymentReceivedDate} setDate={(d) => setPaymentReceivedDate(d)} placeholder="Not received yet" />
+            <div className="flex gap-1">
+              <div className="flex-1">
+                <DatePicker date={paymentReceivedDate} setDate={(d) => setPaymentReceivedDate(d)} placeholder="Not received yet" />
+              </div>
+              {paymentReceivedDate && (
+                <Button type="button" size="icon" variant="ghost" className="h-9 w-9 text-gray-400 hover:text-red-500 shrink-0" onClick={() => setPaymentReceivedDate(undefined)} data-testid="button-clear-pmt-date" title="Clear date">
+                  <X className="w-3.5 h-3.5" />
+                </Button>
+              )}
+            </div>
           </div>
           <div className="space-y-1">
             <Label className="text-xs text-green-600 dark:text-green-400 flex items-center gap-1"><IndianRupee className="w-3 h-3" /> Amount Received</Label>
