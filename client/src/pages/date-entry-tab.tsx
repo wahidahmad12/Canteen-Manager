@@ -1360,20 +1360,79 @@ function CiplaDateEntryTab({ month, year }: { month: number; year: number }) {
             <td>{totLuCoopen}</td><td>{totLuCoin}</td><td>{totLuSign}</td><td>{totLuTotal}</td>
             <td>{totDiCoopen}</td><td>{totDiCoin}</td><td>{totDiSign}</td><td>{totDiTotal}</td>
           </tr>
-          <tr style={{fontWeight:"bold",background:"#fff7ed"}}>
-            <td colSpan={4} style={{textAlign:"left",paddingLeft:8}}>Machine Data</td>
-            <td colSpan={4}>{mBf||""}</td>
-            <td colSpan={4}>{mLu||""}</td>
-            <td colSpan={4}>{mDi||""}</td>
-          </tr>
-          <tr style={{fontWeight:"bold",background:"#fee2e2"}}>
-            <td colSpan={4} style={{textAlign:"left",paddingLeft:8}}>Difference (Coopen - Machine)</td>
-            <td colSpan={4} style={{color:totBfCoopen-mBf!==0?"#c00":"#060"}}>{totBfCoopen-mBf}</td>
-            <td colSpan={4} style={{color:totLuCoopen-mLu!==0?"#c00":"#060"}}>{totLuCoopen-mLu}</td>
-            <td colSpan={4} style={{color:totDiCoopen-mDi!==0?"#c00":"#060"}}>{totDiCoopen-mDi}</td>
-          </tr>
         </tbody>
       </table>
+
+      {/* ── Footer Summary Table ── */}
+      {(()=>{
+        const bfManual=totBfCoopen+totBfCoin;
+        const luManual=totLuCoopen+totLuCoin;
+        const diManual=totDiCoopen+totDiCoin;
+        const bfDiff=totBfCoopen-mBf;
+        const luDiff=totLuCoopen-mLu;
+        const diDiff=totDiCoopen-mDi;
+        const totCoopen=totBfCoopen+totLuCoopen+totDiCoopen;
+        const totCoin=totBfCoin+totLuCoin+totDiCoin;
+        const totManual=totCoopen+totCoin;
+        const totDiff=bfDiff+luDiff+diDiff;
+        const th:React.CSSProperties={border:"1px solid #333",padding:"3px 6px",textAlign:"center",fontWeight:"bold",background:"#1a3a5a",color:"white"};
+        const td:React.CSSProperties={border:"1px solid #333",padding:"3px 6px",textAlign:"center"};
+        const tdBold:React.CSSProperties={...td,fontWeight:"bold",background:"#e8f0fe"};
+        return (
+          <table style={{width:"60%",borderCollapse:"collapse",marginTop:14,marginLeft:"auto",marginRight:0}}>
+            <thead>
+              <tr>
+                <th style={th}>Particulars</th>
+                <th colSpan={3} style={{...th,background:"#4a5568"}}>Manual Data</th>
+                <th style={th}>Machine Data</th>
+                <th style={th}>Difference</th>
+              </tr>
+              <tr>
+                <th style={th}></th>
+                <th style={{...th,background:"#4a5568"}}>Coopen</th>
+                <th style={{...th,background:"#4a5568"}}>Coin</th>
+                <th style={{...th,background:"#4a5568"}}>Total</th>
+                <th style={th}></th>
+                <th style={th}></th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td style={td}>Breakfast</td>
+                <td style={td}>{totBfCoopen||""}</td>
+                <td style={td}>{totBfCoin||""}</td>
+                <td style={td}>{bfManual||""}</td>
+                <td style={td}>{mBf||""}</td>
+                <td style={{...td,fontWeight:"bold",color:bfDiff!==0?"#c00":"#060"}}>{totBfCoopen||mBf?bfDiff:""}</td>
+              </tr>
+              <tr>
+                <td style={td}>Lunch</td>
+                <td style={td}>{totLuCoopen||""}</td>
+                <td style={td}>{totLuCoin||""}</td>
+                <td style={td}>{luManual||""}</td>
+                <td style={td}>{mLu||""}</td>
+                <td style={{...td,fontWeight:"bold",color:luDiff!==0?"#c00":"#060"}}>{totLuCoopen||mLu?luDiff:""}</td>
+              </tr>
+              <tr>
+                <td style={td}>Dinner</td>
+                <td style={td}>{totDiCoopen||""}</td>
+                <td style={td}>{totDiCoin||""}</td>
+                <td style={td}>{diManual||""}</td>
+                <td style={td}>{mDi||""}</td>
+                <td style={{...td,fontWeight:"bold",color:diDiff!==0?"#c00":"#060"}}>{totDiCoopen||mDi?diDiff:""}</td>
+              </tr>
+              <tr>
+                <td style={tdBold}>Total</td>
+                <td style={tdBold}>{totCoopen||""}</td>
+                <td style={tdBold}>{totCoin||""}</td>
+                <td style={tdBold}>{totManual||""}</td>
+                <td style={tdBold}></td>
+                <td style={{...tdBold,color:totDiff!==0?"#c00":"#060"}}>{totDiff||""}</td>
+              </tr>
+            </tbody>
+          </table>
+        );
+      })()}
     </div>
   );
 
