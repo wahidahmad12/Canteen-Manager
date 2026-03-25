@@ -1875,10 +1875,10 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getUblDateEntries(month: number, year: number): Promise<UblDateEntry[]> {
-    const prevMonth = month === 1 ? 12 : month - 1;
-    const prevYear  = month === 1 ? year - 1 : year;
-    const startDate = `${prevYear}-${String(prevMonth).padStart(2,'0')}-21`;
-    const endDate   = `${year}-${String(month).padStart(2,'0')}-20`;
+    const nextMonth = month === 12 ? 1 : month + 1;
+    const nextYear  = month === 12 ? year + 1 : year;
+    const startDate = `${year}-${String(month).padStart(2,'0')}-21`;
+    const endDate   = `${nextYear}-${String(nextMonth).padStart(2,'0')}-20`;
     return await db.select().from(ublDateEntries)
       .where(and(gte(ublDateEntries.entryDate, startDate), lte(ublDateEntries.entryDate, endDate)))
       .orderBy(ublDateEntries.entryDate);
@@ -1896,10 +1896,10 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getCiplaDateEntries(month: number, year: number): Promise<CiplaDateEntry[]> {
-    const prevMonth = month === 1 ? 12 : month - 1;
-    const prevYear  = month === 1 ? year - 1 : year;
-    const startDate = `${prevYear}-${String(prevMonth).padStart(2,'0')}-21`;
-    const endDate   = `${year}-${String(month).padStart(2,'0')}-20`;
+    const nextMonth = month === 12 ? 1 : month + 1;
+    const nextYear  = month === 12 ? year + 1 : year;
+    const startDate = `${year}-${String(month).padStart(2,'0')}-21`;
+    const endDate   = `${nextYear}-${String(nextMonth).padStart(2,'0')}-20`;
     return await db.select().from(ciplaDateEntries)
       .where(and(gte(ciplaDateEntries.entryDate, startDate), lte(ciplaDateEntries.entryDate, endDate)))
       .orderBy(ciplaDateEntries.entryDate);
@@ -1917,10 +1917,10 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getUblLunchEntries(month: number, year: number): Promise<UblLunchEntry[]> {
-    const prevMonth = month === 1 ? 12 : month - 1;
-    const prevYear  = month === 1 ? year - 1 : year;
-    const startDate = `${prevYear}-${String(prevMonth).padStart(2,'0')}-21`;
-    const endDate   = `${year}-${String(month).padStart(2,'0')}-20`;
+    const nextMonth = month === 12 ? 1 : month + 1;
+    const nextYear  = month === 12 ? year + 1 : year;
+    const startDate = `${year}-${String(month).padStart(2,'0')}-21`;
+    const endDate   = `${nextYear}-${String(nextMonth).padStart(2,'0')}-20`;
     return await db.select().from(ublLunchEntries)
       .where(and(gte(ublLunchEntries.entryDate, startDate), lte(ublLunchEntries.entryDate, endDate)))
       .orderBy(ublLunchEntries.entryDate);

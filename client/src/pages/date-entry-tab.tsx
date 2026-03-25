@@ -19,13 +19,13 @@ function getWeekDay(dateStr: string) {
 const isSunday = (dateStr: string) => { try { return new Date(dateStr+"T00:00:00").getDay() === 0; } catch { return false; } };
 const isWed = (dateStr: string) => { try { return new Date(dateStr+"T00:00:00").getDay() === 3; } catch { return false; } };
 
-// Billing period: 21st of previous month → 20th of selected month
+// Billing period: 21st of selected month → 20th of next month
 function getBillingRange(month: number, year: number): { startDate: string; endDate: string; label: string } {
-  const prevMonth = month === 1 ? 12 : month - 1;
-  const prevYear  = month === 1 ? year - 1 : year;
-  const startDate = `${prevYear}-${String(prevMonth).padStart(2,'0')}-21`;
-  const endDate   = `${year}-${String(month).padStart(2,'0')}-20`;
-  const label = `21 ${MONTHS[prevMonth-1].slice(0,3)} ${prevYear} – 20 ${MONTHS[month-1].slice(0,3)} ${year}`;
+  const nextMonth = month === 12 ? 1 : month + 1;
+  const nextYear  = month === 12 ? year + 1 : year;
+  const startDate = `${year}-${String(month).padStart(2,'0')}-21`;
+  const endDate   = `${nextYear}-${String(nextMonth).padStart(2,'0')}-20`;
+  const label = `21 ${MONTHS[month-1].slice(0,3)} ${year} – 20 ${MONTHS[nextMonth-1].slice(0,3)} ${nextYear}`;
   return { startDate, endDate, label };
 }
 
