@@ -5,7 +5,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
-import { format, getDaysInMonth } from "date-fns";
+import { format } from "date-fns";
 import { Plus, Trash2, Printer, Loader2, Save, AlertTriangle, CheckCircle2 } from "lucide-react";
 
 const MONTHS = ["January","February","March","April","May","June","July","August","September","October","November","December"];
@@ -18,6 +18,29 @@ function getWeekDay(dateStr: string) {
 }
 const isSunday = (dateStr: string) => { try { return new Date(dateStr+"T00:00:00").getDay() === 0; } catch { return false; } };
 const isWed = (dateStr: string) => { try { return new Date(dateStr+"T00:00:00").getDay() === 3; } catch { return false; } };
+
+// Billing period: 21st of previous month → 20th of selected month
+function getBillingRange(month: number, year: number): { startDate: string; endDate: string; label: string } {
+  const prevMonth = month === 1 ? 12 : month - 1;
+  const prevYear  = month === 1 ? year - 1 : year;
+  const startDate = `${prevYear}-${String(prevMonth).padStart(2,'0')}-21`;
+  const endDate   = `${year}-${String(month).padStart(2,'0')}-20`;
+  const label = `21 ${MONTHS[prevMonth-1].slice(0,3)} ${prevYear} – 20 ${MONTHS[month-1].slice(0,3)} ${year}`;
+  return { startDate, endDate, label };
+}
+
+// Return all dates YYYY-MM-DD in a billing range
+function billingRangeDates(month: number, year: number): string[] {
+  const { startDate, endDate } = getBillingRange(month, year);
+  const dates: string[] = [];
+  const cur = new Date(startDate + "T00:00:00");
+  const end = new Date(endDate + "T00:00:00");
+  while (cur <= end) {
+    dates.push(cur.toISOString().slice(0, 10));
+    cur.setDate(cur.getDate() + 1);
+  }
+  return dates;
+}
 
 // ============================================================
 // UBL Format 1 — Bill Data Sheet (Food Items)
@@ -99,14 +122,9 @@ function UblDateEntryTab({ month, year }: { month: number; year: number }) {
   };
 
   const handleAddRow = () => {
-    const daysInMonth = getDaysInMonth(new Date(year, month - 1));
-    const existingDates = rows.map(r => r.entryDate);
-    let nextDate = "";
-    for (let d = 1; d <= daysInMonth; d++) {
-      const ds = `${year}-${String(month).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
-      if (!existingDates.includes(ds)) { nextDate = ds; break; }
-    }
-    if (!nextDate) nextDate = `${year}-${String(month).padStart(2,'0')}-01`;
+    const allDates = billingRangeDates(month, year);
+    const existingDates = new Set(rows.map(r => r.entryDate));
+    const nextDate = allDates.find(d => !existingDates.has(d)) || allDates[0];
     syncRows();
     setLocalRows(prev => [...prev, ublRowDefaults(nextDate, month, year)]);
   };
@@ -180,14 +198,13 @@ function UblDateEntryTab({ month, year }: { month: number; year: number }) {
       style={{width:w,border:"none",background:"transparent",textAlign:"center",fontSize:12,padding:0,outline:"none"}}/>
   );
 
-  const monthStart = rows.length ? rows[0].entryDate : `${year}-${String(month).padStart(2,'0')}-01`;
-  const monthEnd = rows.length ? rows[rows.length-1].entryDate : "";
+  const { startDate: billingStart, endDate: billingEnd, label: billingLabel } = getBillingRange(month, year);
 
   const printTable = (
     <div ref={printRef}>
       <h3>DJ Hospitality &amp; Facility Management Pvt Ltd</h3>
       <h4>United Breweries Ltd, Kalyani</h4>
-      <p>Bill Data Sheet {monthStart?format(new Date(monthStart+"T00:00:00"),"d MMMM yyyy"):""} to {monthEnd?format(new Date(monthEnd+"T00:00:00"),"d MMMM yyyy"):""}</p>
+      <p>Bill Data Sheet — {billingLabel}</p>
       <table>
         <thead>
           <tr>
@@ -443,14 +460,9 @@ function UblLunchEntryTab({ month, year }: { month: number; year: number }) {
   };
 
   const handleAddRow = () => {
-    const daysInMonth = getDaysInMonth(new Date(year, month - 1));
-    const existingDates = rows.map(r => r.entryDate);
-    let nextDate = "";
-    for (let d = 1; d <= daysInMonth; d++) {
-      const ds = `${year}-${String(month).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
-      if (!existingDates.includes(ds)) { nextDate = ds; break; }
-    }
-    if (!nextDate) nextDate = `${year}-${String(month).padStart(2,'0')}-01`;
+    const allDates = billingRangeDates(month, year);
+    const existingDates = new Set(rows.map(r => r.entryDate));
+    const nextDate = allDates.find(d => !existingDates.has(d)) || allDates[0];
     syncRows();
     setLocalRows(prev => [...prev, lunchRowDefaults(nextDate, month, year)]);
   };
@@ -517,16 +529,13 @@ function UblLunchEntryTab({ month, year }: { month: number; year: number }) {
       style={{width:w,border:"none",background:"transparent",textAlign:"center",fontSize:12,padding:0,outline:"none"}}/>
   );
 
-  const monthStart = rows.length ? rows[0].entryDate : `${year}-${String(month).padStart(2,'0')}-01`;
-  const monthEnd   = rows.length ? rows[rows.length-1].entryDate : "";
+  const { label: lunchBillingLabel } = getBillingRange(month, year);
 
   const printTable = (
     <div ref={printRef}>
       <h3>DJ Hospitality &amp; Facility Management Pvt. Ltd.</h3>
       <h4><strong>Number of Lunch Per Day to United Breweries Limited</strong></h4>
-      {monthStart && monthEnd && (
-        <p>{format(new Date(monthStart+"T00:00:00"),"d MMMM yyyy")} to {format(new Date(monthEnd+"T00:00:00"),"d MMMM yyyy")}</p>
-      )}
+      <p>{lunchBillingLabel}</p>
       <table>
         <thead>
           <tr>
@@ -770,14 +779,9 @@ function CiplaDateEntryTab({ month, year }: { month: number; year: number }) {
   };
 
   const handleAddRow = () => {
-    const daysInMonth = getDaysInMonth(new Date(year, month - 1));
-    const existingDates = rows.map(r => r.entryDate);
-    let nextDate = "";
-    for (let d = 1; d <= daysInMonth; d++) {
-      const ds = `${year}-${String(month).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
-      if (!existingDates.includes(ds)) { nextDate = ds; break; }
-    }
-    if (!nextDate) nextDate = `${year}-${String(month).padStart(2,'0')}-01`;
+    const allDates = billingRangeDates(month, year);
+    const existingDates = new Set(rows.map(r => r.entryDate));
+    const nextDate = allDates.find(d => !existingDates.has(d)) || allDates[0];
     syncRows();
     setLocalRows(prev => [...prev, ciplaRowDefaults(nextDate, month, year)]);
   };
@@ -843,14 +847,13 @@ function CiplaDateEntryTab({ month, year }: { month: number; year: number }) {
       style={{width:w,border:"none",background:"transparent",textAlign:"center",fontSize:12,padding:0,outline:"none"}}/>
   );
 
-  const monthStart = rows.length ? rows[0].entryDate : `${year}-${String(month).padStart(2,'0')}-01`;
-  const monthEnd   = rows.length ? rows[rows.length-1].entryDate : "";
+  const { label: ciplaBillingLabel } = getBillingRange(month, year);
 
   const printTable = (
     <div ref={printRef}>
       <h3>DJ Hospitality &amp; Facility Management Pvt Ltd</h3>
       <h4>Cipla Limited Unit 1</h4>
-      <p>Bill Data Sheet {monthStart?format(new Date(monthStart+"T00:00:00"),"d MMMM yyyy"):""} to {monthEnd?format(new Date(monthEnd+"T00:00:00"),"d MMMM yyyy"):""}</p>
+      <p>Bill Data Sheet — {ciplaBillingLabel}</p>
       <table>
         <thead>
           <tr>
@@ -1056,6 +1059,7 @@ export function DateEntryTab() {
   const [ublSubTab, setUblSubTab] = useState("format1");
 
   const years = Array.from({ length: 6 }, (_, i) => String(now.getFullYear() - 2 + i));
+  const { label: billingLabel } = getBillingRange(parseInt(month), parseInt(year));
 
   return (
     <div>
@@ -1073,7 +1077,7 @@ export function DateEntryTab() {
           </Select>
         </div>
         <div className="flex items-center gap-2">
-          <label className="text-sm font-medium text-muted-foreground">Month:</label>
+          <label className="text-sm font-medium text-muted-foreground">Billing Month:</label>
           <Select value={month} onValueChange={setMonth}>
             <SelectTrigger className="w-32 h-9" data-testid="select-date-entry-month"><SelectValue/></SelectTrigger>
             <SelectContent>
@@ -1090,6 +1094,9 @@ export function DateEntryTab() {
             </SelectContent>
           </Select>
         </div>
+        <Badge variant="outline" className="text-xs font-medium bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300 border-blue-200 dark:border-blue-700 ml-auto">
+          Period: {billingLabel}
+        </Badge>
       </div>
 
       {/* Client-specific content */}
