@@ -822,6 +822,68 @@ export const selectPankajReportSchema = createSelectSchema(pankajReports, {
   updatedAt: z.string().or(z.date()),
 });
 
+// === UBL DATE ENTRIES (United Breweries Ltd format) ===
+export const ublDateEntries = mysqlTable("ubl_date_entries", {
+  id: int("id").autoincrement().primaryKey(),
+  entryDate: date("entry_date").notNull(),
+  month: int("month").notNull(),
+  year: int("year").notNull(),
+  weekDay: varchar("week_day", { length: 10 }),
+  tea1: int("tea1").default(0),
+  biscuit1: int("biscuit1").default(0),
+  breakfast: int("breakfast").default(0),
+  tea2: int("tea2").default(0),
+  lunch: int("lunch").default(0),
+  mutton: int("mutton").default(0),
+  tea3: int("tea3").default(0),
+  biscuit2: int("biscuit2").default(0),
+  tiffin: int("tiffin").default(0),
+  boiledEgg: int("boiled_egg").default(0),
+  tea4: int("tea4").default(0),
+  dinner: int("dinner").default(0),
+  tea5: int("tea5").default(0),
+  tea6: int("tea6").default(0),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+export type UblDateEntry = typeof ublDateEntries.$inferSelect;
+export const insertUblDateEntrySchema = createInsertSchema(ublDateEntries).omit({ id: true, createdAt: true, updatedAt: true });
+export const selectUblDateEntrySchema = createSelectSchema(ublDateEntries, {
+  createdAt: z.string().or(z.date()),
+  updatedAt: z.string().or(z.date()),
+  weekDay: z.string().nullable(),
+});
+
+// === CIPLA DATE ENTRIES (Cipla Limited format) ===
+export const ciplaDateEntries = mysqlTable("cipla_date_entries", {
+  id: int("id").autoincrement().primaryKey(),
+  entryDate: date("entry_date").notNull(),
+  month: int("month").notNull(),
+  year: int("year").notNull(),
+  weekDay: varchar("week_day", { length: 10 }),
+  breakfastCoopen: int("breakfast_coopen").default(0),
+  breakfastCoin: int("breakfast_coin").default(0),
+  breakfastSign: int("breakfast_sign").default(0),
+  lunchCoopen: int("lunch_coopen").default(0),
+  lunchCoin: int("lunch_coin").default(0),
+  lunchSign: int("lunch_sign").default(0),
+  dinnerCoopen: int("dinner_coopen").default(0),
+  dinnerCoin: int("dinner_coin").default(0),
+  dinnerSign: int("dinner_sign").default(0),
+  breakfastMachine: int("breakfast_machine").default(0),
+  lunchMachine: int("lunch_machine").default(0),
+  dinnerMachine: int("dinner_machine").default(0),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+export type CiplaDateEntry = typeof ciplaDateEntries.$inferSelect;
+export const insertCiplaDateEntrySchema = createInsertSchema(ciplaDateEntries).omit({ id: true, createdAt: true, updatedAt: true });
+export const selectCiplaDateEntrySchema = createSelectSchema(ciplaDateEntries, {
+  createdAt: z.string().or(z.date()),
+  updatedAt: z.string().or(z.date()),
+  weekDay: z.string().nullable(),
+});
+
 export const ALL_PAYROLL_PERMISSIONS = [...ALL_PERMISSIONS, 'salary'] as const;
 
 export type HalfYearlyReturn = typeof halfYearlyReturns.$inferSelect;

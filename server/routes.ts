@@ -1736,6 +1736,54 @@ export async function registerRoutes(
     res.status(204).send();
   });
 
+  // === UBL DATE ENTRY ROUTES ===
+  app.get('/api/ubl-date-entries', requirePermission('salesinvoice'), async (req, res) => {
+    const month = Number(req.query.month) || new Date().getMonth() + 1;
+    const year = Number(req.query.year) || new Date().getFullYear();
+    const entries = await storage.getUblDateEntries(month, year);
+    res.json(entries);
+  });
+  app.post('/api/ubl-date-entries', requirePermission('salesinvoice'), async (req, res) => {
+    try {
+      const entry = await storage.createUblDateEntry(req.body);
+      res.status(201).json(entry);
+    } catch (err: any) { res.status(500).json({ message: err.message }); }
+  });
+  app.put('/api/ubl-date-entries/:id', requirePermission('salesinvoice'), async (req, res) => {
+    try {
+      const entry = await storage.updateUblDateEntry(Number(req.params.id), req.body);
+      res.json(entry);
+    } catch (err: any) { res.status(500).json({ message: err.message }); }
+  });
+  app.delete('/api/ubl-date-entries/:id', requirePermission('salesinvoice'), async (req, res) => {
+    await storage.deleteUblDateEntry(Number(req.params.id));
+    res.status(204).send();
+  });
+
+  // === CIPLA DATE ENTRY ROUTES ===
+  app.get('/api/cipla-date-entries', requirePermission('salesinvoice'), async (req, res) => {
+    const month = Number(req.query.month) || new Date().getMonth() + 1;
+    const year = Number(req.query.year) || new Date().getFullYear();
+    const entries = await storage.getCiplaDateEntries(month, year);
+    res.json(entries);
+  });
+  app.post('/api/cipla-date-entries', requirePermission('salesinvoice'), async (req, res) => {
+    try {
+      const entry = await storage.createCiplaDateEntry(req.body);
+      res.status(201).json(entry);
+    } catch (err: any) { res.status(500).json({ message: err.message }); }
+  });
+  app.put('/api/cipla-date-entries/:id', requirePermission('salesinvoice'), async (req, res) => {
+    try {
+      const entry = await storage.updateCiplaDateEntry(Number(req.params.id), req.body);
+      res.json(entry);
+    } catch (err: any) { res.status(500).json({ message: err.message }); }
+  });
+  app.delete('/api/cipla-date-entries/:id', requirePermission('salesinvoice'), async (req, res) => {
+    await storage.deleteCiplaDateEntry(Number(req.params.id));
+    res.status(204).send();
+  });
+
   return httpServer;
 }
 

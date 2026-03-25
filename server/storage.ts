@@ -35,6 +35,10 @@ import {
   letters,
   purchaseOrders,
   salesInvoices,
+  ublDateEntries,
+  ciplaDateEntries,
+  type UblDateEntry,
+  type CiplaDateEntry,
   type DailyReport, 
   type ExpenseItem,
   type CreateReportRequest,
@@ -226,6 +230,16 @@ export interface IStorage {
   savePankajReport(data: any): Promise<PankajReport>;
   updatePankajReport(id: number, data: any): Promise<PankajReport>;
   deletePankajReport(id: number): Promise<void>;
+  // UBL Date Entries
+  getUblDateEntries(month: number, year: number): Promise<UblDateEntry[]>;
+  createUblDateEntry(data: any): Promise<UblDateEntry>;
+  updateUblDateEntry(id: number, data: any): Promise<UblDateEntry>;
+  deleteUblDateEntry(id: number): Promise<void>;
+  // Cipla Date Entries
+  getCiplaDateEntries(month: number, year: number): Promise<CiplaDateEntry[]>;
+  createCiplaDateEntry(data: any): Promise<CiplaDateEntry>;
+  updateCiplaDateEntry(id: number, data: any): Promise<CiplaDateEntry>;
+  deleteCiplaDateEntry(id: number): Promise<void>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -1851,6 +1865,40 @@ export class DatabaseStorage implements IStorage {
 
   async deletePankajReport(id: number): Promise<void> {
     await db.delete(pankajReports).where(eq(pankajReports.id, id));
+  }
+
+  async getUblDateEntries(month: number, year: number): Promise<UblDateEntry[]> {
+    return await db.select().from(ublDateEntries)
+      .where(and(eq(ublDateEntries.month, month), eq(ublDateEntries.year, year)))
+      .orderBy(ublDateEntries.entryDate);
+  }
+  async createUblDateEntry(data: any): Promise<UblDateEntry> {
+    return await insertAndGet<UblDateEntry>(ublDateEntries, data);
+  }
+  async updateUblDateEntry(id: number, data: any): Promise<UblDateEntry> {
+    await db.update(ublDateEntries).set({ ...data, updatedAt: new Date() }).where(eq(ublDateEntries.id, id));
+    const [updated] = await db.select().from(ublDateEntries).where(eq(ublDateEntries.id, id));
+    return updated;
+  }
+  async deleteUblDateEntry(id: number): Promise<void> {
+    await db.delete(ublDateEntries).where(eq(ublDateEntries.id, id));
+  }
+
+  async getCiplaDateEntries(month: number, year: number): Promise<CiplaDateEntry[]> {
+    return await db.select().from(ciplaDateEntries)
+      .where(and(eq(ciplaDateEntries.month, month), eq(ciplaDateEntries.year, year)))
+      .orderBy(ciplaDateEntries.entryDate);
+  }
+  async createCiplaDateEntry(data: any): Promise<CiplaDateEntry> {
+    return await insertAndGet<CiplaDateEntry>(ciplaDateEntries, data);
+  }
+  async updateCiplaDateEntry(id: number, data: any): Promise<CiplaDateEntry> {
+    await db.update(ciplaDateEntries).set({ ...data, updatedAt: new Date() }).where(eq(ciplaDateEntries.id, id));
+    const [updated] = await db.select().from(ciplaDateEntries).where(eq(ciplaDateEntries.id, id));
+    return updated;
+  }
+  async deleteCiplaDateEntry(id: number): Promise<void> {
+    await db.delete(ciplaDateEntries).where(eq(ciplaDateEntries.id, id));
   }
 }
 
