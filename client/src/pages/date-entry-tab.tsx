@@ -1,5 +1,6 @@
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useMemo } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useCurrentUser } from "@/hooks/use-reports";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
@@ -1701,13 +1702,42 @@ const CLIENT_OPTIONS = [
 
 export function DateEntryTab() {
   const now = new Date();
-  const [selectedClient, setSelectedClient] = useState("ubl");
+  const { data: currentUser } = useCurrentUser();
+
+  const allowedClients = useMemo(() => {
+    if (!currentUser) return [];
+    if (currentUser.role === "admin") return CLIENT_OPTIONS;
+    const perms = currentUser.permissions || [];
+    return CLIENT_OPTIONS.filter(o => {
+      if (o.value === "ubl") return perms.includes("dateentry_ubl");
+      if (o.value === "cipla") return perms.includes("dateentry_cipla");
+      return false;
+    });
+  }, [currentUser]);
+
+  const [selectedClient, setSelectedClient] = useState("");
   const [month, setMonth] = useState(String(now.getMonth() + 1));
   const [year, setYear] = useState(String(now.getFullYear()));
   const [ublSubTab, setUblSubTab] = useState("format1");
 
+  useEffect(() => {
+    if (allowedClients.length > 0 && !allowedClients.find(o => o.value === selectedClient)) {
+      setSelectedClient(allowedClients[0].value);
+    }
+  }, [allowedClients, selectedClient]);
+
   const years = Array.from({ length: 6 }, (_, i) => String(now.getFullYear() - 2 + i));
   const { label: billingLabel } = getBillingRange(parseInt(month), parseInt(year));
+
+  if (allowedClients.length === 0) {
+    return (
+      <div className="flex flex-col items-center justify-center py-16 text-center gap-3">
+        <div className="text-4xl">🔒</div>
+        <p className="text-muted-foreground text-sm">You don't have permission to access Date Entry for any client.</p>
+        <p className="text-muted-foreground text-xs">Contact your administrator to request access.</p>
+      </div>
+    );
+  }
 
   return (
     <div>
@@ -1718,7 +1748,7 @@ export function DateEntryTab() {
           <Select value={selectedClient} onValueChange={setSelectedClient}>
             <SelectTrigger className="flex-1 sm:w-52 h-10" data-testid="select-date-entry-client"><SelectValue/></SelectTrigger>
             <SelectContent>
-              {CLIENT_OPTIONS.map(o=>(
+              {allowedClients.map(o=>(
                 <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>
               ))}
             </SelectContent>

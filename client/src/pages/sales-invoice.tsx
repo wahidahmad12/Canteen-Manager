@@ -12,7 +12,7 @@ import { format } from "date-fns";
 import { useToast } from "@/hooks/use-toast";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
-import { useClientNames } from "@/hooks/use-reports";
+import { useClientNames, useCurrentUser } from "@/hooks/use-reports";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   FileText, Plus, Save, Loader2, Pencil, Trash2, Search,
@@ -650,6 +650,10 @@ export default function SalesInvoicePage() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const { data: clients = [] } = useClientNames();
+  const { data: currentUser } = useCurrentUser();
+  const canSeeDataEntry = currentUser?.role === "admin" ||
+    currentUser?.permissions?.includes("dateentry_ubl") ||
+    currentUser?.permissions?.includes("dateentry_cipla");
   const { data: invoices = [], isLoading } = useQuery<SalesInvoice[]>({
     queryKey: ["/api/sales-invoices"],
   });
@@ -918,9 +922,11 @@ export default function SalesInvoicePage() {
               <TabsTrigger value="pankaj-report" className="data-[state=active]:bg-white dark:data-[state=active]:bg-gray-800 flex items-center gap-1 text-xs sm:text-sm sm:gap-1.5 whitespace-nowrap min-h-[44px] flex-1 sm:flex-none" data-testid="tab-pankaj-report">
                 <User className="w-3.5 h-3.5 shrink-0" /> Pankaj
               </TabsTrigger>
+              {canSeeDataEntry && (
               <TabsTrigger value="date-entry" className="data-[state=active]:bg-white dark:data-[state=active]:bg-gray-800 flex items-center gap-1 text-xs sm:text-sm sm:gap-1.5 whitespace-nowrap min-h-[44px] flex-1 sm:flex-none" data-testid="tab-date-entry">
                 <CalendarDays className="w-3.5 h-3.5 shrink-0" /> Date Entry
               </TabsTrigger>
+              )}
             </TabsList>
           </div>
 

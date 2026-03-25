@@ -152,6 +152,8 @@ export default function Admin() {
     purchase: 'Purchase Request & Invoices',
     labour: 'Labour Works',
     salesinvoice: 'Sales Invoice Ledger',
+    dateentry_ubl: 'Date Entry — UBL',
+    dateentry_cipla: 'Date Entry — Cipla',
   };
 
   const togglePerm = (perm: string) => {
