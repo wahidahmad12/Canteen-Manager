@@ -16,6 +16,13 @@ function normDate(dateStr: string): string {
   return dateStr.includes("T") ? dateStr.split("T")[0] : dateStr;
 }
 
+function localDateStr(d: Date): string {
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${y}-${m}-${day}`;
+}
+
 function safeFormat(dateStr: string): string {
   if (!dateStr) return "";
   try {
@@ -139,7 +146,7 @@ function UblDateEntryTab({ month, year }: { month: number; year: number }) {
       const lastDate = normDate(rows[rows.length - 1].entryDate);
       const d = new Date(lastDate + "T00:00:00");
       d.setDate(d.getDate() + 1);
-      nextDate = d.toISOString().split('T')[0];
+      nextDate = localDateStr(d);
     }
     if (nextDate > billingEnd1) {
       toast({ title: "Billing period complete", description: `All dates up to ${billingEnd1} already added.`, variant: "destructive" });
@@ -588,7 +595,7 @@ function UblLunchEntryTab({ month, year }: { month: number; year: number }) {
       const lastDate = normDate(rows[rows.length - 1].entryDate);
       const d = new Date(lastDate + "T00:00:00");
       d.setDate(d.getDate() + 1);
-      nextDate = d.toISOString().split('T')[0];
+      nextDate = localDateStr(d);
     }
     if (nextDate > billingEnd2) {
       toast({ title: "Billing period complete", description: `All dates up to ${billingEnd2} already added.`, variant: "destructive" });
@@ -1009,7 +1016,7 @@ function CiplaDateEntryTab({ month, year }: { month: number; year: number }) {
       const lastDate = normDate(rows[rows.length - 1].entryDate);
       const d = new Date(lastDate + "T00:00:00");
       d.setDate(d.getDate() + 1);
-      nextDate = d.toISOString().split('T')[0];
+      nextDate = localDateStr(d);
     }
     if (nextDate > billingEnd3) {
       toast({ title: "Billing period complete", description: `All dates up to ${billingEnd3} already added.`, variant: "destructive" });
