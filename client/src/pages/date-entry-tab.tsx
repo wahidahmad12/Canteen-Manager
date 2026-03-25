@@ -851,14 +851,14 @@ function CiplaDateEntryTab({ month, year }: { month: number; year: number }) {
             <th rowSpan={2} style={{width:75}}>Date</th>
             <th rowSpan={2} style={{width:40}}>Month</th>
             <th rowSpan={2} style={{width:40}}>Week Day</th>
-            <th colSpan={4} style={{background:"#4a5568",color:"white"}}>Breakfast</th>
-            <th colSpan={4} style={{background:"#2d6a4f",color:"white"}}>Lunch</th>
-            <th colSpan={4} style={{background:"#1a3a5a",color:"white"}}>Dinner</th>
+            <th colSpan={6} style={{background:"#4a5568",color:"white"}}>Breakfast</th>
+            <th colSpan={6} style={{background:"#2d6a4f",color:"white"}}>Lunch</th>
+            <th colSpan={6} style={{background:"#1a3a5a",color:"white"}}>Dinner</th>
           </tr>
           <tr>
-            <th>Coopen</th><th>Coin</th><th>Sign</th><th>Total</th>
-            <th>Coopen</th><th>Coin</th><th>Sign</th><th>Total</th>
-            <th>Coopen</th><th>Coin</th><th>Sign</th><th>Total</th>
+            <th>Coopen</th><th>Coin</th><th>Sign</th><th>Total</th><th>Machine</th><th>Diff</th>
+            <th>Coopen</th><th>Coin</th><th>Sign</th><th>Total</th><th>Machine</th><th>Diff</th>
+            <th>Coopen</th><th>Coin</th><th>Sign</th><th>Total</th><th>Machine</th><th>Diff</th>
           </tr>
         </thead>
         <tbody>
@@ -866,22 +866,25 @@ function CiplaDateEntryTab({ month, year }: { month: number; year: number }) {
             const bfTotal=(row.breakfastCoopen||0)+(row.breakfastCoin||0)+(row.breakfastSign||0);
             const luTotal=(row.lunchCoopen||0)+(row.lunchCoin||0)+(row.lunchSign||0);
             const diTotal=(row.dinnerCoopen||0)+(row.dinnerCoin||0)+(row.dinnerSign||0);
+            const bfDiff=(row.breakfastCoopen||0)-(row.breakfastMachine||0);
+            const luDiff=(row.lunchCoopen||0)-(row.lunchMachine||0);
+            const diDiff=(row.dinnerCoopen||0)-(row.dinnerMachine||0);
             return (
               <tr key={i} style={{background:isSunday(row.entryDate)?"#ffa500":"transparent"}}>
                 <td>{i+1}</td>
                 <td>{row.entryDate?format(new Date(row.entryDate+"T00:00:00"),"dd-MM-yyyy"):""}</td>
                 <td>{row.month}</td><td>{row.weekDay}</td>
-                <td>{row.breakfastCoopen||""}</td><td>{row.breakfastCoin||""}</td><td>{row.breakfastSign||""}</td><td>{bfTotal||""}</td>
-                <td>{row.lunchCoopen||""}</td><td>{row.lunchCoin||""}</td><td>{row.lunchSign||""}</td><td>{luTotal||""}</td>
-                <td>{row.dinnerCoopen||""}</td><td>{row.dinnerCoin||""}</td><td>{row.dinnerSign||""}</td><td>{diTotal||""}</td>
+                <td>{row.breakfastCoopen||""}</td><td>{row.breakfastCoin||""}</td><td>{row.breakfastSign||""}</td><td>{bfTotal||""}</td><td>{row.breakfastMachine||""}</td><td style={{color:bfDiff!==0?"#c00":"inherit"}}>{(row.breakfastCoopen||row.breakfastMachine)?bfDiff:""}</td>
+                <td>{row.lunchCoopen||""}</td><td>{row.lunchCoin||""}</td><td>{row.lunchSign||""}</td><td>{luTotal||""}</td><td>{row.lunchMachine||""}</td><td style={{color:luDiff!==0?"#c00":"inherit"}}>{(row.lunchCoopen||row.lunchMachine)?luDiff:""}</td>
+                <td>{row.dinnerCoopen||""}</td><td>{row.dinnerCoin||""}</td><td>{row.dinnerSign||""}</td><td>{diTotal||""}</td><td>{row.dinnerMachine||""}</td><td style={{color:diDiff!==0?"#c00":"inherit"}}>{(row.dinnerCoopen||row.dinnerMachine)?diDiff:""}</td>
               </tr>
             );
           })}
           <tr style={{fontWeight:"bold",background:"#e8f0fe"}}>
             <td colSpan={4}>Total</td>
-            <td>{totBfCoopen}</td><td>{totBfCoin}</td><td>{totBfSign}</td><td>{totBfTotal}</td>
-            <td>{totLuCoopen}</td><td>{totLuCoin}</td><td>{totLuSign}</td><td>{totLuTotal}</td>
-            <td>{totDiCoopen}</td><td>{totDiCoin}</td><td>{totDiSign}</td><td>{totDiTotal}</td>
+            <td>{totBfCoopen}</td><td>{totBfCoin}</td><td>{totBfSign}</td><td>{totBfTotal}</td><td>{totBfMachine}</td><td>{totBfCoopen-totBfMachine}</td>
+            <td>{totLuCoopen}</td><td>{totLuCoin}</td><td>{totLuSign}</td><td>{totLuTotal}</td><td>{totLuMachine}</td><td>{totLuCoopen-totLuMachine}</td>
+            <td>{totDiCoopen}</td><td>{totDiCoin}</td><td>{totDiSign}</td><td>{totDiTotal}</td><td>{totDiMachine}</td><td>{totDiCoopen-totDiMachine}</td>
           </tr>
         </tbody>
       </table>
@@ -1001,7 +1004,7 @@ function CiplaDateEntryTab({ month, year }: { month: number; year: number }) {
                 { label:"Lunch", coopen:totLuCoopen, coin:totLuCoin, total:totLuTotal, machine:totLuMachine },
                 { label:"Dinner", coopen:totDiCoopen, coin:totDiCoin, total:totDiTotal, machine:totDiMachine },
               ].map((s,i)=>{
-                const diff=s.total-s.machine;
+                const diff=s.coopen-s.machine;
                 return (
                   <tr key={s.label} style={{background:i%2===0?"#fff":"#f9f9f9"}}>
                     <td style={{padding:"4px 10px",borderBottom:"1px solid #eee"}}>{s.label}</td>
@@ -1009,8 +1012,8 @@ function CiplaDateEntryTab({ month, year }: { month: number; year: number }) {
                     <td style={{padding:"4px 8px",textAlign:"center",borderBottom:"1px solid #eee"}}>{s.coin||""}</td>
                     <td style={{padding:"4px 8px",textAlign:"center",fontWeight:"bold",borderBottom:"1px solid #eee"}}>{s.total||""}</td>
                     <td style={{padding:"4px 8px",textAlign:"center",borderBottom:"1px solid #eee"}}>{s.machine||""}</td>
-                    <td style={{padding:"4px 8px",textAlign:"center",fontWeight:"bold",color:diff>0?"#c00":"#060",borderBottom:"1px solid #eee"}}>
-                      {s.machine>0?diff:""}
+                    <td style={{padding:"4px 8px",textAlign:"center",fontWeight:"bold",color:diff!==0?"#c00":"#060",borderBottom:"1px solid #eee"}}>
+                      {s.machine>0||s.coopen>0?diff:""}
                     </td>
                   </tr>
                 );
