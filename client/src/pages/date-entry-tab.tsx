@@ -900,6 +900,10 @@ function CiplaDateEntryTab({ month, year }: { month: number; year: number }) {
         <Button size="sm" onClick={handleSaveAll} className="bg-green-600 text-white" disabled={createMutation.isPending||updateMutation.isPending}><Save className="w-3.5 h-3.5 mr-1"/>Save All</Button>
         <Button size="sm" variant="outline" onClick={handlePrint}><Printer className="w-3.5 h-3.5 mr-1"/>Print</Button>
       </div>
+      <div className="flex items-center gap-4 mb-2 text-xs text-muted-foreground">
+        <span className="flex items-center gap-1"><span style={{display:"inline-block",width:14,height:14,background:"#fff7ed",border:"1px solid #c97316",borderRadius:2}}/> Machine Data — manually enter</span>
+        <span className="flex items-center gap-1"><span style={{display:"inline-block",width:14,height:14,background:"#f0f4ff",border:"1px solid #ccc",borderRadius:2}}/> Total — auto calculated</span>
+      </div>
       <div className="overflow-x-auto rounded-xl border shadow-sm">
         <table style={{borderCollapse:"collapse",minWidth:900,fontFamily:"Arial,sans-serif",fontSize:12}}>
           <thead>
@@ -915,7 +919,7 @@ function CiplaDateEntryTab({ month, year }: { month: number; year: number }) {
             </tr>
             <tr style={{background:"#2a4a6a",color:"white"}}>
               {["Coopen","Coin","Sign","Total","Machine","Coopen","Coin","Sign","Total","Machine","Coopen","Coin","Sign","Total","Machine"].map((c,i)=>(
-                <th key={i} style={{padding:"4px 2px",border:"1px solid #334",fontSize:10}}>{c}</th>
+                <th key={i} style={{padding:"4px 2px",border:"1px solid #334",fontSize:10,background:c==="Machine"?"#b45309":undefined}}>{c}</th>
               ))}
             </tr>
           </thead>
@@ -939,17 +943,17 @@ function CiplaDateEntryTab({ month, year }: { month: number; year: number }) {
                   <td style={{border:"1px solid #ccc",padding:0,textAlign:"center"}}>{numFld(row,idx,"breakfastCoin")}</td>
                   <td style={{border:"1px solid #ccc",padding:0,textAlign:"center"}}>{numFld(row,idx,"breakfastSign")}</td>
                   <td style={{border:"1px solid #ccc",textAlign:"center",fontWeight:"bold",background:"#f0f4ff"}}>{bfTotal||""}</td>
-                  <td style={{border:"1px solid #ccc",padding:0,textAlign:"center"}}>{numFld(row,idx,"breakfastMachine")}</td>
+                  <td style={{border:"1px solid #c97316",padding:0,textAlign:"center",background:"#fff7ed"}}>{numFld(row,idx,"breakfastMachine",46)}</td>
                   <td style={{border:"1px solid #ccc",padding:0,textAlign:"center"}}>{numFld(row,idx,"lunchCoopen")}</td>
                   <td style={{border:"1px solid #ccc",padding:0,textAlign:"center"}}>{numFld(row,idx,"lunchCoin")}</td>
                   <td style={{border:"1px solid #ccc",padding:0,textAlign:"center"}}>{numFld(row,idx,"lunchSign")}</td>
                   <td style={{border:"1px solid #ccc",textAlign:"center",fontWeight:"bold",background:"#f0f4ff"}}>{luTotal||""}</td>
-                  <td style={{border:"1px solid #ccc",padding:0,textAlign:"center"}}>{numFld(row,idx,"lunchMachine")}</td>
+                  <td style={{border:"1px solid #c97316",padding:0,textAlign:"center",background:"#fff7ed"}}>{numFld(row,idx,"lunchMachine",46)}</td>
                   <td style={{border:"1px solid #ccc",padding:0,textAlign:"center"}}>{numFld(row,idx,"dinnerCoopen")}</td>
                   <td style={{border:"1px solid #ccc",padding:0,textAlign:"center"}}>{numFld(row,idx,"dinnerCoin")}</td>
                   <td style={{border:"1px solid #ccc",padding:0,textAlign:"center"}}>{numFld(row,idx,"dinnerSign")}</td>
                   <td style={{border:"1px solid #ccc",textAlign:"center",fontWeight:"bold",background:"#f0f4ff"}}>{diTotal||""}</td>
-                  <td style={{border:"1px solid #ccc",padding:0,textAlign:"center"}}>{numFld(row,idx,"dinnerMachine")}</td>
+                  <td style={{border:"1px solid #c97316",padding:0,textAlign:"center",background:"#fff7ed"}}>{numFld(row,idx,"dinnerMachine",46)}</td>
                   <td style={{border:"1px solid #ccc",padding:"2px",textAlign:"center"}}>
                     <button onClick={()=>handleSaveRow(row,idx)} title="Save" style={{color:"#2196f3",marginRight:4,background:"none",border:"none",cursor:"pointer"}}><Save style={{width:13,height:13}}/></button>
                     <button onClick={()=>handleDeleteRow(row,idx)} title="Delete" style={{color:"#e53e3e",background:"none",border:"none",cursor:"pointer"}}><Trash2 style={{width:13,height:13}}/></button>
@@ -963,17 +967,17 @@ function CiplaDateEntryTab({ month, year }: { month: number; year: number }) {
               <td style={{border:"1px solid #ccc",textAlign:"center"}}>{totBfCoin}</td>
               <td style={{border:"1px solid #ccc",textAlign:"center"}}>{totBfSign}</td>
               <td style={{border:"1px solid #ccc",textAlign:"center",background:"#d0d8ff"}}>{totBfTotal}</td>
-              <td style={{border:"1px solid #ccc",textAlign:"center"}}>{totBfMachine}</td>
+              <td style={{border:"1px solid #c97316",textAlign:"center",background:"#ffedd5"}}>{totBfMachine}</td>
               <td style={{border:"1px solid #ccc",textAlign:"center"}}>{totLuCoopen}</td>
               <td style={{border:"1px solid #ccc",textAlign:"center"}}>{totLuCoin}</td>
               <td style={{border:"1px solid #ccc",textAlign:"center"}}>{totLuSign}</td>
               <td style={{border:"1px solid #ccc",textAlign:"center",background:"#d0d8ff"}}>{totLuTotal}</td>
-              <td style={{border:"1px solid #ccc",textAlign:"center"}}>{totLuMachine}</td>
+              <td style={{border:"1px solid #c97316",textAlign:"center",background:"#ffedd5"}}>{totLuMachine}</td>
               <td style={{border:"1px solid #ccc",textAlign:"center"}}>{totDiCoopen}</td>
               <td style={{border:"1px solid #ccc",textAlign:"center"}}>{totDiCoin}</td>
               <td style={{border:"1px solid #ccc",textAlign:"center"}}>{totDiSign}</td>
               <td style={{border:"1px solid #ccc",textAlign:"center",background:"#d0d8ff"}}>{totDiTotal}</td>
-              <td style={{border:"1px solid #ccc",textAlign:"center"}}>{totDiMachine}</td>
+              <td style={{border:"1px solid #c97316",textAlign:"center",background:"#ffedd5"}}>{totDiMachine}</td>
               <td style={{border:"1px solid #ccc"}}></td>
             </tr>
           </tbody>
