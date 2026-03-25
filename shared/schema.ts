@@ -906,6 +906,20 @@ export const selectUblLunchEntrySchema = createSelectSchema(ublLunchEntries, {
   weekDay: z.string().nullable(),
 });
 
+// === CIPLA MACHINE SUMMARY (billing-period machine totals) ===
+export const ciplaaMachineSummary = mysqlTable("cipla_machine_summary", {
+  id: int("id").autoincrement().primaryKey(),
+  month: int("month").notNull(),
+  year: int("year").notNull(),
+  bfMachine: int("bf_machine").default(0),
+  luMachine: int("lu_machine").default(0),
+  diMachine: int("di_machine").default(0),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+export type CiplaaMachineSummary = typeof ciplaaMachineSummary.$inferSelect;
+export const insertCiplaaMachineSummarySchema = createInsertSchema(ciplaaMachineSummary).omit({ id: true, createdAt: true, updatedAt: true });
+
 export const ALL_PAYROLL_PERMISSIONS = [...ALL_PERMISSIONS, 'salary'] as const;
 
 export type HalfYearlyReturn = typeof halfYearlyReturns.$inferSelect;

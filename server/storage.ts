@@ -38,9 +38,11 @@ import {
   ublDateEntries,
   ciplaDateEntries,
   ublLunchEntries,
+  ciplaaMachineSummary,
   type UblDateEntry,
   type CiplaDateEntry,
   type UblLunchEntry,
+  type CiplaaMachineSummary,
   type DailyReport, 
   type ExpenseItem,
   type CreateReportRequest,
@@ -247,6 +249,8 @@ export interface IStorage {
   createUblLunchEntry(data: any): Promise<UblLunchEntry>;
   updateUblLunchEntry(id: number, data: any): Promise<UblLunchEntry>;
   deleteUblLunchEntry(id: number): Promise<void>;
+  getCiplaaMachineSummary(month: number, year: number): Promise<CiplaaMachineSummary | null>;
+  upsertCiplaaMachineSummary(month: number, year: number, data: { bfMachine: number; luMachine: number; diMachine: number }): Promise<CiplaaMachineSummary>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -1935,6 +1939,25 @@ export class DatabaseStorage implements IStorage {
   }
   async deleteUblLunchEntry(id: number): Promise<void> {
     await db.delete(ublLunchEntries).where(eq(ublLunchEntries.id, id));
+  }
+
+  async getCiplaaMachineSummary(month: number, year: number): Promise<CiplaaMachineSummary | null> {
+    const rows = await db.select().from(ciplaaMachineSummary)
+      .where(and(eq(ciplaaMachineSummary.month, month), eq(ciplaaMachineSummary.year, year)));
+    return rows[0] || null;
+  }
+
+  async upsertCiplaaMachineSummary(month: number, year: number, data: { bfMachine: number; luMachine: number; diMachine: number }): Promise<CiplaaMachineSummary> {
+    const existing = await this.getCiplaaMachineSummary(month, year);
+    if (existing) {
+      await db.update(ciplaaMachineSummary)
+        .set({ bfMachine: data.bfMachine, luMachine: data.luMachine, diMachine: data.diMachine })
+        .where(eq(ciplaaMachineSummary.id, existing.id));
+      const updated = await this.getCiplaaMachineSummary(month, year);
+      return updated!;
+    } else {
+      return await insertAndGet<CiplaaMachineSummary>(ciplaaMachineSummary, { month, year, ...data });
+    }
   }
 }
 

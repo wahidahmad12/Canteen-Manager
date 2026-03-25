@@ -1808,6 +1808,26 @@ export async function registerRoutes(
     res.status(204).send();
   });
 
+  // Cipla Machine Summary (billing-period totals)
+  app.get('/api/cipla-machine-summary', requirePermission('salesinvoice'), async (req, res) => {
+    const month = Number(req.query.month) || new Date().getMonth() + 1;
+    const year = Number(req.query.year) || new Date().getFullYear();
+    const data = await storage.getCiplaaMachineSummary(month, year);
+    res.json(data || { bfMachine: 0, luMachine: 0, diMachine: 0 });
+  });
+
+  app.put('/api/cipla-machine-summary', requirePermission('salesinvoice'), async (req, res) => {
+    try {
+      const { month, year, bfMachine, luMachine, diMachine } = req.body;
+      const data = await storage.upsertCiplaaMachineSummary(Number(month), Number(year), {
+        bfMachine: Number(bfMachine) || 0,
+        luMachine: Number(luMachine) || 0,
+        diMachine: Number(diMachine) || 0,
+      });
+      res.json(data);
+    } catch (e: any) { res.status(500).json({ error: e.message }); }
+  });
+
   return httpServer;
 }
 
