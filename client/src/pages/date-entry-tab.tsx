@@ -77,6 +77,7 @@ function UblDateEntryTab({ month, year }: { month: number; year: number }) {
   const { toast } = useToast();
   const printRef = useRef<HTMLDivElement>(null);
   const [localRows, setLocalRows] = useState<UblRow[]>([]);
+  useEffect(() => { setLocalRows([]); }, [month, year]);
 
   const { data: dbRows = [], isLoading } = useQuery<UblRow[]>({
     queryKey: ['/api/ubl-date-entries', month, year],
@@ -512,6 +513,7 @@ function UblLunchEntryTab({ month, year }: { month: number; year: number }) {
   const { toast } = useToast();
   const printRef = useRef<HTMLDivElement>(null);
   const [localRows, setLocalRows] = useState<UblLunchRow[]>([]);
+  useEffect(() => { setLocalRows([]); }, [month, year]);
 
   const { data: dbRows = [], isLoading } = useQuery<UblLunchRow[]>({
     queryKey: ['/api/ubl-lunch-entries', month, year],
@@ -923,6 +925,7 @@ function CiplaDateEntryTab({ month, year }: { month: number; year: number }) {
   const printRef = useRef<HTMLDivElement>(null);
   const [localRows, setLocalRows] = useState<CiplaRow[]>([]);
   const [machineEdit, setMachineEdit] = useState<{bf: string; lu: string; di: string} | null>(null);
+  useEffect(() => { setLocalRows([]); }, [month, year]);
 
   const { data: dbRows = [], isLoading } = useQuery<CiplaRow[]>({
     queryKey: ['/api/cipla-date-entries', month, year],
