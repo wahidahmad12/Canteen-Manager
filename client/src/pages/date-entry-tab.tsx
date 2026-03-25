@@ -190,13 +190,18 @@ function UblDateEntryTab({ month, year }: { month: number; year: number }) {
     const win = window.open('', '_blank');
     if (!win) return;
     win.document.write(`<html><head><title>UBL Bill Data Sheet</title><style>
-      body{font-family:Arial,sans-serif;margin:10px;font-size:11px;}
-      h3,h4,p{text-align:center;margin:2px 0;}
-      table{width:100%;border-collapse:collapse;margin-top:8px;}
-      th,td{border:1px solid #333;padding:3px 4px;text-align:center;font-size:10px;}
-      th{background:#1a3a5a;color:white;font-size:9px;}
-      .total-row{font-weight:bold;background:#e8f0fe;}
-      @media print{@page{margin:8mm;size:A3 landscape;}}
+      *{box-sizing:border-box;}
+      body{font-family:"Times New Roman",Times,serif;margin:0;font-size:12pt;-webkit-print-color-adjust:exact;print-color-adjust:exact;}
+      h3{text-align:center;margin:2px 0;font-size:13pt;font-weight:bold;}
+      h4,p{text-align:center;margin:1px 0;font-size:11pt;}
+      table{width:100%;border-collapse:collapse;margin-top:6px;table-layout:auto;}
+      th,td{border:1px solid #333;padding:1px 3px;text-align:center;font-size:12pt;font-family:"Times New Roman",Times,serif;white-space:nowrap;}
+      th{background:#1a3a5a!important;color:white!important;font-size:10pt;font-weight:bold;}
+      .total-row{font-weight:bold;background:#e8f0fe!important;}
+      .orange-row{background:#ffa500!important;}
+      .green-row{background:#90EE90!important;}
+      .summary-table{width:45%;margin-left:auto;margin-right:0;margin-top:6px;}
+      @media print{@page{margin:5mm;size:A4 portrait;}body{margin:0;}table{page-break-inside:auto;}tr{page-break-inside:avoid;}}
     </style></head><body>${printContent}</body></html>`);
     win.document.close();
     win.print();
@@ -313,21 +318,21 @@ function UblDateEntryTab({ month, year }: { month: number; year: number }) {
       <table>
         <thead>
           <tr>
-            <th rowSpan={2} style={{width:30}}>Sl.</th>
-            <th rowSpan={2} style={{width:75}}>Date</th>
-            <th rowSpan={2} style={{width:35}}>Month</th>
-            <th rowSpan={2} style={{width:40}}>Week Day</th>
-            <th colSpan={3} style={{background:"#4a5568",color:"white"}}>5:30 AM to 9:00 AM</th>
-            <th colSpan={2} style={{background:"#2d6a4f",color:"white"}}>11:30 AM to 1:30 PM</th>
-            <th colSpan={4} style={{background:"#6b2d2d",color:"white"}}>3:30 PM to 7:00 PM</th>
-            <th colSpan={1} style={{background:"#1a3a5a",color:"white"}}>10:00 PM</th>
-            <th colSpan={1} style={{background:"#4a2040",color:"white"}}>12:00 AM</th>
-            <th colSpan={1} style={{background:"#1a4060",color:"white"}}>4:00 AM</th>
+            <th rowSpan={2}>Sl.</th>
+            <th rowSpan={2}>Date</th>
+            <th rowSpan={2}>Mth</th>
+            <th rowSpan={2}>Day</th>
+            <th colSpan={3} style={{background:"#4a5568",color:"white"}}>5:30–9 AM</th>
+            <th colSpan={2} style={{background:"#2d6a4f",color:"white"}}>11:30 AM–1:30 PM</th>
+            <th colSpan={4} style={{background:"#6b2d2d",color:"white"}}>3:30–7 PM</th>
+            <th colSpan={1} style={{background:"#1a3a5a",color:"white"}}>10 PM</th>
+            <th colSpan={1} style={{background:"#4a2040",color:"white"}}>12 AM</th>
+            <th colSpan={1} style={{background:"#1a4060",color:"white"}}>4 AM</th>
           </tr>
           <tr>
-            <th>Tea</th><th>Biscuit</th><th>Breakfast</th>
+            <th>Tea</th><th>Bis.</th><th>Brkft</th>
             <th>Lunch</th><th>Mutton</th>
-            <th>Tea</th><th>Biscuit</th><th>Teffin</th><th>BoiledEgg</th>
+            <th>Tea</th><th>Bis.</th><th>Tiffin</th><th>Egg</th>
             <th>Dinner</th><th>Tea</th><th>Tea</th>
           </tr>
         </thead>
