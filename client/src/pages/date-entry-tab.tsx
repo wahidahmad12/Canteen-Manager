@@ -231,7 +231,8 @@ function UblDateEntryTab({ month, year }: { month: number; year: number }) {
     ws.columns = UBL1_COLS.map((c,i)=>({ width: i===0?14:12 }));
     // Data
     rows.forEach(r => {
-      const row = ws.addRow(UBL1_COLS.map(c => (r as any)[c.field] ?? ""));
+      const calMonth = r.entryDate ? parseInt(r.entryDate.split('-')[1]) || r.month : r.month;
+      const row = ws.addRow(UBL1_COLS.map(c => c.field==="month" ? calMonth : ((r as any)[c.field] ?? "")));
       row.eachCell(cell => { cell.border=thin; cell.alignment={horizontal:"center"}; });
     });
     const buf = await wb.xlsx.writeBuffer();
@@ -759,7 +760,8 @@ function UblLunchEntryTab({ month, year }: { month: number; year: number }) {
     hdr.eachCell(cell => { cell.font={bold:true,color:{argb:"FFFFFFFF"}}; cell.fill={type:"pattern",pattern:"solid",fgColor:{argb:"FF1A3A5A"}}; cell.border=thin; cell.alignment={horizontal:"center"}; });
     ws.columns = UBL2_COLS.map((_,i)=>({ width: i===0?14:14 }));
     rows.forEach(r => {
-      const row = ws.addRow(UBL2_COLS.map(c => (r as any)[c.field] ?? ""));
+      const calMonth = r.entryDate ? parseInt(r.entryDate.split('-')[1]) || r.month : r.month;
+      const row = ws.addRow(UBL2_COLS.map(c => c.field==="month" ? calMonth : ((r as any)[c.field] ?? "")));
       row.eachCell(cell => { cell.border=thin; cell.alignment={horizontal:"center"}; });
     });
     const buf = await wb.xlsx.writeBuffer();
@@ -1255,7 +1257,8 @@ function CiplaDateEntryTab({ month, year }: { month: number; year: number }) {
     hdr.eachCell(cell => { cell.font={bold:true,color:{argb:"FFFFFFFF"}}; cell.fill={type:"pattern",pattern:"solid",fgColor:{argb:"FF1A3A5A"}}; cell.border=thin; cell.alignment={horizontal:"center"}; });
     ws.columns = CIPLA_COLS.map((_,i)=>({ width: i===0?14:16 }));
     rows.forEach(r => {
-      const row = ws.addRow(CIPLA_COLS.map(c => (r as any)[c.field] ?? ""));
+      const calMonth = r.entryDate ? parseInt(r.entryDate.split('-')[1]) || r.month : r.month;
+      const row = ws.addRow(CIPLA_COLS.map(c => c.field==="month" ? calMonth : ((r as any)[c.field] ?? "")));
       row.eachCell(cell => { cell.border=thin; cell.alignment={horizontal:"center"}; });
     });
     const buf = await wb.xlsx.writeBuffer();
