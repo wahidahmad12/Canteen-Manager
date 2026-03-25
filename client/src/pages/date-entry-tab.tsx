@@ -220,7 +220,7 @@ function UblDateEntryTab({ month, year }: { month: number; year: number }) {
   const grandTotal = summary.reduce((s,x)=>s+x.total,0);
 
   const numFld = (row: UblRow, idx: number, field: keyof UblRow, w=42) => (
-    <input type="number" min={0} value={(row as any)[field]??0}
+    <input type="number" min={0} value={(row as any)[field]||""}
       onChange={e=>handleCellChange(idx,field,e.target.value)}
       style={{width:w,border:"none",background:"transparent",textAlign:"center",fontSize:12,padding:0,outline:"none"}}/>
   );
@@ -322,7 +322,7 @@ function UblDateEntryTab({ month, year }: { month: number; year: number }) {
           const wedDay = isWed(row.entryDate);
           const cardBg = sunDay ? "bg-amber-50 border-amber-300 dark:bg-amber-900/20" : wedDay ? "bg-green-50 border-green-200 dark:bg-green-900/20" : "bg-white dark:bg-gray-900 border-gray-200";
           const mblFld = (f: keyof UblRow) => (
-            <input type="number" min={0} value={(row as any)[f]??0} onChange={e=>handleCellChange(idx,f,e.target.value)}
+            <input type="number" min={0} value={(row as any)[f]||""} onChange={e=>handleCellChange(idx,f,e.target.value)}
               className="w-full text-center border border-gray-200 dark:border-gray-600 rounded-lg text-sm font-medium dark:bg-gray-900 dark:text-white" style={{minHeight:38,padding:"4px 2px"}}/>
           );
           return (
@@ -662,7 +662,7 @@ function UblLunchEntryTab({ month, year }: { month: number; year: number }) {
   };
 
   const numFld = (row: UblLunchRow, idx: number, field: keyof UblLunchRow, w=56) => (
-    <input type="number" min={0} value={(row as any)[field]??0}
+    <input type="number" min={0} value={(row as any)[field]||""}
       onChange={e=>handleCellChange(idx,field,e.target.value)}
       style={{width:w,border:"none",background:"transparent",textAlign:"center",fontSize:12,padding:0,outline:"none"}}/>
   );
@@ -766,7 +766,7 @@ function UblLunchEntryTab({ month, year }: { month: number; year: number }) {
           const isSun = isSunday(row.entryDate);
           const cardBg = isSun ? "bg-amber-50 border-amber-300 dark:bg-amber-900/20" : mismatch ? "bg-red-50 border-red-200 dark:bg-red-900/20" : "bg-white dark:bg-gray-900 border-gray-200";
           const mblFld = (f: keyof UblLunchRow) => (
-            <input type="number" min={0} value={(row as any)[f]??0} onChange={e=>handleCellChange(idx,f,e.target.value)}
+            <input type="number" min={0} value={(row as any)[f]||""} onChange={e=>handleCellChange(idx,f,e.target.value)}
               className="w-full text-center border border-gray-200 dark:border-gray-600 rounded-lg text-sm font-medium dark:bg-gray-900 dark:text-white" style={{minHeight:40,padding:"4px 2px"}}/>
           );
           return (
@@ -1084,7 +1084,7 @@ function CiplaDateEntryTab({ month, year }: { month: number; year: number }) {
   };
 
   const numFld = (row: CiplaRow, idx: number, field: keyof CiplaRow, w=50) => (
-    <input type="number" min={0} value={(row as any)[field]??0}
+    <input type="number" min={0} value={(row as any)[field]||""}
       onChange={e=>handleCellChange(idx,field,e.target.value)}
       style={{width:w,border:"none",background:"transparent",textAlign:"center",fontSize:12,padding:0,outline:"none"}}/>
   );
@@ -1173,7 +1173,7 @@ function CiplaDateEntryTab({ month, year }: { month: number; year: number }) {
           const isSun=isSunday(row.entryDate);
           const cardBg=isSun?"bg-amber-50 border-amber-300 dark:bg-amber-900/20":"bg-white dark:bg-gray-900 border-gray-200";
           const mblFld=(f:keyof CiplaRow)=>(
-            <input type="number" min={0} value={(row as any)[f]??0} onChange={e=>handleCellChange(idx,f,e.target.value)}
+            <input type="number" min={0} value={(row as any)[f]||""} onChange={e=>handleCellChange(idx,f,e.target.value)}
               className="w-full text-center border border-gray-200 dark:border-gray-600 rounded-lg text-sm font-medium dark:bg-gray-900 dark:text-white" style={{minHeight:40,padding:"4px 2px"}}/>
           );
           return (
