@@ -688,6 +688,16 @@ export async function registerRoutes(
     }
   });
 
+  app.patch(api.purchaseInvoices.updatePayment.path, requirePermission('purchase'), async (req, res) => {
+    try {
+      const input = api.purchaseInvoices.updatePayment.input.parse(req.body);
+      const payment = await storage.updatePurchaseInvoicePayment(Number(req.params.id), input);
+      res.json(payment);
+    } catch (e: any) {
+      res.status(400).json({ message: e.message });
+    }
+  });
+
   app.delete(api.purchaseInvoices.deletePayment.path, requireAdmin, async (req, res) => {
     await storage.deletePurchaseInvoicePayment(Number(req.params.id));
     res.status(204).send();

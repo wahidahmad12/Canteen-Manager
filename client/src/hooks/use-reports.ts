@@ -1056,6 +1056,29 @@ export function useAddPurchaseInvoicePayment() {
   });
 }
 
+export function useUpdatePurchaseInvoicePayment() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ paymentId, ...data }: { paymentId: number; paymentDate: string; amount: number; notes?: string }) => {
+      const url = buildUrl(api.purchaseInvoices.updatePayment.path, { id: paymentId });
+      const res = await fetch(url, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(data),
+        credentials: "include",
+      });
+      if (!res.ok) {
+        const error = await res.json();
+        throw new Error(error.message || "Failed to update payment");
+      }
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: [api.purchaseInvoices.list.path] });
+    },
+  });
+}
+
 export function useDeletePurchaseInvoicePayment() {
   const queryClient = useQueryClient();
   return useMutation({

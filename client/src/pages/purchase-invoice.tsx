@@ -8,9 +8,9 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Checkbox } from "@/components/ui/checkbox";
 import { format, parse } from "date-fns";
-import { FileText, Plus, Trash2, Save, Loader2, ArrowLeft, Receipt, Store, ChevronDown, ChevronUp, IndianRupee, CalendarCheck, CheckCircle2, Clock, ListChecks, X } from "lucide-react";
+import { FileText, Plus, Trash2, Save, Loader2, ArrowLeft, Receipt, Store, ChevronDown, ChevronUp, IndianRupee, CalendarCheck, CheckCircle2, Clock, ListChecks, X, Pencil, Printer } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import { useCreatePurchaseInvoice, useClientNames, useVendors, useCreateVendor, usePurchaseRequests, usePurchaseInvoice, useUpdatePurchaseInvoice, useLastPurchasePrices, useItemMaster, useNextDjInvoiceNo, useAddPurchaseInvoicePayment, useDeletePurchaseInvoicePayment } from "@/hooks/use-reports";
+import { useCreatePurchaseInvoice, useClientNames, useVendors, useCreateVendor, usePurchaseRequests, usePurchaseInvoice, useUpdatePurchaseInvoice, useLastPurchasePrices, useItemMaster, useNextDjInvoiceNo, useAddPurchaseInvoicePayment, useUpdatePurchaseInvoicePayment, useDeletePurchaseInvoicePayment } from "@/hooks/use-reports";
 import { useLocation, useRoute, Link } from "wouter";
 import { Label } from "@/components/ui/label";
 import {
@@ -67,6 +67,7 @@ export default function PurchaseInvoice() {
   const { data: purchaseItemMaster } = useItemMaster("purchase");
   const { data: nextDjNo } = useNextDjInvoiceNo();
   const addPaymentMutation = useAddPurchaseInvoicePayment();
+  const updatePaymentMutation = useUpdatePurchaseInvoicePayment();
   const deletePaymentMutation = useDeletePurchaseInvoicePayment();
 
   const [showNewVendor, setShowNewVendor] = useState(false);
@@ -76,6 +77,37 @@ export default function PurchaseInvoice() {
   const [newPaymentDate, setNewPaymentDate] = useState<Date>(new Date());
   const [newPaymentAmount, setNewPaymentAmount] = useState("");
   const [newPaymentNotes, setNewPaymentNotes] = useState("");
+
+  // Payment edit state
+  const [editingPaymentId, setEditingPaymentId] = useState<number | null>(null);
+  const [editPaymentDate, setEditPaymentDate] = useState<Date>(new Date());
+  const [editPaymentAmount, setEditPaymentAmount] = useState("");
+  const [editPaymentNotes, setEditPaymentNotes] = useState("");
+
+  const startEditPayment = (p: any) => {
+    setEditingPaymentId(p.id);
+    setEditPaymentDate(new Date(p.paymentDate));
+    setEditPaymentAmount(String(Number(p.amount)));
+    setEditPaymentNotes(p.notes || "");
+  };
+
+  const handleUpdatePayment = () => {
+    if (!editingPaymentId) return;
+    const amount = parseFloat(editPaymentAmount);
+    if (!editPaymentDate || !amount || amount <= 0) { toast({ title: "Error", description: "Please enter a valid date and amount", variant: "destructive" }); return; }
+    updatePaymentMutation.mutate({
+      paymentId: editingPaymentId,
+      paymentDate: format(editPaymentDate, "yyyy-MM-dd"),
+      amount,
+      notes: editPaymentNotes.trim() || undefined,
+    }, {
+      onSuccess: () => {
+        toast({ title: "Payment updated" });
+        setEditingPaymentId(null);
+      },
+      onError: (err) => toast({ title: "Error", description: err.message, variant: "destructive" }),
+    });
+  };
 
   const allApprovedPRs = (purchaseRequests || []).filter((pr: any) => pr.status === 'approved');
   const approvedPRs = allApprovedPRs.filter((pr: any) => !pr.invoiced);
@@ -333,15 +365,24 @@ export default function PurchaseInvoice() {
                   <p className="text-rose-100 text-xs">{editId ? "Update invoice details and manage payments" : "Create a direct purchase invoice"}</p>
                 </div>
               </div>
-              <Button
-                onClick={handleSave}
-                disabled={isPending}
-                className="bg-white text-rose-600 hover:bg-rose-50 border-0 shadow-md font-semibold"
-                data-testid="button-save-invoice"
-              >
-                {isPending ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Save className="w-4 h-4 mr-2" />}
-                {editId ? "Update Invoice" : "Save Invoice"}
-              </Button>
+              <div className="flex items-center gap-2">
+                {editId && (
+                  <Link href={`/purchase-invoice/${editId}/pdf`}>
+                    <Button variant="ghost" className="bg-white/10 hover:bg-white/20 text-white border-0 gap-1.5" data-testid="button-print-invoice">
+                      <Printer className="w-4 h-4" /> Print
+                    </Button>
+                  </Link>
+                )}
+                <Button
+                  onClick={handleSave}
+                  disabled={isPending}
+                  className="bg-white text-rose-600 hover:bg-rose-50 border-0 shadow-md font-semibold"
+                  data-testid="button-save-invoice"
+                >
+                  {isPending ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Save className="w-4 h-4 mr-2" />}
+                  {editId ? "Update Invoice" : "Save Invoice"}
+                </Button>
+              </div>
             </div>
           </div>
 
@@ -695,31 +736,65 @@ export default function PurchaseInvoice() {
                     </h4>
                     <div className="border rounded-lg divide-y overflow-hidden">
                       {payments.map((p: any, idx: number) => (
-                        <div key={p.id} className="flex items-center justify-between px-3 py-2.5 bg-white dark:bg-transparent hover:bg-slate-50 dark:hover:bg-slate-800/20" data-testid={`payment-record-${p.id}`}>
-                          <div className="flex items-center gap-2.5">
-                            <div className="w-7 h-7 rounded-full bg-violet-100 dark:bg-violet-900/30 text-violet-600 dark:text-violet-400 flex items-center justify-center text-xs font-bold shrink-0">{idx + 1}</div>
-                            <div>
-                              <div className="text-sm font-semibold">₹{Number(p.amount).toFixed(2)}</div>
-                              <div className="text-xs text-muted-foreground">{format(new Date(p.paymentDate), "dd-MM-yyyy")}{p.notes && ` · ${p.notes}`}</div>
+                        <div key={p.id} data-testid={`payment-record-${p.id}`}>
+                          {editingPaymentId === p.id ? (
+                            /* Inline edit form */
+                            <div className="px-3 py-3 bg-violet-50 dark:bg-violet-950/20 space-y-2">
+                              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                                <div className="space-y-1">
+                                  <Label className="text-xs text-muted-foreground">Payment Date</Label>
+                                  <DatePicker date={editPaymentDate} setDate={(d) => d && setEditPaymentDate(d)} />
+                                </div>
+                                <div className="space-y-1">
+                                  <Label className="text-xs text-muted-foreground">Amount (₹)</Label>
+                                  <Input type="number" value={editPaymentAmount} onChange={(e) => setEditPaymentAmount(e.target.value)} className="font-mono h-9" data-testid={`input-edit-payment-amount-${p.id}`} />
+                                </div>
+                                <div className="space-y-1">
+                                  <Label className="text-xs text-muted-foreground">Notes</Label>
+                                  <Input value={editPaymentNotes} onChange={(e) => setEditPaymentNotes(e.target.value)} placeholder="e.g. Cheque No." className="h-9" data-testid={`input-edit-payment-notes-${p.id}`} />
+                                </div>
+                              </div>
+                              <div className="flex gap-2 justify-end">
+                                <Button size="sm" variant="outline" onClick={() => setEditingPaymentId(null)} className="h-8 text-xs" data-testid={`button-cancel-edit-payment-${p.id}`}>Cancel</Button>
+                                <Button size="sm" onClick={handleUpdatePayment} disabled={updatePaymentMutation.isPending} className="h-8 text-xs bg-violet-600 hover:bg-violet-700 text-white" data-testid={`button-save-edit-payment-${p.id}`}>
+                                  {updatePaymentMutation.isPending ? <Loader2 className="w-3 h-3 animate-spin mr-1" /> : <Save className="w-3 h-3 mr-1" />} Save
+                                </Button>
+                              </div>
                             </div>
-                          </div>
-                          <AlertDialog>
-                            <AlertDialogTrigger asChild>
-                              <Button size="icon" variant="ghost" className="h-7 w-7 text-destructive hover:bg-destructive/10" data-testid={`button-delete-payment-${p.id}`}>
-                                <Trash2 className="w-3.5 h-3.5" />
-                              </Button>
-                            </AlertDialogTrigger>
-                            <AlertDialogContent>
-                              <AlertDialogHeader>
-                                <AlertDialogTitle>Delete this payment record?</AlertDialogTitle>
-                                <AlertDialogDescription>Payment of ₹{Number(p.amount).toFixed(2)} on {format(new Date(p.paymentDate), "dd-MM-yyyy")} will be removed.</AlertDialogDescription>
-                              </AlertDialogHeader>
-                              <AlertDialogFooter>
-                                <AlertDialogCancel>Cancel</AlertDialogCancel>
-                                <AlertDialogAction onClick={() => deletePaymentMutation.mutate(p.id)} className="bg-destructive hover:bg-destructive/90 text-destructive-foreground">Delete</AlertDialogAction>
-                              </AlertDialogFooter>
-                            </AlertDialogContent>
-                          </AlertDialog>
+                          ) : (
+                            /* Normal view row */
+                            <div className="flex items-center justify-between px-3 py-2.5 bg-white dark:bg-transparent hover:bg-slate-50 dark:hover:bg-slate-800/20">
+                              <div className="flex items-center gap-2.5">
+                                <div className="w-7 h-7 rounded-full bg-violet-100 dark:bg-violet-900/30 text-violet-600 dark:text-violet-400 flex items-center justify-center text-xs font-bold shrink-0">{idx + 1}</div>
+                                <div>
+                                  <div className="text-sm font-semibold">₹{Number(p.amount).toFixed(2)}</div>
+                                  <div className="text-xs text-muted-foreground">{format(new Date(p.paymentDate), "dd-MM-yyyy")}{p.notes && ` · ${p.notes}`}</div>
+                                </div>
+                              </div>
+                              <div className="flex items-center gap-1">
+                                <Button size="icon" variant="ghost" className="h-7 w-7 text-blue-500 hover:bg-blue-50 dark:hover:bg-blue-950/30" onClick={() => startEditPayment(p)} data-testid={`button-edit-payment-${p.id}`}>
+                                  <Pencil className="w-3.5 h-3.5" />
+                                </Button>
+                                <AlertDialog>
+                                  <AlertDialogTrigger asChild>
+                                    <Button size="icon" variant="ghost" className="h-7 w-7 text-destructive hover:bg-destructive/10" data-testid={`button-delete-payment-${p.id}`}>
+                                      <Trash2 className="w-3.5 h-3.5" />
+                                    </Button>
+                                  </AlertDialogTrigger>
+                                  <AlertDialogContent>
+                                    <AlertDialogHeader>
+                                      <AlertDialogTitle>Delete this payment record?</AlertDialogTitle>
+                                      <AlertDialogDescription>Payment of ₹{Number(p.amount).toFixed(2)} on {format(new Date(p.paymentDate), "dd-MM-yyyy")} will be removed.</AlertDialogDescription>
+                                    </AlertDialogHeader>
+                                    <AlertDialogFooter>
+                                      <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                      <AlertDialogAction onClick={() => deletePaymentMutation.mutate(p.id)} className="bg-destructive hover:bg-destructive/90 text-destructive-foreground">Delete</AlertDialogAction>
+                                    </AlertDialogFooter>
+                                  </AlertDialogContent>
+                                </AlertDialog>
+                              </div>
+                            </div>
+                          )}
                         </div>
                       ))}
                     </div>

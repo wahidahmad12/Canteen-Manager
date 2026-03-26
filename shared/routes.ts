@@ -634,6 +634,24 @@ export const api = {
         }),
       },
     },
+    updatePayment: {
+      method: 'PATCH' as const,
+      path: '/api/purchase-invoice-payments/:id' as const,
+      input: z.object({
+        paymentDate: z.string().min(1),
+        amount: z.coerce.number().positive(),
+        notes: z.string().optional(),
+      }),
+      responses: {
+        200: z.object({
+          id: z.number(),
+          invoiceId: z.number(),
+          paymentDate: z.string(),
+          amount: z.string(),
+          notes: z.string().nullable(),
+        }),
+      },
+    },
     deletePayment: {
       method: 'DELETE' as const,
       path: '/api/purchase-invoice-payments/:id' as const,

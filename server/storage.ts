@@ -1177,6 +1177,16 @@ export class DatabaseStorage implements IStorage {
     return payment;
   }
 
+  async updatePurchaseInvoicePayment(id: number, data: { paymentDate: string; amount: number; notes?: string }): Promise<PurchaseInvoicePayment> {
+    await db.update(purchaseInvoicePayments).set({
+      paymentDate: data.paymentDate,
+      amount: String(data.amount),
+      notes: data.notes ?? null,
+    }).where(eq(purchaseInvoicePayments.id, id));
+    const [payment] = await db.select().from(purchaseInvoicePayments).where(eq(purchaseInvoicePayments.id, id));
+    return payment;
+  }
+
   async deletePurchaseInvoicePayment(id: number): Promise<void> {
     await db.delete(purchaseInvoicePayments).where(eq(purchaseInvoicePayments.id, id));
   }
