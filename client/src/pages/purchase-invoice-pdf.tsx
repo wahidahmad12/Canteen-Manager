@@ -47,9 +47,12 @@ export default function PurchaseInvoicePDF() {
   }
 
   const allItems = inv.items || [];
+  const payments = (inv as any).payments || [];
   const totalAmount = allItems.reduce((sum: number, item: any) => sum + Number(item.totalPrice), 0);
   const totalGst = allItems.reduce((sum: number, item: any) => sum + Number(item.gstAmount), 0);
   const grandTotal = allItems.reduce((sum: number, item: any) => sum + Number(item.netAmount), 0);
+  const totalPaid = payments.reduce((sum: number, p: any) => sum + Number(p.amount), 0);
+  const balance = grandTotal - totalPaid;
 
   const fmt = (n: number) => n.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
@@ -95,9 +98,9 @@ export default function PurchaseInvoicePDF() {
               </div>
             )}
             <div className={`flex justify-between ${inv.vendorInvoiceNo ? 'sm:justify-end' : 'sm:justify-start'} gap-1`}>
-              <span className="text-muted-foreground print:text-gray-500">Payment:</span>
-              <span className={`font-bold px-2 py-0.5 rounded text-xs ${inv.paymentGiven ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300 print:text-green-700' : 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300 print:text-red-700'}`}>
-                {inv.paymentGiven ? 'PAID' : 'UNPAID'}
+              <span className="text-muted-foreground print:text-gray-500">Payment Status:</span>
+              <span className={`font-bold px-2 py-0.5 rounded text-xs ${balance <= 0 && grandTotal > 0 ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300 print:text-green-700' : totalPaid > 0 ? 'bg-amber-100 text-amber-700 print:text-amber-700' : 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300 print:text-red-700'}`}>
+                {balance <= 0 && grandTotal > 0 ? 'FULLY PAID' : totalPaid > 0 ? 'PARTIAL' : 'UNPAID'}
               </span>
             </div>
           </div>
@@ -177,6 +180,51 @@ export default function PurchaseInvoicePDF() {
               <p className="text-[10px] sm:text-xs text-muted-foreground print:text-gray-500 uppercase tracking-wide font-semibold mb-1">Grand Total</p>
               <p className="text-xs sm:text-lg font-bold font-mono text-blue-600 print:text-black">{fmt(grandTotal)}</p>
             </div>
+          </div>
+
+          {/* Payment Details Section */}
+          <div className="mb-4 border border-border print:border-gray-300 rounded-lg overflow-hidden">
+            <div className="bg-slate-100 dark:bg-slate-800 print:bg-gray-100 px-3 py-2 border-b border-border print:border-gray-300">
+              <p className="text-xs font-bold uppercase tracking-wide text-slate-700 dark:text-slate-300 print:text-gray-700">Payment Details</p>
+            </div>
+            {payments.length === 0 ? (
+              <div className="px-3 py-3 text-xs text-muted-foreground print:text-gray-500 text-center italic">No payments recorded</div>
+            ) : (
+              <table className="w-full text-xs">
+                <thead>
+                  <tr className="bg-gray-50 dark:bg-muted/30 print:bg-gray-50">
+                    <th className="text-left px-3 py-1.5 font-semibold text-muted-foreground print:text-gray-600 border-b border-border print:border-gray-300">#</th>
+                    <th className="text-left px-3 py-1.5 font-semibold text-muted-foreground print:text-gray-600 border-b border-border print:border-gray-300">Payment Date</th>
+                    <th className="text-right px-3 py-1.5 font-semibold text-muted-foreground print:text-gray-600 border-b border-border print:border-gray-300">Amount (₹)</th>
+                    <th className="text-left px-3 py-1.5 font-semibold text-muted-foreground print:text-gray-600 border-b border-border print:border-gray-300">Notes / UTR</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {payments.map((p: any, idx: number) => (
+                    <tr key={p.id} className="border-b border-border/50 print:border-gray-200 last:border-0">
+                      <td className="px-3 py-1.5 text-muted-foreground print:text-gray-500">{idx + 1}</td>
+                      <td className="px-3 py-1.5 font-medium print:text-black">{format(new Date(p.paymentDate), "dd-MM-yyyy")}</td>
+                      <td className="px-3 py-1.5 text-right font-mono font-semibold text-emerald-700 dark:text-emerald-400 print:text-black">{fmt(Number(p.amount))}</td>
+                      <td className="px-3 py-1.5 text-muted-foreground print:text-gray-600">{p.notes || "—"}</td>
+                    </tr>
+                  ))}
+                </tbody>
+                <tfoot>
+                  <tr className="bg-gray-50 dark:bg-muted/30 print:bg-gray-50 font-semibold border-t-2 border-border print:border-gray-300">
+                    <td colSpan={2} className="px-3 py-1.5 text-right text-muted-foreground print:text-gray-600">Total Paid:</td>
+                    <td className="px-3 py-1.5 text-right font-mono font-bold text-emerald-700 dark:text-emerald-400 print:text-green-700">{fmt(totalPaid)}</td>
+                    <td className="px-3 py-1.5"></td>
+                  </tr>
+                  {balance > 0.01 && (
+                    <tr className="font-semibold">
+                      <td colSpan={2} className="px-3 py-1.5 text-right text-muted-foreground print:text-gray-600">Balance Due:</td>
+                      <td className="px-3 py-1.5 text-right font-mono font-bold text-red-600 dark:text-red-400 print:text-red-700">{fmt(balance)}</td>
+                      <td className="px-3 py-1.5"></td>
+                    </tr>
+                  )}
+                </tfoot>
+              </table>
+            )}
           </div>
 
           <div className="grid grid-cols-2 gap-6 sm:gap-8 mt-10 sm:mt-12 pt-6 sm:pt-8 border-t print:mt-16">
