@@ -221,8 +221,9 @@ function InvoiceFormDialog({ invoice, onClose, clients, purchaseOrders, allInvoi
     if (isEdit || !clientName) return;
     const client = clients.find((c: any) => c.name === clientName);
     if (!client?.stateCode) return;
-    const yr = String(billDate.getFullYear()).slice(-2);
-    fetch(`/api/sales-invoices/next-bill-number?stateCode=${encodeURIComponent(client.stateCode)}&year=${billDate.getFullYear()}`, { credentials: "include" })
+    // Indian Financial Year: April (month 3) onwards belongs to current year; Jan-Mar belongs to previous year
+    const fiscalYearStart = billDate.getMonth() >= 3 ? billDate.getFullYear() : billDate.getFullYear() - 1;
+    fetch(`/api/sales-invoices/next-bill-number?stateCode=${encodeURIComponent(client.stateCode)}&year=${fiscalYearStart}`, { credentials: "include" })
       .then(r => r.json())
       .then(data => {
         if (data.billNumber) {
@@ -382,7 +383,7 @@ function InvoiceFormDialog({ invoice, onClose, clients, purchaseOrders, allInvoi
               </span>
             )}
           </div>
-          <p className="text-[10px] text-muted-foreground">Format: DJ-CODE-YY-NNN (auto-generated from client)</p>
+          <p className="text-[10px] text-muted-foreground">Format: DJ-CODE-FY-NNN · FY starts April (Apr 2026–Mar 2027 = 26)</p>
         </div>
         <div className="space-y-1.5">
           <Label className="text-sm font-semibold text-emerald-700 dark:text-emerald-400 flex items-center gap-1.5">
