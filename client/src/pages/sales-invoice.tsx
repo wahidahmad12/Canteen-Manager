@@ -295,6 +295,19 @@ function InvoiceFormDialog({ invoice, onClose, clients, purchaseOrders, allInvoi
       toast({ title: "Error", description: "Bill number must be in format DJ-CODE-YY-NNN (e.g. DJ-KOL-25-001)", variant: "destructive" });
       return;
     }
+    // Validate state code in bill number matches the selected client's state code
+    const billCodeMatch = billNumber.trim().match(/^DJ-([A-Z]{2,5})-/);
+    const billStateCode = billCodeMatch ? billCodeMatch[1] : null;
+    const selectedClient = clients.find((c: any) => c.name === clientName);
+    const clientStateCode = selectedClient?.stateCode?.trim().toUpperCase();
+    if (billStateCode && clientStateCode && billStateCode !== clientStateCode) {
+      toast({
+        title: "State Code Mismatch",
+        description: `Bill Number code "${billStateCode}" does not match client's state code "${clientStateCode}". Please correct the Bill Number.`,
+        variant: "destructive",
+      });
+      return;
+    }
     if (isBillExceedsPO) {
       toast({ title: "Error", description: `Bill Amount (${fmtCurrency(billAmount)}) exceeds PO remaining balance (${fmtCurrency(poBalance)})`, variant: "destructive" });
       return;
