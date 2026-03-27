@@ -679,12 +679,12 @@ export function useCreateClientName() {
 export function useUpdateClientName() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: async ({ id, name, address, gstNo, agreementValidTill }: { id: number; name: string; address?: string; gstNo?: string; agreementValidTill?: string | null }) => {
+    mutationFn: async ({ id, name, address, gstNo, stateName, stateCode, agreementValidTill }: { id: number; name: string; address?: string; gstNo?: string; stateName?: string; stateCode?: string; agreementValidTill?: string | null }) => {
       const url = buildUrl(api.clients.update.path, { id });
       const res = await fetch(url, {
         method: api.clients.update.method,
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name, address, gstNo, agreementValidTill }),
+        body: JSON.stringify({ name, address, gstNo, stateName, stateCode, agreementValidTill }),
         credentials: "include",
       });
       if (!res.ok) throw new Error("Failed to update client");
