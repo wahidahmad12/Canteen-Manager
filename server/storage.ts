@@ -762,7 +762,7 @@ export class DatabaseStorage implements IStorage {
     return newItem;
   }
 
-  async updateClientName(id: number, item: { name?: string; address?: string; gstNo?: string; agreementValidTill?: string | null }): Promise<ClientName> {
+  async updateClientName(id: number, item: { name?: string; address?: string; gstNo?: string; stateName?: string; stateCode?: string; agreementValidTill?: string | null }): Promise<ClientName> {
     await db.update(clientNames).set(item).where(eq(clientNames.id, id));
     const [updated] = await db.select().from(clientNames).where(eq(clientNames.id, id));
     if (!updated) throw new Error("Client not found");
