@@ -272,6 +272,7 @@ export const employees = mysqlTable("employees", {
   leavingDate: date("leaving_date"),
   leavingReason: varchar("leaving_reason", { length: 500 }).default(""),
   mobile: varchar("mobile", { length: 500 }).default(""),
+  weeklyOffDay: varchar("weekly_off_day", { length: 50 }).default(""),
   isActive: boolean("is_active").notNull().default(true),
   createdAt: timestamp("created_at").defaultNow(),
 });

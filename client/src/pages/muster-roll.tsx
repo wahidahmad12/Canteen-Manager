@@ -138,6 +138,23 @@ export default function MusterRoll() {
       }
     });
 
+    // Auto-fill WO for employee's fixed weekly off day (only for empty cells)
+    const WEEK_DAYS = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
+    emps.forEach((emp: any) => {
+      if (!emp.weeklyOffDay) return;
+      const woDayIndex = WEEK_DAYS.indexOf(emp.weeklyOffDay);
+      if (woDayIndex === -1) return;
+      for (let d = 1; d <= daysInMonth; d++) {
+        const date = new Date(yearNum, monthNum - 1, d);
+        if (date.getDay() === woDayIndex) {
+          const key = `day${d}`;
+          if (!map[emp.id][key]) {
+            map[emp.id][key] = "WO" as StatusCode;
+          }
+        }
+      }
+    });
+
     setAttendanceData(map);
 
     try {

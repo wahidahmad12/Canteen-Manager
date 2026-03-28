@@ -81,6 +81,7 @@ interface Employee {
   leavingDate: string | null;
   leavingReason: string | null;
   mobile: string | null;
+  weeklyOffDay: string | null;
   isActive: boolean;
   createdAt: string | null;
 }
@@ -112,6 +113,7 @@ const emptyForm = {
   leavingDate: "",
   leavingReason: "",
   mobile: "",
+  weeklyOffDay: "",
   isActive: true,
 };
 
@@ -229,6 +231,7 @@ export default function EmployeeMaster() {
       leavingDate: emp.leavingDate ? storeToDisplay(String(emp.leavingDate)) : "",
       leavingReason: emp.leavingReason || "",
       mobile: emp.mobile || "",
+      weeklyOffDay: emp.weeklyOffDay || "",
       isActive: emp.isActive,
     });
     setDialogOpen(true);
@@ -375,6 +378,11 @@ export default function EmployeeMaster() {
                           {emp.joiningDate && (
                             <span className="flex items-center gap-1">
                               <Calendar className="w-3 h-3" /> Joined: {fmtDate(emp.joiningDate)}
+                            </span>
+                          )}
+                          {emp.weeklyOffDay && (
+                            <span className="flex items-center gap-1 text-blue-700 dark:text-blue-400">
+                              <span className="font-semibold">WO:</span> {emp.weeklyOffDay}
                             </span>
                           )}
                           {emp.dailyRate && emp.dailyRate !== "0" && (
@@ -546,6 +554,24 @@ export default function EmployeeMaster() {
                 <div>
                   <Label htmlFor="fixedHra">Fixed HRA (Monthly)</Label>
                   <Input id="fixedHra" value={form.fixedHra} onChange={e => setField("fixedHra", e.target.value)} inputMode="decimal" placeholder="0" data-testid="input-fixed-hra" />
+                </div>
+                <div>
+                  <Label htmlFor="weeklyOffDay">Weekly Off Day</Label>
+                  <Select value={form.weeklyOffDay || "none"} onValueChange={v => setField("weeklyOffDay", v === "none" ? "" : v)}>
+                    <SelectTrigger data-testid="select-weekly-off-day">
+                      <SelectValue placeholder="Select day" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="none">— None —</SelectItem>
+                      <SelectItem value="Sunday">Sunday</SelectItem>
+                      <SelectItem value="Monday">Monday</SelectItem>
+                      <SelectItem value="Tuesday">Tuesday</SelectItem>
+                      <SelectItem value="Wednesday">Wednesday</SelectItem>
+                      <SelectItem value="Thursday">Thursday</SelectItem>
+                      <SelectItem value="Friday">Friday</SelectItem>
+                      <SelectItem value="Saturday">Saturday</SelectItem>
+                    </SelectContent>
+                  </Select>
                 </div>
                 <div>
                   <Label htmlFor="joiningDate">Joining Date</Label>
