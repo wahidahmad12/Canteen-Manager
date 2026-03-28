@@ -173,6 +173,7 @@ export default function MusterRoll() {
     let holidayPresent = 0;
     let halfDay = 0;
     let absent = 0;
+    let weeklyOff = 0;
     for (let d = 1; d <= daysInMonth; d++) {
       const val = empData[`day${d}`];
       if (val === "P") present += 1;
@@ -180,9 +181,10 @@ export default function MusterRoll() {
       else if (val === "P/HL") holidayPresent += 1;
       else if (val === "HD") halfDay += 1;
       else if (val === "A") absent += 1;
+      else if (val === "WO") weeklyOff += 1;
     }
     const totalPaidDays = present + holidays + holidayPresent + (halfDay * 0.5);
-    return { present, holidays, holidayPresent, halfDay, totalPaidDays, absent };
+    return { present, holidays, holidayPresent, halfDay, totalPaidDays, absent, weeklyOff };
   }, [daysInMonth]);
 
   const saveMutation = useMutation({
@@ -490,7 +492,7 @@ export default function MusterRoll() {
 
     const headers = ["Sl.No", "Emp Name", "Designation"];
     for (let d = 1; d <= daysInMonth; d++) headers.push(String(d));
-    headers.push("Present", "Holidays", "Hol. Present", "Half Day", "Total Paid", "Absent", "OT Hrs");
+    headers.push("Present", "Holidays", "Hol. Present", "Half Day", "Total Paid", "Absent", "Weekly Off", "OT Hrs");
     const headerRow = ws.addRow(headers);
     headerRow.eachCell((cell) => {
       cell.font = { bold: true, size: 9 };
@@ -507,7 +509,7 @@ export default function MusterRoll() {
       for (let d = 1; d <= daysInMonth; d++) {
         rowData.push(empData[`day${d}`] || "");
       }
-      rowData.push(totals.present, totals.holidays, totals.holidayPresent, totals.halfDay, totals.totalPaidDays, totals.absent, overtimeData[emp.id] || 0);
+      rowData.push(totals.present, totals.holidays, totals.holidayPresent, totals.halfDay, totals.totalPaidDays, totals.absent, totals.weeklyOff, overtimeData[emp.id] || 0);
       const r = ws.addRow(rowData);
       r.eachCell((cell, colNumber) => {
         cell.border = { top: { style: "thin" }, bottom: { style: "thin" }, left: { style: "thin" }, right: { style: "thin" } };
@@ -590,6 +592,7 @@ export default function MusterRoll() {
           .print-table th.summary-hd { background: #ef6c00 !important; color: #fff !important; }
           .print-table th.summary-paid { background: #283593 !important; color: #fff !important; }
           .print-table th.summary-absent { background: #c62828 !important; color: #fff !important; }
+          .print-table th.summary-wo { background: #1565c0 !important; color: #fff !important; }
           .print-table th.summary-ot { background: #00838f !important; color: #fff !important; }
 
           .print-table td.summary-present { background: #a5d6a7 !important; color: #1b5e20 !important; font-weight: bold !important; }
@@ -598,6 +601,7 @@ export default function MusterRoll() {
           .print-table td.summary-hd { background: #ffcc80 !important; color: #e65100 !important; font-weight: bold !important; }
           .print-table td.summary-paid { background: #9fa8da !important; color: #1a237e !important; font-weight: bold !important; }
           .print-table td.summary-absent { background: #ef9a9a !important; color: #b71c1c !important; font-weight: bold !important; }
+          .print-table td.summary-wo { background: #bbdefb !important; color: #0d47a1 !important; font-weight: bold !important; }
           .print-table td.summary-ot { background: #80deea !important; color: #006064 !important; font-weight: bold !important; }
 
           .print-table .cell-P { background: #c8e6c9 !important; color: #1b5e20 !important; }
@@ -621,7 +625,7 @@ export default function MusterRoll() {
             color: inherit !important;
           }
           .print-table td { vertical-align: middle !important; }
-          .print-table tr:nth-child(even) td:not(.emp-name):not(.summary-present):not(.summary-holiday):not(.summary-hp):not(.summary-hd):not(.summary-paid):not(.summary-absent):not(.summary-ot):not(:first-child):not([class*="cell-"]) { background: #f5f5f5 !important; }
+          .print-table tr:nth-child(even) td:not(.emp-name):not(.summary-present):not(.summary-holiday):not(.summary-hp):not(.summary-hd):not(.summary-paid):not(.summary-absent):not(.summary-wo):not(.summary-ot):not(:first-child):not([class*="cell-"]) { background: #f5f5f5 !important; }
 
           .print-legend { 
             margin-top: 8px !important; 
@@ -826,6 +830,9 @@ export default function MusterRoll() {
                         <th className="px-2 py-2 text-center font-semibold min-w-[40px] bg-red-50 dark:bg-red-950/20 summary-absent">
                           A
                         </th>
+                        <th className="px-2 py-2 text-center font-semibold min-w-[40px] bg-blue-50 dark:bg-blue-950/20 summary-wo">
+                          WO
+                        </th>
                         <th className="px-2 py-2 text-center font-semibold min-w-[45px] bg-cyan-50 dark:bg-cyan-950/20 summary-ot">
                           OT
                         </th>
@@ -882,6 +889,9 @@ export default function MusterRoll() {
                             </td>
                             <td className="px-2 py-1.5 text-center font-bold bg-red-50 dark:bg-red-950/20 text-red-700 dark:text-red-300 summary-absent" data-testid={`total-absent-${emp.id}`}>
                               {totals.absent}
+                            </td>
+                            <td className="px-2 py-1.5 text-center font-bold bg-blue-50 dark:bg-blue-950/20 text-blue-700 dark:text-blue-300 summary-wo" data-testid={`total-wo-${emp.id}`}>
+                              {totals.weeklyOff}
                             </td>
                             <td className="px-2 py-1.5 text-center font-bold bg-cyan-50 dark:bg-cyan-950/20 text-cyan-700 dark:text-cyan-300 summary-ot" data-testid={`ot-hours-${emp.id}`}>
                               {overtimeData[emp.id] || 0}
