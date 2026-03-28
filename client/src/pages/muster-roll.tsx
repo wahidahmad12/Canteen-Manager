@@ -19,7 +19,7 @@ const MONTHS = [
   "July", "August", "September", "October", "November", "December",
 ];
 
-const STATUS_CODES = ["P", "A", "H", "P/HL", "HD", "WO", "PH", "CL", "SL", "EL", ""] as const;
+const STATUS_CODES = ["P", "A", "H", "P/HL", "HD", "WO", "CL", "SL", "EL", ""] as const;
 type StatusCode = (typeof STATUS_CODES)[number];
 
 const STATUS_COLORS: Record<string, string> = {
@@ -29,7 +29,6 @@ const STATUS_COLORS: Record<string, string> = {
   "P/HL": "bg-teal-100 text-teal-800 dark:bg-teal-900/40 dark:text-teal-300",
   HD: "bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-300",
   WO: "bg-blue-100 text-blue-800 dark:bg-blue-900/40 dark:text-blue-300",
-  PH: "bg-purple-100 text-purple-800 dark:bg-purple-900/40 dark:text-purple-300",
   CL: "bg-orange-100 text-orange-800 dark:bg-orange-900/40 dark:text-orange-300",
   SL: "bg-orange-100 text-orange-800 dark:bg-orange-900/40 dark:text-orange-300",
   EL: "bg-orange-100 text-orange-800 dark:bg-orange-900/40 dark:text-orange-300",
@@ -389,7 +388,6 @@ export default function MusterRoll() {
     instrWs.addRow(["P/HL = Holiday Present"]);
     instrWs.addRow(["HD = Half Day (counts as 0.5)"]);
     instrWs.addRow(["WO = Weekly Off"]);
-    instrWs.addRow(["PH = Public Holiday"]);
     instrWs.addRow(["CL = Casual Leave"]);
     instrWs.addRow(["SL = Sick Leave"]);
     instrWs.addRow(["EL = Earned Leave"]);
@@ -437,7 +435,7 @@ export default function MusterRoll() {
 
       const newData: AttendanceMap = { ...attendanceData };
       let imported = 0;
-      const validCodes = ["P", "A", "H", "P/HL", "HD", "WO", "PH", "CL", "SL", "EL"];
+      const validCodes = ["P", "A", "H", "P/HL", "HD", "WO", "CL", "SL", "EL"];
 
       ws.eachRow((row, rowNum) => {
         if (rowNum === 1) return;
@@ -519,7 +517,7 @@ export default function MusterRoll() {
           const val = String(cell.value);
           if (val === "P") cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFD1FAE5" } };
           else if (val === "A") cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFFEE2E2" } };
-          else if (val === "H" || val === "WO" || val === "PH") cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFFEF3C7" } };
+          else if (val === "H" || val === "WO") cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFFEF3C7" } };
           else if (val === "P/HL") cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFCCFBF1" } };
           else if (val === "HD") cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFFEF3C7" } };
         }
@@ -610,7 +608,6 @@ export default function MusterRoll() {
           .print-table .cell-PHL { background: #b2dfdb !important; color: #004d40 !important; }
           .print-table .cell-HD { background: #ffe0b2 !important; color: #e65100 !important; }
           .print-table .cell-WO { background: #bbdefb !important; color: #0d47a1 !important; }
-          .print-table .cell-PH { background: #e1bee7 !important; color: #6a1b9a !important; }
           .print-table .cell-CL, .print-table .cell-SL, .print-table .cell-EL { background: #ffccbc !important; color: #bf360c !important; }
 
           .print-table td:first-child { background: #e8eaf6 !important; font-weight: bold !important; color: #283593 !important; }
@@ -917,7 +914,6 @@ export default function MusterRoll() {
               <span><strong className="text-amber-700 dark:text-amber-400">HD</strong> = Half Day</span>
               <span><strong className="text-red-700 dark:text-red-400">A</strong> = Absent</span>
               <span><strong className="text-blue-700 dark:text-blue-400">WO</strong> = Weekly Off</span>
-              <span><strong className="text-purple-700 dark:text-purple-400">PH</strong> = Public Holiday</span>
               <span><strong className="text-orange-700 dark:text-orange-400">CL</strong> = Casual Leave</span>
               <span><strong className="text-orange-700 dark:text-orange-400">SL</strong> = Sick Leave</span>
               <span><strong className="text-orange-700 dark:text-orange-400">EL</strong> = Earned Leave</span>
