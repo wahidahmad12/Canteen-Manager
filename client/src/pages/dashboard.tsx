@@ -184,8 +184,7 @@ export default function Dashboard() {
     sortedReports.forEach((report: any) => {
       const opening = Number(report.openingBalance) || 0;
       const received = Number(report.receivedAmount) || 0;
-      const wahid = Number(report.giveByWahid) || 0;
-      const totalCash = opening + received + wahid;
+      const totalCash = opening + received;
       const totalExpense = report.items?.reduce((sum: number, item: any) => sum + (Number(item.amount) || 0), 0) || 0;
       const r = ws.addRow([
         report.reportNumber, format(new Date(report.date), "dd-MM-yyyy"),
@@ -461,8 +460,7 @@ export default function Dashboard() {
                     {sortedReports.map((report) => {
                       const opening = Number(report.openingBalance) || 0;
                       const received = Number(report.receivedAmount) || 0;
-                      const wahid = Number(report.giveByWahid) || 0;
-                      const totalCash = opening + received + wahid;
+                      const totalCash = opening + received;
                       const totalExpense = report.items?.reduce((s: number, i: any) => s + (Number(i.amount) || 0), 0) || 0;
                       return (
                         <div key={report.id} className="p-3 flex flex-col gap-2" data-testid={`mobile-card-report-${report.id}`}>
@@ -532,8 +530,7 @@ export default function Dashboard() {
                         {sortedReports.map((report, idx) => {
                           const opening = Number(report.openingBalance) || 0;
                           const received = Number(report.receivedAmount) || 0;
-                          const wahid = Number(report.giveByWahid) || 0;
-                          const totalCash = opening + received + wahid;
+                          const totalCash = opening + received;
                           const totalExpense = report.items?.reduce((sum: number, item: any) => sum + (Number(item.amount) || 0), 0) || 0;
                           return (
                             <tr key={report.id} className="border-b last:border-0 hover:bg-indigo-50/50 dark:hover:bg-indigo-950/10 transition-colors group">
