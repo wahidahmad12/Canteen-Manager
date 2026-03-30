@@ -1699,8 +1699,6 @@ function UnichemMealSubTab({ month, year, location, mealType }: { month: number;
     onSuccess: () => qc.invalidateQueries({ queryKey: ['/api/unichem-lunch-entries', month, year, location, mealType] }),
   });
 
-  const syncRows = () => { if (localRows.length === 0) setLocalRows(fullRows); };
-
   const handleAutoFill = () => {
     const generated = generateMonthRows(month, year, (d, m, y) => unichEmLunchRowDefaults(d, m, y, location, mealType));
     const existing = dbRows.reduce((acc: Record<string, LunchRow>, r) => { acc[normDate(r.entryDate)] = r; return acc; }, {});
@@ -1709,9 +1707,11 @@ function UnichemMealSubTab({ month, year, location, mealType }: { month: number;
   };
 
   const handleCellChange = (idx: number, field: 'orderQty' | 'actual', value: string) => {
-    syncRows();
+    const currentFullRows = fullRows;
     setLocalRows(prev => {
-      const updated = [...prev];
+      const base_rows = prev.length > 0 ? prev : currentFullRows;
+      const updated = [...base_rows];
+      if (!updated[idx]) return prev;
       const base = { ...updated[idx], [field]: parseInt(value)||0, _dirty: true };
       const newOrder = field === 'orderQty' ? (parseInt(value)||0) : (base.orderQty||0);
       const newActual = field === 'actual' ? (parseInt(value)||0) : (base.actual||0);
