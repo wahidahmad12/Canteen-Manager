@@ -1303,19 +1303,19 @@ function UnichemSnackTab({ month, year }: { month: number; year: number }) {
                     <td className="border px-1 py-1 text-center font-medium text-[11px]">{safeFormat(row.entryDate)}</td>
                     <td className="border px-1 py-1 text-center text-[11px]">{row.weekDay||getWeekDay(row.entryDate)}</td>
                     <td className="border px-0.5 py-0.5 bg-blue-50/50 dark:bg-blue-950/10">
-                      <input type="number" min="0" value={row.breakfast||0} onChange={e=>handleCellChange(idx,'breakfast',e.target.value)} onKeyDown={e=>handleEnterKey(e,0)}
+                      <input type="number" min="0" value={row.breakfast||""} onChange={e=>handleCellChange(idx,'breakfast',e.target.value)} onKeyDown={e=>handleEnterKey(e,0)}
                         className="w-full text-center bg-transparent outline-none text-xs py-1 focus:bg-white dark:focus:bg-gray-800 rounded" data-testid={`snack-bf-${idx}`}/>
                     </td>
                     <td className="border px-0.5 py-0.5 bg-blue-50/50 dark:bg-blue-950/10">
-                      <input type="number" min="0" value={row.eveningSnacks||0} onChange={e=>handleCellChange(idx,'eveningSnacks',e.target.value)} onKeyDown={e=>handleEnterKey(e,1)}
+                      <input type="number" min="0" value={row.eveningSnacks||""} onChange={e=>handleCellChange(idx,'eveningSnacks',e.target.value)} onKeyDown={e=>handleEnterKey(e,1)}
                         className="w-full text-center bg-transparent outline-none text-xs py-1 focus:bg-white dark:focus:bg-gray-800 rounded" data-testid={`snack-ev-${idx}`}/>
                     </td>
                     <td className="border px-0.5 py-0.5 bg-blue-50/50 dark:bg-blue-950/10">
-                      <input type="number" min="0" value={row.nightSnacks||0} onChange={e=>handleCellChange(idx,'nightSnacks',e.target.value)} onKeyDown={e=>handleEnterKey(e,2)}
+                      <input type="number" min="0" value={row.nightSnacks||""} onChange={e=>handleCellChange(idx,'nightSnacks',e.target.value)} onKeyDown={e=>handleEnterKey(e,2)}
                         className="w-full text-center bg-transparent outline-none text-xs py-1 focus:bg-white dark:focus:bg-gray-800 rounded" data-testid={`snack-night-${idx}`}/>
                     </td>
                     <td className="border px-0.5 py-0.5 bg-blue-50/50 dark:bg-blue-950/10">
-                      <input type="number" min="0" value={row.sundayExtraSnacks||0} onChange={e=>handleCellChange(idx,'sundayExtraSnacks',e.target.value)} onKeyDown={e=>handleEnterKey(e,3)}
+                      <input type="number" min="0" value={row.sundayExtraSnacks||""} onChange={e=>handleCellChange(idx,'sundayExtraSnacks',e.target.value)} onKeyDown={e=>handleEnterKey(e,3)}
                         className="w-full text-center bg-transparent outline-none text-xs py-1 focus:bg-white dark:focus:bg-gray-800 rounded" data-testid={`snack-sun-${idx}`}/>
                     </td>
                     <td className="border px-0.5 py-0.5">
@@ -1546,13 +1546,13 @@ function UnichemLunchTab({ month, year }: { month: number; year: number }) {
                     <td className="border px-1 py-1 text-center font-medium text-[11px]">{safeFormat(row.entryDate)}</td>
                     <td className="border px-1 py-1 text-center text-[11px]">{row.weekDay||getWeekDay(row.entryDate)}</td>
                     <td className="border px-0.5 py-0.5 bg-orange-50/50 dark:bg-orange-950/10">
-                      <input type="number" min="0" value={row.orderQty||0}
+                      <input type="number" min="0" value={row.orderQty||""}
                         onChange={e=>handleCellChange(idx,'orderQty',e.target.value)}
                         onKeyDown={e=>handleEnterKey(e,0)}
                         className="w-full text-center bg-transparent outline-none text-xs py-1 focus:bg-white dark:focus:bg-gray-800 rounded" data-testid={`lunch-order-${idx}`}/>
                     </td>
                     <td className="border px-0.5 py-0.5 bg-blue-50/50 dark:bg-blue-950/10">
-                      <input type="number" min="0" value={row.actual||0}
+                      <input type="number" min="0" value={row.actual||""}
                         onChange={e=>handleCellChange(idx,'actual',e.target.value)}
                         onKeyDown={e=>handleEnterKey(e,1)}
                         className="w-full text-center bg-transparent outline-none text-xs py-1 focus:bg-white dark:focus:bg-gray-800 rounded" data-testid={`lunch-actual-${idx}`}/>
