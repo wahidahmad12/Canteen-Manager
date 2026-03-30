@@ -80,7 +80,7 @@ function ublRowDefaults(dateStr: string, month: number, year: number): UblRow {
   };
 }
 
-function UblDateEntryTab({ month, year }: { month: number; year: number }) {
+function UblDateEntryTab({ month, year, loadKey = 0 }: { month: number; year: number; loadKey?: number }) {
   const qc = useQueryClient();
   const { toast } = useToast();
   const printRef = useRef<HTMLDivElement>(null);
@@ -88,7 +88,7 @@ function UblDateEntryTab({ month, year }: { month: number; year: number }) {
   const [localRows, setLocalRows] = useState<UblRow[]>([]);
   useEffect(() => { setLocalRows([]); }, [month, year]);
 
-  const { data: dbRows = [], isLoading } = useQuery<UblRow[]>({
+  const { data: dbRows = [], isLoading, refetch } = useQuery<UblRow[]>({
     queryKey: ['/api/ubl-date-entries', month, year],
     queryFn: async () => {
       const res = await fetch(`/api/ubl-date-entries?month=${month}&year=${year}`, { credentials: "include" });
@@ -96,6 +96,19 @@ function UblDateEntryTab({ month, year }: { month: number; year: number }) {
       return data.map((r: UblRow) => ({ ...r, entryDate: normDate(r.entryDate) }));
     },
   });
+
+  const handleAutoFill = (freshRows?: UblRow[]) => {
+    const source = freshRows ?? dbRows;
+    const generated = generateBillingRows(month, year, ublRowDefaults);
+    const existing = source.reduce((acc: Record<string, UblRow>, r) => { acc[r.entryDate] = r; return acc; }, {});
+    setLocalRows(generated.map(g => existing[g.entryDate] ? { ...existing[g.entryDate], _dirty: false } : g));
+  };
+
+  useEffect(() => {
+    if (loadKey > 0) {
+      refetch().then(result => { handleAutoFill((result.data || []) as UblRow[]); });
+    }
+  }, [loadKey]);
 
   const rows: UblRow[] = localRows.length > 0 ? localRows : dbRows.map(r => ({ ...r }));
 
@@ -600,7 +613,7 @@ function lunchRowDefaults(dateStr: string, month: number, year: number): UblLunc
   return { entryDate: dateStr, month, year, weekDay: getWeekDay(dateStr), perment:0, casual:0, contractual:0, canteen:7, _dirty:true };
 }
 
-function UblLunchEntryTab({ month, year }: { month: number; year: number }) {
+function UblLunchEntryTab({ month, year, loadKey = 0 }: { month: number; year: number; loadKey?: number }) {
   const qc = useQueryClient();
   const { toast } = useToast();
   const printRef = useRef<HTMLDivElement>(null);
@@ -608,7 +621,7 @@ function UblLunchEntryTab({ month, year }: { month: number; year: number }) {
   const [localRows, setLocalRows] = useState<UblLunchRow[]>([]);
   useEffect(() => { setLocalRows([]); }, [month, year]);
 
-  const { data: dbRows = [], isLoading } = useQuery<UblLunchRow[]>({
+  const { data: dbRows = [], isLoading, refetch } = useQuery<UblLunchRow[]>({
     queryKey: ['/api/ubl-lunch-entries', month, year],
     queryFn: async () => {
       const res = await fetch(`/api/ubl-lunch-entries?month=${month}&year=${year}`, { credentials:"include" });
@@ -616,6 +629,19 @@ function UblLunchEntryTab({ month, year }: { month: number; year: number }) {
       return data.map((r: UblLunchRow) => ({ ...r, entryDate: normDate(r.entryDate) }));
     },
   });
+
+  const handleAutoFill = (freshRows?: UblLunchRow[]) => {
+    const source = freshRows ?? dbRows;
+    const generated = generateBillingRows(month, year, lunchRowDefaults);
+    const existing = source.reduce((acc: Record<string, UblLunchRow>, r) => { acc[r.entryDate] = r; return acc; }, {});
+    setLocalRows(generated.map(g => existing[g.entryDate] ? { ...existing[g.entryDate], _dirty: false } : g));
+  };
+
+  useEffect(() => {
+    if (loadKey > 0) {
+      refetch().then(result => { handleAutoFill((result.data || []) as UblLunchRow[]); });
+    }
+  }, [loadKey]);
 
   // Also load Format 1 data for cross-validation
   const { data: f1Rows = [] } = useQuery<UblRow[]>({
@@ -1090,7 +1116,20 @@ function generateMonthRows<T>(month: number, year: number, defaults: (d: string,
   return rows;
 }
 
-function UnichemSnackTab({ month, year }: { month: number; year: number }) {
+function generateBillingRows<T>(month: number, year: number, defaults: (d: string, m: number, y: number) => T): T[] {
+  const { startDate, endDate } = getBillingRange(month, year);
+  const rows: T[] = [];
+  let cur = new Date(startDate + "T00:00:00");
+  const end = new Date(endDate + "T00:00:00");
+  while (cur <= end) {
+    const d = localDateStr(cur);
+    rows.push(defaults(d, cur.getMonth() + 1, cur.getFullYear()));
+    cur.setDate(cur.getDate() + 1);
+  }
+  return rows;
+}
+
+function UnichemSnackTab({ month, year, loadKey = 0 }: { month: number; year: number; loadKey?: number }) {
   const qc = useQueryClient();
   const { toast } = useToast();
   const [location, setLocation] = useState<UnichEmLocation>("Main Plant");
@@ -1098,7 +1137,7 @@ function UnichemSnackTab({ month, year }: { month: number; year: number }) {
   const importRefSnack = useRef<HTMLInputElement>(null);
   useEffect(() => { setLocalRows([]); }, [month, year, location]);
 
-  const { data: dbRows = [], isLoading } = useQuery<SnackRow[]>({
+  const { data: dbRows = [], isLoading, refetch } = useQuery<SnackRow[]>({
     queryKey: ['/api/unichem-snack-entries', month, year, location],
     queryFn: async () => {
       const res = await fetch(`/api/unichem-snack-entries?month=${month}&year=${year}&location=${encodeURIComponent(location)}`, { credentials: "include" });
@@ -1106,6 +1145,17 @@ function UnichemSnackTab({ month, year }: { month: number; year: number }) {
       return data.map((r: SnackRow) => ({ ...r, entryDate: normDate(r.entryDate) }));
     },
   });
+
+  useEffect(() => {
+    if (loadKey > 0) {
+      refetch().then(result => {
+        const freshRows = (result.data || []) as SnackRow[];
+        const generated = generateMonthRows(month, year, (d, m, y) => snackRowDefaults(d, m, y, location));
+        const existing = freshRows.reduce((acc: Record<string, SnackRow>, r) => { acc[normDate(r.entryDate)] = r; return acc; }, {});
+        setLocalRows(generated.map(g => existing[g.entryDate] ? { ...existing[g.entryDate] } : g));
+      });
+    }
+  }, [loadKey]);
 
   // Fetch Form 2 Lunch data to auto-populate Sunday Extra Snacks from Bill Qty
   const { data: lunchRows = [] } = useQuery<{ entryDate: string; billQty: number }[]>({
@@ -1659,14 +1709,14 @@ function unichEmLunchRowDefaults(dateStr: string, month: number, year: number, l
   return { location, entryDate: dateStr, month, year, weekDay: getWeekDay(dateStr), mealType, orderQty:0, actual:0, total:0, billQty:0, _dirty: true };
 }
 
-function UnichemMealSubTab({ month, year, location, mealType }: { month: number; year: number; location: string; mealType: 'lunch'|'dinner' }) {
+function UnichemMealSubTab({ month, year, location, mealType, loadKey = 0 }: { month: number; year: number; location: string; mealType: 'lunch'|'dinner'; loadKey?: number }) {
   const qc = useQueryClient();
   const { toast } = useToast();
   const [localRows, setLocalRows] = useState<LunchRow[]>([]);
   const importRefMeal = useRef<HTMLInputElement>(null);
   useEffect(() => { setLocalRows([]); }, [month, year, location, mealType]);
 
-  const { data: dbRows = [], isLoading } = useQuery<LunchRow[]>({
+  const { data: dbRows = [], isLoading, refetch } = useQuery<LunchRow[]>({
     queryKey: ['/api/unichem-lunch-entries', month, year, location, mealType],
     queryFn: async () => {
       const res = await fetch(`/api/unichem-lunch-entries?month=${month}&year=${year}&location=${encodeURIComponent(location)}&mealType=${mealType}`, { credentials: "include" });
@@ -1674,6 +1724,17 @@ function UnichemMealSubTab({ month, year, location, mealType }: { month: number;
       return data.map((r: LunchRow) => ({ ...r, entryDate: normDate(r.entryDate), mealType: r.mealType || mealType }));
     },
   });
+
+  useEffect(() => {
+    if (loadKey > 0) {
+      refetch().then(result => {
+        const freshRows = (result.data || []) as LunchRow[];
+        const generated = generateMonthRows(month, year, (d, m, y) => unichEmLunchRowDefaults(d, m, y, location, mealType));
+        const existing = freshRows.reduce((acc: Record<string, LunchRow>, r) => { acc[normDate(r.entryDate)] = r; return acc; }, {});
+        setLocalRows(generated.map(g => existing[g.entryDate] ? { ...existing[g.entryDate], _dirty: false } : g));
+      });
+    }
+  }, [loadKey]);
 
   // Always compute the full month grid merged with DB data (auto-load, no Auto-Fill click needed)
   const fullRows = useMemo(() => {
@@ -1952,7 +2013,7 @@ function UnichemMealSubTab({ month, year, location, mealType }: { month: number;
   );
 }
 
-function UnichemLunchTab({ month, year }: { month: number; year: number }) {
+function UnichemLunchTab({ month, year, loadKey = 0 }: { month: number; year: number; loadKey?: number }) {
   const [location, setLocation] = useState<UnichEmLocation>("Main Plant");
   const [activeMeal, setActiveMeal] = useState<'lunch'|'dinner'>('lunch');
   return (
@@ -1984,7 +2045,7 @@ function UnichemLunchTab({ month, year }: { month: number; year: number }) {
           </button>
         </div>
       </div>
-      <UnichemMealSubTab key={`${location}-${activeMeal}`} month={month} year={year} location={location} mealType={activeMeal} />
+      <UnichemMealSubTab key={`${location}-${activeMeal}`} month={month} year={year} location={location} mealType={activeMeal} loadKey={loadKey} />
     </div>
   );
 }
@@ -2017,7 +2078,7 @@ function ciplaRowDefaults(dateStr: string, month: number, year: number): CiplaRo
   };
 }
 
-function CiplaDateEntryTab({ month, year }: { month: number; year: number }) {
+function CiplaDateEntryTab({ month, year, loadKey = 0 }: { month: number; year: number; loadKey?: number }) {
   const qc = useQueryClient();
   const { toast } = useToast();
   const printRef = useRef<HTMLDivElement>(null);
@@ -2026,7 +2087,7 @@ function CiplaDateEntryTab({ month, year }: { month: number; year: number }) {
   const [machineEdit, setMachineEdit] = useState<{bf: string; lu: string; di: string} | null>(null);
   useEffect(() => { setLocalRows([]); }, [month, year]);
 
-  const { data: dbRows = [], isLoading } = useQuery<CiplaRow[]>({
+  const { data: dbRows = [], isLoading, refetch } = useQuery<CiplaRow[]>({
     queryKey: ['/api/cipla-date-entries', month, year],
     queryFn: async () => {
       const res = await fetch(`/api/cipla-date-entries?month=${month}&year=${year}`, { credentials:"include" });
@@ -2034,6 +2095,19 @@ function CiplaDateEntryTab({ month, year }: { month: number; year: number }) {
       return data.map((r: CiplaRow) => ({ ...r, entryDate: normDate(r.entryDate) }));
     },
   });
+
+  const handleAutoFill = (freshRows?: CiplaRow[]) => {
+    const source = freshRows ?? dbRows;
+    const generated = generateBillingRows(month, year, ciplaRowDefaults);
+    const existing = source.reduce((acc: Record<string, CiplaRow>, r) => { acc[r.entryDate] = r; return acc; }, {});
+    setLocalRows(generated.map(g => existing[g.entryDate] ? { ...existing[g.entryDate], _dirty: false } : g));
+  };
+
+  useEffect(() => {
+    if (loadKey > 0) {
+      refetch().then(result => { handleAutoFill((result.data || []) as CiplaRow[]); });
+    }
+  }, [loadKey]);
 
   const { data: machineSummary } = useQuery<{bfMachine:number;luMachine:number;diMachine:number}>({
     queryKey: ['/api/cipla-machine-summary', month, year],
@@ -2661,12 +2735,20 @@ export function DateEntryTab() {
   const [year, setYear] = useState(String(now.getFullYear()));
   const [ublSubTab, setUblSubTab] = useState("format1");
   const [unichEmSubTab, setUnichEmSubTab] = useState("unichem_snacks");
+  const [loadKey, setLoadKey] = useState(0);
+  const [isLoadPending, setIsLoadPending] = useState(false);
 
   useEffect(() => {
     if (allowedClients.length > 0 && !allowedClients.find(o => o.value === selectedClient)) {
       setSelectedClient(allowedClients[0].value);
     }
   }, [allowedClients, selectedClient]);
+
+  const handleLoad = () => {
+    setIsLoadPending(true);
+    setLoadKey(k => k + 1);
+    setTimeout(() => setIsLoadPending(false), 1500);
+  };
 
   const years = Array.from({ length: 6 }, (_, i) => String(now.getFullYear() - 2 + i));
   const { label: billingLabel } = getBillingRange(parseInt(month), parseInt(year));
@@ -2716,10 +2798,24 @@ export function DateEntryTab() {
             </Select>
           </div>
         </div>
-        <Badge variant="outline" className="text-xs font-medium bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300 border-blue-200 dark:border-blue-700 sm:ml-auto w-fit">
-          Period: {billingLabel}
-        </Badge>
+        <div className="flex items-center gap-2 sm:ml-auto">
+          <Badge variant="outline" className="text-xs font-medium bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300 border-blue-200 dark:border-blue-700 w-fit hidden sm:flex">
+            Period: {billingLabel}
+          </Badge>
+          <Button
+            onClick={handleLoad}
+            disabled={isLoadPending}
+            className="h-10 px-5 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold gap-2"
+            data-testid="btn-load-data"
+          >
+            {isLoadPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4" />}
+            {isLoadPending ? "Loading..." : "Load Data"}
+          </Button>
+        </div>
       </div>
+      <Badge variant="outline" className="text-xs font-medium bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300 border-blue-200 dark:border-blue-700 w-fit mb-3 sm:hidden">
+        Period: {billingLabel}
+      </Badge>
 
       {/* Client-specific content */}
       {selectedClient === "ubl" && (
@@ -2734,11 +2830,11 @@ export function DateEntryTab() {
           </TabsList>
           <TabsContent value="format1">
             <div className="mb-2 text-sm text-muted-foreground font-medium">United Breweries Ltd — Food Items Bill Data Sheet (with rates)</div>
-            <UblDateEntryTab month={parseInt(month)} year={parseInt(year)}/>
+            <UblDateEntryTab month={parseInt(month)} year={parseInt(year)} loadKey={loadKey}/>
           </TabsContent>
           <TabsContent value="format2">
             <div className="mb-2 text-sm text-muted-foreground font-medium">United Breweries Ltd — Number of Lunch Per Day (Permanent / Casual / Contractual / Canteen)</div>
-            <UblLunchEntryTab month={parseInt(month)} year={parseInt(year)}/>
+            <UblLunchEntryTab month={parseInt(month)} year={parseInt(year)} loadKey={loadKey}/>
           </TabsContent>
         </Tabs>
       )}
@@ -2754,18 +2850,18 @@ export function DateEntryTab() {
           </TabsList>
           <TabsContent value="unichem_snacks">
             <div className="mb-2 text-sm text-muted-foreground font-medium">Unichem Laboratories Ltd — Breakfast, Evening Snacks, Night Snacks &amp; Sunday Extra Snacks (1st to last day of month)</div>
-            <UnichemSnackTab month={parseInt(month)} year={parseInt(year)}/>
+            <UnichemSnackTab month={parseInt(month)} year={parseInt(year)} loadKey={loadKey}/>
           </TabsContent>
           <TabsContent value="unichem_lunch">
             <div className="mb-2 text-sm text-muted-foreground font-medium">Unichem Laboratories Ltd — Lunch &amp; Dinner per Location (1st to last day of month)</div>
-            <UnichemLunchTab month={parseInt(month)} year={parseInt(year)}/>
+            <UnichemLunchTab month={parseInt(month)} year={parseInt(year)} loadKey={loadKey}/>
           </TabsContent>
         </Tabs>
       )}
       {selectedClient === "cipla" && (
         <>
           <div className="mb-2 text-sm text-muted-foreground font-medium">Cipla Limited — Breakfast / Lunch / Dinner (Coopen / Coin / Sign / Machine)</div>
-          <CiplaDateEntryTab month={parseInt(month)} year={parseInt(year)}/>
+          <CiplaDateEntryTab month={parseInt(month)} year={parseInt(year)} loadKey={loadKey}/>
         </>
       )}
     </div>
