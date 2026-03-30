@@ -261,7 +261,7 @@ export interface IStorage {
   updateUnichEmSnackEntry(id: number, data: any): Promise<UnichEmSnackEntry>;
   deleteUnichEmSnackEntry(id: number): Promise<void>;
   // Unichem Lunch Entries (Form 2)
-  getUnichEmLunchEntries(month: number, year: number, location: string): Promise<UnichEmLunchEntry[]>;
+  getUnichEmLunchEntries(month: number, year: number, location: string, mealType?: string): Promise<UnichEmLunchEntry[]>;
   createUnichEmLunchEntry(data: any): Promise<UnichEmLunchEntry>;
   updateUnichEmLunchEntry(id: number, data: any): Promise<UnichEmLunchEntry>;
   deleteUnichEmLunchEntry(id: number): Promise<void>;
@@ -2003,13 +2003,27 @@ export class DatabaseStorage implements IStorage {
   }
 
   // Unichem Lunch Entries (Form 2)
-  async getUnichEmLunchEntries(month: number, year: number, location: string): Promise<UnichEmLunchEntry[]> {
-    return await db.select().from(unichEmLunchEntries)
-      .where(and(eq(unichEmLunchEntries.month, month), eq(unichEmLunchEntries.year, year), eq(unichEmLunchEntries.location, location)))
-      .orderBy(unichEmLunchEntries.entryDate);
+  async getUnichEmLunchEntries(month: number, year: number, location: string, mealType?: string): Promise<UnichEmLunchEntry[]> {
+    const conditions = [
+      eq(unichEmLunchEntries.month, month),
+      eq(unichEmLunchEntries.year, year),
+      eq(unichEmLunchEntries.location, location),
+    ];
+    if (mealType) conditions.push(eq(unichEmLunchEntries.mealType, mealType));
+    return await db.select().from(unichEmLunchEntries).where(and(...conditions)).orderBy(unichEmLunchEntries.entryDate);
   }
   async createUnichEmLunchEntry(data: any): Promise<UnichEmLunchEntry> {
-    return await insertAndGet<UnichEmLunchEntry>(unichEmLunchEntries, data);
+    // Use upsert to handle the unique constraint on (location, entry_date, meal_type)
+    const { location, entryDate, month, year, weekDay, mealType, orderQty, actual, total, billQty } = data;
+    await db.execute(sql`
+      INSERT INTO unichem_lunch_entries (location, entry_date, month, year, week_day, meal_type, order_qty, actual, total, bill_qty)
+      VALUES (${location}, ${entryDate}, ${month}, ${year}, ${weekDay || null}, ${mealType || 'lunch'}, ${orderQty || 0}, ${actual || 0}, ${total || 0}, ${billQty || 0})
+      ON DUPLICATE KEY UPDATE
+        order_qty = VALUES(order_qty), actual = VALUES(actual), total = VALUES(total), bill_qty = VALUES(bill_qty), week_day = VALUES(week_day), updated_at = NOW()
+    `);
+    const rows = await db.select().from(unichEmLunchEntries)
+      .where(and(eq(unichEmLunchEntries.location, location), eq(unichEmLunchEntries.entryDate, entryDate), eq(unichEmLunchEntries.mealType, mealType || 'lunch')));
+    return rows[0];
   }
   async updateUnichEmLunchEntry(id: number, data: any): Promise<UnichEmLunchEntry> {
     await db.update(unichEmLunchEntries).set({ ...data, updatedAt: new Date() }).where(eq(unichEmLunchEntries.id, id));

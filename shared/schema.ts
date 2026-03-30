@@ -933,6 +933,7 @@ export const unichEmLunchEntries = mysqlTable("unichem_lunch_entries", {
   month: int("month").notNull(),
   year: int("year").notNull(),
   weekDay: varchar("week_day", { length: 10 }),
+  mealType: varchar("meal_type", { length: 20 }).notNull().default("lunch"),
   orderQty: int("order_qty").default(0),
   actual: int("actual").default(0),
   total: int("total").default(0),

@@ -1863,7 +1863,8 @@ export async function registerRoutes(
     const month = Number(req.query.month) || new Date().getMonth() + 1;
     const year = Number(req.query.year) || new Date().getFullYear();
     const location = String(req.query.location || 'Main Plant');
-    const entries = await storage.getUnichEmLunchEntries(month, year, location);
+    const mealType = req.query.mealType ? String(req.query.mealType) : undefined;
+    const entries = await storage.getUnichEmLunchEntries(month, year, location, mealType);
     res.json(entries);
   });
   app.post('/api/unichem-lunch-entries', requirePermission('salesinvoice'), async (req, res) => {

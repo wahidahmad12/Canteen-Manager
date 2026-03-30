@@ -1106,11 +1106,11 @@ function UnichemSnackTab({ month, year }: { month: number; year: number }) {
     },
   });
 
-  // Fetch Form 2 (Lunch) data to auto-populate Sunday Extra Snacks from Bill Qty
+  // Fetch Form 2 Lunch data to auto-populate Sunday Extra Snacks from Bill Qty
   const { data: lunchRows = [] } = useQuery<{ entryDate: string; billQty: number }[]>({
-    queryKey: ['/api/unichem-lunch-entries', month, year, location],
+    queryKey: ['/api/unichem-lunch-entries', month, year, location, 'lunch'],
     queryFn: async () => {
-      const res = await fetch(`/api/unichem-lunch-entries?month=${month}&year=${year}&location=${encodeURIComponent(location)}`, { credentials: "include" });
+      const res = await fetch(`/api/unichem-lunch-entries?month=${month}&year=${year}&location=${encodeURIComponent(location)}&mealType=lunch`, { credentials: "include" });
       const data = await res.json();
       return data.map((r: any) => ({ entryDate: normDate(r.entryDate), billQty: r.billQty || 0 }));
     },
@@ -1384,6 +1384,7 @@ type LunchRow = {
   month: number;
   year: number;
   weekDay: string;
+  mealType: string;
   orderQty: number;
   actual: number;
   total: number;
@@ -1391,23 +1392,22 @@ type LunchRow = {
   _dirty?: boolean;
 };
 
-function unichEmLunchRowDefaults(dateStr: string, month: number, year: number, location: string): LunchRow {
-  return { location, entryDate: dateStr, month, year, weekDay: getWeekDay(dateStr), orderQty:0, actual:0, total:0, billQty:0, _dirty: true };
+function unichEmLunchRowDefaults(dateStr: string, month: number, year: number, location: string, mealType: string): LunchRow {
+  return { location, entryDate: dateStr, month, year, weekDay: getWeekDay(dateStr), mealType, orderQty:0, actual:0, total:0, billQty:0, _dirty: true };
 }
 
-function UnichemLunchTab({ month, year }: { month: number; year: number }) {
+function UnichemMealSubTab({ month, year, location, mealType }: { month: number; year: number; location: string; mealType: 'lunch'|'dinner' }) {
   const qc = useQueryClient();
   const { toast } = useToast();
-  const [location, setLocation] = useState<UnichEmLocation>("Main Plant");
   const [localRows, setLocalRows] = useState<LunchRow[]>([]);
-  useEffect(() => { setLocalRows([]); }, [month, year, location]);
+  useEffect(() => { setLocalRows([]); }, [month, year, location, mealType]);
 
   const { data: dbRows = [], isLoading } = useQuery<LunchRow[]>({
-    queryKey: ['/api/unichem-lunch-entries', month, year, location],
+    queryKey: ['/api/unichem-lunch-entries', month, year, location, mealType],
     queryFn: async () => {
-      const res = await fetch(`/api/unichem-lunch-entries?month=${month}&year=${year}&location=${encodeURIComponent(location)}`, { credentials: "include" });
+      const res = await fetch(`/api/unichem-lunch-entries?month=${month}&year=${year}&location=${encodeURIComponent(location)}&mealType=${mealType}`, { credentials: "include" });
       const data = await res.json();
-      return data.map((r: LunchRow) => ({ ...r, entryDate: normDate(r.entryDate) }));
+      return data.map((r: LunchRow) => ({ ...r, entryDate: normDate(r.entryDate), mealType: r.mealType || mealType }));
     },
   });
 
@@ -1418,22 +1418,22 @@ function UnichemLunchTab({ month, year }: { month: number; year: number }) {
       const res = await fetch('/api/unichem-lunch-entries', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(data), credentials: "include" });
       return res.json();
     },
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['/api/unichem-lunch-entries', month, year, location] }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['/api/unichem-lunch-entries', month, year, location, mealType] }),
   });
   const updateMutation = useMutation({
     mutationFn: async ({ id, data }: { id: number; data: any }) => {
       const res = await fetch(`/api/unichem-lunch-entries/${id}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(data), credentials: "include" });
       return res.json();
     },
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['/api/unichem-lunch-entries', month, year, location] }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['/api/unichem-lunch-entries', month, year, location, mealType] }),
   });
 
   const syncRows = () => { if (localRows.length === 0) setLocalRows(dbRows.map(r => ({ ...r }))); };
 
   const handleAutoFill = () => {
-    const generated = generateMonthRows(month, year, (d, m, y) => unichEmLunchRowDefaults(d, m, y, location));
+    const generated = generateMonthRows(month, year, (d, m, y) => unichEmLunchRowDefaults(d, m, y, location, mealType));
     const existing = dbRows.reduce((acc: Record<string, LunchRow>, r) => { acc[normDate(r.entryDate)] = r; return acc; }, {});
-    const merged = generated.map(g => existing[g.entryDate] ? { ...existing[g.entryDate] } : g);
+    const merged = generated.map(g => existing[g.entryDate] ? { ...existing[g.entryDate], _dirty: false } : g);
     setLocalRows(merged);
   };
 
@@ -1451,7 +1451,6 @@ function UnichemLunchTab({ month, year }: { month: number; year: number }) {
     });
   };
 
-  // Enter → move to next row's first input; Tab → next column (browser default)
   const handleEnterKey = (e: React.KeyboardEvent<HTMLInputElement>, colIdx: number) => {
     if (e.key === 'Enter') {
       e.preventDefault();
@@ -1478,28 +1477,30 @@ function UnichemLunchTab({ month, year }: { month: number; year: number }) {
       try {
         const { _dirty, id, ...data } = row;
         if (id) await updateMutation.mutateAsync({ id, data });
-        else await createMutation.mutateAsync(row);
+        else await createMutation.mutateAsync({ ...row, mealType });
         saved++;
       } catch (e: any) { toast({ title: "Error", description: e.message, variant: "destructive" }); }
     }
     toast({ title: `Saved ${saved} rows` });
+    setLocalRows([]);
   };
+
+  const mealLabel = mealType === 'lunch' ? 'Lunch' : 'Dinner';
 
   const handlePrint = () => {
     const monthLabel = `${MONTHS[month-1]} - ${year}`;
-    const locationLabel = location;
     const win = window.open('', '_blank', 'width=900,height=700');
     if (!win) return;
     const thS = `border:1px solid #000;padding:5px 8px;text-align:center;font-weight:bold;`;
     const tdS = `border:1px solid #000;padding:4px 8px;text-align:center;`;
     const altBg = `background:#fce4d6;`;
-    win.document.write(`<html><head><title>Unichem Lunch - ${locationLabel} - ${monthLabel}</title>
+    win.document.write(`<html><head><title>Unichem ${mealLabel} - ${location} - ${monthLabel}</title>
       <style>@media print{body{margin:10mm;}}</style></head>
       <body style="font-family:Arial,sans-serif;padding:20px;">
         <table style="border-collapse:collapse;width:100%;font-size:11pt;">
           <thead>
             <tr><th colspan="6" style="${thS}background:#fff;font-size:13pt;">DJ Hospitality &amp; Facility Management Pvt. Ltd.</th></tr>
-            <tr><th colspan="6" style="${thS}background:#fff;">Number of plate Per Day to Unichem Laboratories Ltd - ${locationLabel}</th></tr>
+            <tr><th colspan="6" style="${thS}background:#fff;">Number of ${mealLabel} Plates Per Day — Unichem Laboratories Ltd — ${location}</th></tr>
             <tr>
               <th style="${thS}${altBg}">Date</th><th style="${thS}${altBg}">Days</th>
               <th style="${thS}${altBg}">Order</th><th style="${thS}background:#a8d8ea;">Actual</th>
@@ -1534,29 +1535,16 @@ function UnichemLunchTab({ month, year }: { month: number; year: number }) {
 
   return (
     <div>
-      <div className="flex flex-col sm:flex-row sm:flex-wrap gap-2 mb-4">
-        <div className="flex items-center gap-2">
-          <label className="text-sm font-medium text-muted-foreground whitespace-nowrap">Location:</label>
-          <Select value={location} onValueChange={(v) => setLocation(v as UnichEmLocation)}>
-            <SelectTrigger className="flex-1 sm:w-44 h-9" data-testid="select-unichem-location-lunch">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {UNICHEM_LOCATIONS.map(l => <SelectItem key={l} value={l}>{l}</SelectItem>)}
-            </SelectContent>
-          </Select>
-        </div>
-        <div className="flex gap-2 flex-wrap">
-          <Button size="sm" variant="outline" onClick={handleAutoFill} className="h-9 flex-1 sm:flex-none" data-testid="btn-unichem-autofill-lunch">
-            <Plus className="w-3.5 h-3.5 mr-1" /> Auto-Fill Month
-          </Button>
-          <Button size="sm" onClick={handleSaveAll} disabled={createMutation.isPending || updateMutation.isPending} className="h-9 flex-1 sm:flex-none" data-testid="btn-unichem-save-lunch">
-            <Save className="w-3.5 h-3.5 mr-1" /> Save All
-          </Button>
-          <Button size="sm" variant="outline" onClick={handlePrint} className="h-9 flex-1 sm:flex-none" data-testid="btn-unichem-print-lunch">
-            <Printer className="w-3.5 h-3.5 mr-1" /> Print
-          </Button>
-        </div>
+      <div className="flex gap-2 mb-3 flex-wrap">
+        <Button size="sm" variant="outline" onClick={handleAutoFill} className="h-9 flex-1 sm:flex-none" data-testid={`btn-unichem-autofill-${mealType}`}>
+          <Plus className="w-3.5 h-3.5 mr-1" /> Auto-Fill Month
+        </Button>
+        <Button size="sm" onClick={handleSaveAll} disabled={createMutation.isPending || updateMutation.isPending} className="h-9 flex-1 sm:flex-none" data-testid={`btn-unichem-save-${mealType}`}>
+          <Save className="w-3.5 h-3.5 mr-1" /> Save All
+        </Button>
+        <Button size="sm" variant="outline" onClick={handlePrint} className="h-9 flex-1 sm:flex-none" data-testid={`btn-unichem-print-${mealType}`}>
+          <Printer className="w-3.5 h-3.5 mr-1" /> Print
+        </Button>
       </div>
       {isLoading ? <div className="py-8 text-center text-muted-foreground"><Loader2 className="w-5 h-5 animate-spin inline mr-2"/>Loading...</div> : (
         <div className="overflow-x-auto rounded-lg border">
@@ -1585,18 +1573,18 @@ function UnichemLunchTab({ month, year }: { month: number; year: number }) {
                       <input type="number" inputMode="numeric" min="0" value={row.orderQty||""}
                         onChange={e=>handleCellChange(idx,'orderQty',e.target.value)}
                         onKeyDown={e=>handleEnterKey(e,0)}
-                        className="w-full text-center bg-transparent outline-none text-xs py-2.5 sm:py-1.5 focus:bg-white dark:focus:bg-gray-800 rounded" style={{minHeight:'36px'}} data-testid={`lunch-order-${idx}`}/>
+                        className="w-full text-center bg-transparent outline-none text-xs py-2.5 sm:py-1.5 focus:bg-white dark:focus:bg-gray-800 rounded" style={{minHeight:'36px'}} data-testid={`${mealType}-order-${idx}`}/>
                     </td>
                     <td className="border p-0 bg-blue-50/50 dark:bg-blue-950/10">
                       <input type="number" inputMode="numeric" min="0" value={row.actual||""}
                         onChange={e=>handleCellChange(idx,'actual',e.target.value)}
                         onKeyDown={e=>handleEnterKey(e,1)}
-                        className="w-full text-center bg-transparent outline-none text-xs py-2.5 sm:py-1.5 focus:bg-white dark:focus:bg-gray-800 rounded" style={{minHeight:'36px'}} data-testid={`lunch-actual-${idx}`}/>
+                        className="w-full text-center bg-transparent outline-none text-xs py-2.5 sm:py-1.5 focus:bg-white dark:focus:bg-gray-800 rounded" style={{minHeight:'36px'}} data-testid={`${mealType}-actual-${idx}`}/>
                     </td>
-                    <td className="border px-1 text-center text-xs font-semibold bg-green-100/60 dark:bg-green-900/20 text-green-800 dark:text-green-300 select-none" style={{minHeight:'36px'}} data-testid={`lunch-total-${idx}`}>
+                    <td className="border px-1 text-center text-xs font-semibold bg-green-100/60 dark:bg-green-900/20 text-green-800 dark:text-green-300 select-none" style={{minHeight:'36px'}} data-testid={`${mealType}-total-${idx}`}>
                       {row.actual||""}
                     </td>
-                    <td className="border px-1 text-center text-xs font-semibold bg-green-100/60 dark:bg-green-900/20 text-green-800 dark:text-green-300 select-none" style={{minHeight:'36px'}} data-testid={`lunch-billqty-${idx}`}>
+                    <td className="border px-1 text-center text-xs font-semibold bg-green-100/60 dark:bg-green-900/20 text-green-800 dark:text-green-300 select-none" style={{minHeight:'36px'}} data-testid={`${mealType}-billqty-${idx}`}>
                       {row.billQty||""}
                     </td>
                   </tr>
@@ -1615,6 +1603,43 @@ function UnichemLunchTab({ month, year }: { month: number; year: number }) {
           </table>
         </div>
       )}
+    </div>
+  );
+}
+
+function UnichemLunchTab({ month, year }: { month: number; year: number }) {
+  const [location, setLocation] = useState<UnichEmLocation>("Main Plant");
+  const [activeMeal, setActiveMeal] = useState<'lunch'|'dinner'>('lunch');
+  return (
+    <div className="space-y-3">
+      <div className="flex flex-col sm:flex-row gap-3 sm:items-center">
+        <div className="flex items-center gap-2">
+          <label className="text-sm font-medium text-muted-foreground whitespace-nowrap">Location:</label>
+          <Select value={location} onValueChange={(v) => setLocation(v as UnichEmLocation)}>
+            <SelectTrigger className="flex-1 sm:w-44 h-9" data-testid="select-unichem-location-lunch">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {UNICHEM_LOCATIONS.map(l => <SelectItem key={l} value={l}>{l}</SelectItem>)}
+            </SelectContent>
+          </Select>
+        </div>
+        <div className="flex rounded-lg border overflow-hidden text-sm font-medium">
+          <button
+            onClick={() => setActiveMeal('lunch')}
+            className={`px-4 py-1.5 transition-colors ${activeMeal==='lunch' ? 'bg-orange-500 text-white' : 'hover:bg-muted text-muted-foreground'}`}
+            data-testid="tab-meal-lunch">
+            🍱 Lunch
+          </button>
+          <button
+            onClick={() => setActiveMeal('dinner')}
+            className={`px-4 py-1.5 transition-colors border-l ${activeMeal==='dinner' ? 'bg-indigo-600 text-white' : 'hover:bg-muted text-muted-foreground'}`}
+            data-testid="tab-meal-dinner">
+            🍽️ Dinner
+          </button>
+        </div>
+      </div>
+      <UnichemMealSubTab key={`${location}-${activeMeal}`} month={month} year={year} location={location} mealType={activeMeal} />
     </div>
   );
 }
