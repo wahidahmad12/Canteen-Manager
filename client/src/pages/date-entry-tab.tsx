@@ -1215,8 +1215,8 @@ function UnichemSnackTab({ month, year }: { month: number; year: number }) {
       <div style="margin-bottom:30px">
         <table style="${tableStyle}">
           <thead>
-            <tr><th colspan="${cols.length+2}" style="${thStyle}background:#fff;font-size:13pt;">DJ Hospitality &amp; Facility Management Pvt Ltd.</th></tr>
-            <tr><th colspan="${cols.length+2}" style="${thStyle}background:#fff;">Number of ${title} plate Per Day to Unichem Laboratories Ltd - ${locationLabel} - ${monthLabel}</th></tr>
+            <tr><th colspan="${cols.length+3}" style="${thStyle}background:#fff;font-size:13pt;">DJ Hospitality &amp; Facility Management Pvt Ltd.</th></tr>
+            <tr><th colspan="${cols.length+3}" style="${thStyle}background:#fff;">Number of ${title} plate Per Day to Unichem Laboratories Ltd - ${locationLabel} - ${monthLabel}</th></tr>
             <tr>
               <th style="${thStyle}${altBg}">Date</th>
               <th style="${thStyle}${altBg}">Days</th>
