@@ -1106,6 +1106,22 @@ function UnichemSnackTab({ month, year }: { month: number; year: number }) {
     },
   });
 
+  // Fetch Form 2 (Lunch) data to auto-populate Sunday Extra Snacks from Bill Qty
+  const { data: lunchRows = [] } = useQuery<{ entryDate: string; billQty: number }[]>({
+    queryKey: ['/api/unichem-lunch-entries', month, year, location],
+    queryFn: async () => {
+      const res = await fetch(`/api/unichem-lunch-entries?month=${month}&year=${year}&location=${encodeURIComponent(location)}`, { credentials: "include" });
+      const data = await res.json();
+      return data.map((r: any) => ({ entryDate: normDate(r.entryDate), billQty: r.billQty || 0 }));
+    },
+  });
+
+  // Build date → billQty lookup from Form 2
+  const lunchBillQtyMap = useMemo(() =>
+    lunchRows.reduce((acc: Record<string, number>, r) => { acc[r.entryDate] = r.billQty; return acc; }, {}),
+    [lunchRows]
+  );
+
   const rows: SnackRow[] = localRows.length > 0 ? localRows : dbRows.map(r => ({ ...r }));
 
   const createMutation = useMutation({
@@ -1171,8 +1187,12 @@ function UnichemSnackTab({ month, year }: { month: number; year: number }) {
       if (!row._dirty) continue;
       try {
         const { _dirty, id, ...data } = row;
+        // For Sunday rows, override sundayExtraSnacks with Form 2 Bill Qty
+        if (isSunday(row.entryDate) && lunchBillQtyMap[row.entryDate] !== undefined) {
+          data.sundayExtraSnacks = lunchBillQtyMap[row.entryDate];
+        }
         if (id) await updateMutation.mutateAsync({ id, data });
-        else await createMutation.mutateAsync(row);
+        else await createMutation.mutateAsync({ ...row, sundayExtraSnacks: isSunday(row.entryDate) ? (lunchBillQtyMap[row.entryDate] || 0) : row.sundayExtraSnacks });
         saved++;
       } catch (e: any) { toast({ title: "Error", description: e.message, variant: "destructive" }); }
     }
@@ -1238,9 +1258,9 @@ function UnichemSnackTab({ month, year }: { month: number; year: number }) {
       ["Night Snacks"],
       r => [r.nightSnacks||0]);
 
-    const sundaySection = makeTable("Breakfast &amp; Evening Snacks",
+    const sundaySection = makeTable("Sunday Extra Snacks",
       ["Sunday Extra<br>Snacks"],
-      r => [r.sundayExtraSnacks||0]);
+      r => [isSunday(r.entryDate) ? (lunchBillQtyMap[r.entryDate] || r.sundayExtraSnacks || "") : ""]);
 
     win.document.write(`<html><head><title>Unichem Snacks - ${locationLabel} - ${monthLabel}</title>
       <style>@media print{body{margin:10mm;}}</style></head>
@@ -1254,7 +1274,7 @@ function UnichemSnackTab({ month, year }: { month: number; year: number }) {
   const totalBreakfast = rows.reduce((s,r)=>s+(r.breakfast||0),0);
   const totalEvening = rows.reduce((s,r)=>s+(r.eveningSnacks||0),0);
   const totalNight = rows.reduce((s,r)=>s+(r.nightSnacks||0),0);
-  const totalSunday = rows.reduce((s,r)=>s+(r.sundayExtraSnacks||0),0);
+  const totalSunday = rows.reduce((s,r) => s + (isSunday(r.entryDate) ? (lunchBillQtyMap[r.entryDate] || r.sundayExtraSnacks || 0) : (r.sundayExtraSnacks||0)), 0);
 
   return (
     <div>
@@ -1290,7 +1310,7 @@ function UnichemSnackTab({ month, year }: { month: number; year: number }) {
                 <th className="border px-2 py-2 text-center font-semibold min-w-[75px] bg-blue-50 dark:bg-blue-950/20">Breakfast</th>
                 <th className="border px-2 py-2 text-center font-semibold min-w-[90px] bg-blue-50 dark:bg-blue-950/20">Evening Snacks</th>
                 <th className="border px-2 py-2 text-center font-semibold min-w-[85px] bg-blue-50 dark:bg-blue-950/20">Night Snacks</th>
-                <th className="border px-2 py-2 text-center font-semibold min-w-[110px] bg-blue-50 dark:bg-blue-950/20">Sunday Extra Snacks</th>
+                <th className="border px-2 py-2 text-center font-semibold min-w-[110px] bg-red-100 dark:bg-red-900/30 text-red-800 dark:text-red-300">Sunday Extra Snacks <span className="text-[9px] font-normal">(auto from Form 2)</span></th>
                 <th className="border px-2 py-2 text-center font-semibold min-w-[120px]">Remarks</th>
               </tr>
             </thead>
@@ -1315,9 +1335,15 @@ function UnichemSnackTab({ month, year }: { month: number; year: number }) {
                       <input type="number" min="0" value={row.nightSnacks||""} onChange={e=>handleCellChange(idx,'nightSnacks',e.target.value)} onKeyDown={e=>handleEnterKey(e,2)}
                         className="w-full text-center bg-transparent outline-none text-xs py-1 focus:bg-white dark:focus:bg-gray-800 rounded" data-testid={`snack-night-${idx}`}/>
                     </td>
-                    <td className="border px-0.5 py-0.5 bg-blue-50/50 dark:bg-blue-950/10">
-                      <input type="number" min="0" value={row.sundayExtraSnacks||""} onChange={e=>handleCellChange(idx,'sundayExtraSnacks',e.target.value)} onKeyDown={e=>handleEnterKey(e,3)}
-                        className="w-full text-center bg-transparent outline-none text-xs py-1 focus:bg-white dark:focus:bg-gray-800 rounded" data-testid={`snack-sun-${idx}`}/>
+                    <td className="border px-0.5 py-0.5 bg-red-50/80 dark:bg-red-950/20">
+                      {isSun ? (
+                        <div className="text-center text-xs py-1 font-semibold text-red-700 dark:text-red-300 select-none" title="Auto from Form 2 Bill Qty" data-testid={`snack-sun-${idx}`}>
+                          {lunchBillQtyMap[row.entryDate] || ""}
+                        </div>
+                      ) : (
+                        <input type="number" min="0" value={row.sundayExtraSnacks||""} onChange={e=>handleCellChange(idx,'sundayExtraSnacks',e.target.value)} onKeyDown={e=>handleEnterKey(e,3)}
+                          className="w-full text-center bg-transparent outline-none text-xs py-1 focus:bg-white dark:focus:bg-gray-800 rounded" data-testid={`snack-sun-${idx}`}/>
+                      )}
                     </td>
                     <td className="border px-0.5 py-0.5">
                       <input type="text" value={row.remarks||""} onChange={e=>handleCellChange(idx,'remarks',e.target.value)} onKeyDown={e=>handleEnterKey(e,4)}
