@@ -301,7 +301,7 @@ export default function EmployeeMaster() {
         <td style="${td}">${emp.fatherName || "-"}</td>
         ${showClient ? `<td style="${td}">${emp.clientName}</td>` : ""}
         <td style="${td}">${emp.designation || "-"}</td>
-        <td style="${td}">${emp.department || "-"}</td>
+        <td style="${td}">${emp.skills || "-"}</td>
         <td style="${tdc}">${fmtDate(emp.joiningDate)}</td>
         <td style="${tdc}">${emp.weeklyOffDay || "-"}</td>
         <td style="${tdc}">${emp.dailyRate && emp.dailyRate !== "0" ? `₹${emp.dailyRate}` : "-"}</td>
@@ -332,7 +332,7 @@ export default function EmployeeMaster() {
             <th style="${th}">Father's Name</th>
             ${showClient ? `<th style="${th}">Client</th>` : ""}
             <th style="${th}">Designation</th>
-            <th style="${th}">Department</th>
+            <th style="${th}">Skills</th>
             <th style="${th}">Joining Date</th>
             <th style="${th}">Weekly Off</th>
             <th style="${th}">Daily Rate</th>
