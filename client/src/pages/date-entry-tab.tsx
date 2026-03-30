@@ -1268,6 +1268,108 @@ function UnichemSnackTab({ month, year }: { month: number; year: number }) {
     setLocalRows([]);
   };
 
+  const handlePrintAllLocations = async () => {
+    const monthLabel = `${MONTHS[month-1]} - ${year}`;
+    const win = window.open('', '_blank', 'width=900,height=700');
+    if (!win) return;
+
+    try {
+      // Fetch snack + lunch + dinner data for all locations in parallel
+      const fetches = UNICHEM_LOCATIONS.flatMap(loc => [
+        fetch(`/api/unichem-snack-entries?month=${month}&year=${year}&location=${encodeURIComponent(loc)}`, { credentials: "include" }).then(r => r.json()),
+        fetch(`/api/unichem-lunch-entries?month=${month}&year=${year}&location=${encodeURIComponent(loc)}&mealType=lunch`, { credentials: "include" }).then(r => r.json()),
+        fetch(`/api/unichem-lunch-entries?month=${month}&year=${year}&location=${encodeURIComponent(loc)}&mealType=dinner`, { credentials: "include" }).then(r => r.json()),
+      ]);
+      const results = await Promise.all(fetches);
+
+      // results order: [main-snack, main-lunch, main-dinner, unit2-snack, unit2-lunch, unit2-dinner, coe-snack, coe-lunch, coe-dinner]
+      const rows: { location: string; breakfast: number; eveningSnacks: number; nightSnacks: number; sundayExtra: number; billQtyLunch: number; billQtyDinner: number }[] = [];
+
+      UNICHEM_LOCATIONS.forEach((loc, i) => {
+        const snackData: any[] = results[i * 3] || [];
+        const lunchData: any[] = results[i * 3 + 1] || [];
+        const dinnerData: any[] = results[i * 3 + 2] || [];
+
+        // Build lunch billQty map (date → billQty) to resolve Sunday Extra
+        const lunchMap: Record<string, number> = {};
+        lunchData.forEach((r: any) => { lunchMap[normDate(r.entryDate)] = r.billQty || 0; });
+
+        let breakfast = 0, eveningSnacks = 0, nightSnacks = 0, sundayExtra = 0;
+        snackData.forEach((r: any) => {
+          const d = normDate(r.entryDate);
+          breakfast += r.breakfast || 0;
+          eveningSnacks += r.eveningSnacks || 0;
+          nightSnacks += r.nightSnacks || 0;
+          if (isSunday(d)) sundayExtra += lunchMap[d] || r.sundayExtraSnacks || 0;
+        });
+        const billQtyLunch = lunchData.reduce((s: number, r: any) => s + (r.billQty || 0), 0);
+        const billQtyDinner = dinnerData.reduce((s: number, r: any) => s + (r.billQty || 0), 0);
+
+        rows.push({ location: loc, breakfast, eveningSnacks, nightSnacks, sundayExtra, billQtyLunch, billQtyDinner });
+      });
+
+      const tableStyle = `border-collapse:collapse;width:100%;font-size:11pt;`;
+      const thStyle = `border:1px solid #000;padding:6px 10px;text-align:center;font-weight:bold;background:#a8d8ea;`;
+      const tdStyle = `border:1px solid #000;padding:5px 10px;text-align:center;`;
+      const tdLocStyle = `border:1px solid #000;padding:5px 10px;text-align:left;font-weight:bold;`;
+      const totalRow = {
+        breakfast: rows.reduce((s, r) => s + r.breakfast, 0),
+        eveningSnacks: rows.reduce((s, r) => s + r.eveningSnacks, 0),
+        nightSnacks: rows.reduce((s, r) => s + r.nightSnacks, 0),
+        sundayExtra: rows.reduce((s, r) => s + r.sundayExtra, 0),
+        billQtyLunch: rows.reduce((s, r) => s + r.billQtyLunch, 0),
+        billQtyDinner: rows.reduce((s, r) => s + r.billQtyDinner, 0),
+      };
+
+      const html = `<html><head><title>Unichem All Locations Summary - ${monthLabel}</title>
+        <style>@media print{body{margin:10mm;} @page{size:A4 landscape;}}</style></head>
+        <body style="font-family:Arial,sans-serif;padding:20px;">
+          <table style="${tableStyle}">
+            <thead>
+              <tr><th colspan="7" style="border:1px solid #000;padding:8px;text-align:center;font-size:14pt;font-weight:bold;background:#fff;">DJ Hospitality &amp; Facility Management Pvt Ltd.</th></tr>
+              <tr><th colspan="7" style="border:1px solid #000;padding:6px;text-align:center;font-size:11pt;background:#fff;">Monthly Summary – Unichem Laboratories Ltd – ${monthLabel}</th></tr>
+              <tr>
+                <th style="${thStyle}background:#fce4d6;">Location</th>
+                <th style="${thStyle}">Breakfast</th>
+                <th style="${thStyle}">Evening Snacks</th>
+                <th style="${thStyle}">Night Snacks</th>
+                <th style="${thStyle}">Sunday Extra Snacks</th>
+                <th style="${thStyle}background:#c6efce;">Bill Qty Lunch</th>
+                <th style="${thStyle}background:#c6efce;">Bill Qty Dinner</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${rows.map(r => `<tr>
+                <td style="${tdLocStyle}">${r.location}</td>
+                <td style="${tdStyle}">${r.breakfast || ""}</td>
+                <td style="${tdStyle}">${r.eveningSnacks || ""}</td>
+                <td style="${tdStyle}">${r.nightSnacks || ""}</td>
+                <td style="${tdStyle}">${r.sundayExtra || ""}</td>
+                <td style="${tdStyle}">${r.billQtyLunch || ""}</td>
+                <td style="${tdStyle}">${r.billQtyDinner || ""}</td>
+              </tr>`).join('')}
+              <tr style="font-weight:bold;background:#e0e0e0;">
+                <td style="${tdLocStyle}">Total</td>
+                <td style="${tdStyle}">${totalRow.breakfast || ""}</td>
+                <td style="${tdStyle}">${totalRow.eveningSnacks || ""}</td>
+                <td style="${tdStyle}">${totalRow.nightSnacks || ""}</td>
+                <td style="${tdStyle}">${totalRow.sundayExtra || ""}</td>
+                <td style="${tdStyle}">${totalRow.billQtyLunch || ""}</td>
+                <td style="${tdStyle}">${totalRow.billQtyDinner || ""}</td>
+              </tr>
+            </tbody>
+          </table>
+          <script>window.onload=function(){window.print();}<\/script>
+        </body></html>`;
+
+      win.document.write(html);
+      win.document.close();
+    } catch (err: any) {
+      win.close();
+      toast({ title: "Print Failed", description: err.message, variant: "destructive" });
+    }
+  };
+
   const handlePrint = () => {
     const monthLabel = `${MONTHS[month-1]} - ${year}`;
     const locationLabel = location;
@@ -1379,6 +1481,9 @@ function UnichemSnackTab({ month, year }: { month: number; year: number }) {
           </Button>
           <Button size="sm" variant="outline" onClick={handlePrint} className="h-9 flex-1 sm:flex-none" data-testid="btn-unichem-print-snack">
             <Printer className="w-3.5 h-3.5 mr-1" /> Print
+          </Button>
+          <Button size="sm" variant="outline" onClick={handlePrintAllLocations} className="h-9 flex-1 sm:flex-none text-purple-700 border-purple-300 hover:bg-purple-50" data-testid="btn-unichem-print-all-locations">
+            <Printer className="w-3.5 h-3.5 mr-1" /> All Locations Summary
           </Button>
           <Button size="sm" variant="outline" onClick={handleExportExcelSnack} className="h-9 flex-1 sm:flex-none text-green-700 border-green-300 hover:bg-green-50" data-testid="btn-unichem-export-snack">
             <FileDown className="w-3.5 h-3.5 mr-1" /> Export Excel
