@@ -1278,11 +1278,11 @@ function UnichemSnackTab({ month, year }: { month: number; year: number }) {
 
   return (
     <div>
-      <div className="flex flex-wrap gap-2 mb-4 items-center">
+      <div className="flex flex-col sm:flex-row sm:flex-wrap gap-2 mb-4">
         <div className="flex items-center gap-2">
-          <label className="text-sm font-medium text-muted-foreground">Location:</label>
+          <label className="text-sm font-medium text-muted-foreground whitespace-nowrap">Location:</label>
           <Select value={location} onValueChange={(v) => setLocation(v as UnichEmLocation)}>
-            <SelectTrigger className="w-40 h-8" data-testid="select-unichem-location-snack">
+            <SelectTrigger className="flex-1 sm:w-44 h-9" data-testid="select-unichem-location-snack">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
@@ -1290,28 +1290,30 @@ function UnichemSnackTab({ month, year }: { month: number; year: number }) {
             </SelectContent>
           </Select>
         </div>
-        <Button size="sm" variant="outline" onClick={handleAutoFill} data-testid="btn-unichem-autofill-snack">
-          <Plus className="w-3.5 h-3.5 mr-1" /> Auto-Fill Month
-        </Button>
-        <Button size="sm" onClick={handleSaveAll} disabled={createMutation.isPending || updateMutation.isPending} data-testid="btn-unichem-save-snack">
-          <Save className="w-3.5 h-3.5 mr-1" /> Save All
-        </Button>
-        <Button size="sm" variant="outline" onClick={handlePrint} data-testid="btn-unichem-print-snack">
-          <Printer className="w-3.5 h-3.5 mr-1" /> Print
-        </Button>
+        <div className="flex gap-2 flex-wrap">
+          <Button size="sm" variant="outline" onClick={handleAutoFill} className="h-9 flex-1 sm:flex-none" data-testid="btn-unichem-autofill-snack">
+            <Plus className="w-3.5 h-3.5 mr-1" /> Auto-Fill Month
+          </Button>
+          <Button size="sm" onClick={handleSaveAll} disabled={createMutation.isPending || updateMutation.isPending} className="h-9 flex-1 sm:flex-none" data-testid="btn-unichem-save-snack">
+            <Save className="w-3.5 h-3.5 mr-1" /> Save All
+          </Button>
+          <Button size="sm" variant="outline" onClick={handlePrint} className="h-9 flex-1 sm:flex-none" data-testid="btn-unichem-print-snack">
+            <Printer className="w-3.5 h-3.5 mr-1" /> Print
+          </Button>
+        </div>
       </div>
       {isLoading ? <div className="py-8 text-center text-muted-foreground"><Loader2 className="w-5 h-5 animate-spin inline mr-2"/>Loading...</div> : (
         <div className="overflow-x-auto rounded-lg border">
-          <table className="w-full text-xs border-collapse">
+          <table className="text-xs border-collapse" style={{minWidth:'560px'}}>
             <thead>
               <tr className="bg-muted/50">
-                <th className="border px-2 py-2 text-center font-semibold min-w-[90px]">Date</th>
-                <th className="border px-2 py-2 text-center font-semibold min-w-[50px]">Days</th>
-                <th className="border px-2 py-2 text-center font-semibold min-w-[75px] bg-blue-50 dark:bg-blue-950/20">Breakfast</th>
-                <th className="border px-2 py-2 text-center font-semibold min-w-[90px] bg-blue-50 dark:bg-blue-950/20">Evening Snacks</th>
-                <th className="border px-2 py-2 text-center font-semibold min-w-[85px] bg-blue-50 dark:bg-blue-950/20">Night Snacks</th>
-                <th className="border px-2 py-2 text-center font-semibold min-w-[110px] bg-red-100 dark:bg-red-900/30 text-red-800 dark:text-red-300">Sunday Extra Snacks <span className="text-[9px] font-normal">(auto from Form 2)</span></th>
-                <th className="border px-2 py-2 text-center font-semibold min-w-[120px]">Remarks</th>
+                <th className="border px-2 py-2 text-center font-semibold min-w-[82px] sticky left-0 z-10 bg-muted/80">Date</th>
+                <th className="border px-2 py-2 text-center font-semibold min-w-[42px] sticky left-[82px] z-10 bg-muted/80">Day</th>
+                <th className="border px-2 py-2 text-center font-semibold min-w-[72px] bg-blue-50 dark:bg-blue-950/20">Breakfast</th>
+                <th className="border px-2 py-2 text-center font-semibold min-w-[78px] bg-blue-50 dark:bg-blue-950/20">Evening</th>
+                <th className="border px-2 py-2 text-center font-semibold min-w-[72px] bg-blue-50 dark:bg-blue-950/20">Night</th>
+                <th className="border px-2 py-2 text-center font-semibold min-w-[90px] bg-red-100 dark:bg-red-900/30 text-red-800 dark:text-red-300">Sun Extra <span className="text-[9px] font-normal block">(auto F2)</span></th>
+                <th className="border px-2 py-2 text-center font-semibold min-w-[110px]">Remarks</th>
               </tr>
             </thead>
             <tbody>
@@ -1319,42 +1321,43 @@ function UnichemSnackTab({ month, year }: { month: number; year: number }) {
                 <tr><td colSpan={7} className="border py-6 text-center text-muted-foreground">Click "Auto-Fill Month" to generate rows for {MONTHS[month-1]} {year}</td></tr>
               ) : rows.map((row, idx) => {
                 const isSun = isSunday(row.entryDate);
+                const rowBg = isSun ? "bg-red-100 dark:bg-red-950/30" : idx%2===0 ? "bg-white dark:bg-transparent" : "bg-muted/10";
                 return (
-                  <tr key={idx} className={`${isSun ? "bg-red-100 dark:bg-red-950/30" : idx%2===0?"":"bg-muted/10"} ${row._dirty?"ring-1 ring-inset ring-yellow-300":""}`}>
-                    <td className="border px-1 py-1 text-center font-medium text-[11px]">{safeFormat(row.entryDate)}</td>
-                    <td className="border px-1 py-1 text-center text-[11px]">{row.weekDay||getWeekDay(row.entryDate)}</td>
-                    <td className="border px-0.5 py-0.5 bg-blue-50/50 dark:bg-blue-950/10">
-                      <input type="number" min="0" value={row.breakfast||""} onChange={e=>handleCellChange(idx,'breakfast',e.target.value)} onKeyDown={e=>handleEnterKey(e,0)}
-                        className="w-full text-center bg-transparent outline-none text-xs py-1 focus:bg-white dark:focus:bg-gray-800 rounded" data-testid={`snack-bf-${idx}`}/>
+                  <tr key={idx} className={`${rowBg} ${row._dirty?"ring-1 ring-inset ring-yellow-300":""}`}>
+                    <td className={`border px-1 py-0.5 text-center font-medium text-[11px] sticky left-0 z-10 ${isSun?"bg-red-100 dark:bg-red-950/30":idx%2===0?"bg-white dark:bg-gray-900":"bg-gray-50 dark:bg-gray-800/50"}`}>{safeFormat(row.entryDate)}</td>
+                    <td className={`border px-1 py-0.5 text-center text-[11px] sticky left-[82px] z-10 ${isSun?"bg-red-100 dark:bg-red-950/30":idx%2===0?"bg-white dark:bg-gray-900":"bg-gray-50 dark:bg-gray-800/50"}`}>{row.weekDay||getWeekDay(row.entryDate)}</td>
+                    <td className="border p-0 bg-blue-50/50 dark:bg-blue-950/10">
+                      <input type="number" inputMode="numeric" min="0" value={row.breakfast||""} onChange={e=>handleCellChange(idx,'breakfast',e.target.value)} onKeyDown={e=>handleEnterKey(e,0)}
+                        className="w-full text-center bg-transparent outline-none text-xs py-2.5 sm:py-1.5 focus:bg-white dark:focus:bg-gray-800 rounded" style={{minHeight:'36px'}} data-testid={`snack-bf-${idx}`}/>
                     </td>
-                    <td className="border px-0.5 py-0.5 bg-blue-50/50 dark:bg-blue-950/10">
-                      <input type="number" min="0" value={row.eveningSnacks||""} onChange={e=>handleCellChange(idx,'eveningSnacks',e.target.value)} onKeyDown={e=>handleEnterKey(e,1)}
-                        className="w-full text-center bg-transparent outline-none text-xs py-1 focus:bg-white dark:focus:bg-gray-800 rounded" data-testid={`snack-ev-${idx}`}/>
+                    <td className="border p-0 bg-blue-50/50 dark:bg-blue-950/10">
+                      <input type="number" inputMode="numeric" min="0" value={row.eveningSnacks||""} onChange={e=>handleCellChange(idx,'eveningSnacks',e.target.value)} onKeyDown={e=>handleEnterKey(e,1)}
+                        className="w-full text-center bg-transparent outline-none text-xs py-2.5 sm:py-1.5 focus:bg-white dark:focus:bg-gray-800 rounded" style={{minHeight:'36px'}} data-testid={`snack-ev-${idx}`}/>
                     </td>
-                    <td className="border px-0.5 py-0.5 bg-blue-50/50 dark:bg-blue-950/10">
-                      <input type="number" min="0" value={row.nightSnacks||""} onChange={e=>handleCellChange(idx,'nightSnacks',e.target.value)} onKeyDown={e=>handleEnterKey(e,2)}
-                        className="w-full text-center bg-transparent outline-none text-xs py-1 focus:bg-white dark:focus:bg-gray-800 rounded" data-testid={`snack-night-${idx}`}/>
+                    <td className="border p-0 bg-blue-50/50 dark:bg-blue-950/10">
+                      <input type="number" inputMode="numeric" min="0" value={row.nightSnacks||""} onChange={e=>handleCellChange(idx,'nightSnacks',e.target.value)} onKeyDown={e=>handleEnterKey(e,2)}
+                        className="w-full text-center bg-transparent outline-none text-xs py-2.5 sm:py-1.5 focus:bg-white dark:focus:bg-gray-800 rounded" style={{minHeight:'36px'}} data-testid={`snack-night-${idx}`}/>
                     </td>
-                    <td className="border px-0.5 py-0.5 bg-red-50/80 dark:bg-red-950/20">
+                    <td className="border p-0 bg-red-50/80 dark:bg-red-950/20">
                       {isSun ? (
-                        <div className="text-center text-xs py-1 font-semibold text-red-700 dark:text-red-300 select-none" title="Auto from Form 2 Bill Qty" data-testid={`snack-sun-${idx}`}>
+                        <div className="text-center text-xs py-2.5 sm:py-1.5 font-semibold text-red-700 dark:text-red-300 select-none" style={{minHeight:'36px'}} title="Auto from Form 2 Bill Qty" data-testid={`snack-sun-${idx}`}>
                           {lunchBillQtyMap[row.entryDate] || ""}
                         </div>
                       ) : (
-                        <input type="number" min="0" value={row.sundayExtraSnacks||""} onChange={e=>handleCellChange(idx,'sundayExtraSnacks',e.target.value)} onKeyDown={e=>handleEnterKey(e,3)}
-                          className="w-full text-center bg-transparent outline-none text-xs py-1 focus:bg-white dark:focus:bg-gray-800 rounded" data-testid={`snack-sun-${idx}`}/>
+                        <input type="number" inputMode="numeric" min="0" value={row.sundayExtraSnacks||""} onChange={e=>handleCellChange(idx,'sundayExtraSnacks',e.target.value)} onKeyDown={e=>handleEnterKey(e,3)}
+                          className="w-full text-center bg-transparent outline-none text-xs py-2.5 sm:py-1.5 focus:bg-white dark:focus:bg-gray-800 rounded" style={{minHeight:'36px'}} data-testid={`snack-sun-${idx}`}/>
                       )}
                     </td>
-                    <td className="border px-0.5 py-0.5">
+                    <td className="border p-0">
                       <input type="text" value={row.remarks||""} onChange={e=>handleCellChange(idx,'remarks',e.target.value)} onKeyDown={e=>handleEnterKey(e,4)}
-                        className="w-full bg-transparent outline-none text-xs py-1 focus:bg-white dark:focus:bg-gray-800 rounded px-1" data-testid={`snack-remarks-${idx}`}/>
+                        className="w-full bg-transparent outline-none text-xs py-2.5 sm:py-1.5 focus:bg-white dark:focus:bg-gray-800 rounded px-1" style={{minHeight:'36px'}} data-testid={`snack-remarks-${idx}`}/>
                     </td>
                   </tr>
                 );
               })}
               {rows.length > 0 && (
                 <tr className="bg-muted font-semibold text-xs">
-                  <td colSpan={2} className="border px-2 py-2 text-center">Total</td>
+                  <td colSpan={2} className="border px-2 py-2 text-center sticky left-0 bg-muted z-10">Total</td>
                   <td className="border px-2 py-2 text-center text-blue-700 dark:text-blue-300">{totalBreakfast}</td>
                   <td className="border px-2 py-2 text-center text-blue-700 dark:text-blue-300">{totalEvening}</td>
                   <td className="border px-2 py-2 text-center text-blue-700 dark:text-blue-300">{totalNight}</td>
@@ -1531,11 +1534,11 @@ function UnichemLunchTab({ month, year }: { month: number; year: number }) {
 
   return (
     <div>
-      <div className="flex flex-wrap gap-2 mb-4 items-center">
+      <div className="flex flex-col sm:flex-row sm:flex-wrap gap-2 mb-4">
         <div className="flex items-center gap-2">
-          <label className="text-sm font-medium text-muted-foreground">Location:</label>
+          <label className="text-sm font-medium text-muted-foreground whitespace-nowrap">Location:</label>
           <Select value={location} onValueChange={(v) => setLocation(v as UnichEmLocation)}>
-            <SelectTrigger className="w-40 h-8" data-testid="select-unichem-location-lunch">
+            <SelectTrigger className="flex-1 sm:w-44 h-9" data-testid="select-unichem-location-lunch">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
@@ -1543,27 +1546,29 @@ function UnichemLunchTab({ month, year }: { month: number; year: number }) {
             </SelectContent>
           </Select>
         </div>
-        <Button size="sm" variant="outline" onClick={handleAutoFill} data-testid="btn-unichem-autofill-lunch">
-          <Plus className="w-3.5 h-3.5 mr-1" /> Auto-Fill Month
-        </Button>
-        <Button size="sm" onClick={handleSaveAll} disabled={createMutation.isPending || updateMutation.isPending} data-testid="btn-unichem-save-lunch">
-          <Save className="w-3.5 h-3.5 mr-1" /> Save All
-        </Button>
-        <Button size="sm" variant="outline" onClick={handlePrint} data-testid="btn-unichem-print-lunch">
-          <Printer className="w-3.5 h-3.5 mr-1" /> Print
-        </Button>
+        <div className="flex gap-2 flex-wrap">
+          <Button size="sm" variant="outline" onClick={handleAutoFill} className="h-9 flex-1 sm:flex-none" data-testid="btn-unichem-autofill-lunch">
+            <Plus className="w-3.5 h-3.5 mr-1" /> Auto-Fill Month
+          </Button>
+          <Button size="sm" onClick={handleSaveAll} disabled={createMutation.isPending || updateMutation.isPending} className="h-9 flex-1 sm:flex-none" data-testid="btn-unichem-save-lunch">
+            <Save className="w-3.5 h-3.5 mr-1" /> Save All
+          </Button>
+          <Button size="sm" variant="outline" onClick={handlePrint} className="h-9 flex-1 sm:flex-none" data-testid="btn-unichem-print-lunch">
+            <Printer className="w-3.5 h-3.5 mr-1" /> Print
+          </Button>
+        </div>
       </div>
       {isLoading ? <div className="py-8 text-center text-muted-foreground"><Loader2 className="w-5 h-5 animate-spin inline mr-2"/>Loading...</div> : (
         <div className="overflow-x-auto rounded-lg border">
-          <table className="w-full text-xs border-collapse">
+          <table className="text-xs border-collapse" style={{minWidth:'420px'}}>
             <thead>
               <tr className="bg-muted/50">
-                <th className="border px-2 py-2 text-center font-semibold min-w-[90px]">Date</th>
-                <th className="border px-2 py-2 text-center font-semibold min-w-[50px]">Days</th>
-                <th className="border px-2 py-2 text-center font-semibold min-w-[70px] bg-orange-50 dark:bg-orange-950/20">Order</th>
-                <th className="border px-2 py-2 text-center font-semibold min-w-[70px] bg-blue-50 dark:bg-blue-950/20">Actual</th>
-                <th className="border px-2 py-2 text-center font-semibold min-w-[70px] bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-300">Total <span className="text-[9px] font-normal">(auto)</span></th>
-                <th className="border px-2 py-2 text-center font-semibold min-w-[70px] bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-300">Bill Qty <span className="text-[9px] font-normal">(auto)</span></th>
+                <th className="border px-2 py-2 text-center font-semibold min-w-[82px] sticky left-0 z-10 bg-muted/80">Date</th>
+                <th className="border px-2 py-2 text-center font-semibold min-w-[42px] sticky left-[82px] z-10 bg-muted/80">Day</th>
+                <th className="border px-2 py-2 text-center font-semibold min-w-[68px] bg-orange-50 dark:bg-orange-950/20">Order</th>
+                <th className="border px-2 py-2 text-center font-semibold min-w-[68px] bg-blue-50 dark:bg-blue-950/20">Actual</th>
+                <th className="border px-2 py-2 text-center font-semibold min-w-[68px] bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-300">Total <span className="text-[9px] font-normal block">(auto)</span></th>
+                <th className="border px-2 py-2 text-center font-semibold min-w-[68px] bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-300">Bill Qty <span className="text-[9px] font-normal block">(auto)</span></th>
               </tr>
             </thead>
             <tbody>
@@ -1571,26 +1576,27 @@ function UnichemLunchTab({ month, year }: { month: number; year: number }) {
                 <tr><td colSpan={6} className="border py-6 text-center text-muted-foreground">Click "Auto-Fill Month" to generate rows for {MONTHS[month-1]} {year}</td></tr>
               ) : rows.map((row, idx) => {
                 const isSun = isSunday(row.entryDate);
+                const rowBg = isSun ? "bg-red-100 dark:bg-red-950/30" : idx%2===0 ? "bg-white dark:bg-transparent" : "bg-muted/10";
                 return (
-                  <tr key={idx} className={`${isSun?"bg-red-100 dark:bg-red-950/30":idx%2===0?"":"bg-muted/10"} ${row._dirty?"ring-1 ring-inset ring-yellow-300":""}`}>
-                    <td className="border px-1 py-1 text-center font-medium text-[11px]">{safeFormat(row.entryDate)}</td>
-                    <td className="border px-1 py-1 text-center text-[11px]">{row.weekDay||getWeekDay(row.entryDate)}</td>
-                    <td className="border px-0.5 py-0.5 bg-orange-50/50 dark:bg-orange-950/10">
-                      <input type="number" min="0" value={row.orderQty||""}
+                  <tr key={idx} className={`${rowBg} ${row._dirty?"ring-1 ring-inset ring-yellow-300":""}`}>
+                    <td className={`border px-1 py-0.5 text-center font-medium text-[11px] sticky left-0 z-10 ${isSun?"bg-red-100 dark:bg-red-950/30":idx%2===0?"bg-white dark:bg-gray-900":"bg-gray-50 dark:bg-gray-800/50"}`}>{safeFormat(row.entryDate)}</td>
+                    <td className={`border px-1 py-0.5 text-center text-[11px] sticky left-[82px] z-10 ${isSun?"bg-red-100 dark:bg-red-950/30":idx%2===0?"bg-white dark:bg-gray-900":"bg-gray-50 dark:bg-gray-800/50"}`}>{row.weekDay||getWeekDay(row.entryDate)}</td>
+                    <td className="border p-0 bg-orange-50/50 dark:bg-orange-950/10">
+                      <input type="number" inputMode="numeric" min="0" value={row.orderQty||""}
                         onChange={e=>handleCellChange(idx,'orderQty',e.target.value)}
                         onKeyDown={e=>handleEnterKey(e,0)}
-                        className="w-full text-center bg-transparent outline-none text-xs py-1 focus:bg-white dark:focus:bg-gray-800 rounded" data-testid={`lunch-order-${idx}`}/>
+                        className="w-full text-center bg-transparent outline-none text-xs py-2.5 sm:py-1.5 focus:bg-white dark:focus:bg-gray-800 rounded" style={{minHeight:'36px'}} data-testid={`lunch-order-${idx}`}/>
                     </td>
-                    <td className="border px-0.5 py-0.5 bg-blue-50/50 dark:bg-blue-950/10">
-                      <input type="number" min="0" value={row.actual||""}
+                    <td className="border p-0 bg-blue-50/50 dark:bg-blue-950/10">
+                      <input type="number" inputMode="numeric" min="0" value={row.actual||""}
                         onChange={e=>handleCellChange(idx,'actual',e.target.value)}
                         onKeyDown={e=>handleEnterKey(e,1)}
-                        className="w-full text-center bg-transparent outline-none text-xs py-1 focus:bg-white dark:focus:bg-gray-800 rounded" data-testid={`lunch-actual-${idx}`}/>
+                        className="w-full text-center bg-transparent outline-none text-xs py-2.5 sm:py-1.5 focus:bg-white dark:focus:bg-gray-800 rounded" style={{minHeight:'36px'}} data-testid={`lunch-actual-${idx}`}/>
                     </td>
-                    <td className="border px-1 py-1 text-center text-xs font-semibold bg-green-100/60 dark:bg-green-900/20 text-green-800 dark:text-green-300 select-none" data-testid={`lunch-total-${idx}`}>
+                    <td className="border px-1 text-center text-xs font-semibold bg-green-100/60 dark:bg-green-900/20 text-green-800 dark:text-green-300 select-none" style={{minHeight:'36px'}} data-testid={`lunch-total-${idx}`}>
                       {row.actual||""}
                     </td>
-                    <td className="border px-1 py-1 text-center text-xs font-semibold bg-green-100/60 dark:bg-green-900/20 text-green-800 dark:text-green-300 select-none" data-testid={`lunch-billqty-${idx}`}>
+                    <td className="border px-1 text-center text-xs font-semibold bg-green-100/60 dark:bg-green-900/20 text-green-800 dark:text-green-300 select-none" style={{minHeight:'36px'}} data-testid={`lunch-billqty-${idx}`}>
                       {row.billQty||""}
                     </td>
                   </tr>
@@ -1598,7 +1604,7 @@ function UnichemLunchTab({ month, year }: { month: number; year: number }) {
               })}
               {rows.length > 0 && (
                 <tr className="bg-muted font-semibold text-xs">
-                  <td colSpan={2} className="border px-2 py-2 text-center">Total</td>
+                  <td colSpan={2} className="border px-2 py-2 text-center sticky left-0 bg-muted z-10">Total</td>
                   <td className="border px-2 py-2 text-center text-orange-700">{rows.reduce((s,r)=>s+(r.orderQty||0),0)}</td>
                   <td className="border px-2 py-2 text-center text-blue-700">{rows.reduce((s,r)=>s+(r.actual||0),0)}</td>
                   <td className="border px-2 py-2 text-center text-green-700">{rows.reduce((s,r)=>s+(r.total||0),0)}</td>
