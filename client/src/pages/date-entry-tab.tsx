@@ -1325,15 +1325,15 @@ function UnichemSnackTab({ month, year }: { month: number; year: number }) {
       const RATES = { breakfast: 15, eveningSnacks: 15, nightSnacks: 15, sundayExtra: 10, billQtyLunch: 58, billQtyDinner: 58 };
       const fmt = (n: number) => n ? `₹ ${n.toLocaleString('en-IN')}` : "";
 
-      const amtRows = rows.map(r => ({
-        location: r.location,
-        breakfast: r.breakfast * RATES.breakfast,
-        eveningSnacks: r.eveningSnacks * RATES.eveningSnacks,
-        nightSnacks: r.nightSnacks * RATES.nightSnacks,
-        sundayExtra: r.sundayExtra * RATES.sundayExtra,
-        billQtyLunch: r.billQtyLunch * RATES.billQtyLunch,
-        billQtyDinner: r.billQtyDinner * RATES.billQtyDinner,
-      }));
+      const amtRows = rows.map(r => {
+        const bf = r.breakfast * RATES.breakfast;
+        const ev = r.eveningSnacks * RATES.eveningSnacks;
+        const ni = r.nightSnacks * RATES.nightSnacks;
+        const su = r.sundayExtra * RATES.sundayExtra;
+        const lu = r.billQtyLunch * RATES.billQtyLunch;
+        const di = r.billQtyDinner * RATES.billQtyDinner;
+        return { location: r.location, breakfast: bf, eveningSnacks: ev, nightSnacks: ni, sundayExtra: su, billQtyLunch: lu, billQtyDinner: di, rowTotal: bf + ev + ni + su + lu + di };
+      });
       const amtTotal = {
         breakfast: amtRows.reduce((s, r) => s + r.breakfast, 0),
         eveningSnacks: amtRows.reduce((s, r) => s + r.eveningSnacks, 0),
@@ -1341,7 +1341,11 @@ function UnichemSnackTab({ month, year }: { month: number; year: number }) {
         sundayExtra: amtRows.reduce((s, r) => s + r.sundayExtra, 0),
         billQtyLunch: amtRows.reduce((s, r) => s + r.billQtyLunch, 0),
         billQtyDinner: amtRows.reduce((s, r) => s + r.billQtyDinner, 0),
+        rowTotal: amtRows.reduce((s, r) => s + r.rowTotal, 0),
       };
+      const grandTotalAmt = amtTotal.rowTotal;
+      const gstAmt = Math.round(grandTotalAmt * 0.05);
+      const grandTotalWithGst = grandTotalAmt + gstAmt;
 
       const colHdr = (label: string, bg?: string) => `<th style="${thStyle}${bg||''}">${label}</th>`;
       const tdAmt = (v: number) => `<td style="${tdStyle}">${fmt(v)}</td>`;
@@ -1386,11 +1390,12 @@ function UnichemSnackTab({ month, year }: { month: number; year: number }) {
           <!-- Table 2: Bill Amount Summary -->
           <table style="${tableStyle}">
             <thead>
-              <tr><th colspan="7" style="border:1px solid #000;padding:6px;text-align:center;font-size:11pt;background:#fff;">Bill Amount Summary – Unichem Laboratories Ltd – ${monthLabel}</th></tr>
+              <tr><th colspan="8" style="border:1px solid #000;padding:6px;text-align:center;font-size:11pt;background:#fff;">Bill Amount Summary – Unichem Laboratories Ltd – ${monthLabel}</th></tr>
               <tr>
                 ${colHdr("Location","background:#fce4d6;")}
                 ${colHdr("Breakfast")}${colHdr("Evening Snacks")}${colHdr("Night Snacks")}${colHdr("Sunday Extra Snacks")}
                 ${colHdr("Bill Qty Lunch","background:#c6efce;")}${colHdr("Bill Qty Dinner","background:#c6efce;")}
+                ${colHdr("Total","background:#ffe0b2;")}
               </tr>
               <tr style="background:#fff9c4;">
                 <td style="${tdLocStyle}">Rate</td>
@@ -1400,16 +1405,27 @@ function UnichemSnackTab({ month, year }: { month: number; year: number }) {
                 <td style="${tdStyle}">₹ ${RATES.sundayExtra}</td>
                 <td style="${tdStyle}">₹ ${RATES.billQtyLunch}</td>
                 <td style="${tdStyle}">₹ ${RATES.billQtyDinner}</td>
+                <td style="${tdStyle}"></td>
               </tr>
             </thead>
             <tbody>
               ${amtRows.map(r => `<tr>
                 <td style="${tdLocStyle}">${r.location}</td>
                 ${tdAmt(r.breakfast)}${tdAmt(r.eveningSnacks)}${tdAmt(r.nightSnacks)}${tdAmt(r.sundayExtra)}${tdAmt(r.billQtyLunch)}${tdAmt(r.billQtyDinner)}
+                <td style="${tdStyle}font-weight:bold;">${fmt(r.rowTotal)}</td>
               </tr>`).join('')}
               <tr style="font-weight:bold;background:#e0e0e0;">
                 <td style="${tdLocStyle}">Total</td>
                 ${tdAmt(amtTotal.breakfast)}${tdAmt(amtTotal.eveningSnacks)}${tdAmt(amtTotal.nightSnacks)}${tdAmt(amtTotal.sundayExtra)}${tdAmt(amtTotal.billQtyLunch)}${tdAmt(amtTotal.billQtyDinner)}
+                <td style="${tdStyle}font-weight:bold;">${fmt(amtTotal.rowTotal)}</td>
+              </tr>
+              <tr style="font-weight:bold;background:#fff9c4;">
+                <td style="${tdLocStyle}" colspan="7">GST @ 5%</td>
+                <td style="${tdStyle}">${fmt(gstAmt)}</td>
+              </tr>
+              <tr style="font-weight:bold;background:#c6efce;">
+                <td style="${tdLocStyle}" colspan="7">Grand Total</td>
+                <td style="${tdStyle}">${fmt(grandTotalWithGst)}</td>
               </tr>
             </tbody>
           </table>
