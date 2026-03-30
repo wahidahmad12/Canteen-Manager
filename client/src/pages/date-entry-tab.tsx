@@ -1299,7 +1299,7 @@ function UnichemSnackTab({ month, year }: { month: number; year: number }) {
               ) : rows.map((row, idx) => {
                 const isSun = isSunday(row.entryDate);
                 return (
-                  <tr key={idx} className={`${isSun ? "bg-orange-50 dark:bg-orange-950/20" : idx%2===0?"":"bg-muted/10"} ${row._dirty?"ring-1 ring-inset ring-yellow-300":""}`}>
+                  <tr key={idx} className={`${isSun ? "bg-red-100 dark:bg-red-950/30" : idx%2===0?"":"bg-muted/10"} ${row._dirty?"ring-1 ring-inset ring-yellow-300":""}`}>
                     <td className="border px-1 py-1 text-center font-medium text-[11px]">{safeFormat(row.entryDate)}</td>
                     <td className="border px-1 py-1 text-center text-[11px]">{row.weekDay||getWeekDay(row.entryDate)}</td>
                     <td className="border px-0.5 py-0.5 bg-blue-50/50 dark:bg-blue-950/10">
@@ -1542,7 +1542,7 @@ function UnichemLunchTab({ month, year }: { month: number; year: number }) {
               ) : rows.map((row, idx) => {
                 const isSun = isSunday(row.entryDate);
                 return (
-                  <tr key={idx} className={`${isSun?"bg-orange-50 dark:bg-orange-950/20":idx%2===0?"":"bg-muted/10"} ${row._dirty?"ring-1 ring-inset ring-yellow-300":""}`}>
+                  <tr key={idx} className={`${isSun?"bg-red-100 dark:bg-red-950/30":idx%2===0?"":"bg-muted/10"} ${row._dirty?"ring-1 ring-inset ring-yellow-300":""}`}>
                     <td className="border px-1 py-1 text-center font-medium text-[11px]">{safeFormat(row.entryDate)}</td>
                     <td className="border px-1 py-1 text-center text-[11px]">{row.weekDay||getWeekDay(row.entryDate)}</td>
                     <td className="border px-0.5 py-0.5 bg-orange-50/50 dark:bg-orange-950/10">
