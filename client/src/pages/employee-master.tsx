@@ -291,13 +291,15 @@ export default function EmployeeMaster() {
     const td = `border:1px solid #000;padding:4px 6px;font-size:9.5pt;`;
     const tdc = `border:1px solid #000;padding:4px 6px;font-size:9.5pt;text-align:center;`;
 
+    const showClient = !filterClient || filterClient === "all";
+
     const rows = filteredEmployees.map((emp, i) => `
       <tr style="${i % 2 === 0 ? "" : "background:#f5f5f5;"}">
         <td style="${tdc}">${i + 1}</td>
         <td style="${td}">${emp.employeeCode}</td>
         <td style="${td}">${emp.name}</td>
         <td style="${td}">${emp.fatherName || "-"}</td>
-        <td style="${td}">${emp.clientName}</td>
+        ${showClient ? `<td style="${td}">${emp.clientName}</td>` : ""}
         <td style="${td}">${emp.designation || "-"}</td>
         <td style="${td}">${emp.department || "-"}</td>
         <td style="${tdc}">${fmtDate(emp.joiningDate)}</td>
@@ -328,7 +330,7 @@ export default function EmployeeMaster() {
             <th style="${th}">Emp Code</th>
             <th style="${th}">Name</th>
             <th style="${th}">Father's Name</th>
-            <th style="${th}">Client</th>
+            ${showClient ? `<th style="${th}">Client</th>` : ""}
             <th style="${th}">Designation</th>
             <th style="${th}">Department</th>
             <th style="${th}">Joining Date</th>
