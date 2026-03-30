@@ -2752,6 +2752,14 @@ export function DateEntryTab() {
 
   const years = Array.from({ length: 6 }, (_, i) => String(now.getFullYear() - 2 + i));
   const { label: billingLabel } = getBillingRange(parseInt(month), parseInt(year));
+  const periodLabel = useMemo(() => {
+    if (selectedClient === "unichem") {
+      const m = parseInt(month); const y = parseInt(year);
+      const lastDay = getDaysInMonth(m, y);
+      return `1 ${MONTHS[m-1].slice(0,3)} ${y} – ${lastDay} ${MONTHS[m-1].slice(0,3)} ${y}`;
+    }
+    return billingLabel;
+  }, [selectedClient, month, year, billingLabel]);
 
   if (allowedClients.length === 0) {
     return (
@@ -2800,7 +2808,7 @@ export function DateEntryTab() {
         </div>
         <div className="flex items-center gap-2 sm:ml-auto">
           <Badge variant="outline" className="text-xs font-medium bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300 border-blue-200 dark:border-blue-700 w-fit hidden sm:flex">
-            Period: {billingLabel}
+            Period: {periodLabel}
           </Badge>
           <Button
             onClick={handleLoad}
@@ -2814,7 +2822,7 @@ export function DateEntryTab() {
         </div>
       </div>
       <Badge variant="outline" className="text-xs font-medium bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300 border-blue-200 dark:border-blue-700 w-fit mb-3 sm:hidden">
-        Period: {billingLabel}
+        Period: {periodLabel}
       </Badge>
 
       {/* Client-specific content */}
