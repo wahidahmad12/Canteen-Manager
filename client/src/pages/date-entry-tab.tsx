@@ -1158,8 +1158,9 @@ function UnichemSnackTab({ month, year, loadKey = 0 }: { month: number; year: nu
   }, [loadKey]);
 
   // Fetch Form 2 Lunch data to auto-populate Sunday Extra Snacks from Bill Qty
+  // NOTE: query key includes 'billqty_only' to avoid colliding with UnichemMealSubTab's full-row cache
   const { data: lunchRows = [] } = useQuery<{ entryDate: string; billQty: number }[]>({
-    queryKey: ['/api/unichem-lunch-entries', month, year, location, 'lunch'],
+    queryKey: ['/api/unichem-lunch-entries', month, year, location, 'lunch', 'billqty_only'],
     queryFn: async () => {
       const res = await fetch(`/api/unichem-lunch-entries?month=${month}&year=${year}&location=${encodeURIComponent(location)}&mealType=lunch`, { credentials: "include" });
       const data = await res.json();
