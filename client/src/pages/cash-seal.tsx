@@ -839,8 +839,8 @@ export default function CashSeal() {
 
     const totals = filtered.reduce((acc, s) => {
       const t = calcTotals(s);
-      return { income: acc.income + t.income, expense: acc.expense + t.expense, balance: acc.balance + t.balance };
-    }, { income: 0, expense: 0, balance: 0 });
+      return { income: acc.income + t.income, expense: acc.expense + t.expense, balance: acc.balance + t.balance, akbarAli: acc.akbarAli + (Number(s.totalGivenToAkbarAli) || 0) };
+    }, { income: 0, expense: 0, balance: 0, akbarAli: 0 });
 
     const statCards = [
       { label: "Total Records", value: String(filtered.length), isCount: true, grad: "from-blue-600 to-blue-400", icon: IndianRupee },
@@ -1037,7 +1037,8 @@ export default function CashSeal() {
                         <td className="px-3 py-2.5 text-sm font-bold font-mono text-emerald-700 dark:text-emerald-300">{fmtN(totals.income)}</td>
                         <td className="px-3 py-2.5 text-sm font-bold font-mono text-rose-600 dark:text-rose-400">{fmtN(totals.expense)}</td>
                         <td className="px-3 py-2.5 text-sm font-bold font-mono text-sky-700 dark:text-sky-300">{fmtN(totals.balance)}</td>
-                        <td colSpan={2}></td>
+                        <td className="px-3 py-2.5 text-sm font-bold font-mono text-orange-600 dark:text-orange-400">{fmtN(totals.akbarAli)}</td>
+                        <td></td>
                       </tr>
                     </tfoot>
                   </table>
@@ -1113,10 +1114,11 @@ export default function CashSeal() {
                   {/* Mobile footer */}
                   <div className="p-3 bg-teal-50 dark:bg-teal-900/20">
                     <div className="text-xs font-bold text-teal-700 dark:text-teal-300 mb-2">Total ({filtered.length} records)</div>
-                    <div className="grid grid-cols-3 gap-1.5">
+                    <div className="grid grid-cols-2 gap-1.5">
                       <div className="text-center"><div className="text-[10px] text-emerald-600">Income</div><div className="text-xs font-bold font-mono text-emerald-700">{fmtN(totals.income)}</div></div>
                       <div className="text-center"><div className="text-[10px] text-rose-600">Expense</div><div className="text-xs font-bold font-mono text-rose-700">{fmtN(totals.expense)}</div></div>
                       <div className="text-center"><div className="text-[10px] text-sky-600">Balance</div><div className="text-xs font-bold font-mono text-sky-700">{fmtN(totals.balance)}</div></div>
+                      <div className="text-center"><div className="text-[10px] text-orange-600">Akbar Ali</div><div className="text-xs font-bold font-mono text-orange-700">{fmtN(totals.akbarAli)}</div></div>
                     </div>
                   </div>
                 </div>
