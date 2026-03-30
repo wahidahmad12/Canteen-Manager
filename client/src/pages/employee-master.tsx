@@ -13,7 +13,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
-import { Plus, Loader2, Pencil, Trash2, Users, Search, UserCheck, UserX, Building2, IndianRupee, CreditCard, FileText, MapPin, Shield, Calendar } from "lucide-react";
+import { Plus, Loader2, Pencil, Trash2, Users, Search, UserCheck, UserX, Building2, IndianRupee, CreditCard, FileText, MapPin, Shield, Calendar, Printer } from "lucide-react";
 
 const fmtDate = (d: string | null | undefined): string => {
   if (!d) return "-";
@@ -278,6 +278,81 @@ export default function EmployeeMaster() {
 
   const clientNamesList = clients?.map((c: any) => typeof c === "string" ? c : c.name) || [];
 
+  const handlePrintWeekOfReport = () => {
+    const win = window.open("", "_blank", "width=1100,height=750");
+    if (!win) return;
+
+    const today = new Date();
+    const printDate = `${String(today.getDate()).padStart(2,"0")}-${String(today.getMonth()+1).padStart(2,"0")}-${today.getFullYear()}`;
+    const clientLabel = filterClient && filterClient !== "all" ? filterClient : "All Clients";
+    const statusLabel = filterActive === "active" ? "Active" : filterActive === "inactive" ? "Inactive" : "All";
+
+    const th = `border:1px solid #000;padding:5px 7px;text-align:center;font-size:10pt;font-weight:bold;background:#c6efce;white-space:nowrap;`;
+    const td = `border:1px solid #000;padding:4px 6px;font-size:9.5pt;`;
+    const tdc = `border:1px solid #000;padding:4px 6px;font-size:9.5pt;text-align:center;`;
+
+    const rows = filteredEmployees.map((emp, i) => `
+      <tr style="${i % 2 === 0 ? "" : "background:#f5f5f5;"}">
+        <td style="${tdc}">${i + 1}</td>
+        <td style="${td}">${emp.employeeCode}</td>
+        <td style="${td}">${emp.name}</td>
+        <td style="${td}">${emp.fatherName || "-"}</td>
+        <td style="${td}">${emp.clientName}</td>
+        <td style="${td}">${emp.designation || "-"}</td>
+        <td style="${td}">${emp.department || "-"}</td>
+        <td style="${tdc}">${fmtDate(emp.joiningDate)}</td>
+        <td style="${tdc}">${emp.weeklyOffDay || "-"}</td>
+        <td style="${tdc}">${emp.dailyRate && emp.dailyRate !== "0" ? `₹${emp.dailyRate}` : "-"}</td>
+        <td style="${tdc}">${emp.mobile || "-"}</td>
+        <td style="${tdc}">${emp.esicNo || "-"}</td>
+        <td style="${tdc}">${emp.uanNo || "-"}</td>
+        <td style="${tdc}">${emp.isActive ? "Active" : "Inactive"}</td>
+      </tr>`).join("");
+
+    win.document.write(`<html><head><title>Employee Week Of Report</title>
+      <style>
+        @media print { body { margin: 8mm; } @page { size: A3 landscape; margin: 8mm; } }
+        body { font-family: Arial, sans-serif; }
+        table { border-collapse: collapse; width: 100%; }
+      </style>
+    </head><body>
+      <div style="text-align:center;margin-bottom:6px;">
+        <div style="font-size:14pt;font-weight:bold;">DJ Hospitality &amp; Facility Management Pvt. Ltd.</div>
+        <div style="font-size:12pt;font-weight:bold;margin-top:2px;">Employee Week Of Report</div>
+        <div style="font-size:10pt;margin-top:2px;">Client: ${clientLabel} &nbsp;|&nbsp; Status: ${statusLabel} &nbsp;|&nbsp; Date: ${printDate} &nbsp;|&nbsp; Total: ${filteredEmployees.length}</div>
+      </div>
+      <table>
+        <thead>
+          <tr>
+            <th style="${th}">Sr.</th>
+            <th style="${th}">Emp Code</th>
+            <th style="${th}">Name</th>
+            <th style="${th}">Father's Name</th>
+            <th style="${th}">Client</th>
+            <th style="${th}">Designation</th>
+            <th style="${th}">Department</th>
+            <th style="${th}">Joining Date</th>
+            <th style="${th}">Weekly Off</th>
+            <th style="${th}">Daily Rate</th>
+            <th style="${th}">Mobile</th>
+            <th style="${th}">ESIC No</th>
+            <th style="${th}">UAN No</th>
+            <th style="${th}">Status</th>
+          </tr>
+        </thead>
+        <tbody>${rows}</tbody>
+      </table>
+      <div style="margin-top:40px;display:flex;justify-content:space-between;font-size:10pt;">
+        <span>Prepared by: ________________</span>
+        <span>Checked by: ________________</span>
+        <span>Authorised by: ________________</span>
+      </div>
+    </body></html>`);
+    win.document.close();
+    win.focus();
+    setTimeout(() => win.print(), 400);
+  };
+
   return (
     <Layout>
       <div className="space-y-4 sm:space-y-6">
@@ -286,10 +361,16 @@ export default function EmployeeMaster() {
             <h1 className="text-xl sm:text-2xl font-bold tracking-tight" data-testid="text-employee-master-title">Employee Master</h1>
             <p className="text-muted-foreground text-xs sm:text-sm mt-1">Manage employee records</p>
           </div>
-          <Button onClick={openAdd} data-testid="button-add-employee">
-            <Plus className="w-4 h-4 mr-2" />
-            Add Employee
-          </Button>
+          <div className="flex gap-2">
+            <Button variant="outline" onClick={handlePrintWeekOfReport} data-testid="button-print-weekof-report">
+              <Printer className="w-4 h-4 mr-2" />
+              Print Week Of Report
+            </Button>
+            <Button onClick={openAdd} data-testid="button-add-employee">
+              <Plus className="w-4 h-4 mr-2" />
+              Add Employee
+            </Button>
+          </div>
         </div>
 
         <Card>
