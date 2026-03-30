@@ -1629,8 +1629,6 @@ function UnichemMealSubTab({ month, year, location, mealType }: { month: number;
         });
         if (!r.entryDate) return;
         if (!r.weekDay) r.weekDay = getWeekDay(r.entryDate);
-        r.total = r.actual;
-        r.billQty = Math.max(r.orderQty, r.actual);
         imported.push(r as LunchRow);
       });
       setLocalRows(imported);
