@@ -1278,7 +1278,7 @@ export default function SalaryRegister() {
                   </tr>
                 </thead>
                 <tbody>
-                  {salaries.map((s, idx) => {
+                  {validSalaries.map((s, idx) => {
                     const r = rows[idx];
                     const even = idx % 2 === 0;
                     return (
@@ -1339,7 +1339,7 @@ export default function SalaryRegister() {
             </div>
 
             <div className="md:hidden print:hidden space-y-3">
-              {salaries.map((s, idx) => {
+              {validSalaries.map((s, idx) => {
                 const r = rows[idx];
                 return (
                   <Link key={s.id} href={`/salary/${s.id}/slip`}>
