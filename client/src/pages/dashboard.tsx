@@ -461,7 +461,7 @@ export default function Dashboard() {
                     {sortedReports.map((report) => {
                       const opening = Number(report.openingBalance) || 0;
                       const received = Number(report.receivedAmount) || 0;
-                      const wahid = Number((report as any).giveByWahid) || 0;
+                      const wahid = Number(report.giveByWahid) || 0;
                       const totalCash = opening + received + wahid;
                       const totalExpense = report.items?.reduce((s: number, i: any) => s + (Number(i.amount) || 0), 0) || 0;
                       return (
@@ -532,7 +532,7 @@ export default function Dashboard() {
                         {sortedReports.map((report, idx) => {
                           const opening = Number(report.openingBalance) || 0;
                           const received = Number(report.receivedAmount) || 0;
-                          const wahid = Number((report as any).giveByWahid) || 0;
+                          const wahid = Number(report.giveByWahid) || 0;
                           const totalCash = opening + received + wahid;
                           const totalExpense = report.items?.reduce((sum: number, item: any) => sum + (Number(item.amount) || 0), 0) || 0;
                           return (
