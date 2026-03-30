@@ -1207,7 +1207,8 @@ function UnichemSnackTab({ month, year }: { month: number; year: number }) {
           <tbody>
             ${rows.map(r => {
               const vals = dataFn(r);
-              return `<tr>
+              const sunBg = isSunday(r.entryDate) ? 'background:#ffd6d6;' : '';
+              return `<tr style="${sunBg}">
                 <td style="${tdStyle}">${safeFormat(r.entryDate)}</td>
                 <td style="${tdStyle}">${r.weekDay||getWeekDay(r.entryDate)}</td>
                 ${vals.map(v=>`<td style="${tdStyle}">${v||""}</td>`).join('')}
@@ -1477,14 +1478,17 @@ function UnichemLunchTab({ month, year }: { month: number; year: number }) {
             </tr>
           </thead>
           <tbody>
-            ${rows.map(r => `<tr>
-              <td style="${tdS}">${safeFormat(r.entryDate)}</td>
-              <td style="${tdS}">${r.weekDay||getWeekDay(r.entryDate)}</td>
-              <td style="${tdS}">${r.orderQty||""}</td>
-              <td style="${tdS}">${r.actual||""}</td>
-              <td style="${tdS}">${r.total||""}</td>
-              <td style="${tdS}">${r.billQty||""}</td>
-            </tr>`).join('')}
+            ${rows.map(r => {
+              const sunBg = isSunday(r.entryDate) ? 'background:#ffd6d6;' : '';
+              return `<tr style="${sunBg}">
+                <td style="${tdS}">${safeFormat(r.entryDate)}</td>
+                <td style="${tdS}">${r.weekDay||getWeekDay(r.entryDate)}</td>
+                <td style="${tdS}">${r.orderQty||""}</td>
+                <td style="${tdS}">${r.actual||""}</td>
+                <td style="${tdS}">${r.total||""}</td>
+                <td style="${tdS}">${r.billQty||""}</td>
+              </tr>`;
+            }).join('')}
             <tr style="font-weight:bold;background:#e0e0e0">
               <td style="${tdS}" colspan="2">Total</td>
               <td style="${tdS}">${rows.reduce((s,r)=>s+(r.orderQty||0),0)}</td>
