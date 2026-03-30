@@ -1145,6 +1145,18 @@ function UnichemSnackTab({ month, year }: { month: number; year: number }) {
     });
   };
 
+  const handleEnterKey = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      const row = (e.target as HTMLElement).closest('tr');
+      if (row) {
+        const inputs = Array.from(row.querySelectorAll('input'));
+        const cur = inputs.indexOf(e.target as HTMLInputElement);
+        if (cur < inputs.length - 1) inputs[cur + 1].focus();
+      }
+    }
+  };
+
   const handleSaveAll = async () => {
     const dirty = rows.filter(r => r._dirty);
     if (!dirty.length) { toast({ title: "Nothing to save" }); return; }
@@ -1285,23 +1297,23 @@ function UnichemSnackTab({ month, year }: { month: number; year: number }) {
                     <td className="border px-1 py-1 text-center font-medium text-[11px]">{safeFormat(row.entryDate)}</td>
                     <td className="border px-1 py-1 text-center text-[11px]">{row.weekDay||getWeekDay(row.entryDate)}</td>
                     <td className="border px-0.5 py-0.5 bg-blue-50/50 dark:bg-blue-950/10">
-                      <input type="number" min="0" value={row.breakfast||0} onChange={e=>handleCellChange(idx,'breakfast',e.target.value)}
+                      <input type="number" min="0" value={row.breakfast||0} onChange={e=>handleCellChange(idx,'breakfast',e.target.value)} onKeyDown={handleEnterKey}
                         className="w-full text-center bg-transparent outline-none text-xs py-1 focus:bg-white dark:focus:bg-gray-800 rounded" data-testid={`snack-bf-${idx}`}/>
                     </td>
                     <td className="border px-0.5 py-0.5 bg-blue-50/50 dark:bg-blue-950/10">
-                      <input type="number" min="0" value={row.eveningSnacks||0} onChange={e=>handleCellChange(idx,'eveningSnacks',e.target.value)}
+                      <input type="number" min="0" value={row.eveningSnacks||0} onChange={e=>handleCellChange(idx,'eveningSnacks',e.target.value)} onKeyDown={handleEnterKey}
                         className="w-full text-center bg-transparent outline-none text-xs py-1 focus:bg-white dark:focus:bg-gray-800 rounded" data-testid={`snack-ev-${idx}`}/>
                     </td>
                     <td className="border px-0.5 py-0.5 bg-blue-50/50 dark:bg-blue-950/10">
-                      <input type="number" min="0" value={row.nightSnacks||0} onChange={e=>handleCellChange(idx,'nightSnacks',e.target.value)}
+                      <input type="number" min="0" value={row.nightSnacks||0} onChange={e=>handleCellChange(idx,'nightSnacks',e.target.value)} onKeyDown={handleEnterKey}
                         className="w-full text-center bg-transparent outline-none text-xs py-1 focus:bg-white dark:focus:bg-gray-800 rounded" data-testid={`snack-night-${idx}`}/>
                     </td>
                     <td className="border px-0.5 py-0.5 bg-blue-50/50 dark:bg-blue-950/10">
-                      <input type="number" min="0" value={row.sundayExtraSnacks||0} onChange={e=>handleCellChange(idx,'sundayExtraSnacks',e.target.value)}
+                      <input type="number" min="0" value={row.sundayExtraSnacks||0} onChange={e=>handleCellChange(idx,'sundayExtraSnacks',e.target.value)} onKeyDown={handleEnterKey}
                         className="w-full text-center bg-transparent outline-none text-xs py-1 focus:bg-white dark:focus:bg-gray-800 rounded" data-testid={`snack-sun-${idx}`}/>
                     </td>
                     <td className="border px-0.5 py-0.5">
-                      <input type="text" value={row.remarks||""} onChange={e=>handleCellChange(idx,'remarks',e.target.value)}
+                      <input type="text" value={row.remarks||""} onChange={e=>handleCellChange(idx,'remarks',e.target.value)} onKeyDown={handleEnterKey}
                         className="w-full bg-transparent outline-none text-xs py-1 focus:bg-white dark:focus:bg-gray-800 rounded px-1" data-testid={`snack-remarks-${idx}`}/>
                     </td>
                   </tr>
@@ -1394,11 +1406,25 @@ function UnichemLunchTab({ month, year }: { month: number; year: number }) {
     setLocalRows(prev => {
       const updated = [...prev];
       const row = { ...updated[idx], [field]: parseInt(value)||0, _dirty: true };
-      // Auto-compute: total = actual
-      if (field === 'actual') row.total = parseInt(value)||0;
+      // Auto-compute billQty = max(orderQty, actual)
+      const newOrder = field === 'orderQty' ? (parseInt(value)||0) : (row.orderQty||0);
+      const newActual = field === 'actual' ? (parseInt(value)||0) : (row.actual||0);
+      row.billQty = Math.max(newOrder, newActual);
       updated[idx] = row;
       return updated;
     });
+  };
+
+  const handleEnterKey = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      const row = (e.target as HTMLElement).closest('tr');
+      if (row) {
+        const inputs = Array.from(row.querySelectorAll('input'));
+        const cur = inputs.indexOf(e.target as HTMLInputElement);
+        if (cur < inputs.length - 1) inputs[cur + 1].focus();
+      }
+    }
   };
 
   const handleSaveAll = async () => {
@@ -1508,19 +1534,19 @@ function UnichemLunchTab({ month, year }: { month: number; year: number }) {
                     <td className="border px-1 py-1 text-center font-medium text-[11px]">{safeFormat(row.entryDate)}</td>
                     <td className="border px-1 py-1 text-center text-[11px]">{row.weekDay||getWeekDay(row.entryDate)}</td>
                     <td className="border px-0.5 py-0.5 bg-orange-50/50 dark:bg-orange-950/10">
-                      <input type="number" min="0" value={row.orderQty||0} onChange={e=>handleCellChange(idx,'orderQty',e.target.value)}
+                      <input type="number" min="0" value={row.orderQty||0} onChange={e=>handleCellChange(idx,'orderQty',e.target.value)} onKeyDown={handleEnterKey}
                         className="w-full text-center bg-transparent outline-none text-xs py-1 focus:bg-white dark:focus:bg-gray-800 rounded" data-testid={`lunch-order-${idx}`}/>
                     </td>
                     <td className="border px-0.5 py-0.5 bg-blue-50/50 dark:bg-blue-950/10">
-                      <input type="number" min="0" value={row.actual||0} onChange={e=>handleCellChange(idx,'actual',e.target.value)}
+                      <input type="number" min="0" value={row.actual||0} onChange={e=>handleCellChange(idx,'actual',e.target.value)} onKeyDown={handleEnterKey}
                         className="w-full text-center bg-transparent outline-none text-xs py-1 focus:bg-white dark:focus:bg-gray-800 rounded" data-testid={`lunch-actual-${idx}`}/>
                     </td>
                     <td className="border px-0.5 py-0.5 bg-green-50/50 dark:bg-green-950/10">
-                      <input type="number" min="0" value={row.total||0} onChange={e=>handleCellChange(idx,'total',e.target.value)}
+                      <input type="number" min="0" value={row.total||0} onChange={e=>handleCellChange(idx,'total',e.target.value)} onKeyDown={handleEnterKey}
                         className="w-full text-center bg-transparent outline-none text-xs py-1 focus:bg-white dark:focus:bg-gray-800 rounded" data-testid={`lunch-total-${idx}`}/>
                     </td>
                     <td className="border px-0.5 py-0.5 bg-green-50/50 dark:bg-green-950/10">
-                      <input type="number" min="0" value={row.billQty||0} onChange={e=>handleCellChange(idx,'billQty',e.target.value)}
+                      <input type="number" min="0" value={row.billQty||0} onChange={e=>handleCellChange(idx,'billQty',e.target.value)} onKeyDown={handleEnterKey}
                         className="w-full text-center bg-transparent outline-none text-xs py-1 focus:bg-white dark:focus:bg-gray-800 rounded" data-testid={`lunch-billqty-${idx}`}/>
                     </td>
                   </tr>
@@ -2190,6 +2216,7 @@ function CiplaDateEntryTab({ month, year }: { month: number; year: number }) {
 
 const CLIENT_OPTIONS = [
   { value: "ubl", label: "United Breweries Ltd (UBL)" },
+  { value: "unichem", label: "Unichem Laboratories Ltd" },
   { value: "cipla", label: "Cipla Limited" },
 ];
 
@@ -2203,6 +2230,7 @@ export function DateEntryTab() {
     const perms = currentUser.permissions || [];
     return CLIENT_OPTIONS.filter(o => {
       if (o.value === "ubl") return perms.includes("dateentry_ubl");
+      if (o.value === "unichem") return perms.includes("dateentry_ubl");
       if (o.value === "cipla") return perms.includes("dateentry_cipla");
       return false;
     });
@@ -2211,7 +2239,8 @@ export function DateEntryTab() {
   const [selectedClient, setSelectedClient] = useState("");
   const [month, setMonth] = useState(String(now.getMonth() + 1));
   const [year, setYear] = useState(String(now.getFullYear()));
-  const [ublSubTab, setUblSubTab] = useState("unichem_snacks");
+  const [ublSubTab, setUblSubTab] = useState("format1");
+  const [unichEmSubTab, setUnichEmSubTab] = useState("unichem_snacks");
 
   useEffect(() => {
     if (allowedClients.length > 0 && !allowedClients.find(o => o.value === selectedClient)) {
@@ -2273,20 +2302,34 @@ export function DateEntryTab() {
       </div>
 
       {/* Client-specific content */}
-      {selectedClient === "ubl" ? (
+      {selectedClient === "ubl" && (
         <Tabs value={ublSubTab} onValueChange={setUblSubTab}>
           <TabsList className="mb-4 flex-wrap h-auto">
-            <TabsTrigger value="unichem_snacks" className="text-xs sm:text-sm" data-testid="tab-unichem-snacks">
-              Unichem — Snacks (Form 1)
-            </TabsTrigger>
-            <TabsTrigger value="unichem_lunch" className="text-xs sm:text-sm" data-testid="tab-unichem-lunch">
-              Unichem — Lunch &amp; Dinner (Form 2)
-            </TabsTrigger>
             <TabsTrigger value="format1" className="text-xs sm:text-sm" data-testid="tab-ubl-format1">
-              Old Format 1 — Bill Data Sheet
+              Format 1 — Bill Data Sheet
             </TabsTrigger>
             <TabsTrigger value="format2" className="text-xs sm:text-sm" data-testid="tab-ubl-format2">
-              Old Format 2 — Lunch Per Day
+              Format 2 — Lunch Per Day
+            </TabsTrigger>
+          </TabsList>
+          <TabsContent value="format1">
+            <div className="mb-2 text-sm text-muted-foreground font-medium">United Breweries Ltd — Food Items Bill Data Sheet (with rates)</div>
+            <UblDateEntryTab month={parseInt(month)} year={parseInt(year)}/>
+          </TabsContent>
+          <TabsContent value="format2">
+            <div className="mb-2 text-sm text-muted-foreground font-medium">United Breweries Ltd — Number of Lunch Per Day (Permanent / Casual / Contractual / Canteen)</div>
+            <UblLunchEntryTab month={parseInt(month)} year={parseInt(year)}/>
+          </TabsContent>
+        </Tabs>
+      )}
+      {selectedClient === "unichem" && (
+        <Tabs value={unichEmSubTab} onValueChange={setUnichEmSubTab}>
+          <TabsList className="mb-4 flex-wrap h-auto">
+            <TabsTrigger value="unichem_snacks" className="text-xs sm:text-sm" data-testid="tab-unichem-snacks">
+              Form 1 — Snacks
+            </TabsTrigger>
+            <TabsTrigger value="unichem_lunch" className="text-xs sm:text-sm" data-testid="tab-unichem-lunch">
+              Form 2 — Lunch &amp; Dinner
             </TabsTrigger>
           </TabsList>
           <TabsContent value="unichem_snacks">
@@ -2297,16 +2340,9 @@ export function DateEntryTab() {
             <div className="mb-2 text-sm text-muted-foreground font-medium">Unichem Laboratories Ltd — Lunch &amp; Dinner per Location (1st to last day of month)</div>
             <UnichemLunchTab month={parseInt(month)} year={parseInt(year)}/>
           </TabsContent>
-          <TabsContent value="format1">
-            <div className="mb-2 text-sm text-muted-foreground font-medium">UBL — Food Items Bill Data Sheet (with rates)</div>
-            <UblDateEntryTab month={parseInt(month)} year={parseInt(year)}/>
-          </TabsContent>
-          <TabsContent value="format2">
-            <div className="mb-2 text-sm text-muted-foreground font-medium">UBL — Number of Lunch Per Day (Perment / Casual / Contractual / Canteen)</div>
-            <UblLunchEntryTab month={parseInt(month)} year={parseInt(year)}/>
-          </TabsContent>
         </Tabs>
-      ) : (
+      )}
+      {selectedClient === "cipla" && (
         <>
           <div className="mb-2 text-sm text-muted-foreground font-medium">Cipla Limited — Breakfast / Lunch / Dinner (Coopen / Coin / Sign / Machine)</div>
           <CiplaDateEntryTab month={parseInt(month)} year={parseInt(year)}/>
