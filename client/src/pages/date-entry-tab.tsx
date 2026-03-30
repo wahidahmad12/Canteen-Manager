@@ -1095,6 +1095,7 @@ function UnichemSnackTab({ month, year }: { month: number; year: number }) {
   const { toast } = useToast();
   const [location, setLocation] = useState<UnichEmLocation>("Main Plant");
   const [localRows, setLocalRows] = useState<SnackRow[]>([]);
+  const importRefSnack = useRef<HTMLInputElement>(null);
   useEffect(() => { setLocalRows([]); }, [month, year, location]);
 
   const { data: dbRows = [], isLoading } = useQuery<SnackRow[]>({
@@ -1153,6 +1154,66 @@ function UnichemSnackTab({ month, year }: { month: number; year: number }) {
     const existing = dbRows.reduce((acc: Record<string, SnackRow>, r) => { acc[normDate(r.entryDate)] = r; return acc; }, {});
     const merged = generated.map(g => existing[g.entryDate] ? { ...existing[g.entryDate] } : g);
     setLocalRows(merged);
+  };
+
+  const SNACK_COLS = [
+    { header: "Date", field: "entryDate" },
+    { header: "Day", field: "weekDay" },
+    { header: "Breakfast", field: "breakfast" },
+    { header: "Evening Snacks", field: "eveningSnacks" },
+    { header: "Night Snacks", field: "nightSnacks" },
+    { header: "Sunday Extra Snacks", field: "sundayExtraSnacks" },
+    { header: "Remarks", field: "remarks" },
+  ];
+
+  const handleExportExcelSnack = async () => {
+    const ExcelJS = (await import("exceljs")).default;
+    const wb = new ExcelJS.Workbook();
+    const ws = wb.addWorksheet("Unichem Snacks");
+    const thin = { top:{style:"thin"as const}, bottom:{style:"thin"as const}, left:{style:"thin"as const}, right:{style:"thin"as const} };
+    const hdr = ws.addRow(SNACK_COLS.map(c => c.header));
+    hdr.eachCell(cell => { cell.font={bold:true,color:{argb:"FFFFFFFF"}}; cell.fill={type:"pattern",pattern:"solid",fgColor:{argb:"FF1A3A5A"}}; cell.border=thin; cell.alignment={horizontal:"center"}; });
+    ws.columns = SNACK_COLS.map((_, i) => ({ width: i === 0 ? 14 : i === 6 ? 22 : 16 }));
+    rows.forEach(r => {
+      const row = ws.addRow(SNACK_COLS.map(c => (r as any)[c.field] ?? ""));
+      row.eachCell(cell => { cell.border=thin; cell.alignment={horizontal:"center"}; });
+    });
+    const buf = await wb.xlsx.writeBuffer();
+    const blob = new Blob([buf], { type:"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
+    const a = document.createElement("a"); a.href=URL.createObjectURL(blob);
+    a.download=`Unichem_Snack_${location.replace(/\s+/g,"_")}_${MONTHS[month-1]}_${year}.xlsx`; a.click();
+  };
+
+  const handleImportExcelSnack = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]; if (!file) return;
+    e.target.value = "";
+    try {
+      const ExcelJS = (await import("exceljs")).default;
+      const wb = new ExcelJS.Workbook();
+      await wb.xlsx.load(await file.arrayBuffer());
+      const ws = wb.worksheets[0];
+      const headers: string[] = [];
+      ws.getRow(1).eachCell(cell => headers.push(String(cell.value ?? "")));
+      const fieldMap: Record<string, string> = {};
+      SNACK_COLS.forEach(c => { const i = headers.indexOf(c.header); if(i>=0) fieldMap[i]=c.field; });
+      const imported: SnackRow[] = [];
+      ws.eachRow((row, ri) => {
+        if (ri === 1) return;
+        const r: any = { month, year, location, weekDay:"", _dirty:true, breakfast:0, eveningSnacks:0, nightSnacks:0, sundayExtraSnacks:0, remarks:"" };
+        row.eachCell((cell, ci) => {
+          const f = fieldMap[ci-1]; if (!f) return;
+          const v = cell.value;
+          r[f] = (f==="entryDate"||f==="weekDay"||f==="remarks") ? String(v??"") : (parseInt(String(v||0))||0);
+        });
+        if (!r.entryDate) return;
+        if (!r.weekDay) r.weekDay = getWeekDay(r.entryDate);
+        imported.push(r as SnackRow);
+      });
+      setLocalRows(imported);
+      toast({ title:`Imported ${imported.length} rows`, description:"Review and click Save All to persist." });
+    } catch(err:any) {
+      toast({ title:"Import Failed", description:err.message, variant:"destructive" });
+    }
   };
 
   const handleCellChange = (idx: number, field: keyof SnackRow, value: string) => {
@@ -1308,6 +1369,13 @@ function UnichemSnackTab({ month, year }: { month: number; year: number }) {
           <Button size="sm" variant="outline" onClick={handlePrint} className="h-9 flex-1 sm:flex-none" data-testid="btn-unichem-print-snack">
             <Printer className="w-3.5 h-3.5 mr-1" /> Print
           </Button>
+          <Button size="sm" variant="outline" onClick={handleExportExcelSnack} className="h-9 flex-1 sm:flex-none text-green-700 border-green-300 hover:bg-green-50" data-testid="btn-unichem-export-snack">
+            <FileDown className="w-3.5 h-3.5 mr-1" /> Export Excel
+          </Button>
+          <Button size="sm" variant="outline" onClick={() => importRefSnack.current?.click()} className="h-9 flex-1 sm:flex-none text-blue-700 border-blue-300 hover:bg-blue-50" data-testid="btn-unichem-import-snack">
+            <FileUp className="w-3.5 h-3.5 mr-1" /> Import Excel
+          </Button>
+          <input ref={importRefSnack} type="file" accept=".xlsx,.xls" className="hidden" onChange={handleImportExcelSnack} />
         </div>
       </div>
       {isLoading ? <div className="py-8 text-center text-muted-foreground"><Loader2 className="w-5 h-5 animate-spin inline mr-2"/>Loading...</div> : (
@@ -1408,6 +1476,7 @@ function UnichemMealSubTab({ month, year, location, mealType }: { month: number;
   const qc = useQueryClient();
   const { toast } = useToast();
   const [localRows, setLocalRows] = useState<LunchRow[]>([]);
+  const importRefMeal = useRef<HTMLInputElement>(null);
   useEffect(() => { setLocalRows([]); }, [month, year, location, mealType]);
 
   const { data: dbRows = [], isLoading } = useQuery<LunchRow[]>({
@@ -1502,6 +1571,75 @@ function UnichemMealSubTab({ month, year, location, mealType }: { month: number;
 
   const mealLabel = mealType === 'lunch' ? 'Lunch' : 'Dinner';
 
+  const MEAL_COLS = [
+    { header: "Date", field: "entryDate" },
+    { header: "Day", field: "weekDay" },
+    { header: "Order Qty", field: "orderQty" },
+    { header: "Actual", field: "actual" },
+    { header: "Total", field: "total" },
+    { header: "Bill Qty", field: "billQty" },
+  ];
+
+  const handleExportExcelMeal = async () => {
+    const ExcelJS = (await import("exceljs")).default;
+    const wb = new ExcelJS.Workbook();
+    const ws = wb.addWorksheet(`Unichem ${mealLabel}`);
+    const thin = { top:{style:"thin"as const}, bottom:{style:"thin"as const}, left:{style:"thin"as const}, right:{style:"thin"as const} };
+    const hdr = ws.addRow(MEAL_COLS.map(c => c.header));
+    hdr.eachCell(cell => { cell.font={bold:true,color:{argb:"FFFFFFFF"}}; cell.fill={type:"pattern",pattern:"solid",fgColor:{argb:"FF1A3A5A"}}; cell.border=thin; cell.alignment={horizontal:"center"}; });
+    ws.columns = MEAL_COLS.map((_, i) => ({ width: i === 0 ? 14 : 12 }));
+    rows.forEach(r => {
+      const row = ws.addRow(MEAL_COLS.map(c => (r as any)[c.field] ?? ""));
+      row.eachCell(cell => { cell.border=thin; cell.alignment={horizontal:"center"}; });
+    });
+    const buf = await wb.xlsx.writeBuffer();
+    const blob = new Blob([buf], { type:"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
+    const a = document.createElement("a"); a.href=URL.createObjectURL(blob);
+    a.download=`Unichem_${mealLabel}_${location.replace(/\s+/g,"_")}_${MONTHS[month-1]}_${year}.xlsx`; a.click();
+  };
+
+  const handleImportExcelMeal = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]; if (!file) return;
+    e.target.value = "";
+    try {
+      const ExcelJS = (await import("exceljs")).default;
+      const wb = new ExcelJS.Workbook();
+      await wb.xlsx.load(await file.arrayBuffer());
+      const ws = wb.worksheets[0];
+      const headers: string[] = [];
+      ws.getRow(1).eachCell(cell => headers.push(String(cell.value ?? "")));
+      const importCols = [
+        { header: "Date", field: "entryDate" },
+        { header: "Day", field: "weekDay" },
+        { header: "Order Qty", field: "orderQty" },
+        { header: "Actual", field: "actual" },
+        { header: "Total", field: "total" },
+        { header: "Bill Qty", field: "billQty" },
+      ];
+      const fieldMap: Record<string, string> = {};
+      importCols.forEach(c => { const i = headers.indexOf(c.header); if(i>=0) fieldMap[i]=c.field; });
+      const imported: LunchRow[] = [];
+      ws.eachRow((row, ri) => {
+        if (ri === 1) return;
+        const r: any = { month, year, location, mealType, weekDay:"", _dirty:true, orderQty:0, actual:0, total:0, billQty:0 };
+        row.eachCell((cell, ci) => {
+          const f = fieldMap[ci-1]; if (!f) return;
+          const v = cell.value;
+          r[f] = (f==="entryDate"||f==="weekDay") ? String(v??"") : (parseInt(String(v||0))||0);
+        });
+        if (!r.entryDate) return;
+        if (!r.weekDay) r.weekDay = getWeekDay(r.entryDate);
+        r.total = r.actual;
+        r.billQty = Math.max(r.orderQty, r.actual);
+        imported.push(r as LunchRow);
+      });
+      setLocalRows(imported);
+      toast({ title:`Imported ${imported.length} rows`, description:"Review and click Save All to persist." });
+    } catch(err:any) {
+      toast({ title:"Import Failed", description:err.message, variant:"destructive" });
+    }
+  };
+
   const handlePrint = () => {
     const monthLabel = `${MONTHS[month-1]} - ${year}`;
     const win = window.open('', '_blank', 'width=900,height=700');
@@ -1560,6 +1698,13 @@ function UnichemMealSubTab({ month, year, location, mealType }: { month: number;
         <Button size="sm" variant="outline" onClick={handlePrint} className="h-9 flex-1 sm:flex-none" data-testid={`btn-unichem-print-${mealType}`}>
           <Printer className="w-3.5 h-3.5 mr-1" /> Print
         </Button>
+        <Button size="sm" variant="outline" onClick={handleExportExcelMeal} className="h-9 flex-1 sm:flex-none text-green-700 border-green-300 hover:bg-green-50" data-testid={`btn-unichem-export-${mealType}`}>
+          <FileDown className="w-3.5 h-3.5 mr-1" /> Export Excel
+        </Button>
+        <Button size="sm" variant="outline" onClick={() => importRefMeal.current?.click()} className="h-9 flex-1 sm:flex-none text-blue-700 border-blue-300 hover:bg-blue-50" data-testid={`btn-unichem-import-${mealType}`}>
+          <FileUp className="w-3.5 h-3.5 mr-1" /> Import Excel
+        </Button>
+        <input ref={importRefMeal} type="file" accept=".xlsx,.xls" className="hidden" onChange={handleImportExcelMeal} />
       </div>
       {isLoading ? <div className="py-8 text-center text-muted-foreground"><Loader2 className="w-5 h-5 animate-spin inline mr-2"/>Loading...</div> : (
         <div className="overflow-x-auto rounded-lg border">
