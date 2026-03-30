@@ -1321,21 +1321,44 @@ function UnichemSnackTab({ month, year }: { month: number; year: number }) {
         billQtyDinner: rows.reduce((s, r) => s + r.billQtyDinner, 0),
       };
 
+      // Rates per item
+      const RATES = { breakfast: 15, eveningSnacks: 15, nightSnacks: 15, sundayExtra: 10, billQtyLunch: 58, billQtyDinner: 58 };
+      const fmt = (n: number) => n ? `₹ ${n.toLocaleString('en-IN')}` : "";
+
+      const amtRows = rows.map(r => ({
+        location: r.location,
+        breakfast: r.breakfast * RATES.breakfast,
+        eveningSnacks: r.eveningSnacks * RATES.eveningSnacks,
+        nightSnacks: r.nightSnacks * RATES.nightSnacks,
+        sundayExtra: r.sundayExtra * RATES.sundayExtra,
+        billQtyLunch: r.billQtyLunch * RATES.billQtyLunch,
+        billQtyDinner: r.billQtyDinner * RATES.billQtyDinner,
+      }));
+      const amtTotal = {
+        breakfast: amtRows.reduce((s, r) => s + r.breakfast, 0),
+        eveningSnacks: amtRows.reduce((s, r) => s + r.eveningSnacks, 0),
+        nightSnacks: amtRows.reduce((s, r) => s + r.nightSnacks, 0),
+        sundayExtra: amtRows.reduce((s, r) => s + r.sundayExtra, 0),
+        billQtyLunch: amtRows.reduce((s, r) => s + r.billQtyLunch, 0),
+        billQtyDinner: amtRows.reduce((s, r) => s + r.billQtyDinner, 0),
+      };
+
+      const colHdr = (label: string, bg?: string) => `<th style="${thStyle}${bg||''}">${label}</th>`;
+      const tdAmt = (v: number) => `<td style="${tdStyle}">${fmt(v)}</td>`;
+
       const html = `<html><head><title>Unichem All Locations Summary - ${monthLabel}</title>
         <style>@media print{body{margin:10mm;} @page{size:A4 landscape;}}</style></head>
         <body style="font-family:Arial,sans-serif;padding:20px;">
-          <table style="${tableStyle}">
+
+          <!-- Table 1: Quantity Summary -->
+          <table style="${tableStyle}margin-bottom:30px;">
             <thead>
               <tr><th colspan="7" style="border:1px solid #000;padding:8px;text-align:center;font-size:14pt;font-weight:bold;background:#fff;">DJ Hospitality &amp; Facility Management Pvt Ltd.</th></tr>
-              <tr><th colspan="7" style="border:1px solid #000;padding:6px;text-align:center;font-size:11pt;background:#fff;">Monthly Summary – Unichem Laboratories Ltd – ${monthLabel}</th></tr>
+              <tr><th colspan="7" style="border:1px solid #000;padding:6px;text-align:center;font-size:11pt;background:#fff;">Monthly Quantity Summary – Unichem Laboratories Ltd – ${monthLabel}</th></tr>
               <tr>
-                <th style="${thStyle}background:#fce4d6;">Location</th>
-                <th style="${thStyle}">Breakfast</th>
-                <th style="${thStyle}">Evening Snacks</th>
-                <th style="${thStyle}">Night Snacks</th>
-                <th style="${thStyle}">Sunday Extra Snacks</th>
-                <th style="${thStyle}background:#c6efce;">Bill Qty Lunch</th>
-                <th style="${thStyle}background:#c6efce;">Bill Qty Dinner</th>
+                ${colHdr("Location","background:#fce4d6;")}
+                ${colHdr("Breakfast")}${colHdr("Evening Snacks")}${colHdr("Night Snacks")}${colHdr("Sunday Extra Snacks")}
+                ${colHdr("Bill Qty Lunch","background:#c6efce;")}${colHdr("Bill Qty Dinner","background:#c6efce;")}
               </tr>
             </thead>
             <tbody>
@@ -1359,6 +1382,38 @@ function UnichemSnackTab({ month, year }: { month: number; year: number }) {
               </tr>
             </tbody>
           </table>
+
+          <!-- Table 2: Bill Amount Summary -->
+          <table style="${tableStyle}">
+            <thead>
+              <tr><th colspan="7" style="border:1px solid #000;padding:6px;text-align:center;font-size:11pt;background:#fff;">Bill Amount Summary – Unichem Laboratories Ltd – ${monthLabel}</th></tr>
+              <tr>
+                ${colHdr("Location","background:#fce4d6;")}
+                ${colHdr("Breakfast")}${colHdr("Evening Snacks")}${colHdr("Night Snacks")}${colHdr("Sunday Extra Snacks")}
+                ${colHdr("Bill Qty Lunch","background:#c6efce;")}${colHdr("Bill Qty Dinner","background:#c6efce;")}
+              </tr>
+              <tr style="background:#fff9c4;">
+                <td style="${tdLocStyle}">Rate</td>
+                <td style="${tdStyle}">₹ ${RATES.breakfast}</td>
+                <td style="${tdStyle}">₹ ${RATES.eveningSnacks}</td>
+                <td style="${tdStyle}">₹ ${RATES.nightSnacks}</td>
+                <td style="${tdStyle}">₹ ${RATES.sundayExtra}</td>
+                <td style="${tdStyle}">₹ ${RATES.billQtyLunch}</td>
+                <td style="${tdStyle}">₹ ${RATES.billQtyDinner}</td>
+              </tr>
+            </thead>
+            <tbody>
+              ${amtRows.map(r => `<tr>
+                <td style="${tdLocStyle}">${r.location}</td>
+                ${tdAmt(r.breakfast)}${tdAmt(r.eveningSnacks)}${tdAmt(r.nightSnacks)}${tdAmt(r.sundayExtra)}${tdAmt(r.billQtyLunch)}${tdAmt(r.billQtyDinner)}
+              </tr>`).join('')}
+              <tr style="font-weight:bold;background:#e0e0e0;">
+                <td style="${tdLocStyle}">Total</td>
+                ${tdAmt(amtTotal.breakfast)}${tdAmt(amtTotal.eveningSnacks)}${tdAmt(amtTotal.nightSnacks)}${tdAmt(amtTotal.sundayExtra)}${tdAmt(amtTotal.billQtyLunch)}${tdAmt(amtTotal.billQtyDinner)}
+              </tr>
+            </tbody>
+          </table>
+
           <script>window.onload=function(){window.print();}<\/script>
         </body></html>`;
 
