@@ -344,11 +344,14 @@ export class DatabaseStorage implements IStorage {
 
   async createReport(request: CreateReportRequest): Promise<ReportWithItems> {
     return await db.transaction(async (tx) => {
+      const [maxRow] = await tx.select({ maxNum: sql<number>`COALESCE(MAX(report_number), 0)` }).from(dailyReports);
+      const nextReportNumber = (maxRow?.maxNum ?? 0) + 1;
       await tx.insert(dailyReports).values({
         date: request.date,
         openingBalance: request.openingBalance.toString(),
         receivedAmount: request.receivedAmount.toString(),
         giveByWahid: (request.giveByWahid ?? 0).toString(),
+        reportNumber: nextReportNumber,
       });
       const __iid = await getInsertId(tx);
       const [report] = await tx.select().from(dailyReports).where(eq(dailyReports.id, __iid));
