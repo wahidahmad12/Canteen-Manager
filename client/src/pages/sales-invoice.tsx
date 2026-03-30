@@ -696,6 +696,8 @@ export default function SalesInvoicePage() {
   });
   const { data: purchaseOrders = [], isLoading: posLoading } = useQuery<PurchaseOrderType[]>({
     queryKey: ["/api/purchase-orders"],
+    staleTime: 0,
+    refetchOnMount: true,
   });
 
   const [activeTab, setActiveTab] = useState("invoices");
