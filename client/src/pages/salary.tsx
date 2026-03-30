@@ -549,13 +549,14 @@ export default function SalaryRegister() {
     };
   }, [employeeMap, attendanceList, skillRateMap, month, year]);
 
-  const { rows, totals } = useMemo(() => {
-    if (!salaries || salaries.length === 0) return { rows: [] as ReturnType<typeof computeRow>[], totals: null };
+  const { rows, totals, validSalaries } = useMemo(() => {
+    if (!salaries || salaries.length === 0) return { rows: [] as ReturnType<typeof computeRow>[], totals: null, validSalaries: [] };
     const validSalaries = salaries.filter(s => employeeMap.has(s.employeeId));
     const rs = validSalaries.map(computeRow);
     const sum = (fn: (r: ReturnType<typeof computeRow>) => number) => rs.reduce((a, r) => a + fn(r), 0);
     return {
       rows: rs,
+      validSalaries,
       totals: {
         count: rs.length,
         prsDays: sum(r => r.prsDays), halfDay: sum(r => r.halfDay), holidayWorking: sum(r => r.holidayWorking),
@@ -1140,7 +1141,7 @@ export default function SalaryRegister() {
                     </tr>
                   </thead>
                   <tbody>
-                    {salaries.map((s, idx) => {
+                    {validSalaries.map((s, idx) => {
                       const r = rows[idx];
                       const evenBg = "bg-white dark:bg-slate-900";
                       const oddBg = "bg-blue-50/40 dark:bg-slate-800/40";
