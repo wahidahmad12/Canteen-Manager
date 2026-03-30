@@ -1122,7 +1122,14 @@ function UnichemSnackTab({ month, year }: { month: number; year: number }) {
     [lunchRows]
   );
 
-  const rows: SnackRow[] = localRows.length > 0 ? localRows : dbRows.map(r => ({ ...r }));
+  // Always compute the full month grid merged with DB data (auto-load, no Auto-Fill click needed)
+  const fullRows = useMemo(() => {
+    const generated = generateMonthRows(month, year, (d, m, y) => snackRowDefaults(d, m, y, location));
+    const existing = dbRows.reduce((acc: Record<string, SnackRow>, r) => { acc[normDate(r.entryDate)] = r; return acc; }, {});
+    return generated.map(g => existing[g.entryDate] ? { ...existing[g.entryDate] } : g);
+  }, [dbRows, month, year, location]);
+
+  const rows: SnackRow[] = localRows.length > 0 ? localRows : fullRows;
 
   const createMutation = useMutation({
     mutationFn: async (data: SnackRow) => {
@@ -1139,7 +1146,7 @@ function UnichemSnackTab({ month, year }: { month: number; year: number }) {
     onSuccess: () => qc.invalidateQueries({ queryKey: ['/api/unichem-snack-entries', month, year, location] }),
   });
 
-  const syncRows = () => { if (localRows.length === 0) setLocalRows(dbRows.map(r => ({ ...r }))); };
+  const syncRows = () => { if (localRows.length === 0) setLocalRows(fullRows); };
 
   const handleAutoFill = () => {
     const generated = generateMonthRows(month, year, (d, m, y) => snackRowDefaults(d, m, y, location));
@@ -1197,6 +1204,7 @@ function UnichemSnackTab({ month, year }: { month: number; year: number }) {
       } catch (e: any) { toast({ title: "Error", description: e.message, variant: "destructive" }); }
     }
     toast({ title: `Saved ${saved} rows` });
+    setLocalRows([]);
   };
 
   const handlePrint = () => {
@@ -1318,7 +1326,7 @@ function UnichemSnackTab({ month, year }: { month: number; year: number }) {
             </thead>
             <tbody>
               {rows.length === 0 ? (
-                <tr><td colSpan={7} className="border py-6 text-center text-muted-foreground">Click "Auto-Fill Month" to generate rows for {MONTHS[month-1]} {year}</td></tr>
+                <tr><td colSpan={7} className="border py-6 text-center text-muted-foreground">No data loaded yet for {MONTHS[month-1]} {year}</td></tr>
               ) : rows.map((row, idx) => {
                 const isSun = isSunday(row.entryDate);
                 const rowBg = isSun ? "bg-red-100 dark:bg-red-950/30" : idx%2===0 ? "bg-white dark:bg-transparent" : "bg-muted/10";
@@ -1411,7 +1419,14 @@ function UnichemMealSubTab({ month, year, location, mealType }: { month: number;
     },
   });
 
-  const rows: LunchRow[] = localRows.length > 0 ? localRows : dbRows.map(r => ({ ...r }));
+  // Always compute the full month grid merged with DB data (auto-load, no Auto-Fill click needed)
+  const fullRows = useMemo(() => {
+    const generated = generateMonthRows(month, year, (d, m, y) => unichEmLunchRowDefaults(d, m, y, location, mealType));
+    const existing = dbRows.reduce((acc: Record<string, LunchRow>, r) => { acc[normDate(r.entryDate)] = r; return acc; }, {});
+    return generated.map(g => existing[g.entryDate] ? { ...existing[g.entryDate], _dirty: false } : g);
+  }, [dbRows, month, year, location, mealType]);
+
+  const rows: LunchRow[] = localRows.length > 0 ? localRows : fullRows;
 
   const createMutation = useMutation({
     mutationFn: async (data: LunchRow) => {
@@ -1428,7 +1443,7 @@ function UnichemMealSubTab({ month, year, location, mealType }: { month: number;
     onSuccess: () => qc.invalidateQueries({ queryKey: ['/api/unichem-lunch-entries', month, year, location, mealType] }),
   });
 
-  const syncRows = () => { if (localRows.length === 0) setLocalRows(dbRows.map(r => ({ ...r }))); };
+  const syncRows = () => { if (localRows.length === 0) setLocalRows(fullRows); };
 
   const handleAutoFill = () => {
     const generated = generateMonthRows(month, year, (d, m, y) => unichEmLunchRowDefaults(d, m, y, location, mealType));
@@ -1561,7 +1576,7 @@ function UnichemMealSubTab({ month, year, location, mealType }: { month: number;
             </thead>
             <tbody>
               {rows.length === 0 ? (
-                <tr><td colSpan={6} className="border py-6 text-center text-muted-foreground">Click "Auto-Fill Month" to generate rows for {MONTHS[month-1]} {year}</td></tr>
+                <tr><td colSpan={6} className="border py-6 text-center text-muted-foreground">No data loaded yet for {MONTHS[month-1]} {year}</td></tr>
               ) : rows.map((row, idx) => {
                 const isSun = isSunday(row.entryDate);
                 const rowBg = isSun ? "bg-red-100 dark:bg-red-950/30" : idx%2===0 ? "bg-white dark:bg-transparent" : "bg-muted/10";

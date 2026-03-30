@@ -1991,7 +1991,17 @@ export class DatabaseStorage implements IStorage {
       .orderBy(unichEmSnackEntries.entryDate);
   }
   async createUnichEmSnackEntry(data: any): Promise<UnichEmSnackEntry> {
-    return await insertAndGet<UnichEmSnackEntry>(unichEmSnackEntries, data);
+    const { location, entryDate, month, year, weekDay, breakfast, eveningSnacks, nightSnacks, sundayExtraSnacks, remarks } = data;
+    await db.execute(sql`
+      INSERT INTO unichem_snack_entries (location, entry_date, month, year, week_day, breakfast, evening_snacks, night_snacks, sunday_extra_snacks, remarks)
+      VALUES (${location}, ${entryDate}, ${month}, ${year}, ${weekDay || null}, ${breakfast || 0}, ${eveningSnacks || 0}, ${nightSnacks || 0}, ${sundayExtraSnacks || 0}, ${remarks || ''})
+      ON DUPLICATE KEY UPDATE
+        breakfast = VALUES(breakfast), evening_snacks = VALUES(evening_snacks), night_snacks = VALUES(night_snacks),
+        sunday_extra_snacks = VALUES(sunday_extra_snacks), remarks = VALUES(remarks), week_day = VALUES(week_day), updated_at = NOW()
+    `);
+    const rows = await db.select().from(unichEmSnackEntries)
+      .where(and(eq(unichEmSnackEntries.location, location), eq(unichEmSnackEntries.entryDate, entryDate)));
+    return rows[0];
   }
   async updateUnichEmSnackEntry(id: number, data: any): Promise<UnichEmSnackEntry> {
     await db.update(unichEmSnackEntries).set({ ...data, updatedAt: new Date() }).where(eq(unichEmSnackEntries.id, id));
