@@ -173,7 +173,7 @@ export default function Dashboard() {
     titleRow.alignment = { horizontal: "center" };
     ws.addRow([]);
 
-    const headerRow = ws.addRow(["Report No.", "Date", "Opening Balance", "Received Amount", "Total Cash", "Total Expense", "Balance", "Item Count"]);
+    const headerRow = ws.addRow(["Report No.", "Date", "Opening Balance", "Received Amount", "Give by Wahid", "Total Cash", "Total Expense", "Balance in Hand", "Item Count"]);
     headerRow.eachCell((cell) => {
       cell.font = { bold: true, size: 10, color: { argb: "FFFFFFFF" } };
       cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FF6366F1" } };
@@ -184,11 +184,12 @@ export default function Dashboard() {
     sortedReports.forEach((report: any) => {
       const opening = Number(report.openingBalance) || 0;
       const received = Number(report.receivedAmount) || 0;
-      const totalCash = opening + received;
+      const wahid = Number(report.giveByWahid) || 0;
+      const totalCash = opening + received + wahid;
       const totalExpense = report.items?.reduce((sum: number, item: any) => sum + (Number(item.amount) || 0), 0) || 0;
       const r = ws.addRow([
         report.reportNumber, format(new Date(report.date), "dd-MM-yyyy"),
-        opening, received, totalCash, totalExpense, totalCash - totalExpense,
+        opening, received, wahid, totalCash, totalExpense, totalCash - totalExpense,
         report.items?.length || 0
       ]);
       r.eachCell((cell) => {
@@ -460,8 +461,10 @@ export default function Dashboard() {
                     {sortedReports.map((report) => {
                       const opening = Number(report.openingBalance) || 0;
                       const received = Number(report.receivedAmount) || 0;
-                      const totalCash = opening + received;
+                      const wahid = Number(report.giveByWahid) || 0;
+                      const totalCash = opening + received + wahid;
                       const totalExpense = report.items?.reduce((s: number, i: any) => s + (Number(i.amount) || 0), 0) || 0;
+                      const balanceInHand = totalCash - totalExpense;
                       return (
                         <div key={report.id} className="p-3 flex flex-col gap-2" data-testid={`mobile-card-report-${report.id}`}>
                           <div className="flex items-center justify-between">
@@ -494,7 +497,7 @@ export default function Dashboard() {
                               )}
                             </div>
                           </div>
-                          <div className="grid grid-cols-3 gap-1.5 text-center">
+                          <div className="grid grid-cols-2 gap-1.5 text-center">
                             <div className="bg-slate-50 dark:bg-slate-800/50 rounded-lg p-1.5">
                               <div className="text-[10px] text-muted-foreground">Total Cash</div>
                               <div className="font-mono text-xs font-bold text-indigo-600">{fmt(totalCash)}</div>
@@ -503,9 +506,13 @@ export default function Dashboard() {
                               <div className="text-[10px] text-muted-foreground">Expense</div>
                               <div className="font-mono text-xs font-semibold text-rose-600">{fmt(totalExpense)}</div>
                             </div>
-                            <div className="bg-emerald-50 dark:bg-emerald-950/20 rounded-lg p-1.5">
-                              <div className="text-[10px] text-muted-foreground">Received</div>
-                              <div className="font-mono text-xs font-semibold text-emerald-600">{fmt(received)}</div>
+                            <div className="bg-orange-50 dark:bg-orange-950/20 rounded-lg p-1.5">
+                              <div className="text-[10px] text-muted-foreground">Give by Wahid</div>
+                              <div className="font-mono text-xs font-semibold text-orange-600">{fmt(wahid)}</div>
+                            </div>
+                            <div className={`rounded-lg p-1.5 ${balanceInHand >= 0 ? "bg-emerald-50 dark:bg-emerald-950/20" : "bg-red-50 dark:bg-red-950/20"}`}>
+                              <div className="text-[10px] text-muted-foreground">Balance in Hand</div>
+                              <div className={`font-mono text-xs font-bold ${balanceInHand >= 0 ? "text-emerald-600" : "text-red-600"}`}>{fmt(balanceInHand)}</div>
                             </div>
                           </div>
                         </div>
@@ -521,8 +528,10 @@ export default function Dashboard() {
                           <th className="px-3 py-2.5 text-left text-xs font-semibold text-indigo-700 dark:text-indigo-400">Date</th>
                           <th className="px-3 py-2.5 text-right text-xs font-semibold text-indigo-700 dark:text-indigo-400">Opening Bal.</th>
                           <th className="px-3 py-2.5 text-right text-xs font-semibold text-indigo-700 dark:text-indigo-400">Received</th>
+                          <th className="px-3 py-2.5 text-right text-xs font-semibold text-orange-600 dark:text-orange-400">Give by Wahid</th>
                           <th className="px-3 py-2.5 text-right text-xs font-semibold text-indigo-700 dark:text-indigo-400">Total Cash</th>
                           <th className="px-3 py-2.5 text-right text-xs font-semibold text-indigo-700 dark:text-indigo-400">Total Expense</th>
+                          <th className="px-3 py-2.5 text-right text-xs font-semibold text-emerald-700 dark:text-emerald-400">Balance in Hand</th>
                           <th className="px-3 py-2.5 text-right text-xs font-semibold text-indigo-700 dark:text-indigo-400">Actions</th>
                         </tr>
                       </thead>
@@ -530,8 +539,10 @@ export default function Dashboard() {
                         {sortedReports.map((report, idx) => {
                           const opening = Number(report.openingBalance) || 0;
                           const received = Number(report.receivedAmount) || 0;
-                          const totalCash = opening + received;
+                          const wahid = Number(report.giveByWahid) || 0;
+                          const totalCash = opening + received + wahid;
                           const totalExpense = report.items?.reduce((sum: number, item: any) => sum + (Number(item.amount) || 0), 0) || 0;
+                          const balanceInHand = totalCash - totalExpense;
                           return (
                             <tr key={report.id} className="border-b last:border-0 hover:bg-indigo-50/50 dark:hover:bg-indigo-950/10 transition-colors group">
                               <td className="px-3 py-2.5"><span className="w-7 h-7 rounded-full bg-gradient-to-br from-indigo-400 to-purple-500 text-white text-[10px] inline-flex items-center justify-center font-bold">#{report.reportNumber}</span></td>
@@ -543,8 +554,10 @@ export default function Dashboard() {
                               </td>
                               <td className="px-3 py-2.5 text-right font-mono text-xs text-muted-foreground">{fmt(opening)}</td>
                               <td className="px-3 py-2.5 text-right font-mono text-xs text-emerald-600 font-semibold">{fmt(received)}</td>
+                              <td className="px-3 py-2.5 text-right font-mono text-xs text-orange-600 font-semibold">{wahid > 0 ? fmt(wahid) : <span className="text-slate-300">—</span>}</td>
                               <td className="px-3 py-2.5 text-right font-mono text-xs font-bold text-indigo-600">{fmt(totalCash)}</td>
                               <td className="px-3 py-2.5 text-right font-mono text-xs text-rose-600 font-semibold">{fmt(totalExpense)}</td>
+                              <td className={`px-3 py-2.5 text-right font-mono text-xs font-bold ${balanceInHand >= 0 ? "text-emerald-600" : "text-red-600"}`}>{fmt(balanceInHand)}</td>
                               <td className="px-3 py-2.5 text-right">
                                 <div className="flex items-center justify-end gap-1">
                                   <Link href={`/report/${report.id}/pdf`}><Button size="sm" variant="ghost" className="h-7 text-xs text-emerald-600" data-testid={`button-pdf-report-${report.id}`}><FileDown className="w-3.5 h-3.5 mr-0.5" />PDF</Button></Link>
