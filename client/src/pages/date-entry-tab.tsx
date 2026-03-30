@@ -1145,14 +1145,20 @@ function UnichemSnackTab({ month, year }: { month: number; year: number }) {
     });
   };
 
-  const handleEnterKey = (e: React.KeyboardEvent<HTMLInputElement>) => {
+  // Enter → next row (same column); Tab → next column (browser default)
+  const handleEnterKey = (e: React.KeyboardEvent<HTMLInputElement>, colIdx: number) => {
     if (e.key === 'Enter') {
       e.preventDefault();
-      const row = (e.target as HTMLElement).closest('tr');
-      if (row) {
-        const inputs = Array.from(row.querySelectorAll('input'));
-        const cur = inputs.indexOf(e.target as HTMLInputElement);
-        if (cur < inputs.length - 1) inputs[cur + 1].focus();
+      const tbody = (e.target as HTMLElement).closest('tbody');
+      if (!tbody) return;
+      const allRows = Array.from(tbody.querySelectorAll('tr'));
+      const currentTr = (e.target as HTMLElement).closest('tr');
+      const rowIdx = allRows.indexOf(currentTr as HTMLTableRowElement);
+      const nextTr = allRows[rowIdx + 1];
+      if (nextTr) {
+        const inputs = Array.from(nextTr.querySelectorAll('input:not([readonly])')) as HTMLInputElement[];
+        if (inputs[colIdx]) inputs[colIdx].focus();
+        else if (inputs[0]) inputs[0].focus();
       }
     }
   };
@@ -1297,23 +1303,23 @@ function UnichemSnackTab({ month, year }: { month: number; year: number }) {
                     <td className="border px-1 py-1 text-center font-medium text-[11px]">{safeFormat(row.entryDate)}</td>
                     <td className="border px-1 py-1 text-center text-[11px]">{row.weekDay||getWeekDay(row.entryDate)}</td>
                     <td className="border px-0.5 py-0.5 bg-blue-50/50 dark:bg-blue-950/10">
-                      <input type="number" min="0" value={row.breakfast||0} onChange={e=>handleCellChange(idx,'breakfast',e.target.value)} onKeyDown={handleEnterKey}
+                      <input type="number" min="0" value={row.breakfast||0} onChange={e=>handleCellChange(idx,'breakfast',e.target.value)} onKeyDown={e=>handleEnterKey(e,0)}
                         className="w-full text-center bg-transparent outline-none text-xs py-1 focus:bg-white dark:focus:bg-gray-800 rounded" data-testid={`snack-bf-${idx}`}/>
                     </td>
                     <td className="border px-0.5 py-0.5 bg-blue-50/50 dark:bg-blue-950/10">
-                      <input type="number" min="0" value={row.eveningSnacks||0} onChange={e=>handleCellChange(idx,'eveningSnacks',e.target.value)} onKeyDown={handleEnterKey}
+                      <input type="number" min="0" value={row.eveningSnacks||0} onChange={e=>handleCellChange(idx,'eveningSnacks',e.target.value)} onKeyDown={e=>handleEnterKey(e,1)}
                         className="w-full text-center bg-transparent outline-none text-xs py-1 focus:bg-white dark:focus:bg-gray-800 rounded" data-testid={`snack-ev-${idx}`}/>
                     </td>
                     <td className="border px-0.5 py-0.5 bg-blue-50/50 dark:bg-blue-950/10">
-                      <input type="number" min="0" value={row.nightSnacks||0} onChange={e=>handleCellChange(idx,'nightSnacks',e.target.value)} onKeyDown={handleEnterKey}
+                      <input type="number" min="0" value={row.nightSnacks||0} onChange={e=>handleCellChange(idx,'nightSnacks',e.target.value)} onKeyDown={e=>handleEnterKey(e,2)}
                         className="w-full text-center bg-transparent outline-none text-xs py-1 focus:bg-white dark:focus:bg-gray-800 rounded" data-testid={`snack-night-${idx}`}/>
                     </td>
                     <td className="border px-0.5 py-0.5 bg-blue-50/50 dark:bg-blue-950/10">
-                      <input type="number" min="0" value={row.sundayExtraSnacks||0} onChange={e=>handleCellChange(idx,'sundayExtraSnacks',e.target.value)} onKeyDown={handleEnterKey}
+                      <input type="number" min="0" value={row.sundayExtraSnacks||0} onChange={e=>handleCellChange(idx,'sundayExtraSnacks',e.target.value)} onKeyDown={e=>handleEnterKey(e,3)}
                         className="w-full text-center bg-transparent outline-none text-xs py-1 focus:bg-white dark:focus:bg-gray-800 rounded" data-testid={`snack-sun-${idx}`}/>
                     </td>
                     <td className="border px-0.5 py-0.5">
-                      <input type="text" value={row.remarks||""} onChange={e=>handleCellChange(idx,'remarks',e.target.value)} onKeyDown={handleEnterKey}
+                      <input type="text" value={row.remarks||""} onChange={e=>handleCellChange(idx,'remarks',e.target.value)} onKeyDown={e=>handleEnterKey(e,4)}
                         className="w-full bg-transparent outline-none text-xs py-1 focus:bg-white dark:focus:bg-gray-800 rounded px-1" data-testid={`snack-remarks-${idx}`}/>
                     </td>
                   </tr>
@@ -1401,28 +1407,34 @@ function UnichemLunchTab({ month, year }: { month: number; year: number }) {
     setLocalRows(merged);
   };
 
-  const handleCellChange = (idx: number, field: keyof LunchRow, value: string) => {
+  const handleCellChange = (idx: number, field: 'orderQty' | 'actual', value: string) => {
     syncRows();
     setLocalRows(prev => {
       const updated = [...prev];
-      const row = { ...updated[idx], [field]: parseInt(value)||0, _dirty: true };
-      // Auto-compute billQty = max(orderQty, actual)
-      const newOrder = field === 'orderQty' ? (parseInt(value)||0) : (row.orderQty||0);
-      const newActual = field === 'actual' ? (parseInt(value)||0) : (row.actual||0);
-      row.billQty = Math.max(newOrder, newActual);
-      updated[idx] = row;
+      const base = { ...updated[idx], [field]: parseInt(value)||0, _dirty: true };
+      const newOrder = field === 'orderQty' ? (parseInt(value)||0) : (base.orderQty||0);
+      const newActual = field === 'actual' ? (parseInt(value)||0) : (base.actual||0);
+      base.total = newActual;
+      base.billQty = Math.max(newOrder, newActual);
+      updated[idx] = base;
       return updated;
     });
   };
 
-  const handleEnterKey = (e: React.KeyboardEvent<HTMLInputElement>) => {
+  // Enter → move to next row's first input; Tab → next column (browser default)
+  const handleEnterKey = (e: React.KeyboardEvent<HTMLInputElement>, colIdx: number) => {
     if (e.key === 'Enter') {
       e.preventDefault();
-      const row = (e.target as HTMLElement).closest('tr');
-      if (row) {
-        const inputs = Array.from(row.querySelectorAll('input'));
-        const cur = inputs.indexOf(e.target as HTMLInputElement);
-        if (cur < inputs.length - 1) inputs[cur + 1].focus();
+      const tbody = (e.target as HTMLElement).closest('tbody');
+      if (!tbody) return;
+      const allRows = Array.from(tbody.querySelectorAll('tr'));
+      const currentTr = (e.target as HTMLElement).closest('tr');
+      const rowIdx = allRows.indexOf(currentTr as HTMLTableRowElement);
+      const nextTr = allRows[rowIdx + 1];
+      if (nextTr) {
+        const inputs = Array.from(nextTr.querySelectorAll('input:not([readonly])')) as HTMLInputElement[];
+        if (inputs[colIdx]) inputs[colIdx].focus();
+        else if (inputs[0]) inputs[0].focus();
       }
     }
   };
@@ -1520,8 +1532,8 @@ function UnichemLunchTab({ month, year }: { month: number; year: number }) {
                 <th className="border px-2 py-2 text-center font-semibold min-w-[50px]">Days</th>
                 <th className="border px-2 py-2 text-center font-semibold min-w-[70px] bg-orange-50 dark:bg-orange-950/20">Order</th>
                 <th className="border px-2 py-2 text-center font-semibold min-w-[70px] bg-blue-50 dark:bg-blue-950/20">Actual</th>
-                <th className="border px-2 py-2 text-center font-semibold min-w-[70px] bg-green-50 dark:bg-green-950/20">Total</th>
-                <th className="border px-2 py-2 text-center font-semibold min-w-[70px] bg-green-50 dark:bg-green-950/20">Bill Qty</th>
+                <th className="border px-2 py-2 text-center font-semibold min-w-[70px] bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-300">Total <span className="text-[9px] font-normal">(auto)</span></th>
+                <th className="border px-2 py-2 text-center font-semibold min-w-[70px] bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-300">Bill Qty <span className="text-[9px] font-normal">(auto)</span></th>
               </tr>
             </thead>
             <tbody>
@@ -1534,20 +1546,22 @@ function UnichemLunchTab({ month, year }: { month: number; year: number }) {
                     <td className="border px-1 py-1 text-center font-medium text-[11px]">{safeFormat(row.entryDate)}</td>
                     <td className="border px-1 py-1 text-center text-[11px]">{row.weekDay||getWeekDay(row.entryDate)}</td>
                     <td className="border px-0.5 py-0.5 bg-orange-50/50 dark:bg-orange-950/10">
-                      <input type="number" min="0" value={row.orderQty||0} onChange={e=>handleCellChange(idx,'orderQty',e.target.value)} onKeyDown={handleEnterKey}
+                      <input type="number" min="0" value={row.orderQty||0}
+                        onChange={e=>handleCellChange(idx,'orderQty',e.target.value)}
+                        onKeyDown={e=>handleEnterKey(e,0)}
                         className="w-full text-center bg-transparent outline-none text-xs py-1 focus:bg-white dark:focus:bg-gray-800 rounded" data-testid={`lunch-order-${idx}`}/>
                     </td>
                     <td className="border px-0.5 py-0.5 bg-blue-50/50 dark:bg-blue-950/10">
-                      <input type="number" min="0" value={row.actual||0} onChange={e=>handleCellChange(idx,'actual',e.target.value)} onKeyDown={handleEnterKey}
+                      <input type="number" min="0" value={row.actual||0}
+                        onChange={e=>handleCellChange(idx,'actual',e.target.value)}
+                        onKeyDown={e=>handleEnterKey(e,1)}
                         className="w-full text-center bg-transparent outline-none text-xs py-1 focus:bg-white dark:focus:bg-gray-800 rounded" data-testid={`lunch-actual-${idx}`}/>
                     </td>
-                    <td className="border px-0.5 py-0.5 bg-green-50/50 dark:bg-green-950/10">
-                      <input type="number" min="0" value={row.total||0} onChange={e=>handleCellChange(idx,'total',e.target.value)} onKeyDown={handleEnterKey}
-                        className="w-full text-center bg-transparent outline-none text-xs py-1 focus:bg-white dark:focus:bg-gray-800 rounded" data-testid={`lunch-total-${idx}`}/>
+                    <td className="border px-1 py-1 text-center text-xs font-semibold bg-green-100/60 dark:bg-green-900/20 text-green-800 dark:text-green-300 select-none" data-testid={`lunch-total-${idx}`}>
+                      {row.actual||""}
                     </td>
-                    <td className="border px-0.5 py-0.5 bg-green-50/50 dark:bg-green-950/10">
-                      <input type="number" min="0" value={row.billQty||0} onChange={e=>handleCellChange(idx,'billQty',e.target.value)} onKeyDown={handleEnterKey}
-                        className="w-full text-center bg-transparent outline-none text-xs py-1 focus:bg-white dark:focus:bg-gray-800 rounded" data-testid={`lunch-billqty-${idx}`}/>
+                    <td className="border px-1 py-1 text-center text-xs font-semibold bg-green-100/60 dark:bg-green-900/20 text-green-800 dark:text-green-300 select-none" data-testid={`lunch-billqty-${idx}`}>
+                      {row.billQty||""}
                     </td>
                   </tr>
                 );
