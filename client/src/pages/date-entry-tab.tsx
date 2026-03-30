@@ -1319,22 +1319,33 @@ function UnichemSnackTab({ month, year }: { month: number; year: number }) {
         </table>
       </div>`;
 
-    const bfEvSection = makeTable("Breakfast &amp; Evening Snacks",
+    const totalBfEv = rows.reduce((s,r) => s + (r.breakfast||0) + (r.eveningSnacks||0), 0);
+    const totalNightPrint = rows.reduce((s,r) => s + (r.nightSnacks||0), 0);
+    const totalSundayPrint = rows.reduce((s,r) => s + (isSunday(r.entryDate) ? (lunchBillQtyMap[r.entryDate] || r.sundayExtraSnacks || 0) : 0), 0);
+
+    const bfEvSection = totalBfEv > 0 ? makeTable("Breakfast &amp; Evening Snacks",
       ["Breakfast","Evening<br>Snacks"],
-      r => [r.breakfast||0, r.eveningSnacks||0]);
+      r => [r.breakfast||0, r.eveningSnacks||0]) : "";
 
-    const nightSection = makeTable("Breakfast &amp; Evening Snacks",
+    const nightSection = totalNightPrint > 0 ? makeTable("Night Snacks",
       ["Night Snacks"],
-      r => [r.nightSnacks||0]);
+      r => [r.nightSnacks||0]) : "";
 
-    const sundaySection = makeTable("Sunday Extra Snacks",
+    const sundaySection = totalSundayPrint > 0 ? makeTable("Sunday Extra Snacks",
       ["Sunday Extra<br>Snacks"],
-      r => [isSunday(r.entryDate) ? (lunchBillQtyMap[r.entryDate] || r.sundayExtraSnacks || "") : ""]);
+      r => [isSunday(r.entryDate) ? (lunchBillQtyMap[r.entryDate] || r.sundayExtraSnacks || "") : ""]) : "";
+
+    const allSections = bfEvSection + nightSection + sundaySection;
+    if (!allSections) {
+      win.close();
+      toast({ title: "Nothing to Print", description: "No snack data found for this month and location.", variant: "destructive" });
+      return;
+    }
 
     win.document.write(`<html><head><title>Unichem Snacks - ${locationLabel} - ${monthLabel}</title>
       <style>@media print{body{margin:10mm;}}</style></head>
       <body style="font-family:Arial,sans-serif;padding:20px;">
-        ${bfEvSection}${nightSection}${sundaySection}
+        ${allSections}
         <script>window.onload=function(){window.print();}<\/script>
       </body></html>`);
     win.document.close();
