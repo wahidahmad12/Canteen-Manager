@@ -1051,6 +1051,499 @@ function UblLunchEntryTab({ month, year }: { month: number; year: number }) {
 }
 
 // ============================================================
+// UNICHEM Format 1 — Snacks (Breakfast, Evening, Night, Sunday Extra)
+// ============================================================
+
+const UNICHEM_LOCATIONS = ["Main Plant", "Unit-2", "COE"] as const;
+type UnichEmLocation = typeof UNICHEM_LOCATIONS[number];
+
+type SnackRow = {
+  id?: number;
+  location: string;
+  entryDate: string;
+  month: number;
+  year: number;
+  weekDay: string;
+  breakfast: number;
+  eveningSnacks: number;
+  nightSnacks: number;
+  sundayExtraSnacks: number;
+  remarks: string;
+  _dirty?: boolean;
+};
+
+function snackRowDefaults(dateStr: string, month: number, year: number, location: string): SnackRow {
+  return { location, entryDate: dateStr, month, year, weekDay: getWeekDay(dateStr), breakfast:0, eveningSnacks:0, nightSnacks:0, sundayExtraSnacks:0, remarks:"", _dirty: true };
+}
+
+function getDaysInMonth(month: number, year: number): number {
+  return new Date(year, month, 0).getDate();
+}
+
+function generateMonthRows<T>(month: number, year: number, defaults: (d: string, m: number, y: number) => T): T[] {
+  const days = getDaysInMonth(month, year);
+  const rows: T[] = [];
+  for (let d = 1; d <= days; d++) {
+    const dateStr = `${year}-${String(month).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+    rows.push(defaults(dateStr, month, year));
+  }
+  return rows;
+}
+
+function UnichemSnackTab({ month, year }: { month: number; year: number }) {
+  const qc = useQueryClient();
+  const { toast } = useToast();
+  const [location, setLocation] = useState<UnichEmLocation>("Main Plant");
+  const [localRows, setLocalRows] = useState<SnackRow[]>([]);
+  useEffect(() => { setLocalRows([]); }, [month, year, location]);
+
+  const { data: dbRows = [], isLoading } = useQuery<SnackRow[]>({
+    queryKey: ['/api/unichem-snack-entries', month, year, location],
+    queryFn: async () => {
+      const res = await fetch(`/api/unichem-snack-entries?month=${month}&year=${year}&location=${encodeURIComponent(location)}`, { credentials: "include" });
+      const data = await res.json();
+      return data.map((r: SnackRow) => ({ ...r, entryDate: normDate(r.entryDate) }));
+    },
+  });
+
+  const rows: SnackRow[] = localRows.length > 0 ? localRows : dbRows.map(r => ({ ...r }));
+
+  const createMutation = useMutation({
+    mutationFn: async (data: SnackRow) => {
+      const res = await fetch('/api/unichem-snack-entries', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(data), credentials: "include" });
+      return res.json();
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['/api/unichem-snack-entries', month, year, location] }),
+  });
+  const updateMutation = useMutation({
+    mutationFn: async ({ id, data }: { id: number; data: any }) => {
+      const res = await fetch(`/api/unichem-snack-entries/${id}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(data), credentials: "include" });
+      return res.json();
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['/api/unichem-snack-entries', month, year, location] }),
+  });
+
+  const syncRows = () => { if (localRows.length === 0) setLocalRows(dbRows.map(r => ({ ...r }))); };
+
+  const handleAutoFill = () => {
+    const generated = generateMonthRows(month, year, (d, m, y) => snackRowDefaults(d, m, y, location));
+    const existing = dbRows.reduce((acc: Record<string, SnackRow>, r) => { acc[normDate(r.entryDate)] = r; return acc; }, {});
+    const merged = generated.map(g => existing[g.entryDate] ? { ...existing[g.entryDate] } : g);
+    setLocalRows(merged);
+  };
+
+  const handleCellChange = (idx: number, field: keyof SnackRow, value: string) => {
+    syncRows();
+    setLocalRows(prev => {
+      const updated = [...prev];
+      const row = { ...updated[idx] };
+      if (field === 'remarks') (row as any)[field] = value;
+      else (row as any)[field] = parseInt(value) || 0;
+      row._dirty = true;
+      updated[idx] = row;
+      return updated;
+    });
+  };
+
+  const handleSaveAll = async () => {
+    const dirty = rows.filter(r => r._dirty);
+    if (!dirty.length) { toast({ title: "Nothing to save" }); return; }
+    let saved = 0;
+    for (const row of rows) {
+      if (!row._dirty) continue;
+      try {
+        const { _dirty, id, ...data } = row;
+        if (id) await updateMutation.mutateAsync({ id, data });
+        else await createMutation.mutateAsync(row);
+        saved++;
+      } catch (e: any) { toast({ title: "Error", description: e.message, variant: "destructive" }); }
+    }
+    toast({ title: `Saved ${saved} rows` });
+  };
+
+  const handlePrint = () => {
+    const monthLabel = `${MONTHS[month-1]} - ${year}`;
+    const locationLabel = location;
+    const win = window.open('', '_blank', 'width=900,height=700');
+    if (!win) return;
+
+    const tableStyle = `border-collapse:collapse;width:100%;font-size:11pt;`;
+    const thStyle = `border:1px solid #000;padding:5px 8px;text-align:center;font-weight:bold;`;
+    const tdStyle = `border:1px solid #000;padding:4px 8px;text-align:center;`;
+    const hdrBg = `background:#a8d8ea;`;
+    const altBg = `background:#fce4d6;`;
+
+    const makeTable = (title: string, cols: string[], dataFn: (r: SnackRow) => (string|number)[]) => `
+      <div style="margin-bottom:30px">
+        <table style="${tableStyle}">
+          <thead>
+            <tr><th colspan="${cols.length+2}" style="${thStyle}background:#fff;font-size:13pt;">DJ Hospitality &amp; Facility Management Pvt Ltd.</th></tr>
+            <tr><th colspan="${cols.length+2}" style="${thStyle}background:#fff;">Number of ${title} plate Per Day to Unichem Laboratories Ltd - ${locationLabel} - ${monthLabel}</th></tr>
+            <tr>
+              <th style="${thStyle}${altBg}">Date</th>
+              <th style="${thStyle}${altBg}">Days</th>
+              ${cols.map(c=>`<th style="${thStyle}${hdrBg}">${c}</th>`).join('')}
+              <th style="${thStyle}${altBg}">Remarks</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${rows.map(r => {
+              const vals = dataFn(r);
+              return `<tr>
+                <td style="${tdStyle}">${safeFormat(r.entryDate)}</td>
+                <td style="${tdStyle}">${r.weekDay||getWeekDay(r.entryDate)}</td>
+                ${vals.map(v=>`<td style="${tdStyle}">${v||""}</td>`).join('')}
+                <td style="${tdStyle}">${r.remarks||""}</td>
+              </tr>`;
+            }).join('')}
+            <tr style="font-weight:bold;background:#e0e0e0">
+              <td style="${tdStyle}" colspan="2">Total</td>
+              ${cols.map((_,ci) => {
+                const sum = rows.reduce((s,r) => {
+                  const vals = dataFn(r);
+                  return s + (Number(vals[ci])||0);
+                },0);
+                return `<td style="${tdStyle}">${sum}</td>`;
+              }).join('')}
+              <td style="${tdStyle}"></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>`;
+
+    const bfEvSection = makeTable("Breakfast &amp; Evening Snacks",
+      ["Breakfast","Evening<br>Snacks"],
+      r => [r.breakfast||0, r.eveningSnacks||0]);
+
+    const nightSection = makeTable("Breakfast &amp; Evening Snacks",
+      ["Night Snacks"],
+      r => [r.nightSnacks||0]);
+
+    const sundaySection = makeTable("Breakfast &amp; Evening Snacks",
+      ["Sunday Extra<br>Snacks"],
+      r => [r.sundayExtraSnacks||0]);
+
+    win.document.write(`<html><head><title>Unichem Snacks - ${locationLabel} - ${monthLabel}</title>
+      <style>@media print{body{margin:10mm;}}</style></head>
+      <body style="font-family:Arial,sans-serif;padding:20px;">
+        ${bfEvSection}${nightSection}${sundaySection}
+        <script>window.onload=function(){window.print();}<\/script>
+      </body></html>`);
+    win.document.close();
+  };
+
+  const totalBreakfast = rows.reduce((s,r)=>s+(r.breakfast||0),0);
+  const totalEvening = rows.reduce((s,r)=>s+(r.eveningSnacks||0),0);
+  const totalNight = rows.reduce((s,r)=>s+(r.nightSnacks||0),0);
+  const totalSunday = rows.reduce((s,r)=>s+(r.sundayExtraSnacks||0),0);
+
+  return (
+    <div>
+      <div className="flex flex-wrap gap-2 mb-4 items-center">
+        <div className="flex items-center gap-2">
+          <label className="text-sm font-medium text-muted-foreground">Location:</label>
+          <Select value={location} onValueChange={(v) => setLocation(v as UnichEmLocation)}>
+            <SelectTrigger className="w-40 h-8" data-testid="select-unichem-location-snack">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {UNICHEM_LOCATIONS.map(l => <SelectItem key={l} value={l}>{l}</SelectItem>)}
+            </SelectContent>
+          </Select>
+        </div>
+        <Button size="sm" variant="outline" onClick={handleAutoFill} data-testid="btn-unichem-autofill-snack">
+          <Plus className="w-3.5 h-3.5 mr-1" /> Auto-Fill Month
+        </Button>
+        <Button size="sm" onClick={handleSaveAll} disabled={createMutation.isPending || updateMutation.isPending} data-testid="btn-unichem-save-snack">
+          <Save className="w-3.5 h-3.5 mr-1" /> Save All
+        </Button>
+        <Button size="sm" variant="outline" onClick={handlePrint} data-testid="btn-unichem-print-snack">
+          <Printer className="w-3.5 h-3.5 mr-1" /> Print
+        </Button>
+      </div>
+      {isLoading ? <div className="py-8 text-center text-muted-foreground"><Loader2 className="w-5 h-5 animate-spin inline mr-2"/>Loading...</div> : (
+        <div className="overflow-x-auto rounded-lg border">
+          <table className="w-full text-xs border-collapse">
+            <thead>
+              <tr className="bg-muted/50">
+                <th className="border px-2 py-2 text-center font-semibold min-w-[90px]">Date</th>
+                <th className="border px-2 py-2 text-center font-semibold min-w-[50px]">Days</th>
+                <th className="border px-2 py-2 text-center font-semibold min-w-[75px] bg-blue-50 dark:bg-blue-950/20">Breakfast</th>
+                <th className="border px-2 py-2 text-center font-semibold min-w-[90px] bg-blue-50 dark:bg-blue-950/20">Evening Snacks</th>
+                <th className="border px-2 py-2 text-center font-semibold min-w-[85px] bg-blue-50 dark:bg-blue-950/20">Night Snacks</th>
+                <th className="border px-2 py-2 text-center font-semibold min-w-[110px] bg-blue-50 dark:bg-blue-950/20">Sunday Extra Snacks</th>
+                <th className="border px-2 py-2 text-center font-semibold min-w-[120px]">Remarks</th>
+              </tr>
+            </thead>
+            <tbody>
+              {rows.length === 0 ? (
+                <tr><td colSpan={7} className="border py-6 text-center text-muted-foreground">Click "Auto-Fill Month" to generate rows for {MONTHS[month-1]} {year}</td></tr>
+              ) : rows.map((row, idx) => {
+                const isSun = isSunday(row.entryDate);
+                return (
+                  <tr key={idx} className={`${isSun ? "bg-orange-50 dark:bg-orange-950/20" : idx%2===0?"":"bg-muted/10"} ${row._dirty?"ring-1 ring-inset ring-yellow-300":""}`}>
+                    <td className="border px-1 py-1 text-center font-medium text-[11px]">{safeFormat(row.entryDate)}</td>
+                    <td className="border px-1 py-1 text-center text-[11px]">{row.weekDay||getWeekDay(row.entryDate)}</td>
+                    <td className="border px-0.5 py-0.5 bg-blue-50/50 dark:bg-blue-950/10">
+                      <input type="number" min="0" value={row.breakfast||0} onChange={e=>handleCellChange(idx,'breakfast',e.target.value)}
+                        className="w-full text-center bg-transparent outline-none text-xs py-1 focus:bg-white dark:focus:bg-gray-800 rounded" data-testid={`snack-bf-${idx}`}/>
+                    </td>
+                    <td className="border px-0.5 py-0.5 bg-blue-50/50 dark:bg-blue-950/10">
+                      <input type="number" min="0" value={row.eveningSnacks||0} onChange={e=>handleCellChange(idx,'eveningSnacks',e.target.value)}
+                        className="w-full text-center bg-transparent outline-none text-xs py-1 focus:bg-white dark:focus:bg-gray-800 rounded" data-testid={`snack-ev-${idx}`}/>
+                    </td>
+                    <td className="border px-0.5 py-0.5 bg-blue-50/50 dark:bg-blue-950/10">
+                      <input type="number" min="0" value={row.nightSnacks||0} onChange={e=>handleCellChange(idx,'nightSnacks',e.target.value)}
+                        className="w-full text-center bg-transparent outline-none text-xs py-1 focus:bg-white dark:focus:bg-gray-800 rounded" data-testid={`snack-night-${idx}`}/>
+                    </td>
+                    <td className="border px-0.5 py-0.5 bg-blue-50/50 dark:bg-blue-950/10">
+                      <input type="number" min="0" value={row.sundayExtraSnacks||0} onChange={e=>handleCellChange(idx,'sundayExtraSnacks',e.target.value)}
+                        className="w-full text-center bg-transparent outline-none text-xs py-1 focus:bg-white dark:focus:bg-gray-800 rounded" data-testid={`snack-sun-${idx}`}/>
+                    </td>
+                    <td className="border px-0.5 py-0.5">
+                      <input type="text" value={row.remarks||""} onChange={e=>handleCellChange(idx,'remarks',e.target.value)}
+                        className="w-full bg-transparent outline-none text-xs py-1 focus:bg-white dark:focus:bg-gray-800 rounded px-1" data-testid={`snack-remarks-${idx}`}/>
+                    </td>
+                  </tr>
+                );
+              })}
+              {rows.length > 0 && (
+                <tr className="bg-muted font-semibold text-xs">
+                  <td colSpan={2} className="border px-2 py-2 text-center">Total</td>
+                  <td className="border px-2 py-2 text-center text-blue-700 dark:text-blue-300">{totalBreakfast}</td>
+                  <td className="border px-2 py-2 text-center text-blue-700 dark:text-blue-300">{totalEvening}</td>
+                  <td className="border px-2 py-2 text-center text-blue-700 dark:text-blue-300">{totalNight}</td>
+                  <td className="border px-2 py-2 text-center text-blue-700 dark:text-blue-300">{totalSunday}</td>
+                  <td className="border px-2 py-2"></td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ============================================================
+// UNICHEM Format 2 — Lunch & Dinner
+// ============================================================
+
+type LunchRow = {
+  id?: number;
+  location: string;
+  entryDate: string;
+  month: number;
+  year: number;
+  weekDay: string;
+  orderQty: number;
+  actual: number;
+  total: number;
+  billQty: number;
+  _dirty?: boolean;
+};
+
+function unichEmLunchRowDefaults(dateStr: string, month: number, year: number, location: string): LunchRow {
+  return { location, entryDate: dateStr, month, year, weekDay: getWeekDay(dateStr), orderQty:0, actual:0, total:0, billQty:0, _dirty: true };
+}
+
+function UnichemLunchTab({ month, year }: { month: number; year: number }) {
+  const qc = useQueryClient();
+  const { toast } = useToast();
+  const [location, setLocation] = useState<UnichEmLocation>("Main Plant");
+  const [localRows, setLocalRows] = useState<LunchRow[]>([]);
+  useEffect(() => { setLocalRows([]); }, [month, year, location]);
+
+  const { data: dbRows = [], isLoading } = useQuery<LunchRow[]>({
+    queryKey: ['/api/unichem-lunch-entries', month, year, location],
+    queryFn: async () => {
+      const res = await fetch(`/api/unichem-lunch-entries?month=${month}&year=${year}&location=${encodeURIComponent(location)}`, { credentials: "include" });
+      const data = await res.json();
+      return data.map((r: LunchRow) => ({ ...r, entryDate: normDate(r.entryDate) }));
+    },
+  });
+
+  const rows: LunchRow[] = localRows.length > 0 ? localRows : dbRows.map(r => ({ ...r }));
+
+  const createMutation = useMutation({
+    mutationFn: async (data: LunchRow) => {
+      const res = await fetch('/api/unichem-lunch-entries', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(data), credentials: "include" });
+      return res.json();
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['/api/unichem-lunch-entries', month, year, location] }),
+  });
+  const updateMutation = useMutation({
+    mutationFn: async ({ id, data }: { id: number; data: any }) => {
+      const res = await fetch(`/api/unichem-lunch-entries/${id}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(data), credentials: "include" });
+      return res.json();
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['/api/unichem-lunch-entries', month, year, location] }),
+  });
+
+  const syncRows = () => { if (localRows.length === 0) setLocalRows(dbRows.map(r => ({ ...r }))); };
+
+  const handleAutoFill = () => {
+    const generated = generateMonthRows(month, year, (d, m, y) => unichEmLunchRowDefaults(d, m, y, location));
+    const existing = dbRows.reduce((acc: Record<string, LunchRow>, r) => { acc[normDate(r.entryDate)] = r; return acc; }, {});
+    const merged = generated.map(g => existing[g.entryDate] ? { ...existing[g.entryDate] } : g);
+    setLocalRows(merged);
+  };
+
+  const handleCellChange = (idx: number, field: keyof LunchRow, value: string) => {
+    syncRows();
+    setLocalRows(prev => {
+      const updated = [...prev];
+      const row = { ...updated[idx], [field]: parseInt(value)||0, _dirty: true };
+      // Auto-compute: total = actual
+      if (field === 'actual') row.total = parseInt(value)||0;
+      updated[idx] = row;
+      return updated;
+    });
+  };
+
+  const handleSaveAll = async () => {
+    const dirty = rows.filter(r => r._dirty);
+    if (!dirty.length) { toast({ title: "Nothing to save" }); return; }
+    let saved = 0;
+    for (const row of rows) {
+      if (!row._dirty) continue;
+      try {
+        const { _dirty, id, ...data } = row;
+        if (id) await updateMutation.mutateAsync({ id, data });
+        else await createMutation.mutateAsync(row);
+        saved++;
+      } catch (e: any) { toast({ title: "Error", description: e.message, variant: "destructive" }); }
+    }
+    toast({ title: `Saved ${saved} rows` });
+  };
+
+  const handlePrint = () => {
+    const monthLabel = `${MONTHS[month-1]} - ${year}`;
+    const locationLabel = location;
+    const win = window.open('', '_blank', 'width=900,height=700');
+    if (!win) return;
+    const thS = `border:1px solid #000;padding:5px 8px;text-align:center;font-weight:bold;`;
+    const tdS = `border:1px solid #000;padding:4px 8px;text-align:center;`;
+    const altBg = `background:#fce4d6;`;
+    win.document.write(`<html><head><title>Unichem Lunch - ${locationLabel} - ${monthLabel}</title>
+      <style>@media print{body{margin:10mm;}}</style></head>
+      <body style="font-family:Arial,sans-serif;padding:20px;">
+        <table style="border-collapse:collapse;width:100%;font-size:11pt;">
+          <thead>
+            <tr><th colspan="6" style="${thS}background:#fff;font-size:13pt;">DJ Hospitality &amp; Facility Management Pvt. Ltd.</th></tr>
+            <tr><th colspan="6" style="${thS}background:#fff;">Number of plate Per Day to Unichem Laboratories Ltd - ${locationLabel}</th></tr>
+            <tr>
+              <th style="${thS}${altBg}">Date</th><th style="${thS}${altBg}">Days</th>
+              <th style="${thS}${altBg}">Order</th><th style="${thS}background:#a8d8ea;">Actual</th>
+              <th style="${thS}background:#c8f7c5;">Total</th><th style="${thS}background:#c8f7c5;">Bill Qty</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${rows.map(r => `<tr>
+              <td style="${tdS}">${safeFormat(r.entryDate)}</td>
+              <td style="${tdS}">${r.weekDay||getWeekDay(r.entryDate)}</td>
+              <td style="${tdS}">${r.orderQty||""}</td>
+              <td style="${tdS}">${r.actual||""}</td>
+              <td style="${tdS}">${r.total||""}</td>
+              <td style="${tdS}">${r.billQty||""}</td>
+            </tr>`).join('')}
+            <tr style="font-weight:bold;background:#e0e0e0">
+              <td style="${tdS}" colspan="2">Total</td>
+              <td style="${tdS}">${rows.reduce((s,r)=>s+(r.orderQty||0),0)}</td>
+              <td style="${tdS}">${rows.reduce((s,r)=>s+(r.actual||0),0)}</td>
+              <td style="${tdS}">${rows.reduce((s,r)=>s+(r.total||0),0)}</td>
+              <td style="${tdS}">${rows.reduce((s,r)=>s+(r.billQty||0),0)}</td>
+            </tr>
+          </tbody>
+        </table>
+        <script>window.onload=function(){window.print();}<\/script>
+      </body></html>`);
+    win.document.close();
+  };
+
+  return (
+    <div>
+      <div className="flex flex-wrap gap-2 mb-4 items-center">
+        <div className="flex items-center gap-2">
+          <label className="text-sm font-medium text-muted-foreground">Location:</label>
+          <Select value={location} onValueChange={(v) => setLocation(v as UnichEmLocation)}>
+            <SelectTrigger className="w-40 h-8" data-testid="select-unichem-location-lunch">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {UNICHEM_LOCATIONS.map(l => <SelectItem key={l} value={l}>{l}</SelectItem>)}
+            </SelectContent>
+          </Select>
+        </div>
+        <Button size="sm" variant="outline" onClick={handleAutoFill} data-testid="btn-unichem-autofill-lunch">
+          <Plus className="w-3.5 h-3.5 mr-1" /> Auto-Fill Month
+        </Button>
+        <Button size="sm" onClick={handleSaveAll} disabled={createMutation.isPending || updateMutation.isPending} data-testid="btn-unichem-save-lunch">
+          <Save className="w-3.5 h-3.5 mr-1" /> Save All
+        </Button>
+        <Button size="sm" variant="outline" onClick={handlePrint} data-testid="btn-unichem-print-lunch">
+          <Printer className="w-3.5 h-3.5 mr-1" /> Print
+        </Button>
+      </div>
+      {isLoading ? <div className="py-8 text-center text-muted-foreground"><Loader2 className="w-5 h-5 animate-spin inline mr-2"/>Loading...</div> : (
+        <div className="overflow-x-auto rounded-lg border">
+          <table className="w-full text-xs border-collapse">
+            <thead>
+              <tr className="bg-muted/50">
+                <th className="border px-2 py-2 text-center font-semibold min-w-[90px]">Date</th>
+                <th className="border px-2 py-2 text-center font-semibold min-w-[50px]">Days</th>
+                <th className="border px-2 py-2 text-center font-semibold min-w-[70px] bg-orange-50 dark:bg-orange-950/20">Order</th>
+                <th className="border px-2 py-2 text-center font-semibold min-w-[70px] bg-blue-50 dark:bg-blue-950/20">Actual</th>
+                <th className="border px-2 py-2 text-center font-semibold min-w-[70px] bg-green-50 dark:bg-green-950/20">Total</th>
+                <th className="border px-2 py-2 text-center font-semibold min-w-[70px] bg-green-50 dark:bg-green-950/20">Bill Qty</th>
+              </tr>
+            </thead>
+            <tbody>
+              {rows.length === 0 ? (
+                <tr><td colSpan={6} className="border py-6 text-center text-muted-foreground">Click "Auto-Fill Month" to generate rows for {MONTHS[month-1]} {year}</td></tr>
+              ) : rows.map((row, idx) => {
+                const isSun = isSunday(row.entryDate);
+                return (
+                  <tr key={idx} className={`${isSun?"bg-orange-50 dark:bg-orange-950/20":idx%2===0?"":"bg-muted/10"} ${row._dirty?"ring-1 ring-inset ring-yellow-300":""}`}>
+                    <td className="border px-1 py-1 text-center font-medium text-[11px]">{safeFormat(row.entryDate)}</td>
+                    <td className="border px-1 py-1 text-center text-[11px]">{row.weekDay||getWeekDay(row.entryDate)}</td>
+                    <td className="border px-0.5 py-0.5 bg-orange-50/50 dark:bg-orange-950/10">
+                      <input type="number" min="0" value={row.orderQty||0} onChange={e=>handleCellChange(idx,'orderQty',e.target.value)}
+                        className="w-full text-center bg-transparent outline-none text-xs py-1 focus:bg-white dark:focus:bg-gray-800 rounded" data-testid={`lunch-order-${idx}`}/>
+                    </td>
+                    <td className="border px-0.5 py-0.5 bg-blue-50/50 dark:bg-blue-950/10">
+                      <input type="number" min="0" value={row.actual||0} onChange={e=>handleCellChange(idx,'actual',e.target.value)}
+                        className="w-full text-center bg-transparent outline-none text-xs py-1 focus:bg-white dark:focus:bg-gray-800 rounded" data-testid={`lunch-actual-${idx}`}/>
+                    </td>
+                    <td className="border px-0.5 py-0.5 bg-green-50/50 dark:bg-green-950/10">
+                      <input type="number" min="0" value={row.total||0} onChange={e=>handleCellChange(idx,'total',e.target.value)}
+                        className="w-full text-center bg-transparent outline-none text-xs py-1 focus:bg-white dark:focus:bg-gray-800 rounded" data-testid={`lunch-total-${idx}`}/>
+                    </td>
+                    <td className="border px-0.5 py-0.5 bg-green-50/50 dark:bg-green-950/10">
+                      <input type="number" min="0" value={row.billQty||0} onChange={e=>handleCellChange(idx,'billQty',e.target.value)}
+                        className="w-full text-center bg-transparent outline-none text-xs py-1 focus:bg-white dark:focus:bg-gray-800 rounded" data-testid={`lunch-billqty-${idx}`}/>
+                    </td>
+                  </tr>
+                );
+              })}
+              {rows.length > 0 && (
+                <tr className="bg-muted font-semibold text-xs">
+                  <td colSpan={2} className="border px-2 py-2 text-center">Total</td>
+                  <td className="border px-2 py-2 text-center text-orange-700">{rows.reduce((s,r)=>s+(r.orderQty||0),0)}</td>
+                  <td className="border px-2 py-2 text-center text-blue-700">{rows.reduce((s,r)=>s+(r.actual||0),0)}</td>
+                  <td className="border px-2 py-2 text-center text-green-700">{rows.reduce((s,r)=>s+(r.total||0),0)}</td>
+                  <td className="border px-2 py-2 text-center text-green-700">{rows.reduce((s,r)=>s+(r.billQty||0),0)}</td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ============================================================
 // CIPLA Format
 // ============================================================
 
@@ -1718,7 +2211,7 @@ export function DateEntryTab() {
   const [selectedClient, setSelectedClient] = useState("");
   const [month, setMonth] = useState(String(now.getMonth() + 1));
   const [year, setYear] = useState(String(now.getFullYear()));
-  const [ublSubTab, setUblSubTab] = useState("format1");
+  const [ublSubTab, setUblSubTab] = useState("unichem_snacks");
 
   useEffect(() => {
     if (allowedClients.length > 0 && !allowedClients.find(o => o.value === selectedClient)) {
@@ -1783,13 +2276,27 @@ export function DateEntryTab() {
       {selectedClient === "ubl" ? (
         <Tabs value={ublSubTab} onValueChange={setUblSubTab}>
           <TabsList className="mb-4 flex-wrap h-auto">
+            <TabsTrigger value="unichem_snacks" className="text-xs sm:text-sm" data-testid="tab-unichem-snacks">
+              Unichem — Snacks (Form 1)
+            </TabsTrigger>
+            <TabsTrigger value="unichem_lunch" className="text-xs sm:text-sm" data-testid="tab-unichem-lunch">
+              Unichem — Lunch &amp; Dinner (Form 2)
+            </TabsTrigger>
             <TabsTrigger value="format1" className="text-xs sm:text-sm" data-testid="tab-ubl-format1">
-              Format 1 — Bill Data Sheet
+              Old Format 1 — Bill Data Sheet
             </TabsTrigger>
             <TabsTrigger value="format2" className="text-xs sm:text-sm" data-testid="tab-ubl-format2">
-              Format 2 — Lunch Per Day Count
+              Old Format 2 — Lunch Per Day
             </TabsTrigger>
           </TabsList>
+          <TabsContent value="unichem_snacks">
+            <div className="mb-2 text-sm text-muted-foreground font-medium">Unichem Laboratories Ltd — Breakfast, Evening Snacks, Night Snacks &amp; Sunday Extra Snacks (1st to last day of month)</div>
+            <UnichemSnackTab month={parseInt(month)} year={parseInt(year)}/>
+          </TabsContent>
+          <TabsContent value="unichem_lunch">
+            <div className="mb-2 text-sm text-muted-foreground font-medium">Unichem Laboratories Ltd — Lunch &amp; Dinner per Location (1st to last day of month)</div>
+            <UnichemLunchTab month={parseInt(month)} year={parseInt(year)}/>
+          </TabsContent>
           <TabsContent value="format1">
             <div className="mb-2 text-sm text-muted-foreground font-medium">UBL — Food Items Bill Data Sheet (with rates)</div>
             <UblDateEntryTab month={parseInt(month)} year={parseInt(year)}/>

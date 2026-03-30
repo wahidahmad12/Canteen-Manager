@@ -1838,6 +1838,46 @@ export async function registerRoutes(
     } catch (e: any) { res.status(500).json({ error: e.message }); }
   });
 
+  // === UNICHEM SNACK ENTRIES (Form 1) ===
+  app.get('/api/unichem-snack-entries', requirePermission('salesinvoice'), async (req, res) => {
+    const month = Number(req.query.month) || new Date().getMonth() + 1;
+    const year = Number(req.query.year) || new Date().getFullYear();
+    const location = String(req.query.location || 'Main Plant');
+    const entries = await storage.getUnichEmSnackEntries(month, year, location);
+    res.json(entries);
+  });
+  app.post('/api/unichem-snack-entries', requirePermission('salesinvoice'), async (req, res) => {
+    try { const entry = await storage.createUnichEmSnackEntry(req.body); res.status(201).json(entry); }
+    catch (err: any) { res.status(500).json({ message: err.message }); }
+  });
+  app.put('/api/unichem-snack-entries/:id', requirePermission('salesinvoice'), async (req, res) => {
+    try { const entry = await storage.updateUnichEmSnackEntry(Number(req.params.id), req.body); res.json(entry); }
+    catch (err: any) { res.status(500).json({ message: err.message }); }
+  });
+  app.delete('/api/unichem-snack-entries/:id', requirePermission('salesinvoice'), async (req, res) => {
+    await storage.deleteUnichEmSnackEntry(Number(req.params.id)); res.status(204).send();
+  });
+
+  // === UNICHEM LUNCH ENTRIES (Form 2) ===
+  app.get('/api/unichem-lunch-entries', requirePermission('salesinvoice'), async (req, res) => {
+    const month = Number(req.query.month) || new Date().getMonth() + 1;
+    const year = Number(req.query.year) || new Date().getFullYear();
+    const location = String(req.query.location || 'Main Plant');
+    const entries = await storage.getUnichEmLunchEntries(month, year, location);
+    res.json(entries);
+  });
+  app.post('/api/unichem-lunch-entries', requirePermission('salesinvoice'), async (req, res) => {
+    try { const entry = await storage.createUnichEmLunchEntry(req.body); res.status(201).json(entry); }
+    catch (err: any) { res.status(500).json({ message: err.message }); }
+  });
+  app.put('/api/unichem-lunch-entries/:id', requirePermission('salesinvoice'), async (req, res) => {
+    try { const entry = await storage.updateUnichEmLunchEntry(Number(req.params.id), req.body); res.json(entry); }
+    catch (err: any) { res.status(500).json({ message: err.message }); }
+  });
+  app.delete('/api/unichem-lunch-entries/:id', requirePermission('salesinvoice'), async (req, res) => {
+    await storage.deleteUnichEmLunchEntry(Number(req.params.id)); res.status(204).send();
+  });
+
   return httpServer;
 }
 

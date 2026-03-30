@@ -907,6 +907,41 @@ export const selectUblLunchEntrySchema = createSelectSchema(ublLunchEntries, {
   weekDay: z.string().nullable(),
 });
 
+// === UNICHEM SNACK ENTRIES (Form 1 — Breakfast, Evening, Night, Sunday Extra Snacks per location) ===
+export const unichEmSnackEntries = mysqlTable("unichem_snack_entries", {
+  id: int("id").autoincrement().primaryKey(),
+  location: varchar("location", { length: 100 }).notNull(),
+  entryDate: date("entry_date").notNull(),
+  month: int("month").notNull(),
+  year: int("year").notNull(),
+  weekDay: varchar("week_day", { length: 10 }),
+  breakfast: int("breakfast").default(0),
+  eveningSnacks: int("evening_snacks").default(0),
+  nightSnacks: int("night_snacks").default(0),
+  sundayExtraSnacks: int("sunday_extra_snacks").default(0),
+  remarks: varchar("remarks", { length: 500 }).default(""),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+export type UnichEmSnackEntry = typeof unichEmSnackEntries.$inferSelect;
+
+// === UNICHEM LUNCH ENTRIES (Form 2 — Lunch & Dinner per location) ===
+export const unichEmLunchEntries = mysqlTable("unichem_lunch_entries", {
+  id: int("id").autoincrement().primaryKey(),
+  location: varchar("location", { length: 100 }).notNull(),
+  entryDate: date("entry_date").notNull(),
+  month: int("month").notNull(),
+  year: int("year").notNull(),
+  weekDay: varchar("week_day", { length: 10 }),
+  orderQty: int("order_qty").default(0),
+  actual: int("actual").default(0),
+  total: int("total").default(0),
+  billQty: int("bill_qty").default(0),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+export type UnichEmLunchEntry = typeof unichEmLunchEntries.$inferSelect;
+
 // === CIPLA MACHINE SUMMARY (billing-period machine totals) ===
 export const ciplaaMachineSummary = mysqlTable("cipla_machine_summary", {
   id: int("id").autoincrement().primaryKey(),

@@ -39,10 +39,14 @@ import {
   ciplaDateEntries,
   ublLunchEntries,
   ciplaaMachineSummary,
+  unichEmSnackEntries,
+  unichEmLunchEntries,
   type UblDateEntry,
   type CiplaDateEntry,
   type UblLunchEntry,
   type CiplaaMachineSummary,
+  type UnichEmSnackEntry,
+  type UnichEmLunchEntry,
   type DailyReport, 
   type ExpenseItem,
   type CreateReportRequest,
@@ -251,6 +255,16 @@ export interface IStorage {
   deleteUblLunchEntry(id: number): Promise<void>;
   getCiplaaMachineSummary(month: number, year: number): Promise<CiplaaMachineSummary | null>;
   upsertCiplaaMachineSummary(month: number, year: number, data: { bfMachine: number; luMachine: number; diMachine: number }): Promise<CiplaaMachineSummary>;
+  // Unichem Snack Entries (Form 1)
+  getUnichEmSnackEntries(month: number, year: number, location: string): Promise<UnichEmSnackEntry[]>;
+  createUnichEmSnackEntry(data: any): Promise<UnichEmSnackEntry>;
+  updateUnichEmSnackEntry(id: number, data: any): Promise<UnichEmSnackEntry>;
+  deleteUnichEmSnackEntry(id: number): Promise<void>;
+  // Unichem Lunch Entries (Form 2)
+  getUnichEmLunchEntries(month: number, year: number, location: string): Promise<UnichEmLunchEntry[]>;
+  createUnichEmLunchEntry(data: any): Promise<UnichEmLunchEntry>;
+  updateUnichEmLunchEntry(id: number, data: any): Promise<UnichEmLunchEntry>;
+  deleteUnichEmLunchEntry(id: number): Promise<void>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -1968,6 +1982,42 @@ export class DatabaseStorage implements IStorage {
     } else {
       return await insertAndGet<CiplaaMachineSummary>(ciplaaMachineSummary, { month, year, ...data });
     }
+  }
+
+  // Unichem Snack Entries (Form 1)
+  async getUnichEmSnackEntries(month: number, year: number, location: string): Promise<UnichEmSnackEntry[]> {
+    return await db.select().from(unichEmSnackEntries)
+      .where(and(eq(unichEmSnackEntries.month, month), eq(unichEmSnackEntries.year, year), eq(unichEmSnackEntries.location, location)))
+      .orderBy(unichEmSnackEntries.entryDate);
+  }
+  async createUnichEmSnackEntry(data: any): Promise<UnichEmSnackEntry> {
+    return await insertAndGet<UnichEmSnackEntry>(unichEmSnackEntries, data);
+  }
+  async updateUnichEmSnackEntry(id: number, data: any): Promise<UnichEmSnackEntry> {
+    await db.update(unichEmSnackEntries).set({ ...data, updatedAt: new Date() }).where(eq(unichEmSnackEntries.id, id));
+    const rows = await db.select().from(unichEmSnackEntries).where(eq(unichEmSnackEntries.id, id));
+    return rows[0];
+  }
+  async deleteUnichEmSnackEntry(id: number): Promise<void> {
+    await db.delete(unichEmSnackEntries).where(eq(unichEmSnackEntries.id, id));
+  }
+
+  // Unichem Lunch Entries (Form 2)
+  async getUnichEmLunchEntries(month: number, year: number, location: string): Promise<UnichEmLunchEntry[]> {
+    return await db.select().from(unichEmLunchEntries)
+      .where(and(eq(unichEmLunchEntries.month, month), eq(unichEmLunchEntries.year, year), eq(unichEmLunchEntries.location, location)))
+      .orderBy(unichEmLunchEntries.entryDate);
+  }
+  async createUnichEmLunchEntry(data: any): Promise<UnichEmLunchEntry> {
+    return await insertAndGet<UnichEmLunchEntry>(unichEmLunchEntries, data);
+  }
+  async updateUnichEmLunchEntry(id: number, data: any): Promise<UnichEmLunchEntry> {
+    await db.update(unichEmLunchEntries).set({ ...data, updatedAt: new Date() }).where(eq(unichEmLunchEntries.id, id));
+    const rows = await db.select().from(unichEmLunchEntries).where(eq(unichEmLunchEntries.id, id));
+    return rows[0];
+  }
+  async deleteUnichEmLunchEntry(id: number): Promise<void> {
+    await db.delete(unichEmLunchEntries).where(eq(unichEmLunchEntries.id, id));
   }
 }
 
