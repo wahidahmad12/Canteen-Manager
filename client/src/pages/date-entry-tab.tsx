@@ -2992,14 +2992,10 @@ function hulRowDefaults(dateStr: string, month: number, year: number, location: 
   return { location, entryDate: dateStr, month, year, weekDay: getWeekDay(dateStr), breakfast:0, lunch:0, eveningSnacks:0, nightSnacks:0, guestBreakfast:0, guestLunch:0, guestEveningSnacks:0, guestNightSnacks:0, _dirty:true };
 }
 
-const HUL_LOCATIONS = ['KPF','TEC'] as const;
-type HulLocation = typeof HUL_LOCATIONS[number];
-
-function HulDateEntryTab({ month, year, loadKey = 0 }: { month: number; year: number; loadKey?: number }) {
+function HulLocationTab({ month, year, location, loadKey = 0 }: { month: number; year: number; location: string; loadKey?: number }) {
   const qc = useQueryClient();
   const { toast } = useToast();
   const printRef = useRef<HTMLDivElement>(null);
-  const [location, setLocation] = useState<HulLocation>('KPF');
   const [localRows, setLocalRows] = useState<HulRow[]>([]);
   useEffect(() => { setLocalRows([]); }, [month, year, location]);
 
@@ -3196,20 +3192,8 @@ function HulDateEntryTab({ month, year, loadKey = 0 }: { month: number; year: nu
 
   return (
     <div>
-      {/* Location selector */}
+      {/* Action buttons */}
       <div className="flex flex-wrap items-center gap-3 mb-4">
-        <div className="flex items-center gap-2">
-          <label className="text-sm font-medium text-muted-foreground shrink-0">Location:</label>
-          <div className="flex rounded-lg border overflow-hidden text-sm font-medium">
-            {HUL_LOCATIONS.map(loc => (
-              <button key={loc} onClick={() => setLocation(loc)}
-                className={`px-5 py-1.5 transition-colors ${location === loc ? 'bg-green-600 text-white' : 'hover:bg-muted text-muted-foreground'}`}
-                data-testid={`btn-hul-location-${loc}`}>
-                {loc}
-              </button>
-            ))}
-          </div>
-        </div>
         <div className="flex flex-wrap gap-2 ml-auto">
           <Button size="sm" variant="outline" onClick={handleAutoFill} className="h-9" data-testid="btn-hul-autofill">
             <Plus className="w-3.5 h-3.5 mr-1"/>Auto-Fill Month
@@ -3530,10 +3514,24 @@ export function DateEntryTab() {
         </>
       )}
       {selectedClient === "hul" && (
-        <>
-          <div className="mb-2 text-sm text-muted-foreground font-medium">Hindustan Unilever Limited — Meal Charges &amp; Guest Meal Charges (1st to last day of month)</div>
-          <HulDateEntryTab month={parseInt(month)} year={parseInt(year)} loadKey={loadKey}/>
-        </>
+        <Tabs defaultValue="hul_kpf">
+          <TabsList className="mb-4 flex-wrap h-auto">
+            <TabsTrigger value="hul_kpf" className="text-xs sm:text-sm" data-testid="tab-hul-kpf">
+              KPF
+            </TabsTrigger>
+            <TabsTrigger value="hul_tec" className="text-xs sm:text-sm" data-testid="tab-hul-tec">
+              TEC
+            </TabsTrigger>
+          </TabsList>
+          <TabsContent value="hul_kpf">
+            <div className="mb-2 text-sm text-muted-foreground font-medium">Hindustan Unilever Limited — KPF — Meal Charges &amp; Guest Meal Charges (1st to last day of month)</div>
+            <HulLocationTab location="KPF" month={parseInt(month)} year={parseInt(year)} loadKey={loadKey}/>
+          </TabsContent>
+          <TabsContent value="hul_tec">
+            <div className="mb-2 text-sm text-muted-foreground font-medium">Hindustan Unilever Limited — TEC — Meal Charges &amp; Guest Meal Charges (1st to last day of month)</div>
+            <HulLocationTab location="TEC" month={parseInt(month)} year={parseInt(year)} loadKey={loadKey}/>
+          </TabsContent>
+        </Tabs>
       )}
     </div>
   );
