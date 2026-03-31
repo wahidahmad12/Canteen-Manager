@@ -3050,6 +3050,23 @@ function HulLocationTab({ month, year, location, loadKey = 0 }: { month: number;
 
   const syncRows = () => { if (localRows.length === 0) setLocalRows(dbRows.map(r => ({ ...r }))); };
 
+  const handleEnterKey = (e: React.KeyboardEvent<HTMLInputElement>, colIdx: number) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      const tbody = (e.target as HTMLElement).closest('tbody');
+      if (!tbody) return;
+      const allRows = Array.from(tbody.querySelectorAll('tr'));
+      const currentTr = (e.target as HTMLElement).closest('tr');
+      const rowIdx = allRows.indexOf(currentTr as HTMLTableRowElement);
+      const nextTr = allRows[rowIdx + 1];
+      if (nextTr) {
+        const inputs = Array.from(nextTr.querySelectorAll('input:not([readonly])')) as HTMLInputElement[];
+        if (inputs[colIdx]) inputs[colIdx].focus();
+        else if (inputs[0]) inputs[0].focus();
+      }
+    }
+  };
+
   const handleCellChange = (idx: number, field: keyof HulRow, value: string) => {
     syncRows();
     setLocalRows(prev => {
@@ -3304,8 +3321,9 @@ function HulLocationTab({ month, year, location, loadKey = 0 }: { month: number;
             {rows.map((row, idx) => {
               const isSun = isSunday(row.entryDate);
               const bg = isSun ? '#fff3cd' : idx%2===0 ? '#fff' : '#f9f9f9';
-              const numFld = (f: keyof HulRow) => (
+              const numFld = (f: keyof HulRow, colIdx: number) => (
                 <input type="number" min={0} value={(row as any)[f]||''} onChange={e=>handleCellChange(idx,f,e.target.value)}
+                  onKeyDown={e=>handleEnterKey(e, colIdx)}
                   style={{width:70, border:'none', background:'transparent', textAlign:'center', fontSize:12, padding:0, outline:'none'}}/>
               );
               return (
@@ -3313,11 +3331,11 @@ function HulLocationTab({ month, year, location, loadKey = 0 }: { month: number;
                   <td style={{textAlign:'center', border:'1px solid #ccc', padding:'2px'}}>{idx+1}</td>
                   <td style={{textAlign:'center', border:'1px solid #ccc', padding:'3px 4px', fontSize:11, fontWeight:500}}>{safeFormat(row.entryDate)}</td>
                   <td style={{textAlign:'center', border:'1px solid #ccc', fontSize:11}}>{row.weekDay}</td>
-                  {mealFields.map(f=>(
-                    <td key={f as string} style={{border:'1px solid #ccc', padding:0, textAlign:'center'}}>{numFld(f)}</td>
+                  {mealFields.map((f, ci)=>(
+                    <td key={f as string} style={{border:'1px solid #ccc', padding:0, textAlign:'center'}}>{numFld(f, ci)}</td>
                   ))}
-                  {guestFields.map(f=>(
-                    <td key={f as string} style={{border:'1px solid #ccc', padding:0, textAlign:'center', background:'rgba(26,58,138,0.04)'}}>{numFld(f)}</td>
+                  {guestFields.map((f, ci)=>(
+                    <td key={f as string} style={{border:'1px solid #ccc', padding:0, textAlign:'center', background:'rgba(26,58,138,0.04)'}}>{numFld(f, mealFields.length + ci)}</td>
                   ))}
                   <td style={{border:'1px solid #ccc', padding:'2px', textAlign:'center'}}>
                     <button onClick={()=>handleSaveRow(idx)} title="Save" style={{color:'#22c55e', marginRight:4, background:'none', border:'none', cursor:'pointer'}}><Save style={{width:13,height:13}}/></button>
