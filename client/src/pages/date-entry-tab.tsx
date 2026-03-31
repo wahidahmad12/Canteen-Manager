@@ -3823,7 +3823,783 @@ function HulLocationTab({ month, year, location, loadKey = 0 }: { month: number;
 }
 
 // ============================================================
+// UBL SUMMARY TAB
 // ============================================================
+function UblSummaryTab({ month, year }: { month: number; year: number }) {
+  const { toast } = useToast();
+  const printRef = useRef<HTMLDivElement>(null);
+  const [viewMode, setViewMode] = useState<'monthly' | 'yearly'>('monthly');
+  const [summaryYear, setSummaryYear] = useState(year);
+  const monthLabel = `${MONTHS[month - 1]} ${year}`;
+  const yearLabel = String(summaryYear);
+
+  const { data: dateRows = [], isLoading: dateLoading } = useQuery<UblRow[]>({
+    queryKey: ['/api/ubl-date-entries', month, year],
+    enabled: viewMode === 'monthly',
+    queryFn: async () => {
+      const r = await fetch(`/api/ubl-date-entries?month=${month}&year=${year}`, { credentials: 'include' });
+      const d = await r.json();
+      return d.map((x: UblRow) => ({ ...x, entryDate: normDate(x.entryDate) }));
+    },
+  });
+  const { data: lunchRows = [], isLoading: lunchLoading } = useQuery<UblLunchRow[]>({
+    queryKey: ['/api/ubl-lunch-entries', month, year],
+    enabled: viewMode === 'monthly',
+    queryFn: async () => {
+      const r = await fetch(`/api/ubl-lunch-entries?month=${month}&year=${year}`, { credentials: 'include' });
+      const d = await r.json();
+      return d.map((x: UblLunchRow) => ({ ...x, entryDate: normDate(x.entryDate) }));
+    },
+  });
+  const { data: yrDate = [], isLoading: yrDateLoading } = useQuery<any[]>({
+    queryKey: ['/api/ubl-date-entries/yearly-summary', summaryYear],
+    enabled: viewMode === 'yearly',
+    queryFn: () => fetch(`/api/ubl-date-entries/yearly-summary?year=${summaryYear}`, { credentials: 'include' }).then(r => r.json()),
+  });
+  const { data: yrLunch = [], isLoading: yrLunchLoading } = useQuery<any[]>({
+    queryKey: ['/api/ubl-lunch-entries/yearly-summary', summaryYear],
+    enabled: viewMode === 'yearly',
+    queryFn: () => fetch(`/api/ubl-lunch-entries/yearly-summary?year=${summaryYear}`, { credentials: 'include' }).then(r => r.json()),
+  });
+
+  const isLoading = viewMode === 'monthly' ? (dateLoading || lunchLoading) : (yrDateLoading || yrLunchLoading);
+  const sumF = (arr: any[], f: string) => arr.reduce((s: number, r: any) => s + (r[f] || 0), 0);
+
+  const thA: React.CSSProperties = { background:'#b45309', color:'#fff', border:'1px solid #333', padding:'4px 6px', textAlign:'center', fontWeight:'bold', fontSize:11 };
+  const thC: React.CSSProperties = { background:'#1a3a8a', color:'#fff', border:'1px solid #333', padding:'4px 6px', textAlign:'center', fontWeight:'bold', fontSize:11 };
+  const tdS = (sun?: boolean): React.CSSProperties => ({ background: sun ? '#ffb380' : undefined, border:'1px solid #ddd', padding:'2px 5px', textAlign:'center', fontSize:10 });
+  const tdTot: React.CSSProperties = { background:'#e8f0fe', border:'1px solid #333', padding:'3px 6px', textAlign:'center', fontWeight:'bold', fontSize:10 };
+
+  const handlePrint = () => {
+    const content = printRef.current?.innerHTML;
+    if (!content) return;
+    const win = window.open('', '_blank');
+    if (!win) return;
+    win.document.write(`<html><head><title>UBL Summary ${viewMode === 'yearly' ? yearLabel : monthLabel}</title><style>
+      *{box-sizing:border-box;}body{font-family:"Times New Roman",Times,serif;margin:0;font-size:11pt;-webkit-print-color-adjust:exact;print-color-adjust:exact;}
+      h3,h4,p{text-align:center;margin:2px 0;}
+      table{width:100%;border-collapse:collapse;margin-top:4px;margin-bottom:10px;}
+      th,td{border:1px solid #333;padding:2px 4px;text-align:center;font-size:10pt;}
+      @media print{@page{margin:5mm;size:A4 landscape;}body{margin:0;}}
+    </style></head><body>${content}</body></html>`);
+    win.document.close(); win.print();
+  };
+
+  const handleExportExcel = async () => {
+    try {
+      const ExcelJS = (await import('exceljs')).default;
+      const wb = new ExcelJS.Workbook();
+      const thin = { top:{style:'thin' as const}, bottom:{style:'thin' as const}, left:{style:'thin' as const}, right:{style:'thin' as const} };
+      const mkFill = (argb: string) => ({ type:'pattern' as const, pattern:'solid' as const, fgColor:{argb} });
+      const wFont = { bold:true, color:{argb:'FFFFFFFF'} };
+      const label = viewMode === 'yearly' ? yearLabel : monthLabel;
+
+      if (viewMode === 'monthly') {
+        // Format 1 Sheet
+        const ws1 = wb.addWorksheet('Format 1 - Bill Data');
+        ws1.mergeCells('A1:L1');
+        const t1 = ws1.getCell('A1');
+        t1.value = `UBL — Bill Data Sheet — ${label}`; t1.font={bold:true,size:12,color:{argb:'FFFFFFFF'}}; t1.fill=mkFill('FFB45309'); t1.alignment={horizontal:'center'}; t1.border=thin;
+        const h1 = ws1.addRow(['Sl.','Date','Day','Tea(All)','Biscuit(All)','Breakfast','Lunch','Mutton','Tiffin','Boiled Egg','Dinner','Row Total']);
+        h1.eachCell((c: any) => { c.font=wFont; c.fill=mkFill('FFB45309'); c.border=thin; c.alignment={horizontal:'center'}; });
+        ws1.columns=[5,14,8,10,12,12,10,10,10,12,10,12].map((w: number)=>({width:w}));
+        dateRows.forEach((r, i) => {
+          const tea = (r.tea1||0)+(r.tea2||0)+(r.tea3||0)+(r.tea4||0)+(r.tea5||0)+(r.tea6||0);
+          const biscuit = (r.biscuit1||0)+(r.biscuit2||0);
+          const tot = tea + biscuit + (r.breakfast||0) + (r.lunch||0) + (r.mutton||0) + (r.tiffin||0) + (r.boiledEgg||0) + (r.dinner||0);
+          const dr = ws1.addRow([i+1, safeFormat(r.entryDate), r.weekDay, tea||'', biscuit||'', r.breakfast||'', r.lunch||'', r.mutton||'', r.tiffin||'', r.boiledEgg||'', r.dinner||'', tot||'']);
+          if (isSunday(r.entryDate)) dr.eachCell((c: any) => { c.fill=mkFill('FFFFA500'); });
+          dr.eachCell((c: any) => { c.border=thin; c.alignment={horizontal:'center'}; });
+        });
+        // Format 2 Sheet
+        const ws2 = wb.addWorksheet('Format 2 - Lunch Per Day');
+        ws2.mergeCells('A1:G1');
+        const t2 = ws2.getCell('A1');
+        t2.value = `UBL — Lunch Per Day — ${label}`; t2.font={bold:true,size:12,color:{argb:'FFFFFFFF'}}; t2.fill=mkFill('FF1A3A8A'); t2.alignment={horizontal:'center'}; t2.border=thin;
+        const h2 = ws2.addRow(['Sl.','Date','Day','Permanent','Casual','Contractual','Canteen']);
+        h2.eachCell((c: any) => { c.font=wFont; c.fill=mkFill('FF1A3A8A'); c.border=thin; c.alignment={horizontal:'center'}; });
+        ws2.columns=[5,14,8,12,10,14,10].map((w: number)=>({width:w}));
+        lunchRows.forEach((r, i) => {
+          const dr = ws2.addRow([i+1, safeFormat(r.entryDate), r.weekDay, r.perment||'', r.casual||'', r.contractual||'', r.canteen||'']);
+          if (isSunday(r.entryDate)) dr.eachCell((c: any) => { c.fill=mkFill('FFFFA500'); });
+          dr.eachCell((c: any) => { c.border=thin; c.alignment={horizontal:'center'}; });
+        });
+      } else {
+        // Yearly Format 1
+        const ws1 = wb.addWorksheet('Format 1 Yearly');
+        ws1.mergeCells('A1:H1');
+        const t1 = ws1.getCell('A1'); t1.value = `UBL — Bill Data Sheet — Yearly Summary ${yearLabel}`; t1.font={bold:true,size:12,color:{argb:'FFFFFFFF'}}; t1.fill=mkFill('FFB45309'); t1.alignment={horizontal:'center'}; t1.border=thin;
+        const h1 = ws1.addRow(['Month','Breakfast','Lunch','Dinner','Tea (All)','Mutton','Tiffin','Boiled Egg']);
+        h1.eachCell((c: any) => { c.font=wFont; c.fill=mkFill('FFB45309'); c.border=thin; c.alignment={horizontal:'center'}; });
+        ws1.columns=[14,12,12,12,12,12,12,12].map((w: number)=>({width:w}));
+        MONTHS.forEach((mName, mi) => {
+          const row = yrDate.find((r: any) => r.month === mi + 1);
+          const dr = ws1.addRow([mName, row?.breakfast||'', row?.lunch||'', row?.dinner||'', row?.tea||'', row?.mutton||'', row?.tiffin||'', row?.boiledEgg||'']);
+          dr.eachCell((c: any) => { c.border=thin; c.alignment={horizontal:'center'}; });
+        });
+        const totRow = ws1.addRow(['Grand Total', sumF(yrDate,'breakfast')||'', sumF(yrDate,'lunch')||'', sumF(yrDate,'dinner')||'', sumF(yrDate,'tea')||'', sumF(yrDate,'mutton')||'', sumF(yrDate,'tiffin')||'', sumF(yrDate,'boiledEgg')||'']);
+        totRow.eachCell((c: any) => { c.font={bold:true}; c.fill=mkFill('FFE8F0FE'); c.border=thin; c.alignment={horizontal:'center'}; });
+        // Yearly Format 2
+        const ws2 = wb.addWorksheet('Format 2 Yearly');
+        ws2.mergeCells('A1:F1');
+        const t2 = ws2.getCell('A1'); t2.value = `UBL — Lunch Per Day — Yearly Summary ${yearLabel}`; t2.font={bold:true,size:12,color:{argb:'FFFFFFFF'}}; t2.fill=mkFill('FF1A3A8A'); t2.alignment={horizontal:'center'}; t2.border=thin;
+        const h2 = ws2.addRow(['Month','Permanent','Casual','Contractual','Canteen','Total']);
+        h2.eachCell((c: any) => { c.font=wFont; c.fill=mkFill('FF1A3A8A'); c.border=thin; c.alignment={horizontal:'center'}; });
+        ws2.columns=[14,12,12,14,12,12].map((w: number)=>({width:w}));
+        MONTHS.forEach((mName, mi) => {
+          const row = yrLunch.find((r: any) => r.month === mi + 1);
+          const tot = (row?.perment||0)+(row?.casual||0)+(row?.contractual||0)+(row?.canteen||0);
+          const dr = ws2.addRow([mName, row?.perment||'', row?.casual||'', row?.contractual||'', row?.canteen||'', tot||'']);
+          dr.eachCell((c: any) => { c.border=thin; c.alignment={horizontal:'center'}; });
+        });
+      }
+      const buf = await wb.xlsx.writeBuffer();
+      const blob = new Blob([buf],{type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'});
+      const a = document.createElement('a'); a.href=URL.createObjectURL(blob); a.download=`UBL_Summary_${viewMode === 'yearly' ? yearLabel : `${MONTHS[month-1]}_${year}`}.xlsx`; a.click();
+    } catch(err: any) { toast({ title:'Export Failed', description:err.message, variant:'destructive' }); }
+  };
+
+  const YearlyTable = ({ data, fields, headers, title, hStyle }: { data: any[]; fields: string[]; headers: string[]; title: string; hStyle: React.CSSProperties }) => {
+    const totals = fields.reduce((acc, f) => ({ ...acc, [f]: data.reduce((s, r) => s + (r[f] || 0), 0) }), {} as Record<string,number>);
+    return (
+      <div className="mb-5">
+        <div className="text-center font-bold text-sm py-1.5" style={{ background: hStyle.background as string, color:'#fff' }}>{title} — {yearLabel}</div>
+        <div className="overflow-x-auto">
+          <table className="w-full border-collapse" style={{ fontSize:11 }}>
+            <thead><tr>
+              <th style={{ ...hStyle, width:90, textAlign:'left', paddingLeft:8 }}>Month</th>
+              {headers.map((h,i) => <th key={i} style={hStyle}>{h}</th>)}
+              <th style={{ ...hStyle, background:'#374151' }}>Total</th>
+            </tr></thead>
+            <tbody>
+              {MONTHS.map((mName, mi) => {
+                const row = data.find(r => r.month === mi + 1);
+                const vals = fields.map(f => row ? (row[f] || 0) : 0);
+                const rowTotal = vals.reduce((s, v) => s + v, 0);
+                return (
+                  <tr key={mi} style={{ background: mi % 2 === 0 ? '#f9fafb' : '#fff' }}>
+                    <td style={{ border:'1px solid #ddd', padding:'2px 6px', fontWeight:500, textAlign:'left', fontSize:10 }}>{mName}</td>
+                    {vals.map((v, fi) => <td key={fi} style={{ border:'1px solid #ddd', padding:'2px 5px', textAlign:'center', fontSize:10 }}>{v || '—'}</td>)}
+                    <td style={{ border:'1px solid #ddd', padding:'2px 5px', textAlign:'center', fontSize:10, fontWeight:'bold', background:'#f0fdf4' }}>{rowTotal || '—'}</td>
+                  </tr>
+                );
+              })}
+              <tr>
+                <td style={tdTot}>Grand Total</td>
+                {fields.map((f,fi) => <td key={fi} style={tdTot}>{totals[f] || '—'}</td>)}
+                <td style={{ ...tdTot, background:'#bbf7d0' }}>{Object.values(totals).reduce((s,v) => s + v, 0) || '—'}</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    );
+  };
+
+  return (
+    <div>
+      <div className="flex flex-wrap items-center gap-2 mb-4">
+        <div className="flex rounded-md overflow-hidden border border-gray-300 text-sm">
+          <button onClick={() => setViewMode('monthly')} className={`px-3 py-1.5 font-medium transition-colors ${viewMode === 'monthly' ? 'bg-amber-700 text-white' : 'bg-white text-gray-700 hover:bg-gray-50'}`} data-testid="btn-ubl-summary-monthly">Monthly</button>
+          <button onClick={() => setViewMode('yearly')} className={`px-3 py-1.5 font-medium transition-colors border-l border-gray-300 ${viewMode === 'yearly' ? 'bg-amber-700 text-white' : 'bg-white text-gray-700 hover:bg-gray-50'}`} data-testid="btn-ubl-summary-yearly">Yearly</button>
+        </div>
+        {viewMode === 'yearly' && (
+          <div className="flex items-center gap-1.5">
+            <span className="text-sm text-gray-500">Year:</span>
+            <select value={summaryYear} onChange={e => setSummaryYear(Number(e.target.value))} className="border border-gray-300 rounded px-2 py-1 text-sm" data-testid="select-ubl-summary-year">
+              {Array.from({ length: 6 }, (_, i) => year - 2 + i).map(y => <option key={y} value={y}>{y}</option>)}
+            </select>
+          </div>
+        )}
+        <span className="text-sm font-semibold text-gray-600">UBL {viewMode === 'yearly' ? `Yearly Summary — ${yearLabel}` : `Monthly Summary — ${monthLabel}`}</span>
+        <div className="flex gap-2 ml-auto">
+          <button onClick={handlePrint} className="px-3 py-1.5 border rounded text-xs font-medium flex items-center gap-1 hover:bg-gray-50" data-testid="btn-ubl-summary-print"><Printer className="w-3.5 h-3.5"/>Print</button>
+          <button onClick={handleExportExcel} className="px-3 py-1.5 border rounded text-xs font-medium flex items-center gap-1 text-amber-700 border-amber-300 hover:bg-amber-50" data-testid="btn-ubl-summary-export"><FileDown className="w-3.5 h-3.5"/>Export Excel</button>
+        </div>
+      </div>
+      {isLoading && <div className="flex items-center justify-center py-10 text-muted-foreground"><RefreshCw className="w-5 h-5 animate-spin mr-2"/>Loading...</div>}
+
+      <div ref={printRef}>
+        {!isLoading && viewMode === 'monthly' && (
+          <>
+            <div className="text-center font-bold text-sm py-1.5 mb-1" style={{ background:'#b45309', color:'#fff' }}>UBL — Format 1: Bill Data Sheet — {monthLabel}</div>
+            <div className="overflow-x-auto mb-5">
+              <table className="w-full border-collapse" style={{ fontSize:10 }}>
+                <thead>
+                  <tr>
+                    <th style={{ ...thA, width:30 }}>Sl.</th>
+                    <th style={{ ...thA, width:80 }}>Date</th>
+                    <th style={{ ...thA, width:34 }}>Day</th>
+                    <th style={thA}>Tea(All)</th>
+                    <th style={thA}>Biscuit</th>
+                    <th style={thA}>Breakfast</th>
+                    <th style={thA}>Lunch</th>
+                    <th style={thA}>Mutton</th>
+                    <th style={thA}>Tiffin</th>
+                    <th style={thA}>Boiled Egg</th>
+                    <th style={thA}>Dinner</th>
+                    <th style={{ ...thA, background:'#374151' }}>Total</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {dateRows.map((r, i) => {
+                    const sun = isSunday(r.entryDate);
+                    const tea = (r.tea1||0)+(r.tea2||0)+(r.tea3||0)+(r.tea4||0)+(r.tea5||0)+(r.tea6||0);
+                    const biscuit = (r.biscuit1||0)+(r.biscuit2||0);
+                    const rowTot = tea + biscuit + (r.breakfast||0) + (r.lunch||0) + (r.mutton||0) + (r.tiffin||0) + (r.boiledEgg||0) + (r.dinner||0);
+                    return (
+                      <tr key={i} style={{ background: sun ? '#ffb380' : undefined }}>
+                        <td style={tdS(sun)}>{i+1}</td>
+                        <td style={tdS(sun)}>{safeFormat(r.entryDate)}</td>
+                        <td style={tdS(sun)}>{r.weekDay}</td>
+                        <td style={tdS(sun)}>{tea || ''}</td>
+                        <td style={tdS(sun)}>{biscuit || ''}</td>
+                        <td style={tdS(sun)}>{r.breakfast || ''}</td>
+                        <td style={tdS(sun)}>{r.lunch || ''}</td>
+                        <td style={tdS(sun)}>{r.mutton || ''}</td>
+                        <td style={tdS(sun)}>{r.tiffin || ''}</td>
+                        <td style={tdS(sun)}>{r.boiledEgg || ''}</td>
+                        <td style={tdS(sun)}>{r.dinner || ''}</td>
+                        <td style={{ ...tdS(sun), fontWeight:'bold', background: sun ? '#ffa060' : '#f0fdf4' }}>{rowTot || ''}</td>
+                      </tr>
+                    );
+                  })}
+                  <tr>
+                    <td colSpan={3} style={tdTot}>Total</td>
+                    {(['tea','biscuit','breakfast','lunch','mutton','tiffin','boiledEgg','dinner'] as const).map(f => {
+                      const v = f === 'tea' ? dateRows.reduce((s,r) => s+(r.tea1||0)+(r.tea2||0)+(r.tea3||0)+(r.tea4||0)+(r.tea5||0)+(r.tea6||0), 0) :
+                               f === 'biscuit' ? dateRows.reduce((s,r) => s+(r.biscuit1||0)+(r.biscuit2||0), 0) : sumF(dateRows, f);
+                      return <td key={f} style={tdTot}>{v || ''}</td>;
+                    })}
+                    <td style={{ ...tdTot, background:'#bbf7d0' }}>{dateRows.reduce((s,r) => {
+                      return s + (r.tea1||0)+(r.tea2||0)+(r.tea3||0)+(r.tea4||0)+(r.tea5||0)+(r.tea6||0)+(r.biscuit1||0)+(r.biscuit2||0)+(r.breakfast||0)+(r.lunch||0)+(r.mutton||0)+(r.tiffin||0)+(r.boiledEgg||0)+(r.dinner||0);
+                    }, 0) || ''}</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+
+            <div className="text-center font-bold text-sm py-1.5 mb-1" style={{ background:'#1a3a8a', color:'#fff' }}>UBL — Format 2: Lunch Per Day — {monthLabel}</div>
+            <div className="overflow-x-auto mb-5">
+              <table className="w-full border-collapse" style={{ fontSize:10 }}>
+                <thead>
+                  <tr>
+                    <th style={{ ...thC, width:30 }}>Sl.</th>
+                    <th style={{ ...thC, width:80 }}>Date</th>
+                    <th style={{ ...thC, width:34 }}>Day</th>
+                    <th style={thC}>Permanent</th>
+                    <th style={thC}>Casual</th>
+                    <th style={thC}>Contractual</th>
+                    <th style={thC}>Canteen</th>
+                    <th style={{ ...thC, background:'#374151' }}>Total</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {lunchRows.map((r, i) => {
+                    const sun = isSunday(r.entryDate);
+                    const rowTot = (r.perment||0)+(r.casual||0)+(r.contractual||0)+(r.canteen||0);
+                    return (
+                      <tr key={i} style={{ background: sun ? '#ffb380' : undefined }}>
+                        <td style={tdS(sun)}>{i+1}</td>
+                        <td style={tdS(sun)}>{safeFormat(r.entryDate)}</td>
+                        <td style={tdS(sun)}>{r.weekDay}</td>
+                        <td style={tdS(sun)}>{r.perment || ''}</td>
+                        <td style={tdS(sun)}>{r.casual || ''}</td>
+                        <td style={tdS(sun)}>{r.contractual || ''}</td>
+                        <td style={tdS(sun)}>{r.canteen || ''}</td>
+                        <td style={{ ...tdS(sun), fontWeight:'bold', background: sun ? '#ffa060' : '#f0fdf4' }}>{rowTot || ''}</td>
+                      </tr>
+                    );
+                  })}
+                  <tr>
+                    <td colSpan={3} style={tdTot}>Total</td>
+                    {(['perment','casual','contractual','canteen'] as (keyof UblLunchRow)[]).map(f => (
+                      <td key={f as string} style={tdTot}>{sumF(lunchRows, f as string) || ''}</td>
+                    ))}
+                    <td style={{ ...tdTot, background:'#bbf7d0' }}>{sumF(lunchRows,'perment')+sumF(lunchRows,'casual')+sumF(lunchRows,'contractual')+sumF(lunchRows,'canteen') || ''}</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </>
+        )}
+
+        {!isLoading && viewMode === 'yearly' && (
+          <>
+            <YearlyTable data={yrDate} fields={['breakfast','lunch','dinner','tea','mutton','tiffin','boiledEgg']} headers={['Breakfast','Lunch','Dinner','Tea (All)','Mutton','Tiffin','Boiled Egg']} title="Format 1 — Bill Data Sheet" hStyle={thA} />
+            <YearlyTable data={yrLunch} fields={['perment','casual','contractual','canteen']} headers={['Permanent','Casual','Contractual','Canteen']} title="Format 2 — Lunch Per Day" hStyle={thC} />
+          </>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ============================================================
+// CIPLA SUMMARY TAB
+// ============================================================
+function CiplaSummaryTab({ month, year }: { month: number; year: number }) {
+  const { toast } = useToast();
+  const printRef = useRef<HTMLDivElement>(null);
+  const [viewMode, setViewMode] = useState<'monthly' | 'yearly'>('monthly');
+  const [summaryYear, setSummaryYear] = useState(year);
+  const monthLabel = `${MONTHS[month - 1]} ${year}`;
+  const yearLabel = String(summaryYear);
+
+  const { data: ciplaRows = [], isLoading: ciplaLoading } = useQuery<CiplaRow[]>({
+    queryKey: ['/api/cipla-date-entries', month, year],
+    enabled: viewMode === 'monthly',
+    queryFn: async () => {
+      const r = await fetch(`/api/cipla-date-entries?month=${month}&year=${year}`, { credentials: 'include' });
+      const d = await r.json();
+      return d.map((x: CiplaRow) => ({ ...x, entryDate: normDate(x.entryDate) }));
+    },
+  });
+  const { data: yrCipla = [], isLoading: yrLoading } = useQuery<any[]>({
+    queryKey: ['/api/cipla-date-entries/yearly-summary', summaryYear],
+    enabled: viewMode === 'yearly',
+    queryFn: () => fetch(`/api/cipla-date-entries/yearly-summary?year=${summaryYear}`, { credentials: 'include' }).then(r => r.json()),
+  });
+
+  const isLoading = viewMode === 'monthly' ? ciplaLoading : yrLoading;
+  const sumF = (arr: any[], f: string) => arr.reduce((s: number, r: any) => s + (r[f] || 0), 0);
+  const thI: React.CSSProperties = { background:'#4338ca', color:'#fff', border:'1px solid #333', padding:'4px 6px', textAlign:'center', fontWeight:'bold', fontSize:11 };
+  const tdS = (sun?: boolean): React.CSSProperties => ({ background: sun ? '#ffb380' : undefined, border:'1px solid #ddd', padding:'2px 5px', textAlign:'center', fontSize:10 });
+  const tdTot: React.CSSProperties = { background:'#e8f0fe', border:'1px solid #333', padding:'3px 6px', textAlign:'center', fontWeight:'bold', fontSize:10 };
+
+  const handlePrint = () => {
+    const content = printRef.current?.innerHTML;
+    if (!content) return;
+    const win = window.open('', '_blank');
+    if (!win) return;
+    win.document.write(`<html><head><title>Cipla Summary ${viewMode === 'yearly' ? yearLabel : monthLabel}</title><style>
+      *{box-sizing:border-box;}body{font-family:"Times New Roman",Times,serif;margin:0;font-size:11pt;-webkit-print-color-adjust:exact;print-color-adjust:exact;}
+      table{width:100%;border-collapse:collapse;margin-bottom:10px;}th,td{border:1px solid #333;padding:2px 4px;text-align:center;font-size:10pt;}
+      @media print{@page{margin:5mm;size:A4 landscape;}body{margin:0;}}
+    </style></head><body>${content}</body></html>`);
+    win.document.close(); win.print();
+  };
+
+  const handleExportExcel = async () => {
+    try {
+      const ExcelJS = (await import('exceljs')).default;
+      const wb = new ExcelJS.Workbook();
+      const thin = { top:{style:'thin' as const}, bottom:{style:'thin' as const}, left:{style:'thin' as const}, right:{style:'thin' as const} };
+      const mkFill = (argb: string) => ({ type:'pattern' as const, pattern:'solid' as const, fgColor:{argb} });
+      const wFont = { bold:true, color:{argb:'FFFFFFFF'} };
+      const label = viewMode === 'yearly' ? yearLabel : monthLabel;
+      const ws = wb.addWorksheet(viewMode === 'yearly' ? 'Yearly Summary' : 'Monthly Summary');
+      ws.mergeCells('A1:J1');
+      const t = ws.getCell('A1'); t.value = `Cipla — Summary — ${label}`; t.font={bold:true,size:12,color:{argb:'FFFFFFFF'}}; t.fill=mkFill('FF4338CA'); t.alignment={horizontal:'center'}; t.border=thin;
+      if (viewMode === 'monthly') {
+        const h = ws.addRow(['Sl.','Date','Day','BF(Coopen)','BF(Coin)','BF(Sign)','BF(Machine)','BF Total','Lunch Total','Dinner Total']);
+        h.eachCell((c: any) => { c.font=wFont; c.fill=mkFill('FF4338CA'); c.border=thin; c.alignment={horizontal:'center'}; });
+        ws.columns=[5,14,8,12,10,10,13,10,12,12].map((w: number)=>({width:w}));
+        ciplaRows.forEach((r, i) => {
+          const bfTotal = (r.breakfastCoopen||0)+(r.breakfastCoin||0)+(r.breakfastSign||0)+(r.breakfastMachine||0);
+          const luTotal = (r.lunchCoopen||0)+(r.lunchCoin||0)+(r.lunchSign||0)+(r.lunchMachine||0);
+          const diTotal = (r.dinnerCoopen||0)+(r.dinnerCoin||0)+(r.dinnerSign||0)+(r.dinnerMachine||0);
+          const dr = ws.addRow([i+1, safeFormat(r.entryDate), r.weekDay, r.breakfastCoopen||'', r.breakfastCoin||'', r.breakfastSign||'', r.breakfastMachine||'', bfTotal||'', luTotal||'', diTotal||'']);
+          if (isSunday(r.entryDate)) dr.eachCell((c: any) => { c.fill=mkFill('FFFFA500'); });
+          dr.eachCell((c: any) => { c.border=thin; c.alignment={horizontal:'center'}; });
+        });
+      } else {
+        const h = ws.addRow(['Month','Breakfast','Lunch','Dinner','Total']);
+        h.eachCell((c: any) => { c.font=wFont; c.fill=mkFill('FF4338CA'); c.border=thin; c.alignment={horizontal:'center'}; });
+        ws.columns=[14,12,12,12,12].map((w: number)=>({width:w}));
+        MONTHS.forEach((mName, mi) => {
+          const row = yrCipla.find((r: any) => r.month === mi + 1);
+          const tot = (row?.breakfast||0)+(row?.lunch||0)+(row?.dinner||0);
+          const dr = ws.addRow([mName, row?.breakfast||'', row?.lunch||'', row?.dinner||'', tot||'']);
+          dr.eachCell((c: any) => { c.border=thin; c.alignment={horizontal:'center'}; });
+        });
+        const totRow = ws.addRow(['Grand Total', sumF(yrCipla,'breakfast')||'', sumF(yrCipla,'lunch')||'', sumF(yrCipla,'dinner')||'', sumF(yrCipla,'breakfast')+sumF(yrCipla,'lunch')+sumF(yrCipla,'dinner')||'']);
+        totRow.eachCell((c: any) => { c.font={bold:true}; c.fill=mkFill('FFE8F0FE'); c.border=thin; c.alignment={horizontal:'center'}; });
+      }
+      const buf = await wb.xlsx.writeBuffer();
+      const blob = new Blob([buf],{type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'});
+      const a = document.createElement('a'); a.href=URL.createObjectURL(blob); a.download=`Cipla_Summary_${viewMode === 'yearly' ? yearLabel : `${MONTHS[month-1]}_${year}`}.xlsx`; a.click();
+    } catch(err: any) { toast({ title:'Export Failed', description:err.message, variant:'destructive' }); }
+  };
+
+  return (
+    <div>
+      <div className="flex flex-wrap items-center gap-2 mb-4">
+        <div className="flex rounded-md overflow-hidden border border-gray-300 text-sm">
+          <button onClick={() => setViewMode('monthly')} className={`px-3 py-1.5 font-medium transition-colors ${viewMode === 'monthly' ? 'bg-indigo-700 text-white' : 'bg-white text-gray-700 hover:bg-gray-50'}`} data-testid="btn-cipla-summary-monthly">Monthly</button>
+          <button onClick={() => setViewMode('yearly')} className={`px-3 py-1.5 font-medium transition-colors border-l border-gray-300 ${viewMode === 'yearly' ? 'bg-indigo-700 text-white' : 'bg-white text-gray-700 hover:bg-gray-50'}`} data-testid="btn-cipla-summary-yearly">Yearly</button>
+        </div>
+        {viewMode === 'yearly' && (
+          <div className="flex items-center gap-1.5">
+            <span className="text-sm text-gray-500">Year:</span>
+            <select value={summaryYear} onChange={e => setSummaryYear(Number(e.target.value))} className="border border-gray-300 rounded px-2 py-1 text-sm" data-testid="select-cipla-summary-year">
+              {Array.from({ length: 6 }, (_, i) => year - 2 + i).map(y => <option key={y} value={y}>{y}</option>)}
+            </select>
+          </div>
+        )}
+        <span className="text-sm font-semibold text-gray-600">Cipla {viewMode === 'yearly' ? `Yearly Summary — ${yearLabel}` : `Monthly Summary — ${monthLabel}`}</span>
+        <div className="flex gap-2 ml-auto">
+          <button onClick={handlePrint} className="px-3 py-1.5 border rounded text-xs font-medium flex items-center gap-1 hover:bg-gray-50" data-testid="btn-cipla-summary-print"><Printer className="w-3.5 h-3.5"/>Print</button>
+          <button onClick={handleExportExcel} className="px-3 py-1.5 border rounded text-xs font-medium flex items-center gap-1 text-indigo-700 border-indigo-300 hover:bg-indigo-50" data-testid="btn-cipla-summary-export"><FileDown className="w-3.5 h-3.5"/>Export Excel</button>
+        </div>
+      </div>
+      {isLoading && <div className="flex items-center justify-center py-10 text-muted-foreground"><RefreshCw className="w-5 h-5 animate-spin mr-2"/>Loading...</div>}
+
+      <div ref={printRef}>
+        {!isLoading && viewMode === 'monthly' && (
+          <>
+            <div className="text-center font-bold text-sm py-1.5 mb-1" style={{ background:'#4338ca', color:'#fff' }}>Cipla — Breakfast / Lunch / Dinner Summary — {monthLabel}</div>
+            <div className="overflow-x-auto mb-5">
+              <table className="w-full border-collapse" style={{ fontSize:10 }}>
+                <thead>
+                  <tr>
+                    <th style={{ ...thI, width:30 }}>Sl.</th>
+                    <th style={{ ...thI, width:80 }}>Date</th>
+                    <th style={{ ...thI, width:34 }}>Day</th>
+                    <th style={thI}>BF Coopen</th>
+                    <th style={thI}>BF Coin</th>
+                    <th style={thI}>BF Sign</th>
+                    <th style={thI}>BF Machine</th>
+                    <th style={{ ...thI, background:'#1a6b2e' }}>BF Total</th>
+                    <th style={{ ...thI, background:'#1a3a8a' }}>Lunch Total</th>
+                    <th style={{ ...thI, background:'#374151' }}>Dinner Total</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {ciplaRows.map((r, i) => {
+                    const sun = isSunday(r.entryDate);
+                    const bfTotal = (r.breakfastCoopen||0)+(r.breakfastCoin||0)+(r.breakfastSign||0)+(r.breakfastMachine||0);
+                    const luTotal = (r.lunchCoopen||0)+(r.lunchCoin||0)+(r.lunchSign||0)+(r.lunchMachine||0);
+                    const diTotal = (r.dinnerCoopen||0)+(r.dinnerCoin||0)+(r.dinnerSign||0)+(r.dinnerMachine||0);
+                    return (
+                      <tr key={i} style={{ background: sun ? '#ffb380' : undefined }}>
+                        <td style={tdS(sun)}>{i+1}</td>
+                        <td style={tdS(sun)}>{safeFormat(r.entryDate)}</td>
+                        <td style={tdS(sun)}>{r.weekDay}</td>
+                        <td style={tdS(sun)}>{r.breakfastCoopen || ''}</td>
+                        <td style={tdS(sun)}>{r.breakfastCoin || ''}</td>
+                        <td style={tdS(sun)}>{r.breakfastSign || ''}</td>
+                        <td style={tdS(sun)}>{r.breakfastMachine || ''}</td>
+                        <td style={{ ...tdS(sun), fontWeight:'bold', background: sun ? '#ffa060' : '#f0fdf4' }}>{bfTotal || ''}</td>
+                        <td style={{ ...tdS(sun), background: sun ? '#ffa060' : '#eff6ff' }}>{luTotal || ''}</td>
+                        <td style={{ ...tdS(sun), background: sun ? '#ffa060' : '#f8fafc' }}>{diTotal || ''}</td>
+                      </tr>
+                    );
+                  })}
+                  <tr>
+                    <td colSpan={3} style={tdTot}>Total</td>
+                    {(['breakfastCoopen','breakfastCoin','breakfastSign','breakfastMachine'] as (keyof CiplaRow)[]).map(f => (
+                      <td key={f as string} style={tdTot}>{sumF(ciplaRows, f as string) || ''}</td>
+                    ))}
+                    <td style={{ ...tdTot, background:'#d1fae5' }}>{sumF(ciplaRows,'breakfastCoopen')+sumF(ciplaRows,'breakfastCoin')+sumF(ciplaRows,'breakfastSign')+sumF(ciplaRows,'breakfastMachine') || ''}</td>
+                    <td style={{ ...tdTot, background:'#dbeafe' }}>{sumF(ciplaRows,'lunchCoopen')+sumF(ciplaRows,'lunchCoin')+sumF(ciplaRows,'lunchSign')+sumF(ciplaRows,'lunchMachine') || ''}</td>
+                    <td style={{ ...tdTot, background:'#f1f5f9' }}>{sumF(ciplaRows,'dinnerCoopen')+sumF(ciplaRows,'dinnerCoin')+sumF(ciplaRows,'dinnerSign')+sumF(ciplaRows,'dinnerMachine') || ''}</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </>
+        )}
+        {!isLoading && viewMode === 'yearly' && (
+          <div className="mb-5">
+            <div className="text-center font-bold text-sm py-1.5" style={{ background:'#4338ca', color:'#fff' }}>Cipla — Yearly Summary — {yearLabel}</div>
+            <div className="overflow-x-auto">
+              <table className="w-full border-collapse" style={{ fontSize:11 }}>
+                <thead><tr>
+                  <th style={{ ...thI, width:100, textAlign:'left', paddingLeft:8 }}>Month</th>
+                  <th style={thI}>Breakfast</th>
+                  <th style={thI}>Lunch</th>
+                  <th style={thI}>Dinner</th>
+                  <th style={{ ...thI, background:'#374151' }}>Grand Total</th>
+                </tr></thead>
+                <tbody>
+                  {MONTHS.map((mName, mi) => {
+                    const row = yrCipla.find(r => r.month === mi + 1);
+                    const tot = (row?.breakfast||0)+(row?.lunch||0)+(row?.dinner||0);
+                    return (
+                      <tr key={mi} style={{ background: mi % 2 === 0 ? '#f9fafb' : '#fff' }}>
+                        <td style={{ border:'1px solid #ddd', padding:'2px 6px', fontWeight:500, textAlign:'left', fontSize:10 }}>{mName}</td>
+                        <td style={{ border:'1px solid #ddd', padding:'2px 5px', textAlign:'center', fontSize:10 }}>{row?.breakfast || '—'}</td>
+                        <td style={{ border:'1px solid #ddd', padding:'2px 5px', textAlign:'center', fontSize:10 }}>{row?.lunch || '—'}</td>
+                        <td style={{ border:'1px solid #ddd', padding:'2px 5px', textAlign:'center', fontSize:10 }}>{row?.dinner || '—'}</td>
+                        <td style={{ border:'1px solid #ddd', padding:'2px 5px', textAlign:'center', fontSize:10, fontWeight:'bold', background:'#f0fdf4' }}>{tot || '—'}</td>
+                      </tr>
+                    );
+                  })}
+                  <tr>
+                    <td style={tdTot}>Grand Total</td>
+                    <td style={tdTot}>{sumF(yrCipla,'breakfast') || '—'}</td>
+                    <td style={tdTot}>{sumF(yrCipla,'lunch') || '—'}</td>
+                    <td style={tdTot}>{sumF(yrCipla,'dinner') || '—'}</td>
+                    <td style={{ ...tdTot, background:'#bbf7d0' }}>{sumF(yrCipla,'breakfast')+sumF(yrCipla,'lunch')+sumF(yrCipla,'dinner') || '—'}</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ============================================================
+// UNICHEM SUMMARY TAB
+// ============================================================
+function UnichemSummaryTab({ month, year }: { month: number; year: number }) {
+  const { toast } = useToast();
+  const printRef = useRef<HTMLDivElement>(null);
+  const [viewMode, setViewMode] = useState<'monthly' | 'yearly'>('monthly');
+  const [summaryYear, setSummaryYear] = useState(year);
+  const monthLabel = `${MONTHS[month - 1]} ${year}`;
+  const yearLabel = String(summaryYear);
+
+  // Monthly: fetch all 3 locations explicitly (hooks cannot be in loops)
+  const mkSnackFn = (loc: string) => async () => {
+    const r = await fetch(`/api/unichem-snack-entries?month=${month}&year=${year}&location=${encodeURIComponent(loc)}`, { credentials: 'include' });
+    const d = await r.json(); return d.map((x: SnackRow) => ({ ...x, entryDate: normDate(x.entryDate) }));
+  };
+  const mkLunchFn = (loc: string, mealType: string) => async () => {
+    const r = await fetch(`/api/unichem-lunch-entries?month=${month}&year=${year}&location=${encodeURIComponent(loc)}&mealType=${mealType}`, { credentials: 'include' });
+    const d = await r.json(); return d.map((x: LunchRow) => ({ ...x, entryDate: normDate(x.entryDate) }));
+  };
+  const { data: sMain = [], isLoading: sMainL } = useQuery<SnackRow[]>({ queryKey:['/api/unichem-snack-entries',month,year,'Main Plant'], enabled:viewMode==='monthly', queryFn:mkSnackFn('Main Plant') });
+  const { data: sUnit2 = [], isLoading: sUnit2L } = useQuery<SnackRow[]>({ queryKey:['/api/unichem-snack-entries',month,year,'Unit-2'], enabled:viewMode==='monthly', queryFn:mkSnackFn('Unit-2') });
+  const { data: sCoe = [], isLoading: sCoeL } = useQuery<SnackRow[]>({ queryKey:['/api/unichem-snack-entries',month,year,'COE'], enabled:viewMode==='monthly', queryFn:mkSnackFn('COE') });
+  const { data: lMain = [], isLoading: lMainL } = useQuery<LunchRow[]>({ queryKey:['/api/unichem-lunch-entries',month,year,'Main Plant','lunch'], enabled:viewMode==='monthly', queryFn:mkLunchFn('Main Plant','lunch') });
+  const { data: lUnit2 = [], isLoading: lUnit2L } = useQuery<LunchRow[]>({ queryKey:['/api/unichem-lunch-entries',month,year,'Unit-2','lunch'], enabled:viewMode==='monthly', queryFn:mkLunchFn('Unit-2','lunch') });
+  const { data: lCoe = [], isLoading: lCoeL } = useQuery<LunchRow[]>({ queryKey:['/api/unichem-lunch-entries',month,year,'COE','lunch'], enabled:viewMode==='monthly', queryFn:mkLunchFn('COE','lunch') });
+  const { data: dMain = [], isLoading: dMainL } = useQuery<LunchRow[]>({ queryKey:['/api/unichem-lunch-entries',month,year,'Main Plant','dinner'], enabled:viewMode==='monthly', queryFn:mkLunchFn('Main Plant','dinner') });
+  const { data: dUnit2 = [], isLoading: dUnit2L } = useQuery<LunchRow[]>({ queryKey:['/api/unichem-lunch-entries',month,year,'Unit-2','dinner'], enabled:viewMode==='monthly', queryFn:mkLunchFn('Unit-2','dinner') });
+  const { data: dCoe = [], isLoading: dCoeL } = useQuery<LunchRow[]>({ queryKey:['/api/unichem-lunch-entries',month,year,'COE','dinner'], enabled:viewMode==='monthly', queryFn:mkLunchFn('COE','dinner') });
+
+  const { data: yrSnacks = [], isLoading: yrSnacksLoading } = useQuery<any[]>({
+    queryKey: ['/api/unichem-snack-entries/yearly-summary', summaryYear],
+    enabled: viewMode === 'yearly',
+    queryFn: () => fetch(`/api/unichem-snack-entries/yearly-summary?year=${summaryYear}`, { credentials: 'include' }).then(r => r.json()),
+  });
+  const { data: yrLunchData = [], isLoading: yrLunchLoading } = useQuery<any[]>({
+    queryKey: ['/api/unichem-lunch-entries/yearly-summary', summaryYear],
+    enabled: viewMode === 'yearly',
+    queryFn: () => fetch(`/api/unichem-lunch-entries/yearly-summary?year=${summaryYear}`, { credentials: 'include' }).then(r => r.json()),
+  });
+
+  const monthlyLoading = sMainL || sUnit2L || sCoeL || lMainL || lUnit2L || lCoeL || dMainL || dUnit2L || dCoeL;
+  const isLoading = viewMode === 'monthly' ? monthlyLoading : (yrSnacksLoading || yrLunchLoading);
+  const sumF = (arr: any[], f: string) => arr.reduce((s: number, r: any) => s + (r[f] || 0), 0);
+
+  // Build aggregated daily rows for snacks (all locations combined by date)
+  const allSnackRows = [...sMain, ...sUnit2, ...sCoe];
+  const allLunchRows = [...lMain, ...lUnit2, ...lCoe];
+  const allDinnerRows = [...dMain, ...dUnit2, ...dCoe];
+
+  // Get all unique dates
+  const allDates = [...new Set([...allSnackRows, ...allLunchRows, ...allDinnerRows].map(r => r.entryDate))].sort();
+  const aggSnackByDate = allDates.map(d => ({
+    entryDate: d,
+    weekDay: allSnackRows.find(r => r.entryDate === d)?.weekDay || allLunchRows.find(r => r.entryDate === d)?.weekDay || '',
+    breakfast: allSnackRows.filter(r => r.entryDate === d).reduce((s, r) => s + (r.breakfast || 0), 0),
+    eveningSnacks: allSnackRows.filter(r => r.entryDate === d).reduce((s, r) => s + (r.eveningSnacks || 0), 0),
+    nightSnacks: allSnackRows.filter(r => r.entryDate === d).reduce((s, r) => s + (r.nightSnacks || 0), 0),
+    sundayExtraSnacks: allSnackRows.filter(r => r.entryDate === d).reduce((s, r) => s + (r.sundayExtraSnacks || 0), 0),
+    lunch: allLunchRows.filter(r => r.entryDate === d).reduce((s, r) => s + (r.billQty || 0), 0),
+    dinner: allDinnerRows.filter(r => r.entryDate === d).reduce((s, r) => s + (r.billQty || 0), 0),
+  }));
+
+  const thT: React.CSSProperties = { background:'#0f766e', color:'#fff', border:'1px solid #333', padding:'4px 6px', textAlign:'center', fontWeight:'bold', fontSize:11 };
+  const thB: React.CSSProperties = { background:'#1a3a8a', color:'#fff', border:'1px solid #333', padding:'4px 6px', textAlign:'center', fontWeight:'bold', fontSize:11 };
+  const tdS = (sun?: boolean): React.CSSProperties => ({ background: sun ? '#ffb380' : undefined, border:'1px solid #ddd', padding:'2px 5px', textAlign:'center', fontSize:10 });
+  const tdTot: React.CSSProperties = { background:'#e8f0fe', border:'1px solid #333', padding:'3px 6px', textAlign:'center', fontWeight:'bold', fontSize:10 };
+
+  const handlePrint = () => {
+    const content = printRef.current?.innerHTML;
+    if (!content) return;
+    const win = window.open('', '_blank');
+    if (!win) return;
+    win.document.write(`<html><head><title>Unichem Summary ${viewMode === 'yearly' ? yearLabel : monthLabel}</title><style>
+      *{box-sizing:border-box;}body{font-family:"Times New Roman",Times,serif;margin:0;font-size:11pt;-webkit-print-color-adjust:exact;print-color-adjust:exact;}
+      table{width:100%;border-collapse:collapse;margin-bottom:10px;}th,td{border:1px solid #333;padding:2px 4px;text-align:center;font-size:10pt;}
+      @media print{@page{margin:5mm;size:A4 landscape;}body{margin:0;}}
+    </style></head><body>${content}</body></html>`);
+    win.document.close(); win.print();
+  };
+
+  const handleExportExcel = async () => {
+    try {
+      const ExcelJS = (await import('exceljs')).default;
+      const wb = new ExcelJS.Workbook();
+      const thin = { top:{style:'thin' as const}, bottom:{style:'thin' as const}, left:{style:'thin' as const}, right:{style:'thin' as const} };
+      const mkFill = (argb: string) => ({ type:'pattern' as const, pattern:'solid' as const, fgColor:{argb} });
+      const wFont = { bold:true, color:{argb:'FFFFFFFF'} };
+      const label = viewMode === 'yearly' ? yearLabel : monthLabel;
+
+      if (viewMode === 'monthly') {
+        const ws = wb.addWorksheet('Monthly Combined');
+        ws.mergeCells('A1:J1');
+        const t = ws.getCell('A1'); t.value = `Unichem — Combined Summary (All Locations) — ${label}`; t.font={bold:true,size:12,color:{argb:'FFFFFFFF'}}; t.fill=mkFill('FF0F766E'); t.alignment={horizontal:'center'}; t.border=thin;
+        const h = ws.addRow(['Sl.','Date','Day','Breakfast','Ev. Snacks','Night Snacks','Sun Extra','Lunch','Dinner','Row Total']);
+        h.eachCell((c: any) => { c.font=wFont; c.fill=mkFill('FF0F766E'); c.border=thin; c.alignment={horizontal:'center'}; });
+        ws.columns=[5,14,8,12,12,13,12,12,12,12].map((w: number)=>({width:w}));
+        aggSnackByDate.forEach((r, i) => {
+          const tot = r.breakfast + r.eveningSnacks + r.nightSnacks + r.sundayExtraSnacks + r.lunch + r.dinner;
+          const dr = ws.addRow([i+1, safeFormat(r.entryDate), r.weekDay, r.breakfast||'', r.eveningSnacks||'', r.nightSnacks||'', r.sundayExtraSnacks||'', r.lunch||'', r.dinner||'', tot||'']);
+          if (isSunday(r.entryDate)) dr.eachCell((c: any) => { c.fill=mkFill('FFFFA500'); });
+          dr.eachCell((c: any) => { c.border=thin; c.alignment={horizontal:'center'}; });
+        });
+      } else {
+        const ws = wb.addWorksheet('Yearly Summary');
+        ws.mergeCells('A1:H1');
+        const t = ws.getCell('A1'); t.value = `Unichem — Yearly Summary — ${yearLabel}`; t.font={bold:true,size:12,color:{argb:'FFFFFFFF'}}; t.fill=mkFill('FF0F766E'); t.alignment={horizontal:'center'}; t.border=thin;
+        const h = ws.addRow(['Month','Breakfast','Ev. Snacks','Night Snacks','Sun Extra','Lunch','Dinner','Grand Total']);
+        h.eachCell((c: any) => { c.font=wFont; c.fill=mkFill('FF0F766E'); c.border=thin; c.alignment={horizontal:'center'}; });
+        ws.columns=[14,12,12,14,12,12,12,14].map((w: number)=>({width:w}));
+        MONTHS.forEach((mName, mi) => {
+          const s = yrSnacks.find((r: any) => r.month === mi + 1);
+          const l = yrLunchData.find((r: any) => r.month === mi + 1);
+          const tot = (s?.breakfast||0)+(s?.eveningSnacks||0)+(s?.nightSnacks||0)+(s?.sundayExtraSnacks||0)+(l?.lunch||0)+(l?.dinner||0);
+          const dr = ws.addRow([mName, s?.breakfast||'', s?.eveningSnacks||'', s?.nightSnacks||'', s?.sundayExtraSnacks||'', l?.lunch||'', l?.dinner||'', tot||'']);
+          dr.eachCell((c: any) => { c.border=thin; c.alignment={horizontal:'center'}; });
+        });
+        const totRow = ws.addRow(['Grand Total', sumF(yrSnacks,'breakfast')||'', sumF(yrSnacks,'eveningSnacks')||'', sumF(yrSnacks,'nightSnacks')||'', sumF(yrSnacks,'sundayExtraSnacks')||'', sumF(yrLunchData,'lunch')||'', sumF(yrLunchData,'dinner')||'',
+          sumF(yrSnacks,'breakfast')+sumF(yrSnacks,'eveningSnacks')+sumF(yrSnacks,'nightSnacks')+sumF(yrSnacks,'sundayExtraSnacks')+sumF(yrLunchData,'lunch')+sumF(yrLunchData,'dinner')||'']);
+        totRow.eachCell((c: any) => { c.font={bold:true}; c.fill=mkFill('FFE8F0FE'); c.border=thin; c.alignment={horizontal:'center'}; });
+      }
+      const buf = await wb.xlsx.writeBuffer();
+      const blob = new Blob([buf],{type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'});
+      const a = document.createElement('a'); a.href=URL.createObjectURL(blob); a.download=`Unichem_Summary_${viewMode === 'yearly' ? yearLabel : `${MONTHS[month-1]}_${year}`}.xlsx`; a.click();
+    } catch(err: any) { toast({ title:'Export Failed', description:err.message, variant:'destructive' }); }
+  };
+
+  const YearlyTable = ({ snacksData, lunchData, title, hStyle }: { snacksData: any[]; lunchData: any[]; title: string; hStyle: React.CSSProperties }) => {
+    return (
+      <div className="mb-5">
+        <div className="text-center font-bold text-sm py-1.5" style={{ background: hStyle.background as string, color:'#fff' }}>{title} — {yearLabel}</div>
+        <div className="overflow-x-auto">
+          <table className="w-full border-collapse" style={{ fontSize:11 }}>
+            <thead><tr>
+              <th style={{ ...hStyle, width:90, textAlign:'left', paddingLeft:8 }}>Month</th>
+              <th style={hStyle}>Breakfast</th>
+              <th style={hStyle}>Ev. Snacks</th>
+              <th style={hStyle}>Night Snacks</th>
+              <th style={hStyle}>Sunday Extra</th>
+              <th style={thB}>Lunch</th>
+              <th style={thB}>Dinner</th>
+              <th style={{ ...hStyle, background:'#374151' }}>Total</th>
+            </tr></thead>
+            <tbody>
+              {MONTHS.map((mName, mi) => {
+                const s = snacksData.find(r => r.month === mi + 1);
+                const l = lunchData.find(r => r.month === mi + 1);
+                const tot = (s?.breakfast||0)+(s?.eveningSnacks||0)+(s?.nightSnacks||0)+(s?.sundayExtraSnacks||0)+(l?.lunch||0)+(l?.dinner||0);
+                return (
+                  <tr key={mi} style={{ background: mi % 2 === 0 ? '#f9fafb' : '#fff' }}>
+                    <td style={{ border:'1px solid #ddd', padding:'2px 6px', fontWeight:500, textAlign:'left', fontSize:10 }}>{mName}</td>
+                    {[s?.breakfast,s?.eveningSnacks,s?.nightSnacks,s?.sundayExtraSnacks,l?.lunch,l?.dinner].map((v, fi) => (
+                      <td key={fi} style={{ border:'1px solid #ddd', padding:'2px 5px', textAlign:'center', fontSize:10 }}>{v || '—'}</td>
+                    ))}
+                    <td style={{ border:'1px solid #ddd', padding:'2px 5px', textAlign:'center', fontSize:10, fontWeight:'bold', background:'#f0fdf4' }}>{tot || '—'}</td>
+                  </tr>
+                );
+              })}
+              <tr>
+                <td style={tdTot}>Grand Total</td>
+                {[sumF(yrSnacks,'breakfast'),sumF(yrSnacks,'eveningSnacks'),sumF(yrSnacks,'nightSnacks'),sumF(yrSnacks,'sundayExtraSnacks'),sumF(yrLunchData,'lunch'),sumF(yrLunchData,'dinner')].map((v, fi) => (
+                  <td key={fi} style={tdTot}>{v || '—'}</td>
+                ))}
+                <td style={{ ...tdTot, background:'#bbf7d0' }}>{sumF(yrSnacks,'breakfast')+sumF(yrSnacks,'eveningSnacks')+sumF(yrSnacks,'nightSnacks')+sumF(yrSnacks,'sundayExtraSnacks')+sumF(yrLunchData,'lunch')+sumF(yrLunchData,'dinner') || '—'}</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    );
+  };
+
+  return (
+    <div>
+      <div className="flex flex-wrap items-center gap-2 mb-4">
+        <div className="flex rounded-md overflow-hidden border border-gray-300 text-sm">
+          <button onClick={() => setViewMode('monthly')} className={`px-3 py-1.5 font-medium transition-colors ${viewMode === 'monthly' ? 'bg-teal-700 text-white' : 'bg-white text-gray-700 hover:bg-gray-50'}`} data-testid="btn-unichem-summary-monthly">Monthly</button>
+          <button onClick={() => setViewMode('yearly')} className={`px-3 py-1.5 font-medium transition-colors border-l border-gray-300 ${viewMode === 'yearly' ? 'bg-teal-700 text-white' : 'bg-white text-gray-700 hover:bg-gray-50'}`} data-testid="btn-unichem-summary-yearly">Yearly</button>
+        </div>
+        {viewMode === 'yearly' && (
+          <div className="flex items-center gap-1.5">
+            <span className="text-sm text-gray-500">Year:</span>
+            <select value={summaryYear} onChange={e => setSummaryYear(Number(e.target.value))} className="border border-gray-300 rounded px-2 py-1 text-sm" data-testid="select-unichem-summary-year">
+              {Array.from({ length: 6 }, (_, i) => year - 2 + i).map(y => <option key={y} value={y}>{y}</option>)}
+            </select>
+          </div>
+        )}
+        <span className="text-sm font-semibold text-gray-600">Unichem {viewMode === 'yearly' ? `Yearly Summary — ${yearLabel}` : `Monthly Summary — ${monthLabel}`}</span>
+        <div className="flex gap-2 ml-auto">
+          <button onClick={handlePrint} className="px-3 py-1.5 border rounded text-xs font-medium flex items-center gap-1 hover:bg-gray-50" data-testid="btn-unichem-summary-print"><Printer className="w-3.5 h-3.5"/>Print</button>
+          <button onClick={handleExportExcel} className="px-3 py-1.5 border rounded text-xs font-medium flex items-center gap-1 text-teal-700 border-teal-300 hover:bg-teal-50" data-testid="btn-unichem-summary-export"><FileDown className="w-3.5 h-3.5"/>Export Excel</button>
+        </div>
+      </div>
+      {isLoading && <div className="flex items-center justify-center py-10 text-muted-foreground"><RefreshCw className="w-5 h-5 animate-spin mr-2"/>Loading...</div>}
+
+      <div ref={printRef}>
+        {!isLoading && viewMode === 'monthly' && (
+          <>
+            <div className="text-center font-bold text-sm py-1.5 mb-1" style={{ background:'#0f766e', color:'#fff' }}>Unichem — All Locations Combined Summary — {monthLabel}</div>
+            <div className="overflow-x-auto mb-4">
+              <table className="w-full border-collapse" style={{ fontSize:10 }}>
+                <thead>
+                  <tr>
+                    <th style={{ ...thT, width:30 }}>Sl.</th>
+                    <th style={{ ...thT, width:80 }}>Date</th>
+                    <th style={{ ...thT, width:34 }}>Day</th>
+                    <th style={thT}>Breakfast</th>
+                    <th style={thT}>Ev. Snacks</th>
+                    <th style={thT}>Night Snacks</th>
+                    <th style={thT}>Sun. Extra</th>
+                    <th style={thB}>Lunch</th>
+                    <th style={thB}>Dinner</th>
+                    <th style={{ ...thT, background:'#374151' }}>Total</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {aggSnackByDate.map((r, i) => {
+                    const sun = isSunday(r.entryDate);
+                    const rowTot = r.breakfast + r.eveningSnacks + r.nightSnacks + r.sundayExtraSnacks + r.lunch + r.dinner;
+                    return (
+                      <tr key={i} style={{ background: sun ? '#ffb380' : undefined }}>
+                        <td style={tdS(sun)}>{i+1}</td>
+                        <td style={tdS(sun)}>{safeFormat(r.entryDate)}</td>
+                        <td style={tdS(sun)}>{r.weekDay}</td>
+                        <td style={tdS(sun)}>{r.breakfast || ''}</td>
+                        <td style={tdS(sun)}>{r.eveningSnacks || ''}</td>
+                        <td style={tdS(sun)}>{r.nightSnacks || ''}</td>
+                        <td style={tdS(sun)}>{r.sundayExtraSnacks || ''}</td>
+                        <td style={{ ...tdS(sun), background: sun ? '#ffa060' : '#eff6ff' }}>{r.lunch || ''}</td>
+                        <td style={{ ...tdS(sun), background: sun ? '#ffa060' : '#f8fafc' }}>{r.dinner || ''}</td>
+                        <td style={{ ...tdS(sun), fontWeight:'bold', background: sun ? '#ff9050' : '#f0fdf4' }}>{rowTot || ''}</td>
+                      </tr>
+                    );
+                  })}
+                  <tr>
+                    <td colSpan={3} style={tdTot}>Total</td>
+                    <td style={tdTot}>{aggSnackByDate.reduce((s, r) => s + r.breakfast, 0) || ''}</td>
+                    <td style={tdTot}>{aggSnackByDate.reduce((s, r) => s + r.eveningSnacks, 0) || ''}</td>
+                    <td style={tdTot}>{aggSnackByDate.reduce((s, r) => s + r.nightSnacks, 0) || ''}</td>
+                    <td style={tdTot}>{aggSnackByDate.reduce((s, r) => s + r.sundayExtraSnacks, 0) || ''}</td>
+                    <td style={{ ...tdTot, background:'#dbeafe' }}>{aggSnackByDate.reduce((s, r) => s + r.lunch, 0) || ''}</td>
+                    <td style={{ ...tdTot, background:'#dbeafe' }}>{aggSnackByDate.reduce((s, r) => s + r.dinner, 0) || ''}</td>
+                    <td style={{ ...tdTot, background:'#bbf7d0' }}>{aggSnackByDate.reduce((s, r) => s + r.breakfast + r.eveningSnacks + r.nightSnacks + r.sundayExtraSnacks + r.lunch + r.dinner, 0) || ''}</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </>
+        )}
+        {!isLoading && viewMode === 'yearly' && (
+          <YearlyTable snacksData={yrSnacks} lunchData={yrLunchData} title="Unichem — All Locations Combined Yearly Summary" hStyle={thT} />
+        )}
+      </div>
+    </div>
+  );
+}
+
 // HUL Summary Tab
 // ============================================================
 
@@ -4561,6 +5337,9 @@ export function DateEntryTab() {
             <TabsTrigger value="format2" className="text-xs sm:text-sm" data-testid="tab-ubl-format2">
               Format 2 — Lunch Per Day
             </TabsTrigger>
+            <TabsTrigger value="ubl_summary" className="text-xs sm:text-sm" data-testid="tab-ubl-summary">
+              Summary
+            </TabsTrigger>
           </TabsList>
           <TabsContent value="format1">
             <div className="mb-2 text-sm text-muted-foreground font-medium">United Breweries Ltd — Food Items Bill Data Sheet (with rates)</div>
@@ -4569,6 +5348,10 @@ export function DateEntryTab() {
           <TabsContent value="format2">
             <div className="mb-2 text-sm text-muted-foreground font-medium">United Breweries Ltd — Number of Lunch Per Day (Permanent / Casual / Contractual / Canteen)</div>
             <UblLunchEntryTab month={parseInt(month)} year={parseInt(year)} loadKey={loadKey}/>
+          </TabsContent>
+          <TabsContent value="ubl_summary">
+            <div className="mb-2 text-sm text-muted-foreground font-medium">UBL — Combined Summary — Format 1 (Bill Data) + Format 2 (Lunch Per Day) — Monthly &amp; Yearly view</div>
+            <UblSummaryTab month={parseInt(month)} year={parseInt(year)}/>
           </TabsContent>
         </Tabs>
       )}
@@ -4581,6 +5364,9 @@ export function DateEntryTab() {
             <TabsTrigger value="unichem_lunch" className="text-xs sm:text-sm" data-testid="tab-unichem-lunch">
               Form 2 — Lunch &amp; Dinner
             </TabsTrigger>
+            <TabsTrigger value="unichem_summary" className="text-xs sm:text-sm" data-testid="tab-unichem-summary">
+              Summary
+            </TabsTrigger>
           </TabsList>
           <TabsContent value="unichem_snacks">
             <div className="mb-2 text-sm text-muted-foreground font-medium">Unichem Laboratories Ltd — Breakfast, Evening Snacks, Night Snacks &amp; Sunday Extra Snacks (1st to last day of month)</div>
@@ -4590,13 +5376,31 @@ export function DateEntryTab() {
             <div className="mb-2 text-sm text-muted-foreground font-medium">Unichem Laboratories Ltd — Lunch &amp; Dinner per Location (1st to last day of month)</div>
             <UnichemLunchTab month={parseInt(month)} year={parseInt(year)} loadKey={loadKey}/>
           </TabsContent>
+          <TabsContent value="unichem_summary">
+            <div className="mb-2 text-sm text-muted-foreground font-medium">Unichem — Combined Summary — All Locations (Snacks + Lunch + Dinner) — Monthly &amp; Yearly view</div>
+            <UnichemSummaryTab month={parseInt(month)} year={parseInt(year)}/>
+          </TabsContent>
         </Tabs>
       )}
       {selectedClient === "cipla" && (
-        <>
-          <div className="mb-2 text-sm text-muted-foreground font-medium">Cipla Limited — Breakfast / Lunch / Dinner (Coopen / Coin / Sign / Machine)</div>
-          <CiplaDateEntryTab month={parseInt(month)} year={parseInt(year)} loadKey={loadKey}/>
-        </>
+        <Tabs defaultValue="cipla_entry">
+          <TabsList className="mb-4 flex-wrap h-auto">
+            <TabsTrigger value="cipla_entry" className="text-xs sm:text-sm" data-testid="tab-cipla-entry">
+              Data Entry
+            </TabsTrigger>
+            <TabsTrigger value="cipla_summary" className="text-xs sm:text-sm" data-testid="tab-cipla-summary">
+              Summary
+            </TabsTrigger>
+          </TabsList>
+          <TabsContent value="cipla_entry">
+            <div className="mb-2 text-sm text-muted-foreground font-medium">Cipla Limited — Breakfast / Lunch / Dinner (Coopen / Coin / Sign / Machine)</div>
+            <CiplaDateEntryTab month={parseInt(month)} year={parseInt(year)} loadKey={loadKey}/>
+          </TabsContent>
+          <TabsContent value="cipla_summary">
+            <div className="mb-2 text-sm text-muted-foreground font-medium">Cipla — Summary — Breakfast / Lunch / Dinner (All Methods Combined) — Monthly &amp; Yearly view</div>
+            <CiplaSummaryTab month={parseInt(month)} year={parseInt(year)}/>
+          </TabsContent>
+        </Tabs>
       )}
       {selectedClient === "hul" && (
         <Tabs defaultValue="hul_kpf">
