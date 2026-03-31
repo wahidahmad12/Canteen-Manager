@@ -2085,8 +2085,15 @@ export class DatabaseStorage implements IStorage {
 
   // HUL KPF Executive/Manager Snacks
   async getUblDateYearlySummary(year: number): Promise<{ month: number; breakfast: number; lunch: number; dinner: number; tea: number; mutton: number; tiffin: number; boiledEgg: number }[]> {
+    // Group by billing period (21st–20th) using entry_date, consistent with monthly view
+    const startDate = `${year}-01-21`;
+    const endDate = `${year + 1}-01-20`;
     const [rows] = await db.execute(sql`
-      SELECT month,
+      SELECT
+        CASE
+          WHEN DAY(entry_date) >= 21 THEN MONTH(entry_date)
+          ELSE IF(MONTH(entry_date) = 1, 12, MONTH(entry_date) - 1)
+        END AS billing_month,
         COALESCE(SUM(breakfast),0) AS breakfast,
         COALESCE(SUM(lunch),0) AS lunch,
         COALESCE(SUM(dinner),0) AS dinner,
@@ -2094,43 +2101,60 @@ export class DatabaseStorage implements IStorage {
         COALESCE(SUM(mutton),0) AS mutton,
         COALESCE(SUM(tiffin),0) AS tiffin,
         COALESCE(SUM(boiled_egg),0) AS boiledEgg
-      FROM ubl_date_entries WHERE year = ${year}
-      GROUP BY month ORDER BY month
+      FROM ubl_date_entries
+      WHERE entry_date >= ${startDate} AND entry_date <= ${endDate}
+      GROUP BY billing_month ORDER BY billing_month
     `) as any;
     return (rows as any[]).map((r: any) => ({
-      month: Number(r.month), breakfast: Number(r.breakfast), lunch: Number(r.lunch),
+      month: Number(r.billing_month), breakfast: Number(r.breakfast), lunch: Number(r.lunch),
       dinner: Number(r.dinner), tea: Number(r.tea), mutton: Number(r.mutton),
       tiffin: Number(r.tiffin), boiledEgg: Number(r.boiledEgg),
     }));
   }
 
   async getUblLunchYearlySummary(year: number): Promise<{ month: number; perment: number; casual: number; contractual: number; canteen: number }[]> {
+    // Group by billing period (21st–20th) using entry_date, consistent with monthly view
+    const startDate = `${year}-01-21`;
+    const endDate = `${year + 1}-01-20`;
     const [rows] = await db.execute(sql`
-      SELECT month,
+      SELECT
+        CASE
+          WHEN DAY(entry_date) >= 21 THEN MONTH(entry_date)
+          ELSE IF(MONTH(entry_date) = 1, 12, MONTH(entry_date) - 1)
+        END AS billing_month,
         COALESCE(SUM(perment),0) AS perment,
         COALESCE(SUM(casual),0) AS casual,
         COALESCE(SUM(contractual),0) AS contractual,
         COALESCE(SUM(canteen),0) AS canteen
-      FROM ubl_lunch_entries WHERE year = ${year}
-      GROUP BY month ORDER BY month
+      FROM ubl_lunch_entries
+      WHERE entry_date >= ${startDate} AND entry_date <= ${endDate}
+      GROUP BY billing_month ORDER BY billing_month
     `) as any;
     return (rows as any[]).map((r: any) => ({
-      month: Number(r.month), perment: Number(r.perment), casual: Number(r.casual),
+      month: Number(r.billing_month), perment: Number(r.perment), casual: Number(r.casual),
       contractual: Number(r.contractual), canteen: Number(r.canteen),
     }));
   }
 
   async getCiplaYearlySummary(year: number): Promise<{ month: number; breakfast: number; lunch: number; dinner: number }[]> {
+    // Group by billing period (21st–20th) using entry_date, consistent with monthly view
+    const startDate = `${year}-01-21`;
+    const endDate = `${year + 1}-01-20`;
     const [rows] = await db.execute(sql`
-      SELECT month,
+      SELECT
+        CASE
+          WHEN DAY(entry_date) >= 21 THEN MONTH(entry_date)
+          ELSE IF(MONTH(entry_date) = 1, 12, MONTH(entry_date) - 1)
+        END AS billing_month,
         COALESCE(SUM(breakfast_coopen)+SUM(breakfast_coin)+SUM(breakfast_sign)+SUM(breakfast_machine),0) AS breakfast,
         COALESCE(SUM(lunch_coopen)+SUM(lunch_coin)+SUM(lunch_sign)+SUM(lunch_machine),0) AS lunch,
         COALESCE(SUM(dinner_coopen)+SUM(dinner_coin)+SUM(dinner_sign)+SUM(dinner_machine),0) AS dinner
-      FROM cipla_date_entries WHERE year = ${year}
-      GROUP BY month ORDER BY month
+      FROM cipla_date_entries
+      WHERE entry_date >= ${startDate} AND entry_date <= ${endDate}
+      GROUP BY billing_month ORDER BY billing_month
     `) as any;
     return (rows as any[]).map((r: any) => ({
-      month: Number(r.month), breakfast: Number(r.breakfast), lunch: Number(r.lunch), dinner: Number(r.dinner),
+      month: Number(r.billing_month), breakfast: Number(r.breakfast), lunch: Number(r.lunch), dinner: Number(r.dinner),
     }));
   }
 
