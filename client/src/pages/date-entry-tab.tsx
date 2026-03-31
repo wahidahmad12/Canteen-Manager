@@ -4711,6 +4711,12 @@ function HulSummaryTab({ month, year }: { month: number; year: number }) {
     { key: 'guestEveningSnacks', name: 'Evening Snacks', rate: 40 },
     { key: 'guestNightSnacks', name: 'Night Snacks', rate: 27 },
   ];
+  const EXEC_RATES = [
+    { key: 'snacks', name: 'Snacks Per Day', rate: 25 },
+    { key: 'biscuit', name: 'Biscuit', rate: 10 },
+    { key: 'chips', name: 'Chips', rate: 10 },
+    { key: 'coldDrinkWater', name: 'Cold Drink & Water', rate: 10 },
+  ];
 
   const fmtINR = (n: number) => n ? `₹${n.toLocaleString('en-IN')}` : '—';
 
@@ -5119,6 +5125,74 @@ function HulSummaryTab({ month, year }: { month: number; year: number }) {
                 </div>
               );
             })}
+
+            {/* KPF Exec Snacks Yearly Rate Summary */}
+            <div className="border rounded-lg overflow-hidden mb-4">
+              <div className="px-3 py-1.5 text-sm font-bold text-center text-white" style={{ background:'#b45309' }}>
+                KPF Exec Snacks — Rate Wise Yearly Summary — {yearLabel}
+              </div>
+              <div className="overflow-x-auto">
+                <table className="w-full border-collapse" style={{ fontSize:10 }}>
+                  <thead>
+                    <tr>
+                      <th style={{ ...thBr, textAlign:'left', paddingLeft:6, width:80, fontSize:10, padding:'3px 5px' }}>Month</th>
+                      <th colSpan={2} style={{ ...thBr, fontSize:10, padding:'3px 5px' }}>Snacks (×₹25)</th>
+                      <th colSpan={2} style={{ ...thBr, fontSize:10, padding:'3px 5px' }}>Biscuit (×₹10)</th>
+                      <th colSpan={2} style={{ ...thBr, fontSize:10, padding:'3px 5px' }}>Chips (×₹10)</th>
+                      <th colSpan={2} style={{ ...thBr, fontSize:10, padding:'3px 5px' }}>Cold Drink & Water (×₹10)</th>
+                      <th style={{ background:'#374151', color:'#fff', border:'1px solid #333', padding:'3px 5px', textAlign:'center', fontWeight:'bold', fontSize:10 }}>Grand Total</th>
+                    </tr>
+                    <tr>
+                      <th style={{ ...thBr, fontSize:9, padding:'2px 4px' }}></th>
+                      {['Qty','Amt','Qty','Amt','Qty','Amt','Qty','Amt'].map((h,i)=><th key={i} style={{ ...thBr, fontSize:9, padding:'2px 4px' }}>{h}</th>)}
+                      <th style={{ background:'#374151', color:'#fff', border:'1px solid #333', fontSize:9, padding:'2px 4px' }}></th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {MONTHS.map((mName, mi) => {
+                      const row = yrExec.find(r => r.month === mi + 1);
+                      const sn = row?.snacks||0, bi = row?.biscuit||0, ch = row?.chips||0, cw = row?.coldDrinkWater||0;
+                      const grand = sn*25+bi*10+ch*10+cw*10;
+                      const bg = mi%2===0 ? '#f9fafb' : '#fff';
+                      const fmt = (n: number) => n ? n.toLocaleString('en-IN') : '';
+                      if (!row) return (
+                        <tr key={mi} style={{ background: bg }}>
+                          <td style={{ border:'1px solid #ddd', padding:'2px 5px', fontWeight:500, textAlign:'left', fontSize:10 }}>{mName}</td>
+                          {Array.from({length:9},(_,i)=><td key={i} style={{ border:'1px solid #ddd', padding:'2px 4px', textAlign:'center', fontSize:10, color:'#ccc' }}>—</td>)}
+                        </tr>
+                      );
+                      return (
+                        <tr key={mi} style={{ background: bg }}>
+                          <td style={{ border:'1px solid #ddd', padding:'2px 5px', fontWeight:500, textAlign:'left', fontSize:10 }}>{mName}</td>
+                          <td style={tdC}>{sn||''}</td><td style={tdR}>{fmt(sn*25)}</td>
+                          <td style={tdC}>{bi||''}</td><td style={tdR}>{fmt(bi*10)}</td>
+                          <td style={tdC}>{ch||''}</td><td style={tdR}>{fmt(ch*10)}</td>
+                          <td style={tdC}>{cw||''}</td><td style={tdR}>{fmt(cw*10)}</td>
+                          <td style={{ ...tdR, background:'#fff7ed', fontWeight:'bold' }}>{fmt(grand)}</td>
+                        </tr>
+                      );
+                    })}
+                    {(() => {
+                      const totSn = yrExec.reduce((s,r)=>s+(r.snacks||0),0);
+                      const totBi = yrExec.reduce((s,r)=>s+(r.biscuit||0),0);
+                      const totCh = yrExec.reduce((s,r)=>s+(r.chips||0),0);
+                      const totCw = yrExec.reduce((s,r)=>s+(r.coldDrinkWater||0),0);
+                      const grand = totSn*25+totBi*10+totCh*10+totCw*10;
+                      return (
+                        <tr>
+                          <td style={tdTot}>Grand Total</td>
+                          <td style={tdTot}>{totSn||'—'}</td><td style={tdTot}>{totSn ? `₹${(totSn*25).toLocaleString('en-IN')}` : '—'}</td>
+                          <td style={tdTot}>{totBi||'—'}</td><td style={tdTot}>{totBi ? `₹${(totBi*10).toLocaleString('en-IN')}` : '—'}</td>
+                          <td style={tdTot}>{totCh||'—'}</td><td style={tdTot}>{totCh ? `₹${(totCh*10).toLocaleString('en-IN')}` : '—'}</td>
+                          <td style={tdTot}>{totCw||'—'}</td><td style={tdTot}>{totCw ? `₹${(totCw*10).toLocaleString('en-IN')}` : '—'}</td>
+                          <td style={{ ...tdTot, background:'#fed7aa' }}>{grand ? `₹${grand.toLocaleString('en-IN')}` : '—'}</td>
+                        </tr>
+                      );
+                    })()}
+                  </tbody>
+                </table>
+              </div>
+            </div>
           </>
         );
       })()}
@@ -5336,6 +5410,42 @@ function HulSummaryTab({ month, year }: { month: number; year: number }) {
             </div>
           );
         })()}
+
+        {/* KPF Exec Snacks Rate Summary */}
+        <div className="overflow-x-auto border-t">
+          <div className="px-3 py-1 font-bold text-white text-xs" style={{ background:'#b45309' }}>
+            KPF Exec Snacks — Rate Summary — {monthLabel}
+          </div>
+          <table className="w-full border-collapse" style={{ fontSize:10 }}>
+            <thead>
+              <tr>
+                <th style={{ ...thBr, textAlign:'left', paddingLeft:8, width:180, fontSize:10 }}>Item</th>
+                <th style={{ ...thBr, fontSize:10 }}>Qty</th>
+                <th style={{ ...thBr, fontSize:10 }}>Rate (₹)</th>
+                <th style={{ ...thBr, fontSize:10 }}>Amount (₹)</th>
+              </tr>
+            </thead>
+            <tbody>
+              {EXEC_RATES.map((r, i) => {
+                const qty = (exT as any)[r.key] || 0;
+                return (
+                  <tr key={i} style={{ background: i%2===0 ? '#fff7ed' : '#fff' }}>
+                    <td style={tdL}>{r.name}</td>
+                    <td style={tdC}>{qty || ''}</td>
+                    <td style={tdC}>₹{r.rate}</td>
+                    <td style={tdR}>{qty ? fmtINR(qty * r.rate) : ''}</td>
+                  </tr>
+                );
+              })}
+              <tr style={{ background:'#b45309' }}>
+                <td colSpan={3} style={{ border:'1px solid #333', padding:'3px 8px', fontWeight:'bold', textAlign:'right', fontSize:11, color:'#fff' }}>Grand Total</td>
+                <td style={{ border:'1px solid #333', padding:'3px 6px', textAlign:'right', fontWeight:'bold', fontSize:11, color:'#fff' }}>
+                  {fmtINR(EXEC_RATES.reduce((s, r) => s + ((exT as any)[r.key] || 0) * r.rate, 0))}
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
       </div>
 
       </>}
