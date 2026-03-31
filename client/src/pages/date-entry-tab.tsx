@@ -3021,6 +3021,7 @@ function HulKpfExecSnacksTab({ month, year, loadKey = 0 }: { month: number; year
   const qc = useQueryClient();
   const { toast } = useToast();
   const printRef = useRef<HTMLDivElement>(null);
+  const importRefExec = useRef<HTMLInputElement>(null);
   const [localRows, setLocalRows] = useState<ExecSnackRow[]>([]);
   useEffect(() => { setLocalRows([]); }, [month, year]);
 
@@ -3142,6 +3143,46 @@ function HulKpfExecSnacksTab({ month, year, loadKey = 0 }: { month: number; year
 
   const handleAutoFill = () => { setLocalRows(generateRows()); };
 
+  const handleImportExcelExec = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]; if (!file) return;
+    e.target.value = "";
+    try {
+      const ExcelJS = (await import('exceljs')).default;
+      const wb = new ExcelJS.Workbook();
+      await wb.xlsx.load(await file.arrayBuffer());
+      const ws = wb.worksheets[0];
+      const FIELD_MAP: Record<string, keyof ExecSnackRow> = {
+        'Date': 'entryDate', 'Days': 'weekDay',
+        'Snacks': 'snacks', 'Biscuit': 'biscuit', 'Chips': 'chips',
+        'Cold Drink & Water': 'coldDrinkWater', 'Cold Drink and Water': 'coldDrinkWater',
+      };
+      // Find header row (first row with "Date")
+      let headerRowIdx = 1;
+      ws.eachRow((row, ri) => { if (String(row.getCell(2).value || '').includes('-') && ri > 1) return; if (String(row.getCell(1).value || '').toLowerCase().includes('date') || String(row.getCell(2).value || '').toLowerCase().includes('date')) headerRowIdx = ri; });
+      const headers: string[] = [];
+      ws.getRow(headerRowIdx).eachCell(cell => headers.push(String(cell.value ?? '').trim()));
+      const fieldMap: Record<number, keyof ExecSnackRow> = {};
+      headers.forEach((h, i) => { if (FIELD_MAP[h]) fieldMap[i] = FIELD_MAP[h]; });
+      const imported: ExecSnackRow[] = [];
+      ws.eachRow((row, ri) => {
+        if (ri <= headerRowIdx) return;
+        const r: any = { month, year, weekDay: '', _dirty: true };
+        row.eachCell((cell, ci) => {
+          const f = fieldMap[ci - 1]; if (!f) return;
+          const v = cell.value;
+          r[f] = (f === 'entryDate' || f === 'weekDay') ? String(v ?? '').trim() : (parseInt(String(v || 0)) || 0);
+        });
+        if (!r.entryDate || r.entryDate.toLowerCase().includes('total')) return;
+        r.entryDate = normDate(r.entryDate);
+        if (!r.weekDay) r.weekDay = getWeekDay(r.entryDate);
+        imported.push(r as ExecSnackRow);
+      });
+      if (!imported.length) { toast({ title: 'No data found in file', variant: 'destructive' }); return; }
+      setLocalRows(imported);
+      toast({ title: `Imported ${imported.length} rows`, description: 'Review and click Save All to persist.' });
+    } catch (err: any) { toast({ title: 'Import Failed', description: err.message, variant: 'destructive' }); }
+  };
+
   const handlePrint = () => {
     const printContent = printRef.current?.innerHTML;
     if (!printContent) return;
@@ -3233,6 +3274,10 @@ function HulKpfExecSnacksTab({ month, year, loadKey = 0 }: { month: number; year
           <Button size="sm" variant="outline" onClick={handleExportExcel} className="h-9 text-green-700 border-green-300 hover:bg-green-50" data-testid="btn-exec-export">
             <FileDown className="w-3.5 h-3.5 mr-1"/>Export Excel
           </Button>
+          <Button size="sm" variant="outline" onClick={() => importRefExec.current?.click()} className="h-9 text-blue-700 border-blue-300 hover:bg-blue-50" data-testid="btn-exec-import">
+            <FileUp className="w-3.5 h-3.5 mr-1"/>Import Excel
+          </Button>
+          <input ref={importRefExec} type="file" accept=".xlsx,.xls" className="hidden" onChange={handleImportExcelExec}/>
         </div>
       </div>
 
@@ -3356,6 +3401,7 @@ function HulLocationTab({ month, year, location, loadKey = 0 }: { month: number;
   const qc = useQueryClient();
   const { toast } = useToast();
   const printRef = useRef<HTMLDivElement>(null);
+  const importRefHul = useRef<HTMLInputElement>(null);
   const [localRows, setLocalRows] = useState<HulRow[]>([]);
   useEffect(() => { setLocalRows([]); }, [month, year, location]);
 
@@ -3477,6 +3523,56 @@ function HulLocationTab({ month, year, location, loadKey = 0 }: { month: number;
 
   const handleAutoFill = () => { setLocalRows(generateRows()); };
 
+  const handleImportExcelHul = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]; if (!file) return;
+    e.target.value = "";
+    try {
+      const ExcelJS = (await import('exceljs')).default;
+      const wb = new ExcelJS.Workbook();
+      await wb.xlsx.load(await file.arrayBuffer());
+      const ws = wb.worksheets[0];
+      const FIELD_MAP: Record<string, keyof HulRow> = {
+        'Date': 'entryDate', 'Days': 'weekDay',
+        'Brakfast': 'breakfast', 'Breakfast': 'breakfast',
+        'Lunch': 'lunch',
+        'Evning Sancks': 'eveningSnacks', 'Evening Snacks': 'eveningSnacks',
+        'Night Snacks': 'nightSnacks',
+        'Guest Brakfast': 'guestBreakfast', 'Guest Breakfast': 'guestBreakfast',
+        'Guest Lunch': 'guestLunch',
+        'Guest Evning Sancks': 'guestEveningSnacks', 'Guest Evening Snacks': 'guestEveningSnacks',
+        'Guest Night Snacks': 'guestNightSnacks',
+      };
+      // Find header row — scan until we find a row containing "Date" or "Breakfast"
+      let headerRowIdx = 1;
+      ws.eachRow((row, ri) => {
+        let found = false;
+        row.eachCell(cell => { const v = String(cell.value ?? '').trim(); if (v === 'Date' || v === 'Brakfast' || v === 'Breakfast') found = true; });
+        if (found) headerRowIdx = ri;
+      });
+      const headers: string[] = [];
+      ws.getRow(headerRowIdx).eachCell(cell => headers.push(String(cell.value ?? '').trim()));
+      const fieldMap: Record<number, keyof HulRow> = {};
+      headers.forEach((h, i) => { if (FIELD_MAP[h]) fieldMap[i] = FIELD_MAP[h]; });
+      const imported: HulRow[] = [];
+      ws.eachRow((row, ri) => {
+        if (ri <= headerRowIdx) return;
+        const r: any = { month, year, location, weekDay: '', _dirty: true, breakfast:0, lunch:0, eveningSnacks:0, nightSnacks:0, guestBreakfast:0, guestLunch:0, guestEveningSnacks:0, guestNightSnacks:0 };
+        row.eachCell((cell, ci) => {
+          const f = fieldMap[ci - 1]; if (!f) return;
+          const v = cell.value;
+          r[f] = (f === 'entryDate' || f === 'weekDay') ? String(v ?? '').trim() : (parseInt(String(v || 0)) || 0);
+        });
+        if (!r.entryDate || String(r.entryDate).toLowerCase().includes('total')) return;
+        r.entryDate = normDate(r.entryDate);
+        if (!r.weekDay) r.weekDay = getWeekDay(r.entryDate);
+        imported.push(r as HulRow);
+      });
+      if (!imported.length) { toast({ title: 'No data found in file', variant: 'destructive' }); return; }
+      setLocalRows(imported);
+      toast({ title: `Imported ${imported.length} rows`, description: 'Review and click Save All to persist.' });
+    } catch (err: any) { toast({ title: 'Import Failed', description: err.message, variant: 'destructive' }); }
+  };
+
   const handlePrint = () => {
     const printContent = printRef.current?.innerHTML;
     if (!printContent) return;
@@ -3584,6 +3680,10 @@ function HulLocationTab({ month, year, location, loadKey = 0 }: { month: number;
           <Button size="sm" variant="outline" onClick={handleExportExcel} className="h-9 text-green-700 border-green-300 hover:bg-green-50" disabled={rows.length===0} data-testid="btn-hul-export">
             <FileDown className="w-3.5 h-3.5 mr-1"/>Export Excel
           </Button>
+          <Button size="sm" variant="outline" onClick={() => importRefHul.current?.click()} className="h-9 text-blue-700 border-blue-300 hover:bg-blue-50" data-testid="btn-hul-import">
+            <FileUp className="w-3.5 h-3.5 mr-1"/>Import Excel
+          </Button>
+          <input ref={importRefHul} type="file" accept=".xlsx,.xls" className="hidden" onChange={handleImportExcelHul}/>
         </div>
       </div>
 
