@@ -4509,9 +4509,14 @@ function UnichemSummaryTab({ month, year }: { month: number; year: number }) {
     enabled: viewMode === 'yearly',
     queryFn: () => fetch(`/api/unichem-lunch-entries/yearly-summary?year=${summaryYear}`, { credentials: 'include' }).then(r => r.json()),
   });
+  const { data: yrSundayLunch = [], isLoading: yrSundayLoading } = useQuery<{ month: number; sundayLunch: number }[]>({
+    queryKey: ['/api/unichem-lunch-entries/yearly-sunday-summary', summaryYear],
+    enabled: viewMode === 'yearly',
+    queryFn: () => fetch(`/api/unichem-lunch-entries/yearly-sunday-summary?year=${summaryYear}`, { credentials: 'include' }).then(r => r.json()),
+  });
 
   const monthlyLoading = sMainL || sUnit2L || sCoeL || lMainL || lUnit2L || lCoeL || dMainL || dUnit2L || dCoeL;
-  const isLoading = viewMode === 'monthly' ? monthlyLoading : (yrSnacksLoading || yrLunchLoading);
+  const isLoading = viewMode === 'monthly' ? monthlyLoading : (yrSnacksLoading || yrLunchLoading || yrSundayLoading);
   const sumF = (arr: any[], f: string) => arr.reduce((s: number, r: any) => s + (r[f] || 0), 0);
 
   // Build aggregated daily rows for snacks (all locations combined by date)
@@ -4521,16 +4526,20 @@ function UnichemSummaryTab({ month, year }: { month: number; year: number }) {
 
   // Get all unique dates
   const allDates = [...new Set([...allSnackRows, ...allLunchRows, ...allDinnerRows].map(r => r.entryDate))].sort();
-  const aggSnackByDate = allDates.map(d => ({
-    entryDate: d,
-    weekDay: allSnackRows.find(r => r.entryDate === d)?.weekDay || allLunchRows.find(r => r.entryDate === d)?.weekDay || '',
-    breakfast: allSnackRows.filter(r => r.entryDate === d).reduce((s, r) => s + (r.breakfast || 0), 0),
-    eveningSnacks: allSnackRows.filter(r => r.entryDate === d).reduce((s, r) => s + (r.eveningSnacks || 0), 0),
-    nightSnacks: allSnackRows.filter(r => r.entryDate === d).reduce((s, r) => s + (r.nightSnacks || 0), 0),
-    sundayExtraSnacks: allSnackRows.filter(r => r.entryDate === d).reduce((s, r) => s + (r.sundayExtraSnacks || 0), 0),
-    lunch: allLunchRows.filter(r => r.entryDate === d).reduce((s, r) => s + (r.billQty || 0), 0),
-    dinner: allDinnerRows.filter(r => r.entryDate === d).reduce((s, r) => s + (r.billQty || 0), 0),
-  }));
+  const aggSnackByDate = allDates.map(d => {
+    const lunchQtyOnDay = allLunchRows.filter(r => r.entryDate === d).reduce((s, r) => s + (r.billQty || 0), 0);
+    return {
+      entryDate: d,
+      weekDay: allSnackRows.find(r => r.entryDate === d)?.weekDay || allLunchRows.find(r => r.entryDate === d)?.weekDay || '',
+      breakfast: allSnackRows.filter(r => r.entryDate === d).reduce((s, r) => s + (r.breakfast || 0), 0),
+      eveningSnacks: allSnackRows.filter(r => r.entryDate === d).reduce((s, r) => s + (r.eveningSnacks || 0), 0),
+      nightSnacks: allSnackRows.filter(r => r.entryDate === d).reduce((s, r) => s + (r.nightSnacks || 0), 0),
+      // Sunday Extra auto-latched from Sunday Lunch Bill Qty (Form 2)
+      sundayExtraSnacks: isSunday(d) ? lunchQtyOnDay : allSnackRows.filter(r => r.entryDate === d).reduce((s, r) => s + (r.sundayExtraSnacks || 0), 0),
+      lunch: lunchQtyOnDay,
+      dinner: allDinnerRows.filter(r => r.entryDate === d).reduce((s, r) => s + (r.billQty || 0), 0),
+    };
+  });
 
   const thT: React.CSSProperties = { background:'#0f766e', color:'#fff', border:'1px solid #333', padding:'4px 6px', textAlign:'center', fontWeight:'bold', fontSize:11 };
   const thB: React.CSSProperties = { background:'#1a3a8a', color:'#fff', border:'1px solid #333', padding:'4px 6px', textAlign:'center', fontWeight:'bold', fontSize:11 };
@@ -4797,7 +4806,10 @@ function UnichemSummaryTab({ month, year }: { month: number; year: number }) {
                       {MONTHS.map((mName, mi) => {
                         const s = yrSnacks.find((r: any) => r.month === mi+1);
                         const l = yrLunchData.find((r: any) => r.month === mi+1);
-                        const bf=s?.breakfast||0, es=s?.eveningSnacks||0, ns=s?.nightSnacks||0, se=s?.sundayExtraSnacks||0;
+                        const sl = yrSundayLunch.find((r: any) => r.month === mi+1);
+                        const bf=s?.breakfast||0, es=s?.eveningSnacks||0, ns=s?.nightSnacks||0;
+                        // Sunday Extra: always from Sunday Lunch Bill Qty (Form 2)
+                        const se = sl?.sundayLunch || 0;
                         const lu=l?.lunch||0, di=l?.dinner||0;
                         const grand = bf*15+es*15+ns*15+se*10+lu*58+di*58;
                         const bg = mi%2===0 ? '#f9fafb' : '#fff';
@@ -4809,7 +4821,7 @@ function UnichemSummaryTab({ month, year }: { month: number; year: number }) {
                             <td style={{ border:'1px solid #ddd', padding:'2px 4px', textAlign:'center', fontSize:10 }}>{c(bf)}</td><td style={{ border:'1px solid #ddd', padding:'2px 4px', textAlign:'right', fontSize:10 }}>{a(bf,15)}</td>
                             <td style={{ border:'1px solid #ddd', padding:'2px 4px', textAlign:'center', fontSize:10 }}>{c(es)}</td><td style={{ border:'1px solid #ddd', padding:'2px 4px', textAlign:'right', fontSize:10 }}>{a(es,15)}</td>
                             <td style={{ border:'1px solid #ddd', padding:'2px 4px', textAlign:'center', fontSize:10 }}>{c(ns)}</td><td style={{ border:'1px solid #ddd', padding:'2px 4px', textAlign:'right', fontSize:10 }}>{a(ns,15)}</td>
-                            <td style={{ border:'1px solid #ddd', padding:'2px 4px', textAlign:'center', fontSize:10 }}>{c(se)}</td><td style={{ border:'1px solid #ddd', padding:'2px 4px', textAlign:'right', fontSize:10 }}>{a(se,10)}</td>
+                            <td style={{ border:'1px solid #ddd', padding:'2px 4px', textAlign:'center', fontSize:10, background:'#fef9c3' }}>{c(se)}</td><td style={{ border:'1px solid #ddd', padding:'2px 4px', textAlign:'right', fontSize:10, background:'#fef9c3' }}>{a(se,10)}</td>
                             <td style={{ border:'1px solid #ddd', padding:'2px 4px', textAlign:'center', fontSize:10, background:'#eff6ff' }}>{c(lu)}</td><td style={{ border:'1px solid #ddd', padding:'2px 4px', textAlign:'right', fontSize:10, background:'#eff6ff' }}>{a(lu,58)}</td>
                             <td style={{ border:'1px solid #ddd', padding:'2px 4px', textAlign:'center', fontSize:10, background:'#f8fafc' }}>{c(di)}</td><td style={{ border:'1px solid #ddd', padding:'2px 4px', textAlign:'right', fontSize:10, background:'#f8fafc' }}>{a(di,58)}</td>
                             <td style={{ border:'1px solid #ddd', padding:'2px 4px', textAlign:'right', fontSize:10, fontWeight:'bold', background:'#f0fdf4' }}>{grand ? fmt(grand) : '—'}</td>
@@ -4817,7 +4829,8 @@ function UnichemSummaryTab({ month, year }: { month: number; year: number }) {
                         );
                       })}
                       {(() => {
-                        const bf=sumS('breakfast'), es=sumS('eveningSnacks'), ns=sumS('nightSnacks'), se=sumS('sundayExtraSnacks');
+                        const bf=sumS('breakfast'), es=sumS('eveningSnacks'), ns=sumS('nightSnacks');
+                        const se = yrSundayLunch.reduce((s, r) => s + r.sundayLunch, 0);
                         const lu=sumL('lunch'), di=sumL('dinner');
                         const grand = bf*15+es*15+ns*15+se*10+lu*58+di*58;
                         return (

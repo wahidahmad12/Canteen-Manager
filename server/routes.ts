@@ -1900,6 +1900,10 @@ export async function registerRoutes(
     const year = Number(req.query.year) || new Date().getFullYear();
     res.json(await storage.getUnichEmLunchYearlySummary(year));
   });
+  app.get('/api/unichem-lunch-entries/yearly-sunday-summary', requirePermission('salesinvoice'), async (req, res) => {
+    const year = Number(req.query.year) || new Date().getFullYear();
+    res.json(await storage.getUnichEmSundayLunchYearlySummary(year));
+  });
   app.get('/api/hul-date-entries/yearly-summary', requirePermission('salesinvoice'), async (req, res) => {
     const year = Number(req.query.year) || new Date().getFullYear();
     const location = String(req.query.location || 'KPF');

@@ -269,6 +269,7 @@ export interface IStorage {
   createUnichEmLunchEntry(data: any): Promise<UnichEmLunchEntry>;
   updateUnichEmLunchEntry(id: number, data: any): Promise<UnichEmLunchEntry>;
   deleteUnichEmLunchEntry(id: number): Promise<void>;
+  getUnichEmSundayLunchYearlySummary(year: number): Promise<{ month: number; sundayLunch: number }[]>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -2184,6 +2185,19 @@ export class DatabaseStorage implements IStorage {
     `) as any;
     return (rows as any[]).map((r: any) => ({
       month: Number(r.month), lunch: Number(r.lunch), dinner: Number(r.dinner),
+    }));
+  }
+
+  async getUnichEmSundayLunchYearlySummary(year: number): Promise<{ month: number; sundayLunch: number }[]> {
+    const [rows] = await db.execute(sql`
+      SELECT month,
+        COALESCE(SUM(CASE WHEN meal_type='lunch' THEN bill_qty ELSE 0 END),0) AS sundayLunch
+      FROM unichem_lunch_entries
+      WHERE year = ${year} AND DAYOFWEEK(entry_date) = 1
+      GROUP BY month ORDER BY month
+    `) as any;
+    return (rows as any[]).map((r: any) => ({
+      month: Number(r.month), sundayLunch: Number(r.sundayLunch),
     }));
   }
 
