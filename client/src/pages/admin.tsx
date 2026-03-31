@@ -154,6 +154,7 @@ export default function Admin() {
     salesinvoice: 'Sales Invoice Ledger',
     dateentry_ubl: 'Date Entry — UBL',
     dateentry_cipla: 'Date Entry — Cipla',
+    dateentry_hul: 'Date Entry — HUL',
   };
 
   const togglePerm = (perm: string) => {

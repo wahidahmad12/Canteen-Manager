@@ -959,6 +959,33 @@ export const insertCiplaaMachineSummarySchema = createInsertSchema(ciplaaMachine
 
 export const ALL_PAYROLL_PERMISSIONS = [...ALL_PERMISSIONS, 'salary'] as const;
 
+// === HUL DATE ENTRIES (Hindustan Unilever Limited — KPF and TEC locations) ===
+export const hulDateEntries = mysqlTable("hul_date_entries", {
+  id: int("id").autoincrement().primaryKey(),
+  location: varchar("location", { length: 20 }).notNull(),
+  entryDate: date("entry_date").notNull(),
+  month: int("month").notNull(),
+  year: int("year").notNull(),
+  weekDay: varchar("week_day", { length: 10 }),
+  breakfast: int("breakfast").default(0),
+  lunch: int("lunch").default(0),
+  eveningSnacks: int("evening_snacks").default(0),
+  nightSnacks: int("night_snacks").default(0),
+  guestBreakfast: int("guest_breakfast").default(0),
+  guestLunch: int("guest_lunch").default(0),
+  guestEveningSnacks: int("guest_evening_snacks").default(0),
+  guestNightSnacks: int("guest_night_snacks").default(0),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+export type HulDateEntry = typeof hulDateEntries.$inferSelect;
+export const insertHulDateEntrySchema = createInsertSchema(hulDateEntries).omit({ id: true, createdAt: true, updatedAt: true });
+export const selectHulDateEntrySchema = createSelectSchema(hulDateEntries, {
+  createdAt: z.string().or(z.date()),
+  updatedAt: z.string().or(z.date()),
+  weekDay: z.string().nullable(),
+});
+
 export type HalfYearlyReturn = typeof halfYearlyReturns.$inferSelect;
 export const insertHalfYearlyReturnSchema = createInsertSchema(halfYearlyReturns).omit({ id: true, createdAt: true, updatedAt: true });
 export const selectHalfYearlyReturnSchema = createSelectSchema(halfYearlyReturns, { createdAt: z.string().or(z.date()), updatedAt: z.string().or(z.date()) });

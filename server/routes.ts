@@ -1879,6 +1879,26 @@ export async function registerRoutes(
     await storage.deleteUnichEmLunchEntry(Number(req.params.id)); res.status(204).send();
   });
 
+  // === HUL DATE ENTRIES (Hindustan Unilever Limited — KPF / TEC) ===
+  app.get('/api/hul-date-entries', requirePermission('salesinvoice'), async (req, res) => {
+    const month = Number(req.query.month) || new Date().getMonth() + 1;
+    const year = Number(req.query.year) || new Date().getFullYear();
+    const location = String(req.query.location || 'KPF');
+    const entries = await storage.getHulDateEntries(month, year, location);
+    res.json(entries);
+  });
+  app.post('/api/hul-date-entries', requirePermission('salesinvoice'), async (req, res) => {
+    try { const entry = await storage.createHulDateEntry(req.body); res.status(201).json(entry); }
+    catch (err: any) { res.status(500).json({ message: err.message }); }
+  });
+  app.put('/api/hul-date-entries/:id', requirePermission('salesinvoice'), async (req, res) => {
+    try { const entry = await storage.updateHulDateEntry(Number(req.params.id), req.body); res.json(entry); }
+    catch (err: any) { res.status(500).json({ message: err.message }); }
+  });
+  app.delete('/api/hul-date-entries/:id', requirePermission('salesinvoice'), async (req, res) => {
+    await storage.deleteHulDateEntry(Number(req.params.id)); res.status(204).send();
+  });
+
   return httpServer;
 }
 

@@ -33,6 +33,7 @@ Preferred communication style: Simple, everyday language.
   - Sales Invoice Ledger Entry: CRUD operations, client/month/year filters, inline editing, and a "Pankaj Report" tab for client-specific monthly data.
   - Sales Dashboard: Visualizations for billing, received payments, payment status, and pending payments.
   - Purchase Invoice: Auto-generated DJ Invoice No (DJ001, DJ002…), partial payment tracking with date + amount per payment, payment progress bar, Paid/Partial/Unpaid status. Dashboard shows DJ No, Grand Total, Paid, Balance, Status columns.
+  - Date Entry Tab: Multi-client date entry with sub-tabs for UBL (Snack/Lunch), Unichem (Snack/Lunch), Cipla, and HUL (Hindustan Unilever Limited). HUL tab supports KPF/TEC location selector, full-month scaffold with Meal Charges (Breakfast/Lunch/Evening Snacks/Night Snacks) and Guest Meal Charges, mobile card view + desktop table view, per-row Save/Delete, Save All, Print, and Excel export.
 
 ### Backend
 - **Framework**: Express 5 on Node.js with TypeScript (run via `tsx`).

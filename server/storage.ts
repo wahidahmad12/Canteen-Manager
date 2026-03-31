@@ -41,12 +41,14 @@ import {
   ciplaaMachineSummary,
   unichEmSnackEntries,
   unichEmLunchEntries,
+  hulDateEntries,
   type UblDateEntry,
   type CiplaDateEntry,
   type UblLunchEntry,
   type CiplaaMachineSummary,
   type UnichEmSnackEntry,
   type UnichEmLunchEntry,
+  type HulDateEntry,
   type DailyReport, 
   type ExpenseItem,
   type CreateReportRequest,
@@ -2047,6 +2049,36 @@ export class DatabaseStorage implements IStorage {
   }
   async deleteUnichEmLunchEntry(id: number): Promise<void> {
     await db.delete(unichEmLunchEntries).where(eq(unichEmLunchEntries.id, id));
+  }
+
+  // HUL Date Entries (Hindustan Unilever Limited — KPF / TEC)
+  async getHulDateEntries(month: number, year: number, location: string): Promise<HulDateEntry[]> {
+    return await db.select().from(hulDateEntries)
+      .where(and(eq(hulDateEntries.month, month), eq(hulDateEntries.year, year), eq(hulDateEntries.location, location)))
+      .orderBy(hulDateEntries.entryDate);
+  }
+  async createHulDateEntry(data: any): Promise<HulDateEntry> {
+    const { location, entryDate, month, year, weekDay, breakfast, lunch, eveningSnacks, nightSnacks, guestBreakfast, guestLunch, guestEveningSnacks, guestNightSnacks } = data;
+    await db.execute(sql`
+      INSERT INTO hul_date_entries (location, entry_date, month, year, week_day, breakfast, lunch, evening_snacks, night_snacks, guest_breakfast, guest_lunch, guest_evening_snacks, guest_night_snacks)
+      VALUES (${location}, ${entryDate}, ${month}, ${year}, ${weekDay || null}, ${breakfast || 0}, ${lunch || 0}, ${eveningSnacks || 0}, ${nightSnacks || 0}, ${guestBreakfast || 0}, ${guestLunch || 0}, ${guestEveningSnacks || 0}, ${guestNightSnacks || 0})
+      ON DUPLICATE KEY UPDATE
+        breakfast = VALUES(breakfast), lunch = VALUES(lunch), evening_snacks = VALUES(evening_snacks), night_snacks = VALUES(night_snacks),
+        guest_breakfast = VALUES(guest_breakfast), guest_lunch = VALUES(guest_lunch), guest_evening_snacks = VALUES(guest_evening_snacks),
+        guest_night_snacks = VALUES(guest_night_snacks), week_day = VALUES(week_day), updated_at = NOW()
+    `);
+    const rows = await db.select().from(hulDateEntries)
+      .where(and(eq(hulDateEntries.location, location), eq(hulDateEntries.entryDate, entryDate)));
+    return rows[0];
+  }
+  async updateHulDateEntry(id: number, data: any): Promise<HulDateEntry> {
+    const { id: _id, entryDate, createdAt, _dirty, ...safeData } = data;
+    await db.update(hulDateEntries).set({ ...safeData, updatedAt: new Date() }).where(eq(hulDateEntries.id, id));
+    const rows = await db.select().from(hulDateEntries).where(eq(hulDateEntries.id, id));
+    return rows[0];
+  }
+  async deleteHulDateEntry(id: number): Promise<void> {
+    await db.delete(hulDateEntries).where(eq(hulDateEntries.id, id));
   }
 }
 

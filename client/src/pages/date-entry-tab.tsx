@@ -2967,6 +2967,399 @@ function CiplaDateEntryTab({ month, year, loadKey = 0 }: { month: number; year: 
 }
 
 // ============================================================
+// HUL Date Entry Tab — Hindustan Unilever Limited (KPF / TEC)
+// ============================================================
+
+type HulRow = {
+  id?: number;
+  location: string;
+  entryDate: string;
+  month: number;
+  year: number;
+  weekDay: string;
+  breakfast: number;
+  lunch: number;
+  eveningSnacks: number;
+  nightSnacks: number;
+  guestBreakfast: number;
+  guestLunch: number;
+  guestEveningSnacks: number;
+  guestNightSnacks: number;
+  _dirty?: boolean;
+};
+
+function hulRowDefaults(dateStr: string, month: number, year: number, location: string): HulRow {
+  return { location, entryDate: dateStr, month, year, weekDay: getWeekDay(dateStr), breakfast:0, lunch:0, eveningSnacks:0, nightSnacks:0, guestBreakfast:0, guestLunch:0, guestEveningSnacks:0, guestNightSnacks:0, _dirty:true };
+}
+
+const HUL_LOCATIONS = ['KPF','TEC'] as const;
+type HulLocation = typeof HUL_LOCATIONS[number];
+
+function HulDateEntryTab({ month, year, loadKey = 0 }: { month: number; year: number; loadKey?: number }) {
+  const qc = useQueryClient();
+  const { toast } = useToast();
+  const printRef = useRef<HTMLDivElement>(null);
+  const [location, setLocation] = useState<HulLocation>('KPF');
+  const [localRows, setLocalRows] = useState<HulRow[]>([]);
+  useEffect(() => { setLocalRows([]); }, [month, year, location]);
+
+  const { data: dbRows = [], isLoading, refetch } = useQuery<HulRow[]>({
+    queryKey: ['/api/hul-date-entries', month, year, location],
+    queryFn: async () => {
+      const res = await fetch(`/api/hul-date-entries?month=${month}&year=${year}&location=${encodeURIComponent(location)}`, { credentials: 'include' });
+      const data = await res.json();
+      return data.map((r: HulRow) => ({ ...r, entryDate: normDate(r.entryDate) }));
+    },
+  });
+
+  const generateRows = (freshRows?: HulRow[]) => {
+    const source = freshRows ?? dbRows;
+    const daysInMonth = getDaysInMonth(month, year);
+    const scaffold: HulRow[] = [];
+    for (let d = 1; d <= daysInMonth; d++) {
+      const ds = `${year}-${String(month).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+      scaffold.push(hulRowDefaults(ds, month, year, location));
+    }
+    const existing: Record<string, HulRow> = {};
+    source.forEach(r => { existing[normDate(r.entryDate)] = r; });
+    return scaffold.map(g => existing[g.entryDate] ? { ...existing[g.entryDate], _dirty: false } : g);
+  };
+
+  useEffect(() => {
+    if (loadKey > 0) {
+      refetch().then(result => { setLocalRows(generateRows((result.data || []) as HulRow[])); });
+    }
+  }, [loadKey]);
+
+  const rows: HulRow[] = localRows.length > 0 ? localRows : dbRows.map(r => ({ ...r }));
+
+  const createMutation = useMutation({
+    mutationFn: async (data: HulRow) => {
+      const res = await fetch('/api/hul-date-entries', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(data), credentials: 'include' });
+      return res.json();
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['/api/hul-date-entries', month, year, location] }),
+  });
+  const updateMutation = useMutation({
+    mutationFn: async ({ id, data }: { id: number; data: any }) => {
+      const res = await fetch(`/api/hul-date-entries/${id}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(data), credentials: 'include' });
+      return res.json();
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['/api/hul-date-entries', month, year, location] }),
+  });
+  const deleteMutation = useMutation({
+    mutationFn: async (id: number) => { await fetch(`/api/hul-date-entries/${id}`, { method: 'DELETE', credentials: 'include' }); },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['/api/hul-date-entries', month, year, location] }),
+  });
+
+  const syncRows = () => { if (localRows.length === 0) setLocalRows(dbRows.map(r => ({ ...r }))); };
+
+  const handleCellChange = (idx: number, field: keyof HulRow, value: string) => {
+    syncRows();
+    setLocalRows(prev => {
+      const updated = [...prev];
+      const row = { ...updated[idx] };
+      (row as any)[field] = parseInt(value) || 0;
+      row._dirty = true;
+      updated[idx] = row;
+      return updated;
+    });
+  };
+
+  const saveRow = async (row: HulRow) => {
+    const { _dirty, id, ...data } = row;
+    if (id) await updateMutation.mutateAsync({ id, data });
+    else await createMutation.mutateAsync(row);
+  };
+
+  const handleSaveRow = async (idx: number) => {
+    try {
+      await saveRow(rows[idx]);
+      const result = await refetch();
+      setLocalRows(generateRows((result.data || []) as HulRow[]));
+      toast({ title: 'Row saved' });
+    } catch (e: any) { toast({ title: 'Error', description: e.message, variant: 'destructive' }); }
+  };
+
+  const handleDeleteRow = async (idx: number) => {
+    const row = rows[idx];
+    try {
+      if (row.id) await deleteMutation.mutateAsync(row.id);
+      const result = await refetch();
+      setLocalRows(generateRows((result.data || []) as HulRow[]));
+      toast({ title: 'Row cleared' });
+    } catch (e: any) { toast({ title: 'Error', description: e.message, variant: 'destructive' }); }
+  };
+
+  const handleSaveAll = async () => {
+    const dirty = rows.filter(r => r._dirty && (r.breakfast||r.lunch||r.eveningSnacks||r.nightSnacks||r.guestBreakfast||r.guestLunch||r.guestEveningSnacks||r.guestNightSnacks));
+    if (!dirty.length) { toast({ title: 'Nothing to save' }); return; }
+    try {
+      for (const row of dirty) await saveRow(row);
+      const result = await refetch();
+      setLocalRows(generateRows((result.data || []) as HulRow[]));
+      toast({ title: `Saved ${dirty.length} rows` });
+    } catch (e: any) { toast({ title: 'Error', description: e.message, variant: 'destructive' }); }
+  };
+
+  const handleAutoFill = () => { setLocalRows(generateRows()); };
+
+  const handlePrint = () => {
+    const printContent = printRef.current?.innerHTML;
+    if (!printContent) return;
+    const win = window.open('', '_blank');
+    if (!win) return;
+    win.document.write(`<html><head><title>HUL ${location} Data Sheet</title><style>
+      *{box-sizing:border-box;}body{font-family:"Times New Roman",Times,serif;margin:0;font-size:11pt;-webkit-print-color-adjust:exact;print-color-adjust:exact;}
+      h3,h4,p{text-align:center;margin:2px 0;}
+      table{width:100%;border-collapse:collapse;margin-top:6px;}
+      th,td{border:1px solid #333;padding:1px 3px;text-align:center;font-size:10pt;}
+      th{background:#1a6b2e!important;color:white!important;font-weight:bold;}
+      .blue-hd{background:#1a3a8a!important;color:white!important;}
+      .sun-row{background:#ffa500!important;}
+      .total-row{font-weight:bold;background:#e8f0fe!important;}
+      @media print{@page{margin:5mm;size:A4 landscape;}body{margin:0;}}
+    </style></head><body>${printContent}</body></html>`);
+    win.document.close(); win.print();
+  };
+
+  const handleExportExcel = async () => {
+    const ExcelJS = (await import('exceljs')).default;
+    const wb = new ExcelJS.Workbook();
+    const ws = wb.addWorksheet(`HUL ${location}`);
+    const thin = { top:{style:'thin' as const}, bottom:{style:'thin' as const}, left:{style:'thin' as const}, right:{style:'thin' as const} };
+    // Row 1: Title
+    ws.mergeCells('A1:K1');
+    const titleCell = ws.getCell('A1');
+    titleCell.value = `HINDUSTAN UNILEVER LIMITED - ${location}`;
+    titleCell.font = { bold:true, color:{argb:'FFFFFFFF'} }; titleCell.fill = {type:'pattern',pattern:'solid',fgColor:{argb:'FF1A6B2E'}}; titleCell.alignment={horizontal:'center'}; titleCell.border=thin;
+    // Row 2: Sub-headers group labels
+    ws.mergeCells('A2:C2'); const slDateDay = ws.getCell('A2'); slDateDay.value = ''; slDateDay.fill={type:'pattern',pattern:'solid',fgColor:{argb:'FF1A6B2E'}}; slDateDay.border=thin;
+    ws.mergeCells('D2:G2'); const mealHd = ws.getCell('D2'); mealHd.value = `Meal Charges - ${MONTHS[month-1]} - ${year}`; mealHd.font={bold:true,color:{argb:'FFFFFFFF'}}; mealHd.fill={type:'pattern',pattern:'solid',fgColor:{argb:'FF1A6B2E'}}; mealHd.alignment={horizontal:'center'}; mealHd.border=thin;
+    ws.mergeCells('H2:K2'); const guestHd = ws.getCell('H2'); guestHd.value = `Guest Meal Charges - ${MONTHS[month-1]} - ${year}`; guestHd.font={bold:true,color:{argb:'FFFFFFFF'}}; guestHd.fill={type:'pattern',pattern:'solid',fgColor:{argb:'FF1A3A8A'}}; guestHd.alignment={horizontal:'center'}; guestHd.border=thin;
+    // Row 3: Column headers
+    const hdr = ws.addRow(['Sl.No.','Date','Days','Brakfast','Lunch','Evning Sancks','Night Snacks','Guest Brakfast','Guest Lunch','Guest Evning Sancks','Guest Night Snacks']);
+    hdr.eachCell((cell,ci) => { cell.font={bold:true,color:{argb:'FFFFFFFF'}}; cell.fill={type:'pattern',pattern:'solid',fgColor:{argb:ci<=3?'FF1A6B2E':ci<=7?'FF1A6B2E':'FF1A3A8A'}}; cell.border=thin; cell.alignment={horizontal:'center'}; });
+    ws.columns = [5,14,8,10,10,14,14,14,12,16,16].map(w=>({width:w}));
+    rows.forEach((r, i) => {
+      const row = ws.addRow([i+1, safeFormat(r.entryDate), r.weekDay, r.breakfast||'', r.lunch||'', r.eveningSnacks||'', r.nightSnacks||'', r.guestBreakfast||'', r.guestLunch||'', r.guestEveningSnacks||'', r.guestNightSnacks||'']);
+      if (isSunday(r.entryDate)) row.eachCell(cell => { cell.fill={type:'pattern',pattern:'solid',fgColor:{argb:'FFFFA500'}}; });
+      row.eachCell(cell => { cell.border=thin; cell.alignment={horizontal:'center'}; });
+    });
+    const totRow = ws.addRow(['','Total','', rows.reduce((s,r)=>s+(r.breakfast||0),0), rows.reduce((s,r)=>s+(r.lunch||0),0), rows.reduce((s,r)=>s+(r.eveningSnacks||0),0), rows.reduce((s,r)=>s+(r.nightSnacks||0),0), rows.reduce((s,r)=>s+(r.guestBreakfast||0),0), rows.reduce((s,r)=>s+(r.guestLunch||0),0), rows.reduce((s,r)=>s+(r.guestEveningSnacks||0),0), rows.reduce((s,r)=>s+(r.guestNightSnacks||0),0)]);
+    totRow.eachCell(cell => { cell.font={bold:true}; cell.fill={type:'pattern',pattern:'solid',fgColor:{argb:'FFE8F0FE'}}; cell.border=thin; cell.alignment={horizontal:'center'}; });
+    const buf = await wb.xlsx.writeBuffer();
+    const blob = new Blob([buf],{type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'});
+    const a = document.createElement('a'); a.href=URL.createObjectURL(blob); a.download=`HUL_${location}_${MONTHS[month-1]}_${year}.xlsx`; a.click();
+  };
+
+  const HUL_FIELDS: (keyof HulRow)[] = ['breakfast','lunch','eveningSnacks','nightSnacks','guestBreakfast','guestLunch','guestEveningSnacks','guestNightSnacks'];
+  const mealFields: (keyof HulRow)[] = ['breakfast','lunch','eveningSnacks','nightSnacks'];
+  const guestFields: (keyof HulRow)[] = ['guestBreakfast','guestLunch','guestEveningSnacks','guestNightSnacks'];
+
+  const printTable = (
+    <div ref={printRef}>
+      <h3>DJ Hospitality &amp; Facility Management Pvt Ltd</h3>
+      <h4>HINDUSTAN UNILEVER LIMITED — {location}</h4>
+      <p>Meal Data Sheet — {MONTHS[month-1]} {year}</p>
+      <table>
+        <thead>
+          <tr>
+            <th rowSpan={2}>Sl.</th><th rowSpan={2}>Date</th><th rowSpan={2}>Days</th>
+            <th colSpan={4} className="blue-hd">Meal Charges — {MONTHS[month-1]} {year}</th>
+            <th colSpan={4} style={{background:"#1a3a8a",color:"white"}}>Guest Meal Charges — {MONTHS[month-1]} {year}</th>
+          </tr>
+          <tr>
+            <th>Brakfast</th><th>Lunch</th><th>Evning Sancks</th><th>Night Snacks</th>
+            <th style={{background:"#1a3a8a",color:"white"}}>Guest Brakfast</th><th style={{background:"#1a3a8a",color:"white"}}>Guest Lunch</th>
+            <th style={{background:"#1a3a8a",color:"white"}}>Guest Evning Sancks</th><th style={{background:"#1a3a8a",color:"white"}}>Guest Night Snacks</th>
+          </tr>
+        </thead>
+        <tbody>
+          {rows.map((row,i)=>(
+            <tr key={i} className={isSunday(row.entryDate)?"sun-row":""}>
+              <td>{i+1}</td><td>{safeFormat(row.entryDate)}</td><td>{row.weekDay}</td>
+              <td>{row.breakfast||""}</td><td>{row.lunch||""}</td><td>{row.eveningSnacks||""}</td><td>{row.nightSnacks||""}</td>
+              <td>{row.guestBreakfast||""}</td><td>{row.guestLunch||""}</td><td>{row.guestEveningSnacks||""}</td><td>{row.guestNightSnacks||""}</td>
+            </tr>
+          ))}
+          <tr className="total-row">
+            <td colSpan={3}>Total</td>
+            {HUL_FIELDS.map(f=><td key={f as string}>{rows.reduce((s,r)=>s+((r as any)[f]||0),0)}</td>)}
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  );
+
+  if (isLoading) return <div className="flex justify-center py-10"><Loader2 className="w-6 h-6 animate-spin"/></div>;
+
+  return (
+    <div>
+      {/* Location selector */}
+      <div className="flex flex-wrap items-center gap-3 mb-4">
+        <div className="flex items-center gap-2">
+          <label className="text-sm font-medium text-muted-foreground shrink-0">Location:</label>
+          <div className="flex rounded-lg border overflow-hidden text-sm font-medium">
+            {HUL_LOCATIONS.map(loc => (
+              <button key={loc} onClick={() => setLocation(loc)}
+                className={`px-5 py-1.5 transition-colors ${location === loc ? 'bg-green-600 text-white' : 'hover:bg-muted text-muted-foreground'}`}
+                data-testid={`btn-hul-location-${loc}`}>
+                {loc}
+              </button>
+            ))}
+          </div>
+        </div>
+        <div className="flex flex-wrap gap-2 ml-auto">
+          <Button size="sm" variant="outline" onClick={handleAutoFill} className="h-9" data-testid="btn-hul-autofill">
+            <Plus className="w-3.5 h-3.5 mr-1"/>Auto-Fill Month
+          </Button>
+          <Button size="sm" onClick={handleSaveAll} disabled={createMutation.isPending || updateMutation.isPending} className="h-9 bg-green-600 hover:bg-green-700 text-white" data-testid="btn-hul-save-all">
+            <Save className="w-3.5 h-3.5 mr-1"/>Save All
+          </Button>
+          <Button size="sm" variant="outline" onClick={handlePrint} className="h-9" data-testid="btn-hul-print">
+            <Printer className="w-3.5 h-3.5 mr-1"/>Print
+          </Button>
+          <Button size="sm" variant="outline" onClick={handleExportExcel} className="h-9 text-green-700 border-green-300 hover:bg-green-50" disabled={rows.length===0} data-testid="btn-hul-export">
+            <FileDown className="w-3.5 h-3.5 mr-1"/>Export Excel
+          </Button>
+        </div>
+      </div>
+
+      {/* Mobile card view */}
+      <div className="block md:hidden space-y-2">
+        {rows.map((row, idx) => {
+          const isSun = isSunday(row.entryDate);
+          const cardBg = isSun ? "bg-amber-50 border-amber-300 dark:bg-amber-900/20" : "bg-white dark:bg-gray-900 border-gray-200";
+          const mblFld = (f: keyof HulRow, label: string) => (
+            <div className="flex flex-col items-center bg-gray-50 dark:bg-gray-800/50 rounded-lg p-1.5">
+              <span className="text-xs text-gray-400 mb-1 text-center leading-tight">{label}</span>
+              <input type="number" min={0} inputMode="numeric" value={(row as any)[f]||""}
+                onChange={e => handleCellChange(idx, f, e.target.value)}
+                className="w-full text-center border border-gray-200 dark:border-gray-600 rounded-lg text-sm font-medium dark:bg-gray-900 dark:text-white" style={{minHeight:38, padding:"4px 2px"}}/>
+            </div>
+          );
+          return (
+            <div key={idx} className={`border rounded-xl p-3 shadow-sm ${cardBg} ${row._dirty ? "ring-2 ring-yellow-300" : ""}`}>
+              <div className="flex items-center gap-2 mb-2.5">
+                <span className="text-xs font-bold text-gray-400 shrink-0">#{idx+1}</span>
+                <span className="flex-1 text-sm font-semibold">{safeFormat(row.entryDate)}</span>
+                <span className="text-xs font-semibold bg-green-100 dark:bg-green-900 text-green-700 dark:text-green-300 rounded px-2 py-1 shrink-0">{row.weekDay}</span>
+                {row._dirty && <span className="text-orange-500 font-bold text-xs shrink-0">●</span>}
+              </div>
+              <div className="mb-2">
+                <div className="text-xs font-semibold text-gray-500 mb-1 bg-green-50 dark:bg-green-900/20 rounded px-2 py-0.5">🍽 Meal Charges</div>
+                <div className="grid grid-cols-2 gap-1">
+                  {mblFld('breakfast', 'Breakfast')}
+                  {mblFld('lunch', 'Lunch')}
+                  {mblFld('eveningSnacks', 'Evening Snacks')}
+                  {mblFld('nightSnacks', 'Night Snacks')}
+                </div>
+              </div>
+              <div className="mb-3">
+                <div className="text-xs font-semibold text-gray-500 mb-1 bg-blue-50 dark:bg-blue-900/20 rounded px-2 py-0.5">👥 Guest Meal Charges</div>
+                <div className="grid grid-cols-2 gap-1">
+                  {mblFld('guestBreakfast', 'Guest Breakfast')}
+                  {mblFld('guestLunch', 'Guest Lunch')}
+                  {mblFld('guestEveningSnacks', 'Guest Evening')}
+                  {mblFld('guestNightSnacks', 'Guest Night')}
+                </div>
+              </div>
+              <div className="flex gap-2">
+                <button onClick={() => handleSaveRow(idx)} className="flex-1 bg-blue-600 hover:bg-blue-700 text-white rounded-xl py-2.5 text-sm font-medium flex items-center justify-center gap-1.5">
+                  <Save className="w-4 h-4"/>Save
+                </button>
+                <button onClick={() => handleDeleteRow(idx)} className="bg-red-500 hover:bg-red-600 text-white rounded-xl px-4 py-2.5 flex items-center justify-center">
+                  <Trash2 className="w-4 h-4"/>
+                </button>
+              </div>
+            </div>
+          );
+        })}
+        {rows.length > 0 && (
+          <div className="border rounded-xl overflow-hidden shadow-sm">
+            <div className="bg-green-800 text-white px-3 py-2 text-sm font-bold">Totals — {location}</div>
+            <div className="grid grid-cols-2 divide-x divide-y">
+              {[['Breakfast', rows.reduce((s,r)=>s+(r.breakfast||0),0)], ['Lunch', rows.reduce((s,r)=>s+(r.lunch||0),0)],
+                ['Evening Snacks', rows.reduce((s,r)=>s+(r.eveningSnacks||0),0)], ['Night Snacks', rows.reduce((s,r)=>s+(r.nightSnacks||0),0)],
+                ['Guest Breakfast', rows.reduce((s,r)=>s+(r.guestBreakfast||0),0)], ['Guest Lunch', rows.reduce((s,r)=>s+(r.guestLunch||0),0)],
+                ['Guest Evening', rows.reduce((s,r)=>s+(r.guestEveningSnacks||0),0)], ['Guest Night', rows.reduce((s,r)=>s+(r.guestNightSnacks||0),0)],
+              ].map(([label, val]) => (
+                <div key={label as string} className="flex justify-between items-center px-3 py-2 text-sm">
+                  <span className="text-gray-600">{label}</span>
+                  <span className="font-semibold">{val}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* Desktop table view */}
+      <div className="hidden md:block overflow-x-auto rounded-xl border shadow-sm">
+        <table style={{borderCollapse:'collapse', minWidth:900, fontFamily:'Arial,sans-serif', fontSize:12}}>
+          <thead>
+            <tr style={{background:'#1a6b2e', color:'white'}}>
+              <th rowSpan={2} style={{padding:'6px 4px', border:'1px solid #ccc', width:36}}>Sl.</th>
+              <th rowSpan={2} style={{padding:'6px 4px', border:'1px solid #ccc', minWidth:90}}>Date</th>
+              <th rowSpan={2} style={{padding:'6px 4px', border:'1px solid #ccc', width:44}}>Days</th>
+              <th colSpan={4} style={{padding:'5px', border:'1px solid #ccc', background:'#1a6b2e'}}>Meal Charges — {MONTHS[month-1]} — {year}</th>
+              <th colSpan={4} style={{padding:'5px', border:'1px solid #ccc', background:'#1a3a8a'}}>Guest Meal Charges — {MONTHS[month-1]} — {year}</th>
+              <th rowSpan={2} style={{padding:'4px', border:'1px solid #ccc', width:50}}>Act</th>
+            </tr>
+            <tr style={{background:'#2a7a3e', color:'white'}}>
+              {['Brakfast','Lunch','Evning Sancks','Night Snacks'].map(c=>(
+                <th key={c} style={{padding:'4px 3px', border:'1px solid #ccc', minWidth:78, fontSize:11}}>{c}</th>
+              ))}
+              {['Guest Brakfast','Guest Lunch','Guest Evning Sancks','Guest Night Snacks'].map(c=>(
+                <th key={c} style={{padding:'4px 3px', border:'1px solid #ccc', minWidth:90, fontSize:11, background:'#2a4a9a'}}>{c}</th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {rows.map((row, idx) => {
+              const isSun = isSunday(row.entryDate);
+              const bg = isSun ? '#fff3cd' : idx%2===0 ? '#fff' : '#f9f9f9';
+              const numFld = (f: keyof HulRow) => (
+                <input type="number" min={0} value={(row as any)[f]||''} onChange={e=>handleCellChange(idx,f,e.target.value)}
+                  style={{width:70, border:'none', background:'transparent', textAlign:'center', fontSize:12, padding:0, outline:'none'}}/>
+              );
+              return (
+                <tr key={idx} style={{background: bg}}>
+                  <td style={{textAlign:'center', border:'1px solid #ccc', padding:'2px'}}>{idx+1}</td>
+                  <td style={{textAlign:'center', border:'1px solid #ccc', padding:'3px 4px', fontSize:11, fontWeight:500}}>{safeFormat(row.entryDate)}</td>
+                  <td style={{textAlign:'center', border:'1px solid #ccc', fontSize:11}}>{row.weekDay}</td>
+                  {mealFields.map(f=>(
+                    <td key={f as string} style={{border:'1px solid #ccc', padding:0, textAlign:'center'}}>{numFld(f)}</td>
+                  ))}
+                  {guestFields.map(f=>(
+                    <td key={f as string} style={{border:'1px solid #ccc', padding:0, textAlign:'center', background:'rgba(26,58,138,0.04)'}}>{numFld(f)}</td>
+                  ))}
+                  <td style={{border:'1px solid #ccc', padding:'2px', textAlign:'center'}}>
+                    <button onClick={()=>handleSaveRow(idx)} title="Save" style={{color:'#22c55e', marginRight:4, background:'none', border:'none', cursor:'pointer'}}><Save style={{width:13,height:13}}/></button>
+                    <button onClick={()=>handleDeleteRow(idx)} title="Clear" style={{color:'#e53e3e', background:'none', border:'none', cursor:'pointer'}}><Trash2 style={{width:13,height:13}}/></button>
+                  </td>
+                </tr>
+              );
+            })}
+            <tr style={{background:'#e8f0fe', fontWeight:'bold'}}>
+              <td colSpan={3} style={{textAlign:'center', border:'1px solid #ccc', padding:'4px'}}>Total</td>
+              {HUL_FIELDS.map(f=>(
+                <td key={f as string} style={{border:'1px solid #ccc', textAlign:'center', padding:'4px', fontSize:12}}>
+                  {rows.reduce((s,r)=>s+((r as any)[f]||0),0)||''}
+                </td>
+              ))}
+              <td style={{border:'1px solid #ccc'}}></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      <div style={{display:'none'}}>{printTable}</div>
+    </div>
+  );
+}
+
+// ============================================================
 // Main Date Entry Tab — with UBL sub-tabs
 // ============================================================
 
@@ -2974,6 +3367,7 @@ const CLIENT_OPTIONS = [
   { value: "ubl", label: "United Breweries Ltd (UBL)" },
   { value: "unichem", label: "Unichem Laboratories Ltd" },
   { value: "cipla", label: "Cipla Limited" },
+  { value: "hul", label: "Hindustan Unilever Limited (HUL)" },
 ];
 
 export function DateEntryTab() {
@@ -2988,6 +3382,7 @@ export function DateEntryTab() {
       if (o.value === "ubl") return perms.includes("dateentry_ubl");
       if (o.value === "unichem") return perms.includes("dateentry_ubl");
       if (o.value === "cipla") return perms.includes("dateentry_cipla");
+      if (o.value === "hul") return perms.includes("dateentry_hul") || perms.includes("dateentry_ubl");
       return false;
     });
   }, [currentUser]);
@@ -3015,7 +3410,7 @@ export function DateEntryTab() {
   const years = Array.from({ length: 6 }, (_, i) => String(now.getFullYear() - 2 + i));
   const { label: billingLabel } = getBillingRange(parseInt(month), parseInt(year));
   const periodLabel = useMemo(() => {
-    if (selectedClient === "unichem") {
+    if (selectedClient === "unichem" || selectedClient === "hul") {
       const m = parseInt(month); const y = parseInt(year);
       const lastDay = getDaysInMonth(m, y);
       return `1 ${MONTHS[m-1].slice(0,3)} ${y} – ${lastDay} ${MONTHS[m-1].slice(0,3)} ${y}`;
@@ -3132,6 +3527,12 @@ export function DateEntryTab() {
         <>
           <div className="mb-2 text-sm text-muted-foreground font-medium">Cipla Limited — Breakfast / Lunch / Dinner (Coopen / Coin / Sign / Machine)</div>
           <CiplaDateEntryTab month={parseInt(month)} year={parseInt(year)} loadKey={loadKey}/>
+        </>
+      )}
+      {selectedClient === "hul" && (
+        <>
+          <div className="mb-2 text-sm text-muted-foreground font-medium">Hindustan Unilever Limited — Meal Charges &amp; Guest Meal Charges (1st to last day of month)</div>
+          <HulDateEntryTab month={parseInt(month)} year={parseInt(year)} loadKey={loadKey}/>
         </>
       )}
     </div>
