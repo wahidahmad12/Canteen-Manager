@@ -4312,6 +4312,47 @@ function CiplaSummaryTab({ month, year }: { month: number; year: number }) {
                 </tbody>
               </table>
             </div>
+            {/* Cipla Monthly Rate Wise Summary */}
+            {(() => {
+              const cipRates = [
+                { key:'bf', name:'Breakfast', rate:23, qty: sumF(ciplaRows,'breakfastCoopen')+sumF(ciplaRows,'breakfastCoin')+sumF(ciplaRows,'breakfastSign')+sumF(ciplaRows,'breakfastMachine') },
+                { key:'lu', name:'Lunch', rate:58, qty: sumF(ciplaRows,'lunchCoopen')+sumF(ciplaRows,'lunchCoin')+sumF(ciplaRows,'lunchSign')+sumF(ciplaRows,'lunchMachine') },
+                { key:'di', name:'Dinner', rate:58, qty: sumF(ciplaRows,'dinnerCoopen')+sumF(ciplaRows,'dinnerCoin')+sumF(ciplaRows,'dinnerSign')+sumF(ciplaRows,'dinnerMachine') },
+              ];
+              const cipGrand = cipRates.reduce((s, r) => s + r.qty * r.rate, 0);
+              const fmt = (n: number) => n ? `₹${n.toLocaleString('en-IN')}` : '—';
+              return (
+                <div className="border rounded-lg overflow-hidden mb-4 mt-3">
+                  <div className="px-3 py-1.5 text-sm font-bold text-center text-white" style={{ background:'#4338ca' }}>
+                    Rate Wise Summary — {monthLabel}
+                  </div>
+                  <table className="w-full border-collapse" style={{ fontSize:10 }}>
+                    <thead>
+                      <tr>
+                        <th style={{ ...thI, textAlign:'left', paddingLeft:8, width:130, fontSize:10 }}>Meal Type</th>
+                        <th style={{ ...thI, fontSize:10 }}>Qty</th>
+                        <th style={{ ...thI, fontSize:10 }}>Rate (₹)</th>
+                        <th style={{ ...thI, fontSize:10 }}>Amount (₹)</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {cipRates.map((r, i) => (
+                        <tr key={i} style={{ background: i%2===0 ? '#f9fafb' : '#fff' }}>
+                          <td style={{ border:'1px solid #ddd', padding:'2px 8px', textAlign:'left', fontSize:10 }}>{r.name}</td>
+                          <td style={{ border:'1px solid #ddd', padding:'2px 6px', textAlign:'center', fontSize:10 }}>{r.qty || ''}</td>
+                          <td style={{ border:'1px solid #ddd', padding:'2px 6px', textAlign:'center', fontSize:10 }}>₹{r.rate}</td>
+                          <td style={{ border:'1px solid #ddd', padding:'2px 6px', textAlign:'right', fontSize:10 }}>{r.qty ? fmt(r.qty * r.rate) : ''}</td>
+                        </tr>
+                      ))}
+                      <tr style={{ background:'#4338ca' }}>
+                        <td colSpan={3} style={{ border:'1px solid #333', padding:'3px 8px', fontWeight:'bold', textAlign:'right', fontSize:11, color:'#fff' }}>Grand Total</td>
+                        <td style={{ border:'1px solid #333', padding:'3px 6px', textAlign:'right', fontWeight:'bold', fontSize:11, color:'#fff' }}>{fmt(cipGrand)}</td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+              );
+            })()}
           </>
         )}
         {!isLoading && viewMode === 'yearly' && (
@@ -4350,6 +4391,73 @@ function CiplaSummaryTab({ month, year }: { month: number; year: number }) {
                 </tbody>
               </table>
             </div>
+            {/* Cipla Yearly Rate Wise Summary */}
+            {(() => {
+              const fmt = (n: number) => n ? `₹${n.toLocaleString('en-IN')}` : '—';
+              const cipRates = [
+                { field:'breakfast', name:'Breakfast', rate:23 },
+                { field:'lunch', name:'Lunch', rate:58 },
+                { field:'dinner', name:'Dinner', rate:58 },
+              ];
+              return (
+                <div className="border rounded-lg overflow-hidden mb-4 mt-3">
+                  <div className="px-3 py-1.5 text-sm font-bold text-center text-white" style={{ background:'#4338ca' }}>
+                    Rate Wise Yearly Summary — {yearLabel}
+                  </div>
+                  <div className="overflow-x-auto">
+                    <table className="w-full border-collapse" style={{ fontSize:10 }}>
+                      <thead>
+                        <tr>
+                          <th style={{ ...thI, textAlign:'left', paddingLeft:6, width:165, fontSize:10 }}>Billing Period</th>
+                          <th colSpan={2} style={{ ...thI, fontSize:10 }}>Breakfast (×₹23)</th>
+                          <th colSpan={2} style={{ ...thI, fontSize:10 }}>Lunch (×₹58)</th>
+                          <th colSpan={2} style={{ ...thI, fontSize:10 }}>Dinner (×₹58)</th>
+                          <th style={{ background:'#374151', color:'#fff', border:'1px solid #333', padding:'3px 5px', textAlign:'center', fontWeight:'bold', fontSize:10 }}>Grand Total</th>
+                        </tr>
+                        <tr>
+                          <th style={{ ...thI, fontSize:9, padding:'2px 4px' }}></th>
+                          {['Qty','Amt','Qty','Amt','Qty','Amt'].map((h,i)=><th key={i} style={{ ...thI, fontSize:9, padding:'2px 4px' }}>{h}</th>)}
+                          <th style={{ background:'#374151', color:'#fff', border:'1px solid #333', fontSize:9, padding:'2px 4px' }}></th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {MONTHS.map((_mName, mi) => {
+                          const row = yrCipla.find(r => r.month === mi + 1);
+                          const bf = row?.breakfast||0, lu = row?.lunch||0, di = row?.dinner||0;
+                          const grand = bf*23+lu*58+di*58;
+                          const bg = mi%2===0 ? '#f9fafb' : '#fff';
+                          return (
+                            <tr key={mi} style={{ background: bg }}>
+                              <td style={{ border:'1px solid #ddd', padding:'2px 5px', fontWeight:500, textAlign:'left', fontSize:10 }}>{getCiplaBillingRowLabel(mi+1)}</td>
+                              <td style={{ border:'1px solid #ddd', padding:'2px 4px', textAlign:'center', fontSize:10 }}>{bf||''}</td>
+                              <td style={{ border:'1px solid #ddd', padding:'2px 4px', textAlign:'right', fontSize:10 }}>{bf ? (bf*23).toLocaleString('en-IN') : ''}</td>
+                              <td style={{ border:'1px solid #ddd', padding:'2px 4px', textAlign:'center', fontSize:10 }}>{lu||''}</td>
+                              <td style={{ border:'1px solid #ddd', padding:'2px 4px', textAlign:'right', fontSize:10 }}>{lu ? (lu*58).toLocaleString('en-IN') : ''}</td>
+                              <td style={{ border:'1px solid #ddd', padding:'2px 4px', textAlign:'center', fontSize:10 }}>{di||''}</td>
+                              <td style={{ border:'1px solid #ddd', padding:'2px 4px', textAlign:'right', fontSize:10 }}>{di ? (di*58).toLocaleString('en-IN') : ''}</td>
+                              <td style={{ border:'1px solid #ddd', padding:'2px 4px', textAlign:'right', fontSize:10, fontWeight:'bold', background:'#eff6ff' }}>{grand ? fmt(grand) : '—'}</td>
+                            </tr>
+                          );
+                        })}
+                        {(() => {
+                          const totBf = sumF(yrCipla,'breakfast'), totLu = sumF(yrCipla,'lunch'), totDi = sumF(yrCipla,'dinner');
+                          const grand = totBf*23+totLu*58+totDi*58;
+                          return (
+                            <tr>
+                              <td style={tdTot}>Grand Total</td>
+                              <td style={tdTot}>{totBf||'—'}</td><td style={tdTot}>{totBf ? `₹${(totBf*23).toLocaleString('en-IN')}` : '—'}</td>
+                              <td style={tdTot}>{totLu||'—'}</td><td style={tdTot}>{totLu ? `₹${(totLu*58).toLocaleString('en-IN')}` : '—'}</td>
+                              <td style={tdTot}>{totDi||'—'}</td><td style={tdTot}>{totDi ? `₹${(totDi*58).toLocaleString('en-IN')}` : '—'}</td>
+                              <td style={{ ...tdTot, background:'#bfdbfe' }}>{grand ? fmt(grand) : '—'}</td>
+                            </tr>
+                          );
+                        })()}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              );
+            })()}
           </div>
         )}
       </div>
@@ -4604,11 +4712,130 @@ function UnichemSummaryTab({ month, year }: { month: number; year: number }) {
                 </tbody>
               </table>
             </div>
+            {/* Unichem Monthly Rate Wise Summary */}
+            {(() => {
+              const uniRates = [
+                { name:'Breakfast', rate:15, qty: aggSnackByDate.reduce((s,r)=>s+r.breakfast,0) },
+                { name:'Evening Snacks', rate:15, qty: aggSnackByDate.reduce((s,r)=>s+r.eveningSnacks,0) },
+                { name:'Night Snacks', rate:15, qty: aggSnackByDate.reduce((s,r)=>s+r.nightSnacks,0) },
+                { name:'Sunday Extra', rate:10, qty: aggSnackByDate.reduce((s,r)=>s+r.sundayExtraSnacks,0) },
+                { name:'Lunch', rate:58, qty: aggSnackByDate.reduce((s,r)=>s+r.lunch,0) },
+                { name:'Dinner', rate:58, qty: aggSnackByDate.reduce((s,r)=>s+r.dinner,0) },
+              ];
+              const uniGrand = uniRates.reduce((s, r) => s + r.qty * r.rate, 0);
+              const fmt = (n: number) => n ? `₹${n.toLocaleString('en-IN')}` : '—';
+              return (
+                <div className="border rounded-lg overflow-hidden mb-4 mt-3">
+                  <div className="px-3 py-1.5 text-sm font-bold text-center text-white" style={{ background:'#0f766e' }}>
+                    Rate Wise Summary — {monthLabel}
+                  </div>
+                  <table className="w-full border-collapse" style={{ fontSize:10 }}>
+                    <thead>
+                      <tr>
+                        <th style={{ ...thT, textAlign:'left', paddingLeft:8, width:150, fontSize:10 }}>Meal Type</th>
+                        <th style={{ ...thT, fontSize:10 }}>Qty</th>
+                        <th style={{ ...thT, fontSize:10 }}>Rate (₹)</th>
+                        <th style={{ ...thT, fontSize:10 }}>Amount (₹)</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {uniRates.map((r, i) => (
+                        <tr key={i} style={{ background: i%2===0 ? '#f9fafb' : '#fff' }}>
+                          <td style={{ border:'1px solid #ddd', padding:'2px 8px', textAlign:'left', fontSize:10 }}>{r.name}</td>
+                          <td style={{ border:'1px solid #ddd', padding:'2px 6px', textAlign:'center', fontSize:10 }}>{r.qty || ''}</td>
+                          <td style={{ border:'1px solid #ddd', padding:'2px 6px', textAlign:'center', fontSize:10 }}>₹{r.rate}</td>
+                          <td style={{ border:'1px solid #ddd', padding:'2px 6px', textAlign:'right', fontSize:10 }}>{r.qty ? fmt(r.qty * r.rate) : ''}</td>
+                        </tr>
+                      ))}
+                      <tr style={{ background:'#0f766e' }}>
+                        <td colSpan={3} style={{ border:'1px solid #333', padding:'3px 8px', fontWeight:'bold', textAlign:'right', fontSize:11, color:'#fff' }}>Grand Total</td>
+                        <td style={{ border:'1px solid #333', padding:'3px 6px', textAlign:'right', fontWeight:'bold', fontSize:11, color:'#fff' }}>{fmt(uniGrand)}</td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+              );
+            })()}
           </>
         )}
-        {!isLoading && viewMode === 'yearly' && (
+        {!isLoading && viewMode === 'yearly' && (<>
           <YearlyTable snacksData={yrSnacks} lunchData={yrLunchData} title="Unichem — All Locations Combined Yearly Summary" hStyle={thT} />
-        )}
+          {/* Unichem Yearly Rate Wise Summary */}
+          {(() => {
+            const fmt = (n: number) => n ? `₹${n.toLocaleString('en-IN')}` : '—';
+            const sumS = (f: string) => yrSnacks.reduce((s: number, r: any) => s + (r[f]||0), 0);
+            const sumL = (f: string) => yrLunchData.reduce((s: number, r: any) => s + (r[f]||0), 0);
+            return (
+              <div className="border rounded-lg overflow-hidden mb-4 mt-1">
+                <div className="px-3 py-1.5 text-sm font-bold text-center text-white" style={{ background:'#0f766e' }}>
+                  Rate Wise Yearly Summary — {yearLabel}
+                </div>
+                <div className="overflow-x-auto">
+                  <table className="w-full border-collapse" style={{ fontSize:10 }}>
+                    <thead>
+                      <tr>
+                        <th style={{ ...thT, textAlign:'left', paddingLeft:6, width:90, fontSize:10 }}>Month</th>
+                        <th colSpan={2} style={{ ...thT, fontSize:10 }}>Breakfast (×₹15)</th>
+                        <th colSpan={2} style={{ ...thT, fontSize:10 }}>Ev. Snacks (×₹15)</th>
+                        <th colSpan={2} style={{ ...thT, fontSize:10 }}>Night Snacks (×₹15)</th>
+                        <th colSpan={2} style={{ ...thT, fontSize:10 }}>Sun. Extra (×₹10)</th>
+                        <th colSpan={2} style={{ ...thB, fontSize:10 }}>Lunch (×₹58)</th>
+                        <th colSpan={2} style={{ ...thB, fontSize:10 }}>Dinner (×₹58)</th>
+                        <th style={{ background:'#374151', color:'#fff', border:'1px solid #333', padding:'3px 5px', textAlign:'center', fontWeight:'bold', fontSize:10 }}>Grand Total</th>
+                      </tr>
+                      <tr>
+                        <th style={{ ...thT, fontSize:9, padding:'2px 4px' }}></th>
+                        {Array.from({length:12},(_,i)=><th key={i} style={{ ...(i<8?thT:thB), fontSize:9, padding:'2px 4px' }}>{i%2===0?'Qty':'Amt'}</th>)}
+                        <th style={{ background:'#374151', color:'#fff', border:'1px solid #333', fontSize:9, padding:'2px 4px' }}></th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {MONTHS.map((mName, mi) => {
+                        const s = yrSnacks.find((r: any) => r.month === mi+1);
+                        const l = yrLunchData.find((r: any) => r.month === mi+1);
+                        const bf=s?.breakfast||0, es=s?.eveningSnacks||0, ns=s?.nightSnacks||0, se=s?.sundayExtraSnacks||0;
+                        const lu=l?.lunch||0, di=l?.dinner||0;
+                        const grand = bf*15+es*15+ns*15+se*10+lu*58+di*58;
+                        const bg = mi%2===0 ? '#f9fafb' : '#fff';
+                        const c = (n:number) => n||'';
+                        const a = (n:number,r:number) => n ? (n*r).toLocaleString('en-IN') : '';
+                        return (
+                          <tr key={mi} style={{ background: bg }}>
+                            <td style={{ border:'1px solid #ddd', padding:'2px 5px', fontWeight:500, textAlign:'left', fontSize:10 }}>{mName}</td>
+                            <td style={{ border:'1px solid #ddd', padding:'2px 4px', textAlign:'center', fontSize:10 }}>{c(bf)}</td><td style={{ border:'1px solid #ddd', padding:'2px 4px', textAlign:'right', fontSize:10 }}>{a(bf,15)}</td>
+                            <td style={{ border:'1px solid #ddd', padding:'2px 4px', textAlign:'center', fontSize:10 }}>{c(es)}</td><td style={{ border:'1px solid #ddd', padding:'2px 4px', textAlign:'right', fontSize:10 }}>{a(es,15)}</td>
+                            <td style={{ border:'1px solid #ddd', padding:'2px 4px', textAlign:'center', fontSize:10 }}>{c(ns)}</td><td style={{ border:'1px solid #ddd', padding:'2px 4px', textAlign:'right', fontSize:10 }}>{a(ns,15)}</td>
+                            <td style={{ border:'1px solid #ddd', padding:'2px 4px', textAlign:'center', fontSize:10 }}>{c(se)}</td><td style={{ border:'1px solid #ddd', padding:'2px 4px', textAlign:'right', fontSize:10 }}>{a(se,10)}</td>
+                            <td style={{ border:'1px solid #ddd', padding:'2px 4px', textAlign:'center', fontSize:10, background:'#eff6ff' }}>{c(lu)}</td><td style={{ border:'1px solid #ddd', padding:'2px 4px', textAlign:'right', fontSize:10, background:'#eff6ff' }}>{a(lu,58)}</td>
+                            <td style={{ border:'1px solid #ddd', padding:'2px 4px', textAlign:'center', fontSize:10, background:'#f8fafc' }}>{c(di)}</td><td style={{ border:'1px solid #ddd', padding:'2px 4px', textAlign:'right', fontSize:10, background:'#f8fafc' }}>{a(di,58)}</td>
+                            <td style={{ border:'1px solid #ddd', padding:'2px 4px', textAlign:'right', fontSize:10, fontWeight:'bold', background:'#f0fdf4' }}>{grand ? fmt(grand) : '—'}</td>
+                          </tr>
+                        );
+                      })}
+                      {(() => {
+                        const bf=sumS('breakfast'), es=sumS('eveningSnacks'), ns=sumS('nightSnacks'), se=sumS('sundayExtraSnacks');
+                        const lu=sumL('lunch'), di=sumL('dinner');
+                        const grand = bf*15+es*15+ns*15+se*10+lu*58+di*58;
+                        return (
+                          <tr>
+                            <td style={tdTot}>Grand Total</td>
+                            <td style={tdTot}>{bf||'—'}</td><td style={tdTot}>{bf?`₹${(bf*15).toLocaleString('en-IN')}`:'—'}</td>
+                            <td style={tdTot}>{es||'—'}</td><td style={tdTot}>{es?`₹${(es*15).toLocaleString('en-IN')}`:'—'}</td>
+                            <td style={tdTot}>{ns||'—'}</td><td style={tdTot}>{ns?`₹${(ns*15).toLocaleString('en-IN')}`:'—'}</td>
+                            <td style={tdTot}>{se||'—'}</td><td style={tdTot}>{se?`₹${(se*10).toLocaleString('en-IN')}`:'—'}</td>
+                            <td style={{ ...tdTot, background:'#bfdbfe' }}>{lu||'—'}</td><td style={{ ...tdTot, background:'#bfdbfe' }}>{lu?`₹${(lu*58).toLocaleString('en-IN')}`:'—'}</td>
+                            <td style={{ ...tdTot, background:'#e2e8f0' }}>{di||'—'}</td><td style={{ ...tdTot, background:'#e2e8f0' }}>{di?`₹${(di*58).toLocaleString('en-IN')}`:'—'}</td>
+                            <td style={{ ...tdTot, background:'#bbf7d0' }}>{grand ? fmt(grand) : '—'}</td>
+                          </tr>
+                        );
+                      })()}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            );
+          })()}
+        </>)}
       </div>
     </div>
   );
