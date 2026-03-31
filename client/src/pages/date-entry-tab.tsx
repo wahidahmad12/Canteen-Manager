@@ -4714,12 +4714,15 @@ function UnichemSummaryTab({ month, year }: { month: number; year: number }) {
         MONTHS.forEach((mName, mi) => {
           const s = yrSnacks.find((r: any) => r.month === mi + 1);
           const l = yrLunchData.find((r: any) => r.month === mi + 1);
-          const tot = (s?.breakfast||0)+(s?.eveningSnacks||0)+(s?.nightSnacks||0)+(s?.sundayExtraSnacks||0)+(l?.lunch||0)+(l?.dinner||0);
-          const dr = ws.addRow([mName, s?.breakfast||'', s?.eveningSnacks||'', s?.nightSnacks||'', s?.sundayExtraSnacks||'', l?.lunch||'', l?.dinner||'', tot||'']);
+          const sl = yrSundayLunch.find((r: any) => r.month === mi + 1);
+          const se = sl?.sundayLunch || 0;
+          const tot = (s?.breakfast||0)+(s?.eveningSnacks||0)+(s?.nightSnacks||0)+se+(l?.lunch||0)+(l?.dinner||0);
+          const dr = ws.addRow([mName, s?.breakfast||'', s?.eveningSnacks||'', s?.nightSnacks||'', se||'', l?.lunch||'', l?.dinner||'', tot||'']);
           dr.eachCell((c: any) => { c.border=thin; c.alignment={horizontal:'center'}; });
         });
-        const totRow = ws.addRow(['Grand Total', sumF(yrSnacks,'breakfast')||'', sumF(yrSnacks,'eveningSnacks')||'', sumF(yrSnacks,'nightSnacks')||'', sumF(yrSnacks,'sundayExtraSnacks')||'', sumF(yrLunchData,'lunch')||'', sumF(yrLunchData,'dinner')||'',
-          sumF(yrSnacks,'breakfast')+sumF(yrSnacks,'eveningSnacks')+sumF(yrSnacks,'nightSnacks')+sumF(yrSnacks,'sundayExtraSnacks')+sumF(yrLunchData,'lunch')+sumF(yrLunchData,'dinner')||'']);
+        const totalSE = yrSundayLunch.reduce((s, r) => s + (r.sundayLunch||0), 0);
+        const totRow = ws.addRow(['Grand Total', sumF(yrSnacks,'breakfast')||'', sumF(yrSnacks,'eveningSnacks')||'', sumF(yrSnacks,'nightSnacks')||'', totalSE||'', sumF(yrLunchData,'lunch')||'', sumF(yrLunchData,'dinner')||'',
+          sumF(yrSnacks,'breakfast')+sumF(yrSnacks,'eveningSnacks')+sumF(yrSnacks,'nightSnacks')+totalSE+sumF(yrLunchData,'lunch')+sumF(yrLunchData,'dinner')||'']);
         totRow.eachCell((c: any) => { c.font={bold:true}; c.fill=mkFill('FFE8F0FE'); c.border=thin; c.alignment={horizontal:'center'}; });
       }
       const buf = await wb.xlsx.writeBuffer();
@@ -4728,7 +4731,8 @@ function UnichemSummaryTab({ month, year }: { month: number; year: number }) {
     } catch(err: any) { toast({ title:'Export Failed', description:err.message, variant:'destructive' }); }
   };
 
-  const YearlyTable = ({ snacksData, lunchData, title, hStyle }: { snacksData: any[]; lunchData: any[]; title: string; hStyle: React.CSSProperties }) => {
+  const YearlyTable = ({ snacksData, lunchData, sundayLunchData, title, hStyle }: { snacksData: any[]; lunchData: any[]; sundayLunchData: any[]; title: string; hStyle: React.CSSProperties }) => {
+    const totalSundayLunch = sundayLunchData.reduce((s, r) => s + (r.sundayLunch||0), 0);
     return (
       <div className="mb-5">
         <div className="text-center font-bold text-sm py-1.5" style={{ background: hStyle.background as string, color:'#fff' }}>{title} — {yearLabel}</div>
@@ -4748,11 +4752,13 @@ function UnichemSummaryTab({ month, year }: { month: number; year: number }) {
               {MONTHS.map((mName, mi) => {
                 const s = snacksData.find(r => r.month === mi + 1);
                 const l = lunchData.find(r => r.month === mi + 1);
-                const tot = (s?.breakfast||0)+(s?.eveningSnacks||0)+(s?.nightSnacks||0)+(s?.sundayExtraSnacks||0)+(l?.lunch||0)+(l?.dinner||0);
+                const sl = sundayLunchData.find(r => r.month === mi + 1);
+                const se = sl?.sundayLunch || 0;
+                const tot = (s?.breakfast||0)+(s?.eveningSnacks||0)+(s?.nightSnacks||0)+se+(l?.lunch||0)+(l?.dinner||0);
                 return (
                   <tr key={mi} style={{ background: mi % 2 === 0 ? '#f9fafb' : '#fff' }}>
                     <td style={{ border:'1px solid #ddd', padding:'2px 6px', fontWeight:500, textAlign:'left', fontSize:10 }}>{mName}</td>
-                    {[s?.breakfast,s?.eveningSnacks,s?.nightSnacks,s?.sundayExtraSnacks,l?.lunch,l?.dinner].map((v, fi) => (
+                    {[s?.breakfast,s?.eveningSnacks,s?.nightSnacks,se||undefined,l?.lunch,l?.dinner].map((v, fi) => (
                       <td key={fi} style={{ border:'1px solid #ddd', padding:'2px 5px', textAlign:'center', fontSize:10 }}>{v || '—'}</td>
                     ))}
                     <td style={{ border:'1px solid #ddd', padding:'2px 5px', textAlign:'center', fontSize:10, fontWeight:'bold', background:'#f0fdf4' }}>{tot || '—'}</td>
@@ -4761,10 +4767,10 @@ function UnichemSummaryTab({ month, year }: { month: number; year: number }) {
               })}
               <tr>
                 <td style={tdTot}>Grand Total</td>
-                {[sumF(yrSnacks,'breakfast'),sumF(yrSnacks,'eveningSnacks'),sumF(yrSnacks,'nightSnacks'),sumF(yrSnacks,'sundayExtraSnacks'),sumF(yrLunchData,'lunch'),sumF(yrLunchData,'dinner')].map((v, fi) => (
+                {[sumF(yrSnacks,'breakfast'),sumF(yrSnacks,'eveningSnacks'),sumF(yrSnacks,'nightSnacks'),totalSundayLunch,sumF(yrLunchData,'lunch'),sumF(yrLunchData,'dinner')].map((v, fi) => (
                   <td key={fi} style={tdTot}>{v || '—'}</td>
                 ))}
-                <td style={{ ...tdTot, background:'#bbf7d0' }}>{sumF(yrSnacks,'breakfast')+sumF(yrSnacks,'eveningSnacks')+sumF(yrSnacks,'nightSnacks')+sumF(yrSnacks,'sundayExtraSnacks')+sumF(yrLunchData,'lunch')+sumF(yrLunchData,'dinner') || '—'}</td>
+                <td style={{ ...tdTot, background:'#bbf7d0' }}>{sumF(yrSnacks,'breakfast')+sumF(yrSnacks,'eveningSnacks')+sumF(yrSnacks,'nightSnacks')+totalSundayLunch+sumF(yrLunchData,'lunch')+sumF(yrLunchData,'dinner') || '—'}</td>
               </tr>
             </tbody>
           </table>
@@ -4895,7 +4901,7 @@ function UnichemSummaryTab({ month, year }: { month: number; year: number }) {
           </>
         )}
         {!isLoading && viewMode === 'yearly' && (<>
-          <YearlyTable snacksData={yrSnacks} lunchData={yrLunchData} title="Unichem — All Locations Combined Yearly Summary" hStyle={thT} />
+          <YearlyTable snacksData={yrSnacks} lunchData={yrLunchData} sundayLunchData={yrSundayLunch} title="Unichem — All Locations Combined Yearly Summary" hStyle={thT} />
           {/* Unichem Yearly Rate Wise Summary */}
           {(() => {
             const fmt = (n: number) => n ? `₹${n.toLocaleString('en-IN')}` : '—';
