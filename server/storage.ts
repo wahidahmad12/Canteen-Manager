@@ -2085,7 +2085,7 @@ export class DatabaseStorage implements IStorage {
 
   // HUL KPF Executive/Manager Snacks
   async getUblDateYearlySummary(year: number): Promise<{ month: number; breakfast: number; lunch: number; dinner: number; tea: number; mutton: number; tiffin: number; boiledEgg: number }[]> {
-    const rows = await db.execute(sql`
+    const [rows] = await db.execute(sql`
       SELECT month,
         COALESCE(SUM(breakfast),0) AS breakfast,
         COALESCE(SUM(lunch),0) AS lunch,
@@ -2096,7 +2096,7 @@ export class DatabaseStorage implements IStorage {
         COALESCE(SUM(boiled_egg),0) AS boiledEgg
       FROM ubl_date_entries WHERE year = ${year}
       GROUP BY month ORDER BY month
-    `);
+    `) as any;
     return (rows as any[]).map((r: any) => ({
       month: Number(r.month), breakfast: Number(r.breakfast), lunch: Number(r.lunch),
       dinner: Number(r.dinner), tea: Number(r.tea), mutton: Number(r.mutton),
@@ -2105,7 +2105,7 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getUblLunchYearlySummary(year: number): Promise<{ month: number; perment: number; casual: number; contractual: number; canteen: number }[]> {
-    const rows = await db.execute(sql`
+    const [rows] = await db.execute(sql`
       SELECT month,
         COALESCE(SUM(perment),0) AS perment,
         COALESCE(SUM(casual),0) AS casual,
@@ -2113,7 +2113,7 @@ export class DatabaseStorage implements IStorage {
         COALESCE(SUM(canteen),0) AS canteen
       FROM ubl_lunch_entries WHERE year = ${year}
       GROUP BY month ORDER BY month
-    `);
+    `) as any;
     return (rows as any[]).map((r: any) => ({
       month: Number(r.month), perment: Number(r.perment), casual: Number(r.casual),
       contractual: Number(r.contractual), canteen: Number(r.canteen),
@@ -2121,21 +2121,21 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getCiplaYearlySummary(year: number): Promise<{ month: number; breakfast: number; lunch: number; dinner: number }[]> {
-    const rows = await db.execute(sql`
+    const [rows] = await db.execute(sql`
       SELECT month,
         COALESCE(SUM(breakfast_coopen)+SUM(breakfast_coin)+SUM(breakfast_sign)+SUM(breakfast_machine),0) AS breakfast,
         COALESCE(SUM(lunch_coopen)+SUM(lunch_coin)+SUM(lunch_sign)+SUM(lunch_machine),0) AS lunch,
         COALESCE(SUM(dinner_coopen)+SUM(dinner_coin)+SUM(dinner_sign)+SUM(dinner_machine),0) AS dinner
       FROM cipla_date_entries WHERE year = ${year}
       GROUP BY month ORDER BY month
-    `);
+    `) as any;
     return (rows as any[]).map((r: any) => ({
       month: Number(r.month), breakfast: Number(r.breakfast), lunch: Number(r.lunch), dinner: Number(r.dinner),
     }));
   }
 
   async getUnichEmSnackYearlySummary(year: number): Promise<{ month: number; breakfast: number; eveningSnacks: number; nightSnacks: number; sundayExtraSnacks: number }[]> {
-    const rows = await db.execute(sql`
+    const [rows] = await db.execute(sql`
       SELECT month,
         COALESCE(SUM(breakfast),0) AS breakfast,
         COALESCE(SUM(evening_snacks),0) AS eveningSnacks,
@@ -2143,7 +2143,7 @@ export class DatabaseStorage implements IStorage {
         COALESCE(SUM(sunday_extra_snacks),0) AS sundayExtraSnacks
       FROM unichem_snack_entries WHERE year = ${year}
       GROUP BY month ORDER BY month
-    `);
+    `) as any;
     return (rows as any[]).map((r: any) => ({
       month: Number(r.month), breakfast: Number(r.breakfast), eveningSnacks: Number(r.eveningSnacks),
       nightSnacks: Number(r.nightSnacks), sundayExtraSnacks: Number(r.sundayExtraSnacks),
@@ -2151,20 +2151,20 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getUnichEmLunchYearlySummary(year: number): Promise<{ month: number; lunch: number; dinner: number }[]> {
-    const rows = await db.execute(sql`
+    const [rows] = await db.execute(sql`
       SELECT month,
         COALESCE(SUM(CASE WHEN meal_type='lunch' THEN bill_qty ELSE 0 END),0) AS lunch,
         COALESCE(SUM(CASE WHEN meal_type='dinner' THEN bill_qty ELSE 0 END),0) AS dinner
       FROM unichem_lunch_entries WHERE year = ${year}
       GROUP BY month ORDER BY month
-    `);
+    `) as any;
     return (rows as any[]).map((r: any) => ({
       month: Number(r.month), lunch: Number(r.lunch), dinner: Number(r.dinner),
     }));
   }
 
   async getHulYearlySummary(year: number, location: string): Promise<{ month: number; breakfast: number; lunch: number; eveningSnacks: number; nightSnacks: number; guestBreakfast: number; guestLunch: number; guestEveningSnacks: number; guestNightSnacks: number }[]> {
-    const rows = await db.execute(sql`
+    const [rows] = await db.execute(sql`
       SELECT month,
         COALESCE(SUM(breakfast),0) AS breakfast,
         COALESCE(SUM(lunch),0) AS lunch,
@@ -2178,7 +2178,7 @@ export class DatabaseStorage implements IStorage {
       WHERE year = ${year} AND location = ${location}
       GROUP BY month
       ORDER BY month
-    `);
+    `) as any;
     return (rows as any[]).map((r: any) => ({
       month: Number(r.month),
       breakfast: Number(r.breakfast), lunch: Number(r.lunch),
@@ -2189,7 +2189,7 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getHulExecYearlySummary(year: number): Promise<{ month: number; snacks: number; biscuit: number; chips: number; coldDrinkWater: number }[]> {
-    const rows = await db.execute(sql`
+    const [rows] = await db.execute(sql`
       SELECT month,
         COALESCE(SUM(snacks),0) AS snacks,
         COALESCE(SUM(biscuit),0) AS biscuit,
@@ -2199,7 +2199,7 @@ export class DatabaseStorage implements IStorage {
       WHERE year = ${year}
       GROUP BY month
       ORDER BY month
-    `);
+    `) as any;
     return (rows as any[]).map((r: any) => ({
       month: Number(r.month),
       snacks: Number(r.snacks), biscuit: Number(r.biscuit),
