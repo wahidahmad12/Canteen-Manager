@@ -1316,6 +1316,7 @@ function UnichemSnackTab({ month, year, loadKey = 0 }: { month: number; year: nu
       } catch (e: any) { toast({ title: "Error", description: e.message, variant: "destructive" }); }
     }
     toast({ title: `Saved ${saved} rows` });
+    await refetch();
     setLocalRows([]);
   };
 
@@ -1815,6 +1816,7 @@ function UnichemMealSubTab({ month, year, location, mealType, loadKey = 0 }: { m
       } catch (e: any) { toast({ title: "Error", description: e.message, variant: "destructive" }); }
     }
     toast({ title: `Saved ${saved} rows` });
+    await refetch();
     setLocalRows([]);
   };
 
