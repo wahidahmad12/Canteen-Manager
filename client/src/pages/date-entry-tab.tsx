@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect, useMemo } from "react";
+import { DateEntryDashboard } from "./date-entry-dashboard";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useCurrentUser } from "@/hooks/use-reports";
 import { Button } from "@/components/ui/button";
@@ -4420,6 +4421,7 @@ function HulSummaryTab({ month, year }: { month: number; year: number }) {
 // ============================================================
 
 const CLIENT_OPTIONS = [
+  { value: "dashboard", label: "📊 All Clients Dashboard" },
   { value: "ubl", label: "United Breweries Ltd (UBL)" },
   { value: "unichem", label: "Unichem Laboratories Ltd" },
   { value: "cipla", label: "Cipla Limited" },
@@ -4434,7 +4436,9 @@ export function DateEntryTab() {
     if (!currentUser) return [];
     if (currentUser.role === "admin") return CLIENT_OPTIONS;
     const perms = currentUser.permissions || [];
+    const hasAny = perms.includes("dateentry_ubl") || perms.includes("dateentry_cipla") || perms.includes("dateentry_hul");
     return CLIENT_OPTIONS.filter(o => {
+      if (o.value === "dashboard") return hasAny;
       if (o.value === "ubl") return perms.includes("dateentry_ubl");
       if (o.value === "unichem") return perms.includes("dateentry_ubl");
       if (o.value === "cipla") return perms.includes("dateentry_cipla");
@@ -4491,7 +4495,7 @@ export function DateEntryTab() {
         <div className="flex items-center gap-2">
           <label className="text-sm font-medium text-muted-foreground shrink-0">Client:</label>
           <Select value={selectedClient} onValueChange={setSelectedClient}>
-            <SelectTrigger className="flex-1 sm:w-52 h-10" data-testid="select-date-entry-client"><SelectValue/></SelectTrigger>
+            <SelectTrigger className="flex-1 sm:w-56 h-10" data-testid="select-date-entry-client"><SelectValue/></SelectTrigger>
             <SelectContent>
               {allowedClients.map(o=>(
                 <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>
@@ -4500,15 +4504,17 @@ export function DateEntryTab() {
           </Select>
         </div>
         <div className="flex gap-2">
-          <div className="flex items-center gap-2 flex-1">
-            <label className="text-sm font-medium text-muted-foreground shrink-0">Month:</label>
-            <Select value={month} onValueChange={setMonth}>
-              <SelectTrigger className="flex-1 sm:w-32 h-10" data-testid="select-date-entry-month"><SelectValue/></SelectTrigger>
-              <SelectContent>
-                {MONTHS.map((m,i)=>(<SelectItem key={i} value={String(i+1)}>{m}</SelectItem>))}
-              </SelectContent>
-            </Select>
-          </div>
+          {selectedClient !== "dashboard" && (
+            <div className="flex items-center gap-2 flex-1">
+              <label className="text-sm font-medium text-muted-foreground shrink-0">Month:</label>
+              <Select value={month} onValueChange={setMonth}>
+                <SelectTrigger className="flex-1 sm:w-32 h-10" data-testid="select-date-entry-month"><SelectValue/></SelectTrigger>
+                <SelectContent>
+                  {MONTHS.map((m,i)=>(<SelectItem key={i} value={String(i+1)}>{m}</SelectItem>))}
+                </SelectContent>
+              </Select>
+            </div>
+          )}
           <div className="flex items-center gap-2">
             <label className="text-sm font-medium text-muted-foreground shrink-0">Year:</label>
             <Select value={year} onValueChange={setYear}>
@@ -4519,26 +4525,33 @@ export function DateEntryTab() {
             </Select>
           </div>
         </div>
-        <div className="flex items-center gap-2 sm:ml-auto">
-          <Badge variant="outline" className="text-xs font-medium bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300 border-blue-200 dark:border-blue-700 w-fit hidden sm:flex">
-            Period: {periodLabel}
-          </Badge>
-          <Button
-            onClick={handleLoad}
-            disabled={isLoadPending}
-            className="h-10 px-5 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold gap-2"
-            data-testid="btn-load-data"
-          >
-            {isLoadPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4" />}
-            {isLoadPending ? "Loading..." : "Load Data"}
-          </Button>
-        </div>
+        {selectedClient !== "dashboard" && (
+          <div className="flex items-center gap-2 sm:ml-auto">
+            <Badge variant="outline" className="text-xs font-medium bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300 border-blue-200 dark:border-blue-700 w-fit hidden sm:flex">
+              Period: {periodLabel}
+            </Badge>
+            <Button
+              onClick={handleLoad}
+              disabled={isLoadPending}
+              className="h-10 px-5 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold gap-2"
+              data-testid="btn-load-data"
+            >
+              {isLoadPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4" />}
+              {isLoadPending ? "Loading..." : "Load Data"}
+            </Button>
+          </div>
+        )}
       </div>
-      <Badge variant="outline" className="text-xs font-medium bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300 border-blue-200 dark:border-blue-700 w-fit mb-3 sm:hidden">
-        Period: {periodLabel}
-      </Badge>
+      {selectedClient !== "dashboard" && (
+        <Badge variant="outline" className="text-xs font-medium bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300 border-blue-200 dark:border-blue-700 w-fit mb-3 sm:hidden">
+          Period: {periodLabel}
+        </Badge>
+      )}
 
       {/* Client-specific content */}
+      {selectedClient === "dashboard" && (
+        <DateEntryDashboard year={parseInt(year)} />
+      )}
       {selectedClient === "ubl" && (
         <Tabs value={ublSubTab} onValueChange={setUblSubTab}>
           <TabsList className="mb-4 flex-wrap h-auto">

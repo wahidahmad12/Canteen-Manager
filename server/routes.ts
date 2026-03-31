@@ -1880,6 +1880,26 @@ export async function registerRoutes(
   });
 
   // === HUL DATE ENTRIES (Hindustan Unilever Limited — KPF / TEC) ===
+  app.get('/api/ubl-date-entries/yearly-summary', requirePermission('salesinvoice'), async (req, res) => {
+    const year = Number(req.query.year) || new Date().getFullYear();
+    res.json(await storage.getUblDateYearlySummary(year));
+  });
+  app.get('/api/ubl-lunch-entries/yearly-summary', requirePermission('salesinvoice'), async (req, res) => {
+    const year = Number(req.query.year) || new Date().getFullYear();
+    res.json(await storage.getUblLunchYearlySummary(year));
+  });
+  app.get('/api/cipla-date-entries/yearly-summary', requirePermission('salesinvoice'), async (req, res) => {
+    const year = Number(req.query.year) || new Date().getFullYear();
+    res.json(await storage.getCiplaYearlySummary(year));
+  });
+  app.get('/api/unichem-snack-entries/yearly-summary', requirePermission('salesinvoice'), async (req, res) => {
+    const year = Number(req.query.year) || new Date().getFullYear();
+    res.json(await storage.getUnichEmSnackYearlySummary(year));
+  });
+  app.get('/api/unichem-lunch-entries/yearly-summary', requirePermission('salesinvoice'), async (req, res) => {
+    const year = Number(req.query.year) || new Date().getFullYear();
+    res.json(await storage.getUnichEmLunchYearlySummary(year));
+  });
   app.get('/api/hul-date-entries/yearly-summary', requirePermission('salesinvoice'), async (req, res) => {
     const year = Number(req.query.year) || new Date().getFullYear();
     const location = String(req.query.location || 'KPF');

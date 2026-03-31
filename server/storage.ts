@@ -2084,6 +2084,85 @@ export class DatabaseStorage implements IStorage {
   }
 
   // HUL KPF Executive/Manager Snacks
+  async getUblDateYearlySummary(year: number): Promise<{ month: number; breakfast: number; lunch: number; dinner: number; tea: number; mutton: number; tiffin: number; boiledEgg: number }[]> {
+    const rows = await db.execute(sql`
+      SELECT month,
+        COALESCE(SUM(breakfast),0) AS breakfast,
+        COALESCE(SUM(lunch),0) AS lunch,
+        COALESCE(SUM(dinner),0) AS dinner,
+        COALESCE(SUM(tea1)+SUM(tea2)+SUM(tea3)+SUM(tea4)+SUM(tea5)+SUM(tea6),0) AS tea,
+        COALESCE(SUM(mutton),0) AS mutton,
+        COALESCE(SUM(tiffin),0) AS tiffin,
+        COALESCE(SUM(boiled_egg),0) AS boiledEgg
+      FROM ubl_date_entries WHERE year = ${year}
+      GROUP BY month ORDER BY month
+    `);
+    return (rows as any[]).map((r: any) => ({
+      month: Number(r.month), breakfast: Number(r.breakfast), lunch: Number(r.lunch),
+      dinner: Number(r.dinner), tea: Number(r.tea), mutton: Number(r.mutton),
+      tiffin: Number(r.tiffin), boiledEgg: Number(r.boiledEgg),
+    }));
+  }
+
+  async getUblLunchYearlySummary(year: number): Promise<{ month: number; perment: number; casual: number; contractual: number; canteen: number }[]> {
+    const rows = await db.execute(sql`
+      SELECT month,
+        COALESCE(SUM(perment),0) AS perment,
+        COALESCE(SUM(casual),0) AS casual,
+        COALESCE(SUM(contractual),0) AS contractual,
+        COALESCE(SUM(canteen),0) AS canteen
+      FROM ubl_lunch_entries WHERE year = ${year}
+      GROUP BY month ORDER BY month
+    `);
+    return (rows as any[]).map((r: any) => ({
+      month: Number(r.month), perment: Number(r.perment), casual: Number(r.casual),
+      contractual: Number(r.contractual), canteen: Number(r.canteen),
+    }));
+  }
+
+  async getCiplaYearlySummary(year: number): Promise<{ month: number; breakfast: number; lunch: number; dinner: number }[]> {
+    const rows = await db.execute(sql`
+      SELECT month,
+        COALESCE(SUM(breakfast_coopen)+SUM(breakfast_coin)+SUM(breakfast_sign)+SUM(breakfast_machine),0) AS breakfast,
+        COALESCE(SUM(lunch_coopen)+SUM(lunch_coin)+SUM(lunch_sign)+SUM(lunch_machine),0) AS lunch,
+        COALESCE(SUM(dinner_coopen)+SUM(dinner_coin)+SUM(dinner_sign)+SUM(dinner_machine),0) AS dinner
+      FROM cipla_date_entries WHERE year = ${year}
+      GROUP BY month ORDER BY month
+    `);
+    return (rows as any[]).map((r: any) => ({
+      month: Number(r.month), breakfast: Number(r.breakfast), lunch: Number(r.lunch), dinner: Number(r.dinner),
+    }));
+  }
+
+  async getUnichEmSnackYearlySummary(year: number): Promise<{ month: number; breakfast: number; eveningSnacks: number; nightSnacks: number; sundayExtraSnacks: number }[]> {
+    const rows = await db.execute(sql`
+      SELECT month,
+        COALESCE(SUM(breakfast),0) AS breakfast,
+        COALESCE(SUM(evening_snacks),0) AS eveningSnacks,
+        COALESCE(SUM(night_snacks),0) AS nightSnacks,
+        COALESCE(SUM(sunday_extra_snacks),0) AS sundayExtraSnacks
+      FROM unichem_snack_entries WHERE year = ${year}
+      GROUP BY month ORDER BY month
+    `);
+    return (rows as any[]).map((r: any) => ({
+      month: Number(r.month), breakfast: Number(r.breakfast), eveningSnacks: Number(r.eveningSnacks),
+      nightSnacks: Number(r.nightSnacks), sundayExtraSnacks: Number(r.sundayExtraSnacks),
+    }));
+  }
+
+  async getUnichEmLunchYearlySummary(year: number): Promise<{ month: number; lunch: number; dinner: number }[]> {
+    const rows = await db.execute(sql`
+      SELECT month,
+        COALESCE(SUM(CASE WHEN meal_type='lunch' THEN bill_qty ELSE 0 END),0) AS lunch,
+        COALESCE(SUM(CASE WHEN meal_type='dinner' THEN bill_qty ELSE 0 END),0) AS dinner
+      FROM unichem_lunch_entries WHERE year = ${year}
+      GROUP BY month ORDER BY month
+    `);
+    return (rows as any[]).map((r: any) => ({
+      month: Number(r.month), lunch: Number(r.lunch), dinner: Number(r.dinner),
+    }));
+  }
+
   async getHulYearlySummary(year: number, location: string): Promise<{ month: number; breakfast: number; lunch: number; eveningSnacks: number; nightSnacks: number; guestBreakfast: number; guestLunch: number; guestEveningSnacks: number; guestNightSnacks: number }[]> {
     const rows = await db.execute(sql`
       SELECT month,
