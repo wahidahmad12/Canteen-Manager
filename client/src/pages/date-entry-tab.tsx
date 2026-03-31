@@ -4133,6 +4133,53 @@ function UblSummaryTab({ month, year }: { month: number; year: number }) {
                 </tbody>
               </table>
             </div>
+
+            {/* UBL Monthly Rate Wise Summary */}
+            {(() => {
+              const ublMthRates = [
+                { name:'Tea (All)',  rate:7,   qty: dateRows.reduce((s,r)=>s+(r.tea1||0)+(r.tea2||0)+(r.tea3||0)+(r.tea4||0)+(r.tea5||0)+(r.tea6||0),0) },
+                { name:'Biscuit',   rate:0.5, qty: dateRows.reduce((s,r)=>s+(r.biscuit1||0)+(r.biscuit2||0),0) },
+                { name:'Breakfast', rate:20,  qty: sumF(dateRows,'breakfast') },
+                { name:'Lunch',     rate:50,  qty: sumF(dateRows,'lunch') },
+                { name:'Mutton',    rate:149, qty: sumF(dateRows,'mutton') },
+                { name:'Tiffin',    rate:25,  qty: sumF(dateRows,'tiffin') },
+                { name:'Boiled Egg',rate:7,   qty: sumF(dateRows,'boiledEgg') },
+                { name:'Dinner',    rate:48,  qty: sumF(dateRows,'dinner') },
+              ];
+              const mthGrand = ublMthRates.reduce((s,r)=>s+r.qty*r.rate, 0);
+              const fmt = (n: number) => n ? `₹${n.toLocaleString('en-IN')}` : '—';
+              return (
+                <div className="border rounded-lg overflow-hidden mb-4 mt-3">
+                  <div className="px-3 py-1.5 text-sm font-bold text-center text-white" style={{ background:'#b45309' }}>
+                    Rate Wise Summary — {monthLabel}
+                  </div>
+                  <table className="w-full border-collapse" style={{ fontSize:10 }}>
+                    <thead>
+                      <tr>
+                        <th style={{ ...thA, textAlign:'left', paddingLeft:8, width:130, fontSize:10 }}>Meal / Item</th>
+                        <th style={{ ...thA, fontSize:10 }}>Qty</th>
+                        <th style={{ ...thA, fontSize:10 }}>Rate (₹)</th>
+                        <th style={{ ...thA, fontSize:10 }}>Amount (₹)</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {ublMthRates.map((r, i) => (
+                        <tr key={i} style={{ background: i%2===0 ? '#f9fafb' : '#fff' }}>
+                          <td style={{ border:'1px solid #ddd', padding:'2px 8px', textAlign:'left', fontSize:10 }}>{r.name}</td>
+                          <td style={{ border:'1px solid #ddd', padding:'2px 6px', textAlign:'center', fontSize:10 }}>{r.qty || ''}</td>
+                          <td style={{ border:'1px solid #ddd', padding:'2px 6px', textAlign:'center', fontSize:10 }}>₹{r.rate}</td>
+                          <td style={{ border:'1px solid #ddd', padding:'2px 6px', textAlign:'right', fontSize:10 }}>{r.qty ? fmt(r.qty*r.rate) : ''}</td>
+                        </tr>
+                      ))}
+                      <tr style={{ background:'#b45309' }}>
+                        <td colSpan={3} style={{ border:'1px solid #333', padding:'3px 8px', fontWeight:'bold', textAlign:'right', fontSize:11, color:'#fff' }}>Grand Total</td>
+                        <td style={{ border:'1px solid #333', padding:'3px 6px', textAlign:'right', fontWeight:'bold', fontSize:11, color:'#fff' }}>{fmt(mthGrand)}</td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+              );
+            })()}
           </>
         )}
 
@@ -4140,6 +4187,82 @@ function UblSummaryTab({ month, year }: { month: number; year: number }) {
           <>
             <YearlyTable data={yrDate} fields={['breakfast','lunch','dinner','tea','mutton','tiffin','boiledEgg']} headers={['Breakfast','Lunch','Dinner','Tea (All)','Mutton','Tiffin','Boiled Egg']} title="Format 1 — Bill Data Sheet" hStyle={thA} />
             <YearlyTable data={yrLunch} fields={['perment','casual','contractual','canteen']} headers={['Permanent','Casual','Contractual','Canteen']} title="Format 2 — Lunch Per Day" hStyle={thC} />
+            {/* UBL Yearly Rate Wise Summary */}
+            {(() => {
+              const fmt = (n: number) => n ? `₹${n.toLocaleString('en-IN')}` : '—';
+              const ublYrRates = [
+                { field:'tea',       name:'Tea (All)',   rate:7   },
+                { field:'biscuit',   name:'Biscuit',     rate:0.5 },
+                { field:'breakfast', name:'Breakfast',   rate:20  },
+                { field:'lunch',     name:'Lunch',       rate:50  },
+                { field:'mutton',    name:'Mutton',      rate:149 },
+                { field:'tiffin',    name:'Tiffin',      rate:25  },
+                { field:'boiledEgg', name:'Boiled Egg',  rate:7   },
+                { field:'dinner',    name:'Dinner',      rate:48  },
+              ];
+              const totals = ublYrRates.map(r => ({ ...r, qty: sumF(yrDate, r.field) }));
+              const grand = totals.reduce((s, r) => s + r.qty * r.rate, 0);
+              return (
+                <div className="border rounded-lg overflow-hidden mb-4 mt-3">
+                  <div className="px-3 py-1.5 text-sm font-bold text-center text-white" style={{ background:'#b45309' }}>
+                    Rate Wise Yearly Summary — {yearLabel}
+                  </div>
+                  <div className="overflow-x-auto">
+                    <table className="w-full border-collapse" style={{ fontSize:10 }}>
+                      <thead>
+                        <tr>
+                          <th style={{ ...thA, textAlign:'left', paddingLeft:6, width:165, fontSize:10 }}>Billing Period</th>
+                          {ublYrRates.map(r => (
+                            <th key={r.field} colSpan={2} style={{ ...thA, fontSize:10 }}>{r.name} (×₹{r.rate})</th>
+                          ))}
+                          <th style={{ background:'#374151', color:'#fff', border:'1px solid #333', padding:'3px 5px', textAlign:'center', fontWeight:'bold', fontSize:10 }}>Grand Total</th>
+                        </tr>
+                        <tr>
+                          <th style={{ ...thA, fontSize:9, padding:'2px 4px' }}></th>
+                          {ublYrRates.flatMap(r => [
+                            <th key={r.field+'q'} style={{ ...thA, fontSize:9, padding:'2px 4px' }}>Qty</th>,
+                            <th key={r.field+'a'} style={{ ...thA, fontSize:9, padding:'2px 4px' }}>Amt</th>,
+                          ])}
+                          <th style={{ background:'#374151', color:'#fff', border:'1px solid #333', fontSize:9, padding:'2px 4px' }}></th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {MONTHS.map((_mName, mi) => {
+                          const row = yrDate.find((r: any) => r.month === mi + 1);
+                          const vals = ublYrRates.map(r => Number((row as any)?.[r.field] || 0));
+                          const rowGrand = ublYrRates.reduce((s, r, i) => s + vals[i] * r.rate, 0);
+                          const bg = mi % 2 === 0 ? '#f9fafb' : '#fff';
+                          return (
+                            <tr key={mi} style={{ background: bg }}>
+                              <td style={{ border:'1px solid #ddd', padding:'2px 5px', fontWeight:500, textAlign:'left', fontSize:10 }}>{getBillingRowLabel(mi + 1)}</td>
+                              {ublYrRates.map((r, i) => [
+                                <td key={r.field+'q'} style={{ border:'1px solid #ddd', padding:'2px 4px', textAlign:'center', fontSize:10 }}>{vals[i] || ''}</td>,
+                                <td key={r.field+'a'} style={{ border:'1px solid #ddd', padding:'2px 4px', textAlign:'right', fontSize:10 }}>{vals[i] ? (vals[i] * r.rate).toLocaleString('en-IN') : ''}</td>,
+                              ])}
+                              <td style={{ border:'1px solid #ddd', padding:'2px 4px', textAlign:'right', fontSize:10, fontWeight:'bold', background:'#eff6ff' }}>{rowGrand ? fmt(rowGrand) : '—'}</td>
+                            </tr>
+                          );
+                        })}
+                        {(() => {
+                          const qtys = ublYrRates.map(r => sumF(yrDate, r.field));
+                          const grandTot = ublYrRates.reduce((s, r, i) => s + qtys[i] * r.rate, 0);
+                          return (
+                            <tr>
+                              <td style={tdTot}>Grand Total</td>
+                              {ublYrRates.map((r, i) => [
+                                <td key={r.field+'q'} style={tdTot}>{qtys[i] || '—'}</td>,
+                                <td key={r.field+'a'} style={tdTot}>{qtys[i] ? `₹${(qtys[i] * r.rate).toLocaleString('en-IN')}` : '—'}</td>,
+                              ])}
+                              <td style={{ ...tdTot, background:'#bfdbfe' }}>{grandTot ? fmt(grandTot) : '—'}</td>
+                            </tr>
+                          );
+                        })()}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              );
+            })()}
           </>
         )}
       </div>

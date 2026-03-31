@@ -2085,7 +2085,7 @@ export class DatabaseStorage implements IStorage {
   }
 
   // HUL KPF Executive/Manager Snacks
-  async getUblDateYearlySummary(year: number): Promise<{ month: number; breakfast: number; lunch: number; dinner: number; tea: number; mutton: number; tiffin: number; boiledEgg: number }[]> {
+  async getUblDateYearlySummary(year: number): Promise<{ month: number; breakfast: number; lunch: number; dinner: number; tea: number; mutton: number; tiffin: number; boiledEgg: number; biscuit: number }[]> {
     // Group by billing period (21st–20th) using entry_date, consistent with monthly view
     const startDate = `${year}-01-21`;
     const endDate = `${year + 1}-01-20`;
@@ -2101,7 +2101,8 @@ export class DatabaseStorage implements IStorage {
         COALESCE(SUM(tea1)+SUM(tea2)+SUM(tea3)+SUM(tea4)+SUM(tea5)+SUM(tea6),0) AS tea,
         COALESCE(SUM(mutton),0) AS mutton,
         COALESCE(SUM(tiffin),0) AS tiffin,
-        COALESCE(SUM(boiled_egg),0) AS boiledEgg
+        COALESCE(SUM(boiled_egg),0) AS boiledEgg,
+        COALESCE(SUM(biscuit1)+SUM(biscuit2),0) AS biscuit
       FROM ubl_date_entries
       WHERE entry_date >= ${startDate} AND entry_date <= ${endDate}
       GROUP BY billing_month ORDER BY billing_month
@@ -2109,7 +2110,7 @@ export class DatabaseStorage implements IStorage {
     return (rows as any[]).map((r: any) => ({
       month: Number(r.billing_month), breakfast: Number(r.breakfast), lunch: Number(r.lunch),
       dinner: Number(r.dinner), tea: Number(r.tea), mutton: Number(r.mutton),
-      tiffin: Number(r.tiffin), boiledEgg: Number(r.boiledEgg),
+      tiffin: Number(r.tiffin), boiledEgg: Number(r.boiledEgg), biscuit: Number(r.biscuit),
     }));
   }
 
