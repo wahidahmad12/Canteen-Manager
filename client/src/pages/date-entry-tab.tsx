@@ -1197,6 +1197,44 @@ function UnichemSnackTab({ month, year, loadKey = 0 }: { month: number; year: nu
     },
     onSuccess: () => qc.invalidateQueries({ queryKey: ['/api/unichem-snack-entries', month, year, location] }),
   });
+  const deleteMutation = useMutation({
+    mutationFn: async (id: number) => {
+      await fetch(`/api/unichem-snack-entries/${id}`, { method: 'DELETE', credentials: "include" });
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['/api/unichem-snack-entries', month, year, location] }),
+  });
+
+  const handleSaveRow = async (idx: number) => {
+    const row = rows[idx];
+    try {
+      const { _dirty, id, ...data } = row;
+      if (id) await updateMutation.mutateAsync({ id, data });
+      else await createMutation.mutateAsync({ ...row });
+      const result = await refetch();
+      const freshRows = ((result.data || []) as SnackRow[]).map(r => ({ ...r, entryDate: normDate(r.entryDate), _dirty: false }));
+      const generated = generateMonthRows(month, year, (d, m, y) => snackRowDefaults(d, m, y, location));
+      const existingMap = freshRows.reduce((acc: Record<string, SnackRow>, r) => { acc[r.entryDate] = r; return acc; }, {});
+      setLocalRows(generated.map(g => existingMap[g.entryDate] ? existingMap[g.entryDate] : g));
+      toast({ title: "Row saved" });
+    } catch (e: any) { toast({ title: "Error", description: e.message, variant: "destructive" }); }
+  };
+
+  const handleDeleteRow = async (idx: number) => {
+    const row = rows[idx];
+    if (!row.id) {
+      setLocalRows(prev => { const u = [...prev]; u[idx] = { ...u[idx], breakfast:0, eveningSnacks:0, nightSnacks:0, sundayExtraSnacks:0, remarks:"", _dirty:false }; return u; });
+      return;
+    }
+    try {
+      await deleteMutation.mutateAsync(row.id);
+      const result = await refetch();
+      const freshRows = ((result.data || []) as SnackRow[]).map(r => ({ ...r, entryDate: normDate(r.entryDate), _dirty: false }));
+      const generated = generateMonthRows(month, year, (d, m, y) => snackRowDefaults(d, m, y, location));
+      const existingMap = freshRows.reduce((acc: Record<string, SnackRow>, r) => { acc[r.entryDate] = r; return acc; }, {});
+      setLocalRows(generated.map(g => existingMap[g.entryDate] ? existingMap[g.entryDate] : g));
+      toast({ title: "Row deleted" });
+    } catch (e: any) { toast({ title: "Error", description: e.message, variant: "destructive" }); }
+  };
 
   const syncRows = () => { if (localRows.length === 0) setLocalRows(fullRows); };
 
@@ -1632,11 +1670,12 @@ function UnichemSnackTab({ month, year, loadKey = 0 }: { month: number; year: nu
                 <th className="border px-2 py-2 text-center font-semibold min-w-[72px] bg-blue-50 dark:bg-blue-950/20">Night</th>
                 <th className="border px-2 py-2 text-center font-semibold min-w-[90px] bg-red-100 dark:bg-red-900/30 text-red-800 dark:text-red-300">Sun Extra <span className="text-[9px] font-normal block">(auto F2)</span></th>
                 <th className="border px-2 py-2 text-center font-semibold min-w-[110px]">Remarks</th>
+                <th className="border px-2 py-2 text-center font-semibold min-w-[70px]">Act</th>
               </tr>
             </thead>
             <tbody>
               {rows.length === 0 ? (
-                <tr><td colSpan={7} className="border py-6 text-center text-muted-foreground">No data loaded yet for {MONTHS[month-1]} {year}</td></tr>
+                <tr><td colSpan={8} className="border py-6 text-center text-muted-foreground">No data loaded yet for {MONTHS[month-1]} {year}</td></tr>
               ) : rows.map((row, idx) => {
                 const isSun = isSunday(row.entryDate);
                 const rowBg = isSun ? "bg-red-100 dark:bg-red-950/30" : idx%2===0 ? "bg-white dark:bg-transparent" : "bg-muted/10";
@@ -1670,6 +1709,16 @@ function UnichemSnackTab({ month, year, loadKey = 0 }: { month: number; year: nu
                       <input type="text" value={row.remarks||""} onChange={e=>handleCellChange(idx,'remarks',e.target.value)} onKeyDown={e=>handleEnterKey(e,4)}
                         className="w-full bg-transparent outline-none text-xs py-2.5 sm:py-1.5 focus:bg-white dark:focus:bg-gray-800 rounded px-1" style={{minHeight:'36px'}} data-testid={`snack-remarks-${idx}`}/>
                     </td>
+                    <td className="border px-1 py-0.5 text-center">
+                      <div className="flex gap-1 justify-center">
+                        <button onClick={()=>handleSaveRow(idx)} title="Save row" className="p-1 rounded text-green-600 hover:bg-green-50 dark:hover:bg-green-900/30" data-testid={`snack-save-${idx}`}>
+                          <Save className="w-3.5 h-3.5"/>
+                        </button>
+                        <button onClick={()=>handleDeleteRow(idx)} title="Delete row" className="p-1 rounded text-red-500 hover:bg-red-50 dark:hover:bg-red-900/30" data-testid={`snack-delete-${idx}`}>
+                          <Trash2 className="w-3.5 h-3.5"/>
+                        </button>
+                      </div>
+                    </td>
                   </tr>
                 );
               })}
@@ -1680,6 +1729,7 @@ function UnichemSnackTab({ month, year, loadKey = 0 }: { month: number; year: nu
                   <td className="border px-2 py-2 text-center text-blue-700 dark:text-blue-300">{totalEvening}</td>
                   <td className="border px-2 py-2 text-center text-blue-700 dark:text-blue-300">{totalNight}</td>
                   <td className="border px-2 py-2 text-center text-blue-700 dark:text-blue-300">{totalSunday}</td>
+                  <td className="border px-2 py-2"></td>
                   <td className="border px-2 py-2"></td>
                 </tr>
               )}
@@ -1764,6 +1814,44 @@ function UnichemMealSubTab({ month, year, location, mealType, loadKey = 0 }: { m
     },
     onSuccess: () => qc.invalidateQueries({ queryKey: ['/api/unichem-lunch-entries', month, year, location, mealType] }),
   });
+  const deleteMutation = useMutation({
+    mutationFn: async (id: number) => {
+      await fetch(`/api/unichem-lunch-entries/${id}`, { method: 'DELETE', credentials: "include" });
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['/api/unichem-lunch-entries', month, year, location, mealType] }),
+  });
+
+  const handleSaveRow = async (idx: number) => {
+    const row = rows[idx];
+    try {
+      const { _dirty, id, ...data } = row;
+      if (id) await updateMutation.mutateAsync({ id, data });
+      else await createMutation.mutateAsync({ ...row, mealType });
+      const result = await refetch();
+      const freshRows = ((result.data || []) as LunchRow[]).map(r => ({ ...r, entryDate: normDate(r.entryDate), _dirty: false }));
+      const generated = generateMonthRows(month, year, (d, m, y) => unichEmLunchRowDefaults(d, m, y, location, mealType));
+      const existingMap = freshRows.reduce((acc: Record<string, LunchRow>, r) => { acc[r.entryDate] = r; return acc; }, {});
+      setLocalRows(generated.map(g => existingMap[g.entryDate] ? existingMap[g.entryDate] : g));
+      toast({ title: "Row saved" });
+    } catch (e: any) { toast({ title: "Error", description: e.message, variant: "destructive" }); }
+  };
+
+  const handleDeleteRow = async (idx: number) => {
+    const row = rows[idx];
+    if (!row.id) {
+      setLocalRows(prev => { const u = [...prev]; u[idx] = { ...u[idx], orderQty:0, actual:0, total:0, billQty:0, _dirty:false }; return u; });
+      return;
+    }
+    try {
+      await deleteMutation.mutateAsync(row.id);
+      const result = await refetch();
+      const freshRows = ((result.data || []) as LunchRow[]).map(r => ({ ...r, entryDate: normDate(r.entryDate), _dirty: false }));
+      const generated = generateMonthRows(month, year, (d, m, y) => unichEmLunchRowDefaults(d, m, y, location, mealType));
+      const existingMap = freshRows.reduce((acc: Record<string, LunchRow>, r) => { acc[r.entryDate] = r; return acc; }, {});
+      setLocalRows(generated.map(g => existingMap[g.entryDate] ? existingMap[g.entryDate] : g));
+      toast({ title: "Row deleted" });
+    } catch (e: any) { toast({ title: "Error", description: e.message, variant: "destructive" }); }
+  };
 
   const handleAutoFill = () => {
     const generated = generateMonthRows(month, year, (d, m, y) => unichEmLunchRowDefaults(d, m, y, location, mealType));
@@ -1972,11 +2060,12 @@ function UnichemMealSubTab({ month, year, location, mealType, loadKey = 0 }: { m
                 <th className="border px-2 py-2 text-center font-semibold min-w-[68px] bg-blue-50 dark:bg-blue-950/20">Actual</th>
                 <th className="border px-2 py-2 text-center font-semibold min-w-[68px] bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-300">Total <span className="text-[9px] font-normal block">(auto)</span></th>
                 <th className="border px-2 py-2 text-center font-semibold min-w-[68px] bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-300">Bill Qty <span className="text-[9px] font-normal block">(auto)</span></th>
+                <th className="border px-2 py-2 text-center font-semibold min-w-[70px]">Act</th>
               </tr>
             </thead>
             <tbody>
               {rows.length === 0 ? (
-                <tr><td colSpan={6} className="border py-6 text-center text-muted-foreground">No data loaded yet for {MONTHS[month-1]} {year}</td></tr>
+                <tr><td colSpan={7} className="border py-6 text-center text-muted-foreground">No data loaded yet for {MONTHS[month-1]} {year}</td></tr>
               ) : rows.map((row, idx) => {
                 const isSun = isSunday(row.entryDate);
                 const rowBg = isSun ? "bg-red-100 dark:bg-red-950/30" : idx%2===0 ? "bg-white dark:bg-transparent" : "bg-muted/10";
@@ -2002,6 +2091,16 @@ function UnichemMealSubTab({ month, year, location, mealType, loadKey = 0 }: { m
                     <td className="border px-1 text-center text-xs font-semibold bg-green-100/60 dark:bg-green-900/20 text-green-800 dark:text-green-300 select-none" style={{minHeight:'36px'}} data-testid={`${mealType}-billqty-${idx}`}>
                       {row.billQty||""}
                     </td>
+                    <td className="border px-1 py-0.5 text-center">
+                      <div className="flex gap-1 justify-center">
+                        <button onClick={()=>handleSaveRow(idx)} title="Save row" className="p-1 rounded text-green-600 hover:bg-green-50 dark:hover:bg-green-900/30" data-testid={`${mealType}-save-row-${idx}`}>
+                          <Save className="w-3.5 h-3.5"/>
+                        </button>
+                        <button onClick={()=>handleDeleteRow(idx)} title="Delete row" className="p-1 rounded text-red-500 hover:bg-red-50 dark:hover:bg-red-900/30" data-testid={`${mealType}-delete-row-${idx}`}>
+                          <Trash2 className="w-3.5 h-3.5"/>
+                        </button>
+                      </div>
+                    </td>
                   </tr>
                 );
               })}
@@ -2012,6 +2111,7 @@ function UnichemMealSubTab({ month, year, location, mealType, loadKey = 0 }: { m
                   <td className="border px-2 py-2 text-center text-blue-700">{rows.reduce((s,r)=>s+(r.actual||0),0)}</td>
                   <td className="border px-2 py-2 text-center text-green-700">{rows.reduce((s,r)=>s+(r.total||0),0)}</td>
                   <td className="border px-2 py-2 text-center text-green-700">{rows.reduce((s,r)=>s+(r.billQty||0),0)}</td>
+                  <td className="border px-2 py-2"></td>
                 </tr>
               )}
             </tbody>
