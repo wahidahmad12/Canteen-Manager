@@ -1316,8 +1316,11 @@ function UnichemSnackTab({ month, year, loadKey = 0 }: { month: number; year: nu
       } catch (e: any) { toast({ title: "Error", description: e.message, variant: "destructive" }); }
     }
     toast({ title: `Saved ${saved} rows` });
-    await refetch();
-    setLocalRows([]);
+    const result = await refetch();
+    const freshRows = ((result.data || []) as SnackRow[]).map(r => ({ ...r, entryDate: normDate(r.entryDate), _dirty: false }));
+    const generated = generateMonthRows(month, year, (d, m, y) => snackRowDefaults(d, m, y, location));
+    const existingMap = freshRows.reduce((acc: Record<string, SnackRow>, r) => { acc[r.entryDate] = r; return acc; }, {});
+    setLocalRows(generated.map(g => existingMap[g.entryDate] ? existingMap[g.entryDate] : g));
   };
 
   const handlePrintAllLocations = async () => {
@@ -1816,8 +1819,11 @@ function UnichemMealSubTab({ month, year, location, mealType, loadKey = 0 }: { m
       } catch (e: any) { toast({ title: "Error", description: e.message, variant: "destructive" }); }
     }
     toast({ title: `Saved ${saved} rows` });
-    await refetch();
-    setLocalRows([]);
+    const result = await refetch();
+    const freshRows = ((result.data || []) as LunchRow[]).map(r => ({ ...r, entryDate: normDate(r.entryDate), _dirty: false }));
+    const generated = generateMonthRows(month, year, (d, m, y) => unichEmLunchRowDefaults(d, m, y, location, mealType));
+    const existingMap = freshRows.reduce((acc: Record<string, LunchRow>, r) => { acc[r.entryDate] = r; return acc; }, {});
+    setLocalRows(generated.map(g => existingMap[g.entryDate] ? existingMap[g.entryDate] : g));
   };
 
   const mealLabel = mealType === 'lunch' ? 'Lunch' : 'Dinner';
