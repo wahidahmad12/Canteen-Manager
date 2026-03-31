@@ -3826,13 +3826,21 @@ function HulLocationTab({ month, year, location, loadKey = 0 }: { month: number;
 // HUL Summary Tab
 // ============================================================
 
+type YearlyMealRow = { month: number; breakfast: number; lunch: number; eveningSnacks: number; nightSnacks: number; guestBreakfast: number; guestLunch: number; guestEveningSnacks: number; guestNightSnacks: number };
+type YearlyExecRow = { month: number; snacks: number; biscuit: number; chips: number; coldDrinkWater: number };
+
 function HulSummaryTab({ month, year }: { month: number; year: number }) {
   const { toast } = useToast();
   const printRef = useRef<HTMLDivElement>(null);
+  const [viewMode, setViewMode] = useState<'monthly' | 'yearly'>('monthly');
+  const [summaryYear, setSummaryYear] = useState(year);
   const monthLabel = `${MONTHS[month - 1]} - ${year}`;
+  const yearLabel = String(summaryYear);
 
+  // Monthly data
   const { data: kpfRows = [], isLoading: kpfLoading } = useQuery<HulRow[]>({
     queryKey: ['/api/hul-date-entries', month, year, 'KPF'],
+    enabled: viewMode === 'monthly',
     queryFn: async () => {
       const res = await fetch(`/api/hul-date-entries?month=${month}&year=${year}&location=KPF`, { credentials: 'include' });
       const d = await res.json();
@@ -3841,6 +3849,7 @@ function HulSummaryTab({ month, year }: { month: number; year: number }) {
   });
   const { data: tecRows = [], isLoading: tecLoading } = useQuery<HulRow[]>({
     queryKey: ['/api/hul-date-entries', month, year, 'TEC'],
+    enabled: viewMode === 'monthly',
     queryFn: async () => {
       const res = await fetch(`/api/hul-date-entries?month=${month}&year=${year}&location=TEC`, { credentials: 'include' });
       const d = await res.json();
@@ -3849,6 +3858,7 @@ function HulSummaryTab({ month, year }: { month: number; year: number }) {
   });
   const { data: execRows = [], isLoading: execLoading } = useQuery<ExecSnackRow[]>({
     queryKey: ['/api/hul-kpf-exec-snacks', month, year],
+    enabled: viewMode === 'monthly',
     queryFn: async () => {
       const res = await fetch(`/api/hul-kpf-exec-snacks?month=${month}&year=${year}`, { credentials: 'include' });
       const d = await res.json();
@@ -3856,7 +3866,35 @@ function HulSummaryTab({ month, year }: { month: number; year: number }) {
     },
   });
 
-  const isLoading = kpfLoading || tecLoading || execLoading;
+  // Yearly data
+  const { data: yrKpf = [], isLoading: yrKpfLoading } = useQuery<YearlyMealRow[]>({
+    queryKey: ['/api/hul-date-entries/yearly-summary', summaryYear, 'KPF'],
+    enabled: viewMode === 'yearly',
+    queryFn: async () => {
+      const res = await fetch(`/api/hul-date-entries/yearly-summary?year=${summaryYear}&location=KPF`, { credentials: 'include' });
+      return res.json();
+    },
+  });
+  const { data: yrTec = [], isLoading: yrTecLoading } = useQuery<YearlyMealRow[]>({
+    queryKey: ['/api/hul-date-entries/yearly-summary', summaryYear, 'TEC'],
+    enabled: viewMode === 'yearly',
+    queryFn: async () => {
+      const res = await fetch(`/api/hul-date-entries/yearly-summary?year=${summaryYear}&location=TEC`, { credentials: 'include' });
+      return res.json();
+    },
+  });
+  const { data: yrExec = [], isLoading: yrExecLoading } = useQuery<YearlyExecRow[]>({
+    queryKey: ['/api/hul-kpf-exec-snacks/yearly-summary', summaryYear],
+    enabled: viewMode === 'yearly',
+    queryFn: async () => {
+      const res = await fetch(`/api/hul-kpf-exec-snacks/yearly-summary?year=${summaryYear}`, { credentials: 'include' });
+      return res.json();
+    },
+  });
+
+  const isLoading = viewMode === 'monthly'
+    ? (kpfLoading || tecLoading || execLoading)
+    : (yrKpfLoading || yrTecLoading || yrExecLoading);
 
   const sum = (arr: any[], field: string) => arr.reduce((s, r) => s + (r[field] || 0), 0);
   const kpfT = { breakfast: sum(kpfRows,'breakfast'), lunch: sum(kpfRows,'lunch'), eveningSnacks: sum(kpfRows,'eveningSnacks'), nightSnacks: sum(kpfRows,'nightSnacks'), guestBreakfast: sum(kpfRows,'guestBreakfast'), guestLunch: sum(kpfRows,'guestLunch'), guestEveningSnacks: sum(kpfRows,'guestEveningSnacks'), guestNightSnacks: sum(kpfRows,'guestNightSnacks') };
@@ -4016,13 +4054,40 @@ function HulSummaryTab({ month, year }: { month: number; year: number }) {
     } catch (err: any) { toast({ title:'Export Failed', description:err.message, variant:'destructive' }); }
   };
 
-  if (isLoading) return <div className="flex items-center justify-center py-12 text-muted-foreground"><RefreshCw className="w-5 h-5 animate-spin mr-2"/>Loading summary...</div>;
-
   return (
     <div>
-      {/* Actions */}
+      {/* View Toggle + Actions */}
       <div className="flex flex-wrap items-center gap-2 mb-4">
-        <span className="text-sm font-semibold text-gray-600">HUL Summary — {monthLabel}</span>
+        <div className="flex rounded-md overflow-hidden border border-gray-300 text-sm">
+          <button
+            onClick={() => setViewMode('monthly')}
+            className={`px-3 py-1.5 font-medium transition-colors ${viewMode === 'monthly' ? 'bg-green-700 text-white' : 'bg-white text-gray-700 hover:bg-gray-50'}`}
+            data-testid="btn-summary-monthly">
+            Monthly
+          </button>
+          <button
+            onClick={() => setViewMode('yearly')}
+            className={`px-3 py-1.5 font-medium transition-colors border-l border-gray-300 ${viewMode === 'yearly' ? 'bg-green-700 text-white' : 'bg-white text-gray-700 hover:bg-gray-50'}`}
+            data-testid="btn-summary-yearly">
+            Yearly
+          </button>
+        </div>
+        {viewMode === 'yearly' && (
+          <div className="flex items-center gap-1.5">
+            <span className="text-sm text-gray-500">Year:</span>
+            <select
+              value={summaryYear}
+              onChange={e => setSummaryYear(Number(e.target.value))}
+              className="border border-gray-300 rounded px-2 py-1 text-sm"
+              data-testid="select-summary-year">
+              {Array.from({ length: 6 }, (_, i) => year - 2 + i).map(y => (
+                <option key={y} value={y}>{y}</option>
+              ))}
+            </select>
+          </div>
+        )}
+        {viewMode === 'monthly' && <span className="text-sm font-semibold text-gray-600">HUL Monthly Summary — {monthLabel}</span>}
+        {viewMode === 'yearly' && <span className="text-sm font-semibold text-gray-600">HUL Yearly Summary — {yearLabel}</span>}
         <div className="flex flex-wrap gap-2 ml-auto">
           <Button size="sm" variant="outline" onClick={handlePrint} className="h-9" data-testid="btn-hul-summary-print">
             <Printer className="w-3.5 h-3.5 mr-1"/>Print
@@ -4032,6 +4097,120 @@ function HulSummaryTab({ month, year }: { month: number; year: number }) {
           </Button>
         </div>
       </div>
+
+      {isLoading && <div className="flex items-center justify-center py-12 text-muted-foreground"><RefreshCw className="w-5 h-5 animate-spin mr-2"/>Loading...</div>}
+
+      {/* ===================== YEARLY VIEW ===================== */}
+      {!isLoading && viewMode === 'yearly' && (() => {
+        const mealFields: (keyof YearlyMealRow)[] = ['breakfast','lunch','eveningSnacks','nightSnacks','guestBreakfast','guestLunch','guestEveningSnacks','guestNightSnacks'];
+        const mealHeaders = ['Breakfast','Lunch','Evng Snacks','Night Snacks','G.Breakfast','G.Lunch','G.Evng Snacks','G.Night Snacks'];
+        const execFields: (keyof YearlyExecRow)[] = ['snacks','biscuit','chips','coldDrinkWater'];
+        const execHeaders = ['Snacks','Biscuit','Chips','Cold Drink & Water'];
+
+        const YearlyTable = ({ data, fields, headers, locName, hStyle, guestStart }: {
+          data: any[]; fields: string[]; headers: string[]; locName: string;
+          hStyle: React.CSSProperties; guestStart?: number;
+        }) => {
+          const totals = fields.reduce((acc, f) => ({ ...acc, [f]: data.reduce((s, r) => s + (r[f] || 0), 0) }), {} as Record<string,number>);
+          return (
+            <div className="mb-5">
+              <div className="text-center font-bold text-sm py-1.5" style={{ background: hStyle.background as string, color:'#fff' }}>
+                {locName} — {yearLabel}
+              </div>
+              <div className="overflow-x-auto">
+                <table className="w-full border-collapse" style={{ fontSize:11 }}>
+                  <thead>
+                    <tr>
+                      <th style={{ ...hStyle, width:90, textAlign:'left', paddingLeft:8 }}>Month</th>
+                      {headers.map((h, i) => <th key={i} style={guestStart !== undefined && i >= guestStart ? thB : hStyle}>{h}</th>)}
+                      <th style={{ ...hStyle, background:'#374151' }}>Total</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {MONTHS.map((mName, mi) => {
+                      const row = data.find(r => r.month === mi + 1);
+                      const vals = fields.map(f => row ? (row[f] || 0) : 0);
+                      const rowTotal = vals.reduce((s, v) => s + v, 0);
+                      if (!row && rowTotal === 0) return (
+                        <tr key={mi} style={{ background: mi % 2 === 0 ? '#f9fafb' : '#ffffff' }}>
+                          <td style={{ border:'1px solid #ddd', padding:'2px 6px', fontWeight:500, textAlign:'left', fontSize:10 }}>{mName}</td>
+                          {fields.map((_, fi) => <td key={fi} style={{ border:'1px solid #ddd', padding:'2px 5px', textAlign:'center', fontSize:10, color:'#ccc' }}>—</td>)}
+                          <td style={{ border:'1px solid #ddd', padding:'2px 5px', textAlign:'center', fontSize:10, color:'#ccc' }}>—</td>
+                        </tr>
+                      );
+                      return (
+                        <tr key={mi} style={{ background: mi % 2 === 0 ? '#f9fafb' : '#ffffff' }}>
+                          <td style={{ border:'1px solid #ddd', padding:'2px 6px', fontWeight:500, textAlign:'left', fontSize:10 }}>{mName}</td>
+                          {vals.map((v, fi) => <td key={fi} style={{ border:'1px solid #ddd', padding:'2px 5px', textAlign:'center', fontSize:10 }}>{v || ''}</td>)}
+                          <td style={{ border:'1px solid #ddd', padding:'2px 5px', textAlign:'center', fontSize:10, fontWeight:'bold', background:'#f0fdf4' }}>{rowTotal || ''}</td>
+                        </tr>
+                      );
+                    })}
+                    <tr>
+                      <td style={tdTot}>Grand Total</td>
+                      {fields.map((f, fi) => <td key={fi} style={tdTot}>{totals[f] || ''}</td>)}
+                      <td style={{ ...tdTot, background:'#bbf7d0' }}>{Object.values(totals).reduce((s, v) => s + v, 0) || ''}</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          );
+        };
+
+        const yrKpfT = mealFields.reduce((a, f) => ({ ...a, [f]: yrKpf.reduce((s, r) => s + (r[f] || 0), 0) }), {} as Record<string,number>);
+        const yrTecT = mealFields.reduce((a, f) => ({ ...a, [f]: yrTec.reduce((s, r) => s + (r[f] || 0), 0) }), {} as Record<string,number>);
+        const yrExT = execFields.reduce((a, f) => ({ ...a, [f]: yrExec.reduce((s, r) => s + (r[f] || 0), 0) }), {} as Record<string,number>);
+
+        return (
+          <>
+            <YearlyTable data={yrKpf} fields={mealFields as string[]} headers={mealHeaders} locName="KPF — Meal Charges & Guest Meal Charges" hStyle={thG} guestStart={4} />
+            <YearlyTable data={yrTec} fields={mealFields as string[]} headers={mealHeaders} locName="TEC — Meal Charges & Guest Meal Charges" hStyle={thB} />
+            <YearlyTable data={yrExec} fields={execFields as string[]} headers={execHeaders} locName="KPF Exec Snacks — Snacks Per Day For Executives & Managers" hStyle={thBr} />
+
+            {/* Yearly Combined Totals */}
+            <div className="border rounded-lg overflow-hidden mb-4">
+              <div className="bg-gray-800 text-white px-3 py-2 text-sm font-bold text-center">Combined Yearly Totals — {yearLabel}</div>
+              <div className="overflow-x-auto">
+                <table className="w-full border-collapse" style={{ fontSize:11 }}>
+                  <thead>
+                    <tr>
+                      <th style={{ ...thG, textAlign:'left', paddingLeft:8, minWidth:110 }}>Section</th>
+                      {['Breakfast','Lunch','Evng Snacks','Night Snacks'].map(h=><th key={h} style={thG}>{h}</th>)}
+                      {['G.Breakfast','G.Lunch','G.Evng','G.Night'].map(h=><th key={h} style={thB}>{h}</th>)}
+                      {['Snacks','Biscuit','Chips','Cold Drink'].map(h=><th key={h} style={thBr}>{h}</th>)}
+                      <th style={{ ...thG, background:'#374151' }}>Grand Total</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr style={{ background:'#d1fae5' }}>
+                      <td style={{ ...tdTot, textAlign:'left', paddingLeft:8 }}>KPF</td>
+                      {mealFields.map(f=><td key={f as string} style={tdTot}>{yrKpfT[f as string]||'—'}</td>)}
+                      {execFields.map(f=><td key={f as string} style={tdTot}>—</td>)}
+                      <td style={{ ...tdTot, fontWeight:'bold' }}>{Object.values(yrKpfT).reduce((s,v)=>s+v,0)||'—'}</td>
+                    </tr>
+                    <tr style={{ background:'#dbeafe' }}>
+                      <td style={{ ...tdTot, textAlign:'left', paddingLeft:8 }}>TEC</td>
+                      {mealFields.map(f=><td key={f as string} style={tdTot}>{yrTecT[f as string]||'—'}</td>)}
+                      {execFields.map(f=><td key={f as string} style={tdTot}>—</td>)}
+                      <td style={{ ...tdTot, fontWeight:'bold' }}>{Object.values(yrTecT).reduce((s,v)=>s+v,0)||'—'}</td>
+                    </tr>
+                    <tr style={{ background:'#fef9c3' }}>
+                      <td style={{ ...tdTot, textAlign:'left', paddingLeft:8 }}>KPF Exec Snacks</td>
+                      {mealFields.map(f=><td key={f as string} style={tdTot}>—</td>)}
+                      {execFields.map(f=><td key={f as string} style={tdTot}>{yrExT[f as string]||'—'}</td>)}
+                      <td style={{ ...tdTot, fontWeight:'bold' }}>{Object.values(yrExT).reduce((s,v)=>s+v,0)||'—'}</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </>
+        );
+      })()}
+
+      {/* ===================== MONTHLY VIEW ===================== */}
+      {!isLoading && viewMode === 'monthly' && <>
 
       {/* KPF Table */}
       <MealTable rows={kpfRows} locName="KPF" hStyle={thG} />
@@ -4133,6 +4312,8 @@ function HulSummaryTab({ month, year }: { month: number; year: number }) {
           </table>
         </div>
       </div>
+
+      </>}
 
       {/* Hidden print content */}
       <div className="hidden" ref={printRef}>

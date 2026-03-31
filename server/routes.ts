@@ -1880,6 +1880,15 @@ export async function registerRoutes(
   });
 
   // === HUL DATE ENTRIES (Hindustan Unilever Limited — KPF / TEC) ===
+  app.get('/api/hul-date-entries/yearly-summary', requirePermission('salesinvoice'), async (req, res) => {
+    const year = Number(req.query.year) || new Date().getFullYear();
+    const location = String(req.query.location || 'KPF');
+    res.json(await storage.getHulYearlySummary(year, location));
+  });
+  app.get('/api/hul-kpf-exec-snacks/yearly-summary', requirePermission('salesinvoice'), async (req, res) => {
+    const year = Number(req.query.year) || new Date().getFullYear();
+    res.json(await storage.getHulExecYearlySummary(year));
+  });
   app.get('/api/hul-date-entries', requirePermission('salesinvoice'), async (req, res) => {
     const month = Number(req.query.month) || new Date().getMonth() + 1;
     const year = Number(req.query.year) || new Date().getFullYear();

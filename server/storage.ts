@@ -2084,6 +2084,50 @@ export class DatabaseStorage implements IStorage {
   }
 
   // HUL KPF Executive/Manager Snacks
+  async getHulYearlySummary(year: number, location: string): Promise<{ month: number; breakfast: number; lunch: number; eveningSnacks: number; nightSnacks: number; guestBreakfast: number; guestLunch: number; guestEveningSnacks: number; guestNightSnacks: number }[]> {
+    const rows = await db.execute(sql`
+      SELECT month,
+        COALESCE(SUM(breakfast),0) AS breakfast,
+        COALESCE(SUM(lunch),0) AS lunch,
+        COALESCE(SUM(evening_snacks),0) AS eveningSnacks,
+        COALESCE(SUM(night_snacks),0) AS nightSnacks,
+        COALESCE(SUM(guest_breakfast),0) AS guestBreakfast,
+        COALESCE(SUM(guest_lunch),0) AS guestLunch,
+        COALESCE(SUM(guest_evening_snacks),0) AS guestEveningSnacks,
+        COALESCE(SUM(guest_night_snacks),0) AS guestNightSnacks
+      FROM hul_date_entries
+      WHERE year = ${year} AND location = ${location}
+      GROUP BY month
+      ORDER BY month
+    `);
+    return (rows as any[]).map((r: any) => ({
+      month: Number(r.month),
+      breakfast: Number(r.breakfast), lunch: Number(r.lunch),
+      eveningSnacks: Number(r.eveningSnacks), nightSnacks: Number(r.nightSnacks),
+      guestBreakfast: Number(r.guestBreakfast), guestLunch: Number(r.guestLunch),
+      guestEveningSnacks: Number(r.guestEveningSnacks), guestNightSnacks: Number(r.guestNightSnacks),
+    }));
+  }
+
+  async getHulExecYearlySummary(year: number): Promise<{ month: number; snacks: number; biscuit: number; chips: number; coldDrinkWater: number }[]> {
+    const rows = await db.execute(sql`
+      SELECT month,
+        COALESCE(SUM(snacks),0) AS snacks,
+        COALESCE(SUM(biscuit),0) AS biscuit,
+        COALESCE(SUM(chips),0) AS chips,
+        COALESCE(SUM(cold_drink_water),0) AS coldDrinkWater
+      FROM hul_kpf_exec_snacks
+      WHERE year = ${year}
+      GROUP BY month
+      ORDER BY month
+    `);
+    return (rows as any[]).map((r: any) => ({
+      month: Number(r.month),
+      snacks: Number(r.snacks), biscuit: Number(r.biscuit),
+      chips: Number(r.chips), coldDrinkWater: Number(r.coldDrinkWater),
+    }));
+  }
+
   async getHulKpfExecSnacks(month: number, year: number): Promise<HulKpfExecSnack[]> {
     return await db.select().from(hulKpfExecSnacks)
       .where(and(eq(hulKpfExecSnacks.month, month), eq(hulKpfExecSnacks.year, year)))
