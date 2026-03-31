@@ -986,6 +986,23 @@ export const selectHulDateEntrySchema = createSelectSchema(hulDateEntries, {
   weekDay: z.string().nullable(),
 });
 
+// === HUL KPF Executive/Manager Snacks (Number of Snacks Per Day For Executives & Managers) ===
+export const hulKpfExecSnacks = mysqlTable("hul_kpf_exec_snacks", {
+  id: int("id").autoincrement().primaryKey(),
+  entryDate: date("entry_date").notNull(),
+  month: int("month").notNull(),
+  year: int("year").notNull(),
+  weekDay: varchar("week_day", { length: 10 }),
+  snacks: int("snacks").default(0),
+  biscuit: int("biscuit").default(0),
+  chips: int("chips").default(0),
+  coldDrinkWater: int("cold_drink_water").default(0),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+export type HulKpfExecSnack = typeof hulKpfExecSnacks.$inferSelect;
+export const insertHulKpfExecSnackSchema = createInsertSchema(hulKpfExecSnacks).omit({ id: true, createdAt: true, updatedAt: true });
+
 export type HalfYearlyReturn = typeof halfYearlyReturns.$inferSelect;
 export const insertHalfYearlyReturnSchema = createInsertSchema(halfYearlyReturns).omit({ id: true, createdAt: true, updatedAt: true });
 export const selectHalfYearlyReturnSchema = createSelectSchema(halfYearlyReturns, { createdAt: z.string().or(z.date()), updatedAt: z.string().or(z.date()) });

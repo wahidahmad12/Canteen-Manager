@@ -2992,6 +2992,366 @@ function hulRowDefaults(dateStr: string, month: number, year: number, location: 
   return { location, entryDate: dateStr, month, year, weekDay: getWeekDay(dateStr), breakfast:0, lunch:0, eveningSnacks:0, nightSnacks:0, guestBreakfast:0, guestLunch:0, guestEveningSnacks:0, guestNightSnacks:0, _dirty:true };
 }
 
+// ============================================================
+// HUL KPF Executive/Manager Snacks Tab
+// "Number of Snacks Per Day For Executives & Managers"
+// ============================================================
+
+type ExecSnackRow = {
+  id?: number;
+  entryDate: string;
+  month: number;
+  year: number;
+  weekDay: string;
+  snacks: number;
+  biscuit: number;
+  chips: number;
+  coldDrinkWater: number;
+  _dirty?: boolean;
+};
+
+function execSnackRowDefaults(dateStr: string, month: number, year: number): ExecSnackRow {
+  return { entryDate: dateStr, month, year, weekDay: getWeekDay(dateStr), snacks: 0, biscuit: 0, chips: 0, coldDrinkWater: 0, _dirty: true };
+}
+
+const EXEC_SNACK_FIELDS: (keyof ExecSnackRow)[] = ['snacks', 'biscuit', 'chips', 'coldDrinkWater'];
+const EXEC_SNACK_LABELS = ['Snacks', 'Biscuit', 'Chips', 'Cold Drink & Water'];
+
+function HulKpfExecSnacksTab({ month, year, loadKey = 0 }: { month: number; year: number; loadKey?: number }) {
+  const qc = useQueryClient();
+  const { toast } = useToast();
+  const printRef = useRef<HTMLDivElement>(null);
+  const [localRows, setLocalRows] = useState<ExecSnackRow[]>([]);
+  useEffect(() => { setLocalRows([]); }, [month, year]);
+
+  const { data: dbRows = [], isLoading, refetch } = useQuery<ExecSnackRow[]>({
+    queryKey: ['/api/hul-kpf-exec-snacks', month, year],
+    queryFn: async () => {
+      const res = await fetch(`/api/hul-kpf-exec-snacks?month=${month}&year=${year}`, { credentials: 'include' });
+      const data = await res.json();
+      return data.map((r: ExecSnackRow) => ({ ...r, entryDate: normDate(r.entryDate) }));
+    },
+  });
+
+  const generateRows = (freshRows?: ExecSnackRow[]) => {
+    const source = freshRows ?? dbRows;
+    const daysInMonth = getDaysInMonth(month, year);
+    const scaffold: ExecSnackRow[] = [];
+    for (let d = 1; d <= daysInMonth; d++) {
+      const ds = `${year}-${String(month).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+      scaffold.push(execSnackRowDefaults(ds, month, year));
+    }
+    const existing: Record<string, ExecSnackRow> = {};
+    source.forEach(r => { existing[normDate(r.entryDate)] = r; });
+    return scaffold.map(g => existing[g.entryDate] ? { ...existing[g.entryDate], _dirty: false } : g);
+  };
+
+  useEffect(() => {
+    if (loadKey > 0) {
+      refetch().then(result => { setLocalRows(generateRows((result.data || []) as ExecSnackRow[])); });
+    }
+  }, [loadKey]);
+
+  const rows: ExecSnackRow[] = localRows.length > 0 ? localRows : dbRows.map(r => ({ ...r }));
+
+  const createMutation = useMutation({
+    mutationFn: async (data: ExecSnackRow) => {
+      const res = await fetch('/api/hul-kpf-exec-snacks', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(data), credentials: 'include' });
+      return res.json();
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['/api/hul-kpf-exec-snacks', month, year] }),
+  });
+  const updateMutation = useMutation({
+    mutationFn: async ({ id, data }: { id: number; data: any }) => {
+      const res = await fetch(`/api/hul-kpf-exec-snacks/${id}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(data), credentials: 'include' });
+      return res.json();
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['/api/hul-kpf-exec-snacks', month, year] }),
+  });
+  const deleteMutation = useMutation({
+    mutationFn: async (id: number) => { await fetch(`/api/hul-kpf-exec-snacks/${id}`, { method: 'DELETE', credentials: 'include' }); },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['/api/hul-kpf-exec-snacks', month, year] }),
+  });
+
+  const syncRows = () => { if (localRows.length === 0) setLocalRows(dbRows.map(r => ({ ...r }))); };
+
+  const handleCellChange = (idx: number, field: keyof ExecSnackRow, value: string) => {
+    syncRows();
+    setLocalRows(prev => {
+      const updated = [...prev];
+      const row = { ...updated[idx] };
+      (row as any)[field] = parseInt(value) || 0;
+      row._dirty = true;
+      updated[idx] = row;
+      return updated;
+    });
+  };
+
+  const handleEnterKey = (e: React.KeyboardEvent<HTMLInputElement>, colIdx: number) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      const tbody = (e.target as HTMLElement).closest('tbody');
+      if (!tbody) return;
+      const allRows = Array.from(tbody.querySelectorAll('tr'));
+      const currentTr = (e.target as HTMLElement).closest('tr');
+      const rowIdx = allRows.indexOf(currentTr as HTMLTableRowElement);
+      const nextTr = allRows[rowIdx + 1];
+      if (nextTr) {
+        const inputs = Array.from(nextTr.querySelectorAll('input:not([readonly])')) as HTMLInputElement[];
+        if (inputs[colIdx]) inputs[colIdx].focus();
+        else if (inputs[0]) inputs[0].focus();
+      }
+    }
+  };
+
+  const saveRow = async (row: ExecSnackRow) => {
+    const { _dirty, id, ...data } = row;
+    if (id) await updateMutation.mutateAsync({ id, data });
+    else await createMutation.mutateAsync(row);
+  };
+
+  const handleSaveRow = async (idx: number) => {
+    try {
+      await saveRow(rows[idx]);
+      const result = await refetch();
+      setLocalRows(generateRows((result.data || []) as ExecSnackRow[]));
+      toast({ title: 'Row saved' });
+    } catch (e: any) { toast({ title: 'Error', description: e.message, variant: 'destructive' }); }
+  };
+
+  const handleDeleteRow = async (idx: number) => {
+    const row = rows[idx];
+    try {
+      if (row.id) await deleteMutation.mutateAsync(row.id);
+      const result = await refetch();
+      setLocalRows(generateRows((result.data || []) as ExecSnackRow[]));
+      toast({ title: 'Row cleared' });
+    } catch (e: any) { toast({ title: 'Error', description: e.message, variant: 'destructive' }); }
+  };
+
+  const handleSaveAll = async () => {
+    const dirty = rows.filter(r => r._dirty && (r.snacks || r.biscuit || r.chips || r.coldDrinkWater));
+    if (!dirty.length) { toast({ title: 'Nothing to save' }); return; }
+    try {
+      for (const row of dirty) await saveRow(row);
+      const result = await refetch();
+      setLocalRows(generateRows((result.data || []) as ExecSnackRow[]));
+      toast({ title: `Saved ${dirty.length} rows` });
+    } catch (e: any) { toast({ title: 'Error', description: e.message, variant: 'destructive' }); }
+  };
+
+  const handleAutoFill = () => { setLocalRows(generateRows()); };
+
+  const handlePrint = () => {
+    const printContent = printRef.current?.innerHTML;
+    if (!printContent) return;
+    const win = window.open('', '_blank');
+    if (!win) return;
+    win.document.write(`<html><head><title>HUL KPF Exec Snacks</title><style>
+      *{box-sizing:border-box;}body{font-family:"Times New Roman",Times,serif;margin:0;font-size:11pt;-webkit-print-color-adjust:exact;print-color-adjust:exact;}
+      h3,h4,p{text-align:center;margin:2px 0;}
+      table{width:100%;border-collapse:collapse;margin-top:6px;}
+      th,td{border:1px solid #333;padding:3px 5px;text-align:center;font-size:10pt;}
+      th{background:#ffffff!important;color:#000!important;font-weight:bold;}
+      .sun-row{background:#ffb380!important;}
+      .total-row{font-weight:bold;background:#f0f0f0!important;}
+      @media print{@page{margin:8mm;size:A4 portrait;}body{margin:0;}}
+    </style></head><body>${printContent}</body></html>`);
+    win.document.close(); win.print();
+  };
+
+  const handleExportExcel = async () => {
+    const ExcelJS = (await import('exceljs')).default;
+    const wb = new ExcelJS.Workbook();
+    const ws = wb.addWorksheet('HUL KPF Exec Snacks');
+    const thin = { top:{style:'thin' as const}, bottom:{style:'thin' as const}, left:{style:'thin' as const}, right:{style:'thin' as const} };
+    ws.mergeCells('A1:G1');
+    const t1 = ws.getCell('A1'); t1.value = 'DJ Hospitality & Facility Management Pvt. Ltd.'; t1.font={bold:true,size:13}; t1.alignment={horizontal:'center'}; t1.border=thin;
+    ws.mergeCells('A2:G2');
+    const t2 = ws.getCell('A2'); t2.value = `Number of Snacks Per Day For Executives & Managers - ${MONTHS[month-1]} - ${year}`; t2.font={bold:true,size:11}; t2.alignment={horizontal:'center'}; t2.border=thin;
+    const hdr = ws.addRow(['Sl.No.','Date','Days','Snacks','Biscuit','Chips','Cold Drink & Water']);
+    hdr.eachCell(cell => { cell.font={bold:true}; cell.border=thin; cell.alignment={horizontal:'center'}; });
+    ws.columns = [7,14,8,10,10,10,16].map(w=>({width:w}));
+    rows.forEach((r,i) => {
+      const row = ws.addRow([i+1, safeFormat(r.entryDate), r.weekDay, r.snacks||'', r.biscuit||'', r.chips||'', r.coldDrinkWater||'']);
+      if (isSunday(r.entryDate)) row.eachCell(cell => { cell.fill={type:'pattern',pattern:'solid',fgColor:{argb:'FFFFB380'}}; });
+      row.eachCell(cell => { cell.border=thin; cell.alignment={horizontal:'center'}; });
+    });
+    const tot = ws.addRow(['','Total','', rows.reduce((s,r)=>s+(r.snacks||0),0), rows.reduce((s,r)=>s+(r.biscuit||0),0), rows.reduce((s,r)=>s+(r.chips||0),0), rows.reduce((s,r)=>s+(r.coldDrinkWater||0),0)]);
+    tot.eachCell(cell => { cell.font={bold:true}; cell.fill={type:'pattern',pattern:'solid',fgColor:{argb:'FFF0F0F0'}}; cell.border=thin; cell.alignment={horizontal:'center'}; });
+    const buf = await wb.xlsx.writeBuffer();
+    const blob = new Blob([buf],{type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'});
+    const a = document.createElement('a'); a.href=URL.createObjectURL(blob); a.download=`HUL_KPF_Exec_Snacks_${MONTHS[month-1]}_${year}.xlsx`; a.click();
+  };
+
+  const printTable = (
+    <div ref={printRef}>
+      <h3>DJ Hospitality &amp; Facility Management Pvt. Ltd.</h3>
+      <p style={{fontWeight:'bold',textAlign:'center',margin:'3px 0'}}>Number of Snacks Per Day For Executives &amp; Managers - {MONTHS[month-1]} - {year}</p>
+      <table>
+        <thead>
+          <tr>
+            <th>Sl.No.</th><th>Date</th><th>Days</th><th>Snacks</th><th>Biscuit</th><th>Chips</th><th>Cold Drink &amp; Water</th>
+          </tr>
+        </thead>
+        <tbody>
+          {rows.map((row,i)=>(
+            <tr key={i} className={isSunday(row.entryDate)?"sun-row":""}>
+              <td>{i+1}</td><td>{safeFormat(row.entryDate)}</td><td>{row.weekDay}</td>
+              <td>{row.snacks||""}</td><td>{row.biscuit||""}</td><td>{row.chips||""}</td><td>{row.coldDrinkWater||""}</td>
+            </tr>
+          ))}
+          <tr className="total-row">
+            <td colSpan={3}>Total</td>
+            <td>{rows.reduce((s,r)=>s+(r.snacks||0),0)||""}</td>
+            <td>{rows.reduce((s,r)=>s+(r.biscuit||0),0)||""}</td>
+            <td>{rows.reduce((s,r)=>s+(r.chips||0),0)||""}</td>
+            <td>{rows.reduce((s,r)=>s+(r.coldDrinkWater||0),0)||""}</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  );
+
+  if (isLoading) return <div className="flex justify-center py-10"><Loader2 className="w-6 h-6 animate-spin"/></div>;
+
+  return (
+    <div>
+      {/* Action buttons */}
+      <div className="flex flex-wrap items-center gap-2 mb-4">
+        <span className="text-sm font-semibold text-gray-600 mr-1">HUL KPF — Exec &amp; Managers Snacks</span>
+        <div className="flex flex-wrap gap-2 ml-auto">
+          <Button size="sm" variant="outline" onClick={handleAutoFill} className="h-9" data-testid="btn-exec-autofill">
+            <Plus className="w-3.5 h-3.5 mr-1"/>Auto-Fill Month
+          </Button>
+          <Button size="sm" onClick={handleSaveAll} disabled={createMutation.isPending||updateMutation.isPending} className="h-9 bg-green-600 hover:bg-green-700 text-white" data-testid="btn-exec-save-all">
+            <Save className="w-3.5 h-3.5 mr-1"/>Save All
+          </Button>
+          <Button size="sm" variant="outline" onClick={handlePrint} className="h-9" data-testid="btn-exec-print">
+            <Printer className="w-3.5 h-3.5 mr-1"/>Print
+          </Button>
+          <Button size="sm" variant="outline" onClick={handleExportExcel} className="h-9 text-green-700 border-green-300 hover:bg-green-50" data-testid="btn-exec-export">
+            <FileDown className="w-3.5 h-3.5 mr-1"/>Export Excel
+          </Button>
+        </div>
+      </div>
+
+      {/* Mobile card view */}
+      <div className="block md:hidden space-y-2">
+        {rows.map((row, idx) => {
+          const isSun = isSunday(row.entryDate);
+          const cardBg = isSun ? "bg-orange-50 border-orange-300" : "bg-white border-gray-200";
+          return (
+            <div key={idx} className={`border rounded-xl p-3 shadow-sm ${cardBg} ${row._dirty ? "ring-2 ring-yellow-300" : ""}`}>
+              <div className="flex items-center gap-2 mb-2.5">
+                <span className="text-xs font-bold text-gray-400">#{idx+1}</span>
+                <span className="flex-1 text-sm font-semibold">{safeFormat(row.entryDate)}</span>
+                <span className="text-xs font-semibold bg-green-100 text-green-700 rounded px-2 py-1">{row.weekDay}</span>
+                {row._dirty && <span className="text-orange-500 font-bold text-xs">●</span>}
+              </div>
+              <div className="grid grid-cols-2 gap-1 mb-3">
+                {EXEC_SNACK_FIELDS.map((f, fi) => (
+                  <div key={f as string} className="flex flex-col items-center bg-gray-50 rounded-lg p-1.5">
+                    <span className="text-xs text-gray-400 mb-1">{EXEC_SNACK_LABELS[fi]}</span>
+                    <input type="number" min={0} inputMode="numeric" value={(row as any)[f]||""}
+                      onChange={e => handleCellChange(idx, f, e.target.value)}
+                      className="w-full text-center border border-gray-200 rounded-lg text-sm font-medium dark:bg-gray-900" style={{minHeight:38, padding:"4px 2px"}}/>
+                  </div>
+                ))}
+              </div>
+              <div className="flex gap-2">
+                <button onClick={() => handleSaveRow(idx)} className="flex-1 bg-blue-600 hover:bg-blue-700 text-white rounded-xl py-2.5 text-sm font-medium flex items-center justify-center gap-1.5">
+                  <Save className="w-4 h-4"/>Save
+                </button>
+                <button onClick={() => handleDeleteRow(idx)} className="bg-red-500 hover:bg-red-600 text-white rounded-xl px-4 py-2.5 flex items-center justify-center">
+                  <Trash2 className="w-4 h-4"/>
+                </button>
+              </div>
+            </div>
+          );
+        })}
+        {rows.length > 0 && (
+          <div className="border rounded-xl overflow-hidden shadow-sm">
+            <div className="bg-gray-800 text-white px-3 py-2 text-sm font-bold">Totals — KPF Exec Snacks</div>
+            <div className="grid grid-cols-2 divide-x divide-y">
+              {EXEC_SNACK_FIELDS.map((f, fi) => (
+                <div key={f as string} className="flex justify-between items-center px-3 py-2 text-sm">
+                  <span className="text-gray-600">{EXEC_SNACK_LABELS[fi]}</span>
+                  <span className="font-semibold">{rows.reduce((s,r)=>s+((r as any)[f]||0),0)}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* Desktop table */}
+      <div className="hidden md:block overflow-x-auto rounded-xl border shadow-sm">
+        <table style={{borderCollapse:'collapse', minWidth:620, fontFamily:'Arial,sans-serif', fontSize:12}}>
+          <thead>
+            <tr>
+              <th colSpan={7} style={{padding:'8px', border:'1px solid #ccc', textAlign:'center', fontSize:13, fontWeight:'bold', background:'#fff'}}>
+                DJ Hospitality &amp; Facility Management Pvt. Ltd.
+              </th>
+            </tr>
+            <tr>
+              <th colSpan={7} style={{padding:'5px', border:'1px solid #ccc', textAlign:'center', fontSize:11, background:'#fff'}}>
+                Number of Snacks Per Day For Executives &amp; Managers - {MONTHS[month-1]} - {year}
+              </th>
+            </tr>
+            <tr style={{background:'#f5f5f5'}}>
+              <th style={{padding:'5px', border:'1px solid #ccc', width:36}}>Sl.</th>
+              <th style={{padding:'5px', border:'1px solid #ccc', minWidth:100}}>Date</th>
+              <th style={{padding:'5px', border:'1px solid #ccc', width:48}}>Days</th>
+              <th style={{padding:'5px', border:'1px solid #ccc', minWidth:72}}>Snacks</th>
+              <th style={{padding:'5px', border:'1px solid #ccc', minWidth:72}}>Biscuit</th>
+              <th style={{padding:'5px', border:'1px solid #ccc', minWidth:72}}>Chips</th>
+              <th style={{padding:'5px', border:'1px solid #ccc', minWidth:110}}>Cold Drink &amp; Water</th>
+              <th style={{padding:'5px', border:'1px solid #ccc', width:50}}>Act</th>
+            </tr>
+          </thead>
+          <tbody>
+            {rows.map((row, idx) => {
+              const isSun = isSunday(row.entryDate);
+              const bg = isSun ? '#ffb380' : idx%2===0 ? '#fff' : '#f9f9f9';
+              const numFld = (f: keyof ExecSnackRow, colIdx: number) => (
+                <input type="number" min={0} value={(row as any)[f]||''} onChange={e=>handleCellChange(idx,f,e.target.value)}
+                  onKeyDown={e=>handleEnterKey(e,colIdx)}
+                  style={{width:64, border:'none', background:'transparent', textAlign:'center', fontSize:12, padding:0, outline:'none'}}/>
+              );
+              return (
+                <tr key={idx} style={{background: bg}}>
+                  <td style={{textAlign:'center', border:'1px solid #ccc', padding:'2px'}}>{idx+1}</td>
+                  <td style={{textAlign:'center', border:'1px solid #ccc', padding:'3px 4px', fontSize:11, fontWeight:500}}>{safeFormat(row.entryDate)}</td>
+                  <td style={{textAlign:'center', border:'1px solid #ccc', fontSize:11}}>{row.weekDay}</td>
+                  <td style={{border:'1px solid #ccc', padding:0, textAlign:'center'}}>{numFld('snacks',0)}</td>
+                  <td style={{border:'1px solid #ccc', padding:0, textAlign:'center'}}>{numFld('biscuit',1)}</td>
+                  <td style={{border:'1px solid #ccc', padding:0, textAlign:'center'}}>{numFld('chips',2)}</td>
+                  <td style={{border:'1px solid #ccc', padding:0, textAlign:'center'}}>{numFld('coldDrinkWater',3)}</td>
+                  <td style={{border:'1px solid #ccc', padding:'2px', textAlign:'center'}}>
+                    <button onClick={()=>handleSaveRow(idx)} title="Save" style={{color:'#22c55e', marginRight:4, background:'none', border:'none', cursor:'pointer'}}><Save style={{width:13,height:13}}/></button>
+                    <button onClick={()=>handleDeleteRow(idx)} title="Clear" style={{color:'#e53e3e', background:'none', border:'none', cursor:'pointer'}}><Trash2 style={{width:13,height:13}}/></button>
+                  </td>
+                </tr>
+              );
+            })}
+            <tr style={{background:'#f0f0f0', fontWeight:'bold'}}>
+              <td colSpan={3} style={{textAlign:'center', border:'1px solid #ccc', padding:'4px'}}>Total</td>
+              {EXEC_SNACK_FIELDS.map(f=>(
+                <td key={f as string} style={{border:'1px solid #ccc', textAlign:'center', padding:'4px'}}>
+                  {rows.reduce((s,r)=>s+((r as any)[f]||0),0)||''}
+                </td>
+              ))}
+              <td style={{border:'1px solid #ccc'}}></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      <div style={{display:'none'}}>{printTable}</div>
+    </div>
+  );
+}
+
 function HulLocationTab({ month, year, location, loadKey = 0 }: { month: number; year: number; location: string; loadKey?: number }) {
   const qc = useQueryClient();
   const { toast } = useToast();
@@ -3537,6 +3897,9 @@ export function DateEntryTab() {
             <TabsTrigger value="hul_kpf" className="text-xs sm:text-sm" data-testid="tab-hul-kpf">
               KPF
             </TabsTrigger>
+            <TabsTrigger value="hul_kpf_exec" className="text-xs sm:text-sm" data-testid="tab-hul-kpf-exec">
+              KPF Exec Snacks
+            </TabsTrigger>
             <TabsTrigger value="hul_tec" className="text-xs sm:text-sm" data-testid="tab-hul-tec">
               TEC
             </TabsTrigger>
@@ -3544,6 +3907,10 @@ export function DateEntryTab() {
           <TabsContent value="hul_kpf">
             <div className="mb-2 text-sm text-muted-foreground font-medium">Hindustan Unilever Limited — KPF — Meal Charges &amp; Guest Meal Charges (1st to last day of month)</div>
             <HulLocationTab location="KPF" month={parseInt(month)} year={parseInt(year)} loadKey={loadKey}/>
+          </TabsContent>
+          <TabsContent value="hul_kpf_exec">
+            <div className="mb-2 text-sm text-muted-foreground font-medium">HUL KPF — Number of Snacks Per Day For Executives &amp; Managers (1st to last day of month)</div>
+            <HulKpfExecSnacksTab month={parseInt(month)} year={parseInt(year)} loadKey={loadKey}/>
           </TabsContent>
           <TabsContent value="hul_tec">
             <div className="mb-2 text-sm text-muted-foreground font-medium">Hindustan Unilever Limited — TEC — Meal Charges &amp; Guest Meal Charges (1st to last day of month)</div>

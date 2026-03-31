@@ -1899,6 +1899,24 @@ export async function registerRoutes(
     await storage.deleteHulDateEntry(Number(req.params.id)); res.status(204).send();
   });
 
+  // === HUL KPF EXECUTIVE/MANAGER SNACKS ===
+  app.get('/api/hul-kpf-exec-snacks', requirePermission('salesinvoice'), async (req, res) => {
+    const month = Number(req.query.month) || new Date().getMonth() + 1;
+    const year = Number(req.query.year) || new Date().getFullYear();
+    res.json(await storage.getHulKpfExecSnacks(month, year));
+  });
+  app.post('/api/hul-kpf-exec-snacks', requirePermission('salesinvoice'), async (req, res) => {
+    try { res.status(201).json(await storage.createHulKpfExecSnack(req.body)); }
+    catch (err: any) { res.status(500).json({ message: err.message }); }
+  });
+  app.put('/api/hul-kpf-exec-snacks/:id', requirePermission('salesinvoice'), async (req, res) => {
+    try { res.json(await storage.updateHulKpfExecSnack(Number(req.params.id), req.body)); }
+    catch (err: any) { res.status(500).json({ message: err.message }); }
+  });
+  app.delete('/api/hul-kpf-exec-snacks/:id', requirePermission('salesinvoice'), async (req, res) => {
+    await storage.deleteHulKpfExecSnack(Number(req.params.id)); res.status(204).send();
+  });
+
   return httpServer;
 }
 

@@ -42,6 +42,7 @@ import {
   unichEmSnackEntries,
   unichEmLunchEntries,
   hulDateEntries,
+  hulKpfExecSnacks,
   type UblDateEntry,
   type CiplaDateEntry,
   type UblLunchEntry,
@@ -49,6 +50,7 @@ import {
   type UnichEmSnackEntry,
   type UnichEmLunchEntry,
   type HulDateEntry,
+  type HulKpfExecSnack,
   type DailyReport, 
   type ExpenseItem,
   type CreateReportRequest,
@@ -2079,6 +2081,34 @@ export class DatabaseStorage implements IStorage {
   }
   async deleteHulDateEntry(id: number): Promise<void> {
     await db.delete(hulDateEntries).where(eq(hulDateEntries.id, id));
+  }
+
+  // HUL KPF Executive/Manager Snacks
+  async getHulKpfExecSnacks(month: number, year: number): Promise<HulKpfExecSnack[]> {
+    return await db.select().from(hulKpfExecSnacks)
+      .where(and(eq(hulKpfExecSnacks.month, month), eq(hulKpfExecSnacks.year, year)))
+      .orderBy(hulKpfExecSnacks.entryDate);
+  }
+  async createHulKpfExecSnack(data: any): Promise<HulKpfExecSnack> {
+    const { entryDate, month, year, weekDay, snacks, biscuit, chips, coldDrinkWater } = data;
+    await db.execute(sql`
+      INSERT INTO hul_kpf_exec_snacks (entry_date, month, year, week_day, snacks, biscuit, chips, cold_drink_water)
+      VALUES (${entryDate}, ${month}, ${year}, ${weekDay || null}, ${snacks || 0}, ${biscuit || 0}, ${chips || 0}, ${coldDrinkWater || 0})
+      ON DUPLICATE KEY UPDATE
+        snacks = VALUES(snacks), biscuit = VALUES(biscuit), chips = VALUES(chips),
+        cold_drink_water = VALUES(cold_drink_water), week_day = VALUES(week_day), updated_at = NOW()
+    `);
+    const rows = await db.select().from(hulKpfExecSnacks).where(eq(hulKpfExecSnacks.entryDate, entryDate));
+    return rows[0];
+  }
+  async updateHulKpfExecSnack(id: number, data: any): Promise<HulKpfExecSnack> {
+    const { id: _id, entryDate, createdAt, _dirty, ...safeData } = data;
+    await db.update(hulKpfExecSnacks).set({ ...safeData, updatedAt: new Date() }).where(eq(hulKpfExecSnacks.id, id));
+    const rows = await db.select().from(hulKpfExecSnacks).where(eq(hulKpfExecSnacks.id, id));
+    return rows[0];
+  }
+  async deleteHulKpfExecSnack(id: number): Promise<void> {
+    await db.delete(hulKpfExecSnacks).where(eq(hulKpfExecSnacks.id, id));
   }
 }
 
