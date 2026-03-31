@@ -2007,7 +2007,8 @@ export class DatabaseStorage implements IStorage {
     return rows[0];
   }
   async updateUnichEmSnackEntry(id: number, data: any): Promise<UnichEmSnackEntry> {
-    await db.update(unichEmSnackEntries).set({ ...data, updatedAt: new Date() }).where(eq(unichEmSnackEntries.id, id));
+    const { id: _id, entryDate, createdAt, _dirty, ...safeData } = data;
+    await db.update(unichEmSnackEntries).set({ ...safeData, updatedAt: new Date() }).where(eq(unichEmSnackEntries.id, id));
     const rows = await db.select().from(unichEmSnackEntries).where(eq(unichEmSnackEntries.id, id));
     return rows[0];
   }
@@ -2039,7 +2040,8 @@ export class DatabaseStorage implements IStorage {
     return rows[0];
   }
   async updateUnichEmLunchEntry(id: number, data: any): Promise<UnichEmLunchEntry> {
-    await db.update(unichEmLunchEntries).set({ ...data, updatedAt: new Date() }).where(eq(unichEmLunchEntries.id, id));
+    const { id: _id, entryDate, createdAt, _dirty, ...safeData } = data;
+    await db.update(unichEmLunchEntries).set({ ...safeData, updatedAt: new Date() }).where(eq(unichEmLunchEntries.id, id));
     const rows = await db.select().from(unichEmLunchEntries).where(eq(unichEmLunchEntries.id, id));
     return rows[0];
   }
