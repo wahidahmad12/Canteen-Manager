@@ -3830,8 +3830,15 @@ function UblSummaryTab({ month, year }: { month: number; year: number }) {
   const printRef = useRef<HTMLDivElement>(null);
   const [viewMode, setViewMode] = useState<'monthly' | 'yearly'>('monthly');
   const [summaryYear, setSummaryYear] = useState(year);
-  const monthLabel = `${MONTHS[month - 1]} ${year}`;
+  const { label: billingLabel } = getBillingRange(month, year);
+  const monthLabel = billingLabel;
   const yearLabel = String(summaryYear);
+  // Helper to get billing period label for a given month+year (for yearly view rows)
+  const getBillingRowLabel = (m: number) => {
+    const nm = m === 12 ? 1 : m + 1;
+    const ny = m === 12 ? summaryYear + 1 : summaryYear;
+    return `21 ${MONTHS[m-1].slice(0,3)} – 20 ${MONTHS[nm-1].slice(0,3)} ${ny}`;
+  };
 
   const { data: dateRows = [], isLoading: dateLoading } = useQuery<UblRow[]>({
     queryKey: ['/api/ubl-date-entries', month, year],
@@ -3929,12 +3936,13 @@ function UblSummaryTab({ month, year }: { month: number; year: number }) {
         const ws1 = wb.addWorksheet('Format 1 Yearly');
         ws1.mergeCells('A1:H1');
         const t1 = ws1.getCell('A1'); t1.value = `UBL — Bill Data Sheet — Yearly Summary ${yearLabel}`; t1.font={bold:true,size:12,color:{argb:'FFFFFFFF'}}; t1.fill=mkFill('FFB45309'); t1.alignment={horizontal:'center'}; t1.border=thin;
-        const h1 = ws1.addRow(['Month','Breakfast','Lunch','Dinner','Tea (All)','Mutton','Tiffin','Boiled Egg']);
+        const h1 = ws1.addRow(['Billing Period','Breakfast','Lunch','Dinner','Tea (All)','Mutton','Tiffin','Boiled Egg']);
         h1.eachCell((c: any) => { c.font=wFont; c.fill=mkFill('FFB45309'); c.border=thin; c.alignment={horizontal:'center'}; });
-        ws1.columns=[14,12,12,12,12,12,12,12].map((w: number)=>({width:w}));
-        MONTHS.forEach((mName, mi) => {
+        ws1.columns=[22,12,12,12,12,12,12,12].map((w: number)=>({width:w}));
+        MONTHS.forEach((_mName, mi) => {
           const row = yrDate.find((r: any) => r.month === mi + 1);
-          const dr = ws1.addRow([mName, row?.breakfast||'', row?.lunch||'', row?.dinner||'', row?.tea||'', row?.mutton||'', row?.tiffin||'', row?.boiledEgg||'']);
+          const bpLabel = getBillingRowLabel(mi + 1);
+          const dr = ws1.addRow([bpLabel, row?.breakfast||'', row?.lunch||'', row?.dinner||'', row?.tea||'', row?.mutton||'', row?.tiffin||'', row?.boiledEgg||'']);
           dr.eachCell((c: any) => { c.border=thin; c.alignment={horizontal:'center'}; });
         });
         const totRow = ws1.addRow(['Grand Total', sumF(yrDate,'breakfast')||'', sumF(yrDate,'lunch')||'', sumF(yrDate,'dinner')||'', sumF(yrDate,'tea')||'', sumF(yrDate,'mutton')||'', sumF(yrDate,'tiffin')||'', sumF(yrDate,'boiledEgg')||'']);
@@ -3943,13 +3951,13 @@ function UblSummaryTab({ month, year }: { month: number; year: number }) {
         const ws2 = wb.addWorksheet('Format 2 Yearly');
         ws2.mergeCells('A1:F1');
         const t2 = ws2.getCell('A1'); t2.value = `UBL — Lunch Per Day — Yearly Summary ${yearLabel}`; t2.font={bold:true,size:12,color:{argb:'FFFFFFFF'}}; t2.fill=mkFill('FF1A3A8A'); t2.alignment={horizontal:'center'}; t2.border=thin;
-        const h2 = ws2.addRow(['Month','Permanent','Casual','Contractual','Canteen','Total']);
+        const h2 = ws2.addRow(['Billing Period','Permanent','Casual','Contractual','Canteen','Total']);
         h2.eachCell((c: any) => { c.font=wFont; c.fill=mkFill('FF1A3A8A'); c.border=thin; c.alignment={horizontal:'center'}; });
-        ws2.columns=[14,12,12,14,12,12].map((w: number)=>({width:w}));
-        MONTHS.forEach((mName, mi) => {
+        ws2.columns=[22,12,12,14,12,12].map((w: number)=>({width:w}));
+        MONTHS.forEach((_mName, mi) => {
           const row = yrLunch.find((r: any) => r.month === mi + 1);
           const tot = (row?.perment||0)+(row?.casual||0)+(row?.contractual||0)+(row?.canteen||0);
-          const dr = ws2.addRow([mName, row?.perment||'', row?.casual||'', row?.contractual||'', row?.canteen||'', tot||'']);
+          const dr = ws2.addRow([getBillingRowLabel(mi + 1), row?.perment||'', row?.casual||'', row?.contractual||'', row?.canteen||'', tot||'']);
           dr.eachCell((c: any) => { c.border=thin; c.alignment={horizontal:'center'}; });
         });
       }
@@ -3967,18 +3975,18 @@ function UblSummaryTab({ month, year }: { month: number; year: number }) {
         <div className="overflow-x-auto">
           <table className="w-full border-collapse" style={{ fontSize:11 }}>
             <thead><tr>
-              <th style={{ ...hStyle, width:90, textAlign:'left', paddingLeft:8 }}>Month</th>
+              <th style={{ ...hStyle, minWidth:160, textAlign:'left', paddingLeft:8 }}>Billing Period</th>
               {headers.map((h,i) => <th key={i} style={hStyle}>{h}</th>)}
               <th style={{ ...hStyle, background:'#374151' }}>Total</th>
             </tr></thead>
             <tbody>
-              {MONTHS.map((mName, mi) => {
+              {MONTHS.map((_mName, mi) => {
                 const row = data.find(r => r.month === mi + 1);
                 const vals = fields.map(f => row ? (row[f] || 0) : 0);
                 const rowTotal = vals.reduce((s, v) => s + v, 0);
                 return (
                   <tr key={mi} style={{ background: mi % 2 === 0 ? '#f9fafb' : '#fff' }}>
-                    <td style={{ border:'1px solid #ddd', padding:'2px 6px', fontWeight:500, textAlign:'left', fontSize:10 }}>{mName}</td>
+                    <td style={{ border:'1px solid #ddd', padding:'2px 6px', fontWeight:500, textAlign:'left', fontSize:10 }}>{getBillingRowLabel(mi + 1)}</td>
                     {vals.map((v, fi) => <td key={fi} style={{ border:'1px solid #ddd', padding:'2px 5px', textAlign:'center', fontSize:10 }}>{v || '—'}</td>)}
                     <td style={{ border:'1px solid #ddd', padding:'2px 5px', textAlign:'center', fontSize:10, fontWeight:'bold', background:'#f0fdf4' }}>{rowTotal || '—'}</td>
                   </tr>
@@ -4143,8 +4151,14 @@ function CiplaSummaryTab({ month, year }: { month: number; year: number }) {
   const printRef = useRef<HTMLDivElement>(null);
   const [viewMode, setViewMode] = useState<'monthly' | 'yearly'>('monthly');
   const [summaryYear, setSummaryYear] = useState(year);
-  const monthLabel = `${MONTHS[month - 1]} ${year}`;
+  const { label: billingLabelC } = getBillingRange(month, year);
+  const monthLabel = billingLabelC;
   const yearLabel = String(summaryYear);
+  const getCiplaBillingRowLabel = (m: number) => {
+    const nm = m === 12 ? 1 : m + 1;
+    const ny = m === 12 ? summaryYear + 1 : summaryYear;
+    return `21 ${MONTHS[m-1].slice(0,3)} – 20 ${MONTHS[nm-1].slice(0,3)} ${ny}`;
+  };
 
   const { data: ciplaRows = [], isLoading: ciplaLoading } = useQuery<CiplaRow[]>({
     queryKey: ['/api/cipla-date-entries', month, year],
@@ -4204,13 +4218,13 @@ function CiplaSummaryTab({ month, year }: { month: number; year: number }) {
           dr.eachCell((c: any) => { c.border=thin; c.alignment={horizontal:'center'}; });
         });
       } else {
-        const h = ws.addRow(['Month','Breakfast','Lunch','Dinner','Total']);
+        const h = ws.addRow(['Billing Period','Breakfast','Lunch','Dinner','Total']);
         h.eachCell((c: any) => { c.font=wFont; c.fill=mkFill('FF4338CA'); c.border=thin; c.alignment={horizontal:'center'}; });
-        ws.columns=[14,12,12,12,12].map((w: number)=>({width:w}));
-        MONTHS.forEach((mName, mi) => {
+        ws.columns=[22,12,12,12,12].map((w: number)=>({width:w}));
+        MONTHS.forEach((_mName, mi) => {
           const row = yrCipla.find((r: any) => r.month === mi + 1);
           const tot = (row?.breakfast||0)+(row?.lunch||0)+(row?.dinner||0);
-          const dr = ws.addRow([mName, row?.breakfast||'', row?.lunch||'', row?.dinner||'', tot||'']);
+          const dr = ws.addRow([getCiplaBillingRowLabel(mi + 1), row?.breakfast||'', row?.lunch||'', row?.dinner||'', tot||'']);
           dr.eachCell((c: any) => { c.border=thin; c.alignment={horizontal:'center'}; });
         });
         const totRow = ws.addRow(['Grand Total', sumF(yrCipla,'breakfast')||'', sumF(yrCipla,'lunch')||'', sumF(yrCipla,'dinner')||'', sumF(yrCipla,'breakfast')+sumF(yrCipla,'lunch')+sumF(yrCipla,'dinner')||'']);
@@ -4306,19 +4320,19 @@ function CiplaSummaryTab({ month, year }: { month: number; year: number }) {
             <div className="overflow-x-auto">
               <table className="w-full border-collapse" style={{ fontSize:11 }}>
                 <thead><tr>
-                  <th style={{ ...thI, width:100, textAlign:'left', paddingLeft:8 }}>Month</th>
+                  <th style={{ ...thI, minWidth:165, textAlign:'left', paddingLeft:8 }}>Billing Period</th>
                   <th style={thI}>Breakfast</th>
                   <th style={thI}>Lunch</th>
                   <th style={thI}>Dinner</th>
                   <th style={{ ...thI, background:'#374151' }}>Grand Total</th>
                 </tr></thead>
                 <tbody>
-                  {MONTHS.map((mName, mi) => {
+                  {MONTHS.map((_mName, mi) => {
                     const row = yrCipla.find(r => r.month === mi + 1);
                     const tot = (row?.breakfast||0)+(row?.lunch||0)+(row?.dinner||0);
                     return (
                       <tr key={mi} style={{ background: mi % 2 === 0 ? '#f9fafb' : '#fff' }}>
-                        <td style={{ border:'1px solid #ddd', padding:'2px 6px', fontWeight:500, textAlign:'left', fontSize:10 }}>{mName}</td>
+                        <td style={{ border:'1px solid #ddd', padding:'2px 6px', fontWeight:500, textAlign:'left', fontSize:10 }}>{getCiplaBillingRowLabel(mi + 1)}</td>
                         <td style={{ border:'1px solid #ddd', padding:'2px 5px', textAlign:'center', fontSize:10 }}>{row?.breakfast || '—'}</td>
                         <td style={{ border:'1px solid #ddd', padding:'2px 5px', textAlign:'center', fontSize:10 }}>{row?.lunch || '—'}</td>
                         <td style={{ border:'1px solid #ddd', padding:'2px 5px', textAlign:'center', fontSize:10 }}>{row?.dinner || '—'}</td>
