@@ -3822,6 +3822,419 @@ function HulLocationTab({ month, year, location, loadKey = 0 }: { month: number;
 }
 
 // ============================================================
+// ============================================================
+// HUL Summary Tab
+// ============================================================
+
+function HulSummaryTab({ month, year }: { month: number; year: number }) {
+  const { toast } = useToast();
+  const printRef = useRef<HTMLDivElement>(null);
+  const monthLabel = `${MONTHS[month - 1]} - ${year}`;
+
+  const { data: kpfRows = [], isLoading: kpfLoading } = useQuery<HulRow[]>({
+    queryKey: ['/api/hul-date-entries', month, year, 'KPF'],
+    queryFn: async () => {
+      const res = await fetch(`/api/hul-date-entries?month=${month}&year=${year}&location=KPF`, { credentials: 'include' });
+      const d = await res.json();
+      return d.map((r: HulRow) => ({ ...r, entryDate: normDate(r.entryDate) }));
+    },
+  });
+  const { data: tecRows = [], isLoading: tecLoading } = useQuery<HulRow[]>({
+    queryKey: ['/api/hul-date-entries', month, year, 'TEC'],
+    queryFn: async () => {
+      const res = await fetch(`/api/hul-date-entries?month=${month}&year=${year}&location=TEC`, { credentials: 'include' });
+      const d = await res.json();
+      return d.map((r: HulRow) => ({ ...r, entryDate: normDate(r.entryDate) }));
+    },
+  });
+  const { data: execRows = [], isLoading: execLoading } = useQuery<ExecSnackRow[]>({
+    queryKey: ['/api/hul-kpf-exec-snacks', month, year],
+    queryFn: async () => {
+      const res = await fetch(`/api/hul-kpf-exec-snacks?month=${month}&year=${year}`, { credentials: 'include' });
+      const d = await res.json();
+      return d.map((r: ExecSnackRow) => ({ ...r, entryDate: normDate(r.entryDate) }));
+    },
+  });
+
+  const isLoading = kpfLoading || tecLoading || execLoading;
+
+  const sum = (arr: any[], field: string) => arr.reduce((s, r) => s + (r[field] || 0), 0);
+  const kpfT = { breakfast: sum(kpfRows,'breakfast'), lunch: sum(kpfRows,'lunch'), eveningSnacks: sum(kpfRows,'eveningSnacks'), nightSnacks: sum(kpfRows,'nightSnacks'), guestBreakfast: sum(kpfRows,'guestBreakfast'), guestLunch: sum(kpfRows,'guestLunch'), guestEveningSnacks: sum(kpfRows,'guestEveningSnacks'), guestNightSnacks: sum(kpfRows,'guestNightSnacks') };
+  const tecT = { breakfast: sum(tecRows,'breakfast'), lunch: sum(tecRows,'lunch'), eveningSnacks: sum(tecRows,'eveningSnacks'), nightSnacks: sum(tecRows,'nightSnacks'), guestBreakfast: sum(tecRows,'guestBreakfast'), guestLunch: sum(tecRows,'guestLunch'), guestEveningSnacks: sum(tecRows,'guestEveningSnacks'), guestNightSnacks: sum(tecRows,'guestNightSnacks') };
+  const exT = { snacks: sum(execRows,'snacks'), biscuit: sum(execRows,'biscuit'), chips: sum(execRows,'chips'), coldDrinkWater: sum(execRows,'coldDrinkWater') };
+
+  const thG: React.CSSProperties = { background:'#1a6b2e', color:'#fff', border:'1px solid #333', padding:'4px 6px', textAlign:'center', fontWeight:'bold', fontSize:11 };
+  const thB: React.CSSProperties = { background:'#1a3a8a', color:'#fff', border:'1px solid #333', padding:'4px 6px', textAlign:'center', fontWeight:'bold', fontSize:11 };
+  const thBr: React.CSSProperties = { background:'#b45309', color:'#fff', border:'1px solid #333', padding:'4px 6px', textAlign:'center', fontWeight:'bold', fontSize:11 };
+  const td = (sun?: boolean): React.CSSProperties => ({ background: sun ? '#ffb380' : undefined, border:'1px solid #333', padding:'2px 5px', textAlign:'center', fontSize:10 });
+  const tdTot: React.CSSProperties = { background:'#e8f0fe', border:'1px solid #333', padding:'3px 6px', textAlign:'center', fontWeight:'bold', fontSize:10 };
+
+  const MealTable = ({ rows, locName, hStyle }: { rows: HulRow[]; locName: string; hStyle: React.CSSProperties }) => (
+    <div className="mb-5">
+      <div className="text-center font-bold text-sm py-1.5" style={{ background: hStyle.background as string, color: '#fff' }}>
+        {locName} — Meal Charges &amp; Guest Meal Charges — {monthLabel}
+      </div>
+      <div className="hidden md:block overflow-x-auto">
+        <table className="w-full border-collapse" style={{ fontSize: 11 }}>
+          <thead>
+            <tr>
+              <th rowSpan={2} style={{ ...hStyle, width: 28 }}>Sl.</th>
+              <th rowSpan={2} style={{ ...hStyle, width: 80 }}>Date</th>
+              <th rowSpan={2} style={{ ...hStyle, width: 34 }}>Days</th>
+              <th colSpan={4} style={hStyle}>Meal Charges</th>
+              <th colSpan={4} style={thB}>Guest Meal Charges</th>
+            </tr>
+            <tr>
+              {['Breakfast','Lunch','Evng Snacks','Night Snacks'].map(h => <th key={h} style={hStyle}>{h}</th>)}
+              {['G.Breakfast','G.Lunch','G.Evng','G.Night'].map(h => <th key={h} style={thB}>{h}</th>)}
+            </tr>
+          </thead>
+          <tbody>
+            {rows.map((row, i) => {
+              const sun = isSunday(row.entryDate);
+              return (
+                <tr key={i} style={{ background: sun ? '#ffb380' : undefined }}>
+                  <td style={td(sun)}>{i+1}</td>
+                  <td style={td(sun)}>{safeFormat(row.entryDate)}</td>
+                  <td style={td(sun)}>{row.weekDay}</td>
+                  {(['breakfast','lunch','eveningSnacks','nightSnacks','guestBreakfast','guestLunch','guestEveningSnacks','guestNightSnacks'] as (keyof HulRow)[]).map(f => (
+                    <td key={f as string} style={td(sun)}>{row[f] || ''}</td>
+                  ))}
+                </tr>
+              );
+            })}
+            <tr>
+              <td colSpan={3} style={tdTot}>Total</td>
+              {(['breakfast','lunch','eveningSnacks','nightSnacks','guestBreakfast','guestLunch','guestEveningSnacks','guestNightSnacks'] as (keyof HulRow)[]).map(f => (
+                <td key={f as string} style={tdTot}>{rows.reduce((s,r) => s+(r[f]||0), 0) || ''}</td>
+              ))}
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      <div className="block md:hidden space-y-1 mt-1">
+        {rows.map((row, i) => (
+          <div key={i} className="border rounded p-2 text-xs" style={{ background: isSunday(row.entryDate) ? '#ffb380' : '#f9fafb' }}>
+            <div className="font-semibold">{safeFormat(row.entryDate)} ({row.weekDay})</div>
+            <div className="grid grid-cols-2 gap-x-3 mt-0.5">
+              <span>Breakfast: <b>{row.breakfast||0}</b></span><span>Lunch: <b>{row.lunch||0}</b></span>
+              <span>Evng: <b>{row.eveningSnacks||0}</b></span><span>Night: <b>{row.nightSnacks||0}</b></span>
+              <span>G.Breakfast: <b>{row.guestBreakfast||0}</b></span><span>G.Lunch: <b>{row.guestLunch||0}</b></span>
+              <span>G.Evng: <b>{row.guestEveningSnacks||0}</b></span><span>G.Night: <b>{row.guestNightSnacks||0}</b></span>
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+
+  const handlePrint = () => {
+    const content = printRef.current?.innerHTML;
+    if (!content) return;
+    const win = window.open('', '_blank');
+    if (!win) return;
+    win.document.write(`<html><head><title>HUL Summary ${monthLabel}</title><style>
+      *{box-sizing:border-box;}body{font-family:"Times New Roman",Times,serif;margin:0;font-size:11pt;-webkit-print-color-adjust:exact;print-color-adjust:exact;}
+      h3,h4,p{text-align:center;margin:2px 0;}
+      table{width:100%;border-collapse:collapse;margin-top:4px;margin-bottom:10px;}
+      th,td{border:1px solid #333;padding:2px 4px;text-align:center;font-size:10pt;}
+      @media print{@page{margin:5mm;size:A4 landscape;}body{margin:0;}}
+    </style></head><body>${content}</body></html>`);
+    win.document.close(); win.print();
+  };
+
+  const handleExportExcel = async () => {
+    try {
+      const ExcelJS = (await import('exceljs')).default;
+      const wb = new ExcelJS.Workbook();
+      const thin = { top:{style:'thin' as const}, bottom:{style:'thin' as const}, left:{style:'thin' as const}, right:{style:'thin' as const} };
+      const mkFill = (argb: string) => ({ type:'pattern' as const, pattern:'solid' as const, fgColor:{argb} });
+      const wFont = { bold:true, color:{argb:'FFFFFFFF'} };
+
+      const makeMealSheet = (ws: any, loc: string, rows: HulRow[]) => {
+        ws.mergeCells('A1:K1');
+        const t = ws.getCell('A1');
+        t.value = `HUL ${loc} — Meal Charges & Guest Meal Charges — ${monthLabel}`;
+        t.font={bold:true,size:12,color:{argb:'FFFFFFFF'}}; t.fill=mkFill('FF1A6B2E'); t.alignment={horizontal:'center'}; t.border=thin;
+        ws.mergeCells('A2:C2'); ws.getCell('A2').fill=mkFill('FF1A6B2E'); ws.getCell('A2').border=thin;
+        ws.mergeCells('D2:G2'); const mc=ws.getCell('D2'); mc.value='Meal Charges'; mc.font=wFont; mc.fill=mkFill('FF1A6B2E'); mc.alignment={horizontal:'center'}; mc.border=thin;
+        ws.mergeCells('H2:K2'); const gc=ws.getCell('H2'); gc.value='Guest Meal Charges'; gc.font=wFont; gc.fill=mkFill('FF1A3A8A'); gc.alignment={horizontal:'center'}; gc.border=thin;
+        const hdr = ws.addRow(['Sl.','Date','Days','Breakfast','Lunch','Evng Snacks','Night Snacks','G.Breakfast','G.Lunch','G.Evng Snacks','G.Night Snacks']);
+        hdr.eachCell((cell: any, ci: number) => { cell.font=wFont; cell.fill=mkFill(ci<=7?'FF1A6B2E':'FF1A3A8A'); cell.border=thin; cell.alignment={horizontal:'center'}; });
+        ws.columns=[5,14,8,11,11,13,13,14,12,15,15].map((w: number)=>({width:w}));
+        rows.forEach((r, i) => {
+          const dr = ws.addRow([i+1, safeFormat(r.entryDate), r.weekDay, r.breakfast||'', r.lunch||'', r.eveningSnacks||'', r.nightSnacks||'', r.guestBreakfast||'', r.guestLunch||'', r.guestEveningSnacks||'', r.guestNightSnacks||'']);
+          if (isSunday(r.entryDate)) dr.eachCell((c: any) => { c.fill=mkFill('FFFFA500'); });
+          dr.eachCell((c: any) => { c.border=thin; c.alignment={horizontal:'center'}; });
+        });
+        const totRow = ws.addRow(['','Total','', sum(rows,'breakfast')||'', sum(rows,'lunch')||'', sum(rows,'eveningSnacks')||'', sum(rows,'nightSnacks')||'', sum(rows,'guestBreakfast')||'', sum(rows,'guestLunch')||'', sum(rows,'guestEveningSnacks')||'', sum(rows,'guestNightSnacks')||'']);
+        totRow.eachCell((c: any) => { c.font={bold:true}; c.fill=mkFill('FFE8F0FE'); c.border=thin; c.alignment={horizontal:'center'}; });
+      };
+
+      makeMealSheet(wb.addWorksheet('KPF'), 'KPF', kpfRows);
+      makeMealSheet(wb.addWorksheet('TEC'), 'TEC', tecRows);
+
+      const wsExec = wb.addWorksheet('KPF Exec Snacks');
+      wsExec.mergeCells('A1:G1');
+      const et = wsExec.getCell('A1');
+      et.value = `HUL KPF Exec Snacks — Number of Snacks Per Day For Executives & Managers — ${monthLabel}`;
+      et.font={bold:true,size:12,color:{argb:'FFFFFFFF'}}; et.fill=mkFill('FFB45309'); et.alignment={horizontal:'center'}; et.border=thin;
+      const eHdr = wsExec.addRow(['Sl.','Date','Days','Snacks','Biscuit','Chips','Cold Drink & Water']);
+      eHdr.eachCell((c: any) => { c.font=wFont; c.fill=mkFill('FFB45309'); c.border=thin; c.alignment={horizontal:'center'}; });
+      wsExec.columns=[5,14,8,10,10,10,16].map((w: number)=>({width:w}));
+      execRows.forEach((r, i) => {
+        const dr = wsExec.addRow([i+1, safeFormat(r.entryDate), r.weekDay, r.snacks||'', r.biscuit||'', r.chips||'', r.coldDrinkWater||'']);
+        if (isSunday(r.entryDate)) dr.eachCell((c: any) => { c.fill=mkFill('FFFFA500'); });
+        dr.eachCell((c: any) => { c.border=thin; c.alignment={horizontal:'center'}; });
+      });
+      const etot = wsExec.addRow(['','Total','', exT.snacks||'', exT.biscuit||'', exT.chips||'', exT.coldDrinkWater||'']);
+      etot.eachCell((c: any) => { c.font={bold:true}; c.fill=mkFill('FFE8F0FE'); c.border=thin; c.alignment={horizontal:'center'}; });
+
+      const wsSumm = wb.addWorksheet('Summary');
+      wsSumm.mergeCells('A1:M1');
+      const st = wsSumm.getCell('A1');
+      st.value = `HUL Combined Summary Report — ${monthLabel}`;
+      st.font={bold:true,size:13,color:{argb:'FFFFFFFF'}}; st.fill=mkFill('FF1A6B2E'); st.alignment={horizontal:'center'}; st.border=thin;
+      const sHdr = wsSumm.addRow(['Section','Breakfast','Lunch','Evng Snacks','Night Snacks','G.Breakfast','G.Lunch','G.Evng Snacks','G.Night Snacks','Snacks','Biscuit','Chips','Cold Drink & Water']);
+      sHdr.eachCell((c: any, ci: number) => { c.font=wFont; c.fill=mkFill(ci<=5?'FF1A6B2E':ci<=9?'FF1A3A8A':'FFB45309'); c.border=thin; c.alignment={horizontal:'center'}; });
+      const sRows = [
+        ['KPF',kpfT.breakfast||'',kpfT.lunch||'',kpfT.eveningSnacks||'',kpfT.nightSnacks||'',kpfT.guestBreakfast||'',kpfT.guestLunch||'',kpfT.guestEveningSnacks||'',kpfT.guestNightSnacks||'','—','—','—','—'],
+        ['TEC',tecT.breakfast||'',tecT.lunch||'',tecT.eveningSnacks||'',tecT.nightSnacks||'',tecT.guestBreakfast||'',tecT.guestLunch||'',tecT.guestEveningSnacks||'',tecT.guestNightSnacks||'','—','—','—','—'],
+        ['KPF Exec Snacks','—','—','—','—','—','—','—','—',exT.snacks||'',exT.biscuit||'',exT.chips||'',exT.coldDrinkWater||''],
+      ];
+      const sFills = ['FFD1FAE5','FFDBEAFE','FFFEF9C3'];
+      sRows.forEach((r, i) => {
+        const row = wsSumm.addRow(r);
+        row.eachCell((c: any) => { c.fill=mkFill(sFills[i]); c.border=thin; c.alignment={horizontal:'center'}; });
+        wsSumm.getCell(row.number,1).font={bold:true};
+      });
+      wsSumm.columns=[18,12,12,13,13,14,12,15,15,12,12,10,16].map((w: number)=>({width:w}));
+
+      const buf = await wb.xlsx.writeBuffer();
+      const blob = new Blob([buf],{type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'});
+      const a = document.createElement('a'); a.href=URL.createObjectURL(blob); a.download=`HUL_Summary_${MONTHS[month-1]}_${year}.xlsx`; a.click();
+    } catch (err: any) { toast({ title:'Export Failed', description:err.message, variant:'destructive' }); }
+  };
+
+  if (isLoading) return <div className="flex items-center justify-center py-12 text-muted-foreground"><RefreshCw className="w-5 h-5 animate-spin mr-2"/>Loading summary...</div>;
+
+  return (
+    <div>
+      {/* Actions */}
+      <div className="flex flex-wrap items-center gap-2 mb-4">
+        <span className="text-sm font-semibold text-gray-600">HUL Summary — {monthLabel}</span>
+        <div className="flex flex-wrap gap-2 ml-auto">
+          <Button size="sm" variant="outline" onClick={handlePrint} className="h-9" data-testid="btn-hul-summary-print">
+            <Printer className="w-3.5 h-3.5 mr-1"/>Print
+          </Button>
+          <Button size="sm" variant="outline" onClick={handleExportExcel} className="h-9 text-green-700 border-green-300 hover:bg-green-50" data-testid="btn-hul-summary-export">
+            <FileDown className="w-3.5 h-3.5 mr-1"/>Export Excel
+          </Button>
+        </div>
+      </div>
+
+      {/* KPF Table */}
+      <MealTable rows={kpfRows} locName="KPF" hStyle={thG} />
+
+      {/* TEC Table */}
+      <MealTable rows={tecRows} locName="TEC" hStyle={thB} />
+
+      {/* Exec Snacks Table */}
+      <div className="mb-5">
+        <div className="text-center font-bold text-sm py-1.5" style={{ background:'#b45309', color:'#fff' }}>
+          KPF Exec Snacks — Number of Snacks Per Day For Executives &amp; Managers — {monthLabel}
+        </div>
+        <div className="hidden md:block overflow-x-auto">
+          <table className="w-full border-collapse" style={{ fontSize:11 }}>
+            <thead>
+              <tr>
+                <th style={{ ...thBr, width:28 }}>Sl.</th>
+                <th style={{ ...thBr, width:80 }}>Date</th>
+                <th style={{ ...thBr, width:34 }}>Days</th>
+                {['Snacks','Biscuit','Chips','Cold Drink & Water'].map(h => <th key={h} style={thBr}>{h}</th>)}
+              </tr>
+            </thead>
+            <tbody>
+              {execRows.map((row, i) => {
+                const sun = isSunday(row.entryDate);
+                return (
+                  <tr key={i} style={{ background: sun ? '#ffb380' : undefined }}>
+                    <td style={td(sun)}>{i+1}</td>
+                    <td style={td(sun)}>{safeFormat(row.entryDate)}</td>
+                    <td style={td(sun)}>{row.weekDay}</td>
+                    {(['snacks','biscuit','chips','coldDrinkWater'] as (keyof ExecSnackRow)[]).map(f => (
+                      <td key={f as string} style={td(sun)}>{row[f] || ''}</td>
+                    ))}
+                  </tr>
+                );
+              })}
+              <tr>
+                <td colSpan={3} style={tdTot}>Total</td>
+                {(['snacks','biscuit','chips','coldDrinkWater'] as (keyof ExecSnackRow)[]).map(f => (
+                  <td key={f as string} style={tdTot}>{execRows.reduce((s,r) => s+(r[f]||0), 0) || ''}</td>
+                ))}
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <div className="block md:hidden space-y-1 mt-1">
+          {execRows.map((row, i) => (
+            <div key={i} className="border rounded p-2 text-xs" style={{ background: isSunday(row.entryDate) ? '#ffb380' : '#fffbeb' }}>
+              <div className="font-semibold">{safeFormat(row.entryDate)} ({row.weekDay})</div>
+              <div className="grid grid-cols-2 gap-x-3 mt-0.5">
+                <span>Snacks: <b>{row.snacks||0}</b></span><span>Biscuit: <b>{row.biscuit||0}</b></span>
+                <span>Chips: <b>{row.chips||0}</b></span><span>Cold Drink: <b>{row.coldDrinkWater||0}</b></span>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* Combined Totals */}
+      <div className="border rounded-lg overflow-hidden mb-4">
+        <div className="bg-gray-800 text-white px-3 py-2 text-sm font-bold text-center">
+          Combined Monthly Totals — {monthLabel}
+        </div>
+        <div className="overflow-x-auto">
+          <table className="w-full border-collapse" style={{ fontSize:11 }}>
+            <thead>
+              <tr>
+                <th style={{ ...thG, textAlign:'left', paddingLeft:8, minWidth:110 }}>Section</th>
+                {['Breakfast','Lunch','Evng Snacks','Night Snacks'].map(h=><th key={h} style={thG}>{h}</th>)}
+                {['G.Breakfast','G.Lunch','G.Evng','G.Night'].map(h=><th key={h} style={thB}>{h}</th>)}
+                {['Snacks','Biscuit','Chips','Cold Drink'].map(h=><th key={h} style={thBr}>{h}</th>)}
+              </tr>
+            </thead>
+            <tbody>
+              <tr style={{ background:'#d1fae5' }}>
+                <td style={{ ...tdTot, textAlign:'left', paddingLeft:8 }}>KPF</td>
+                <td style={tdTot}>{kpfT.breakfast||'—'}</td><td style={tdTot}>{kpfT.lunch||'—'}</td>
+                <td style={tdTot}>{kpfT.eveningSnacks||'—'}</td><td style={tdTot}>{kpfT.nightSnacks||'—'}</td>
+                <td style={tdTot}>{kpfT.guestBreakfast||'—'}</td><td style={tdTot}>{kpfT.guestLunch||'—'}</td>
+                <td style={tdTot}>{kpfT.guestEveningSnacks||'—'}</td><td style={tdTot}>{kpfT.guestNightSnacks||'—'}</td>
+                <td style={tdTot}>—</td><td style={tdTot}>—</td><td style={tdTot}>—</td><td style={tdTot}>—</td>
+              </tr>
+              <tr style={{ background:'#dbeafe' }}>
+                <td style={{ ...tdTot, textAlign:'left', paddingLeft:8 }}>TEC</td>
+                <td style={tdTot}>{tecT.breakfast||'—'}</td><td style={tdTot}>{tecT.lunch||'—'}</td>
+                <td style={tdTot}>{tecT.eveningSnacks||'—'}</td><td style={tdTot}>{tecT.nightSnacks||'—'}</td>
+                <td style={tdTot}>{tecT.guestBreakfast||'—'}</td><td style={tdTot}>{tecT.guestLunch||'—'}</td>
+                <td style={tdTot}>{tecT.guestEveningSnacks||'—'}</td><td style={tdTot}>{tecT.guestNightSnacks||'—'}</td>
+                <td style={tdTot}>—</td><td style={tdTot}>—</td><td style={tdTot}>—</td><td style={tdTot}>—</td>
+              </tr>
+              <tr style={{ background:'#fef9c3' }}>
+                <td style={{ ...tdTot, textAlign:'left', paddingLeft:8 }}>KPF Exec Snacks</td>
+                <td style={tdTot}>—</td><td style={tdTot}>—</td><td style={tdTot}>—</td><td style={tdTot}>—</td>
+                <td style={tdTot}>—</td><td style={tdTot}>—</td><td style={tdTot}>—</td><td style={tdTot}>—</td>
+                <td style={tdTot}>{exT.snacks||'—'}</td><td style={tdTot}>{exT.biscuit||'—'}</td>
+                <td style={tdTot}>{exT.chips||'—'}</td><td style={tdTot}>{exT.coldDrinkWater||'—'}</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      {/* Hidden print content */}
+      <div className="hidden" ref={printRef}>
+        <h3 style={{ textAlign:'center', margin:'4px 0', fontSize:14 }}>DJ Hospitality &amp; Facility Management Pvt. Ltd.</h3>
+        <h4 style={{ textAlign:'center', margin:'2px 0', fontSize:13 }}>HUL Summary Report — {monthLabel}</h4>
+        {/* KPF print table */}
+        <p style={{ textAlign:'center', fontWeight:'bold', margin:'6px 0 2px' }}>KPF — Meal Charges &amp; Guest Meal Charges</p>
+        <table style={{ width:'100%', borderCollapse:'collapse', marginBottom:10 }}>
+          <thead>
+            <tr>
+              <th rowSpan={2} style={thG}>Sl.</th><th rowSpan={2} style={thG}>Date</th><th rowSpan={2} style={thG}>Days</th>
+              <th colSpan={4} style={thG}>Meal Charges</th><th colSpan={4} style={thB}>Guest Meal Charges</th>
+            </tr>
+            <tr>
+              {['Breakfast','Lunch','Evng Snacks','Night Snacks'].map(h=><th key={h} style={thG}>{h}</th>)}
+              {['G.Breakfast','G.Lunch','G.Evng','G.Night'].map(h=><th key={h} style={thB}>{h}</th>)}
+            </tr>
+          </thead>
+          <tbody>
+            {kpfRows.map((row, i) => {
+              const sun = isSunday(row.entryDate);
+              return (
+                <tr key={i} style={{ background: sun ? '#ffa500' : undefined }}>
+                  <td style={td(sun)}>{i+1}</td><td style={td(sun)}>{safeFormat(row.entryDate)}</td><td style={td(sun)}>{row.weekDay}</td>
+                  {(['breakfast','lunch','eveningSnacks','nightSnacks','guestBreakfast','guestLunch','guestEveningSnacks','guestNightSnacks'] as (keyof HulRow)[]).map(f=><td key={f as string} style={td(sun)}>{row[f]||''}</td>)}
+                </tr>
+              );
+            })}
+            <tr><td colSpan={3} style={tdTot}>Total</td>
+              {(['breakfast','lunch','eveningSnacks','nightSnacks','guestBreakfast','guestLunch','guestEveningSnacks','guestNightSnacks'] as (keyof HulRow)[]).map(f=><td key={f as string} style={tdTot}>{kpfRows.reduce((s,r)=>s+(r[f]||0),0)||''}</td>)}
+            </tr>
+          </tbody>
+        </table>
+        {/* TEC print table */}
+        <p style={{ textAlign:'center', fontWeight:'bold', margin:'6px 0 2px' }}>TEC — Meal Charges &amp; Guest Meal Charges</p>
+        <table style={{ width:'100%', borderCollapse:'collapse', marginBottom:10 }}>
+          <thead>
+            <tr>
+              <th rowSpan={2} style={thB}>Sl.</th><th rowSpan={2} style={thB}>Date</th><th rowSpan={2} style={thB}>Days</th>
+              <th colSpan={4} style={thB}>Meal Charges</th><th colSpan={4} style={thB}>Guest Meal Charges</th>
+            </tr>
+            <tr>
+              {['Breakfast','Lunch','Evng Snacks','Night Snacks'].map(h=><th key={h} style={thB}>{h}</th>)}
+              {['G.Breakfast','G.Lunch','G.Evng','G.Night'].map(h=><th key={h} style={thB}>{h}</th>)}
+            </tr>
+          </thead>
+          <tbody>
+            {tecRows.map((row, i) => {
+              const sun = isSunday(row.entryDate);
+              return (
+                <tr key={i} style={{ background: sun ? '#ffa500' : undefined }}>
+                  <td style={td(sun)}>{i+1}</td><td style={td(sun)}>{safeFormat(row.entryDate)}</td><td style={td(sun)}>{row.weekDay}</td>
+                  {(['breakfast','lunch','eveningSnacks','nightSnacks','guestBreakfast','guestLunch','guestEveningSnacks','guestNightSnacks'] as (keyof HulRow)[]).map(f=><td key={f as string} style={td(sun)}>{row[f]||''}</td>)}
+                </tr>
+              );
+            })}
+            <tr><td colSpan={3} style={tdTot}>Total</td>
+              {(['breakfast','lunch','eveningSnacks','nightSnacks','guestBreakfast','guestLunch','guestEveningSnacks','guestNightSnacks'] as (keyof HulRow)[]).map(f=><td key={f as string} style={tdTot}>{tecRows.reduce((s,r)=>s+(r[f]||0),0)||''}</td>)}
+            </tr>
+          </tbody>
+        </table>
+        {/* Exec Snacks print table */}
+        <p style={{ textAlign:'center', fontWeight:'bold', margin:'6px 0 2px' }}>KPF Exec Snacks — Number of Snacks Per Day For Executives &amp; Managers</p>
+        <table style={{ width:'100%', borderCollapse:'collapse', marginBottom:10 }}>
+          <thead>
+            <tr><th style={thBr}>Sl.</th><th style={thBr}>Date</th><th style={thBr}>Days</th><th style={thBr}>Snacks</th><th style={thBr}>Biscuit</th><th style={thBr}>Chips</th><th style={thBr}>Cold Drink &amp; Water</th></tr>
+          </thead>
+          <tbody>
+            {execRows.map((row, i) => {
+              const sun = isSunday(row.entryDate);
+              return (
+                <tr key={i} style={{ background: sun ? '#ffa500' : undefined }}>
+                  <td style={td(sun)}>{i+1}</td><td style={td(sun)}>{safeFormat(row.entryDate)}</td><td style={td(sun)}>{row.weekDay}</td>
+                  <td style={td(sun)}>{row.snacks||''}</td><td style={td(sun)}>{row.biscuit||''}</td><td style={td(sun)}>{row.chips||''}</td><td style={td(sun)}>{row.coldDrinkWater||''}</td>
+                </tr>
+              );
+            })}
+            <tr><td colSpan={3} style={tdTot}>Total</td><td style={tdTot}>{exT.snacks||''}</td><td style={tdTot}>{exT.biscuit||''}</td><td style={tdTot}>{exT.chips||''}</td><td style={tdTot}>{exT.coldDrinkWater||''}</td></tr>
+          </tbody>
+        </table>
+        {/* Combined totals print */}
+        <p style={{ textAlign:'center', fontWeight:'bold', margin:'6px 0 2px', background:'#333', color:'#fff', padding:4 }}>Combined Monthly Totals</p>
+        <table style={{ width:'100%', borderCollapse:'collapse' }}>
+          <thead>
+            <tr>
+              <th style={{ ...thG, textAlign:'left' }}>Section</th>
+              {['Breakfast','Lunch','Evng Snacks','Night Snacks'].map(h=><th key={h} style={thG}>{h}</th>)}
+              {['G.Breakfast','G.Lunch','G.Evng','G.Night'].map(h=><th key={h} style={thB}>{h}</th>)}
+              {['Snacks','Biscuit','Chips','Cold Drink'].map(h=><th key={h} style={thBr}>{h}</th>)}
+            </tr>
+          </thead>
+          <tbody>
+            <tr><td style={{ ...tdTot, textAlign:'left' }}>KPF</td><td style={tdTot}>{kpfT.breakfast||'—'}</td><td style={tdTot}>{kpfT.lunch||'—'}</td><td style={tdTot}>{kpfT.eveningSnacks||'—'}</td><td style={tdTot}>{kpfT.nightSnacks||'—'}</td><td style={tdTot}>{kpfT.guestBreakfast||'—'}</td><td style={tdTot}>{kpfT.guestLunch||'—'}</td><td style={tdTot}>{kpfT.guestEveningSnacks||'—'}</td><td style={tdTot}>{kpfT.guestNightSnacks||'—'}</td><td style={tdTot}>—</td><td style={tdTot}>—</td><td style={tdTot}>—</td><td style={tdTot}>—</td></tr>
+            <tr><td style={{ ...tdTot, textAlign:'left' }}>TEC</td><td style={tdTot}>{tecT.breakfast||'—'}</td><td style={tdTot}>{tecT.lunch||'—'}</td><td style={tdTot}>{tecT.eveningSnacks||'—'}</td><td style={tdTot}>{tecT.nightSnacks||'—'}</td><td style={tdTot}>{tecT.guestBreakfast||'—'}</td><td style={tdTot}>{tecT.guestLunch||'—'}</td><td style={tdTot}>{tecT.guestEveningSnacks||'—'}</td><td style={tdTot}>{tecT.guestNightSnacks||'—'}</td><td style={tdTot}>—</td><td style={tdTot}>—</td><td style={tdTot}>—</td><td style={tdTot}>—</td></tr>
+            <tr><td style={{ ...tdTot, textAlign:'left' }}>KPF Exec Snacks</td><td style={tdTot}>—</td><td style={tdTot}>—</td><td style={tdTot}>—</td><td style={tdTot}>—</td><td style={tdTot}>—</td><td style={tdTot}>—</td><td style={tdTot}>—</td><td style={tdTot}>—</td><td style={tdTot}>{exT.snacks||'—'}</td><td style={tdTot}>{exT.biscuit||'—'}</td><td style={tdTot}>{exT.chips||'—'}</td><td style={tdTot}>{exT.coldDrinkWater||'—'}</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
+
 // Main Date Entry Tab — with UBL sub-tabs
 // ============================================================
 
@@ -4003,6 +4416,9 @@ export function DateEntryTab() {
             <TabsTrigger value="hul_tec" className="text-xs sm:text-sm" data-testid="tab-hul-tec">
               TEC
             </TabsTrigger>
+            <TabsTrigger value="hul_summary" className="text-xs sm:text-sm" data-testid="tab-hul-summary">
+              Summary
+            </TabsTrigger>
           </TabsList>
           <TabsContent value="hul_kpf">
             <div className="mb-2 text-sm text-muted-foreground font-medium">Hindustan Unilever Limited — KPF — Meal Charges &amp; Guest Meal Charges (1st to last day of month)</div>
@@ -4015,6 +4431,10 @@ export function DateEntryTab() {
           <TabsContent value="hul_tec">
             <div className="mb-2 text-sm text-muted-foreground font-medium">Hindustan Unilever Limited — TEC — Meal Charges &amp; Guest Meal Charges (1st to last day of month)</div>
             <HulLocationTab location="TEC" month={parseInt(month)} year={parseInt(year)} loadKey={loadKey}/>
+          </TabsContent>
+          <TabsContent value="hul_summary">
+            <div className="mb-2 text-sm text-muted-foreground font-medium">HUL Combined Summary — KPF, TEC, KPF Exec Snacks (full month data + combined totals)</div>
+            <HulSummaryTab month={parseInt(month)} year={parseInt(year)}/>
           </TabsContent>
         </Tabs>
       )}
