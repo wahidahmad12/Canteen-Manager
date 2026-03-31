@@ -1658,8 +1658,90 @@ function UnichemSnackTab({ month, year, loadKey = 0 }: { month: number; year: nu
           <input ref={importRefSnack} type="file" accept=".xlsx,.xls" className="hidden" onChange={handleImportExcelSnack} />
         </div>
       </div>
-      {isLoading ? <div className="py-8 text-center text-muted-foreground"><Loader2 className="w-5 h-5 animate-spin inline mr-2"/>Loading...</div> : (
-        <div className="overflow-x-auto rounded-lg border">
+      {isLoading ? <div className="py-8 text-center text-muted-foreground"><Loader2 className="w-5 h-5 animate-spin inline mr-2"/>Loading...</div> : (<>
+        {/* ── Mobile Card View ── */}
+        <div className="block md:hidden space-y-2">
+          {rows.length === 0 ? (
+            <div className="py-8 text-center text-muted-foreground">No data loaded yet for {MONTHS[month-1]} {year}</div>
+          ) : rows.map((row, idx) => {
+            const isSun = isSunday(row.entryDate);
+            const cardBg = isSun ? "bg-amber-50 border-amber-300 dark:bg-amber-900/20" : "bg-white dark:bg-gray-900 border-gray-200";
+            const mblFld = (f: keyof UnichemSnackRow, label: string) => (
+              <div className="flex flex-col items-center bg-gray-50 dark:bg-gray-800/50 rounded-lg p-1.5">
+                <span className="text-xs text-gray-400 mb-1">{label}</span>
+                <input type="number" min={0} inputMode="numeric" value={(row as any)[f]||""}
+                  onChange={e=>handleCellChange(idx,f,e.target.value)}
+                  className="w-full text-center border border-gray-200 dark:border-gray-600 rounded-lg text-sm font-medium dark:bg-gray-900 dark:text-white" style={{minHeight:38,padding:"4px 2px"}}/>
+              </div>
+            );
+            return (
+              <div key={idx} className={`border rounded-xl p-3 shadow-sm ${cardBg} ${row._dirty?"ring-2 ring-yellow-300":""}`}>
+                <div className="flex items-center gap-2 mb-2.5">
+                  <span className="text-xs font-bold text-gray-400 shrink-0">#{idx+1}</span>
+                  <span className="flex-1 text-sm font-semibold">{safeFormat(row.entryDate)}</span>
+                  <span className="text-xs font-semibold bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-300 rounded px-2 py-1 shrink-0">{row.weekDay||getWeekDay(row.entryDate)}</span>
+                  {row._dirty && <span className="text-orange-500 font-bold text-xs shrink-0">●</span>}
+                </div>
+                <div className="mb-2">
+                  <div className="text-xs font-semibold text-gray-500 mb-1 bg-blue-50 dark:bg-blue-900/20 rounded px-2 py-0.5">🌅 Morning / Evening / Night</div>
+                  <div className="grid grid-cols-3 gap-1">
+                    {mblFld('breakfast','Breakfast')}
+                    {mblFld('eveningSnacks','Evening')}
+                    {mblFld('nightSnacks','Night')}
+                  </div>
+                </div>
+                <div className="mb-3">
+                  <div className="text-xs font-semibold text-gray-500 mb-1 bg-red-50 dark:bg-red-900/20 rounded px-2 py-0.5">☀ Sunday Extra</div>
+                  <div className="grid grid-cols-1 gap-1">
+                    {isSun ? (
+                      <div className="flex flex-col items-center bg-red-50 dark:bg-red-900/20 rounded-lg p-1.5">
+                        <span className="text-xs text-red-400 mb-1">Auto (Form 2 Bill Qty)</span>
+                        <div className="text-sm font-bold text-red-700 dark:text-red-300" style={{minHeight:38,display:"flex",alignItems:"center",justifyContent:"center"}}>
+                          {lunchBillQtyMap[row.entryDate] || "—"}
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="flex flex-col items-center bg-gray-50 dark:bg-gray-800/50 rounded-lg p-1.5">
+                        <span className="text-xs text-gray-400 mb-1">Sun Extra</span>
+                        <input type="number" min={0} inputMode="numeric" value={row.sundayExtraSnacks||""}
+                          onChange={e=>handleCellChange(idx,'sundayExtraSnacks',e.target.value)}
+                          className="w-full text-center border border-gray-200 dark:border-gray-600 rounded-lg text-sm font-medium dark:bg-gray-900 dark:text-white" style={{minHeight:38,padding:"4px 2px"}}/>
+                      </div>
+                    )}
+                    <div className="flex flex-col bg-gray-50 dark:bg-gray-800/50 rounded-lg p-1.5">
+                      <span className="text-xs text-gray-400 mb-1">Remarks</span>
+                      <input type="text" value={row.remarks||""} onChange={e=>handleCellChange(idx,'remarks',e.target.value)}
+                        className="w-full border border-gray-200 dark:border-gray-600 rounded-lg text-sm dark:bg-gray-900 dark:text-white px-2" style={{minHeight:38}}/>
+                    </div>
+                  </div>
+                </div>
+                <div className="flex gap-2">
+                  <button onClick={()=>handleSaveRow(idx)} className="flex-1 bg-blue-600 hover:bg-blue-700 text-white rounded-xl py-2.5 text-sm font-medium flex items-center justify-center gap-1.5">
+                    <Save className="w-4 h-4"/>Save
+                  </button>
+                  <button onClick={()=>handleDeleteRow(idx)} className="bg-red-500 hover:bg-red-600 text-white rounded-xl px-4 py-2.5 flex items-center justify-center">
+                    <Trash2 className="w-4 h-4"/>
+                  </button>
+                </div>
+              </div>
+            );
+          })}
+          {rows.length > 0 && (
+            <div className="border rounded-xl overflow-hidden shadow-sm">
+              <div className="bg-slate-700 text-white px-3 py-2 text-sm font-bold">Totals</div>
+              <div className="grid grid-cols-2 divide-x divide-y">
+                {[["Breakfast",totalBreakfast],["Evening",totalEvening],["Night",totalNight],["Sun Extra",totalSunday]].map(([label,val])=>(
+                  <div key={label as string} className="flex justify-between items-center px-3 py-2 text-sm">
+                    <span className="text-gray-600">{label}</span>
+                    <span className="font-semibold">{val}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+        {/* ── Desktop Table View ── */}
+        <div className="hidden md:block overflow-x-auto rounded-lg border">
           <table className="text-xs border-collapse" style={{minWidth:'560px'}}>
             <thead>
               <tr className="bg-muted/50">
@@ -1736,7 +1818,7 @@ function UnichemSnackTab({ month, year, loadKey = 0 }: { month: number; year: nu
             </tbody>
           </table>
         </div>
-      )}
+      </>)}
     </div>
   );
 }
@@ -2049,8 +2131,79 @@ function UnichemMealSubTab({ month, year, location, mealType, loadKey = 0 }: { m
         </Button>
         <input ref={importRefMeal} type="file" accept=".xlsx,.xls" className="hidden" onChange={handleImportExcelMeal} />
       </div>
-      {isLoading ? <div className="py-8 text-center text-muted-foreground"><Loader2 className="w-5 h-5 animate-spin inline mr-2"/>Loading...</div> : (
-        <div className="overflow-x-auto rounded-lg border">
+      {isLoading ? <div className="py-8 text-center text-muted-foreground"><Loader2 className="w-5 h-5 animate-spin inline mr-2"/>Loading...</div> : (<>
+        {/* ── Mobile Card View ── */}
+        <div className="block md:hidden space-y-2">
+          {rows.length === 0 ? (
+            <div className="py-8 text-center text-muted-foreground">No data loaded yet for {MONTHS[month-1]} {year}</div>
+          ) : rows.map((row, idx) => {
+            const isSun = isSunday(row.entryDate);
+            const cardBg = isSun ? "bg-amber-50 border-amber-300 dark:bg-amber-900/20" : "bg-white dark:bg-gray-900 border-gray-200";
+            return (
+              <div key={idx} className={`border rounded-xl p-3 shadow-sm ${cardBg} ${row._dirty?"ring-2 ring-yellow-300":""}`}>
+                <div className="flex items-center gap-2 mb-2.5">
+                  <span className="text-xs font-bold text-gray-400 shrink-0">#{idx+1}</span>
+                  <span className="flex-1 text-sm font-semibold">{safeFormat(row.entryDate)}</span>
+                  <span className="text-xs font-semibold bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-300 rounded px-2 py-1 shrink-0">{row.weekDay||getWeekDay(row.entryDate)}</span>
+                  {row._dirty && <span className="text-orange-500 font-bold text-xs shrink-0">●</span>}
+                </div>
+                <div className="mb-2">
+                  <div className="text-xs font-semibold text-gray-500 mb-1 bg-orange-50 dark:bg-orange-900/20 rounded px-2 py-0.5">🍱 {mealType === 'lunch' ? 'Lunch' : 'Dinner'} Quantities</div>
+                  <div className="grid grid-cols-2 gap-1">
+                    <div className="flex flex-col items-center bg-orange-50/60 dark:bg-orange-900/20 rounded-lg p-1.5">
+                      <span className="text-xs text-gray-400 mb-1">Order Qty</span>
+                      <input type="number" min={0} inputMode="numeric" value={row.orderQty||""}
+                        onChange={e=>handleCellChange(idx,'orderQty',e.target.value)}
+                        className="w-full text-center border border-gray-200 dark:border-gray-600 rounded-lg text-sm font-medium dark:bg-gray-900 dark:text-white" style={{minHeight:38,padding:"4px 2px"}}/>
+                    </div>
+                    <div className="flex flex-col items-center bg-blue-50/60 dark:bg-blue-900/20 rounded-lg p-1.5">
+                      <span className="text-xs text-gray-400 mb-1">Actual</span>
+                      <input type="number" min={0} inputMode="numeric" value={row.actual||""}
+                        onChange={e=>handleCellChange(idx,'actual',e.target.value)}
+                        className="w-full text-center border border-gray-200 dark:border-gray-600 rounded-lg text-sm font-medium dark:bg-gray-900 dark:text-white" style={{minHeight:38,padding:"4px 2px"}}/>
+                    </div>
+                  </div>
+                </div>
+                <div className="mb-3">
+                  <div className="text-xs font-semibold text-gray-500 mb-1 bg-green-50 dark:bg-green-900/20 rounded px-2 py-0.5">✅ Auto-Calculated</div>
+                  <div className="grid grid-cols-2 gap-1">
+                    <div className="flex flex-col items-center bg-green-50/60 dark:bg-green-900/20 rounded-lg p-1.5">
+                      <span className="text-xs text-gray-400 mb-1">Total</span>
+                      <div className="text-sm font-bold text-green-700 dark:text-green-300" style={{minHeight:38,display:"flex",alignItems:"center",justifyContent:"center"}}>{row.actual||"—"}</div>
+                    </div>
+                    <div className="flex flex-col items-center bg-green-50/60 dark:bg-green-900/20 rounded-lg p-1.5">
+                      <span className="text-xs text-gray-400 mb-1">Bill Qty</span>
+                      <div className="text-sm font-bold text-green-700 dark:text-green-300" style={{minHeight:38,display:"flex",alignItems:"center",justifyContent:"center"}}>{row.billQty||"—"}</div>
+                    </div>
+                  </div>
+                </div>
+                <div className="flex gap-2">
+                  <button onClick={()=>handleSaveRow(idx)} className="flex-1 bg-blue-600 hover:bg-blue-700 text-white rounded-xl py-2.5 text-sm font-medium flex items-center justify-center gap-1.5">
+                    <Save className="w-4 h-4"/>Save
+                  </button>
+                  <button onClick={()=>handleDeleteRow(idx)} className="bg-red-500 hover:bg-red-600 text-white rounded-xl px-4 py-2.5 flex items-center justify-center">
+                    <Trash2 className="w-4 h-4"/>
+                  </button>
+                </div>
+              </div>
+            );
+          })}
+          {rows.length > 0 && (
+            <div className="border rounded-xl overflow-hidden shadow-sm">
+              <div className="bg-slate-700 text-white px-3 py-2 text-sm font-bold">Totals</div>
+              <div className="grid grid-cols-2 divide-x divide-y">
+                {[["Order",rows.reduce((s,r)=>s+(r.orderQty||0),0)],["Actual",rows.reduce((s,r)=>s+(r.actual||0),0)],["Total",rows.reduce((s,r)=>s+(r.total||0),0)],["Bill Qty",rows.reduce((s,r)=>s+(r.billQty||0),0)]].map(([label,val])=>(
+                  <div key={label as string} className="flex justify-between items-center px-3 py-2 text-sm">
+                    <span className="text-gray-600">{label}</span>
+                    <span className="font-semibold">{val}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+        {/* ── Desktop Table View ── */}
+        <div className="hidden md:block overflow-x-auto rounded-lg border">
           <table className="text-xs border-collapse" style={{minWidth:'420px'}}>
             <thead>
               <tr className="bg-muted/50">
@@ -2117,7 +2270,7 @@ function UnichemMealSubTab({ month, year, location, mealType, loadKey = 0 }: { m
             </tbody>
           </table>
         </div>
-      )}
+      </>)}
     </div>
   );
 }
