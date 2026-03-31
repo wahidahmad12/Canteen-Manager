@@ -1209,8 +1209,12 @@ function UnichemSnackTab({ month, year, loadKey = 0 }: { month: number; year: nu
     const row = rows[idx];
     try {
       const { _dirty, id, ...data } = row;
+      // For Sunday rows, always latch sundayExtraSnacks from Form 2 Lunch Bill Qty
+      if (isSunday(row.entryDate)) {
+        data.sundayExtraSnacks = lunchBillQtyMap[row.entryDate] || 0;
+      }
       if (id) await updateMutation.mutateAsync({ id, data });
-      else await createMutation.mutateAsync({ ...row });
+      else await createMutation.mutateAsync({ ...row, sundayExtraSnacks: isSunday(row.entryDate) ? (lunchBillQtyMap[row.entryDate] || 0) : row.sundayExtraSnacks });
       const result = await refetch();
       const freshRows = ((result.data || []) as SnackRow[]).map(r => ({ ...r, entryDate: normDate(r.entryDate), _dirty: false }));
       const generated = generateMonthRows(month, year, (d, m, y) => snackRowDefaults(d, m, y, location));
