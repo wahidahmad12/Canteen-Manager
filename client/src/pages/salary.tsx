@@ -814,7 +814,7 @@ export default function SalaryRegister() {
     rows.forEach((r, idx) => {
       const row = ws.addRow([
         idx + 1, r.emp?.employeeCode || "-", r.emp?.name || "-", r.skills,
-        r.prsDays, r.halfDay, r.holidayWorking, r.leave, r.holidays, r.weeklyOff,
+        r.prsDays, r.halfDay, r.holidayWorking, r.leave, r.holidays + r.holidayWorking, r.weeklyOff,
         r.paidDays, r.otHrs, r.basicRate, r.basicWage, r.hra5, r.fixedHRA,
         r.otAllow || 0, r.totalGross, r.pfDed, r.esicDed, r.pTax, r.lwf || 0,
         r.totalDedu, r.netSalary, r.leaveBalance, r.leaveEncash,
@@ -836,7 +836,7 @@ export default function SalaryRegister() {
       const tr = ws.addRow([
         "", "", "Total", "",
         totals.prsDays, totals.halfDay, totals.holidayWorking, totals.leave,
-        totals.holidays, totals.weeklyOff, totals.paidDays, totals.otHrs, totals.basicRate,
+        totals.holidays + totals.holidayWorking, totals.weeklyOff, totals.paidDays, totals.otHrs, totals.basicRate,
         totals.basicWage, totals.hra5, totals.fixedHRA, totals.otAllow,
         totals.totalGross, totals.pfDed, totals.esicDed, totals.pTax, totals.lwf,
         totals.totalDedu, totals.netSalary, totals.leaveBalance, totals.leaveEncash,
@@ -1109,6 +1109,7 @@ export default function SalaryRegister() {
                       <th className="px-2 py-2 text-left font-bold border border-indigo-200 bg-indigo-100 dark:bg-indigo-900 min-w-[80px] text-indigo-700 dark:text-indigo-300">Skills</th>
                       <th className="px-2 py-2 text-center font-bold border border-sky-200 bg-sky-100 dark:bg-sky-900 text-sky-700 dark:text-sky-300">PRS DAYS</th>
                       <th className="px-2 py-2 text-center font-bold border border-sky-200 bg-sky-100 dark:bg-sky-900 text-sky-700 dark:text-sky-300">Half Day</th>
+                      <th className="px-2 py-2 text-center font-bold border border-sky-200 bg-sky-100 dark:bg-sky-900 text-sky-700 dark:text-sky-300">Holiday Wrk</th>
                       <th className="px-2 py-2 text-center font-bold border border-sky-200 bg-sky-100 dark:bg-sky-900 text-sky-700 dark:text-sky-300">LEAVE</th>
                       <th className="px-2 py-2 text-center font-bold border border-sky-200 bg-sky-100 dark:bg-sky-900 text-sky-700 dark:text-sky-300">HOLIDAYS</th>
                       <th className="px-2 py-2 text-center font-bold border border-sky-200 bg-sky-100 dark:bg-sky-900 text-sky-700 dark:text-sky-300">Week Off</th>
@@ -1155,6 +1156,7 @@ export default function SalaryRegister() {
                           <td className="px-2 py-1.5 text-left border border-slate-200 text-[10px] text-slate-500 dark:text-slate-400">{r.skills}</td>
                           <td className="px-2 py-1.5 text-center border border-slate-200">{r.prsDays}</td>
                           <td className="px-2 py-1.5 text-center border border-slate-200">{r.halfDay}</td>
+                          <td className="px-2 py-1.5 text-center border border-slate-200">{r.holidayWorking}</td>
                           <td className="px-2 py-1.5 text-center border border-slate-200">{r.leave}</td>
                           <td className="px-2 py-1.5 text-center border border-slate-200">{r.holidays + r.holidayWorking}</td>
                           <td className="px-2 py-1.5 text-center border border-slate-200">{r.weeklyOff}</td>
@@ -1203,6 +1205,7 @@ export default function SalaryRegister() {
                       <td className="px-2 py-2 border border-slate-300"></td>
                       <td className="px-2 py-2 text-center border border-slate-300">{totals.prsDays}</td>
                       <td className="px-2 py-2 text-center border border-slate-300">{totals.halfDay}</td>
+                      <td className="px-2 py-2 text-center border border-slate-300">{totals.holidayWorking}</td>
                       <td className="px-2 py-2 text-center border border-slate-300">{totals.leave}</td>
                       <td className="px-2 py-2 text-center border border-slate-300">{totals.holidays + totals.holidayWorking}</td>
                       <td className="px-2 py-2 text-center border border-slate-300">{totals.weeklyOff}</td>
@@ -1259,6 +1262,7 @@ export default function SalaryRegister() {
                     <th className="text-left" style={{ background: "#c5cae9" }}>Skills</th>
                     <th style={{ background: "#b3e5fc" }}>PRS DAYS</th>
                     <th style={{ background: "#b3e5fc" }}>Half Day</th>
+                    <th style={{ background: "#b3e5fc" }}>Holiday Wrk</th>
                     <th style={{ background: "#b3e5fc" }}>LEAVE</th>
                     <th style={{ background: "#b3e5fc" }}>HOLIDAYS</th>
                     <th style={{ background: "#b3e5fc" }}>Week Off</th>
@@ -1292,7 +1296,7 @@ export default function SalaryRegister() {
                         <td className="text-center">{r.halfDay}</td>
                         <td className="text-center">{r.holidayWorking}</td>
                         <td className="text-center">{r.leave}</td>
-                        <td className="text-center">{r.holidays}</td>
+                        <td className="text-center">{r.holidays + r.holidayWorking}</td>
                         <td className="text-center">{r.weeklyOff}</td>
                         <td className="text-right" style={{ color: "#0277bd", fontWeight: 600 }}>{fmtDec(r.paidDays)}</td>
                         <td className="text-center">{r.otHrs}</td>
@@ -1320,7 +1324,7 @@ export default function SalaryRegister() {
                     <td className="text-center">{totals.halfDay}</td>
                     <td className="text-center">{totals.holidayWorking}</td>
                     <td className="text-center">{totals.leave}</td>
-                    <td className="text-center">{totals.holidays}</td>
+                    <td className="text-center">{totals.holidays + totals.holidayWorking}</td>
                     <td className="text-center">{totals.weeklyOff}</td>
                     <td className="text-right" style={{ color: "#0277bd" }}>{fmtDec(totals.paidDays)}</td>
                     <td className="text-center">{totals.otHrs}</td>
