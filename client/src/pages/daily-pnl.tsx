@@ -172,7 +172,10 @@ export default function DailyPnlPage() {
 
   // ── Queries ───────────────────────────────────────────────────────────────
   const { data: dbClients = [] } = useClientNames();
-  const { data: employees  = [] } = useQuery<any[]>({ queryKey: ["/api/employees"] });
+  const { data: employees  = [] } = useQuery<any[]>({
+    queryKey: ["/api/employees", clientName],
+    queryFn: () => fetch(`/api/employees${clientName ? `?clientName=${encodeURIComponent(clientName)}` : ""}`, { credentials: "include" }).then(r => r.json()),
+  });
   const { data: skillRates = [] } = useQuery<any[]>({ queryKey: ["/api/skill-wage-rates"] });
   const { data: vegItems   = [] } = useQuery<any[]>({
     queryKey: ["/api/vegetables"],
