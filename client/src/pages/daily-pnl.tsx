@@ -188,6 +188,7 @@ export default function DailyPnlPage() {
     if (!cs) return;
     setPsSale(PS_ROWS.map((row, i) => ({
       slNo: i + 1, itemName: row.itemName, billQty: 0,
+      cashRate: row.cashRate, onlineRate: row.onlineRate, billRate: row.billRate,
       cashQty:   Number(cs[row.cashKey])   || 0,
       onlineQty: Number(cs[row.onlineKey]) || 0,
     })));
