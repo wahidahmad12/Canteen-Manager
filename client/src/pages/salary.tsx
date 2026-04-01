@@ -798,7 +798,7 @@ export default function SalaryRegister() {
 
     const headers = [
       "Sl. No.", "Emp ID", "Emp Name", "Skills", "PRS DAYS", "Half Day",
-      "Holiday Working", "Absent", "HOLIDAYS", "Week Off", "Paid Days", "OT HRS",
+      "Holiday Working", "HOLIDAYS", "Paid Days", "OT HRS", "Absent", "Week Off", "Total Days",
       "Basic Rate", "Basic Wages", "HRA 5%", "Fixed HRA", "OT Allow",
       "Total Gross", "PF Deduction @12%", "ESIC @.75%", "P-TAX", "LWF",
       "Total Dedu", "Net Salary", "Leave Balance", "Leave Encash Amt.",
@@ -814,10 +814,12 @@ export default function SalaryRegister() {
     });
 
     rows.forEach((r, idx) => {
+      const totalDays = r.prsDays + r.halfDay + r.holidayWorking + r.holidays + r.leave + r.weeklyOff;
       const row = ws.addRow([
         idx + 1, r.emp?.employeeCode || "-", r.emp?.name || "-", r.skills,
-        r.prsDays, r.halfDay, r.holidayWorking, r.leave, r.holidays + r.holidayWorking, r.weeklyOff,
-        r.paidDays, r.otHrs, r.basicRate, r.basicWage, r.hra5, r.fixedHRA,
+        r.prsDays, r.halfDay, r.holidayWorking, r.holidays + r.holidayWorking,
+        r.paidDays, r.otHrs, r.leave, r.weeklyOff, totalDays,
+        r.basicRate, r.basicWage, r.hra5, r.fixedHRA,
         r.otAllow || 0, r.totalGross, r.pfDed, r.esicDed, r.pTax, r.lwf || 0,
         r.totalDedu, r.netSalary, r.leaveBalance, r.leaveEncash,
         r.advance, r.payInAccount, r.pfEmployer, r.esicEmployer, r.bonus,
@@ -835,10 +837,12 @@ export default function SalaryRegister() {
     });
 
     if (totals) {
+      const totalDaysTotals = totals.prsDays + totals.halfDay + totals.holidayWorking + totals.holidays + totals.leave + totals.weeklyOff;
       const tr = ws.addRow([
         "", "", "Total", "",
-        totals.prsDays, totals.halfDay, totals.holidayWorking, totals.leave,
-        totals.holidays + totals.holidayWorking, totals.weeklyOff, totals.paidDays, totals.otHrs, totals.basicRate,
+        totals.prsDays, totals.halfDay, totals.holidayWorking,
+        totals.holidays + totals.holidayWorking, totals.paidDays, totals.otHrs,
+        totals.leave, totals.weeklyOff, totalDaysTotals, totals.basicRate,
         totals.basicWage, totals.hra5, totals.fixedHRA, totals.otAllow,
         totals.totalGross, totals.pfDed, totals.esicDed, totals.pTax, totals.lwf,
         totals.totalDedu, totals.netSalary, totals.leaveBalance, totals.leaveEncash,
