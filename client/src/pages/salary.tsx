@@ -497,7 +497,7 @@ export default function SalaryRegister() {
     const n = (v: string | undefined | null) => Number(v) || 0;
     const emp = employeeMap.get(s.employeeId);
     const att = attendanceList?.find((a) => a.employeeId === s.employeeId);
-    let prsDays = 0, halfDay = 0, holidayWorking = 0, leave = 0, holidays = 0;
+    let prsDays = 0, halfDay = 0, holidayWorking = 0, leave = 0, holidays = 0, weeklyOff = 0;
     if (att) {
       for (let i = 1; i <= 31; i++) {
         const val = (att as any)[`day${i}`] as string;
@@ -505,7 +505,8 @@ export default function SalaryRegister() {
         if (val === "P") prsDays++;
         else if (val === "HD") halfDay++;
         else if (val === "A") leave++;
-        else if (val === "H" || val === "WO" || val === "PH") holidays++;
+        else if (val === "H" || val === "PH") holidays++;
+        else if (val === "WO") weeklyOff++;
         else if (val === "CL" || val === "SL" || val === "EL") leave++;
         else if (val === "HW" || val === "P/HL") holidayWorking++;
       }
@@ -540,7 +541,7 @@ export default function SalaryRegister() {
     const finalTotal = afterService + gst;
     const skills = emp?.skills || getSkillLevel(emp?.designation);
     return {
-      emp, skills, prsDays, halfDay, holidayWorking, leave, holidays, paidDays, otHrs,
+      emp, skills, prsDays, halfDay, holidayWorking, leave, holidays, weeklyOff, paidDays, otHrs,
       basicRate, basicWage, hra5, fixedHRA, otAllow, totalGross,
       pfDed, esicDed, pTax, lwf, totalDedu, netSalary,
       leaveBalance: 0, leaveEncash: 0, advance, payInAccount,
@@ -560,7 +561,7 @@ export default function SalaryRegister() {
       totals: {
         count: rs.length,
         prsDays: sum(r => r.prsDays), halfDay: sum(r => r.halfDay), holidayWorking: sum(r => r.holidayWorking),
-        leave: sum(r => r.leave), holidays: sum(r => r.holidays), paidDays: sum(r => r.paidDays), otHrs: sum(r => r.otHrs),
+        leave: sum(r => r.leave), holidays: sum(r => r.holidays), weeklyOff: sum(r => r.weeklyOff), paidDays: sum(r => r.paidDays), otHrs: sum(r => r.otHrs),
         basicRate: sum(r => r.basicRate), basicWage: sum(r => r.basicWage), hra5: sum(r => r.hra5), fixedHRA: sum(r => r.fixedHRA),
         otAllow: sum(r => r.otAllow), totalGross: sum(r => r.totalGross),
         pfDed: sum(r => r.pfDed), esicDed: sum(r => r.esicDed), pTax: sum(r => r.pTax), lwf: sum(r => r.lwf),
@@ -795,7 +796,7 @@ export default function SalaryRegister() {
 
     const headers = [
       "Sl. No.", "Emp ID", "Emp Name", "Skills", "PRS DAYS", "Half Day",
-      "Holiday Working", "LEAVE", "HOLIDAYS", "Paid Days", "OT HRS",
+      "Holiday Working", "LEAVE", "HOLIDAYS", "Week Off", "Paid Days", "OT HRS",
       "Basic Rate", "Basic Wages", "HRA 5%", "Fixed HRA", "OT Allow",
       "Total Gross", "PF Deduction @12%", "ESIC @.75%", "P-TAX", "LWF",
       "Total Dedu", "Net Salary", "Leave Balance", "Leave Encash Amt.",
@@ -813,7 +814,7 @@ export default function SalaryRegister() {
     rows.forEach((r, idx) => {
       const row = ws.addRow([
         idx + 1, r.emp?.employeeCode || "-", r.emp?.name || "-", r.skills,
-        r.prsDays, r.halfDay, r.holidayWorking, r.leave, r.holidays,
+        r.prsDays, r.halfDay, r.holidayWorking, r.leave, r.holidays, r.weeklyOff,
         r.paidDays, r.otHrs, r.basicRate, r.basicWage, r.hra5, r.fixedHRA,
         r.otAllow || 0, r.totalGross, r.pfDed, r.esicDed, r.pTax, r.lwf || 0,
         r.totalDedu, r.netSalary, r.leaveBalance, r.leaveEncash,
@@ -835,7 +836,7 @@ export default function SalaryRegister() {
       const tr = ws.addRow([
         "", "", "Total", "",
         totals.prsDays, totals.halfDay, totals.holidayWorking, totals.leave,
-        totals.holidays, totals.paidDays, totals.otHrs, totals.basicRate,
+        totals.holidays, totals.weeklyOff, totals.paidDays, totals.otHrs, totals.basicRate,
         totals.basicWage, totals.hra5, totals.fixedHRA, totals.otAllow,
         totals.totalGross, totals.pfDed, totals.esicDed, totals.pTax, totals.lwf,
         totals.totalDedu, totals.netSalary, totals.leaveBalance, totals.leaveEncash,
@@ -1111,6 +1112,7 @@ export default function SalaryRegister() {
                       <th className="px-2 py-2 text-center font-bold border border-sky-200 bg-sky-100 dark:bg-sky-900 text-sky-700 dark:text-sky-300">Holiday Wrk</th>
                       <th className="px-2 py-2 text-center font-bold border border-sky-200 bg-sky-100 dark:bg-sky-900 text-sky-700 dark:text-sky-300">LEAVE</th>
                       <th className="px-2 py-2 text-center font-bold border border-sky-200 bg-sky-100 dark:bg-sky-900 text-sky-700 dark:text-sky-300">HOLIDAYS</th>
+                      <th className="px-2 py-2 text-center font-bold border border-sky-200 bg-sky-100 dark:bg-sky-900 text-sky-700 dark:text-sky-300">Week Off</th>
                       <th className="px-2 py-2 text-center font-bold border border-sky-200 bg-sky-100 dark:bg-sky-900 text-sky-700 dark:text-sky-300">Paid Days</th>
                       <th className="px-2 py-2 text-center font-bold border border-sky-200 bg-sky-100 dark:bg-sky-900 text-sky-700 dark:text-sky-300">OT HRS</th>
                       <th className="px-2 py-2 text-right font-bold border border-emerald-200 bg-emerald-100 dark:bg-emerald-900 text-emerald-700 dark:text-emerald-300">Basic Rate</th>
@@ -1157,6 +1159,7 @@ export default function SalaryRegister() {
                           <td className="px-2 py-1.5 text-center border border-slate-200">{r.holidayWorking}</td>
                           <td className="px-2 py-1.5 text-center border border-slate-200">{r.leave}</td>
                           <td className="px-2 py-1.5 text-center border border-slate-200">{r.holidays}</td>
+                          <td className="px-2 py-1.5 text-center border border-slate-200">{r.weeklyOff}</td>
                           <td className="px-2 py-1.5 text-right border border-slate-200 font-medium text-sky-700 dark:text-sky-300">{fmtDec(r.paidDays)}</td>
                           <td className="px-2 py-1.5 text-center border border-slate-200">{r.otHrs}</td>
                           <td className="px-2 py-1.5 text-right border border-slate-200 font-semibold">{fmtDec(r.basicRate)}</td>
@@ -1205,6 +1208,7 @@ export default function SalaryRegister() {
                       <td className="px-2 py-2 text-center border border-slate-300">{totals.holidayWorking}</td>
                       <td className="px-2 py-2 text-center border border-slate-300">{totals.leave}</td>
                       <td className="px-2 py-2 text-center border border-slate-300">{totals.holidays}</td>
+                      <td className="px-2 py-2 text-center border border-slate-300">{totals.weeklyOff}</td>
                       <td className="px-2 py-2 text-right border border-slate-300 text-sky-700 dark:text-sky-300">{fmtDec(totals.paidDays)}</td>
                       <td className="px-2 py-2 text-center border border-slate-300">{totals.otHrs}</td>
                       <td className="px-2 py-2 text-right border border-slate-300">{fmt(totals.basicRate)}</td>
@@ -1261,6 +1265,7 @@ export default function SalaryRegister() {
                     <th style={{ background: "#b3e5fc" }}>Holiday Wrk</th>
                     <th style={{ background: "#b3e5fc" }}>LEAVE</th>
                     <th style={{ background: "#b3e5fc" }}>HOLIDAYS</th>
+                    <th style={{ background: "#b3e5fc" }}>Week Off</th>
                     <th style={{ background: "#b3e5fc" }}>Paid Days</th>
                     <th style={{ background: "#b3e5fc" }}>OT HRS</th>
                     <th style={{ background: "#c8e6c9" }}>Basic Rate</th>
@@ -1292,6 +1297,7 @@ export default function SalaryRegister() {
                         <td className="text-center">{r.holidayWorking}</td>
                         <td className="text-center">{r.leave}</td>
                         <td className="text-center">{r.holidays}</td>
+                        <td className="text-center">{r.weeklyOff}</td>
                         <td className="text-right" style={{ color: "#0277bd", fontWeight: 600 }}>{fmtDec(r.paidDays)}</td>
                         <td className="text-center">{r.otHrs}</td>
                         <td className="text-right" style={{ fontWeight: "bold" }}>{fmtDec(r.basicRate)}</td>
@@ -1319,6 +1325,7 @@ export default function SalaryRegister() {
                     <td className="text-center">{totals.holidayWorking}</td>
                     <td className="text-center">{totals.leave}</td>
                     <td className="text-center">{totals.holidays}</td>
+                    <td className="text-center">{totals.weeklyOff}</td>
                     <td className="text-right" style={{ color: "#0277bd" }}>{fmtDec(totals.paidDays)}</td>
                     <td className="text-center">{totals.otHrs}</td>
                     <td className="text-right">{fmt(totals.basicRate || 0)}</td>
