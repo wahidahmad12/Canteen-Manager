@@ -4,6 +4,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useClientNames } from "@/hooks/use-reports";
 import { RefreshCw, Save, Printer, TrendingUp, TrendingDown, Plus, Trash2, BarChart3, ClipboardEdit } from "lucide-react";
 import { format } from "date-fns";
+import { Layout } from "@/components/layout";
 
 const MONTHS = ["January","February","March","April","May","June","July","August","September","October","November","December"];
 const LUNCH_FIXED = ["Rice","Dal","Vegetable","Non Veg","Sweets","Curd","Paneer"];
@@ -326,9 +327,9 @@ export default function DailyPnlPage() {
   const tdTot  = { border: "1px solid #333", padding: "3px 6px", textAlign: "center" as const, fontWeight: "bold", fontSize: 11, background: "#e8f0fe" };
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      {/* Header */}
-      <div className="bg-gradient-to-r from-amber-700 to-orange-600 text-white px-4 py-3 flex flex-wrap items-center gap-3">
+    <Layout>
+      {/* Page Header */}
+      <div className="bg-gradient-to-r from-amber-700 to-orange-600 text-white px-4 py-3 flex flex-wrap items-center gap-3 rounded-t-lg -mx-3 sm:-mx-4 md:-mx-8 -mt-3 sm:-mt-4 md:-mt-8 mb-0">
         <h1 className="text-lg font-bold flex items-center gap-2"><BarChart3 className="w-5 h-5" /> Daily P&amp;L</h1>
         <div className="flex gap-2 ml-auto">
           <button onClick={() => setTab("entry")} className={`px-3 py-1.5 rounded text-xs font-medium flex items-center gap-1 ${tab === "entry" ? "bg-white text-amber-700" : "bg-amber-800/50 text-white hover:bg-amber-800"}`} data-testid="btn-pnl-entry-tab">
@@ -342,7 +343,7 @@ export default function DailyPnlPage() {
 
       {/* ── Sticky Active Panel ── */}
       {tab === "entry" && (
-        <div className="sticky top-0 z-20 bg-white border-b border-amber-200 shadow-md px-3 py-2">
+        <div className="sticky top-[52px] md:top-0 z-10 bg-white border-b border-amber-200 shadow-md px-3 py-2 -mx-3 sm:-mx-4 md:-mx-8">
           {/* Row 1: Date + Client + Load */}
           <div className="flex flex-wrap items-center gap-2 mb-2 sm:mb-0 sm:inline-flex sm:w-auto">
             <div className="flex items-center gap-1.5">
@@ -899,6 +900,6 @@ export default function DailyPnlPage() {
           </div>
         )}
       </div>
-    </div>
+    </Layout>
   );
 }
