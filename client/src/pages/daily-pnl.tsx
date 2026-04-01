@@ -9,12 +9,12 @@ const MONTHS = ["January","February","March","April","May","June","July","August
 const LUNCH_FIXED = ["Rice","Dal","Vegetable","Non Veg","Sweets","Curd","Paneer"];
 
 // ─── Permanent Staff sale rows ───────────────────────────────────────────────
-// Default Cash/Online rate = ₹5, Bill rate = ₹30 (Evening Snacks Cash/Online = ₹10)
+// Per-row Cash/Online/Bill rates: Breakfast ₹5/₹5/₹30 · Lunch ₹20/₹20/₹50 · Evening ₹10/₹10/₹30 · Night ₹10/₹10/₹17
 const PS_ROWS = [
   { itemName: "Breakfast",      cashRate: 5,  onlineRate: 5,  billRate: 30, cashKey: "income_ps_breakfast_cash_qty", onlineKey: "income_ps_breakfast_online_qty" },
-  { itemName: "Lunch",          cashRate: 5,  onlineRate: 5,  billRate: 30, cashKey: "income_ps_lunch_cash_qty",      onlineKey: "income_ps_lunch_online_qty" },
+  { itemName: "Lunch",          cashRate: 20, onlineRate: 20, billRate: 50, cashKey: "income_ps_lunch_cash_qty",      onlineKey: "income_ps_lunch_online_qty" },
   { itemName: "Evening Snacks", cashRate: 10, onlineRate: 10, billRate: 30, cashKey: "income_ps_evening_cash_qty",    onlineKey: "income_ps_evening_online_qty" },
-  { itemName: "Night Snacks",   cashRate: 5,  onlineRate: 5,  billRate: 30, cashKey: "income_ps_night_cash_qty",      onlineKey: "income_ps_night_online_qty" },
+  { itemName: "Night Snacks",   cashRate: 10, onlineRate: 10, billRate: 17, cashKey: "income_ps_night_cash_qty",      onlineKey: "income_ps_night_online_qty" },
 ];
 
 // ─── Third Party sale rows ────────────────────────────────────────────────────
@@ -461,7 +461,7 @@ export default function DailyPnlPage() {
               <div className="bg-white rounded-lg shadow-sm p-3 mb-4">
                 <div className="text-center font-bold py-1 mb-2 text-white text-sm rounded" style={{ background: "#166534" }}>SALE PERMANENT STAFF</div>
                 <div className="text-xs text-gray-500 mb-2 italic">
-                  Cash &amp; Online Qty auto-loaded from Daily Cash Seal (PS). Breakfast/Lunch/Night ×₹5 · Evening Snacks ×₹10 · Bill ×₹30
+                  Cash &amp; Online Qty auto-loaded from Daily Cash Seal (PS). Breakfast ×₹5 · Lunch ×₹20 · Evening ×₹10 · Night ×₹10 | Bill: Breakfast ×₹30 · Lunch ×₹50 · Evening ×₹30 · Night ×₹17
                 </div>
                 <div className="overflow-x-auto">
                   <table className="w-full border-collapse" style={{ fontSize: 11 }}>
