@@ -255,7 +255,7 @@ function buildSlipHTML(salary: SalaryRecord, employee: Employee | undefined, att
           <td style="text-align:right;font-weight:700;color:${C.dedValColor};border:${b};${cp}">${pfDed}</td>
         </tr>
         <tr>
-          <td style="background:${C.attLabelBg};color:${C.attLabelColor};font-weight:600;border:${b};${cp}">LEAVE</td>
+          <td style="background:${C.attLabelBg};color:${C.attLabelColor};font-weight:600;border:${b};${cp}">Absent</td>
           <td style="text-align:right;font-weight:700;color:${C.attValColor};border:${b};${cp}">${leave}</td>
           <td style="background:${C.earnLabelBg};color:${C.earnLabelColor};font-weight:600;border:${b};${cp}" colspan="2">HRA 5%</td>
           <td style="text-align:right;font-weight:700;color:${C.earnValColor};border:${b};${cp}">${hra5}</td>
@@ -798,7 +798,7 @@ export default function SalaryRegister() {
 
     const headers = [
       "Sl. No.", "Emp ID", "Emp Name", "Skills", "PRS DAYS", "Half Day",
-      "Holiday Working", "LEAVE", "HOLIDAYS", "Week Off", "Paid Days", "OT HRS",
+      "Holiday Working", "Absent", "HOLIDAYS", "Week Off", "Paid Days", "OT HRS",
       "Basic Rate", "Basic Wages", "HRA 5%", "Fixed HRA", "OT Allow",
       "Total Gross", "PF Deduction @12%", "ESIC @.75%", "P-TAX", "LWF",
       "Total Dedu", "Net Salary", "Leave Balance", "Leave Encash Amt.",
@@ -1112,7 +1112,7 @@ export default function SalaryRegister() {
                       <th className="px-2 py-2 text-center font-bold border border-sky-200 bg-sky-100 dark:bg-sky-900 text-sky-700 dark:text-sky-300">PRS DAYS</th>
                       <th className="px-2 py-2 text-center font-bold border border-sky-200 bg-sky-100 dark:bg-sky-900 text-sky-700 dark:text-sky-300">Half Day</th>
                       <th className="px-2 py-2 text-center font-bold border border-sky-200 bg-sky-100 dark:bg-sky-900 text-sky-700 dark:text-sky-300">Holiday Wrk</th>
-                      <th className="px-2 py-2 text-center font-bold border border-sky-200 bg-sky-100 dark:bg-sky-900 text-sky-700 dark:text-sky-300">LEAVE</th>
+                      <th className="px-2 py-2 text-center font-bold border border-sky-200 bg-sky-100 dark:bg-sky-900 text-sky-700 dark:text-sky-300">Absent</th>
                       <th className="px-2 py-2 text-center font-bold border border-sky-200 bg-sky-100 dark:bg-sky-900 text-sky-700 dark:text-sky-300">HOLIDAYS</th>
                       <th className="px-2 py-2 text-center font-bold border border-sky-200 bg-sky-100 dark:bg-sky-900 text-sky-700 dark:text-sky-300">Week Off</th>
                       <th className="px-2 py-2 text-center font-bold border border-sky-200 bg-sky-100 dark:bg-sky-900 text-sky-700 dark:text-sky-300">Paid Days</th>
@@ -1265,7 +1265,7 @@ export default function SalaryRegister() {
                     <th style={{ background: "#b3e5fc" }}>PRS DAYS</th>
                     <th style={{ background: "#b3e5fc" }}>Half Day</th>
                     <th style={{ background: "#b3e5fc" }}>Holiday Wrk</th>
-                    <th style={{ background: "#b3e5fc" }}>LEAVE</th>
+                    <th style={{ background: "#b3e5fc" }}>Absent</th>
                     <th style={{ background: "#b3e5fc" }}>HOLIDAYS</th>
                     <th style={{ background: "#b3e5fc" }}>Week Off</th>
                     <th style={{ background: "#b3e5fc" }}>Paid Days</th>
