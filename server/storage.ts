@@ -276,6 +276,8 @@ export interface IStorage {
   getDailyPnlEntry(date: string, clientName: string): Promise<any | null>;
   saveDailyPnlEntry(data: any): Promise<number>;
   getDailyPnlMonthSummary(month: number, year: number): Promise<any[]>;
+  getDailyPnlMonthlySummary(year: number, clientName?: string): Promise<any[]>;
+  getDailyPnlYearlySummary(clientName?: string): Promise<any[]>;
   getCashSealForDate(date: string): Promise<any | null>;
   getLastPurchasePrice(itemName: string): Promise<number>;
 }
@@ -2307,6 +2309,38 @@ export class DatabaseStorage implements IStorage {
       .where(and(gte(dailyPnlEntries.entryDate, startDate), lte(dailyPnlEntries.entryDate, endDate)))
       .orderBy(dailyPnlEntries.entryDate);
     return rows;
+  }
+
+  async getDailyPnlMonthlySummary(year: number, clientName?: string): Promise<any[]> {
+    const [rows] = await db.execute(sql`
+      SELECT
+        MONTH(entry_date) AS month,
+        YEAR(entry_date)  AS year,
+        SUM(total_expense) AS totalExpense,
+        SUM(total_sale)    AS totalSale,
+        SUM(profit_loss)   AS profitLoss
+      FROM daily_pnl_entries
+      WHERE YEAR(entry_date) = ${year}
+        ${clientName ? sql`AND client_name = ${clientName}` : sql``}
+      GROUP BY YEAR(entry_date), MONTH(entry_date)
+      ORDER BY MONTH(entry_date)
+    `) as any;
+    return rows as any[];
+  }
+
+  async getDailyPnlYearlySummary(clientName?: string): Promise<any[]> {
+    const [rows] = await db.execute(sql`
+      SELECT
+        YEAR(entry_date)   AS year,
+        SUM(total_expense) AS totalExpense,
+        SUM(total_sale)    AS totalSale,
+        SUM(profit_loss)   AS profitLoss
+      FROM daily_pnl_entries
+      ${clientName ? sql`WHERE client_name = ${clientName}` : sql``}
+      GROUP BY YEAR(entry_date)
+      ORDER BY YEAR(entry_date)
+    `) as any;
+    return rows as any[];
   }
 
   async getCashSealForDate(date: string): Promise<any | null> {

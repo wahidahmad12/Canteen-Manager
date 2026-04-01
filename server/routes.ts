@@ -1967,6 +1967,15 @@ export async function registerRoutes(
     const year = Number(req.query.year) || new Date().getFullYear();
     res.json(await storage.getDailyPnlMonthSummary(month, year));
   });
+  app.get('/api/daily-pnl/monthly-report', requireAuth, async (req, res) => {
+    const year = Number(req.query.year) || new Date().getFullYear();
+    const clientName = req.query.client ? String(req.query.client) : undefined;
+    res.json(await storage.getDailyPnlMonthlySummary(year, clientName));
+  });
+  app.get('/api/daily-pnl/yearly-report', requireAuth, async (req, res) => {
+    const clientName = req.query.client ? String(req.query.client) : undefined;
+    res.json(await storage.getDailyPnlYearlySummary(clientName));
+  });
   app.get('/api/daily-pnl/cash-seal', requireAuth, async (req, res) => {
     const date = String(req.query.date || '');
     if (!date) return res.json(null);

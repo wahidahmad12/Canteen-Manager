@@ -125,6 +125,9 @@ export default function DailyPnlPage() {
   const [entryId, setEntryId]   = useState<number | undefined>();
   const [dashMonth, setDashMonth] = useState(new Date().getMonth() + 1);
   const [dashYear,  setDashYear]  = useState(new Date().getFullYear());
+  const [dashView,  setDashView]  = useState<"daily" | "monthly" | "yearly">("daily");
+  const [repYear,   setRepYear]   = useState(new Date().getFullYear());
+  const [repClient, setRepClient] = useState("");
 
   // Expense states
   const [breakfast, setBreakfast] = useState<ExpenseItem[]>([makeExpItem(1), makeExpItem(2)]);
@@ -299,7 +302,19 @@ export default function DailyPnlPage() {
   const { data: dashData = [] } = useQuery<any[]>({
     queryKey: ["/api/daily-pnl/month-summary", dashMonth, dashYear],
     queryFn: () => fetch(`/api/daily-pnl/month-summary?month=${dashMonth}&year=${dashYear}`, { credentials: "include" }).then(r => r.json()),
-    enabled: tab === "dashboard",
+    enabled: tab === "dashboard" && dashView === "daily",
+  });
+
+  const { data: monthlyData = [] } = useQuery<any[]>({
+    queryKey: ["/api/daily-pnl/monthly-report", repYear, repClient],
+    queryFn: () => fetch(`/api/daily-pnl/monthly-report?year=${repYear}${repClient ? `&client=${encodeURIComponent(repClient)}` : ""}`, { credentials: "include" }).then(r => r.json()),
+    enabled: tab === "dashboard" && dashView === "monthly",
+  });
+
+  const { data: yearlyData = [] } = useQuery<any[]>({
+    queryKey: ["/api/daily-pnl/yearly-report", repClient],
+    queryFn: () => fetch(`/api/daily-pnl/yearly-report${repClient ? `?client=${encodeURIComponent(repClient)}` : ""}`, { credentials: "include" }).then(r => r.json()),
+    enabled: tab === "dashboard" && dashView === "yearly",
   });
 
   // ── Table style helpers ───────────────────────────────────────────────────
@@ -614,73 +629,273 @@ export default function DailyPnlPage() {
           </>
         )}
 
-        {/* ═══ DASHBOARD TAB ═══ */}
+        {/* ═══ DASHBOARD / REPORTS TAB ═══ */}
         {tab === "dashboard" && (
-          <div className="bg-white rounded-lg shadow-sm p-4">
-            <div className="flex flex-wrap items-center gap-3 mb-4">
-              <div className="flex items-center gap-1.5">
-                <span className="text-sm font-medium">Month:</span>
-                <select value={dashMonth} onChange={e => setDashMonth(Number(e.target.value))} className="border border-gray-300 rounded px-2 py-1 text-sm" data-testid="select-pnl-month">
-                  {MONTHS.map((m, i) => <option key={i} value={i + 1}>{m}</option>)}
-                </select>
-              </div>
-              <div className="flex items-center gap-1.5">
-                <span className="text-sm font-medium">Year:</span>
-                <select value={dashYear} onChange={e => setDashYear(Number(e.target.value))} className="border border-gray-300 rounded px-2 py-1 text-sm" data-testid="select-pnl-year">
-                  {Array.from({ length: 5 }, (_, i) => new Date().getFullYear() - 2 + i).map(y => <option key={y} value={y}>{y}</option>)}
-                </select>
-              </div>
-              <span className="text-sm font-semibold text-gray-600">P&amp;L Dashboard — {MONTHS[dashMonth - 1]} {dashYear}</span>
+          <div className="bg-white rounded-lg shadow-sm p-3">
+
+            {/* Sub-tab bar */}
+            <div className="flex gap-1 mb-4 border-b border-gray-200 pb-2">
+              {(["daily","monthly","yearly"] as const).map(v => (
+                <button key={v} onClick={() => setDashView(v)}
+                  className={`px-4 py-1.5 rounded-t text-xs font-semibold capitalize transition-colors ${dashView === v ? "bg-amber-700 text-white" : "bg-gray-100 text-gray-600 hover:bg-gray-200"}`}
+                  data-testid={`btn-dash-${v}`}>
+                  {v === "daily" ? "Daily" : v === "monthly" ? "Monthly Report" : "Yearly Report"}
+                </button>
+              ))}
             </div>
 
-            {dashData.length === 0 ? (
-              <div className="text-center py-12 text-gray-400">No P&amp;L entries found for {MONTHS[dashMonth - 1]} {dashYear}</div>
-            ) : (
-              <div className="overflow-x-auto">
-                <table className="w-full border-collapse" style={{ fontSize: 11 }}>
-                  <thead>
-                    <tr>
-                      <th style={{ ...thDash, textAlign: "left", paddingLeft: 8 }}>Date</th>
-                      <th style={thDash}>Client</th>
-                      <th style={{ ...thDash, background: "#b91c1c" }}>Total Expense (₹)</th>
-                      <th style={{ ...thDash, background: "#1d4ed8" }}>Total Sale (₹)</th>
-                      <th style={{ ...thDash, background: "#166534" }}>Profit / Loss (₹)</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {dashData.map((r: any, i) => {
-                      const pl = Number(r.profitLoss) || 0;
-                      return (
-                        <tr key={i} style={{ background: i % 2 === 0 ? "#f9fafb" : "#fff" }}>
-                          <td style={{ ...tdS, textAlign: "left", fontWeight: 500 }}>{fmtDate(r.entryDate)}</td>
-                          <td style={tdS}>{r.clientName}</td>
-                          <td style={{ ...tdS, color: "#b91c1c", fontWeight: "bold" }}>{Number(r.totalExpense).toLocaleString("en-IN", { minimumFractionDigits: 2 })}</td>
-                          <td style={{ ...tdS, color: "#1d4ed8", fontWeight: "bold" }}>{Number(r.totalSale).toLocaleString("en-IN", { minimumFractionDigits: 2 })}</td>
-                          <td style={{ ...tdS, fontWeight: "bold", color: pl >= 0 ? "#166534" : "#b91c1c" }}>
-                            {pl >= 0 ? "+" : ""}{pl.toLocaleString("en-IN", { minimumFractionDigits: 2 })}
-                          </td>
-                        </tr>
-                      );
-                    })}
-                    {(() => {
-                      const totExp  = dashData.reduce((s: number, r: any) => s + (Number(r.totalExpense) || 0), 0);
-                      const totSale = dashData.reduce((s: number, r: any) => s + (Number(r.totalSale)    || 0), 0);
-                      const totPl   = dashData.reduce((s: number, r: any) => s + (Number(r.profitLoss)   || 0), 0);
-                      return (
+            {/* ── DAILY VIEW ── */}
+            {dashView === "daily" && (
+              <>
+                <div className="flex flex-wrap items-center gap-2 mb-3">
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-xs font-medium text-gray-600">Month:</span>
+                    <select value={dashMonth} onChange={e => setDashMonth(Number(e.target.value))} className="border border-gray-300 rounded px-2 py-1 text-sm" data-testid="select-pnl-month">
+                      {MONTHS.map((m, i) => <option key={i} value={i + 1}>{m}</option>)}
+                    </select>
+                  </div>
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-xs font-medium text-gray-600">Year:</span>
+                    <select value={dashYear} onChange={e => setDashYear(Number(e.target.value))} className="border border-gray-300 rounded px-2 py-1 text-sm" data-testid="select-pnl-year">
+                      {Array.from({ length: 5 }, (_, i) => new Date().getFullYear() - 2 + i).map(y => <option key={y} value={y}>{y}</option>)}
+                    </select>
+                  </div>
+                  <span className="text-xs font-semibold text-amber-700 ml-1">Daily P&amp;L — {MONTHS[dashMonth - 1]} {dashYear}</span>
+                  <button onClick={() => {
+                    const w = window.open("","_blank","width=900,height=600");
+                    if (!w) return;
+                    const rows = dashData as any[];
+                    const totE = rows.reduce((s,r)=>s+Number(r.totalExpense||0),0);
+                    const totS = rows.reduce((s,r)=>s+Number(r.totalSale||0),0);
+                    const totP = rows.reduce((s,r)=>s+Number(r.profitLoss||0),0);
+                    w.document.write(`<html><head><title>Daily P&L ${MONTHS[dashMonth-1]} ${dashYear}</title><style>body{font-family:Arial,sans-serif;font-size:11px}table{border-collapse:collapse;width:100%}th,td{border:1px solid #ccc;padding:4px 6px;text-align:center}th{background:#78350f;color:#fff}</style></head><body>
+                      <h3 style="text-align:center">Daily P&L — ${MONTHS[dashMonth-1]} ${dashYear}</h3>
+                      <table><thead><tr><th>Date</th><th>Client</th><th>Expense (₹)</th><th>Sale (₹)</th><th>P&L (₹)</th></tr></thead><tbody>
+                      ${rows.map(r=>{const pl=Number(r.profitLoss)||0;return`<tr><td>${fmtDate(r.entryDate)}</td><td>${r.clientName}</td><td style="color:#b91c1c">${Number(r.totalExpense).toLocaleString("en-IN",{minimumFractionDigits:2})}</td><td style="color:#1d4ed8">${Number(r.totalSale).toLocaleString("en-IN",{minimumFractionDigits:2})}</td><td style="color:${pl>=0?"#166534":"#b91c1c"}">${pl>=0?"+":""}${pl.toLocaleString("en-IN",{minimumFractionDigits:2})}</td></tr>`;}).join("")}
+                      <tr><td colspan="2"><b>Grand Total</b></td><td style="color:#b91c1c"><b>${totE.toLocaleString("en-IN",{minimumFractionDigits:2})}</b></td><td style="color:#1d4ed8"><b>${totS.toLocaleString("en-IN",{minimumFractionDigits:2})}</b></td><td style="color:${totP>=0?"#166534":"#b91c1c"}"><b>${totP>=0?"+":""}${totP.toLocaleString("en-IN",{minimumFractionDigits:2})}</b></td></tr>
+                      </tbody></table></body></html>`);
+                    w.document.close(); w.print();
+                  }} className="ml-auto px-3 py-1.5 border rounded text-xs font-medium flex items-center gap-1 hover:bg-gray-50" data-testid="btn-dash-daily-print">
+                    <Printer className="w-3.5 h-3.5" /> Print
+                  </button>
+                </div>
+                {dashData.length === 0 ? (
+                  <div className="text-center py-10 text-gray-400 text-sm">No entries for {MONTHS[dashMonth - 1]} {dashYear}</div>
+                ) : (
+                  <div className="overflow-x-auto">
+                    <table className="w-full border-collapse" style={{ fontSize: 11 }}>
+                      <thead>
                         <tr>
-                          <td colSpan={2} style={tdTot}>Grand Total</td>
-                          <td style={{ ...tdTot, color: "#b91c1c" }}>{totExp.toLocaleString("en-IN",  { minimumFractionDigits: 2 })}</td>
-                          <td style={{ ...tdTot, color: "#1d4ed8" }}>{totSale.toLocaleString("en-IN", { minimumFractionDigits: 2 })}</td>
-                          <td style={{ ...tdTot, color: totPl >= 0 ? "#166534" : "#b91c1c" }}>
-                            {totPl >= 0 ? "+" : ""}{totPl.toLocaleString("en-IN", { minimumFractionDigits: 2 })}
-                          </td>
+                          <th style={{ ...thDash, textAlign: "left", paddingLeft: 8 }}>Date</th>
+                          <th style={thDash}>Client</th>
+                          <th style={{ ...thDash, background: "#b91c1c" }}>Total Expense (₹)</th>
+                          <th style={{ ...thDash, background: "#1d4ed8" }}>Total Sale (₹)</th>
+                          <th style={{ ...thDash, background: "#166534" }}>Profit / Loss (₹)</th>
                         </tr>
-                      );
-                    })()}
-                  </tbody>
-                </table>
-              </div>
+                      </thead>
+                      <tbody>
+                        {dashData.map((r: any, i) => {
+                          const pl = Number(r.profitLoss) || 0;
+                          return (
+                            <tr key={i} style={{ background: i % 2 === 0 ? "#f9fafb" : "#fff" }}>
+                              <td style={{ ...tdS, textAlign: "left", fontWeight: 500 }}>{fmtDate(r.entryDate)}</td>
+                              <td style={tdS}>{r.clientName}</td>
+                              <td style={{ ...tdS, color: "#b91c1c", fontWeight: "bold" }}>{Number(r.totalExpense).toLocaleString("en-IN", { minimumFractionDigits: 2 })}</td>
+                              <td style={{ ...tdS, color: "#1d4ed8", fontWeight: "bold" }}>{Number(r.totalSale).toLocaleString("en-IN", { minimumFractionDigits: 2 })}</td>
+                              <td style={{ ...tdS, fontWeight: "bold", color: pl >= 0 ? "#166534" : "#b91c1c" }}>
+                                {pl >= 0 ? "+" : ""}{pl.toLocaleString("en-IN", { minimumFractionDigits: 2 })}
+                              </td>
+                            </tr>
+                          );
+                        })}
+                        {(() => {
+                          const totExp  = dashData.reduce((s: number, r: any) => s + (Number(r.totalExpense) || 0), 0);
+                          const totSale = dashData.reduce((s: number, r: any) => s + (Number(r.totalSale)    || 0), 0);
+                          const totPl   = dashData.reduce((s: number, r: any) => s + (Number(r.profitLoss)   || 0), 0);
+                          return (
+                            <tr>
+                              <td colSpan={2} style={tdTot}>Grand Total</td>
+                              <td style={{ ...tdTot, color: "#b91c1c" }}>{totExp.toLocaleString("en-IN",  { minimumFractionDigits: 2 })}</td>
+                              <td style={{ ...tdTot, color: "#1d4ed8" }}>{totSale.toLocaleString("en-IN", { minimumFractionDigits: 2 })}</td>
+                              <td style={{ ...tdTot, color: totPl >= 0 ? "#166534" : "#b91c1c" }}>
+                                {totPl >= 0 ? "+" : ""}{totPl.toLocaleString("en-IN", { minimumFractionDigits: 2 })}
+                              </td>
+                            </tr>
+                          );
+                        })()}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </>
             )}
+
+            {/* ── MONTHLY REPORT ── */}
+            {dashView === "monthly" && (
+              <>
+                <div className="flex flex-wrap items-center gap-2 mb-3">
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-xs font-medium text-gray-600">Year:</span>
+                    <select value={repYear} onChange={e => setRepYear(Number(e.target.value))} className="border border-gray-300 rounded px-2 py-1 text-sm" data-testid="select-rep-year">
+                      {Array.from({ length: 5 }, (_, i) => new Date().getFullYear() - 2 + i).map(y => <option key={y} value={y}>{y}</option>)}
+                    </select>
+                  </div>
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-xs font-medium text-gray-600">Client:</span>
+                    <select value={repClient} onChange={e => setRepClient(e.target.value)} className="border border-gray-300 rounded px-2 py-1 text-sm" data-testid="select-rep-client">
+                      <option value="">All Clients</option>
+                      {(dbClients as any[]).map((c: any) => <option key={c.id} value={c.name}>{c.name}</option>)}
+                    </select>
+                  </div>
+                  <span className="text-xs font-semibold text-amber-700 ml-1">Monthly Report — {repYear}{repClient ? ` · ${repClient}` : ""}</span>
+                  <button onClick={() => {
+                    const w = window.open("","_blank","width=900,height=600");
+                    if (!w) return;
+                    const rows = monthlyData as any[];
+                    const totE = rows.reduce((s,r)=>s+Number(r.totalExpense||0),0);
+                    const totS = rows.reduce((s,r)=>s+Number(r.totalSale||0),0);
+                    const totP = rows.reduce((s,r)=>s+Number(r.profitLoss||0),0);
+                    w.document.write(`<html><head><title>Monthly P&L ${repYear}</title><style>body{font-family:Arial,sans-serif;font-size:11px}table{border-collapse:collapse;width:100%}th,td{border:1px solid #ccc;padding:4px 8px;text-align:center}th{background:#78350f;color:#fff}</style></head><body>
+                      <h3 style="text-align:center">Monthly P&L — ${repYear}${repClient?` · ${repClient}`:""}</h3>
+                      <table><thead><tr><th>Month</th><th>Year</th><th>Total Expense (₹)</th><th>Total Sale (₹)</th><th>Profit / Loss (₹)</th></tr></thead><tbody>
+                      ${rows.map(r=>{const pl=Number(r.profitLoss)||0;return`<tr><td>${MONTHS[Number(r.month)-1]}</td><td>${r.year}</td><td style="color:#b91c1c">${Number(r.totalExpense).toLocaleString("en-IN",{minimumFractionDigits:2})}</td><td style="color:#1d4ed8">${Number(r.totalSale).toLocaleString("en-IN",{minimumFractionDigits:2})}</td><td style="color:${pl>=0?"#166534":"#b91c1c"}">${pl>=0?"+":""}${pl.toLocaleString("en-IN",{minimumFractionDigits:2})}</td></tr>`;}).join("")}
+                      <tr><td colspan="2"><b>Grand Total</b></td><td><b>${totE.toLocaleString("en-IN",{minimumFractionDigits:2})}</b></td><td><b>${totS.toLocaleString("en-IN",{minimumFractionDigits:2})}</b></td><td><b>${totP>=0?"+":""}${totP.toLocaleString("en-IN",{minimumFractionDigits:2})}</b></td></tr>
+                      </tbody></table></body></html>`);
+                    w.document.close(); w.print();
+                  }} className="ml-auto px-3 py-1.5 border rounded text-xs font-medium flex items-center gap-1 hover:bg-gray-50" data-testid="btn-monthly-print">
+                    <Printer className="w-3.5 h-3.5" /> Print
+                  </button>
+                </div>
+                {monthlyData.length === 0 ? (
+                  <div className="text-center py-10 text-gray-400 text-sm">No entries for {repYear}{repClient ? ` · ${repClient}` : ""}</div>
+                ) : (
+                  <div className="overflow-x-auto">
+                    <table className="w-full border-collapse" style={{ fontSize: 11 }}>
+                      <thead>
+                        <tr>
+                          <th style={{ ...thDash, textAlign: "left", paddingLeft: 8 }}>Month</th>
+                          <th style={thDash}>Year</th>
+                          <th style={{ ...thDash, background: "#b91c1c" }}>Total Expense (₹)</th>
+                          <th style={{ ...thDash, background: "#1d4ed8" }}>Total Sale (₹)</th>
+                          <th style={{ ...thDash, background: "#166534" }}>Profit / Loss (₹)</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {monthlyData.map((r: any, i) => {
+                          const pl = Number(r.profitLoss) || 0;
+                          return (
+                            <tr key={i} style={{ background: i % 2 === 0 ? "#f9fafb" : "#fff" }}>
+                              <td style={{ ...tdS, textAlign: "left", fontWeight: 600 }}>{MONTHS[Number(r.month) - 1]}</td>
+                              <td style={tdS}>{r.year}</td>
+                              <td style={{ ...tdS, color: "#b91c1c", fontWeight: "bold" }}>{Number(r.totalExpense).toLocaleString("en-IN", { minimumFractionDigits: 2 })}</td>
+                              <td style={{ ...tdS, color: "#1d4ed8", fontWeight: "bold" }}>{Number(r.totalSale).toLocaleString("en-IN", { minimumFractionDigits: 2 })}</td>
+                              <td style={{ ...tdS, fontWeight: "bold", color: pl >= 0 ? "#166534" : "#b91c1c" }}>
+                                {pl >= 0 ? "+" : ""}{pl.toLocaleString("en-IN", { minimumFractionDigits: 2 })}
+                              </td>
+                            </tr>
+                          );
+                        })}
+                        {(() => {
+                          const totE = monthlyData.reduce((s: number, r: any) => s + (Number(r.totalExpense) || 0), 0);
+                          const totS = monthlyData.reduce((s: number, r: any) => s + (Number(r.totalSale)    || 0), 0);
+                          const totP = monthlyData.reduce((s: number, r: any) => s + (Number(r.profitLoss)   || 0), 0);
+                          return (
+                            <tr>
+                              <td colSpan={2} style={tdTot}>Grand Total</td>
+                              <td style={{ ...tdTot, color: "#b91c1c" }}>{totE.toLocaleString("en-IN", { minimumFractionDigits: 2 })}</td>
+                              <td style={{ ...tdTot, color: "#1d4ed8" }}>{totS.toLocaleString("en-IN", { minimumFractionDigits: 2 })}</td>
+                              <td style={{ ...tdTot, color: totP >= 0 ? "#166534" : "#b91c1c" }}>
+                                {totP >= 0 ? "+" : ""}{totP.toLocaleString("en-IN", { minimumFractionDigits: 2 })}
+                              </td>
+                            </tr>
+                          );
+                        })()}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </>
+            )}
+
+            {/* ── YEARLY REPORT ── */}
+            {dashView === "yearly" && (
+              <>
+                <div className="flex flex-wrap items-center gap-2 mb-3">
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-xs font-medium text-gray-600">Client:</span>
+                    <select value={repClient} onChange={e => setRepClient(e.target.value)} className="border border-gray-300 rounded px-2 py-1 text-sm" data-testid="select-rep-client-yearly">
+                      <option value="">All Clients</option>
+                      {(dbClients as any[]).map((c: any) => <option key={c.id} value={c.name}>{c.name}</option>)}
+                    </select>
+                  </div>
+                  <span className="text-xs font-semibold text-amber-700 ml-1">Yearly Report{repClient ? ` · ${repClient}` : " · All Clients"}</span>
+                  <button onClick={() => {
+                    const w = window.open("","_blank","width=900,height=600");
+                    if (!w) return;
+                    const rows = yearlyData as any[];
+                    const totE = rows.reduce((s,r)=>s+Number(r.totalExpense||0),0);
+                    const totS = rows.reduce((s,r)=>s+Number(r.totalSale||0),0);
+                    const totP = rows.reduce((s,r)=>s+Number(r.profitLoss||0),0);
+                    w.document.write(`<html><head><title>Yearly P&L Report</title><style>body{font-family:Arial,sans-serif;font-size:11px}table{border-collapse:collapse;width:100%}th,td{border:1px solid #ccc;padding:4px 8px;text-align:center}th{background:#78350f;color:#fff}</style></head><body>
+                      <h3 style="text-align:center">Yearly P&L Report${repClient?` · ${repClient}`:""}</h3>
+                      <table><thead><tr><th>Year</th><th>Total Expense (₹)</th><th>Total Sale (₹)</th><th>Profit / Loss (₹)</th></tr></thead><tbody>
+                      ${rows.map(r=>{const pl=Number(r.profitLoss)||0;return`<tr><td><b>${r.year}</b></td><td style="color:#b91c1c">${Number(r.totalExpense).toLocaleString("en-IN",{minimumFractionDigits:2})}</td><td style="color:#1d4ed8">${Number(r.totalSale).toLocaleString("en-IN",{minimumFractionDigits:2})}</td><td style="color:${pl>=0?"#166534":"#b91c1c"}">${pl>=0?"+":""}${pl.toLocaleString("en-IN",{minimumFractionDigits:2})}</td></tr>`;}).join("")}
+                      <tr><td><b>Grand Total</b></td><td><b>${totE.toLocaleString("en-IN",{minimumFractionDigits:2})}</b></td><td><b>${totS.toLocaleString("en-IN",{minimumFractionDigits:2})}</b></td><td><b>${totP>=0?"+":""}${totP.toLocaleString("en-IN",{minimumFractionDigits:2})}</b></td></tr>
+                      </tbody></table></body></html>`);
+                    w.document.close(); w.print();
+                  }} className="ml-auto px-3 py-1.5 border rounded text-xs font-medium flex items-center gap-1 hover:bg-gray-50" data-testid="btn-yearly-print">
+                    <Printer className="w-3.5 h-3.5" /> Print
+                  </button>
+                </div>
+                {yearlyData.length === 0 ? (
+                  <div className="text-center py-10 text-gray-400 text-sm">No P&amp;L entries found{repClient ? ` for ${repClient}` : ""}</div>
+                ) : (
+                  <div className="overflow-x-auto">
+                    <table className="w-full border-collapse" style={{ fontSize: 11 }}>
+                      <thead>
+                        <tr>
+                          <th style={{ ...thDash, textAlign: "left", paddingLeft: 8 }}>Year</th>
+                          <th style={{ ...thDash, background: "#b91c1c" }}>Total Expense (₹)</th>
+                          <th style={{ ...thDash, background: "#1d4ed8" }}>Total Sale (₹)</th>
+                          <th style={{ ...thDash, background: "#166534" }}>Profit / Loss (₹)</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {yearlyData.map((r: any, i) => {
+                          const pl = Number(r.profitLoss) || 0;
+                          return (
+                            <tr key={i} style={{ background: i % 2 === 0 ? "#f9fafb" : "#fff" }}>
+                              <td style={{ ...tdS, textAlign: "left", fontWeight: 700, fontSize: 12 }}>{r.year}</td>
+                              <td style={{ ...tdS, color: "#b91c1c", fontWeight: "bold" }}>{Number(r.totalExpense).toLocaleString("en-IN", { minimumFractionDigits: 2 })}</td>
+                              <td style={{ ...tdS, color: "#1d4ed8", fontWeight: "bold" }}>{Number(r.totalSale).toLocaleString("en-IN", { minimumFractionDigits: 2 })}</td>
+                              <td style={{ ...tdS, fontWeight: "bold", color: pl >= 0 ? "#166534" : "#b91c1c" }}>
+                                {pl >= 0 ? "+" : ""}{pl.toLocaleString("en-IN", { minimumFractionDigits: 2 })}
+                              </td>
+                            </tr>
+                          );
+                        })}
+                        {(() => {
+                          const totE = yearlyData.reduce((s: number, r: any) => s + (Number(r.totalExpense) || 0), 0);
+                          const totS = yearlyData.reduce((s: number, r: any) => s + (Number(r.totalSale)    || 0), 0);
+                          const totP = yearlyData.reduce((s: number, r: any) => s + (Number(r.profitLoss)   || 0), 0);
+                          return (
+                            <tr>
+                              <td style={tdTot}>Grand Total</td>
+                              <td style={{ ...tdTot, color: "#b91c1c" }}>{totE.toLocaleString("en-IN", { minimumFractionDigits: 2 })}</td>
+                              <td style={{ ...tdTot, color: "#1d4ed8" }}>{totS.toLocaleString("en-IN", { minimumFractionDigits: 2 })}</td>
+                              <td style={{ ...tdTot, color: totP >= 0 ? "#166534" : "#b91c1c" }}>
+                                {totP >= 0 ? "+" : ""}{totP.toLocaleString("en-IN", { minimumFractionDigits: 2 })}
+                              </td>
+                            </tr>
+                          );
+                        })()}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </>
+            )}
+
           </div>
         )}
       </div>
