@@ -325,39 +325,52 @@ export default function DailyPnlPage() {
         </div>
       </div>
 
-      <div className="max-w-6xl mx-auto px-3 py-4">
+      {/* ── Sticky Active Panel ── */}
+      {tab === "entry" && (
+        <div className="sticky top-0 z-20 bg-white border-b border-amber-200 shadow-md px-3 py-2">
+          {/* Row 1: Date + Client + Load */}
+          <div className="flex flex-wrap items-center gap-2 mb-2 sm:mb-0 sm:inline-flex sm:w-auto">
+            <div className="flex items-center gap-1.5">
+              <span className="text-xs font-semibold text-gray-500">Date:</span>
+              <input type="date" value={entryDate} onChange={e => setEntryDate(e.target.value)}
+                className="border border-gray-300 rounded px-2 py-1 text-sm w-36" data-testid="input-pnl-date" />
+            </div>
+            <div className="flex items-center gap-1.5">
+              <span className="text-xs font-semibold text-gray-500">Client:</span>
+              <select value={clientName} onChange={e => setClientName(e.target.value)}
+                className="border border-gray-300 rounded px-2 py-1 text-sm max-w-[160px]" data-testid="input-pnl-client">
+                <option value="">— Select —</option>
+                {(dbClients as any[]).map((c: any) => (
+                  <option key={c.id} value={c.name}>{c.name}</option>
+                ))}
+              </select>
+            </div>
+            <button onClick={loadEntry} className="px-3 py-1.5 border border-gray-300 rounded text-xs font-medium flex items-center gap-1 hover:bg-gray-50 bg-white" data-testid="btn-pnl-load">
+              <RefreshCw className="w-3.5 h-3.5" /> Load
+            </button>
+          </div>
+          {/* Row 1 (desktop) / Row 2 (mobile): action buttons */}
+          <div className="flex items-center gap-2 sm:float-right sm:mt-[-30px]">
+            <button onClick={handlePrint} className="flex-1 sm:flex-none px-3 py-1.5 border border-gray-300 rounded text-xs font-medium flex items-center justify-center gap-1 hover:bg-gray-50 bg-white" data-testid="btn-pnl-print">
+              <Printer className="w-3.5 h-3.5" /> Print
+            </button>
+            <button onClick={() => saveMut.mutate()} disabled={saveMut.isPending}
+              className="flex-1 sm:flex-none px-4 py-1.5 rounded text-xs font-bold flex items-center justify-center gap-1 bg-amber-700 text-white hover:bg-amber-800 disabled:opacity-50" data-testid="btn-pnl-save">
+              {saveMut.isPending ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : <Save className="w-3.5 h-3.5" />} Save
+            </button>
+          </div>
+          <div className="clear-both" />
+          {clientName && (
+            <div className="text-xs text-amber-700 font-medium mt-0.5">{clientName} — {fmtDate(entryDate)}{entryId ? " ✓ Loaded" : " · New Entry"}</div>
+          )}
+        </div>
+      )}
+
+      <div className="max-w-6xl mx-auto px-3 py-4 pb-6">
 
         {/* ═══ ENTRY TAB ═══ */}
         {tab === "entry" && (
           <>
-            {/* Controls bar */}
-            <div className="flex flex-wrap items-center gap-2 mb-4 bg-white rounded-lg shadow-sm p-3">
-              <div className="flex items-center gap-1.5">
-                <span className="text-xs font-medium text-gray-600">Date:</span>
-                <input type="date" value={entryDate} onChange={e => setEntryDate(e.target.value)} className="border border-gray-300 rounded px-2 py-1 text-sm" data-testid="input-pnl-date" />
-              </div>
-              <div className="flex items-center gap-1.5">
-                <span className="text-xs font-medium text-gray-600">Client:</span>
-                <select value={clientName} onChange={e => setClientName(e.target.value)} className="border border-gray-300 rounded px-2 py-1 text-sm" data-testid="input-pnl-client">
-                  <option value="">— Select —</option>
-                  {(dbClients as any[]).map((c: any) => (
-                    <option key={c.id} value={c.name}>{c.name}</option>
-                  ))}
-                </select>
-              </div>
-              <button onClick={loadEntry} className="px-3 py-1.5 border rounded text-xs font-medium flex items-center gap-1 hover:bg-gray-50" data-testid="btn-pnl-load">
-                <RefreshCw className="w-3.5 h-3.5" /> Load
-              </button>
-              <div className="ml-auto flex gap-2">
-                <button onClick={handlePrint} className="px-3 py-1.5 border rounded text-xs font-medium flex items-center gap-1 hover:bg-gray-50" data-testid="btn-pnl-print">
-                  <Printer className="w-3.5 h-3.5" /> Print
-                </button>
-                <button onClick={() => saveMut.mutate()} disabled={saveMut.isPending}
-                  className="px-3 py-1.5 rounded text-xs font-bold flex items-center gap-1 bg-amber-700 text-white hover:bg-amber-800 disabled:opacity-50" data-testid="btn-pnl-save">
-                  {saveMut.isPending ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : <Save className="w-3.5 h-3.5" />} Save
-                </button>
-              </div>
-            </div>
 
             <div ref={printRef}>
               <div className="text-center mb-3">
@@ -578,7 +591,7 @@ export default function DailyPnlPage() {
                     <div className="font-bold text-blue-800">{fmtINR(totalTpSale)}</div>
                   </div>
                 </div>
-                <div className="grid grid-cols-3 gap-3 text-center">
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-center">
                   <div className="bg-red-50 border border-red-200 rounded-lg p-3">
                     <div className="text-xs text-red-500 font-medium mb-1">Total Expense</div>
                     <div className="text-lg font-bold text-red-700">{fmtINR(totalExpense)}</div>
