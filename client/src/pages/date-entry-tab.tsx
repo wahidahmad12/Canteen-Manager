@@ -1305,6 +1305,8 @@ function UnichemSnackTab({ month, year, loadKey = 0 }: { month: number; year: nu
   const handleImportExcelSnack = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]; if (!file) return;
     e.target.value = "";
+    const mStart = `${year}-${String(month).padStart(2,'0')}-01`;
+    const mEnd = `${year}-${String(month).padStart(2,'0')}-${String(getDaysInMonth(month, year)).padStart(2,'0')}`;
     try {
       const ExcelJS = (await import("exceljs")).default;
       const wb = new ExcelJS.Workbook();
@@ -1327,11 +1329,21 @@ function UnichemSnackTab({ month, year, loadKey = 0 }: { month: number; year: nu
         if (!r.weekDay) r.weekDay = getWeekDay(r.entryDate);
         imported.push(r as SnackRow);
       });
+      const mismatch = imported.filter(r => r.entryDate < mStart || r.entryDate > mEnd);
+      if (mismatch.length > 0) {
+        toast({ title:"Date Mismatch — Import Cancelled", description:`File has dates outside ${MONTHS[month-1]} ${year}. Select the correct month and retry.`, variant:"destructive" });
+        return;
+      }
       setLocalRows(imported);
       toast({ title:`Imported ${imported.length} rows`, description:"Review and click Save All to persist." });
     } catch(err:any) {
       toast({ title:"Import Failed", description:err.message, variant:"destructive" });
     }
+  };
+
+  const handleResetSnack = () => {
+    if (!window.confirm("Reset all entries to blank? Unsaved changes will be lost.")) return;
+    setLocalRows(generateMonthRows(month, year, (d, m, y) => snackRowDefaults(d, m, y, location)));
   };
 
   const handleCellChange = (idx: number, field: keyof SnackRow, value: string) => {
@@ -1685,6 +1697,9 @@ function UnichemSnackTab({ month, year, loadKey = 0 }: { month: number; year: nu
             <FileUp className="w-3.5 h-3.5 mr-1" /> Import Excel
           </Button>
           <input ref={importRefSnack} type="file" accept=".xlsx,.xls" className="hidden" onChange={handleImportExcelSnack} />
+          <Button size="sm" variant="outline" onClick={handleResetSnack} className="h-9 flex-1 sm:flex-none text-red-600 border-red-300 hover:bg-red-50" data-testid="btn-unichem-reset-snack">
+            <RefreshCw className="w-3.5 h-3.5 mr-1" /> Reset
+          </Button>
         </div>
       </div>
       {isLoading ? <div className="py-8 text-center text-muted-foreground"><Loader2 className="w-5 h-5 animate-spin inline mr-2"/>Loading...</div> : (<>
@@ -2057,6 +2072,8 @@ function UnichemMealSubTab({ month, year, location, mealType, loadKey = 0 }: { m
   const handleImportExcelMeal = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]; if (!file) return;
     e.target.value = "";
+    const mStart = `${year}-${String(month).padStart(2,'0')}-01`;
+    const mEnd = `${year}-${String(month).padStart(2,'0')}-${String(getDaysInMonth(month, year)).padStart(2,'0')}`;
     try {
       const ExcelJS = (await import("exceljs")).default;
       const wb = new ExcelJS.Workbook();
@@ -2087,11 +2104,21 @@ function UnichemMealSubTab({ month, year, location, mealType, loadKey = 0 }: { m
         if (!r.weekDay) r.weekDay = getWeekDay(r.entryDate);
         imported.push(r as LunchRow);
       });
+      const mismatch = imported.filter(r => r.entryDate < mStart || r.entryDate > mEnd);
+      if (mismatch.length > 0) {
+        toast({ title:"Date Mismatch — Import Cancelled", description:`File has dates outside ${MONTHS[month-1]} ${year}. Select the correct month and retry.`, variant:"destructive" });
+        return;
+      }
       setLocalRows(imported);
       toast({ title:`Imported ${imported.length} rows`, description:"Review and click Save All to persist." });
     } catch(err:any) {
       toast({ title:"Import Failed", description:err.message, variant:"destructive" });
     }
+  };
+
+  const handleResetMeal = () => {
+    if (!window.confirm("Reset all entries to blank? Unsaved changes will be lost.")) return;
+    setLocalRows(generateMonthRows(month, year, (d, m, y) => unichEmLunchRowDefaults(d, m, y, location, mealType)));
   };
 
   const handlePrint = () => {
@@ -2159,6 +2186,9 @@ function UnichemMealSubTab({ month, year, location, mealType, loadKey = 0 }: { m
           <FileUp className="w-3.5 h-3.5 mr-1" /> Import Excel
         </Button>
         <input ref={importRefMeal} type="file" accept=".xlsx,.xls" className="hidden" onChange={handleImportExcelMeal} />
+        <Button size="sm" variant="outline" onClick={handleResetMeal} className="h-9 flex-1 sm:flex-none text-red-600 border-red-300 hover:bg-red-50" data-testid={`btn-unichem-reset-${mealType}`}>
+          <RefreshCw className="w-3.5 h-3.5 mr-1" /> Reset
+        </Button>
       </div>
       {isLoading ? <div className="py-8 text-center text-muted-foreground"><Loader2 className="w-5 h-5 animate-spin inline mr-2"/>Loading...</div> : (<>
         {/* ── Mobile Card View ── */}
@@ -3187,6 +3217,8 @@ function HulKpfExecSnacksTab({ month, year, loadKey = 0 }: { month: number; year
   const handleImportExcelExec = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]; if (!file) return;
     e.target.value = "";
+    const mStart = `${year}-${String(month).padStart(2,'0')}-01`;
+    const mEnd = `${year}-${String(month).padStart(2,'0')}-${String(getDaysInMonth(month, year)).padStart(2,'0')}`;
     try {
       const ExcelJS = (await import('exceljs')).default;
       const wb = new ExcelJS.Workbook();
@@ -3219,9 +3251,19 @@ function HulKpfExecSnacksTab({ month, year, loadKey = 0 }: { month: number; year
         imported.push(r as ExecSnackRow);
       });
       if (!imported.length) { toast({ title: 'No data found in file', variant: 'destructive' }); return; }
+      const mismatch = imported.filter(r => r.entryDate < mStart || r.entryDate > mEnd);
+      if (mismatch.length > 0) {
+        toast({ title:"Date Mismatch — Import Cancelled", description:`File has dates outside ${MONTHS[month-1]} ${year}. Select the correct month and retry.`, variant:"destructive" });
+        return;
+      }
       setLocalRows(imported);
       toast({ title: `Imported ${imported.length} rows`, description: 'Review and click Save All to persist.' });
     } catch (err: any) { toast({ title: 'Import Failed', description: err.message, variant: 'destructive' }); }
+  };
+
+  const handleResetExec = () => {
+    if (!window.confirm("Reset all entries to blank? Unsaved changes will be lost.")) return;
+    setLocalRows(generateRows([]));
   };
 
   const handlePrint = () => {
@@ -3319,6 +3361,9 @@ function HulKpfExecSnacksTab({ month, year, loadKey = 0 }: { month: number; year
             <FileUp className="w-3.5 h-3.5 mr-1"/>Import Excel
           </Button>
           <input ref={importRefExec} type="file" accept=".xlsx,.xls" className="hidden" onChange={handleImportExcelExec}/>
+          <Button size="sm" variant="outline" onClick={handleResetExec} className="h-9 text-red-600 border-red-300 hover:bg-red-50" data-testid="btn-exec-reset">
+            <RefreshCw className="w-3.5 h-3.5 mr-1"/>Reset
+          </Button>
         </div>
       </div>
 
@@ -3609,9 +3654,21 @@ function HulLocationTab({ month, year, location, loadKey = 0 }: { month: number;
         imported.push(r as HulRow);
       });
       if (!imported.length) { toast({ title: 'No data found in file', variant: 'destructive' }); return; }
+      const mStart = `${year}-${String(month).padStart(2,'0')}-01`;
+      const mEnd = `${year}-${String(month).padStart(2,'0')}-${String(getDaysInMonth(month, year)).padStart(2,'0')}`;
+      const mismatch = imported.filter(r => r.entryDate < mStart || r.entryDate > mEnd);
+      if (mismatch.length > 0) {
+        toast({ title:"Date Mismatch — Import Cancelled", description:`File has dates outside ${MONTHS[month-1]} ${year}. Select the correct month and retry.`, variant:"destructive" });
+        return;
+      }
       setLocalRows(imported);
       toast({ title: `Imported ${imported.length} rows`, description: 'Review and click Save All to persist.' });
     } catch (err: any) { toast({ title: 'Import Failed', description: err.message, variant: 'destructive' }); }
+  };
+
+  const handleResetHul = () => {
+    if (!window.confirm("Reset all entries to blank? Unsaved changes will be lost.")) return;
+    setLocalRows(generateRows([]));
   };
 
   const handlePrint = () => {
@@ -3725,6 +3782,9 @@ function HulLocationTab({ month, year, location, loadKey = 0 }: { month: number;
             <FileUp className="w-3.5 h-3.5 mr-1"/>Import Excel
           </Button>
           <input ref={importRefHul} type="file" accept=".xlsx,.xls" className="hidden" onChange={handleImportExcelHul}/>
+          <Button size="sm" variant="outline" onClick={handleResetHul} className="h-9 text-red-600 border-red-300 hover:bg-red-50" data-testid="btn-hul-reset">
+            <RefreshCw className="w-3.5 h-3.5 mr-1"/>Reset
+          </Button>
         </div>
       </div>
 
