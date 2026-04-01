@@ -1262,7 +1262,8 @@ export default function SalaryRegister() {
                     <th colSpan={4} style={{ background: "#e8eaf6", color: "#283593", fontSize: "8px", fontWeight: 700 }}>Employee Details</th>
                     <th colSpan={6} style={{ background: "#e1f5fe", color: "#0277bd", fontSize: "8px", fontWeight: 700 }}>Attendance & Days</th>
                     <th colSpan={6} style={{ background: "#e8f5e9", color: "#2e7d32", fontSize: "8px", fontWeight: 700 }}>Earnings</th>
-                    <th colSpan={6} style={{ background: "#fce4ec", color: "#c62828", fontSize: "8px", fontWeight: 700 }}>Deductions</th>
+                    <th colSpan={5} style={{ background: "#fce4ec", color: "#c62828", fontSize: "8px", fontWeight: 700 }}>Deductions</th>
+                    <th colSpan={1} style={{ background: "#e8f5e9", color: "#1b5e20", fontSize: "8px", fontWeight: 700 }}>Net Salary</th>
                   </tr>
                   <tr>
                     <th style={{ background: "#c5cae9" }}>Sl.</th>
@@ -1286,7 +1287,7 @@ export default function SalaryRegister() {
                     <th style={{ background: "#f8bbd0" }}>P-TAX</th>
                     <th style={{ background: "#f8bbd0" }}>LWF</th>
                     <th style={{ background: "#f8bbd0" }}>Total Dedu</th>
-                    <th style={{ background: "#f8bbd0" }}>Net Salary</th>
+                    <th style={{ background: "#a5d6a7", color: "#1b5e20", fontWeight: 800 }}>Net Salary</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -1316,7 +1317,7 @@ export default function SalaryRegister() {
                         <td className="text-right" style={{ color: "#c62828" }}>{r.pTax ? fmt(r.pTax) : "-"}</td>
                         <td className="text-right" style={{ color: "#c62828" }}>{r.lwf ? fmt(r.lwf) : "-"}</td>
                         <td className="text-right" style={{ fontWeight: "bold", color: "#c62828" }}>{fmt(r.totalDedu)}</td>
-                        <td className="text-right" style={{ fontWeight: "bold", color: "#1565c0" }}>{fmt(r.netSalary)}</td>
+                        <td className="text-right" style={{ fontWeight: "bold", color: "#1b5e20", background: "#f1f8e9" }}>{fmt(r.netSalary)}</td>
                       </tr>
                     );
                   })}
@@ -1342,7 +1343,7 @@ export default function SalaryRegister() {
                     <td className="text-right" style={{ color: "#c62828" }}>{fmt(totals.pTax)}</td>
                     <td className="text-right">{fmt(totals.lwf)}</td>
                     <td className="text-right" style={{ color: "#c62828" }}>{fmt(totals.totalDedu)}</td>
-                    <td className="text-right" style={{ color: "#1565c0" }}>{fmt(totals.netSalary)}</td>
+                    <td className="text-right" style={{ fontWeight: "bold", color: "#1b5e20", background: "#f1f8e9" }}>{fmt(totals.netSalary)}</td>
                   </tr>
                 </tfoot>
               </table>
