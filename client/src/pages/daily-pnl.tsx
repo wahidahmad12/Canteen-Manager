@@ -39,7 +39,6 @@ type TpSaleRow  = { slNo: number; itemName: string; rate: number; cashQty: numbe
 const makeExpItem    = (slNo: number, itemName = ""): ExpenseItem => ({ slNo, itemName, uom: "", qty: 0, rate: 0, total: 0 });
 const makePsRow      = (r: typeof PS_ROWS[number], i: number): PsSaleRow  => ({ slNo: i + 1, itemName: r.itemName, cashQty: 0, onlineQty: 0, billQty: 0 });
 const makeTpRow      = (r: typeof TP_ROWS[number], i: number): TpSaleRow  => ({ slNo: i + 1, itemName: r.itemName, rate: r.rate, cashQty: 0, onlineQty: 0 });
-const makeTpRowBlank = (slNo: number): TpSaleRow => ({ slNo, itemName: "", rate: 0, cashQty: 0, onlineQty: 0 });
 
 const today   = () => format(new Date(), "yyyy-MM-dd");
 const fmtINR  = (n: number) => `₹${n.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
@@ -506,7 +505,7 @@ export default function DailyPnlPage() {
                     <thead>
                       <tr>
                         <th style={{ ...thTP, width: 38 }}>Sl No</th>
-                        <th style={{ ...thTP, minWidth: 120 }}>Item Name</th>
+                        <th style={{ ...thTP, minWidth: 130 }}>Item Name</th>
                         <th style={{ ...thTP, width: 55 }}>Rate (₹)</th>
                         <th style={{ ...thTP, width: 65 }}>Cash Qty</th>
                         <th style={{ ...thTP, width: 85 }}>Cash Amt (₹)</th>
@@ -514,21 +513,14 @@ export default function DailyPnlPage() {
                         <th style={{ ...thTP, width: 90 }}>Online Amt (₹)</th>
                         <th style={{ ...thTP, width: 70 }}>Total Qty</th>
                         <th style={{ ...thTP, width: 110, background: "#374151" }}>C&amp;O Total (₹)</th>
-                        <th style={{ ...thTP, width: 28 }}></th>
                       </tr>
                     </thead>
                     <tbody>
                       {tpCalc.map((r, i) => (
                         <tr key={i} style={{ background: i % 2 === 0 ? "#f9fafb" : "#fff" }}>
                           <td style={{ ...tdS }}>{r.slNo}</td>
-                          <td style={{ border: "1px solid #ddd", padding: "2px 5px" }}>
-                            <input list="item-list-tp" className="w-full border-0 outline-none bg-transparent text-xs font-medium" value={r.itemName}
-                              onChange={e => setTpSale(rows => rows.map((x, xi) => xi === i ? { ...x, itemName: e.target.value } : x))} />
-                          </td>
-                          <td style={{ ...tdS }}>
-                            <input type="number" className="w-full border-0 outline-none bg-transparent text-xs text-center" value={r.rate||""}
-                              onChange={e => setTpSale(rows => rows.map((x, xi) => xi === i ? { ...x, rate: parseFloat(e.target.value)||0 } : x))} />
-                          </td>
+                          <td style={{ ...tdS, textAlign: "left", fontWeight: "bold", paddingLeft: 8 }}>{r.itemName}</td>
+                          <td style={{ ...tdS }}>{r.rate}</td>
                           <td style={{ ...tdS, background: "#fef3c7" }}>
                             <input type="number" className="w-full border-0 outline-none bg-transparent text-center text-xs" value={r.cashQty||""}
                               onChange={e => setTpSale(rows => rows.map((x, xi) => xi === i ? { ...x, cashQty: parseFloat(e.target.value)||0 } : x))} />
@@ -541,27 +533,15 @@ export default function DailyPnlPage() {
                           <td style={{ ...tdS, background: "#dbeafe" }}>{r.onlineAmt > 0 ? r.onlineAmt.toLocaleString("en-IN") : "—"}</td>
                           <td style={{ ...tdS, fontWeight: "bold" }}>{r.totalQty || "—"}</td>
                           <td style={{ ...tdS, fontWeight: "bold", background: "#eff6ff", fontSize: 12 }}>{r.coTotal > 0 ? r.coTotal.toLocaleString("en-IN", { minimumFractionDigits: 2 }) : "—"}</td>
-                          <td style={{ ...tdS }}>
-                            <button onClick={() => setTpSale(rows => rows.filter((_, xi) => xi !== i).map((x, xi) => ({ ...x, slNo: xi + 1 })))} className="text-red-400 hover:text-red-600"><Trash2 className="w-3 h-3" /></button>
-                          </td>
                         </tr>
                       ))}
-                      <tr><td colSpan={10} style={{ border: "1px solid #ddd", padding: 4, textAlign: "center" }}>
-                        <button onClick={() => setTpSale(rows => [...rows, makeTpRowBlank(rows.length + 1)])} className="flex items-center gap-1 mx-auto text-blue-600 text-xs">
-                          <Plus className="w-3 h-3" /> Add Row
-                        </button>
-                      </td></tr>
                       <tr>
                         <td colSpan={7} style={{ ...tdTot, textAlign: "right", background: "#1e3a8a", color: "#fff" }}>Total TP Sale</td>
                         <td style={{ ...tdTot, background: "#1e3a8a", color: "#fff" }}>{tpCalc.reduce((s, r) => s + r.totalQty, 0)}</td>
-                        <td colSpan={2} style={{ ...tdTot, background: "#1e3a8a", color: "#fff", fontSize: 12 }}>{fmtINR(totalTpSale)}</td>
+                        <td style={{ ...tdTot, background: "#1e3a8a", color: "#fff", fontSize: 12 }}>{fmtINR(totalTpSale)}</td>
                       </tr>
                     </tbody>
                   </table>
-                  <datalist id="item-list-tp">
-                    {TP_ROWS.map(r => <option key={r.itemName} value={r.itemName} />)}
-                    {itemNames.map((n, i) => <option key={i} value={n} />)}
-                  </datalist>
                 </div>
               </div>
 
