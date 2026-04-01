@@ -1260,7 +1260,7 @@ export default function SalaryRegister() {
                 <thead>
                   <tr>
                     <th colSpan={4} style={{ background: "#e8eaf6", color: "#283593", fontSize: "8px", fontWeight: 700 }}>Employee Details</th>
-                    <th colSpan={9} style={{ background: "#e1f5fe", color: "#0277bd", fontSize: "8px", fontWeight: 700 }}>Attendance & Days</th>
+                    <th colSpan={6} style={{ background: "#e1f5fe", color: "#0277bd", fontSize: "8px", fontWeight: 700 }}>Attendance & Days</th>
                     <th colSpan={6} style={{ background: "#e8f5e9", color: "#2e7d32", fontSize: "8px", fontWeight: 700 }}>Earnings</th>
                     <th colSpan={6} style={{ background: "#fce4ec", color: "#c62828", fontSize: "8px", fontWeight: 700 }}>Deductions</th>
                   </tr>
@@ -1275,9 +1275,6 @@ export default function SalaryRegister() {
                     <th style={{ background: "#ffe082", color: "#e65100" }}>HOLIDAYS</th>
                     <th style={{ background: "#9fa8da", color: "#1a237e", fontWeight: 800 }}>Paid Days</th>
                     <th style={{ background: "#b2ebf2", color: "#006064" }}>OT HRS</th>
-                    <th style={{ background: "#f8bbd0", color: "#b71c1c" }}>Absent</th>
-                    <th style={{ background: "#bbdefb", color: "#0d47a1" }}>Week Off</th>
-                    <th style={{ background: "#eceff1", color: "#455a64" }}>Total Days</th>
                     <th style={{ background: "#c8e6c9" }}>Basic Rate</th>
                     <th style={{ background: "#c8e6c9" }}>Basic Wages</th>
                     <th style={{ background: "#c8e6c9" }}>HRA 5%</th>
@@ -1308,9 +1305,6 @@ export default function SalaryRegister() {
                         <td className="text-center" style={{ color: "#e65100", fontWeight: 600 }}>{r.holidays + r.holidayWorking}</td>
                         <td className="text-center" style={{ color: "#1a237e", fontWeight: 700, background: "#e8eaf6" }}>{fmtDec(r.paidDays)}</td>
                         <td className="text-center" style={{ color: "#006064" }}>{r.otHrs}</td>
-                        <td className="text-center" style={{ color: "#b71c1c" }}>{r.leave}</td>
-                        <td className="text-center" style={{ color: "#0d47a1" }}>{r.weeklyOff}</td>
-                        <td className="text-center" style={{ color: "#455a64" }}>{r.prsDays + r.halfDay + r.holidayWorking + r.holidays + r.leave + r.weeklyOff}</td>
                         <td className="text-right" style={{ fontWeight: "bold" }}>{fmtDec(r.basicRate)}</td>
                         <td className="text-right" style={{ color: "#2e7d32" }}>{fmt(r.basicWage)}</td>
                         <td className="text-right">{fmt(r.hra5)}</td>
@@ -1337,9 +1331,6 @@ export default function SalaryRegister() {
                     <td className="text-center" style={{ color: "#e65100", fontWeight: 600 }}>{totals.holidays + totals.holidayWorking}</td>
                     <td className="text-center" style={{ color: "#1a237e", fontWeight: 700, background: "#e8eaf6" }}>{fmtDec(totals.paidDays)}</td>
                     <td className="text-center" style={{ color: "#006064" }}>{totals.otHrs}</td>
-                    <td className="text-center" style={{ color: "#b71c1c" }}>{totals.leave}</td>
-                    <td className="text-center" style={{ color: "#0d47a1" }}>{totals.weeklyOff}</td>
-                    <td className="text-center" style={{ color: "#455a64" }}>{totals.prsDays + totals.halfDay + totals.holidayWorking + totals.holidays + totals.leave + totals.weeklyOff}</td>
                     <td className="text-right">{fmt(totals.basicRate || 0)}</td>
                     <td className="text-right" style={{ color: "#2e7d32" }}>{fmt(totals.basicWage)}</td>
                     <td className="text-right">{fmt(totals.hra5)}</td>
