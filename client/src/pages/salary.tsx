@@ -1100,7 +1100,7 @@ export default function SalaryRegister() {
                   <thead>
                     <tr>
                       <th colSpan={4} className="px-2 py-1.5 text-center font-bold border border-indigo-200 bg-indigo-50 dark:bg-indigo-950 text-indigo-800 dark:text-indigo-200 text-xs sticky left-0 z-20">Employee Details</th>
-                      <th colSpan={7} className="px-2 py-1.5 text-center font-bold border border-sky-200 bg-sky-50 dark:bg-sky-950 text-sky-800 dark:text-sky-200 text-xs">Attendance & Days</th>
+                      <th colSpan={9} className="px-2 py-1.5 text-center font-bold border border-sky-200 bg-sky-50 dark:bg-sky-950 text-sky-800 dark:text-sky-200 text-xs">Attendance & Days</th>
                       <th colSpan={6} className="px-2 py-1.5 text-center font-bold border border-emerald-200 bg-emerald-50 dark:bg-emerald-950 text-emerald-800 dark:text-emerald-200 text-xs">Earnings</th>
                       <th colSpan={6} className="px-2 py-1.5 text-center font-bold border border-rose-200 bg-rose-50 dark:bg-rose-950 text-rose-800 dark:text-rose-200 text-xs">Deductions</th>
                       <th colSpan={4} className="px-2 py-1.5 text-center font-bold border border-amber-200 bg-amber-50 dark:bg-amber-950 text-amber-800 dark:text-amber-200 text-xs">Leave & Net Pay</th>
@@ -1115,12 +1115,13 @@ export default function SalaryRegister() {
                       <th className="px-2 py-2 text-left font-bold border border-indigo-200 bg-indigo-100 dark:bg-indigo-900 min-w-[80px] text-indigo-700 dark:text-indigo-300">Skills</th>
                       <th className="px-2 py-2 text-center font-bold border border-sky-200 bg-sky-100 dark:bg-sky-900 text-sky-700 dark:text-sky-300">PRS DAYS</th>
                       <th className="px-2 py-2 text-center font-bold border border-sky-200 bg-sky-100 dark:bg-sky-900 text-sky-700 dark:text-sky-300">Half Day</th>
-                      <th className="px-2 py-2 text-center font-bold border border-sky-200 bg-sky-100 dark:bg-sky-900 text-sky-700 dark:text-sky-300">Holiday Wrk</th>
-                      <th className="px-2 py-2 text-center font-bold border border-sky-200 bg-sky-100 dark:bg-sky-900 text-sky-700 dark:text-sky-300">Absent</th>
-                      <th className="px-2 py-2 text-center font-bold border border-sky-200 bg-sky-100 dark:bg-sky-900 text-sky-700 dark:text-sky-300">HOLIDAYS</th>
-                      <th className="px-2 py-2 text-center font-bold border border-sky-200 bg-sky-100 dark:bg-sky-900 text-sky-700 dark:text-sky-300">Week Off</th>
-                      <th className="px-2 py-2 text-center font-bold border border-sky-200 bg-sky-100 dark:bg-sky-900 text-sky-700 dark:text-sky-300">Paid Days</th>
-                      <th className="px-2 py-2 text-center font-bold border border-sky-200 bg-sky-100 dark:bg-sky-900 text-sky-700 dark:text-sky-300">OT HRS</th>
+                      <th className="px-2 py-2 text-center font-bold border border-teal-200 bg-teal-100 dark:bg-teal-900 text-teal-700 dark:text-teal-300">Holiday Wrk</th>
+                      <th className="px-2 py-2 text-center font-bold border border-amber-200 bg-amber-100 dark:bg-amber-900 text-amber-700 dark:text-amber-300">HOLIDAYS</th>
+                      <th className="px-2 py-2 text-center font-bold border border-indigo-300 bg-indigo-200 dark:bg-indigo-800 text-indigo-800 dark:text-indigo-200">Paid Days</th>
+                      <th className="px-2 py-2 text-center font-bold border border-cyan-200 bg-cyan-100 dark:bg-cyan-900 text-cyan-700 dark:text-cyan-300">OT HRS</th>
+                      <th className="px-2 py-2 text-center font-bold border border-rose-200 bg-rose-100 dark:bg-rose-900 text-rose-700 dark:text-rose-300">Absent</th>
+                      <th className="px-2 py-2 text-center font-bold border border-blue-200 bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-300">Week Off</th>
+                      <th className="px-2 py-2 text-center font-bold border border-slate-300 bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-300">Total Days</th>
                       <th className="px-2 py-2 text-right font-bold border border-emerald-200 bg-emerald-100 dark:bg-emerald-900 text-emerald-700 dark:text-emerald-300">Basic Rate</th>
                       <th className="px-2 py-2 text-right font-bold border border-emerald-200 bg-emerald-100 dark:bg-emerald-900 text-emerald-700 dark:text-emerald-300">Basic Wages</th>
                       <th className="px-2 py-2 text-right font-bold border border-emerald-200 bg-emerald-100 dark:bg-emerald-900 text-emerald-700 dark:text-emerald-300">HRA 5%</th>
@@ -1160,14 +1161,15 @@ export default function SalaryRegister() {
                           <td className={`px-2 py-1.5 text-left border border-slate-200 sticky left-[36px] ${bgClass} z-10 font-mono text-[10px] text-slate-600 dark:text-slate-400`}>{r.emp?.employeeCode || "-"}</td>
                           <td className={`px-2 py-1.5 text-left border border-slate-200 sticky left-[116px] ${bgClass} z-10 font-semibold text-slate-800 dark:text-slate-200`}>{r.emp?.name || `#${s.employeeId}`}</td>
                           <td className="px-2 py-1.5 text-left border border-slate-200 text-[10px] text-slate-500 dark:text-slate-400">{r.skills}</td>
-                          <td className="px-2 py-1.5 text-center border border-slate-200">{r.prsDays}</td>
-                          <td className="px-2 py-1.5 text-center border border-slate-200">{r.halfDay}</td>
-                          <td className="px-2 py-1.5 text-center border border-slate-200">{r.holidayWorking}</td>
-                          <td className="px-2 py-1.5 text-center border border-slate-200">{r.leave}</td>
-                          <td className="px-2 py-1.5 text-center border border-slate-200">{r.holidays + r.holidayWorking}</td>
-                          <td className="px-2 py-1.5 text-center border border-slate-200">{r.weeklyOff}</td>
-                          <td className="px-2 py-1.5 text-right border border-slate-200 font-medium text-sky-700 dark:text-sky-300">{fmtDec(r.paidDays)}</td>
-                          <td className="px-2 py-1.5 text-center border border-slate-200">{r.otHrs}</td>
+                          <td className="px-2 py-1.5 text-center border border-slate-200 text-sky-700 dark:text-sky-300">{r.prsDays}</td>
+                          <td className="px-2 py-1.5 text-center border border-slate-200 text-sky-600 dark:text-sky-400">{r.halfDay}</td>
+                          <td className="px-2 py-1.5 text-center border border-teal-100 text-teal-700 dark:text-teal-300">{r.holidayWorking}</td>
+                          <td className="px-2 py-1.5 text-center border border-amber-100 text-amber-700 dark:text-amber-300 font-medium">{r.holidays + r.holidayWorking}</td>
+                          <td className="px-2 py-1.5 text-center border border-indigo-200 bg-indigo-50/50 dark:bg-indigo-900/20 font-bold text-indigo-700 dark:text-indigo-300">{fmtDec(r.paidDays)}</td>
+                          <td className="px-2 py-1.5 text-center border border-cyan-100 text-cyan-700 dark:text-cyan-300">{r.otHrs}</td>
+                          <td className="px-2 py-1.5 text-center border border-rose-100 text-rose-700 dark:text-rose-300">{r.leave}</td>
+                          <td className="px-2 py-1.5 text-center border border-blue-100 text-blue-700 dark:text-blue-300">{r.weeklyOff}</td>
+                          <td className="px-2 py-1.5 text-center border border-slate-200 text-slate-600 dark:text-slate-400">{r.prsDays + r.halfDay + r.holidayWorking + r.holidays + r.leave + r.weeklyOff}</td>
                           <td className="px-2 py-1.5 text-right border border-slate-200 font-semibold">{fmtDec(r.basicRate)}</td>
                           <td className="px-2 py-1.5 text-right border border-slate-200 text-emerald-700 dark:text-emerald-400">{fmt(r.basicWage)}</td>
                           <td className="px-2 py-1.5 text-right border border-slate-200">{fmt(r.hra5)}</td>
@@ -1209,14 +1211,15 @@ export default function SalaryRegister() {
                       <td className="px-2 py-2 border border-slate-300 sticky left-[36px] bg-slate-200 dark:bg-slate-700 z-10"></td>
                       <td className="px-2 py-2 border border-slate-300 sticky left-[116px] bg-slate-200 dark:bg-slate-700 z-10"></td>
                       <td className="px-2 py-2 border border-slate-300"></td>
-                      <td className="px-2 py-2 text-center border border-slate-300">{totals.prsDays}</td>
-                      <td className="px-2 py-2 text-center border border-slate-300">{totals.halfDay}</td>
-                      <td className="px-2 py-2 text-center border border-slate-300">{totals.holidayWorking}</td>
-                      <td className="px-2 py-2 text-center border border-slate-300">{totals.leave}</td>
-                      <td className="px-2 py-2 text-center border border-slate-300">{totals.holidays + totals.holidayWorking}</td>
-                      <td className="px-2 py-2 text-center border border-slate-300">{totals.weeklyOff}</td>
-                      <td className="px-2 py-2 text-right border border-slate-300 text-sky-700 dark:text-sky-300">{fmtDec(totals.paidDays)}</td>
-                      <td className="px-2 py-2 text-center border border-slate-300">{totals.otHrs}</td>
+                      <td className="px-2 py-2 text-center border border-slate-300 text-sky-700 dark:text-sky-300">{totals.prsDays}</td>
+                      <td className="px-2 py-2 text-center border border-slate-300 text-sky-600 dark:text-sky-400">{totals.halfDay}</td>
+                      <td className="px-2 py-2 text-center border border-teal-200 text-teal-700 dark:text-teal-300">{totals.holidayWorking}</td>
+                      <td className="px-2 py-2 text-center border border-amber-200 text-amber-700 dark:text-amber-300 font-medium">{totals.holidays + totals.holidayWorking}</td>
+                      <td className="px-2 py-2 text-center border border-indigo-300 bg-indigo-100/50 dark:bg-indigo-900/30 font-bold text-indigo-700 dark:text-indigo-300">{fmtDec(totals.paidDays)}</td>
+                      <td className="px-2 py-2 text-center border border-cyan-200 text-cyan-700 dark:text-cyan-300">{totals.otHrs}</td>
+                      <td className="px-2 py-2 text-center border border-rose-200 text-rose-700 dark:text-rose-300">{totals.leave}</td>
+                      <td className="px-2 py-2 text-center border border-blue-200 text-blue-700 dark:text-blue-300">{totals.weeklyOff}</td>
+                      <td className="px-2 py-2 text-center border border-slate-300 text-slate-600 dark:text-slate-400">{totals.prsDays + totals.halfDay + totals.holidayWorking + totals.holidays + totals.leave + totals.weeklyOff}</td>
                       <td className="px-2 py-2 text-right border border-slate-300">{fmt(totals.basicRate)}</td>
                       <td className="px-2 py-2 text-right border border-slate-300 text-emerald-700 dark:text-emerald-400">{fmt(totals.basicWage)}</td>
                       <td className="px-2 py-2 text-right border border-slate-300">{fmt(totals.hra5)}</td>
@@ -1257,7 +1260,7 @@ export default function SalaryRegister() {
                 <thead>
                   <tr>
                     <th colSpan={4} style={{ background: "#e8eaf6", color: "#283593", fontSize: "8px", fontWeight: 700 }}>Employee Details</th>
-                    <th colSpan={7} style={{ background: "#e1f5fe", color: "#0277bd", fontSize: "8px", fontWeight: 700 }}>Attendance & Days</th>
+                    <th colSpan={9} style={{ background: "#e1f5fe", color: "#0277bd", fontSize: "8px", fontWeight: 700 }}>Attendance & Days</th>
                     <th colSpan={6} style={{ background: "#e8f5e9", color: "#2e7d32", fontSize: "8px", fontWeight: 700 }}>Earnings</th>
                     <th colSpan={6} style={{ background: "#fce4ec", color: "#c62828", fontSize: "8px", fontWeight: 700 }}>Deductions</th>
                   </tr>
@@ -1268,12 +1271,13 @@ export default function SalaryRegister() {
                     <th className="text-left" style={{ background: "#c5cae9" }}>Skills</th>
                     <th style={{ background: "#b3e5fc" }}>PRS DAYS</th>
                     <th style={{ background: "#b3e5fc" }}>Half Day</th>
-                    <th style={{ background: "#b3e5fc" }}>Holiday Wrk</th>
-                    <th style={{ background: "#b3e5fc" }}>Absent</th>
-                    <th style={{ background: "#b3e5fc" }}>HOLIDAYS</th>
-                    <th style={{ background: "#b3e5fc" }}>Week Off</th>
-                    <th style={{ background: "#b3e5fc" }}>Paid Days</th>
-                    <th style={{ background: "#b3e5fc" }}>OT HRS</th>
+                    <th style={{ background: "#b2dfdb", color: "#00695c" }}>Holiday Wrk</th>
+                    <th style={{ background: "#ffe082", color: "#e65100" }}>HOLIDAYS</th>
+                    <th style={{ background: "#9fa8da", color: "#1a237e", fontWeight: 800 }}>Paid Days</th>
+                    <th style={{ background: "#b2ebf2", color: "#006064" }}>OT HRS</th>
+                    <th style={{ background: "#f8bbd0", color: "#b71c1c" }}>Absent</th>
+                    <th style={{ background: "#bbdefb", color: "#0d47a1" }}>Week Off</th>
+                    <th style={{ background: "#eceff1", color: "#455a64" }}>Total Days</th>
                     <th style={{ background: "#c8e6c9" }}>Basic Rate</th>
                     <th style={{ background: "#c8e6c9" }}>Basic Wages</th>
                     <th style={{ background: "#c8e6c9" }}>HRA 5%</th>
@@ -1298,14 +1302,15 @@ export default function SalaryRegister() {
                         <td className="text-left" style={{ fontSize: "7px", color: "#546e7a" }}>{r.emp?.employeeCode || "-"}</td>
                         <td className="text-left" style={{ fontWeight: 600 }}>{r.emp?.name || "-"}</td>
                         <td className="text-left" style={{ fontSize: "7px", color: "#78909c" }}>{r.skills}</td>
-                        <td className="text-center">{r.prsDays}</td>
-                        <td className="text-center">{r.halfDay}</td>
-                        <td className="text-center">{r.holidayWorking}</td>
-                        <td className="text-center">{r.leave}</td>
-                        <td className="text-center">{r.holidays + r.holidayWorking}</td>
-                        <td className="text-center">{r.weeklyOff}</td>
-                        <td className="text-right" style={{ color: "#0277bd", fontWeight: 600 }}>{fmtDec(r.paidDays)}</td>
-                        <td className="text-center">{r.otHrs}</td>
+                        <td className="text-center" style={{ color: "#0277bd" }}>{r.prsDays}</td>
+                        <td className="text-center" style={{ color: "#0288d1" }}>{r.halfDay}</td>
+                        <td className="text-center" style={{ color: "#00695c" }}>{r.holidayWorking}</td>
+                        <td className="text-center" style={{ color: "#e65100", fontWeight: 600 }}>{r.holidays + r.holidayWorking}</td>
+                        <td className="text-center" style={{ color: "#1a237e", fontWeight: 700, background: "#e8eaf6" }}>{fmtDec(r.paidDays)}</td>
+                        <td className="text-center" style={{ color: "#006064" }}>{r.otHrs}</td>
+                        <td className="text-center" style={{ color: "#b71c1c" }}>{r.leave}</td>
+                        <td className="text-center" style={{ color: "#0d47a1" }}>{r.weeklyOff}</td>
+                        <td className="text-center" style={{ color: "#455a64" }}>{r.prsDays + r.halfDay + r.holidayWorking + r.holidays + r.leave + r.weeklyOff}</td>
                         <td className="text-right" style={{ fontWeight: "bold" }}>{fmtDec(r.basicRate)}</td>
                         <td className="text-right" style={{ color: "#2e7d32" }}>{fmt(r.basicWage)}</td>
                         <td className="text-right">{fmt(r.hra5)}</td>
@@ -1326,14 +1331,15 @@ export default function SalaryRegister() {
                   <tr style={{ fontWeight: "bold", background: "#e0e0e0" }}>
                     <td className="text-center" style={{ color: "#3949ab" }}>Total</td>
                     <td colSpan={3}></td>
-                    <td className="text-center">{totals.prsDays}</td>
-                    <td className="text-center">{totals.halfDay}</td>
-                    <td className="text-center">{totals.holidayWorking}</td>
-                    <td className="text-center">{totals.leave}</td>
-                    <td className="text-center">{totals.holidays + totals.holidayWorking}</td>
-                    <td className="text-center">{totals.weeklyOff}</td>
-                    <td className="text-right" style={{ color: "#0277bd" }}>{fmtDec(totals.paidDays)}</td>
-                    <td className="text-center">{totals.otHrs}</td>
+                    <td className="text-center" style={{ color: "#0277bd" }}>{totals.prsDays}</td>
+                    <td className="text-center" style={{ color: "#0288d1" }}>{totals.halfDay}</td>
+                    <td className="text-center" style={{ color: "#00695c" }}>{totals.holidayWorking}</td>
+                    <td className="text-center" style={{ color: "#e65100", fontWeight: 600 }}>{totals.holidays + totals.holidayWorking}</td>
+                    <td className="text-center" style={{ color: "#1a237e", fontWeight: 700, background: "#e8eaf6" }}>{fmtDec(totals.paidDays)}</td>
+                    <td className="text-center" style={{ color: "#006064" }}>{totals.otHrs}</td>
+                    <td className="text-center" style={{ color: "#b71c1c" }}>{totals.leave}</td>
+                    <td className="text-center" style={{ color: "#0d47a1" }}>{totals.weeklyOff}</td>
+                    <td className="text-center" style={{ color: "#455a64" }}>{totals.prsDays + totals.halfDay + totals.holidayWorking + totals.holidays + totals.leave + totals.weeklyOff}</td>
                     <td className="text-right">{fmt(totals.basicRate || 0)}</td>
                     <td className="text-right" style={{ color: "#2e7d32" }}>{fmt(totals.basicWage)}</td>
                     <td className="text-right">{fmt(totals.hra5)}</td>
