@@ -469,7 +469,6 @@ export default function DailyPnlPage() {
                       <tr>
                         <th style={{ ...thPS, width: 38 }}>Sl No</th>
                         <th style={{ ...thPS, minWidth: 110 }}>Item Name</th>
-                        <th style={{ ...thPS, width: 50 }}>Rate (₹)</th>
                         <th style={{ ...thPS, width: 65 }}>Cash Qty</th>
                         <th style={{ ...thPS, width: 85 }}>Cash Amt (₹)</th>
                         <th style={{ ...thPS, width: 70 }}>Online Qty</th>
@@ -486,7 +485,6 @@ export default function DailyPnlPage() {
                         <tr key={i} style={{ background: i % 2 === 0 ? "#f0fdf4" : "#fff" }}>
                           <td style={{ ...tdS }}>{r.slNo}</td>
                           <td style={{ ...tdS, textAlign: "left", fontWeight: "bold", paddingLeft: 8 }}>{r.itemName}</td>
-                          <td style={{ ...tdS, fontWeight: "bold" }}>{r.cashRate}</td>
                           <td style={{ ...tdS, background: "#fef3c7" }}>
                             <input type="number" className="w-full border-0 outline-none bg-transparent text-center text-xs" value={r.cashQty||""}
                               onChange={e => setPsSale(rows => rows.map((x, xi) => xi === i ? { ...x, cashQty: parseFloat(e.target.value)||0 } : x))} />
@@ -508,7 +506,7 @@ export default function DailyPnlPage() {
                         </tr>
                       ))}
                       <tr>
-                        <td colSpan={11} style={{ ...tdTot, textAlign: "right", background: "#166534", color: "#fff" }}>Total PS Sale</td>
+                        <td colSpan={10} style={{ ...tdTot, textAlign: "right", background: "#166534", color: "#fff" }}>Total PS Sale</td>
                         <td style={{ ...tdTot, background: "#166534", color: "#fff", fontSize: 12 }}>{fmtINR(totalPsSale)}</td>
                       </tr>
                     </tbody>
