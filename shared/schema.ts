@@ -1018,6 +1018,7 @@ export const dailyPnlEntries = mysqlTable("daily_pnl_entries", {
   nightItems: text("night_items"),
   manpowerItems: text("manpower_items"),
   saleItems: text("sale_items"),
+  psSaleItems: text("ps_sale_items"),
   otherExpense: decimal("other_expense", { precision: 10, scale: 2 }).default("0"),
   totalExpense: decimal("total_expense", { precision: 10, scale: 2 }).default("0"),
   totalSale: decimal("total_sale", { precision: 10, scale: 2 }).default("0"),
