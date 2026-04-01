@@ -489,20 +489,20 @@ export default function DailyPnlPage() {
                             <input type="number" className="w-full border-0 outline-none bg-transparent text-center text-xs" value={r.cashQty||""}
                               onChange={e => setPsSale(rows => rows.map((x, xi) => xi === i ? { ...x, cashQty: parseFloat(e.target.value)||0 } : x))} />
                           </td>
-                          <td style={{ ...tdS, background: "#fef9c3" }}>{r.cashAmt > 0 ? r.cashAmt.toLocaleString("en-IN") : "—"}</td>
+                          <td style={{ ...tdS, background: "#fef9c3" }}>{r.cashAmt.toLocaleString("en-IN")}</td>
                           <td style={{ ...tdS, background: "#e0f2fe" }}>
                             <input type="number" className="w-full border-0 outline-none bg-transparent text-center text-xs" value={r.onlineQty||""}
                               onChange={e => setPsSale(rows => rows.map((x, xi) => xi === i ? { ...x, onlineQty: parseFloat(e.target.value)||0 } : x))} />
                           </td>
-                          <td style={{ ...tdS, background: "#dbeafe" }}>{r.onlineAmt > 0 ? r.onlineAmt.toLocaleString("en-IN") : "—"}</td>
-                          <td style={{ ...tdS, fontWeight: "bold" }}>{(r.cashQty + r.onlineQty) || "—"}</td>
-                          <td style={{ ...tdS, background: "#dcfce7" }}>{r.coTotal > 0 ? r.coTotal.toLocaleString("en-IN") : "—"}</td>
+                          <td style={{ ...tdS, background: "#dbeafe" }}>{r.onlineAmt.toLocaleString("en-IN")}</td>
+                          <td style={{ ...tdS, fontWeight: "bold" }}>{r.cashQty + r.onlineQty}</td>
+                          <td style={{ ...tdS, background: "#dcfce7", fontWeight: "bold" }}>{r.coTotal.toLocaleString("en-IN")}</td>
                           <td style={{ ...tdS, background: "#fce7f3" }}>
                             <input type="number" className="w-full border-0 outline-none bg-transparent text-center text-xs" value={r.billQty||""}
                               onChange={e => setPsSale(rows => rows.map((x, xi) => xi === i ? { ...x, billQty: parseFloat(e.target.value)||0 } : x))} />
                           </td>
-                          <td style={{ ...tdS, background: "#fdf2f8" }}>{r.billAmt > 0 ? r.billAmt.toLocaleString("en-IN") : "—"}</td>
-                          <td style={{ ...tdS, fontWeight: "bold", background: "#bbf7d0", fontSize: 12 }}>{r.totalAmt > 0 ? r.totalAmt.toLocaleString("en-IN", { minimumFractionDigits: 2 }) : "—"}</td>
+                          <td style={{ ...tdS, background: "#fdf2f8" }}>{r.billAmt.toLocaleString("en-IN")}</td>
+                          <td style={{ ...tdS, fontWeight: "bold", background: "#bbf7d0", fontSize: 12 }}>{r.totalAmt.toLocaleString("en-IN", { minimumFractionDigits: 2 })}</td>
                         </tr>
                       ))}
                       <tr>
