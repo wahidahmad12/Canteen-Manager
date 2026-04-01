@@ -199,7 +199,7 @@ export default function MusterRoll() {
       else if (val === "A") absent += 1;
       else if (val === "WO") weeklyOff += 1;
     }
-    const totalPaidDays = present + holidays + holidayPresent + (halfDay * 0.5);
+    const totalPaidDays = present + holidays + holidayPresent + halfDay;
     return { present, holidays, holidayPresent, halfDay, totalPaidDays, absent, weeklyOff };
   }, [daysInMonth]);
 
