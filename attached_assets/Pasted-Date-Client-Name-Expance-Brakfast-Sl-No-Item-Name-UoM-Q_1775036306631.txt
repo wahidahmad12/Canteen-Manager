@@ -1,0 +1,46 @@
+Date 		Client Name 								
+Expance										
+Brakfast										
+Sl. No.	Item Name	UoM	Qty	Rate	Total					
+1				come from  last perchase price 						
+2										
+		Total								
+Lunch										
+Sl. No.	Item Name	UoM	Qty	Rate	Total					
+1	Rice			come from  last perchase price 						
+2	Dal									
+3	Vegetable									
+4	Non Veg									
+5	Sweets									
+	Curd 									
+	Paneer									
+		Total								
+Evning Snacks										
+Sl. No.	Item Name	UoM	Qty	Rate	Total					
+				come from  last perchase price 						
+										
+	Total									
+Night Snacks										
+Sl. No.	Item Name	UoM	Qty	Rate	Total					
+1				come from  last perchase price 						
+2										
+		Total								
+Dely Manpower										
+Sl No	Employe Name	Basic Wages per Day								
+1	come from Employee Master	come from Skill-wise Base Wage Rates								
+										
+										
+	Total									
+	Other Expance									
+	Total Expance	Brakfast Total + Lunch Total + Evning Snacks Total +  Night Snacks+ Basic Wages per Day total +Other Expance 								
+										
+Sale										
+Sl No	Item Name	Cash Qty	Cash Amount	Online Qty	Online Amount	Total Qty	Cash & Online Totel Amount	Bill Qty 	Bill Amount	Total Amount
+	Brack fast	Data come from Daily Cash Seal KPF  Permanent Staff Cash Qty	Cash Qty * ₹5	Data come from Daily Cash Seal KPF  Permanent Staff Online  Qty	Olnile Qty * ₹5		Cash Amount + Online Amount	Manual Entry 	Bill Qty * ₹30	Cash & Online Totel Amount +Bill Amount
+	Lunch	Data come from Daily Cash Seal KPF  Permanent Staff Cash Qty	Cash Qty * ₹5	Data come from Daily Cash Seal KPF  Permanent Staff Online  Qty	Olnile Qty * ₹5		Cash Amount + Online Amount	Manual Entry 	Bill Qty * ₹30	Cash & Online Totel Amount +Bill Amount
+	Evning Snacks	Data come from Daily Cash Seal KPF  Permanent Staff Cash Qty	Cash Qty * ₹5	Data come from Daily Cash Seal KPF  Permanent Staff Online  Qty	Olnile Qty * ₹5		Cash Amount + Online Amount	Manual Entry 	Bill Qty * ₹30	Cash & Online Totel Amount +Bill Amount
+	Night Snacks	Data come from Daily Cash Seal KPF  Permanent Staff Cash Qty	Cash Qty * ₹5	Data come from Daily Cash Seal KPF  Permanent Staff Online  Qty	Olnile Qty * ₹5		Cash Amount + Online Amount	Manual Entry 	Bill Qty * ₹30	Cash & Online Totel Amount +Bill Amount
+										
+								Total Sale Amount 		
+								Total Expane Amount		
+								Profit Loss		total sale Amount -total Expane Amount

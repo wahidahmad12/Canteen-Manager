@@ -43,6 +43,8 @@ import {
   unichEmLunchEntries,
   hulDateEntries,
   hulKpfExecSnacks,
+  dailyPnlEntries,
+  type DailyPnlEntry,
   type UblDateEntry,
   type CiplaDateEntry,
   type UblLunchEntry,
@@ -270,6 +272,12 @@ export interface IStorage {
   updateUnichEmLunchEntry(id: number, data: any): Promise<UnichEmLunchEntry>;
   deleteUnichEmLunchEntry(id: number): Promise<void>;
   getUnichEmSundayLunchYearlySummary(year: number): Promise<{ month: number; sundayLunch: number }[]>;
+  // Daily P&L
+  getDailyPnlEntry(date: string, clientName: string): Promise<any | null>;
+  saveDailyPnlEntry(data: any): Promise<number>;
+  getDailyPnlMonthSummary(month: number, year: number): Promise<any[]>;
+  getCashSealForDate(date: string): Promise<any | null>;
+  getLastPurchasePrice(itemName: string): Promise<number>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -2271,6 +2279,56 @@ export class DatabaseStorage implements IStorage {
   }
   async deleteHulKpfExecSnack(id: number): Promise<void> {
     await db.delete(hulKpfExecSnacks).where(eq(hulKpfExecSnacks.id, id));
+  }
+
+  // === DAILY P&L ===
+  async getDailyPnlEntry(date: string, clientName: string): Promise<DailyPnlEntry | null> {
+    const rows = await db.select().from(dailyPnlEntries)
+      .where(and(eq(dailyPnlEntries.entryDate, date), eq(dailyPnlEntries.clientName, clientName)));
+    return rows[0] ?? null;
+  }
+
+  async saveDailyPnlEntry(data: any): Promise<number> {
+    const { id, createdAt, updatedAt, ...fields } = data;
+    if (id) {
+      await db.update(dailyPnlEntries).set({ ...fields, updatedAt: new Date() }).where(eq(dailyPnlEntries.id, id));
+      return id;
+    }
+    await db.insert(dailyPnlEntries).values(fields);
+    const [r] = await db.execute(sql`SELECT LAST_INSERT_ID() as insertId`) as any;
+    return Number(r[0]?.insertId ?? 0);
+  }
+
+  async getDailyPnlMonthSummary(month: number, year: number): Promise<DailyPnlEntry[]> {
+    const startDate = `${year}-${String(month).padStart(2,'0')}-01`;
+    const lastDay = new Date(year, month, 0).getDate();
+    const endDate = `${year}-${String(month).padStart(2,'0')}-${String(lastDay).padStart(2,'0')}`;
+    const rows = await db.select().from(dailyPnlEntries)
+      .where(and(gte(dailyPnlEntries.entryDate, startDate), lte(dailyPnlEntries.entryDate, endDate)))
+      .orderBy(dailyPnlEntries.entryDate);
+    return rows;
+  }
+
+  async getCashSealForDate(date: string): Promise<any | null> {
+    const [rows] = await db.execute(sql`
+      SELECT cs.* FROM cash_seals cs
+      JOIN daily_reports dr ON cs.report_id = dr.id
+      WHERE dr.date = ${date}
+      LIMIT 1
+    `) as any;
+    return (rows as any[])[0] ?? null;
+  }
+
+  async getLastPurchasePrice(itemName: string): Promise<number> {
+    const [rows] = await db.execute(sql`
+      SELECT pii.unit_price FROM purchase_invoice_items pii
+      JOIN purchase_invoices pi ON pii.invoice_id = pi.id
+      WHERE LOWER(pii.item_name) LIKE LOWER(${`%${itemName}%`})
+      ORDER BY pi.date DESC, pi.id DESC
+      LIMIT 1
+    `) as any;
+    const row = (rows as any[])[0];
+    return row ? Number(row.unit_price) : 0;
   }
 }
 

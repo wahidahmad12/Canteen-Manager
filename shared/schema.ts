@@ -1006,3 +1006,24 @@ export const insertHulKpfExecSnackSchema = createInsertSchema(hulKpfExecSnacks).
 export type HalfYearlyReturn = typeof halfYearlyReturns.$inferSelect;
 export const insertHalfYearlyReturnSchema = createInsertSchema(halfYearlyReturns).omit({ id: true, createdAt: true, updatedAt: true });
 export const selectHalfYearlyReturnSchema = createSelectSchema(halfYearlyReturns, { createdAt: z.string().or(z.date()), updatedAt: z.string().or(z.date()) });
+
+// === DAILY P&L ENTRIES ===
+export const dailyPnlEntries = mysqlTable("daily_pnl_entries", {
+  id: int("id").autoincrement().primaryKey(),
+  entryDate: date("entry_date").notNull(),
+  clientName: varchar("client_name", { length: 255 }).notNull().default("KPF"),
+  breakfastItems: text("breakfast_items"),
+  lunchItems: text("lunch_items"),
+  eveningItems: text("evening_items"),
+  nightItems: text("night_items"),
+  manpowerItems: text("manpower_items"),
+  saleItems: text("sale_items"),
+  otherExpense: decimal("other_expense", { precision: 10, scale: 2 }).default("0"),
+  totalExpense: decimal("total_expense", { precision: 10, scale: 2 }).default("0"),
+  totalSale: decimal("total_sale", { precision: 10, scale: 2 }).default("0"),
+  profitLoss: decimal("profit_loss", { precision: 10, scale: 2 }).default("0"),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+export type DailyPnlEntry = typeof dailyPnlEntries.$inferSelect;
+export const insertDailyPnlEntrySchema = createInsertSchema(dailyPnlEntries).omit({ id: true, createdAt: true, updatedAt: true });

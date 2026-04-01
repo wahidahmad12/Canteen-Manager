@@ -1950,6 +1950,36 @@ export async function registerRoutes(
     await storage.deleteHulKpfExecSnack(Number(req.params.id)); res.status(204).send();
   });
 
+  // === DAILY P&L ROUTES ===
+  app.get('/api/daily-pnl/entry', requireAuth, async (req, res) => {
+    const date = String(req.query.date || '');
+    const clientName = String(req.query.client || 'KPF');
+    if (!date) return res.status(400).json({ error: 'date required' });
+    const entry = await storage.getDailyPnlEntry(date, clientName);
+    res.json(entry ?? null);
+  });
+  app.post('/api/daily-pnl/entry', requireAuth, async (req, res) => {
+    const id = await storage.saveDailyPnlEntry(req.body);
+    res.json({ id });
+  });
+  app.get('/api/daily-pnl/month-summary', requireAuth, async (req, res) => {
+    const month = Number(req.query.month) || new Date().getMonth() + 1;
+    const year = Number(req.query.year) || new Date().getFullYear();
+    res.json(await storage.getDailyPnlMonthSummary(month, year));
+  });
+  app.get('/api/daily-pnl/cash-seal', requireAuth, async (req, res) => {
+    const date = String(req.query.date || '');
+    if (!date) return res.json(null);
+    const cs = await storage.getCashSealForDate(date);
+    res.json(cs ?? null);
+  });
+  app.get('/api/daily-pnl/last-price', requireAuth, async (req, res) => {
+    const item = String(req.query.item || '');
+    if (!item) return res.json({ price: 0 });
+    const price = await storage.getLastPurchasePrice(item);
+    res.json({ price });
+  });
+
   return httpServer;
 }
 
