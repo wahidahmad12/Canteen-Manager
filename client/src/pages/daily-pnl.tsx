@@ -1,24 +1,30 @@
 import { useState, useRef, useEffect, useCallback } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
-import { apiRequest } from "@/lib/queryClient";
 import { RefreshCw, Save, Printer, TrendingUp, TrendingDown, Plus, Trash2, BarChart3, ClipboardEdit } from "lucide-react";
 import { format } from "date-fns";
 
 const MONTHS = ["January","February","March","April","May","June","July","August","September","October","November","December"];
-const SALE_ITEMS = ["Breakfast","Lunch","Evening Snacks","Night Snacks"];
-const CASH_RATE = 5;
-const ONLINE_RATE = 5;
-const BILL_RATE = 30;
-
 const LUNCH_FIXED = ["Rice","Dal","Vegetable","Non Veg","Sweets","Curd","Paneer"];
+
+// Fixed third-party sale rows: item name, per-unit rate, and which Cash Seal (snake_case) fields to pull from
+const TP_ROWS: { itemName: string; rate: number; cashKey: string; onlineKey: string }[] = [
+  { itemName: "Breakfast",      rate: 20, cashKey: "income_ps_breakfast_cash_qty",        onlineKey: "income_ps_breakfast_online_qty" },
+  { itemName: "Lunch Veg",      rate: 35, cashKey: "income_tp_lunch_veg_cash_qty",         onlineKey: "income_tp_lunch_veg_online_qty" },
+  { itemName: "Egg Lunch",      rate: 45, cashKey: "income_tp_lunch_egg_cash_qty",         onlineKey: "income_tp_lunch_egg_online_qty" },
+  { itemName: "Chicken Lunch",  rate: 65, cashKey: "income_tp_lunch_chicken_cash_qty",     onlineKey: "income_tp_lunch_chicken_online_qty" },
+  { itemName: "Fish Lunch",     rate: 65, cashKey: "income_tp_lunch_fish_cash_qty",        onlineKey: "income_tp_lunch_fish_online_qty" },
+  { itemName: "Evening Snacks", rate: 5,  cashKey: "income_ps_evening_cash_qty",           onlineKey: "income_ps_evening_online_qty" },
+  { itemName: "Night Snacks",   rate: 5,  cashKey: "income_ps_night_cash_qty",             onlineKey: "income_ps_night_online_qty" },
+];
 
 type ExpenseItem = { slNo: number; itemName: string; uom: string; qty: number; rate: number; total: number };
 type ManpowerItem = { slNo: number; employeeName: string; basicWagesPerDay: number };
-type SaleItem = { itemName: string; cashQty: number; onlineQty: number; billQty: number };
+type TpSaleRow = { slNo: number; itemName: string; rate: number; cashQty: number; onlineQty: number };
 
 const makeExpItem = (slNo: number, itemName = ""): ExpenseItem => ({ slNo, itemName, uom: "", qty: 0, rate: 0, total: 0 });
-const makeSaleItem = (itemName: string): SaleItem => ({ itemName, cashQty: 0, onlineQty: 0, billQty: 0 });
+const makeTpRow = (r: typeof TP_ROWS[number], i: number): TpSaleRow => ({ slNo: i + 1, itemName: r.itemName, rate: r.rate, cashQty: 0, onlineQty: 0 });
+const makeTpRowBlank = (slNo: number): TpSaleRow => ({ slNo, itemName: "", rate: 0, cashQty: 0, onlineQty: 0 });
 
 const today = () => format(new Date(), "yyyy-MM-dd");
 const fmtINR = (n: number) => `₹${n.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
@@ -33,29 +39,34 @@ function Section({ title, color, children }: { title: string; color: string; chi
   );
 }
 
-function ExpenseTable({ rows, onChange, onAdd, onDelete, onBlurItem }: {
+function ExpenseTable({ rows, onChange, onAdd, onDelete, onBlurItem, itemNames }: {
   rows: ExpenseItem[]; onChange: (rows: ExpenseItem[]) => void;
   onAdd: () => void; onDelete: (i: number) => void;
   onBlurItem?: (i: number) => void;
+  itemNames: string[];
 }) {
   const th = { border: "1px solid #ddd", padding: "3px 5px", textAlign: "center" as const, background: "#f5f5f5", fontSize: 11, fontWeight: "bold" };
   const td = { border: "1px solid #ddd", padding: "2px 4px", fontSize: 11 };
-  const num = (rows: ExpenseItem[], i: number, f: keyof ExpenseItem, v: string) => {
+  const num = (items: ExpenseItem[], i: number, f: "qty" | "rate", v: string) => {
     const n = parseFloat(v) || 0;
-    const updated = rows.map((r, idx) => {
-      if (idx !== i) return r;
+    const updated = items.map((r, xi) => {
+      if (xi !== i) return r;
       const q = f === "qty" ? n : r.qty;
       const rt = f === "rate" ? n : r.rate;
       return { ...r, [f]: n, total: q * rt };
     });
     onChange(updated);
   };
+  const listId = `item-list-${Math.random().toString(36).slice(2, 6)}`;
   return (
     <div className="overflow-x-auto">
+      <datalist id={listId}>
+        {itemNames.map((n, i) => <option key={i} value={n} />)}
+      </datalist>
       <table className="w-full border-collapse" style={{ fontSize: 11 }}>
         <thead><tr>
           <th style={{ ...th, width: 35 }}>Sl.No</th>
-          <th style={{ ...th, minWidth: 120 }}>Item Name</th>
+          <th style={{ ...th, minWidth: 140 }}>Item Name</th>
           <th style={{ ...th, width: 55 }}>UoM</th>
           <th style={{ ...th, width: 60 }}>Qty</th>
           <th style={{ ...th, width: 80 }}>Rate (₹)</th>
@@ -67,13 +78,13 @@ function ExpenseTable({ rows, onChange, onAdd, onDelete, onBlurItem }: {
             <tr key={i}>
               <td style={{ ...td, textAlign: "center" }}>{r.slNo}</td>
               <td style={td}>
-                <input className="w-full border-0 outline-none bg-transparent text-xs" value={r.itemName}
+                <input list={listId} className="w-full border-0 outline-none bg-transparent text-xs" value={r.itemName}
                   onChange={e => onChange(rows.map((x, xi) => xi === i ? { ...x, itemName: e.target.value } : x))}
-                  onBlur={() => onBlurItem?.(i)} />
+                  onBlur={() => onBlurItem?.(i)} placeholder="Type or select…" />
               </td>
               <td style={td}>
                 <input className="w-full border-0 outline-none bg-transparent text-xs text-center" value={r.uom}
-                  onChange={e => onChange(rows.map((x, xi) => xi === i ? { ...x, uom: e.target.value } : x))} />
+                  onChange={e => onChange(rows.map((x, xi) => xi === i ? { ...x, uom: e.target.value } : x))} placeholder="Kg/Pcs…" />
               </td>
               <td style={td}>
                 <input type="number" className="w-full border-0 outline-none bg-transparent text-xs text-center" value={r.qty || ""}
@@ -126,8 +137,9 @@ export default function DailyPnlPage() {
   const [night, setNight] = useState<ExpenseItem[]>([makeExpItem(1), makeExpItem(2)]);
   const [manpower, setManpower] = useState<ManpowerItem[]>([{ slNo: 1, employeeName: "", basicWagesPerDay: 0 }]);
   const [otherExpense, setOtherExpense] = useState(0);
-  const [saleItems, setSaleItems] = useState<SaleItem[]>(SALE_ITEMS.map(makeSaleItem));
+  const [tpSale, setTpSale] = useState<TpSaleRow[]>(TP_ROWS.map(makeTpRow));
 
+  // Derived expense totals
   const totalBf = breakfast.reduce((s, r) => s + r.total, 0);
   const totalLu = lunch.reduce((s, r) => s + r.total, 0);
   const totalEv = evening.reduce((s, r) => s + r.total, 0);
@@ -135,15 +147,50 @@ export default function DailyPnlPage() {
   const totalMp = manpower.reduce((s, r) => s + r.basicWagesPerDay, 0);
   const totalExpense = totalBf + totalLu + totalEv + totalNt + totalMp + otherExpense;
 
-  const saleTotals = saleItems.map(r => {
-    const cashAmt = r.cashQty * CASH_RATE;
-    const onlineAmt = r.onlineQty * ONLINE_RATE;
+  // Derived TP sale totals
+  const tpCalc = tpSale.map(r => {
+    const cashAmt = r.cashQty * r.rate;
+    const onlineAmt = r.onlineQty * r.rate;
+    const totalQty = r.cashQty + r.onlineQty;
     const coTotal = cashAmt + onlineAmt;
-    const billAmt = r.billQty * BILL_RATE;
-    return { ...r, cashAmt, onlineAmt, coTotal, billAmt, totalAmt: coTotal + billAmt };
+    return { ...r, cashAmt, onlineAmt, totalQty, coTotal };
   });
-  const totalSale = saleTotals.reduce((s, r) => s + r.totalAmt, 0);
+  const totalSale = tpCalc.reduce((s, r) => s + r.coTotal, 0);
   const profitLoss = totalSale - totalExpense;
+
+  // Queries
+  const { data: employees = [] } = useQuery<any[]>({ queryKey: ["/api/employees"] });
+  const { data: skillRates = [] } = useQuery<any[]>({ queryKey: ["/api/skill-wage-rates"] });
+  const { data: vegItems = [] } = useQuery<any[]>({
+    queryKey: ["/api/vegetables"],
+    queryFn: () => fetch("/api/vegetables", { credentials: "include" }).then(r => r.json()),
+  });
+  const itemNames: string[] = (vegItems as any[]).map((v: any) => v.name).filter(Boolean);
+
+  const resetForm = () => {
+    setBreakfast([makeExpItem(1), makeExpItem(2)]);
+    setLunch(LUNCH_FIXED.map((n, i) => makeExpItem(i + 1, n)));
+    setEvening([makeExpItem(1), makeExpItem(2)]);
+    setNight([makeExpItem(1), makeExpItem(2)]);
+    setManpower([{ slNo: 1, employeeName: "", basicWagesPerDay: 0 }]);
+    setOtherExpense(0);
+    setTpSale(TP_ROWS.map(makeTpRow));
+  };
+
+  const loadCashSeal = useCallback(async () => {
+    if (!entryDate) return;
+    const r = await fetch(`/api/daily-pnl/cash-seal?date=${entryDate}`, { credentials: "include" });
+    const cs = await r.json();
+    if (cs) {
+      setTpSale(TP_ROWS.map((row, i) => ({
+        slNo: i + 1,
+        itemName: row.itemName,
+        rate: row.rate,
+        cashQty: Number(cs[row.cashKey]) || 0,
+        onlineQty: Number(cs[row.onlineKey]) || 0,
+      })));
+    }
+  }, [entryDate]);
 
   const loadEntry = useCallback(async () => {
     if (!entryDate) return;
@@ -157,39 +204,14 @@ export default function DailyPnlPage() {
       const ev = parse(data.eveningItems); setEvening(ev.length ? ev : [makeExpItem(1), makeExpItem(2)]);
       const nt = parse(data.nightItems); setNight(nt.length ? nt : [makeExpItem(1), makeExpItem(2)]);
       const mp = parse(data.manpowerItems); setManpower(mp.length ? mp : [{ slNo: 1, employeeName: "", basicWagesPerDay: 0 }]);
-      const si = parse(data.saleItems);
-      setSaleItems(si.length ? si : SALE_ITEMS.map(makeSaleItem));
+      const tp = parse(data.saleItems); setTpSale(tp.length ? tp : TP_ROWS.map(makeTpRow));
       setOtherExpense(Number(data.otherExpense) || 0);
     } else {
       setEntryId(undefined);
       resetForm();
       await loadCashSeal();
     }
-  }, [entryDate, clientName]);
-
-  const loadCashSeal = useCallback(async () => {
-    if (!entryDate) return;
-    const r = await fetch(`/api/daily-pnl/cash-seal?date=${entryDate}`, { credentials: "include" });
-    const cs = await r.json();
-    if (cs) {
-      setSaleItems([
-        { itemName: "Breakfast", cashQty: Number(cs.income_ps_breakfast_cash_qty) || 0, onlineQty: Number(cs.income_ps_breakfast_online_qty) || 0, billQty: 0 },
-        { itemName: "Lunch", cashQty: Number(cs.income_ps_lunch_cash_qty) || 0, onlineQty: Number(cs.income_ps_lunch_online_qty) || 0, billQty: 0 },
-        { itemName: "Evening Snacks", cashQty: Number(cs.income_ps_evening_cash_qty) || 0, onlineQty: Number(cs.income_ps_evening_online_qty) || 0, billQty: 0 },
-        { itemName: "Night Snacks", cashQty: Number(cs.income_ps_night_cash_qty) || 0, onlineQty: Number(cs.income_ps_night_online_qty) || 0, billQty: 0 },
-      ]);
-    }
-  }, [entryDate]);
-
-  const resetForm = () => {
-    setBreakfast([makeExpItem(1), makeExpItem(2)]);
-    setLunch(LUNCH_FIXED.map((n, i) => makeExpItem(i + 1, n)));
-    setEvening([makeExpItem(1), makeExpItem(2)]);
-    setNight([makeExpItem(1), makeExpItem(2)]);
-    setManpower([{ slNo: 1, employeeName: "", basicWagesPerDay: 0 }]);
-    setOtherExpense(0);
-    setSaleItems(SALE_ITEMS.map(makeSaleItem));
-  };
+  }, [entryDate, clientName, loadCashSeal]);
 
   useEffect(() => { loadEntry(); }, [loadEntry]);
 
@@ -203,9 +225,6 @@ export default function DailyPnlPage() {
     }
   };
 
-  const { data: employees = [] } = useQuery<any[]>({ queryKey: ["/api/employees"] });
-  const { data: skillRates = [] } = useQuery<any[]>({ queryKey: ["/api/skill-wage-rates"] });
-
   const saveMut = useMutation({
     mutationFn: async () => {
       const payload = {
@@ -217,7 +236,7 @@ export default function DailyPnlPage() {
         eveningItems: JSON.stringify(evening),
         nightItems: JSON.stringify(night),
         manpowerItems: JSON.stringify(manpower),
-        saleItems: JSON.stringify(saleItems),
+        saleItems: JSON.stringify(tpSale),
         otherExpense: otherExpense.toFixed(2),
         totalExpense: totalExpense.toFixed(2),
         totalSale: totalSale.toFixed(2),
@@ -255,8 +274,10 @@ export default function DailyPnlPage() {
     enabled: tab === "dashboard",
   });
 
-  const thS = { border: "1px solid #ddd", padding: "4px 6px", textAlign: "center" as const, background: "#78350f", color: "#fff", fontWeight: "bold", fontSize: 11 };
-  const thSale = { border: "1px solid #ddd", padding: "4px 6px", textAlign: "center" as const, background: "#1e3a8a", color: "#fff", fontWeight: "bold", fontSize: 11 };
+  // table header styles
+  const thExp = { border: "1px solid #ddd", padding: "4px 5px", textAlign: "center" as const, background: "#78350f", color: "#fff", fontWeight: "bold", fontSize: 11 };
+  const thSale = { border: "1px solid #ddd", padding: "4px 5px", textAlign: "center" as const, background: "#1e3a8a", color: "#fff", fontWeight: "bold", fontSize: 11 };
+  const thDash = { border: "1px solid #ddd", padding: "4px 6px", textAlign: "center" as const, background: "#78350f", color: "#fff", fontWeight: "bold", fontSize: 11 };
   const tdS = { border: "1px solid #ddd", padding: "2px 5px", fontSize: 11, textAlign: "center" as const };
   const tdTot = { border: "1px solid #333", padding: "3px 6px", textAlign: "center" as const, fontWeight: "bold", fontSize: 11, background: "#e8f0fe" };
 
@@ -312,33 +333,33 @@ export default function DailyPnlPage() {
                 <p className="text-xs text-gray-600">Client: {clientName}</p>
               </div>
 
-              {/* === EXPENSE SECTION === */}
+              {/* ===== EXPENSE SECTION ===== */}
               <div className="bg-white rounded-lg shadow-sm p-3 mb-4">
                 <div className="text-center font-bold py-1 mb-3 text-white text-sm rounded" style={{ background: "#78350f" }}>EXPENSE</div>
 
                 <Section title="Breakfast" color="#92400e">
-                  <ExpenseTable rows={breakfast} onChange={setBreakfast}
+                  <ExpenseTable rows={breakfast} onChange={setBreakfast} itemNames={itemNames}
                     onAdd={() => setBreakfast(r => [...r, makeExpItem(r.length + 1)])}
                     onDelete={i => setBreakfast(r => r.filter((_, xi) => xi !== i).map((x, xi) => ({ ...x, slNo: xi + 1 })))}
                     onBlurItem={i => fetchLastPrice(breakfast, i, setBreakfast)} />
                 </Section>
 
                 <Section title="Lunch" color="#92400e">
-                  <ExpenseTable rows={lunch} onChange={setLunch}
+                  <ExpenseTable rows={lunch} onChange={setLunch} itemNames={itemNames}
                     onAdd={() => setLunch(r => [...r, makeExpItem(r.length + 1)])}
                     onDelete={i => setLunch(r => r.filter((_, xi) => xi !== i).map((x, xi) => ({ ...x, slNo: xi + 1 })))}
                     onBlurItem={i => fetchLastPrice(lunch, i, setLunch)} />
                 </Section>
 
                 <Section title="Evening Snacks" color="#92400e">
-                  <ExpenseTable rows={evening} onChange={setEvening}
+                  <ExpenseTable rows={evening} onChange={setEvening} itemNames={itemNames}
                     onAdd={() => setEvening(r => [...r, makeExpItem(r.length + 1)])}
                     onDelete={i => setEvening(r => r.filter((_, xi) => xi !== i).map((x, xi) => ({ ...x, slNo: xi + 1 })))}
                     onBlurItem={i => fetchLastPrice(evening, i, setEvening)} />
                 </Section>
 
                 <Section title="Night Snacks" color="#92400e">
-                  <ExpenseTable rows={night} onChange={setNight}
+                  <ExpenseTable rows={night} onChange={setNight} itemNames={itemNames}
                     onAdd={() => setNight(r => [...r, makeExpItem(r.length + 1)])}
                     onDelete={i => setNight(r => r.filter((_, xi) => xi !== i).map((x, xi) => ({ ...x, slNo: xi + 1 })))}
                     onBlurItem={i => fetchLastPrice(night, i, setNight)} />
@@ -350,7 +371,7 @@ export default function DailyPnlPage() {
                     <table className="w-full border-collapse" style={{ fontSize: 11 }}>
                       <thead><tr>
                         <th style={{ ...thSale, width: 35 }}>Sl.No</th>
-                        <th style={{ ...thSale, minWidth: 140 }}>Employee Name</th>
+                        <th style={{ ...thSale, minWidth: 150 }}>Employee Name</th>
                         <th style={{ ...thSale, width: 130 }}>Basic Wages / Day (₹)</th>
                         <th style={{ ...thSale, width: 28 }}></th>
                       </tr></thead>
@@ -362,16 +383,13 @@ export default function DailyPnlPage() {
                               <input list="emp-list" className="w-full border-0 outline-none bg-transparent text-xs" value={r.employeeName}
                                 onChange={e => setManpower(mp => mp.map((x, xi) => xi === i ? { ...x, employeeName: e.target.value } : x))}
                                 onBlur={e => {
-                                  const emp = employees.find((em: any) => em.name === e.target.value || em.displayName === e.target.value);
+                                  const emp = (employees as any[]).find(em => em.name === e.target.value || em.displayName === e.target.value);
                                   if (emp) {
-                                    const curYear = new Date().getFullYear(), curMonth = new Date().getMonth() + 1;
-                                    const sr = (skillRates as any[]).find(s => s.skillCategory === emp.skillCategory && s.year === curYear && s.month === curMonth);
+                                    const sr = (skillRates as any[]).find(s => s.skillCategory === emp.skills && s.year === new Date().getFullYear() && s.month === new Date().getMonth() + 1);
                                     if (sr) setManpower(mp => mp.map((x, xi) => xi === i ? { ...x, basicWagesPerDay: Number(sr.dailyRate) } : x));
                                   }
                                 }} />
-                              <datalist id="emp-list">
-                                {employees.map((em: any) => <option key={em.id} value={em.name || em.displayName} />)}
-                              </datalist>
+                              <datalist id="emp-list">{(employees as any[]).map((em: any) => <option key={em.id} value={em.name || em.displayName} />)}</datalist>
                             </td>
                             <td style={{ border: "1px solid #ddd", padding: "2px 4px" }}>
                               <input type="number" className="w-full border-0 outline-none bg-transparent text-xs text-center" value={r.basicWagesPerDay || ""}
@@ -399,7 +417,7 @@ export default function DailyPnlPage() {
                   </div>
                 </Section>
 
-                {/* Other Expense + Total */}
+                {/* Other Expense + Total Expense */}
                 <div className="flex flex-wrap items-center gap-4 mt-2 px-2">
                   <div className="flex items-center gap-2">
                     <span className="text-sm font-medium">Other Expense (₹):</span>
@@ -413,56 +431,75 @@ export default function DailyPnlPage() {
                 </div>
               </div>
 
-              {/* === SALE SECTION === */}
+              {/* ===== SALE THIRD PARTY SECTION ===== */}
               <div className="bg-white rounded-lg shadow-sm p-3 mb-4">
-                <div className="text-center font-bold py-1 mb-3 text-white text-sm rounded" style={{ background: "#1e3a8a" }}>SALE</div>
-                <div className="text-xs text-gray-500 mb-2 italic">Cash/Online Qty auto-loaded from Daily Cash Seal (KPF Permanent Staff). Rate: Cash ×₹{CASH_RATE}, Online ×₹{ONLINE_RATE}, Bill ×₹{BILL_RATE}</div>
+                <div className="text-center font-bold py-1 mb-2 text-white text-sm rounded" style={{ background: "#1e3a8a" }}>SALE THIRD PARTY</div>
+                <div className="text-xs text-gray-500 mb-2 italic">
+                  Cash &amp; Online Qty auto-loaded from Daily Cash Seal. Rates: Breakfast ₹20 · Lunch Veg ₹35 · Egg ₹45 · Chicken/Fish ₹65 · Snacks ₹5
+                </div>
                 <div className="overflow-x-auto">
                   <table className="w-full border-collapse" style={{ fontSize: 11 }}>
                     <thead>
                       <tr>
-                        <th style={{ ...thSale, minWidth: 100 }}>Item</th>
+                        <th style={{ ...thSale, width: 38 }}>Sl No</th>
+                        <th style={{ ...thSale, minWidth: 130 }}>Item Name</th>
+                        <th style={{ ...thSale, width: 55 }}>Rate (₹)</th>
                         <th style={{ ...thSale, width: 65 }}>Cash Qty</th>
-                        <th style={{ ...thSale, width: 75 }}>Cash Amt</th>
+                        <th style={{ ...thSale, width: 85 }}>Cash Amount</th>
                         <th style={{ ...thSale, width: 70 }}>Online Qty</th>
-                        <th style={{ ...thSale, width: 80 }}>Online Amt</th>
-                        <th style={{ ...thSale, width: 65 }}>Total Qty</th>
-                        <th style={{ ...thSale, width: 90 }}>C&amp;O Total</th>
-                        <th style={{ ...thSale, width: 65 }}>Bill Qty</th>
-                        <th style={{ ...thSale, width: 80 }}>Bill Amt</th>
-                        <th style={{ ...thSale, width: 90, background: "#374151" }}>Total Amt</th>
+                        <th style={{ ...thSale, width: 90 }}>Online Amount</th>
+                        <th style={{ ...thSale, width: 70 }}>Total Qty</th>
+                        <th style={{ ...thSale, width: 110, background: "#374151" }}>Cash &amp; Online Total</th>
+                        <th style={{ ...thSale, width: 28 }}></th>
                       </tr>
                     </thead>
                     <tbody>
-                      {saleTotals.map((r, i) => (
+                      {tpCalc.map((r, i) => (
                         <tr key={i} style={{ background: i % 2 === 0 ? "#f9fafb" : "#fff" }}>
-                          <td style={{ ...tdS, textAlign: "left", fontWeight: "bold", paddingLeft: 8 }}>{r.itemName}</td>
+                          <td style={{ ...tdS }}>{r.slNo}</td>
+                          <td style={{ border: "1px solid #ddd", padding: "2px 5px" }}>
+                            <input list="item-list-tp" className="w-full border-0 outline-none bg-transparent text-xs font-medium" value={r.itemName}
+                              onChange={e => setTpSale(rows => rows.map((x, xi) => xi === i ? { ...x, itemName: e.target.value } : x))} />
+                          </td>
+                          <td style={{ ...tdS }}>
+                            <input type="number" className="w-full border-0 outline-none bg-transparent text-xs text-center" value={r.rate || ""}
+                              onChange={e => setTpSale(rows => rows.map((x, xi) => xi === i ? { ...x, rate: parseFloat(e.target.value) || 0 } : x))} />
+                          </td>
                           <td style={{ ...tdS, background: "#fef3c7" }}>
                             <input type="number" className="w-full border-0 outline-none bg-transparent text-center text-xs" value={r.cashQty || ""}
-                              onChange={e => setSaleItems(si => si.map((x, xi) => xi === i ? { ...x, cashQty: parseFloat(e.target.value) || 0 } : x))} />
+                              onChange={e => setTpSale(rows => rows.map((x, xi) => xi === i ? { ...x, cashQty: parseFloat(e.target.value) || 0 } : x))} />
                           </td>
                           <td style={{ ...tdS, background: "#fef9c3" }}>{r.cashAmt > 0 ? r.cashAmt.toLocaleString("en-IN") : "—"}</td>
-                          <td style={{ ...tdS, background: "#fef3c7" }}>
+                          <td style={{ ...tdS, background: "#e0f2fe" }}>
                             <input type="number" className="w-full border-0 outline-none bg-transparent text-center text-xs" value={r.onlineQty || ""}
-                              onChange={e => setSaleItems(si => si.map((x, xi) => xi === i ? { ...x, onlineQty: parseFloat(e.target.value) || 0 } : x))} />
+                              onChange={e => setTpSale(rows => rows.map((x, xi) => xi === i ? { ...x, onlineQty: parseFloat(e.target.value) || 0 } : x))} />
                           </td>
-                          <td style={{ ...tdS, background: "#fef9c3" }}>{r.onlineAmt > 0 ? r.onlineAmt.toLocaleString("en-IN") : "—"}</td>
-                          <td style={{ ...tdS }}>{(r.cashQty + r.onlineQty) || "—"}</td>
-                          <td style={{ ...tdS, background: "#eff6ff" }}>{r.coTotal > 0 ? r.coTotal.toLocaleString("en-IN") : "—"}</td>
+                          <td style={{ ...tdS, background: "#dbeafe" }}>{r.onlineAmt > 0 ? r.onlineAmt.toLocaleString("en-IN") : "—"}</td>
+                          <td style={{ ...tdS, fontWeight: "bold" }}>{r.totalQty || "—"}</td>
+                          <td style={{ ...tdS, fontWeight: "bold", background: "#eff6ff", fontSize: 12 }}>{r.coTotal > 0 ? r.coTotal.toLocaleString("en-IN", { minimumFractionDigits: 2 }) : "—"}</td>
                           <td style={{ ...tdS }}>
-                            <input type="number" className="w-full border-0 outline-none bg-transparent text-center text-xs" value={r.billQty || ""}
-                              onChange={e => setSaleItems(si => si.map((x, xi) => xi === i ? { ...x, billQty: parseFloat(e.target.value) || 0 } : x))} />
+                            <button onClick={() => setTpSale(rows => rows.filter((_, xi) => xi !== i).map((x, xi) => ({ ...x, slNo: xi + 1 })))} className="text-red-400 hover:text-red-600"><Trash2 className="w-3 h-3" /></button>
                           </td>
-                          <td style={{ ...tdS, background: "#f0fdf4" }}>{r.billAmt > 0 ? r.billAmt.toLocaleString("en-IN") : "—"}</td>
-                          <td style={{ ...tdS, fontWeight: "bold", background: "#dbeafe" }}>{r.totalAmt > 0 ? r.totalAmt.toLocaleString("en-IN") : "—"}</td>
                         </tr>
                       ))}
                       <tr>
-                        <td colSpan={9} style={{ ...tdTot, textAlign: "right", background: "#1e3a8a", color: "#fff" }}>Total Sale Amount</td>
-                        <td style={{ ...tdTot, background: "#1e3a8a", color: "#fff", fontSize: 12 }}>{fmtINR(totalSale)}</td>
+                        <td colSpan={10} style={{ border: "1px solid #ddd", padding: 4, textAlign: "center" }}>
+                          <button onClick={() => setTpSale(rows => [...rows, makeTpRowBlank(rows.length + 1)])} className="flex items-center gap-1 mx-auto text-blue-600 text-xs">
+                            <Plus className="w-3 h-3" /> Add Row
+                          </button>
+                        </td>
+                      </tr>
+                      <tr>
+                        <td colSpan={7} style={{ ...tdTot, textAlign: "right", background: "#1e3a8a", color: "#fff" }}>Total Sale</td>
+                        <td style={{ ...tdTot, background: "#1e3a8a", color: "#fff" }}>{tpCalc.reduce((s, r) => s + r.totalQty, 0)}</td>
+                        <td colSpan={2} style={{ ...tdTot, background: "#1e3a8a", color: "#fff", fontSize: 12 }}>{fmtINR(totalSale)}</td>
                       </tr>
                     </tbody>
                   </table>
+                  <datalist id="item-list-tp">
+                    {TP_ROWS.map(r => <option key={r.itemName} value={r.itemName} />)}
+                    {itemNames.map((n, i) => <option key={i} value={n} />)}
+                  </datalist>
                 </div>
               </div>
 
@@ -517,11 +554,11 @@ export default function DailyPnlPage() {
                 <table className="w-full border-collapse" style={{ fontSize: 11 }}>
                   <thead>
                     <tr>
-                      <th style={{ ...thS, textAlign: "left", paddingLeft: 8 }}>Date</th>
-                      <th style={thS}>Client</th>
-                      <th style={{ ...thS, background: "#b91c1c" }}>Total Expense (₹)</th>
-                      <th style={{ ...thS, background: "#1d4ed8" }}>Total Sale (₹)</th>
-                      <th style={{ ...thS, background: "#166534" }}>Profit / Loss (₹)</th>
+                      <th style={{ ...thDash, textAlign: "left", paddingLeft: 8 }}>Date</th>
+                      <th style={thDash}>Client</th>
+                      <th style={{ ...thDash, background: "#b91c1c" }}>Total Expense (₹)</th>
+                      <th style={{ ...thDash, background: "#1d4ed8" }}>Total Sale (₹)</th>
+                      <th style={{ ...thDash, background: "#166534" }}>Profit / Loss (₹)</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -540,9 +577,9 @@ export default function DailyPnlPage() {
                       );
                     })}
                     {(() => {
-                      const totExp = dashData.reduce((s, r) => s + (Number(r.totalExpense) || 0), 0);
-                      const totSale = dashData.reduce((s, r) => s + (Number(r.totalSale) || 0), 0);
-                      const totPl = dashData.reduce((s, r) => s + (Number(r.profitLoss) || 0), 0);
+                      const totExp = dashData.reduce((s: number, r: any) => s + (Number(r.totalExpense) || 0), 0);
+                      const totSale = dashData.reduce((s: number, r: any) => s + (Number(r.totalSale) || 0), 0);
+                      const totPl = dashData.reduce((s: number, r: any) => s + (Number(r.profitLoss) || 0), 0);
                       return (
                         <tr>
                           <td colSpan={2} style={tdTot}>Grand Total</td>
