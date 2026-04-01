@@ -512,7 +512,9 @@ export default function SalaryRegister() {
       }
     }
     if (prsDays === 0) prsDays = n(att?.totalPresent) || n(s.daysWorked);
-    const paidDays = n(s.daysWorked);
+    const paidDays = att
+      ? prsDays + holidays + (holidayWorking * 2) + halfDay
+      : n(s.daysWorked);
     const otHrs = n(s.overtimeHours);
     const skillCategory = emp?.skills || "";
     const skillBasedRate = skillRateMap.get(`${skillCategory}_${month}_${year}`);
