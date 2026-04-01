@@ -183,16 +183,6 @@ export default function DailyPnlPage() {
   });
   const itemNames: string[] = (vegItems as any[]).map((v: any) => v.name).filter(Boolean);
 
-  const resetForm = () => {
-    setBreakfast([makeExpItem(1), makeExpItem(2)]);
-    setLunch(LUNCH_FIXED.map((n, i) => makeExpItem(i + 1, n)));
-    setEvening([makeExpItem(1), makeExpItem(2)]);
-    setNight([makeExpItem(1), makeExpItem(2)]);
-    setManpower([{ slNo: 1, employeeName: "", basicWagesPerDay: 0 }]);
-    setOtherExpense(0);
-    setPsSale(PS_ROWS.map(makePsRow));
-    setTpSale(TP_ROWS.map(makeTpRow));
-  };
 
   const loadCashSeal = useCallback(async () => {
     if (!entryDate) return;
@@ -211,6 +201,21 @@ export default function DailyPnlPage() {
     })));
   }, [entryDate]);
 
+  const DAY_NAMES = ["Sunday","Monday","Tuesday","Wednesday","Thursday","Friday","Saturday"];
+
+  const buildManpowerFromEmployees = useCallback(() => {
+    const dayName = DAY_NAMES[new Date(entryDate + "T00:00:00").getDay()];
+    const activeEmps = (employees as any[]).filter(e => e.weeklyOffDay !== dayName);
+    if (!activeEmps.length) return [{ slNo: 1, employeeName: "", basicWagesPerDay: 0 }];
+    const now = new Date();
+    const curMonth = now.getMonth() + 1;
+    const curYear  = now.getFullYear();
+    return activeEmps.map((e: any, idx: number) => {
+      const sr = (skillRates as any[]).find(s => s.skillCategory === e.skills && s.year === curYear && s.month === curMonth);
+      return { slNo: idx + 1, employeeName: e.name, basicWagesPerDay: sr ? Number(sr.dailyRate) : 0 };
+    });
+  }, [entryDate, employees, skillRates]);
+
   const loadEntry = useCallback(async () => {
     if (!entryDate) return;
     const r    = await fetch(`/api/daily-pnl/entry?date=${entryDate}&client=${encodeURIComponent(clientName)}`, { credentials: "include" });
@@ -222,16 +227,23 @@ export default function DailyPnlPage() {
       const lu = parse(data.lunchItems);     setLunch(lu.length ? lu : LUNCH_FIXED.map((n, i) => makeExpItem(i + 1, n)));
       const ev = parse(data.eveningItems);   setEvening(ev.length ? ev : [makeExpItem(1), makeExpItem(2)]);
       const nt = parse(data.nightItems);     setNight(nt.length ? nt : [makeExpItem(1), makeExpItem(2)]);
-      const mp = parse(data.manpowerItems);  setManpower(mp.length ? mp : [{ slNo: 1, employeeName: "", basicWagesPerDay: 0 }]);
+      const mp = parse(data.manpowerItems);  setManpower(mp.length ? mp : buildManpowerFromEmployees());
       const ps = parse(data.psSaleItems);    setPsSale(ps.length ? ps : PS_ROWS.map(makePsRow));
       const tp = parse(data.saleItems);      setTpSale(tp.length ? tp : TP_ROWS.map(makeTpRow));
       setOtherExpense(Number(data.otherExpense) || 0);
     } else {
       setEntryId(undefined);
-      resetForm();
+      setBreakfast([makeExpItem(1), makeExpItem(2)]);
+      setLunch(LUNCH_FIXED.map((n, i) => makeExpItem(i + 1, n)));
+      setEvening([makeExpItem(1), makeExpItem(2)]);
+      setNight([makeExpItem(1), makeExpItem(2)]);
+      setManpower(buildManpowerFromEmployees());
+      setOtherExpense(0);
+      setPsSale(PS_ROWS.map(makePsRow));
+      setTpSale(TP_ROWS.map(makeTpRow));
       await loadCashSeal();
     }
-  }, [entryDate, clientName, loadCashSeal]);
+  }, [entryDate, clientName, loadCashSeal, buildManpowerFromEmployees]);
 
   useEffect(() => { loadEntry(); }, [loadEntry]);
 
