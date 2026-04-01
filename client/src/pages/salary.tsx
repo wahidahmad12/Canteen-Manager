@@ -507,7 +507,7 @@ export default function SalaryRegister() {
         else if (val === "A") leave++;
         else if (val === "H" || val === "WO" || val === "PH") holidays++;
         else if (val === "CL" || val === "SL" || val === "EL") leave++;
-        else if (val === "HW") holidayWorking++;
+        else if (val === "HW" || val === "P/HL") holidayWorking++;
       }
     }
     if (prsDays === 0) prsDays = n(att?.totalPresent) || n(s.daysWorked);
