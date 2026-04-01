@@ -1,7 +1,8 @@
 import { useState, useMemo, useRef, useCallback, useEffect } from "react";
 import { Link } from "wouter";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { Loader2, Printer, FileText, Users, IndianRupee, TrendingDown, Wallet, ArrowRight, Download, ImageDown, FileSpreadsheet } from "lucide-react";
+import { Loader2, Printer, FileText, Users, IndianRupee, TrendingDown, Wallet, ArrowRight, Download, ImageDown, FileSpreadsheet, Banknote } from "lucide-react";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { PrintSettingsDialog } from "@/components/print-settings-dialog";
 import { Layout } from "@/components/layout";
 import { Button } from "@/components/ui/button";
@@ -385,6 +386,8 @@ export default function SalaryRegister() {
   const [downloading, setDownloading] = useState(false);
   const [salaryPrintDialogOpen, setSalaryPrintDialogOpen] = useState(false);
   const [salaryPrintSelectedIds, setSalaryPrintSelectedIds] = useState<Set<number>>(new Set());
+  const [activeTab, setActiveTab] = useState("register");
+  const [neftSearch, setNeftSearch] = useState("");
 
   const salaryPrintEmployeeList = useMemo(() => {
     return (salaries || []).filter(s => employeeMap.has(s.employeeId)).map(s => {
@@ -891,6 +894,101 @@ export default function SalaryRegister() {
     }
   };
 
+  const neftRows = useMemo(() => {
+    if (!loaded || rows.length === 0) return [];
+    return rows.filter(r => {
+      if (!neftSearch) return true;
+      const s = neftSearch.toLowerCase();
+      return (r.emp?.name || "").toLowerCase().includes(s) ||
+        (r.emp?.bankName || "").toLowerCase().includes(s) ||
+        (r.emp?.accountNo || "").toLowerCase().includes(s);
+    });
+  }, [rows, loaded, neftSearch]);
+
+  const handleNeftPrint = useCallback(() => {
+    const printWin = window.open("", "_blank", "width=1000,height=700");
+    if (!printWin) return;
+    const title = `${clientName} — Salary NEFT — ${MONTHS[Number(month) - 1]} ${year}`;
+    const total = neftRows.reduce((s, r) => s + r.netSalary, 0);
+    const rows2 = neftRows.map((r, i) => `<tr>
+      <td>${i + 1}</td>
+      <td>${r.emp?.name || ""}</td>
+      <td>${r.emp?.bankName || ""}</td>
+      <td>${r.emp?.accountNo || ""}</td>
+      <td>${r.emp?.ifscCode || ""}</td>
+      <td style="text-align:right;font-weight:bold;color:#1b5e20">₹${fmt(r.netSalary)}</td>
+    </tr>`).join("");
+    printWin.document.write(`<html><head><title>${title}</title>
+    <style>
+      body { font-family: Arial, sans-serif; font-size: 10px; margin: 10mm; }
+      h2 { text-align: center; font-size: 14px; margin: 0 0 4px; }
+      h3 { text-align: center; font-size: 11px; color: #555; margin: 0 0 10px; }
+      table { width: 100%; border-collapse: collapse; }
+      th { background: #1a237e; color: #fff; padding: 5px 6px; text-align: center; }
+      td { border: 1px solid #ccc; padding: 4px 6px; }
+      tr:nth-child(even) td { background: #f5f5f5; }
+      tfoot td { font-weight: bold; background: #e8f5e9; border-top: 2px solid #1b5e20; }
+    </style></head><body>
+    <h2>${clientName} — Salary NEFT Transfer</h2>
+    <h3>${MONTHS[Number(month) - 1]} ${year}</h3>
+    <table>
+      <thead><tr>
+        <th>Sl.</th><th>Employee Name</th><th>Bank Name</th><th>Account No</th><th>IFSC Code</th><th>Net Salary</th>
+      </tr></thead>
+      <tbody>${rows2}</tbody>
+      <tfoot><tr>
+        <td colspan="5" style="text-align:right">Total</td>
+        <td style="text-align:right;color:#1b5e20">₹${fmt(total)}</td>
+      </tr></tfoot>
+    </table>
+    </body></html>`);
+    printWin.document.close();
+    printWin.print();
+  }, [neftRows, clientName, month, year]);
+
+  const handleNeftExcel = useCallback(async () => {
+    if (neftRows.length === 0) return;
+    const ExcelJS = (await import("exceljs")).default;
+    const wb = new ExcelJS.Workbook();
+    const ws = wb.addWorksheet("Salary NEFT");
+    const title = `${clientName} — Salary NEFT — ${MONTHS[Number(month) - 1]} ${year}`;
+    const t1 = ws.addRow([title]);
+    t1.font = { bold: true, size: 13 };
+    ws.addRow([]);
+    const hdr = ws.addRow(["Sl. No.", "Emp Name", "Bank Name", "Account No", "IFSC Code", "Net Salary"]);
+    hdr.eachCell(c => {
+      c.font = { bold: true, color: { argb: "FFFFFFFF" }, size: 10 };
+      c.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FF1A237E" } };
+      c.alignment = { horizontal: "center", vertical: "middle" };
+      c.border = { top: { style: "thin" }, bottom: { style: "thin" }, left: { style: "thin" }, right: { style: "thin" } };
+    });
+    neftRows.forEach((r, i) => {
+      const row = ws.addRow([i + 1, r.emp?.name || "", r.emp?.bankName || "", r.emp?.accountNo || "", r.emp?.ifscCode || "", r.netSalary]);
+      row.eachCell((c, col) => {
+        c.border = { top: { style: "thin" }, bottom: { style: "thin" }, left: { style: "thin" }, right: { style: "thin" } };
+        c.font = { size: 10 };
+        if (col === 6) { c.numFmt = '₹#,##0'; c.alignment = { horizontal: "right" }; c.font = { bold: true, size: 10, color: { argb: "FF1B5E20" } }; }
+      });
+      if (i % 2 === 1) row.eachCell(c => { c.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFF5F5F5" } }; });
+    });
+    const total = neftRows.reduce((s, r) => s + r.netSalary, 0);
+    const tot = ws.addRow(["", "", "", "", "Total", total]);
+    tot.eachCell((c, col) => {
+      c.font = { bold: true, size: 10, color: col === 6 ? { argb: "FF1B5E20" } : { argb: "FF000000" } };
+      c.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFE8F5E9" } };
+      c.border = { top: { style: "medium" }, bottom: { style: "thin" }, left: { style: "thin" }, right: { style: "thin" } };
+      if (col === 6) { c.numFmt = '₹#,##0'; c.alignment = { horizontal: "right" }; }
+    });
+    ws.getColumn(1).width = 6; ws.getColumn(2).width = 28; ws.getColumn(3).width = 22;
+    ws.getColumn(4).width = 20; ws.getColumn(5).width = 16; ws.getColumn(6).width = 14;
+    const buf = await wb.xlsx.writeBuffer();
+    const blob = new Blob([buf], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a"); a.href = url;
+    a.download = `NEFT_${clientName}_${MONTHS[Number(month) - 1]}_${year}.xlsx`;
+    a.click(); URL.revokeObjectURL(url);
+  }, [neftRows, clientName, month, year]);
+
   const years = Array.from({ length: 5 }, (_, i) => String(now.getFullYear() - 2 + i));
 
   const clientOptions = clients?.map((c: any) => (typeof c === "string" ? c : c.name)) || [];
@@ -1015,6 +1113,19 @@ export default function SalaryRegister() {
           </CardContent>
         </Card>
 
+        <Tabs value={activeTab} onValueChange={setActiveTab} data-testid="tabs-salary">
+          <TabsList className="mb-2 print:hidden">
+            <TabsTrigger value="register" data-testid="tab-salary-register">
+              <FileText className="w-4 h-4 mr-1" />
+              Salary Register
+            </TabsTrigger>
+            <TabsTrigger value="neft" data-testid="tab-salary-neft">
+              <Banknote className="w-4 h-4 mr-1" />
+              Salary NEFT
+            </TabsTrigger>
+          </TabsList>
+
+          <TabsContent value="register">
         {isLoading && loaded && (
           <div className="flex items-center justify-center py-20">
             <Loader2 className="w-8 h-8 animate-spin text-primary" />
@@ -1409,6 +1520,87 @@ export default function SalaryRegister() {
             </CardContent>
           </Card>
         )}
+          </TabsContent>
+
+          <TabsContent value="neft">
+            <Card data-testid="card-neft-section">
+              <CardContent className="p-4 sm:p-6">
+                {!loaded ? (
+                  <div className="text-center py-16 text-muted-foreground">
+                    <Banknote className="w-10 h-10 mx-auto mb-3 opacity-40" />
+                    <p className="text-sm">Select filters and click <strong>Load</strong> to view NEFT data.</p>
+                  </div>
+                ) : neftRows.length === 0 && !isLoading ? (
+                  <div className="text-center py-16 text-muted-foreground">
+                    <Banknote className="w-10 h-10 mx-auto mb-3 opacity-40" />
+                    <p className="text-sm">No salary records found for the selected period.</p>
+                  </div>
+                ) : (
+                  <>
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
+                      <div className="flex items-center gap-2">
+                        <Input
+                          placeholder="Search by name / bank / account..."
+                          value={neftSearch}
+                          onChange={e => setNeftSearch(e.target.value)}
+                          className="w-full sm:w-72 text-sm"
+                          data-testid="input-neft-search"
+                        />
+                      </div>
+                      <div className="flex gap-2">
+                        <Button variant="outline" size="sm" onClick={handleNeftPrint} data-testid="button-neft-print">
+                          <Printer className="w-4 h-4 mr-1" /> Print
+                        </Button>
+                        <Button variant="outline" size="sm" onClick={handleNeftExcel} data-testid="button-neft-excel">
+                          <FileSpreadsheet className="w-4 h-4 mr-1" /> Export Excel
+                        </Button>
+                      </div>
+                    </div>
+
+                    <div className="overflow-x-auto rounded-lg border">
+                      <table className="w-full text-sm border-collapse" data-testid="table-neft">
+                        <thead>
+                          <tr className="bg-[#1a237e] text-white">
+                            <th className="px-3 py-2 text-center font-semibold text-xs w-10">Sl.</th>
+                            <th className="px-3 py-2 text-left font-semibold text-xs">Employee Name</th>
+                            <th className="px-3 py-2 text-left font-semibold text-xs">Bank Name</th>
+                            <th className="px-3 py-2 text-left font-semibold text-xs">Account No</th>
+                            <th className="px-3 py-2 text-left font-semibold text-xs">IFSC Code</th>
+                            <th className="px-3 py-2 text-right font-semibold text-xs">Net Salary</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {neftRows.map((r, i) => (
+                            <tr key={r.emp?.id ?? i} className={i % 2 === 1 ? "bg-muted/30" : ""} data-testid={`row-neft-${i}`}>
+                              <td className="px-3 py-2 text-center text-xs text-muted-foreground border-b">{i + 1}</td>
+                              <td className="px-3 py-2 text-sm font-medium border-b whitespace-nowrap">{r.emp?.name || "—"}</td>
+                              <td className="px-3 py-2 text-sm border-b">{r.emp?.bankName || <span className="text-muted-foreground text-xs">—</span>}</td>
+                              <td className="px-3 py-2 text-sm font-mono border-b">{r.emp?.accountNo || <span className="text-muted-foreground text-xs">—</span>}</td>
+                              <td className="px-3 py-2 text-sm font-mono border-b">{r.emp?.ifscCode || <span className="text-muted-foreground text-xs">—</span>}</td>
+                              <td className="px-3 py-2 text-right text-sm font-bold text-green-700 dark:text-green-400 border-b">
+                                {fmtR(r.netSalary)}
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                        <tfoot>
+                          <tr className="bg-green-50 dark:bg-green-900/20 border-t-2 border-green-600">
+                            <td colSpan={5} className="px-3 py-2 text-right text-sm font-bold text-green-800 dark:text-green-300">
+                              Total ({neftRows.length} employees)
+                            </td>
+                            <td className="px-3 py-2 text-right text-sm font-bold text-green-700 dark:text-green-400">
+                              {fmtR(neftRows.reduce((s, r) => s + r.netSalary, 0))}
+                            </td>
+                          </tr>
+                        </tfoot>
+                      </table>
+                    </div>
+                  </>
+                )}
+              </CardContent>
+            </Card>
+          </TabsContent>
+        </Tabs>
       </div>
       <PrintSettingsDialog
         open={salaryPrintDialogOpen}
