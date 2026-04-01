@@ -25,7 +25,7 @@ const TP_ROWS: { itemName: string; rate: number; cashKey: string; onlineKey: str
   { itemName: "Lunch Veg",      rate: 35, cashKey: "income_tp_lunch_veg_cash_qty",        onlineKey: "income_tp_lunch_veg_online_qty" },
   { itemName: "Egg Lunch",      rate: 45, cashKey: "income_tp_lunch_egg_cash_qty",        onlineKey: "income_tp_lunch_egg_online_qty" },
   { itemName: "Chicken Lunch",  rate: 65, cashKey: "income_tp_lunch_chicken_cash_qty",    onlineKey: "income_tp_lunch_chicken_online_qty" },
-  { itemName: "Fish Lunch",     rate: 65, cashKey: "income_tp_lunch_fish_cash_qty",       onlineKey: "income_tp_lunch_fish_online_qty" },
+  { itemName: "Fish Lunch",     rate: 55, cashKey: "income_tp_lunch_fish_cash_qty",       onlineKey: "income_tp_lunch_fish_online_qty" },
   { itemName: "Evening Snacks", rate: 20, cashKey: "income_ps_evening_cash_qty",          onlineKey: "income_ps_evening_online_qty" },
   { itemName: "Night Snacks",   rate: 30, cashKey: "income_ps_night_cash_qty",            onlineKey: "income_ps_night_online_qty" },
 ];
@@ -499,7 +499,7 @@ export default function DailyPnlPage() {
               <div className="bg-white rounded-lg shadow-sm p-3 mb-4">
                 <div className="text-center font-bold py-1 mb-2 text-white text-sm rounded" style={{ background: "#1e3a8a" }}>SALE THIRD PARTY</div>
                 <div className="text-xs text-gray-500 mb-2 italic">
-                  Rates: Breakfast ₹20 · Lunch Veg ₹35 · Egg ₹45 · Chicken/Fish ₹65 · Evening ₹20 · Night ₹30
+                  Rates: Breakfast ₹20 · Lunch Veg ₹35 · Egg ₹45 · Chicken ₹65 · Fish ₹55 · Evening ₹20 · Night ₹30
                 </div>
                 <div className="overflow-x-auto">
                   <table className="w-full border-collapse" style={{ fontSize: 11 }}>
