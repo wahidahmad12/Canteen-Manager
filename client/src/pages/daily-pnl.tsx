@@ -25,7 +25,7 @@ const TP_ROWS: { itemName: string; rate: number; cashKey: string; onlineKey: str
   { itemName: "Chicken Lunch",  rate: 65, cashKey: "income_tp_lunch_chicken_cash_qty",    onlineKey: "income_tp_lunch_chicken_online_qty" },
   { itemName: "Fish Lunch",     rate: 55, cashKey: "income_tp_lunch_fish_cash_qty",       onlineKey: "income_tp_lunch_fish_online_qty" },
   { itemName: "Evening Snacks", rate: 20, cashKey: "income_ps_evening_cash_qty",          onlineKey: "income_ps_evening_online_qty" },
-  { itemName: "Night Snacks",   rate: 30, cashKey: "income_ps_night_cash_qty",            onlineKey: "income_ps_night_online_qty" },
+  { itemName: "Night Snacks",   rate: 30, cashKey: "income_tp_night_cash_qty",            onlineKey: "income_tp_night_online_qty" },
 ];
 
 // ─── Types ────────────────────────────────────────────────────────────────────
