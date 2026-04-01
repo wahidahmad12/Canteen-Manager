@@ -9,16 +9,13 @@ const MONTHS = ["January","February","March","April","May","June","July","August
 const LUNCH_FIXED = ["Rice","Dal","Vegetable","Non Veg","Sweets","Curd","Paneer"];
 
 // ─── Permanent Staff sale rows ───────────────────────────────────────────────
-// Cash/Online rate = ₹5, Bill rate = ₹30
+// Default Cash/Online rate = ₹5, Bill rate = ₹30 (Evening Snacks Cash/Online = ₹10)
 const PS_ROWS = [
-  { itemName: "Breakfast",      cashKey: "income_ps_breakfast_cash_qty", onlineKey: "income_ps_breakfast_online_qty" },
-  { itemName: "Lunch",          cashKey: "income_ps_lunch_cash_qty",      onlineKey: "income_ps_lunch_online_qty" },
-  { itemName: "Evening Snacks", cashKey: "income_ps_evening_cash_qty",    onlineKey: "income_ps_evening_online_qty" },
-  { itemName: "Night Snacks",   cashKey: "income_ps_night_cash_qty",      onlineKey: "income_ps_night_online_qty" },
-] as const;
-const PS_CASH_RATE = 5;
-const PS_ONLINE_RATE = 5;
-const PS_BILL_RATE = 30;
+  { itemName: "Breakfast",      cashRate: 5,  onlineRate: 5,  billRate: 30, cashKey: "income_ps_breakfast_cash_qty", onlineKey: "income_ps_breakfast_online_qty" },
+  { itemName: "Lunch",          cashRate: 5,  onlineRate: 5,  billRate: 30, cashKey: "income_ps_lunch_cash_qty",      onlineKey: "income_ps_lunch_online_qty" },
+  { itemName: "Evening Snacks", cashRate: 10, onlineRate: 10, billRate: 30, cashKey: "income_ps_evening_cash_qty",    onlineKey: "income_ps_evening_online_qty" },
+  { itemName: "Night Snacks",   cashRate: 5,  onlineRate: 5,  billRate: 30, cashKey: "income_ps_night_cash_qty",      onlineKey: "income_ps_night_online_qty" },
+];
 
 // ─── Third Party sale rows ────────────────────────────────────────────────────
 const TP_ROWS: { itemName: string; rate: number; cashKey: string; onlineKey: string }[] = [
@@ -34,11 +31,11 @@ const TP_ROWS: { itemName: string; rate: number; cashKey: string; onlineKey: str
 // ─── Types ────────────────────────────────────────────────────────────────────
 type ExpenseItem = { slNo: number; itemName: string; uom: string; qty: number; rate: number; total: number };
 type ManpowerItem = { slNo: number; employeeName: string; basicWagesPerDay: number };
-type PsSaleRow  = { slNo: number; itemName: string; cashQty: number; onlineQty: number; billQty: number };
+type PsSaleRow  = { slNo: number; itemName: string; cashQty: number; onlineQty: number; billQty: number; cashRate: number; onlineRate: number; billRate: number };
 type TpSaleRow  = { slNo: number; itemName: string; rate: number; cashQty: number; onlineQty: number };
 
 const makeExpItem    = (slNo: number, itemName = ""): ExpenseItem => ({ slNo, itemName, uom: "", qty: 0, rate: 0, total: 0 });
-const makePsRow      = (r: typeof PS_ROWS[number], i: number): PsSaleRow  => ({ slNo: i + 1, itemName: r.itemName, cashQty: 0, onlineQty: 0, billQty: 0 });
+const makePsRow      = (r: typeof PS_ROWS[number], i: number): PsSaleRow  => ({ slNo: i + 1, itemName: r.itemName, cashQty: 0, onlineQty: 0, billQty: 0, cashRate: r.cashRate, onlineRate: r.onlineRate, billRate: r.billRate });
 const makeTpRow      = (r: typeof TP_ROWS[number], i: number): TpSaleRow  => ({ slNo: i + 1, itemName: r.itemName, rate: r.rate, cashQty: 0, onlineQty: 0 });
 
 const today   = () => format(new Date(), "yyyy-MM-dd");
@@ -150,10 +147,10 @@ export default function DailyPnlPage() {
   const totalExpense = totalBf + totalLu + totalEv + totalNt + totalMp + otherExpense;
 
   const psCalc = psSale.map(r => {
-    const cashAmt   = r.cashQty   * PS_CASH_RATE;
-    const onlineAmt = r.onlineQty * PS_ONLINE_RATE;
+    const cashAmt   = r.cashQty   * r.cashRate;
+    const onlineAmt = r.onlineQty * r.onlineRate;
     const coTotal   = cashAmt + onlineAmt;
-    const billAmt   = r.billQty   * PS_BILL_RATE;
+    const billAmt   = r.billQty   * r.billRate;
     return { ...r, cashAmt, onlineAmt, coTotal, billAmt, totalAmt: coTotal + billAmt };
   });
   const totalPsSale = psCalc.reduce((s, r) => s + r.totalAmt, 0);
@@ -228,7 +225,8 @@ export default function DailyPnlPage() {
       const ev = parse(data.eveningItems);   setEvening(ev.length ? ev : [makeExpItem(1), makeExpItem(2)]);
       const nt = parse(data.nightItems);     setNight(nt.length ? nt : [makeExpItem(1), makeExpItem(2)]);
       const mp = parse(data.manpowerItems);  setManpower(mp.length ? mp : buildManpowerFromEmployees());
-      const ps = parse(data.psSaleItems);    setPsSale(ps.length ? ps : PS_ROWS.map(makePsRow));
+      const ps = parse(data.psSaleItems);
+      setPsSale(ps.length ? ps.map((r: any, i: number) => ({ ...r, cashRate: PS_ROWS[i]?.cashRate ?? 5, onlineRate: PS_ROWS[i]?.onlineRate ?? 5, billRate: PS_ROWS[i]?.billRate ?? 30 })) : PS_ROWS.map(makePsRow));
       const tp = parse(data.saleItems);      setTpSale(tp.length ? tp : TP_ROWS.map(makeTpRow));
       setOtherExpense(Number(data.otherExpense) || 0);
     } else {
@@ -463,7 +461,7 @@ export default function DailyPnlPage() {
               <div className="bg-white rounded-lg shadow-sm p-3 mb-4">
                 <div className="text-center font-bold py-1 mb-2 text-white text-sm rounded" style={{ background: "#166534" }}>SALE PERMANENT STAFF</div>
                 <div className="text-xs text-gray-500 mb-2 italic">
-                  Cash &amp; Online Qty auto-loaded from Daily Cash Seal (PS). Cash Rate ×₹{PS_CASH_RATE} · Online Rate ×₹{PS_ONLINE_RATE} · Bill Rate ×₹{PS_BILL_RATE}
+                  Cash &amp; Online Qty auto-loaded from Daily Cash Seal (PS). Breakfast/Lunch/Night ×₹5 · Evening Snacks ×₹10 · Bill ×₹30
                 </div>
                 <div className="overflow-x-auto">
                   <table className="w-full border-collapse" style={{ fontSize: 11 }}>
@@ -471,6 +469,7 @@ export default function DailyPnlPage() {
                       <tr>
                         <th style={{ ...thPS, width: 38 }}>Sl No</th>
                         <th style={{ ...thPS, minWidth: 110 }}>Item Name</th>
+                        <th style={{ ...thPS, width: 50 }}>Rate (₹)</th>
                         <th style={{ ...thPS, width: 65 }}>Cash Qty</th>
                         <th style={{ ...thPS, width: 85 }}>Cash Amt (₹)</th>
                         <th style={{ ...thPS, width: 70 }}>Online Qty</th>
@@ -487,6 +486,7 @@ export default function DailyPnlPage() {
                         <tr key={i} style={{ background: i % 2 === 0 ? "#f0fdf4" : "#fff" }}>
                           <td style={{ ...tdS }}>{r.slNo}</td>
                           <td style={{ ...tdS, textAlign: "left", fontWeight: "bold", paddingLeft: 8 }}>{r.itemName}</td>
+                          <td style={{ ...tdS, fontWeight: "bold" }}>{r.cashRate}</td>
                           <td style={{ ...tdS, background: "#fef3c7" }}>
                             <input type="number" className="w-full border-0 outline-none bg-transparent text-center text-xs" value={r.cashQty||""}
                               onChange={e => setPsSale(rows => rows.map((x, xi) => xi === i ? { ...x, cashQty: parseFloat(e.target.value)||0 } : x))} />
@@ -508,7 +508,7 @@ export default function DailyPnlPage() {
                         </tr>
                       ))}
                       <tr>
-                        <td colSpan={10} style={{ ...tdTot, textAlign: "right", background: "#166534", color: "#fff" }}>Total PS Sale</td>
+                        <td colSpan={11} style={{ ...tdTot, textAlign: "right", background: "#166534", color: "#fff" }}>Total PS Sale</td>
                         <td style={{ ...tdTot, background: "#166534", color: "#fff", fontSize: 12 }}>{fmtINR(totalPsSale)}</td>
                       </tr>
                     </tbody>
