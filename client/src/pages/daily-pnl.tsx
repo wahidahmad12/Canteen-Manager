@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect, useCallback } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
+import { useClientNames } from "@/hooks/use-reports";
 import { RefreshCw, Save, Printer, TrendingUp, TrendingDown, Plus, Trash2, BarChart3, ClipboardEdit } from "lucide-react";
 import { format } from "date-fns";
 
@@ -170,6 +171,7 @@ export default function DailyPnlPage() {
   const profitLoss = totalSale - totalExpense;
 
   // ── Queries ───────────────────────────────────────────────────────────────
+  const { data: dbClients = [] } = useClientNames();
   const { data: employees  = [] } = useQuery<any[]>({ queryKey: ["/api/employees"] });
   const { data: skillRates = [] } = useQuery<any[]>({ queryKey: ["/api/skill-wage-rates"] });
   const { data: vegItems   = [] } = useQuery<any[]>({
@@ -322,7 +324,12 @@ export default function DailyPnlPage() {
               </div>
               <div className="flex items-center gap-1.5">
                 <span className="text-xs font-medium text-gray-600">Client:</span>
-                <input value={clientName} onChange={e => setClientName(e.target.value)} className="border border-gray-300 rounded px-2 py-1 text-sm w-28" placeholder="KPF" data-testid="input-pnl-client" />
+                <select value={clientName} onChange={e => setClientName(e.target.value)} className="border border-gray-300 rounded px-2 py-1 text-sm" data-testid="input-pnl-client">
+                  <option value="">— Select —</option>
+                  {(dbClients as any[]).map((c: any) => (
+                    <option key={c.id} value={c.name}>{c.name}</option>
+                  ))}
+                </select>
               </div>
               <button onClick={loadEntry} className="px-3 py-1.5 border rounded text-xs font-medium flex items-center gap-1 hover:bg-gray-50" data-testid="btn-pnl-load">
                 <RefreshCw className="w-3.5 h-3.5" /> Load
