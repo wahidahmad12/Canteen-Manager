@@ -264,6 +264,7 @@ function UblDateEntryTab({ month, year, loadKey = 0 }: { month: number; year: nu
   const handleImportExcel1 = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]; if (!file) return;
     e.target.value = "";
+    const { startDate: bStart, endDate: bEnd, label: bLabel } = getBillingRange(month, year);
     try {
       const ExcelJS = (await import("exceljs")).default;
       const wb = new ExcelJS.Workbook();
@@ -287,11 +288,21 @@ function UblDateEntryTab({ month, year, loadKey = 0 }: { month: number; year: nu
         if (!r.weekDay) r.weekDay = getWeekDay(r.entryDate);
         imported.push(r as UblRow);
       });
+      const mismatch = imported.filter(r => r.entryDate < bStart || r.entryDate > bEnd);
+      if (mismatch.length > 0) {
+        toast({ title:"Date Mismatch — Import Cancelled", description:`File has dates outside the loaded period (${bLabel}). Select the correct billing period and retry.`, variant:"destructive" });
+        return;
+      }
       setLocalRows(imported);
       toast({ title:`Imported ${imported.length} rows`, description:"Review and click Save All to persist." });
     } catch(err:any) {
       toast({ title:"Import Failed", description:err.message, variant:"destructive" });
     }
+  };
+
+  const handleReset1 = () => {
+    if (!window.confirm("Reset all entries to blank? Unsaved changes will be lost.")) return;
+    setLocalRows(generateBillingRows(month, year, ublRowDefaults));
   };
 
   const totalTea = rows.reduce((s,r)=>s+(r.tea1||0)+(r.tea3||0)+(r.tea5||0)+(r.tea6||0),0);
@@ -408,6 +419,7 @@ function UblDateEntryTab({ month, year, loadKey = 0 }: { month: number; year: nu
         <Button size="sm" variant="outline" onClick={handleExportExcel1} className="h-10 px-4 text-sm text-green-700 border-green-300 hover:bg-green-50" disabled={rows.length===0}><FileDown className="w-4 h-4 mr-1.5"/>Export Excel</Button>
         <Button size="sm" variant="outline" onClick={()=>importRef1.current?.click()} className="h-10 px-4 text-sm text-blue-700 border-blue-300 hover:bg-blue-50"><FileUp className="w-4 h-4 mr-1.5"/>Import Excel</Button>
         <input ref={importRef1} type="file" accept=".xlsx,.xls" className="hidden" onChange={handleImportExcel1}/>
+        <Button size="sm" variant="outline" onClick={handleReset1} className="h-10 px-4 text-sm text-red-600 border-red-300 hover:bg-red-50"><RefreshCw className="w-4 h-4 mr-1.5"/>Reset</Button>
         <div className="flex items-center gap-2 text-xs text-muted-foreground ml-auto">
           <span className="inline-block w-3 h-3 rounded" style={{background:"#ffa500"}}></span>Sunday
           <span className="inline-block w-3 h-3 rounded" style={{background:"#90EE90"}}></span>Wednesday
@@ -806,6 +818,7 @@ function UblLunchEntryTab({ month, year, loadKey = 0 }: { month: number; year: n
   const handleImportExcel2 = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]; if (!file) return;
     e.target.value = "";
+    const { startDate: bStart, endDate: bEnd, label: bLabel } = getBillingRange(month, year);
     try {
       const ExcelJS = (await import("exceljs")).default;
       const wb = new ExcelJS.Workbook();
@@ -828,11 +841,21 @@ function UblLunchEntryTab({ month, year, loadKey = 0 }: { month: number; year: n
         if (!r.weekDay) r.weekDay = getWeekDay(r.entryDate);
         imported.push(r as UblLunchRow);
       });
+      const mismatch = imported.filter(r => r.entryDate < bStart || r.entryDate > bEnd);
+      if (mismatch.length > 0) {
+        toast({ title:"Date Mismatch — Import Cancelled", description:`File has dates outside the loaded period (${bLabel}). Select the correct billing period and retry.`, variant:"destructive" });
+        return;
+      }
       setLocalRows(imported);
       toast({ title:`Imported ${imported.length} rows`, description:"Review and click Save All to persist." });
     } catch(err:any) {
       toast({ title:"Import Failed", description:err.message, variant:"destructive" });
     }
+  };
+
+  const handleReset2 = () => {
+    if (!window.confirm("Reset all entries to blank? Unsaved changes will be lost.")) return;
+    setLocalRows(generateBillingRows(month, year, lunchRowDefaults));
   };
 
   const numFld = (row: UblLunchRow, idx: number, field: keyof UblLunchRow, w=56) => (
@@ -930,6 +953,7 @@ function UblLunchEntryTab({ month, year, loadKey = 0 }: { month: number; year: n
         <Button size="sm" variant="outline" onClick={handleExportExcel2} className="h-10 px-4 text-sm text-green-700 border-green-300 hover:bg-green-50" disabled={rows.length===0}><FileDown className="w-4 h-4 mr-1.5"/>Export Excel</Button>
         <Button size="sm" variant="outline" onClick={()=>importRef2.current?.click()} className="h-10 px-4 text-sm text-blue-700 border-blue-300 hover:bg-blue-50"><FileUp className="w-4 h-4 mr-1.5"/>Import Excel</Button>
         <input ref={importRef2} type="file" accept=".xlsx,.xls" className="hidden" onChange={handleImportExcel2}/>
+        <Button size="sm" variant="outline" onClick={handleReset2} className="h-10 px-4 text-sm text-red-600 border-red-300 hover:bg-red-50"><RefreshCw className="w-4 h-4 mr-1.5"/>Reset</Button>
         <div className="flex items-center gap-2 text-xs text-muted-foreground ml-auto">
           <span className="inline-block w-3 h-3 rounded" style={{background:"#ffa500"}}></span>Sunday
           <span className="inline-block w-3 h-3 rounded bg-red-200"></span>Mismatch
@@ -2558,6 +2582,7 @@ function CiplaDateEntryTab({ month, year, loadKey = 0 }: { month: number; year: 
   const handleImportExcel3 = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]; if (!file) return;
     e.target.value = "";
+    const { startDate: bStart, endDate: bEnd, label: bLabel } = getBillingRange(month, year);
     try {
       const ExcelJS = (await import("exceljs")).default;
       const wb = new ExcelJS.Workbook();
@@ -2580,11 +2605,21 @@ function CiplaDateEntryTab({ month, year, loadKey = 0 }: { month: number; year: 
         if (!r.weekDay) r.weekDay = getWeekDay(r.entryDate);
         imported.push(r as CiplaRow);
       });
+      const mismatch = imported.filter(r => r.entryDate < bStart || r.entryDate > bEnd);
+      if (mismatch.length > 0) {
+        toast({ title:"Date Mismatch — Import Cancelled", description:`File has dates outside the loaded period (${bLabel}). Select the correct billing period and retry.`, variant:"destructive" });
+        return;
+      }
       setLocalRows(imported);
       toast({ title:`Imported ${imported.length} rows`, description:"Review and click Save All to persist." });
     } catch(err:any) {
       toast({ title:"Import Failed", description:err.message, variant:"destructive" });
     }
+  };
+
+  const handleReset3 = () => {
+    if (!window.confirm("Reset all entries to blank? Unsaved changes will be lost.")) return;
+    setLocalRows(generateBillingRows(month, year, ciplaRowDefaults));
   };
 
   const numFld = (row: CiplaRow, idx: number, field: keyof CiplaRow, w=50) => (
@@ -2730,6 +2765,7 @@ function CiplaDateEntryTab({ month, year, loadKey = 0 }: { month: number; year: 
         <Button size="sm" variant="outline" onClick={handleExportExcel3} className="h-10 px-4 text-sm text-green-700 border-green-300 hover:bg-green-50" disabled={rows.length===0}><FileDown className="w-4 h-4 mr-1.5"/>Export Excel</Button>
         <Button size="sm" variant="outline" onClick={()=>importRef3.current?.click()} className="h-10 px-4 text-sm text-blue-700 border-blue-300 hover:bg-blue-50"><FileUp className="w-4 h-4 mr-1.5"/>Import Excel</Button>
         <input ref={importRef3} type="file" accept=".xlsx,.xls" className="hidden" onChange={handleImportExcel3}/>
+        <Button size="sm" variant="outline" onClick={handleReset3} className="h-10 px-4 text-sm text-red-600 border-red-300 hover:bg-red-50"><RefreshCw className="w-4 h-4 mr-1.5"/>Reset</Button>
       </div>
 
       {/* ── Mobile Card View ── */}
