@@ -524,7 +524,7 @@ export default function MusterRoll() {
       for (let d = 1; d <= daysInMonth; d++) {
         rowData.push(empData[`day${d}`] || "");
       }
-      rowData.push(totals.present, totals.holidays, totals.holidayPresent, totals.halfDay, totals.totalPaidDays, totals.absent, totals.weeklyOff, overtimeData[emp.id] || 0);
+      rowData.push(totals.present, totals.holidays + totals.holidayPresent, totals.holidayPresent, totals.halfDay, totals.totalPaidDays, totals.absent, totals.weeklyOff, overtimeData[emp.id] || 0);
       const r = ws.addRow(rowData);
       r.eachCell((cell, colNumber) => {
         cell.border = { top: { style: "thin" }, bottom: { style: "thin" }, left: { style: "thin" }, right: { style: "thin" } };
@@ -890,7 +890,7 @@ export default function MusterRoll() {
                               {totals.present}
                             </td>
                             <td className="px-2 py-1.5 text-center font-bold bg-yellow-50 dark:bg-yellow-950/20 text-yellow-700 dark:text-yellow-300 summary-holiday">
-                              {totals.holidays}
+                              {totals.holidays + totals.holidayPresent}
                             </td>
                             <td className="px-2 py-1.5 text-center font-bold bg-teal-50 dark:bg-teal-950/20 text-teal-700 dark:text-teal-300 summary-hp">
                               {totals.holidayPresent}
