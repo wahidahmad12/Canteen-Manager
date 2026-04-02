@@ -31,7 +31,7 @@ const TP_ROWS: { itemName: string; rate: number; cashKey: string; onlineKey: str
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 type ExpenseItem = { slNo: number; itemName: string; uom: string; qty: number; rate: number; total: number };
-type ManpowerItem = { slNo: number; employeeName: string; basicWagesPerDay: number };
+type ManpowerItem = { slNo: number; employeeName: string; basicWagesPerDay: number; leaveBalance: number };
 type PsSaleRow  = { slNo: number; itemName: string; cashQty: number; onlineQty: number; billQty: number; cashRate: number; onlineRate: number; billRate: number };
 type TpSaleRow  = { slNo: number; itemName: string; rate: number; cashQty: number; onlineQty: number };
 
@@ -135,7 +135,7 @@ export default function DailyPnlPage() {
   const [lunch,     setLunch]     = useState<ExpenseItem[]>(LUNCH_FIXED.map((n, i) => makeExpItem(i + 1, n)));
   const [evening,   setEvening]   = useState<ExpenseItem[]>([makeExpItem(1), makeExpItem(2)]);
   const [night,     setNight]     = useState<ExpenseItem[]>([makeExpItem(1), makeExpItem(2)]);
-  const [manpower,  setManpower]  = useState<ManpowerItem[]>([{ slNo: 1, employeeName: "", basicWagesPerDay: 0 }]);
+  const [manpower,  setManpower]  = useState<ManpowerItem[]>([{ slNo: 1, employeeName: "", basicWagesPerDay: 0, leaveBalance: 30 }]);
   const [otherExpense, setOtherExpense] = useState(0);
 
   // Sale states
@@ -147,7 +147,15 @@ export default function DailyPnlPage() {
   const totalLu = lunch.reduce((s, r) => s + r.total, 0);
   const totalEv = evening.reduce((s, r) => s + r.total, 0);
   const totalNt = night.reduce((s, r) => s + r.total, 0);
-  const totalMp = manpower.reduce((s, r) => s + r.basicWagesPerDay, 0);
+  const mpCalc = manpower.map(r => {
+    const pf      = r.basicWagesPerDay * 0.13;
+    const esic    = r.basicWagesPerDay * 0.0325;
+    const bonus   = r.basicWagesPerDay * 0.0833;
+    const leave   = r.leaveBalance ?? 30;
+    const total   = r.basicWagesPerDay + pf + esic + bonus + leave;
+    return { ...r, pf, esic, bonus, leave, total };
+  });
+  const totalMp = mpCalc.reduce((s, r) => s + r.total, 0);
   const totalExpense = totalBf + totalLu + totalEv + totalNt + totalMp + otherExpense;
 
   const psCalc = psSale.map(r => {
@@ -217,7 +225,7 @@ export default function DailyPnlPage() {
     const curYear  = now.getFullYear();
     return activeEmps.map((e: any, idx: number) => {
       const sr = (skillRates as any[]).find(s => s.skillCategory === e.skills && s.year === curYear && s.month === curMonth);
-      return { slNo: idx + 1, employeeName: e.name, basicWagesPerDay: sr ? Number(sr.dailyRate) : 0 };
+      return { slNo: idx + 1, employeeName: e.name, basicWagesPerDay: sr ? Number(sr.dailyRate) : 0, leaveBalance: 30 };
     });
   }, [entryDate, employees, skillRates]);
 
@@ -232,7 +240,7 @@ export default function DailyPnlPage() {
       const lu = parse(data.lunchItems);     setLunch(lu.length ? lu : LUNCH_FIXED.map((n, i) => makeExpItem(i + 1, n)));
       const ev = parse(data.eveningItems);   setEvening(ev.length ? ev : [makeExpItem(1), makeExpItem(2)]);
       const nt = parse(data.nightItems);     setNight(nt.length ? nt : [makeExpItem(1), makeExpItem(2)]);
-      const mp = parse(data.manpowerItems);  setManpower(mp.length ? mp : buildManpowerFromEmployees());
+      const mp = parse(data.manpowerItems);  setManpower(mp.length ? mp.map((r: any) => ({ leaveBalance: 30, ...r })) : buildManpowerFromEmployees());
       const ps = parse(data.psSaleItems);
       setPsSale(ps.length ? ps.map((r: any, i: number) => ({ ...r, cashRate: PS_ROWS[i]?.cashRate ?? 5, onlineRate: PS_ROWS[i]?.onlineRate ?? 5, billRate: PS_ROWS[i]?.billRate ?? 30 })) : PS_ROWS.map(makePsRow));
       const tp = parse(data.saleItems);      setTpSale(tp.length ? tp : TP_ROWS.map(makeTpRow));
@@ -443,14 +451,21 @@ export default function DailyPnlPage() {
                 <Section title="Daily Manpower" color="#1e3a8a">
                   <div className="overflow-x-auto">
                     <table className="w-full border-collapse" style={{ fontSize: 11 }}>
-                      <thead><tr>
-                        <th style={{ ...thTP, width: 35 }}>Sl.No</th>
-                        <th style={{ ...thTP, minWidth: 150 }}>Employee Name</th>
-                        <th style={{ ...thTP, width: 130 }}>Basic Wages / Day (₹)</th>
-                        <th style={{ ...thTP, width: 28 }}></th>
-                      </tr></thead>
+                      <thead>
+                        <tr>
+                          <th style={{ ...thTP, width: 30 }}>Sl.No</th>
+                          <th style={{ ...thTP, minWidth: 140 }}>Employee Name</th>
+                          <th style={{ ...thTP, width: 100 }}>Basic Wages / Day (₹)</th>
+                          <th style={{ ...thTP, width: 75 }}>PF @13%</th>
+                          <th style={{ ...thTP, width: 80 }}>ESIC @3.25%</th>
+                          <th style={{ ...thTP, width: 85 }}>Bonus @8.33%</th>
+                          <th style={{ ...thTP, width: 110 }}>Leave Balance Amt (₹)</th>
+                          <th style={{ ...thTP, width: 95 }}>Total Amount</th>
+                          <th style={{ ...thTP, width: 26 }}></th>
+                        </tr>
+                      </thead>
                       <tbody>
-                        {manpower.map((r, i) => (
+                        {mpCalc.map((r, i) => (
                           <tr key={i}>
                             <td style={{ ...tdS }}>{r.slNo}</td>
                             <td style={{ border: "1px solid #ddd", padding: "2px 4px" }}>
@@ -465,23 +480,33 @@ export default function DailyPnlPage() {
                                 }} />
                               <datalist id="emp-list">{(employees as any[]).map((em: any) => <option key={em.id} value={em.name} />)}</datalist>
                             </td>
-                            <td style={{ border: "1px solid #ddd", padding: "2px 4px" }}>
+                            <td style={{ border: "1px solid #ddd", padding: "2px 4px", background: "#fffde7" }}>
                               <input type="number" className="w-full border-0 outline-none bg-transparent text-xs text-center" value={r.basicWagesPerDay||""}
                                 onChange={e => setManpower(mp => mp.map((x, xi) => xi === i ? { ...x, basicWagesPerDay: parseFloat(e.target.value)||0 } : x))} />
                             </td>
+                            <td style={{ ...tdS, background: "#e8f5e9", color: "#1b5e20" }}>{r.pf > 0 ? r.pf.toFixed(2) : ""}</td>
+                            <td style={{ ...tdS, background: "#e3f2fd", color: "#0d47a1" }}>{r.esic > 0 ? r.esic.toFixed(2) : ""}</td>
+                            <td style={{ ...tdS, background: "#fff3e0", color: "#e65100" }}>{r.bonus > 0 ? r.bonus.toFixed(2) : ""}</td>
+                            <td style={{ border: "1px solid #ddd", padding: "2px 4px", background: "#f3e5f5" }}>
+                              <input type="number" className="w-full border-0 outline-none bg-transparent text-xs text-center" value={r.leaveBalance ?? 30}
+                                onChange={e => setManpower(mp => mp.map((x, xi) => xi === i ? { ...x, leaveBalance: parseFloat(e.target.value)||0 } : x))} />
+                            </td>
+                            <td style={{ ...tdS, fontWeight: "bold", background: "#f0fdf4", color: "#166534" }}>{r.total > 0 ? r.total.toFixed(2) : ""}</td>
                             <td style={{ ...tdS }}>
                               <button onClick={() => setManpower(mp => mp.filter((_, xi) => xi !== i).map((x, xi) => ({ ...x, slNo: xi + 1 })))} className="text-red-400 hover:text-red-600"><Trash2 className="w-3 h-3" /></button>
                             </td>
                           </tr>
                         ))}
-                        <tr><td colSpan={4} style={{ border: "1px solid #ddd", padding: 4, textAlign: "center" }}>
-                          <button onClick={() => setManpower(mp => [...mp, { slNo: mp.length + 1, employeeName: "", basicWagesPerDay: 0 }])} className="flex items-center gap-1 mx-auto text-blue-600 text-xs">
-                            <Plus className="w-3 h-3" /> Add Row
-                          </button>
-                        </td></tr>
                         <tr>
-                          <td colSpan={2} style={{ ...tdTot, textAlign: "right" }}>Total Wages</td>
-                          <td style={tdTot}>{totalMp.toLocaleString("en-IN", { minimumFractionDigits: 2 })}</td>
+                          <td colSpan={9} style={{ border: "1px solid #ddd", padding: 4, textAlign: "center" }}>
+                            <button onClick={() => setManpower(mp => [...mp, { slNo: mp.length + 1, employeeName: "", basicWagesPerDay: 0, leaveBalance: 30 }])} className="flex items-center gap-1 mx-auto text-blue-600 text-xs">
+                              <Plus className="w-3 h-3" /> Add Row
+                            </button>
+                          </td>
+                        </tr>
+                        <tr>
+                          <td colSpan={7} style={{ ...tdTot, textAlign: "right" }}>Total Manpower Cost</td>
+                          <td style={{ ...tdTot, color: "#166534" }}>{totalMp.toLocaleString("en-IN", { minimumFractionDigits: 2 })}</td>
                           <td style={{ border: "1px solid #ddd" }} />
                         </tr>
                       </tbody>
