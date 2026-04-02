@@ -517,7 +517,7 @@ export default function SalaryRegister() {
     let prsDays = rawPrsDays + holidayWorking;
     if (prsDays === 0) prsDays = n(att?.totalPresent) || n(s.daysWorked);
     const paidDays = att
-      ? prsDays + holidayWorking + holidays + halfDay
+      ? prsDays + (holidays + holidayWorking) + holidayWorking + halfDay
       : n(s.daysWorked);
     const otHrs = n(s.overtimeHours);
     const skillCategory = emp?.skills || "";
