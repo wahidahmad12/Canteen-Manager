@@ -328,7 +328,7 @@ export default function EmployeeDashboard() {
             <td style="text-align:right;font-weight:700;color:${C.dedValColor};border:${b};${cp}">${pTax}</td>
           </tr>
           <tr>
-            <td style="background:${C.attLabelBg};color:${C.attLabelColor};font-weight:600;border:${b};${cp}">Extra Work</td>
+            <td style="background:${C.attLabelBg};color:${C.attLabelColor};font-weight:600;border:${b};${cp}">Holiday Wrk</td>
             <td style="text-align:right;font-weight:700;color:${C.attValColor};border:${b};${cp}">0</td>
             <td style="background:${C.earnLabelBg};color:${C.earnLabelColor};font-weight:600;border:${b};${cp}" colspan="2">DA</td>
             <td style="text-align:right;font-weight:700;color:${C.earnValColor};border:${b};${cp}">${nv(salary.da)}</td>
@@ -336,8 +336,8 @@ export default function EmployeeDashboard() {
             <td style="text-align:right;font-weight:700;color:${C.dedValColor};border:${b};${cp}">${pfDed}</td>
           </tr>
           <tr>
-            <td style="background:${C.attLabelBg};color:${C.attLabelColor};font-weight:600;border:${b};${cp}">LEAVE</td>
-            <td style="text-align:right;font-weight:700;color:${C.attValColor};border:${b};${cp}">${leave}</td>
+            <td style="background:${C.attLabelBg};border:${b};${cp}"></td>
+            <td style="border:${b};${cp}"></td>
             <td style="background:${C.earnLabelBg};color:${C.earnLabelColor};font-weight:600;border:${b};${cp}" colspan="2">HRA 5%</td>
             <td style="text-align:right;font-weight:700;color:${C.earnValColor};border:${b};${cp}">${Math.round(basic * 0.05)}</td>
             <td style="background:${C.dedLabelBg};color:${C.dedLabelColor};font-weight:600;border:${b};${cp}" colspan="2">LWF</td>

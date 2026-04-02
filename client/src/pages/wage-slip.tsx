@@ -367,7 +367,7 @@ export default function WageSlip() {
                   <td style={{ textAlign: "right", fontWeight: 700, color: C.dedValColor }} data-testid="text-ptax">{pTax}</td>
                 </tr>
                 <tr>
-                  <td style={{ background: C.attLabelBg, color: C.attLabelColor, fontWeight: 600 }}>Extra Work</td>
+                  <td style={{ background: C.attLabelBg, color: C.attLabelColor, fontWeight: 600 }}>Holiday Wrk</td>
                   <td style={{ textAlign: "right", fontWeight: 700, color: C.attValColor }}>{extraWork}</td>
                   <td style={{ background: C.earnLabelBg, color: C.earnLabelColor, fontWeight: 600 }} colSpan={2}>DA</td>
                   <td style={{ textAlign: "right", fontWeight: 700, color: C.earnValColor }}>{n(salary.da)}</td>
@@ -375,8 +375,8 @@ export default function WageSlip() {
                   <td style={{ textAlign: "right", fontWeight: 700, color: C.dedValColor }} data-testid="text-pf-ded">{pfDed}</td>
                 </tr>
                 <tr>
-                  <td style={{ background: C.attLabelBg, color: C.attLabelColor, fontWeight: 600 }}>LEAVE</td>
-                  <td style={{ textAlign: "right", fontWeight: 700, color: C.attValColor }}>{leave}</td>
+                  <td style={{ background: C.attLabelBg }}></td>
+                  <td></td>
                   <td style={{ background: C.earnLabelBg, color: C.earnLabelColor, fontWeight: 600 }} colSpan={2}>HRA 5%</td>
                   <td style={{ textAlign: "right", fontWeight: 700, color: C.earnValColor }}>{hra5}</td>
                   <td style={{ background: C.dedLabelBg, color: C.dedLabelColor, fontWeight: 600 }} colSpan={2}>LWF</td>
