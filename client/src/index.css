@@ -156,14 +156,14 @@
 .salary-print-table {
   width: 100%;
   border-collapse: collapse;
-  font-size: 8px;
+  font-size: 9px;
   font-family: Arial, sans-serif;
   color: #000;
 }
 .salary-print-table th,
 .salary-print-table td {
   border: 1px solid #999;
-  padding: 2px 4px;
+  padding: 2px 3px;
   white-space: nowrap;
 }
 .salary-print-table thead tr {
@@ -174,7 +174,7 @@
 .salary-print-table thead th {
   font-weight: 600;
   text-align: center;
-  font-size: 7.5px;
+  font-size: 8.5px;
   vertical-align: bottom;
   padding: 3px 3px;
 }

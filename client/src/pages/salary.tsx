@@ -1025,7 +1025,7 @@ export default function SalaryRegister() {
               <Button variant="outline" size="sm" onClick={() => {
                 const style = document.createElement("style");
                 style.id = "salary-print-override";
-                style.textContent = "@page { size: A3 landscape; margin: 0.4cm; }";
+                style.textContent = "@page { size: A4 landscape; margin: 0.5cm; }";
                 document.head.appendChild(style);
                 const prevTitle = document.title;
                 document.title = `Salary Register (Form XVII) ${MONTHS[Number(month) - 1]} ${year}`;
@@ -1363,18 +1363,18 @@ export default function SalaryRegister() {
             </div>
 
             <div id="salary-print-area" className="hidden print:block">
-              <div style={{ textAlign: "center", marginBottom: "8px" }}>
-                <div style={{ fontSize: "13px" }}>{clientName}</div>
-                <div style={{ fontSize: "16px", fontWeight: "bold" }}>{MONTHS[Number(month) - 1]} {year}</div>
+              <div style={{ textAlign: "center", marginBottom: "6px" }}>
+                <div style={{ fontSize: "12px" }}>{clientName}</div>
+                <div style={{ fontSize: "15px", fontWeight: "bold" }}>{MONTHS[Number(month) - 1]} {year}</div>
               </div>
               <table className="salary-print-table">
                 <thead>
                   <tr>
-                    <th colSpan={4} style={{ background: "#e8eaf6", color: "#283593", fontSize: "8px", fontWeight: 700 }}>Employee Details</th>
-                    <th colSpan={6} style={{ background: "#e1f5fe", color: "#0277bd", fontSize: "8px", fontWeight: 700 }}>Attendance & Days</th>
-                    <th colSpan={6} style={{ background: "#e8f5e9", color: "#2e7d32", fontSize: "8px", fontWeight: 700 }}>Earnings</th>
-                    <th colSpan={5} style={{ background: "#fce4ec", color: "#c62828", fontSize: "8px", fontWeight: 700 }}>Deductions</th>
-                    <th colSpan={1} style={{ background: "#e8f5e9", color: "#1b5e20", fontSize: "8px", fontWeight: 700 }}>Net Salary</th>
+                    <th colSpan={4} style={{ background: "#e8eaf6", color: "#283593", fontSize: "9px", fontWeight: 700 }}>Employee Details</th>
+                    <th colSpan={6} style={{ background: "#e1f5fe", color: "#0277bd", fontSize: "9px", fontWeight: 700 }}>Attendance & Days</th>
+                    <th colSpan={6} style={{ background: "#e8f5e9", color: "#2e7d32", fontSize: "9px", fontWeight: 700 }}>Earnings</th>
+                    <th colSpan={5} style={{ background: "#fce4ec", color: "#c62828", fontSize: "9px", fontWeight: 700 }}>Deductions</th>
+                    <th colSpan={1} style={{ background: "#e8f5e9", color: "#1b5e20", fontSize: "9px", fontWeight: 700 }}>Net Salary</th>
                   </tr>
                   <tr>
                     <th style={{ background: "#c5cae9" }}>Sl.</th>
@@ -1408,9 +1408,9 @@ export default function SalaryRegister() {
                     return (
                       <tr key={s.id} style={{ background: even ? "#ffffff" : "#f5f7ff" }}>
                         <td className="text-center" style={{ fontWeight: 600, color: "#3949ab" }}>{idx + 1}</td>
-                        <td className="text-left" style={{ fontSize: "7px", color: "#546e7a" }}>{r.emp?.employeeCode || "-"}</td>
+                        <td className="text-left" style={{ fontSize: "8px", color: "#546e7a" }}>{r.emp?.employeeCode || "-"}</td>
                         <td className="text-left" style={{ fontWeight: 600 }}>{r.emp?.name || "-"}</td>
-                        <td className="text-left" style={{ fontSize: "7px", color: "#78909c" }}>{r.skills}</td>
+                        <td className="text-left" style={{ fontSize: "8px", color: "#78909c" }}>{r.skills}</td>
                         <td className="text-center" style={{ color: "#0277bd" }}>{r.prsDays}</td>
                         <td className="text-center" style={{ color: "#0288d1" }}>{r.halfDay}</td>
                         <td className="text-center" style={{ color: "#00695c" }}>{r.holidayWorking}</td>
