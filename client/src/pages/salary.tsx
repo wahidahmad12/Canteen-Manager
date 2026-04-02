@@ -814,7 +814,7 @@ export default function SalaryRegister() {
 
     const headers = [
       "Sl. No.", "Emp ID", "Emp Name", "Skills", "PRS DAYS", "Half Day",
-      "Holiday Working", "HOLIDAYS", "Paid Days", "OT HRS", "Absent", "Week Off", "Total Days",
+      "Holiday Wrk", "HOLIDAYS", "Paid Days", "OT HRS", "Absent", "Week Off", "Total Days",
       "Basic Rate", "Basic Wages", "HRA 5%", "Fixed HRA", "OT Allow",
       "Total Gross", "PF Deduction @12%", "ESIC @.75%", "P-TAX", "LWF",
       "Total Dedu", "Net Salary", "Leave Balance", "Leave Encash Amt.",
