@@ -3609,6 +3609,56 @@ function HulLocationTab({ month, year, location, loadKey = 0 }: { month: number;
 
   const handleAutoFill = () => { setLocalRows(generateRows()); };
 
+  const handleDownloadHulTemplate = async () => {
+    const ExcelJS = (await import('exceljs')).default;
+    const wb = new ExcelJS.Workbook();
+    const ws = wb.addWorksheet(`HUL ${location} Template`);
+    const thin = { top:{style:'thin' as const}, bottom:{style:'thin' as const}, left:{style:'thin' as const}, right:{style:'thin' as const} };
+    // Row 1: Title
+    ws.mergeCells('A1:K1');
+    const t = ws.getCell('A1');
+    t.value = `HINDUSTAN UNILEVER LIMITED - ${location} — Import Template (${MONTHS[month-1]} ${year})`;
+    t.font={bold:true,color:{argb:'FFFFFFFF'}}; t.fill={type:'pattern',pattern:'solid',fgColor:{argb:'FF1A6B2E'}}; t.alignment={horizontal:'center'}; t.border=thin;
+    // Row 2: group labels
+    ws.mergeCells('A2:C2'); const g0=ws.getCell('A2'); g0.value=''; g0.fill={type:'pattern',pattern:'solid',fgColor:{argb:'FF1A6B2E'}}; g0.border=thin;
+    ws.mergeCells('D2:G2'); const g1=ws.getCell('D2'); g1.value=`Meal Charges - ${MONTHS[month-1]} - ${year}`; g1.font={bold:true,color:{argb:'FFFFFFFF'}}; g1.fill={type:'pattern',pattern:'solid',fgColor:{argb:'FF1A6B2E'}}; g1.alignment={horizontal:'center'}; g1.border=thin;
+    ws.mergeCells('H2:K2'); const g2=ws.getCell('H2'); g2.value=`Guest Meal Charges - ${MONTHS[month-1]} - ${year}`; g2.font={bold:true,color:{argb:'FFFFFFFF'}}; g2.fill={type:'pattern',pattern:'solid',fgColor:{argb:'FF1A3A8A'}}; g2.alignment={horizontal:'center'}; g2.border=thin;
+    // Row 3: Column headers
+    const hdr = ws.addRow(['Sl.No.','Date','Days','Brakfast','Lunch','Evning Sancks','Night Snacks','Guest Brakfast','Guest Lunch','Guest Evning Sancks','Guest Night Snacks']);
+    hdr.eachCell((cell,ci) => { cell.font={bold:true,color:{argb:'FFFFFFFF'}}; cell.fill={type:'pattern',pattern:'solid',fgColor:{argb:ci<=3?'FF1A6B2E':ci<=7?'FF1A6B2E':'FF1A3A8A'}}; cell.border=thin; cell.alignment={horizontal:'center'}; });
+    ws.columns = [5,14,8,10,10,14,14,14,12,16,16].map(w=>({width:w}));
+    // Add empty rows for each day of the month
+    const days = getDaysInMonth(month, year);
+    for (let d = 1; d <= days; d++) {
+      const dateStr = `${year}-${String(month).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+      const row = ws.addRow([d, safeFormat(dateStr), getWeekDay(dateStr), '', '', '', '', '', '', '', '']);
+      if (isSunday(dateStr)) row.eachCell(cell => { cell.fill={type:'pattern',pattern:'solid',fgColor:{argb:'FFFFA500'}}; });
+      row.eachCell(cell => { cell.border=thin; cell.alignment={horizontal:'center'}; });
+    }
+    // Total row
+    const totRow = ws.addRow(['','Total','','','','','','','','','']);
+    totRow.eachCell(cell => { cell.font={bold:true}; cell.fill={type:'pattern',pattern:'solid',fgColor:{argb:'FFE8F0FE'}}; cell.border=thin; cell.alignment={horizontal:'center'}; });
+    const buf = await wb.xlsx.writeBuffer();
+    const blob = new Blob([buf],{type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'});
+    const a = document.createElement('a'); a.href=URL.createObjectURL(blob); a.download=`HUL_${location}_${MONTHS[month-1]}_${year}_Template.xlsx`; a.click();
+  };
+
+  const parseHulDate = (v: any): string => {
+    if (!v) return "";
+    // ExcelJS returns JS Date objects for date-formatted cells
+    if (v instanceof Date) return localDateStr(v);
+    const s = String(v).trim();
+    // dd-MM-yyyy or dd/MM/yyyy (exported format)
+    const dmy = s.match(/^(\d{1,2})[-\/](\d{1,2})[-\/](\d{4})$/);
+    if (dmy) return `${dmy[3]}-${dmy[2].padStart(2,'0')}-${dmy[1].padStart(2,'0')}`;
+    // yyyy-MM-dd ISO
+    if (/^\d{4}-\d{2}-\d{2}/.test(s)) return s.substring(0, 10);
+    // Try generic Date parse
+    const d = new Date(s);
+    if (!isNaN(d.getTime())) return localDateStr(d);
+    return s;
+  };
+
   const handleImportExcelHul = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]; if (!file) return;
     e.target.value = "";
@@ -3646,10 +3696,11 @@ function HulLocationTab({ month, year, location, loadKey = 0 }: { month: number;
         row.eachCell((cell, ci) => {
           const f = fieldMap[ci - 1]; if (!f) return;
           const v = cell.value;
-          r[f] = (f === 'entryDate' || f === 'weekDay') ? String(v ?? '').trim() : (parseInt(String(v || 0)) || 0);
+          if (f === 'entryDate') r[f] = parseHulDate(v);
+          else if (f === 'weekDay') r[f] = String(v ?? '').trim();
+          else r[f] = parseInt(String(v || 0)) || 0;
         });
         if (!r.entryDate || String(r.entryDate).toLowerCase().includes('total')) return;
-        r.entryDate = normDate(r.entryDate);
         if (!r.weekDay) r.weekDay = getWeekDay(r.entryDate);
         imported.push(r as HulRow);
       });
@@ -3658,7 +3709,7 @@ function HulLocationTab({ month, year, location, loadKey = 0 }: { month: number;
       const mEnd = `${year}-${String(month).padStart(2,'0')}-${String(getDaysInMonth(month, year)).padStart(2,'0')}`;
       const mismatch = imported.filter(r => r.entryDate < mStart || r.entryDate > mEnd);
       if (mismatch.length > 0) {
-        toast({ title:"Date Mismatch — Import Cancelled", description:`File has dates outside ${MONTHS[month-1]} ${year}. Select the correct month and retry.`, variant:"destructive" });
+        toast({ title:"Date Mismatch — Import Cancelled", description:`File has dates outside ${MONTHS[month-1]} ${year}. Please select the correct month and retry.`, variant:"destructive" });
         return;
       }
       setLocalRows(imported);
@@ -3777,6 +3828,9 @@ function HulLocationTab({ month, year, location, loadKey = 0 }: { month: number;
           </Button>
           <Button size="sm" variant="outline" onClick={handleExportExcel} className="h-9 text-green-700 border-green-300 hover:bg-green-50" disabled={rows.length===0} data-testid="btn-hul-export">
             <FileDown className="w-3.5 h-3.5 mr-1"/>Export Excel
+          </Button>
+          <Button size="sm" variant="outline" onClick={handleDownloadHulTemplate} className="h-9 text-purple-700 border-purple-300 hover:bg-purple-50" data-testid="btn-hul-template">
+            <FileDown className="w-3.5 h-3.5 mr-1"/>Template
           </Button>
           <Button size="sm" variant="outline" onClick={() => importRefHul.current?.click()} className="h-9 text-blue-700 border-blue-300 hover:bg-blue-50" data-testid="btn-hul-import">
             <FileUp className="w-3.5 h-3.5 mr-1"/>Import Excel
