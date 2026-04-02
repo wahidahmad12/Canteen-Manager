@@ -186,20 +186,24 @@ export default function WageSlip() {
   const netSalary = n(salary.netPay);
   const otHrs = n(salary.overtimeHours);
 
-  const prsDays = n(attendance?.totalPresent) || n(salary.daysWorked);
-  const halfDay = 0;
-  const extraWork = 0;
-  const leave = n(attendance?.totalAbsent);
-
-  let holidays = 0;
+  let rawPrsDays = 0, halfDayCount = 0, holidayWorkingCount = 0, hCount = 0;
   if (attendance) {
     for (let i = 1; i <= 31; i++) {
       const val = attendance[`day${i}`];
-      if (val === "H" || val === "WO" || val === "PH") holidays++;
+      if (val === "P") rawPrsDays++;
+      else if (val === "P/HL" || val === "HW") holidayWorkingCount++;
+      else if (val === "H") hCount++;
+      else if (val === "HD") halfDayCount++;
     }
   }
-
-  const paidDays = n(salary.daysWorked);
+  const prsDays = (rawPrsDays + holidayWorkingCount) || n(attendance?.totalPresent) || n(salary.daysWorked);
+  const halfDay = halfDayCount;
+  const extraWork = holidayWorkingCount;
+  const leave = n(attendance?.totalAbsent);
+  const holidays = hCount + holidayWorkingCount;
+  const paidDays = attendance
+    ? prsDays + holidays + holidayWorkingCount + halfDayCount
+    : n(salary.daysWorked);
 
   const formatDate = (d: string | undefined | null) => {
     if (!d) return "-";

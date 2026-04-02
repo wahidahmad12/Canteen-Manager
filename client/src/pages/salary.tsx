@@ -152,8 +152,8 @@ function buildSlipHTML(salary: SalaryRecord, employee: Employee | undefined, att
     for (let i = 1; i <= 31; i++) {
       const val = (attendance as any)[`day${i}`];
       if (val === "P") rawPrsDays++;
-      else if (val === "P/HL") holidayWorkingCount++;
-      else if (val === "H" || val === "PH") hCount++;
+      else if (val === "P/HL" || val === "HW") holidayWorkingCount++;
+      else if (val === "H") hCount++;
       else if (val === "HD") halfDayCount++;
     }
   }
@@ -520,7 +520,7 @@ export default function SalaryRegister() {
         if (val === "P") rawPrsDays++;
         else if (val === "HD") halfDay++;
         else if (val === "A") leave++;
-        else if (val === "H" || val === "PH") holidays++;
+        else if (val === "H") holidays++;
         else if (val === "WO") weeklyOff++;
         else if (val === "CL" || val === "SL" || val === "EL") leave++;
         else if (val === "HW" || val === "P/HL") holidayWorking++;

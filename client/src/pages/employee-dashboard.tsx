@@ -210,15 +210,19 @@ export default function EmployeeDashboard() {
     const otHrs = nv(salary.overtimeHours);
     const paidDays = nv(salary.daysWorked);
 
-    let prsDays = paidDays, holidays = 0, leave = 0;
+    let rawPrsDays = 0, halfDayCount = 0, holidayWorkingCount = 0, hCount = 0, leave = 0;
     if (attendance) {
-      prsDays = nv(attendance.totalPresent) || paidDays;
       leave = nv(attendance.totalAbsent);
       for (let i = 1; i <= 31; i++) {
         const val = attendance[`day${i}`];
-        if (val === "H" || val === "WO" || val === "PH") holidays++;
+        if (val === "P") rawPrsDays++;
+        else if (val === "P/HL" || val === "HW") holidayWorkingCount++;
+        else if (val === "H") hCount++;
+        else if (val === "HD") halfDayCount++;
       }
     }
+    const prsDays = (rawPrsDays + holidayWorkingCount) || nv(attendance?.totalPresent) || paidDays;
+    const holidays = hCount + holidayWorkingCount;
 
     const formatDt = (d: string | null | undefined) => {
       if (!d) return "-";
@@ -329,7 +333,7 @@ export default function EmployeeDashboard() {
           </tr>
           <tr>
             <td style="background:${C.attLabelBg};color:${C.attLabelColor};font-weight:600;border:${b};${cp}">Holiday Wrk</td>
-            <td style="text-align:right;font-weight:700;color:${C.attValColor};border:${b};${cp}">0</td>
+            <td style="text-align:right;font-weight:700;color:${C.attValColor};border:${b};${cp}">${holidayWorkingCount}</td>
             <td style="background:${C.earnLabelBg};color:${C.earnLabelColor};font-weight:600;border:${b};${cp}" colspan="2">DA</td>
             <td style="text-align:right;font-weight:700;color:${C.earnValColor};border:${b};${cp}">${nv(salary.da)}</td>
             <td style="background:${C.dedLabelBg};color:${C.dedLabelColor};font-weight:600;border:${b};${cp}" colspan="2">PF @12%</td>
