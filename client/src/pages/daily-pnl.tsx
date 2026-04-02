@@ -178,11 +178,14 @@ export default function DailyPnlPage() {
     queryFn: () => fetch(`/api/employees${clientName ? `?clientName=${encodeURIComponent(clientName)}` : ""}`, { credentials: "include" }).then(r => r.json()),
   });
   const { data: skillRates = [] } = useQuery<any[]>({ queryKey: ["/api/skill-wage-rates"] });
-  const { data: vegItems   = [] } = useQuery<any[]>({
-    queryKey: ["/api/vegetables"],
-    queryFn: () => fetch("/api/vegetables", { credentials: "include" }).then(r => r.json()),
+  const { data: itemMasterData = [] } = useQuery<any[]>({
+    queryKey: ["/api/item-master", "purchase"],
+    queryFn: () => fetch("/api/item-master?type=purchase", { credentials: "include" }).then(r => r.json()),
   });
-  const itemNames: string[] = (vegItems as any[]).map((v: any) => v.name).filter(Boolean);
+  const itemNames: string[] = (itemMasterData as any[]).map((v: any) => v.itemName).filter(Boolean);
+  const itemMasterMap = new Map<string, { uom: string; rate: number }>(
+    (itemMasterData as any[]).map((v: any) => [v.itemName, { uom: v.uom || "", rate: parseFloat(v.rate) || 0 }])
+  );
 
 
   const loadCashSeal = useCallback(async () => {
@@ -252,10 +255,23 @@ export default function DailyPnlPage() {
 
   const fetchLastPrice = async (items: ExpenseItem[], i: number, setter: (r: ExpenseItem[]) => void) => {
     const name = items[i]?.itemName?.trim();
-    if (!name || items[i].rate > 0) return;
-    const r = await fetch(`/api/daily-pnl/last-price?item=${encodeURIComponent(name)}`, { credentials: "include" });
-    const { price } = await r.json();
-    if (price > 0) setter(items.map((x, xi) => xi === i ? { ...x, rate: price, total: x.qty * price } : x));
+    if (!name) return;
+    const masterInfo = itemMasterMap.get(name);
+    const updates: Partial<ExpenseItem> = {};
+    if (!items[i].uom && masterInfo?.uom) updates.uom = masterInfo.uom;
+    if (items[i].rate === 0) {
+      const r = await fetch(`/api/daily-pnl/last-price?item=${encodeURIComponent(name)}`, { credentials: "include" });
+      const { price } = await r.json();
+      if (price > 0) {
+        updates.rate = price;
+        updates.total = items[i].qty * price;
+      } else if (masterInfo?.rate && masterInfo.rate > 0) {
+        updates.rate = masterInfo.rate;
+        updates.total = items[i].qty * masterInfo.rate;
+      }
+    }
+    if (Object.keys(updates).length > 0)
+      setter(items.map((x, xi) => xi === i ? { ...x, ...updates } : x));
   };
 
   const saveMut = useMutation({
