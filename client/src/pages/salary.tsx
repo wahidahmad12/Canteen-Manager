@@ -511,12 +511,12 @@ export default function SalaryRegister() {
         else if (val === "H" || val === "PH") holidays++;
         else if (val === "WO") weeklyOff++;
         else if (val === "CL" || val === "SL" || val === "EL") leave++;
-        else if (val === "HW" || val === "P/HL") holidayWorking++;
+        else if (val === "HW" || val === "P/HL") { holidayWorking++; prsDays++; }
       }
     }
     if (prsDays === 0) prsDays = n(att?.totalPresent) || n(s.daysWorked);
     const paidDays = att
-      ? prsDays + holidays + (holidayWorking * 2) + halfDay
+      ? prsDays + holidays + holidayWorking + halfDay
       : n(s.daysWorked);
     const otHrs = n(s.overtimeHours);
     const skillCategory = emp?.skills || "";

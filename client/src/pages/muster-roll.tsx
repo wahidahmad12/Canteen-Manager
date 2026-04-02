@@ -194,12 +194,12 @@ export default function MusterRoll() {
       const val = empData[`day${d}`];
       if (val === "P") present += 1;
       else if (val === "H") holidays += 1;
-      else if (val === "P/HL") holidayPresent += 1;
+      else if (val === "P/HL") { holidayPresent += 1; present += 1; }
       else if (val === "HD") halfDay += 1;
       else if (val === "A") absent += 1;
       else if (val === "WO") weeklyOff += 1;
     }
-    const totalPaidDays = present + holidays + (holidayPresent * 2) + halfDay;
+    const totalPaidDays = present + holidays + holidayPresent + halfDay;
     return { present, holidays, holidayPresent, halfDay, totalPaidDays, absent, weeklyOff };
   }, [daysInMonth]);
 
