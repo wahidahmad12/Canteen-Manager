@@ -147,11 +147,23 @@ function buildSlipHTML(salary: SalaryRecord, employee: Employee | undefined, att
   const totalDedu = n(salary.totalDeduction);
   const netSalary = n(salary.netPay);
   const otHrs = n(salary.overtimeHours);
-  const prsDays = n(attendance?.totalPresent) || n(salary.daysWorked);
-  const leave = n(attendance?.totalAbsent);
-  let holidays = 0;
-  if (attendance) { for (let i = 1; i <= 31; i++) { const val = attendance[`day${i}`]; if (val === "H" || val === "WO" || val === "PH") holidays++; } }
-  const paidDays = n(salary.daysWorked);
+  let rawPrsDays = 0, halfDayCount = 0, holidayWorkingCount = 0, hCount = 0;
+  if (attendance) {
+    for (let i = 1; i <= 31; i++) {
+      const val = (attendance as any)[`day${i}`];
+      if (val === "P") rawPrsDays++;
+      else if (val === "P/HL") holidayWorkingCount++;
+      else if (val === "H" || val === "PH") hCount++;
+      else if (val === "HD") halfDayCount++;
+    }
+  }
+  const prsDays = (rawPrsDays + holidayWorkingCount) || n(attendance?.totalPresent) || n(salary.daysWorked);
+  const halfDayWS = halfDayCount;
+  const holidayWorkingWS = holidayWorkingCount;
+  const holidays = hCount + holidayWorkingCount;
+  const paidDays = attendance
+    ? prsDays + holidays + holidayWorkingCount + halfDayCount
+    : n(salary.daysWorked);
 
   const C = {
     headerGrad: "linear-gradient(135deg, #1a237e 0%, #283593 30%, #3949ab 60%, #5c6bc0 100%)",
@@ -241,23 +253,23 @@ function buildSlipHTML(salary: SalaryRecord, employee: Employee | undefined, att
         </tr>
         <tr>
           <td style="background:${C.attLabelBg};color:${C.attLabelColor};font-weight:600;border:${b};${cp}">Half Day</td>
-          <td style="text-align:right;font-weight:700;color:${C.attValColor};border:${b};${cp}">0</td>
+          <td style="text-align:right;font-weight:700;color:${C.attValColor};border:${b};${cp}">${halfDayWS}</td>
           <td style="background:${C.earnLabelBg};color:${C.earnLabelColor};font-weight:600;border:${b};${cp}" colspan="2">Basic</td>
           <td style="text-align:right;font-weight:700;color:${C.earnValColor};border:${b};${cp}">${basic}</td>
           <td style="background:${C.dedLabelBg};color:${C.dedLabelColor};font-weight:600;border:${b};${cp}" colspan="2">P-TAX</td>
           <td style="text-align:right;font-weight:700;color:${C.dedValColor};border:${b};${cp}">${pTax}</td>
         </tr>
         <tr>
-          <td style="background:${C.attLabelBg};color:${C.attLabelColor};font-weight:600;border:${b};${cp}">Extra Work</td>
-          <td style="text-align:right;font-weight:700;color:${C.attValColor};border:${b};${cp}">0</td>
+          <td style="background:${C.attLabelBg};color:${C.attLabelColor};font-weight:600;border:${b};${cp}">Holiday Working</td>
+          <td style="text-align:right;font-weight:700;color:${C.attValColor};border:${b};${cp}">${holidayWorkingWS}</td>
           <td style="background:${C.earnLabelBg};color:${C.earnLabelColor};font-weight:600;border:${b};${cp}" colspan="2">DA</td>
           <td style="text-align:right;font-weight:700;color:${C.earnValColor};border:${b};${cp}">${n(salary.da)}</td>
           <td style="background:${C.dedLabelBg};color:${C.dedLabelColor};font-weight:600;border:${b};${cp}" colspan="2">PF @12%</td>
           <td style="text-align:right;font-weight:700;color:${C.dedValColor};border:${b};${cp}">${pfDed}</td>
         </tr>
         <tr>
-          <td style="background:${C.attLabelBg};color:${C.attLabelColor};font-weight:600;border:${b};${cp}">Absent</td>
-          <td style="text-align:right;font-weight:700;color:${C.attValColor};border:${b};${cp}">${leave}</td>
+          <td style="background:${C.attLabelBg};color:${C.attLabelColor};font-weight:600;border:${b};${cp}">LEAVE</td>
+          <td style="text-align:right;font-weight:700;color:${C.attValColor};border:${b};${cp}">${n(attendance?.totalAbsent)}</td>
           <td style="background:${C.earnLabelBg};color:${C.earnLabelColor};font-weight:600;border:${b};${cp}" colspan="2">HRA 5%</td>
           <td style="text-align:right;font-weight:700;color:${C.earnValColor};border:${b};${cp}">${hra5}</td>
           <td style="background:${C.dedLabelBg};color:${C.dedLabelColor};font-weight:600;border:${b};${cp}" colspan="2">LWF</td>
