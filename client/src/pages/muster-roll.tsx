@@ -184,7 +184,7 @@ export default function MusterRoll() {
   }, []);
 
   const calcTotals = useCallback((empData: Record<string, StatusCode>) => {
-    let present = 0;
+    let rawPresent = 0;
     let holidays = 0;
     let holidayPresent = 0;
     let halfDay = 0;
@@ -192,14 +192,15 @@ export default function MusterRoll() {
     let weeklyOff = 0;
     for (let d = 1; d <= daysInMonth; d++) {
       const val = empData[`day${d}`];
-      if (val === "P") present += 1;
+      if (val === "P") rawPresent += 1;
       else if (val === "H") holidays += 1;
-      else if (val === "P/HL") { holidayPresent += 1; present += 1; }
+      else if (val === "P/HL") holidayPresent += 1;
       else if (val === "HD") halfDay += 1;
       else if (val === "A") absent += 1;
       else if (val === "WO") weeklyOff += 1;
     }
-    const totalPaidDays = present + holidays + holidayPresent + halfDay;
+    const present = rawPresent + holidayPresent;
+    const totalPaidDays = rawPresent + holidays + holidayPresent;
     return { present, holidays, holidayPresent, halfDay, totalPaidDays, absent, weeklyOff };
   }, [daysInMonth]);
 

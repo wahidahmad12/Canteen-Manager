@@ -500,23 +500,24 @@ export default function SalaryRegister() {
     const n = (v: string | undefined | null) => Number(v) || 0;
     const emp = employeeMap.get(s.employeeId);
     const att = attendanceList?.find((a) => a.employeeId === s.employeeId);
-    let prsDays = 0, halfDay = 0, holidayWorking = 0, leave = 0, holidays = 0, weeklyOff = 0;
+    let rawPrsDays = 0, halfDay = 0, holidayWorking = 0, leave = 0, holidays = 0, weeklyOff = 0;
     if (att) {
       for (let i = 1; i <= 31; i++) {
         const val = (att as any)[`day${i}`] as string;
         if (!val) continue;
-        if (val === "P") prsDays++;
+        if (val === "P") rawPrsDays++;
         else if (val === "HD") halfDay++;
         else if (val === "A") leave++;
         else if (val === "H" || val === "PH") holidays++;
         else if (val === "WO") weeklyOff++;
         else if (val === "CL" || val === "SL" || val === "EL") leave++;
-        else if (val === "HW" || val === "P/HL") { holidayWorking++; prsDays++; }
+        else if (val === "HW" || val === "P/HL") holidayWorking++;
       }
     }
+    let prsDays = rawPrsDays + holidayWorking;
     if (prsDays === 0) prsDays = n(att?.totalPresent) || n(s.daysWorked);
     const paidDays = att
-      ? prsDays + holidays + holidayWorking + halfDay
+      ? rawPrsDays + holidays + holidayWorking
       : n(s.daysWorked);
     const otHrs = n(s.overtimeHours);
     const skillCategory = emp?.skills || "";
