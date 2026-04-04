@@ -6212,94 +6212,146 @@ function PecVenturesTab({ month, year, loadKey = 0 }: { month: number; year: num
 
   const handlePrint = () => {
     const MN = ["January","February","March","April","May","June","July","August","September","October","November","December"];
-    const fq = (v: number, dec = 3) => v === 0 ? '' : v % 1 === 0 ? String(v) : v.toFixed(dec).replace(/\.?0+$/, '');
+    const fq = (v: number) => v === 0 ? '' : v % 1 === 0 ? String(v) : v.toFixed(3).replace(/\.?0+$/, '');
     const fa = (v: number) => v === 0 ? '' : v.toFixed(2);
     const th = `border:1px solid #000;padding:3px 4px;text-align:center;font-size:9px;font-weight:600;background:#d9e1f2;`;
     const td = `border:1px solid #000;padding:2px 4px;text-align:center;font-size:8.5px;`;
     const tdr = `border:1px solid #000;padding:2px 4px;text-align:right;font-size:8.5px;`;
     const tdl = `border:1px solid #000;padding:2px 3px;text-align:left;font-size:8.5px;`;
-    const tot: Record<string, number> = { redLabel:0,tataTea:0,coffee:0,sugar:0,ginger:0,biscuit:0,teaCup:0,greenElaychi:0,greenTea:0,blackSalt:0,milkMorning:0,milkEvening:0 };
+
+    // First pass: compute column totals across ALL rows
+    const tot = { redLabel:0,tataTea:0,coffee:0,sugar:0,ginger:0,biscuit:0,teaCup:0,greenElaychi:0,greenTea:0,blackSalt:0,milkMorning:0,milkEvening:0 };
+    rows.forEach(r => {
+      tot.redLabel += n(r.redLabelQty); tot.tataTea += n(r.tataTeaQty); tot.coffee += n(r.coffeeQty);
+      tot.sugar += n(r.sugarQty); tot.ginger += n(r.gingerQty); tot.biscuit += n(r.biscuitQty);
+      tot.teaCup += n(r.teaCupQty); tot.greenElaychi += n(r.greenElaychiQty); tot.greenTea += n(r.greenTeaQty);
+      tot.blackSalt += n(r.blackSaltQty); tot.milkMorning += n(r.milkMorningQty); tot.milkEvening += n(r.milkEveningQty);
+    });
+    const milkTotTotal = tot.milkMorning + tot.milkEvening;
+
+    // Column definitions — each item that may be shown/hidden
+    const COLS: Array<{
+      show: boolean; label: string; colspan: number;
+      h2: string;
+      cell: (r: PecRow) => string;
+      totCell: () => string;
+      amount: () => number;
+    }> = [
+      {
+        show: tot.redLabel > 0, label: 'Red Label Tea Powder', colspan: 3,
+        h2: `<th style="${th}">Qty in Kg</th><th style="${th}">Rate</th><th style="${th}">Total</th>`,
+        cell: (r) => `<td style="${tdr}">${fq(n(r.redLabelQty))}</td><td style="${tdr}">${n(r.redLabelQty)?PEC_RATES.redLabel:''}</td><td style="${tdr}">${fa(n(r.redLabelQty)*PEC_RATES.redLabel)}</td>`,
+        totCell: () => `<td style="${tdr}">${fq(tot.redLabel)}</td><td style="${td}"></td><td style="${tdr}">${fa(tot.redLabel*PEC_RATES.redLabel)}</td>`,
+        amount: () => tot.redLabel*PEC_RATES.redLabel,
+      },
+      {
+        show: tot.tataTea > 0, label: 'Tata Tea Powder', colspan: 3,
+        h2: `<th style="${th}">Qty in Kg</th><th style="${th}">Rate</th><th style="${th}">Total</th>`,
+        cell: (r) => `<td style="${tdr}">${fq(n(r.tataTeaQty))}</td><td style="${tdr}">${n(r.tataTeaQty)?PEC_RATES.tataTea:''}</td><td style="${tdr}">${fa(n(r.tataTeaQty)*PEC_RATES.tataTea)}</td>`,
+        totCell: () => `<td style="${tdr}">${fq(tot.tataTea)}</td><td style="${td}"></td><td style="${tdr}">${fa(tot.tataTea*PEC_RATES.tataTea)}</td>`,
+        amount: () => tot.tataTea*PEC_RATES.tataTea,
+      },
+      {
+        show: tot.coffee > 0, label: 'Coffee', colspan: 3,
+        h2: `<th style="${th}">Qty in Gm</th><th style="${th}">Rate</th><th style="${th}">Total</th>`,
+        cell: (r) => `<td style="${tdr}">${fq(n(r.coffeeQty))}</td><td style="${tdr}">${n(r.coffeeQty)?PEC_RATES.coffee:''}</td><td style="${tdr}">${fa(n(r.coffeeQty)*PEC_RATES.coffee)}</td>`,
+        totCell: () => `<td style="${tdr}">${fq(tot.coffee)}</td><td style="${td}"></td><td style="${tdr}">${fa(tot.coffee*PEC_RATES.coffee)}</td>`,
+        amount: () => tot.coffee*PEC_RATES.coffee,
+      },
+      {
+        show: tot.sugar > 0, label: 'Sugar', colspan: 3,
+        h2: `<th style="${th}">Qty in Kg</th><th style="${th}">Rate</th><th style="${th}">Total</th>`,
+        cell: (r) => `<td style="${tdr}">${fq(n(r.sugarQty))}</td><td style="${tdr}">${n(r.sugarQty)?PEC_RATES.sugar:''}</td><td style="${tdr}">${fa(n(r.sugarQty)*PEC_RATES.sugar)}</td>`,
+        totCell: () => `<td style="${tdr}">${fq(tot.sugar)}</td><td style="${td}"></td><td style="${tdr}">${fa(tot.sugar*PEC_RATES.sugar)}</td>`,
+        amount: () => tot.sugar*PEC_RATES.sugar,
+      },
+      {
+        show: tot.ginger > 0, label: 'Ginger', colspan: 3,
+        h2: `<th style="${th}">Qty in Kg</th><th style="${th}">Rate</th><th style="${th}">Total</th>`,
+        cell: (r) => `<td style="${tdr}">${fq(n(r.gingerQty))}</td><td style="${tdr}">${n(r.gingerQty)?PEC_RATES.ginger:''}</td><td style="${tdr}">${fa(n(r.gingerQty)*PEC_RATES.ginger)}</td>`,
+        totCell: () => `<td style="${tdr}">${fq(tot.ginger)}</td><td style="${td}"></td><td style="${tdr}">${fa(tot.ginger*PEC_RATES.ginger)}</td>`,
+        amount: () => tot.ginger*PEC_RATES.ginger,
+      },
+      {
+        show: tot.biscuit > 0, label: 'Biscuit', colspan: 3,
+        h2: `<th style="${th}">Qty in Pcs</th><th style="${th}">Rate</th><th style="${th}">Total</th>`,
+        cell: (r) => `<td style="${tdr}">${fq(n(r.biscuitQty))}</td><td style="${tdr}">${n(r.biscuitQty)?PEC_RATES.biscuit:''}</td><td style="${tdr}">${fa(n(r.biscuitQty)*PEC_RATES.biscuit)}</td>`,
+        totCell: () => `<td style="${tdr}">${fq(tot.biscuit)}</td><td style="${td}"></td><td style="${tdr}">${fa(tot.biscuit*PEC_RATES.biscuit)}</td>`,
+        amount: () => tot.biscuit*PEC_RATES.biscuit,
+      },
+      {
+        show: tot.teaCup > 0, label: 'Tea Cup', colspan: 3,
+        h2: `<th style="${th}">Qty in Pcs</th><th style="${th}">Rate</th><th style="${th}">Total</th>`,
+        cell: (r) => `<td style="${tdr}">${fq(n(r.teaCupQty))}</td><td style="${tdr}">${n(r.teaCupQty)?PEC_RATES.teaCup:''}</td><td style="${tdr}">${fa(n(r.teaCupQty)*PEC_RATES.teaCup)}</td>`,
+        totCell: () => `<td style="${tdr}">${fq(tot.teaCup)}</td><td style="${td}"></td><td style="${tdr}">${fa(tot.teaCup*PEC_RATES.teaCup)}</td>`,
+        amount: () => tot.teaCup*PEC_RATES.teaCup,
+      },
+      {
+        show: tot.greenElaychi > 0, label: 'Green Elaychi', colspan: 3,
+        h2: `<th style="${th}">Qty in Gm</th><th style="${th}">Rate</th><th style="${th}">Total</th>`,
+        cell: (r) => `<td style="${tdr}">${fq(n(r.greenElaychiQty))}</td><td style="${tdr}">${n(r.greenElaychiQty)?PEC_RATES.greenElaychi:''}</td><td style="${tdr}">${fa(n(r.greenElaychiQty)*PEC_RATES.greenElaychi)}</td>`,
+        totCell: () => `<td style="${tdr}">${fq(tot.greenElaychi)}</td><td style="${td}"></td><td style="${tdr}">${fa(tot.greenElaychi*PEC_RATES.greenElaychi)}</td>`,
+        amount: () => tot.greenElaychi*PEC_RATES.greenElaychi,
+      },
+      {
+        show: tot.greenTea > 0, label: 'Green Tea', colspan: 3,
+        h2: `<th style="${th}">Qty in Pkt</th><th style="${th}">Rate</th><th style="${th}">Total</th>`,
+        cell: (r) => `<td style="${tdr}">${fq(n(r.greenTeaQty))}</td><td style="${tdr}">${n(r.greenTeaQty)?PEC_RATES.greenTea:''}</td><td style="${tdr}">${fa(n(r.greenTeaQty)*PEC_RATES.greenTea)}</td>`,
+        totCell: () => `<td style="${tdr}">${fq(tot.greenTea)}</td><td style="${td}"></td><td style="${tdr}">${fa(tot.greenTea*PEC_RATES.greenTea)}</td>`,
+        amount: () => tot.greenTea*PEC_RATES.greenTea,
+      },
+      {
+        show: tot.blackSalt > 0, label: 'Black Salt', colspan: 3,
+        h2: `<th style="${th}">Qty in Kg</th><th style="${th}">Rate</th><th style="${th}">Total</th>`,
+        cell: (r) => `<td style="${tdr}">${fq(n(r.blackSaltQty))}</td><td style="${tdr}">${n(r.blackSaltQty)?PEC_RATES.blackSalt:''}</td><td style="${tdr}">${fa(n(r.blackSaltQty)*PEC_RATES.blackSalt)}</td>`,
+        totCell: () => `<td style="${tdr}">${fq(tot.blackSalt)}</td><td style="${td}"></td><td style="${tdr}">${fa(tot.blackSalt*PEC_RATES.blackSalt)}</td>`,
+        amount: () => tot.blackSalt*PEC_RATES.blackSalt,
+      },
+      {
+        show: milkTotTotal > 0, label: 'Milk', colspan: 5,
+        h2: `<th style="${th}">Morning Qty</th><th style="${th}">Evning Qty</th><th style="${th}">Total</th><th style="${th}">Rate</th><th style="${th}">Total Amt</th>`,
+        cell: (r) => { const mt = n(r.milkMorningQty)+n(r.milkEveningQty); return `<td style="${tdr}">${fq(n(r.milkMorningQty))}</td><td style="${tdr}">${fq(n(r.milkEveningQty))}</td><td style="${tdr}">${mt||''}</td><td style="${tdr}">${mt?PEC_RATES.milk:''}</td><td style="${tdr}">${fa(mt*PEC_RATES.milk)}</td>`; },
+        totCell: () => `<td style="${tdr}">${fq(tot.milkMorning)}</td><td style="${tdr}">${fq(tot.milkEvening)}</td><td style="${tdr}">${milkTotTotal||''}</td><td style="${td}"></td><td style="${tdr}">${fa(milkTotTotal*PEC_RATES.milk)}</td>`,
+        amount: () => milkTotTotal*PEC_RATES.milk,
+      },
+    ];
+
+    const visCols = COLS.filter(c => c.show);
+    const totalColspan = 2 + visCols.reduce((s, c) => s + c.colspan, 0);
+    const grandTotal = visCols.reduce((s, c) => s + c.amount(), 0);
+
+    // Filter rows that have at least one non-zero value
     const nonEmptyRows = rows.filter(r =>
       n(r.redLabelQty) || n(r.tataTeaQty) || n(r.coffeeQty) || n(r.sugarQty) || n(r.gingerQty) ||
       n(r.biscuitQty) || n(r.teaCupQty) || n(r.greenElaychiQty) || n(r.greenTeaQty) ||
       n(r.blackSaltQty) || n(r.milkMorningQty) || n(r.milkEveningQty)
     );
+
     const dataRows = nonEmptyRows.map(r => {
-      const milkTotal = n(r.milkMorningQty) + n(r.milkEveningQty);
-      tot.redLabel += n(r.redLabelQty); tot.tataTea += n(r.tataTeaQty); tot.coffee += n(r.coffeeQty);
-      tot.sugar += n(r.sugarQty); tot.ginger += n(r.gingerQty); tot.biscuit += n(r.biscuitQty);
-      tot.teaCup += n(r.teaCupQty); tot.greenElaychi += n(r.greenElaychiQty); tot.greenTea += n(r.greenTeaQty);
-      tot.blackSalt += n(r.blackSaltQty); tot.milkMorning += n(r.milkMorningQty); tot.milkEvening += n(r.milkEveningQty);
       const d = new Date(r.entryDate + 'T00:00:00');
       const dd = `${String(d.getDate()).padStart(2,'0')}-${String(d.getMonth()+1).padStart(2,'0')}-${d.getFullYear()}`;
-      return `<tr>
-        <td style="${tdl}">${dd}</td><td style="${td}">${r.weekDay}</td>
-        <td style="${tdr}">${fq(n(r.redLabelQty))}</td><td style="${tdr}">${n(r.redLabelQty)?PEC_RATES.redLabel:''}</td><td style="${tdr}">${fa(n(r.redLabelQty)*PEC_RATES.redLabel)}</td>
-        <td style="${tdr}">${fq(n(r.tataTeaQty))}</td><td style="${tdr}">${n(r.tataTeaQty)?PEC_RATES.tataTea:''}</td><td style="${tdr}">${fa(n(r.tataTeaQty)*PEC_RATES.tataTea)}</td>
-        <td style="${tdr}">${fq(n(r.coffeeQty))}</td><td style="${tdr}">${n(r.coffeeQty)?PEC_RATES.coffee:''}</td><td style="${tdr}">${fa(n(r.coffeeQty)*PEC_RATES.coffee)}</td>
-        <td style="${tdr}">${fq(n(r.sugarQty))}</td><td style="${tdr}">${n(r.sugarQty)?PEC_RATES.sugar:''}</td><td style="${tdr}">${fa(n(r.sugarQty)*PEC_RATES.sugar)}</td>
-        <td style="${tdr}">${fq(n(r.gingerQty))}</td><td style="${tdr}">${n(r.gingerQty)?PEC_RATES.ginger:''}</td><td style="${tdr}">${fa(n(r.gingerQty)*PEC_RATES.ginger)}</td>
-        <td style="${tdr}">${fq(n(r.biscuitQty))}</td><td style="${tdr}">${n(r.biscuitQty)?PEC_RATES.biscuit:''}</td><td style="${tdr}">${fa(n(r.biscuitQty)*PEC_RATES.biscuit)}</td>
-        <td style="${tdr}">${fq(n(r.teaCupQty))}</td><td style="${tdr}">${n(r.teaCupQty)?PEC_RATES.teaCup:''}</td><td style="${tdr}">${fa(n(r.teaCupQty)*PEC_RATES.teaCup)}</td>
-        <td style="${tdr}">${fq(n(r.greenElaychiQty))}</td><td style="${tdr}">${n(r.greenElaychiQty)?PEC_RATES.greenElaychi:''}</td><td style="${tdr}">${fa(n(r.greenElaychiQty)*PEC_RATES.greenElaychi)}</td>
-        <td style="${tdr}">${fq(n(r.greenTeaQty))}</td><td style="${tdr}">${n(r.greenTeaQty)?PEC_RATES.greenTea:''}</td><td style="${tdr}">${fa(n(r.greenTeaQty)*PEC_RATES.greenTea)}</td>
-        <td style="${tdr}">${fq(n(r.blackSaltQty))}</td><td style="${tdr}">${n(r.blackSaltQty)?PEC_RATES.blackSalt:''}</td><td style="${tdr}">${fa(n(r.blackSaltQty)*PEC_RATES.blackSalt)}</td>
-        <td style="${tdr}">${fq(n(r.milkMorningQty))}</td><td style="${tdr}">${fq(n(r.milkEveningQty))}</td>
-        <td style="${tdr}">${milkTotal||''}</td><td style="${tdr}">${milkTotal?PEC_RATES.milk:''}</td><td style="${tdr}">${fa(milkTotal*PEC_RATES.milk)}</td>
-      </tr>`;
+      return `<tr><td style="${tdl}">${dd}</td><td style="${td}">${r.weekDay}</td>${visCols.map(c => c.cell(r)).join('')}</tr>`;
     }).join('');
-    const milkTotTotal = tot.milkMorning + tot.milkEvening;
-    const grandTotal = (tot.redLabel*PEC_RATES.redLabel)+(tot.tataTea*PEC_RATES.tataTea)+(tot.coffee*PEC_RATES.coffee)+(tot.sugar*PEC_RATES.sugar)+(tot.ginger*PEC_RATES.ginger)+(tot.biscuit*PEC_RATES.biscuit)+(tot.teaCup*PEC_RATES.teaCup)+(tot.greenElaychi*PEC_RATES.greenElaychi)+(tot.greenTea*PEC_RATES.greenTea)+(tot.blackSalt*PEC_RATES.blackSalt)+(milkTotTotal*PEC_RATES.milk);
+
     const html = `<!DOCTYPE html><html><head><meta charset="UTF-8"><title>PEC Ventures Canteen</title>
     <style>@page{size:A3 landscape;margin:8mm}body{font-family:Arial,sans-serif;margin:0}table{border-collapse:collapse;width:100%}@media print{.no-print{display:none}}</style>
     </head><body>
     <table>
-      <tr><td colspan="37" style="text-align:center;font-size:13px;font-weight:bold;border:1px solid #000;padding:4px;background:#d9e1f2;">DJ Hospitality &amp; Facility Management Pvt. Ltd.</td></tr>
-      <tr><td colspan="37" style="text-align:center;font-size:11px;font-weight:bold;border:1px solid #000;padding:4px;background:#e2efda;">Expense Toward Canteen Per Day to PEC VENTURES PRIVATE LIMITED - ${MN[month-1]} - ${year}</td></tr>
+      <tr><td colspan="${totalColspan}" style="text-align:center;font-size:13px;font-weight:bold;border:1px solid #000;padding:4px;background:#d9e1f2;">DJ Hospitality &amp; Facility Management Pvt. Ltd.</td></tr>
+      <tr><td colspan="${totalColspan}" style="text-align:center;font-size:11px;font-weight:bold;border:1px solid #000;padding:4px;background:#e2efda;">Expense Toward Canteen Per Day to PEC VENTURES PRIVATE LIMITED - ${MN[month-1]} - ${year}</td></tr>
       <tr>
         <th style="${th}" rowspan="2">Date</th><th style="${th}" rowspan="2">Days</th>
-        <th style="${th}" colspan="3">Red Label Tea Powder</th>
-        <th style="${th}" colspan="3">Tata Tea Powder</th>
-        <th style="${th}" colspan="3">Coffee</th>
-        <th style="${th}" colspan="3">Sugar</th>
-        <th style="${th}" colspan="3">Ginger</th>
-        <th style="${th}" colspan="3">Biscuit</th>
-        <th style="${th}" colspan="3">Tea Cup</th>
-        <th style="${th}" colspan="3">Green Elaychi</th>
-        <th style="${th}" colspan="3">Green Tea</th>
-        <th style="${th}" colspan="3">Black Salt</th>
-        <th style="${th}" colspan="5">Milk</th>
+        ${visCols.map(c => `<th style="${th}" colspan="${c.colspan}">${c.label}</th>`).join('')}
       </tr>
       <tr>
-        <th style="${th}">Qty in Kg</th><th style="${th}">Rate</th><th style="${th}">Total</th>
-        <th style="${th}">Qty in Kg</th><th style="${th}">Rate</th><th style="${th}">Total</th>
-        <th style="${th}">Qty in Gm</th><th style="${th}">Rate</th><th style="${th}">Total</th>
-        <th style="${th}">Qty in Kg</th><th style="${th}">Rate</th><th style="${th}">Total</th>
-        <th style="${th}">Qty in Kg</th><th style="${th}">Rate</th><th style="${th}">Total</th>
-        <th style="${th}">Qty in Pcs</th><th style="${th}">Rate</th><th style="${th}">Total</th>
-        <th style="${th}">Qty in Pcs</th><th style="${th}">Rate</th><th style="${th}">Total</th>
-        <th style="${th}">Qty in Gm</th><th style="${th}">Rate</th><th style="${th}">Total</th>
-        <th style="${th}">Qty in Pkt</th><th style="${th}">Rate</th><th style="${th}">Total</th>
-        <th style="${th}">Qty in Kg</th><th style="${th}">Rate</th><th style="${th}">Total</th>
-        <th style="${th}">Morning Qty</th><th style="${th}">Evning Qty</th><th style="${th}">Total</th><th style="${th}">Rate</th><th style="${th}">Total</th>
+        ${visCols.map(c => c.h2).join('')}
       </tr>
       ${dataRows}
       <tr style="font-weight:bold;background:#fff2cc;">
         <td style="${tdl}" colspan="2">TOTAL</td>
-        <td style="${tdr}">${fq(tot.redLabel)}</td><td style="${td}"></td><td style="${tdr}">${fa(tot.redLabel*PEC_RATES.redLabel)}</td>
-        <td style="${tdr}">${fq(tot.tataTea)}</td><td style="${td}"></td><td style="${tdr}">${fa(tot.tataTea*PEC_RATES.tataTea)}</td>
-        <td style="${tdr}">${fq(tot.coffee)}</td><td style="${td}"></td><td style="${tdr}">${fa(tot.coffee*PEC_RATES.coffee)}</td>
-        <td style="${tdr}">${fq(tot.sugar)}</td><td style="${td}"></td><td style="${tdr}">${fa(tot.sugar*PEC_RATES.sugar)}</td>
-        <td style="${tdr}">${fq(tot.ginger)}</td><td style="${td}"></td><td style="${tdr}">${fa(tot.ginger*PEC_RATES.ginger)}</td>
-        <td style="${tdr}">${fq(tot.biscuit)}</td><td style="${td}"></td><td style="${tdr}">${fa(tot.biscuit*PEC_RATES.biscuit)}</td>
-        <td style="${tdr}">${fq(tot.teaCup)}</td><td style="${td}"></td><td style="${tdr}">${fa(tot.teaCup*PEC_RATES.teaCup)}</td>
-        <td style="${tdr}">${fq(tot.greenElaychi)}</td><td style="${td}"></td><td style="${tdr}">${fa(tot.greenElaychi*PEC_RATES.greenElaychi)}</td>
-        <td style="${tdr}">${fq(tot.greenTea)}</td><td style="${td}"></td><td style="${tdr}">${fa(tot.greenTea*PEC_RATES.greenTea)}</td>
-        <td style="${tdr}">${fq(tot.blackSalt)}</td><td style="${td}"></td><td style="${tdr}">${fa(tot.blackSalt*PEC_RATES.blackSalt)}</td>
-        <td style="${tdr}">${fq(tot.milkMorning)}</td><td style="${tdr}">${fq(tot.milkEvening)}</td>
-        <td style="${tdr}">${milkTotTotal||''}</td><td style="${td}"></td><td style="${tdr}">${fa(milkTotTotal*PEC_RATES.milk)}</td>
+        ${visCols.map(c => c.totCell()).join('')}
       </tr>
-      <tr><td colspan="37" style="text-align:right;font-weight:bold;font-size:10px;border:1px solid #000;padding:4px;background:#fff2cc;">Grand Total: ₹${fa(grandTotal)}</td></tr>
+      <tr><td colspan="${totalColspan}" style="text-align:right;font-weight:bold;font-size:10px;border:1px solid #000;padding:4px;background:#fff2cc;">Grand Total: ₹${fa(grandTotal)}</td></tr>
     </table>
     <script>window.onload=()=>{window.print();}</script>
     </body></html>`;
