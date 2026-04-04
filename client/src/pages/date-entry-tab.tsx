@@ -6658,6 +6658,196 @@ function PecVenturesTab({ month, year, loadKey = 0 }: { month: number; year: num
   );
 }
 
+type PecYearRow = {
+  month: number;
+  redLabel: number; tataTea: number; coffee: number; sugar: number; ginger: number;
+  biscuit: number; teaCup: number; greenElaychi: number; greenTea: number;
+  blackSalt: number; milkMorning: number; milkEvening: number;
+};
+
+const PEC_ITEMS: { key: keyof PecYearRow; label: string; rate: number }[] = [
+  { key: 'redLabel',    label: 'Red Label Tea',  rate: PEC_RATES.redLabel    },
+  { key: 'tataTea',     label: 'Tata Tea',       rate: PEC_RATES.tataTea     },
+  { key: 'coffee',      label: 'Coffee',         rate: PEC_RATES.coffee      },
+  { key: 'sugar',       label: 'Sugar',          rate: PEC_RATES.sugar       },
+  { key: 'ginger',      label: 'Ginger',         rate: PEC_RATES.ginger      },
+  { key: 'biscuit',     label: 'Biscuit',        rate: PEC_RATES.biscuit     },
+  { key: 'teaCup',      label: 'Tea Cup',        rate: PEC_RATES.teaCup      },
+  { key: 'greenElaychi',label: 'Green Elaychi',  rate: PEC_RATES.greenElaychi},
+  { key: 'greenTea',    label: 'Green Tea',      rate: PEC_RATES.greenTea    },
+  { key: 'blackSalt',   label: 'Black Salt',     rate: PEC_RATES.blackSalt   },
+];
+
+function PecVentureSummaryTab({ currentYear }: { currentYear: number }) {
+  const { toast } = useToast();
+  const [summaryYear, setSummaryYear] = useState(currentYear);
+  const [selectedMonths, setSelectedMonths] = useState<Set<number>>(new Set(Array.from({length:12},(_,i)=>i+1)));
+
+  const { data: yrData = [], isLoading } = useQuery<PecYearRow[]>({
+    queryKey: ['/api/pec-ventures-entries/yearly-summary', summaryYear],
+    queryFn: () => fetch(`/api/pec-ventures-entries/yearly-summary?year=${summaryYear}`,{credentials:'include'}).then(r=>r.json()),
+  });
+
+  const toggleMonth = (m: number) => setSelectedMonths(prev => {
+    const s = new Set(prev); s.has(m) ? s.delete(m) : s.add(m); return s;
+  });
+  const allSelected = selectedMonths.size === 12;
+
+  const rowsMap = new Map(yrData.map(r => [r.month, r]));
+  const filteredMonths = Array.from({length:12},(_,i)=>i+1).filter(m => selectedMonths.has(m));
+
+  const fq = (v: number) => v === 0 ? '' : v % 1 === 0 ? String(v) : v.toFixed(3).replace(/\.?0+$/,'');
+  const fa = (v: number) => v === 0 ? '' : '₹'+v.toFixed(2);
+
+  const getMilkQty = (r: PecYearRow) => (r.milkMorning||0) + (r.milkEvening||0);
+  const getMilkAmt = (r: PecYearRow) => getMilkQty(r) * PEC_RATES.milk;
+  const getRowTotal = (r: PecYearRow) =>
+    PEC_ITEMS.reduce((s,c)=>s+(r[c.key]||0)*c.rate, 0) + getMilkAmt(r);
+
+  const grandTotQty = (key: keyof PecYearRow) =>
+    filteredMonths.reduce((s,m) => s + ((rowsMap.get(m)?.[key] as number)||0), 0);
+  const grandMilkQty = () => filteredMonths.reduce((s,m) => { const r=rowsMap.get(m); return s+(r?(getMilkQty(r)):0); }, 0);
+  const grandTotal = () => filteredMonths.reduce((s,m) => { const r=rowsMap.get(m); return s+(r?getRowTotal(r):0); }, 0);
+
+  const thS = "border border-gray-400 bg-blue-900 text-white text-center text-xs font-bold px-2 py-1 whitespace-nowrap";
+  const tdS = "border border-gray-300 text-center text-xs px-2 py-1";
+  const tdA = "border border-gray-300 text-right text-xs px-2 py-1 text-emerald-700 font-medium";
+  const totS = "border border-gray-400 bg-amber-50 text-center text-xs font-bold px-2 py-1";
+  const totA = "border border-gray-400 bg-amber-50 text-right text-xs font-bold px-2 py-1 text-emerald-800";
+
+  const handleExportExcel = async () => {
+    try {
+      const ExcelJS = (await import('exceljs')).default;
+      const wb = new ExcelJS.Workbook();
+      const ws = wb.addWorksheet('PEC Ventures Summary');
+      const thin = { top:{style:'thin'as const},bottom:{style:'thin'as const},left:{style:'thin'as const},right:{style:'thin'as const} };
+      const mkFill = (argb: string) => ({type:'pattern'as const,pattern:'solid'as const,fgColor:{argb}});
+      const wFont = {bold:true,color:{argb:'FFFFFFFF'}};
+
+      const itemCols = [...PEC_ITEMS.map(c=>c.label+' Qty'), 'Milk Qty (L)', ...PEC_ITEMS.map(c=>c.label+' Amt (₹)'), 'Milk Amt (₹)', 'Grand Total (₹)'];
+      const allCols = ['Month', ...itemCols];
+
+      // Title
+      ws.mergeCells(1,1,1,allCols.length);
+      const t=ws.getCell('A1'); t.value=`DJ Hospitality — PEC Ventures Yearly Summary — ${summaryYear}`; t.font={bold:true,size:12,color:{argb:'FFFFFFFF'}}; t.fill=mkFill('FF4F2B91'); t.alignment={horizontal:'center'}; t.border=thin;
+
+      // Header
+      const hdr = ws.addRow(allCols);
+      hdr.eachCell((c:any)=>{ c.font=wFont; c.fill=mkFill('FF1A3A5A'); c.border=thin; c.alignment={horizontal:'center',wrapText:true}; });
+      ws.columns = allCols.map((_,i)=>({width: i===0?16:14}));
+      ws.getRow(2).height = 28;
+
+      // Data
+      filteredMonths.forEach(m => {
+        const r: PecYearRow = rowsMap.get(m) ?? { month:m, redLabel:0,tataTea:0,coffee:0,sugar:0,ginger:0,biscuit:0,teaCup:0,greenElaychi:0,greenTea:0,blackSalt:0,milkMorning:0,milkEvening:0 };
+        const milkQ = getMilkQty(r); const rowTot = getRowTotal(r);
+        const vals = [MONTHS[m-1], ...PEC_ITEMS.map(c=>(r[c.key]||0)||''), milkQ||'', ...PEC_ITEMS.map(c=>((r[c.key]||0)*c.rate)||''), (milkQ*PEC_RATES.milk)||'', rowTot||''];
+        const dr = ws.addRow(vals);
+        dr.eachCell((c:any)=>{c.border=thin;c.alignment={horizontal:'center'};});
+      });
+
+      // Totals
+      const totVals = ['GRAND TOTAL', ...PEC_ITEMS.map(c=>grandTotQty(c.key)||''), grandMilkQty()||'', ...PEC_ITEMS.map(c=>(grandTotQty(c.key)*c.rate)||''), (grandMilkQty()*PEC_RATES.milk)||'', grandTotal()||''];
+      const totRow = ws.addRow(totVals);
+      totRow.eachCell((c:any)=>{c.font={bold:true};c.fill=mkFill('FFFFF2CC');c.border=thin;c.alignment={horizontal:'center'};});
+
+      const buf = await wb.xlsx.writeBuffer();
+      const blob = new Blob([buf],{type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'});
+      const a = document.createElement('a'); a.href=URL.createObjectURL(blob);
+      a.download=`PEC_Ventures_Summary_${summaryYear}.xlsx`; a.click();
+    } catch(err:any){ toast({title:'Export Failed',description:err.message,variant:'destructive'}); }
+  };
+
+  return (
+    <div className="space-y-4">
+      {/* Controls */}
+      <div className="flex flex-wrap items-center gap-3">
+        <div className="flex items-center gap-2">
+          <span className="text-sm font-medium text-muted-foreground">Year:</span>
+          <select value={summaryYear} onChange={e=>setSummaryYear(Number(e.target.value))} className="border border-gray-300 rounded px-2 py-1 text-sm" data-testid="select-pec-summary-year">
+            {Array.from({length:6},(_,i)=>currentYear-2+i).map(y=><option key={y} value={y}>{y}</option>)}
+          </select>
+        </div>
+        <button onClick={handleExportExcel} className="px-3 py-1.5 border rounded text-xs font-medium flex items-center gap-1 text-green-700 border-green-300 hover:bg-green-50" data-testid="btn-pec-summary-export">
+          <FileDown className="w-3.5 h-3.5"/>Export Excel
+        </button>
+      </div>
+
+      {/* Month filter */}
+      <div className="flex flex-wrap gap-1.5 p-3 rounded-lg bg-muted/40 border">
+        <span className="text-xs font-semibold text-muted-foreground self-center mr-1">Filter Months:</span>
+        <button onClick={()=>setSelectedMonths(allSelected?new Set():new Set(Array.from({length:12},(_,i)=>i+1)))}
+          className={`px-2 py-0.5 rounded text-xs font-medium border ${allSelected?'bg-blue-600 text-white border-blue-600':'bg-white text-gray-600 border-gray-300 hover:bg-gray-50'}`}
+          data-testid="btn-pec-summary-all">
+          All
+        </button>
+        {MONTHS.map((mn,i)=>(
+          <button key={i} onClick={()=>toggleMonth(i+1)}
+            className={`px-2 py-0.5 rounded text-xs font-medium border transition-colors ${selectedMonths.has(i+1)?'bg-blue-600 text-white border-blue-600':'bg-white text-gray-600 border-gray-300 hover:bg-gray-50'}`}
+            data-testid={`btn-pec-month-${i+1}`}>
+            {mn.slice(0,3)}
+          </button>
+        ))}
+      </div>
+
+      {isLoading ? (
+        <div className="flex justify-center py-10"><Loader2 className="w-6 h-6 animate-spin text-blue-500"/></div>
+      ) : (
+        <div className="overflow-x-auto rounded-lg border">
+          <table className="border-collapse min-w-max">
+            <thead>
+              <tr>
+                <th className={thS} rowSpan={2}>Month</th>
+                {PEC_ITEMS.map(c=><th key={c.key} className={thS} colSpan={2}>{c.label}</th>)}
+                <th className={thS} colSpan={2}>Milk</th>
+                <th className={thS} rowSpan={2}>Grand Total</th>
+              </tr>
+              <tr>
+                {PEC_ITEMS.map(c=><><th key={c.key+'q'} className={thS}>Qty</th><th key={c.key+'a'} className={thS}>Amount</th></>)}
+                <th className={thS}>Qty (L)</th><th className={thS}>Amount</th>
+              </tr>
+            </thead>
+            <tbody>
+              {filteredMonths.map(m => {
+                const r: PecYearRow = rowsMap.get(m) ?? { month:m, redLabel:0,tataTea:0,coffee:0,sugar:0,ginger:0,biscuit:0,teaCup:0,greenElaychi:0,greenTea:0,blackSalt:0,milkMorning:0,milkEvening:0 };
+                const milkQ = getMilkQty(r);
+                return (
+                  <tr key={m} className="hover:bg-muted/30">
+                    <td className={`${tdS} font-semibold`}>{MONTHS[m-1]}</td>
+                    {PEC_ITEMS.map(c=>(
+                      <>
+                        <td key={c.key+'q'} className={tdS}>{fq(r[c.key] as number)}</td>
+                        <td key={c.key+'a'} className={tdA}>{fa((r[c.key] as number)*c.rate)}</td>
+                      </>
+                    ))}
+                    <td className={tdS}>{fq(milkQ)}</td>
+                    <td className={tdA}>{fa(milkQ*PEC_RATES.milk)}</td>
+                    <td className={`${tdA} font-bold`}>{fa(getRowTotal(r))}</td>
+                  </tr>
+                );
+              })}
+            </tbody>
+            <tfoot>
+              <tr className="font-bold">
+                <td className={totS}>TOTAL</td>
+                {PEC_ITEMS.map(c=>(
+                  <>
+                    <td key={c.key+'q'} className={totS}>{fq(grandTotQty(c.key))}</td>
+                    <td key={c.key+'a'} className={totA}>{fa(grandTotQty(c.key)*c.rate)}</td>
+                  </>
+                ))}
+                <td className={totS}>{fq(grandMilkQty())}</td>
+                <td className={totA}>{fa(grandMilkQty()*PEC_RATES.milk)}</td>
+                <td className={`${totA} text-base`}>{fa(grandTotal())}</td>
+              </tr>
+            </tfoot>
+          </table>
+        </div>
+      )}
+    </div>
+  );
+}
+
 function PecVenturesForm2Tab({ month, year, loadKey = 0 }: { month: number; year: number; loadKey?: number }) {
   const [activeMeal, setActiveMeal] = useState<'lunch'|'dinner'>('lunch');
   return (
@@ -6901,6 +7091,9 @@ export function DateEntryTab() {
             <TabsTrigger value="pec_form2" className="text-xs sm:text-sm" data-testid="tab-pec-form2">
               Form 2 — Lunch &amp; Dinner
             </TabsTrigger>
+            <TabsTrigger value="pec_summary" className="text-xs sm:text-sm" data-testid="tab-pec-summary">
+              Yearly Summary
+            </TabsTrigger>
           </TabsList>
           <TabsContent value="pec_form1">
             <div className="mb-2 text-sm text-muted-foreground font-medium">PEC Ventures Private Limited — Canteen Expense Per Day (1st to last day of month)</div>
@@ -6909,6 +7102,10 @@ export function DateEntryTab() {
           <TabsContent value="pec_form2">
             <div className="mb-2 text-sm text-muted-foreground font-medium">PEC Ventures Private Limited — Lunch &amp; Dinner Meal Count (1st to last day of month)</div>
             <PecVenturesForm2Tab month={parseInt(month)} year={parseInt(year)} loadKey={loadKey}/>
+          </TabsContent>
+          <TabsContent value="pec_summary">
+            <div className="mb-2 text-sm text-muted-foreground font-medium">PEC Ventures — Year-wise Summary (all 11 items · Qty &amp; Amount · Month filter · Excel export)</div>
+            <PecVentureSummaryTab currentYear={parseInt(year)}/>
           </TabsContent>
         </Tabs>
       )}

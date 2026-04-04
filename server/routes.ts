@@ -1990,6 +1990,10 @@ export async function registerRoutes(
   });
 
   // === PEC VENTURES ENTRIES ===
+  app.get('/api/pec-ventures-entries/yearly-summary', requirePermission('salesinvoice'), async (req, res) => {
+    const year = Number(req.query.year) || new Date().getFullYear();
+    res.json(await storage.getPecVenturesYearlySummary(year));
+  });
   app.get('/api/pec-ventures-entries', requirePermission('salesinvoice'), async (req, res) => {
     const month = Number(req.query.month) || new Date().getMonth() + 1;
     const year = Number(req.query.year) || new Date().getFullYear();

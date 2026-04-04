@@ -287,6 +287,7 @@ export interface IStorage {
   createPecVenturesEntry(data: any): Promise<PecVenturesEntry>;
   updatePecVenturesEntry(id: number, data: any): Promise<PecVenturesEntry>;
   deletePecVenturesEntry(id: number): Promise<void>;
+  getPecVenturesYearlySummary(year: number): Promise<any[]>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -2401,6 +2402,32 @@ export class DatabaseStorage implements IStorage {
   }
   async deletePecVenturesEntry(id: number): Promise<void> {
     await db.delete(pecVenturesEntries).where(eq(pecVenturesEntries.id, id));
+  }
+  async getPecVenturesYearlySummary(year: number): Promise<any[]> {
+    const [rows] = await db.execute(sql`
+      SELECT month,
+        COALESCE(SUM(red_label_qty),0)    AS redLabel,
+        COALESCE(SUM(tata_tea_qty),0)     AS tataTea,
+        COALESCE(SUM(coffee_qty),0)       AS coffee,
+        COALESCE(SUM(sugar_qty),0)        AS sugar,
+        COALESCE(SUM(ginger_qty),0)       AS ginger,
+        COALESCE(SUM(biscuit_qty),0)      AS biscuit,
+        COALESCE(SUM(tea_cup_qty),0)      AS teaCup,
+        COALESCE(SUM(green_elaychi_qty),0)AS greenElaychi,
+        COALESCE(SUM(green_tea_qty),0)    AS greenTea,
+        COALESCE(SUM(black_salt_qty),0)   AS blackSalt,
+        COALESCE(SUM(milk_morning_qty),0) AS milkMorning,
+        COALESCE(SUM(milk_evening_qty),0) AS milkEvening
+      FROM pec_ventures_entries WHERE year = ${year}
+      GROUP BY month ORDER BY month
+    `) as any;
+    return (rows as any[]).map((r: any) => ({
+      month: Number(r.month),
+      redLabel: Number(r.redLabel), tataTea: Number(r.tataTea), coffee: Number(r.coffee),
+      sugar: Number(r.sugar), ginger: Number(r.ginger), biscuit: Number(r.biscuit),
+      teaCup: Number(r.teaCup), greenElaychi: Number(r.greenElaychi), greenTea: Number(r.greenTea),
+      blackSalt: Number(r.blackSalt), milkMorning: Number(r.milkMorning), milkEvening: Number(r.milkEvening),
+    }));
   }
 }
 
