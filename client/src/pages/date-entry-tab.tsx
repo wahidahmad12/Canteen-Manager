@@ -94,7 +94,7 @@ function UblDateEntryTab({ month, year, loadKey = 0 }: { month: number; year: nu
     queryFn: async () => {
       const res = await fetch(`/api/ubl-date-entries?month=${month}&year=${year}`, { credentials: "include" });
       const data = await res.json();
-      return data.map((r: UblRow) => ({ ...r, entryDate: normDate(r.entryDate) }));
+      return data.map((r: UblRow) => { const ed=normDate(r.entryDate); return { ...r, entryDate: ed, weekDay: getWeekDay(ed) }; });
     },
   });
 
@@ -102,7 +102,7 @@ function UblDateEntryTab({ month, year, loadKey = 0 }: { month: number; year: nu
     const source = freshRows ?? dbRows;
     const generated = generateBillingRows(month, year, ublRowDefaults);
     const existing = source.reduce((acc: Record<string, UblRow>, r) => { acc[r.entryDate] = r; return acc; }, {});
-    setLocalRows(generated.map(g => existing[g.entryDate] ? { ...existing[g.entryDate], _dirty: false } : g));
+    setLocalRows(generated.map(g => existing[g.entryDate] ? { ...existing[g.entryDate], weekDay: getWeekDay(g.entryDate), _dirty: false } : g));
   };
 
   useEffect(() => {
@@ -647,7 +647,7 @@ function UblLunchEntryTab({ month, year, loadKey = 0 }: { month: number; year: n
     const source = freshRows ?? dbRows;
     const generated = generateBillingRows(month, year, lunchRowDefaults);
     const existing = source.reduce((acc: Record<string, UblLunchRow>, r) => { acc[r.entryDate] = r; return acc; }, {});
-    setLocalRows(generated.map(g => existing[g.entryDate] ? { ...existing[g.entryDate], _dirty: false } : g));
+    setLocalRows(generated.map(g => existing[g.entryDate] ? { ...existing[g.entryDate], weekDay: getWeekDay(g.entryDate), _dirty: false } : g));
   };
 
   useEffect(() => {
@@ -662,7 +662,7 @@ function UblLunchEntryTab({ month, year, loadKey = 0 }: { month: number; year: n
     queryFn: async () => {
       const res = await fetch(`/api/ubl-date-entries?month=${month}&year=${year}`, { credentials:"include" });
       const data = await res.json();
-      return data.map((r: UblRow) => ({ ...r, entryDate: normDate(r.entryDate) }));
+      return data.map((r: UblRow) => { const ed=normDate(r.entryDate); return { ...r, entryDate: ed, weekDay: getWeekDay(ed) }; });
     },
   });
   // Build a lookup: date -> lunch+mutton from Format 1
@@ -1167,7 +1167,7 @@ function UnichemSnackTab({ month, year, loadKey = 0 }: { month: number; year: nu
     queryFn: async () => {
       const res = await fetch(`/api/unichem-snack-entries?month=${month}&year=${year}&location=${encodeURIComponent(location)}`, { credentials: "include" });
       const data = await res.json();
-      return data.map((r: SnackRow) => ({ ...r, entryDate: normDate(r.entryDate) }));
+      return data.map((r: SnackRow) => { const ed=normDate(r.entryDate); return { ...r, entryDate: ed, weekDay: getWeekDay(ed) }; });
     },
   });
 
@@ -1902,7 +1902,7 @@ function UnichemMealSubTab({ month, year, location, mealType, loadKey = 0 }: { m
     queryFn: async () => {
       const res = await fetch(`/api/unichem-lunch-entries?month=${month}&year=${year}&location=${encodeURIComponent(location)}&mealType=${mealType}`, { credentials: "include" });
       const data = await res.json();
-      return data.map((r: LunchRow) => ({ ...r, entryDate: normDate(r.entryDate), mealType: r.mealType || mealType }));
+      return data.map((r: LunchRow) => { const ed=normDate(r.entryDate); return { ...r, entryDate: ed, weekDay: getWeekDay(ed), mealType: r.mealType || mealType }; });
     },
   });
 
@@ -1912,7 +1912,7 @@ function UnichemMealSubTab({ month, year, location, mealType, loadKey = 0 }: { m
         const freshRows = (result.data || []) as LunchRow[];
         const generated = generateMonthRows(month, year, (d, m, y) => unichEmLunchRowDefaults(d, m, y, location, mealType));
         const existing = freshRows.reduce((acc: Record<string, LunchRow>, r) => { acc[normDate(r.entryDate)] = r; return acc; }, {});
-        setLocalRows(generated.map(g => existing[g.entryDate] ? { ...existing[g.entryDate], _dirty: false } : g));
+        setLocalRows(generated.map(g => existing[g.entryDate] ? { ...existing[g.entryDate], weekDay: getWeekDay(g.entryDate), _dirty: false } : g));
       });
     }
   }, [loadKey]);
@@ -1921,7 +1921,7 @@ function UnichemMealSubTab({ month, year, location, mealType, loadKey = 0 }: { m
   const fullRows = useMemo(() => {
     const generated = generateMonthRows(month, year, (d, m, y) => unichEmLunchRowDefaults(d, m, y, location, mealType));
     const existing = dbRows.reduce((acc: Record<string, LunchRow>, r) => { acc[normDate(r.entryDate)] = r; return acc; }, {});
-    return generated.map(g => existing[g.entryDate] ? { ...existing[g.entryDate], _dirty: false } : g);
+    return generated.map(g => existing[g.entryDate] ? { ...existing[g.entryDate], weekDay: getWeekDay(g.entryDate), _dirty: false } : g);
   }, [dbRows, month, year, location, mealType]);
 
   const rows: LunchRow[] = localRows.length > 0 ? localRows : fullRows;
@@ -1982,7 +1982,7 @@ function UnichemMealSubTab({ month, year, location, mealType, loadKey = 0 }: { m
   const handleAutoFill = () => {
     const generated = generateMonthRows(month, year, (d, m, y) => unichEmLunchRowDefaults(d, m, y, location, mealType));
     const existing = dbRows.reduce((acc: Record<string, LunchRow>, r) => { acc[normDate(r.entryDate)] = r; return acc; }, {});
-    const merged = generated.map(g => existing[g.entryDate] ? { ...existing[g.entryDate], _dirty: false } : g);
+    const merged = generated.map(g => existing[g.entryDate] ? { ...existing[g.entryDate], weekDay: getWeekDay(g.entryDate), _dirty: false } : g);
     setLocalRows(merged);
   };
 
@@ -2413,7 +2413,7 @@ function CiplaDateEntryTab({ month, year, loadKey = 0 }: { month: number; year: 
     queryFn: async () => {
       const res = await fetch(`/api/cipla-date-entries?month=${month}&year=${year}`, { credentials:"include" });
       const data = await res.json();
-      return data.map((r: CiplaRow) => ({ ...r, entryDate: normDate(r.entryDate) }));
+      return data.map((r: CiplaRow) => { const ed=normDate(r.entryDate); return { ...r, entryDate: ed, weekDay: getWeekDay(ed) }; });
     },
   });
 
@@ -2421,7 +2421,7 @@ function CiplaDateEntryTab({ month, year, loadKey = 0 }: { month: number; year: 
     const source = freshRows ?? dbRows;
     const generated = generateBillingRows(month, year, ciplaRowDefaults);
     const existing = source.reduce((acc: Record<string, CiplaRow>, r) => { acc[r.entryDate] = r; return acc; }, {});
-    setLocalRows(generated.map(g => existing[g.entryDate] ? { ...existing[g.entryDate], _dirty: false } : g));
+    setLocalRows(generated.map(g => existing[g.entryDate] ? { ...existing[g.entryDate], weekDay: getWeekDay(g.entryDate), _dirty: false } : g));
   };
 
   useEffect(() => {
@@ -3101,7 +3101,7 @@ function HulKpfExecSnacksTab({ month, year, loadKey = 0 }: { month: number; year
     queryFn: async () => {
       const res = await fetch(`/api/hul-kpf-exec-snacks?month=${month}&year=${year}`, { credentials: 'include' });
       const data = await res.json();
-      return data.map((r: ExecSnackRow) => ({ ...r, entryDate: normDate(r.entryDate) }));
+      return data.map((r: ExecSnackRow) => { const ed=normDate(r.entryDate); return { ...r, entryDate: ed, weekDay: getWeekDay(ed) }; });
     },
   });
 
@@ -3115,7 +3115,7 @@ function HulKpfExecSnacksTab({ month, year, loadKey = 0 }: { month: number; year
     }
     const existing: Record<string, ExecSnackRow> = {};
     source.forEach(r => { existing[normDate(r.entryDate)] = r; });
-    return scaffold.map(g => existing[g.entryDate] ? { ...existing[g.entryDate], _dirty: false } : g);
+    return scaffold.map(g => existing[g.entryDate] ? { ...existing[g.entryDate], weekDay: getWeekDay(g.entryDate), _dirty: false } : g);
   };
 
   useEffect(() => {
@@ -3496,7 +3496,7 @@ function HulLocationTab({ month, year, location, loadKey = 0 }: { month: number;
     queryFn: async () => {
       const res = await fetch(`/api/hul-date-entries?month=${month}&year=${year}&location=${encodeURIComponent(location)}`, { credentials: 'include' });
       const data = await res.json();
-      return data.map((r: HulRow) => ({ ...r, entryDate: normDate(r.entryDate) }));
+      return data.map((r: HulRow) => { const ed=normDate(r.entryDate); return { ...r, entryDate: ed, weekDay: getWeekDay(ed) }; });
     },
   });
 
@@ -3510,7 +3510,7 @@ function HulLocationTab({ month, year, location, loadKey = 0 }: { month: number;
     }
     const existing: Record<string, HulRow> = {};
     source.forEach(r => { existing[normDate(r.entryDate)] = r; });
-    return scaffold.map(g => existing[g.entryDate] ? { ...existing[g.entryDate], _dirty: false } : g);
+    return scaffold.map(g => existing[g.entryDate] ? { ...existing[g.entryDate], weekDay: getWeekDay(g.entryDate), _dirty: false } : g);
   };
 
   useEffect(() => {
