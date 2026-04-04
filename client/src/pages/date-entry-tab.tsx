@@ -6219,7 +6219,12 @@ function PecVenturesTab({ month, year, loadKey = 0 }: { month: number; year: num
     const tdr = `border:1px solid #000;padding:2px 4px;text-align:right;font-size:8.5px;`;
     const tdl = `border:1px solid #000;padding:2px 3px;text-align:left;font-size:8.5px;`;
     const tot: Record<string, number> = { redLabel:0,tataTea:0,coffee:0,sugar:0,ginger:0,biscuit:0,teaCup:0,greenElaychi:0,greenTea:0,blackSalt:0,milkMorning:0,milkEvening:0 };
-    const dataRows = rows.map(r => {
+    const nonEmptyRows = rows.filter(r =>
+      n(r.redLabelQty) || n(r.tataTeaQty) || n(r.coffeeQty) || n(r.sugarQty) || n(r.gingerQty) ||
+      n(r.biscuitQty) || n(r.teaCupQty) || n(r.greenElaychiQty) || n(r.greenTeaQty) ||
+      n(r.blackSaltQty) || n(r.milkMorningQty) || n(r.milkEveningQty)
+    );
+    const dataRows = nonEmptyRows.map(r => {
       const milkTotal = n(r.milkMorningQty) + n(r.milkEveningQty);
       tot.redLabel += n(r.redLabelQty); tot.tataTea += n(r.tataTeaQty); tot.coffee += n(r.coffeeQty);
       tot.sugar += n(r.sugarQty); tot.ginger += n(r.gingerQty); tot.biscuit += n(r.biscuitQty);
@@ -6451,6 +6456,29 @@ function PecVenturesTab({ month, year, loadKey = 0 }: { month: number; year: num
   );
 }
 
+function PecVenturesForm2Tab({ month, year, loadKey = 0 }: { month: number; year: number; loadKey?: number }) {
+  const [activeMeal, setActiveMeal] = useState<'lunch'|'dinner'>('lunch');
+  return (
+    <div className="space-y-3">
+      <div className="flex rounded-lg border overflow-hidden text-sm font-medium w-fit">
+        <button
+          onClick={() => setActiveMeal('lunch')}
+          className={`px-4 py-1.5 transition-colors ${activeMeal==='lunch' ? 'bg-orange-500 text-white' : 'hover:bg-muted text-muted-foreground'}`}
+          data-testid="btn-pec-meal-lunch">
+          🍱 Lunch
+        </button>
+        <button
+          onClick={() => setActiveMeal('dinner')}
+          className={`px-4 py-1.5 transition-colors border-l ${activeMeal==='dinner' ? 'bg-indigo-600 text-white' : 'hover:bg-muted text-muted-foreground'}`}
+          data-testid="btn-pec-meal-dinner">
+          🍽️ Dinner
+        </button>
+      </div>
+      <UnichemMealSubTab key={`pec-${activeMeal}-${month}-${year}`} month={month} year={year} location="PEC Ventures" mealType={activeMeal} loadKey={loadKey} />
+    </div>
+  );
+}
+
 // Main Date Entry Tab — with UBL sub-tabs
 // ============================================================
 
@@ -6663,10 +6691,24 @@ export function DateEntryTab() {
         </Tabs>
       )}
       {selectedClient === "pec_ventures" && (
-        <div>
-          <div className="mb-2 text-sm text-muted-foreground font-medium">PEC Ventures Private Limited — Canteen Expense Per Day (1st to last day of month)</div>
-          <PecVenturesTab month={parseInt(month)} year={parseInt(year)} loadKey={loadKey}/>
-        </div>
+        <Tabs defaultValue="pec_form1">
+          <TabsList className="mb-4 flex-wrap h-auto">
+            <TabsTrigger value="pec_form1" className="text-xs sm:text-sm" data-testid="tab-pec-form1">
+              Form 1 — Canteen Expense
+            </TabsTrigger>
+            <TabsTrigger value="pec_form2" className="text-xs sm:text-sm" data-testid="tab-pec-form2">
+              Form 2 — Lunch &amp; Dinner
+            </TabsTrigger>
+          </TabsList>
+          <TabsContent value="pec_form1">
+            <div className="mb-2 text-sm text-muted-foreground font-medium">PEC Ventures Private Limited — Canteen Expense Per Day (1st to last day of month)</div>
+            <PecVenturesTab month={parseInt(month)} year={parseInt(year)} loadKey={loadKey}/>
+          </TabsContent>
+          <TabsContent value="pec_form2">
+            <div className="mb-2 text-sm text-muted-foreground font-medium">PEC Ventures Private Limited — Lunch &amp; Dinner Meal Count (1st to last day of month)</div>
+            <PecVenturesForm2Tab month={parseInt(month)} year={parseInt(year)} loadKey={loadKey}/>
+          </TabsContent>
+        </Tabs>
       )}
       {selectedClient === "hul" && (
         <Tabs defaultValue="hul_kpf">
