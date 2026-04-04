@@ -1989,6 +1989,25 @@ export async function registerRoutes(
     res.json({ price });
   });
 
+  // === PEC VENTURES ENTRIES ===
+  app.get('/api/pec-ventures-entries', requirePermission('salesinvoice'), async (req, res) => {
+    const month = Number(req.query.month) || new Date().getMonth() + 1;
+    const year = Number(req.query.year) || new Date().getFullYear();
+    const entries = await storage.getPecVenturesEntries(month, year);
+    res.json(entries);
+  });
+  app.post('/api/pec-ventures-entries', requirePermission('salesinvoice'), async (req, res) => {
+    try { const entry = await storage.createPecVenturesEntry(req.body); res.status(201).json(entry); }
+    catch (err: any) { res.status(500).json({ message: err.message }); }
+  });
+  app.put('/api/pec-ventures-entries/:id', requirePermission('salesinvoice'), async (req, res) => {
+    try { const entry = await storage.updatePecVenturesEntry(Number(req.params.id), req.body); res.json(entry); }
+    catch (err: any) { res.status(500).json({ message: err.message }); }
+  });
+  app.delete('/api/pec-ventures-entries/:id', requirePermission('salesinvoice'), async (req, res) => {
+    await storage.deletePecVenturesEntry(Number(req.params.id)); res.status(204).send();
+  });
+
   return httpServer;
 }
 

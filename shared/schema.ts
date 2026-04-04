@@ -1028,3 +1028,28 @@ export const dailyPnlEntries = mysqlTable("daily_pnl_entries", {
 });
 export type DailyPnlEntry = typeof dailyPnlEntries.$inferSelect;
 export const insertDailyPnlEntrySchema = createInsertSchema(dailyPnlEntries).omit({ id: true, createdAt: true, updatedAt: true });
+
+// === PEC VENTURES PRIVATE LIMITED — Canteen Expense Per Day ===
+export const pecVenturesEntries = mysqlTable("pec_ventures_entries", {
+  id: int("id").autoincrement().primaryKey(),
+  entryDate: date("entry_date").notNull().unique(),
+  month: int("month").notNull(),
+  year: int("year").notNull(),
+  weekDay: varchar("week_day", { length: 10 }),
+  redLabelQty: decimal("red_label_qty", { precision: 10, scale: 3 }).default("0"),
+  tataTeaQty: decimal("tata_tea_qty", { precision: 10, scale: 3 }).default("0"),
+  coffeeQty: decimal("coffee_qty", { precision: 10, scale: 3 }).default("0"),
+  sugarQty: decimal("sugar_qty", { precision: 10, scale: 3 }).default("0"),
+  gingerQty: decimal("ginger_qty", { precision: 10, scale: 3 }).default("0"),
+  biscuitQty: decimal("biscuit_qty", { precision: 10, scale: 3 }).default("0"),
+  teaCupQty: decimal("tea_cup_qty", { precision: 10, scale: 3 }).default("0"),
+  greenElaychiQty: decimal("green_elaychi_qty", { precision: 10, scale: 3 }).default("0"),
+  greenTeaQty: decimal("green_tea_qty", { precision: 10, scale: 3 }).default("0"),
+  blackSaltQty: decimal("black_salt_qty", { precision: 10, scale: 3 }).default("0"),
+  milkMorningQty: decimal("milk_morning_qty", { precision: 10, scale: 3 }).default("0"),
+  milkEveningQty: decimal("milk_evening_qty", { precision: 10, scale: 3 }).default("0"),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+export type PecVenturesEntry = typeof pecVenturesEntries.$inferSelect;
+export const insertPecVenturesEntrySchema = createInsertSchema(pecVenturesEntries).omit({ id: true, createdAt: true, updatedAt: true });

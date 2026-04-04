@@ -6074,6 +6074,383 @@ function HulSummaryTab({ month, year }: { month: number; year: number }) {
   );
 }
 
+// ============================================================
+// PEC VENTURES PRIVATE LIMITED — Canteen Expense Per Day
+// ============================================================
+
+const PEC_RATES = {
+  redLabel:     620,
+  tataTea:      310,
+  coffee:       5.5,
+  sugar:        48,
+  ginger:       180,
+  biscuit:      5,
+  teaCup:       0.8,
+  greenElaychi: 3.6,
+  greenTea:     120,
+  blackSalt:    115,
+  milk:         28,
+};
+
+type PecRow = {
+  id?: number;
+  entryDate: string;
+  month: number;
+  year: number;
+  weekDay: string;
+  redLabelQty: number;
+  tataTeaQty: number;
+  coffeeQty: number;
+  sugarQty: number;
+  gingerQty: number;
+  biscuitQty: number;
+  teaCupQty: number;
+  greenElaychiQty: number;
+  greenTeaQty: number;
+  blackSaltQty: number;
+  milkMorningQty: number;
+  milkEveningQty: number;
+  _dirty?: boolean;
+};
+
+function pecRowDefaults(dateStr: string, month: number, year: number): PecRow {
+  return {
+    entryDate: dateStr, month, year, weekDay: getWeekDay(dateStr),
+    redLabelQty: 0, tataTeaQty: 0, coffeeQty: 0, sugarQty: 0, gingerQty: 0,
+    biscuitQty: 0, teaCupQty: 0, greenElaychiQty: 0, greenTeaQty: 0,
+    blackSaltQty: 0, milkMorningQty: 0, milkEveningQty: 0,
+    _dirty: true,
+  };
+}
+
+function generatePecMonthRows(month: number, year: number, saved: any[]): PecRow[] {
+  const days = getDaysInMonth(month, year);
+  const savedMap = new Map<string, any>();
+  for (const row of saved) savedMap.set(normDate(row.entryDate), row);
+  const rows: PecRow[] = [];
+  for (let d = 1; d <= days; d++) {
+    const ds = `${year}-${String(month).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+    const s = savedMap.get(ds);
+    if (s) {
+      rows.push({
+        id: s.id, entryDate: ds, month, year, weekDay: s.weekDay || getWeekDay(ds),
+        redLabelQty: Number(s.redLabelQty) || 0,
+        tataTeaQty: Number(s.tataTeaQty) || 0,
+        coffeeQty: Number(s.coffeeQty) || 0,
+        sugarQty: Number(s.sugarQty) || 0,
+        gingerQty: Number(s.gingerQty) || 0,
+        biscuitQty: Number(s.biscuitQty) || 0,
+        teaCupQty: Number(s.teaCupQty) || 0,
+        greenElaychiQty: Number(s.greenElaychiQty) || 0,
+        greenTeaQty: Number(s.greenTeaQty) || 0,
+        blackSaltQty: Number(s.blackSaltQty) || 0,
+        milkMorningQty: Number(s.milkMorningQty) || 0,
+        milkEveningQty: Number(s.milkEveningQty) || 0,
+      });
+    } else {
+      rows.push(pecRowDefaults(ds, month, year));
+    }
+  }
+  return rows;
+}
+
+function PecVenturesTab({ month, year, loadKey = 0 }: { month: number; year: number; loadKey?: number }) {
+  const { toast } = useToast();
+  const qc = useQueryClient();
+  const n = (v: any) => typeof v === 'number' ? v : Number(v) || 0;
+
+  const { data: savedRows = [], isLoading } = useQuery<any[]>({
+    queryKey: ['/api/pec-ventures-entries', month, year],
+    queryFn: async () => {
+      const res = await fetch(`/api/pec-ventures-entries?month=${month}&year=${year}`, { credentials: 'include' });
+      if (!res.ok) throw new Error('Failed to fetch');
+      return res.json();
+    },
+  });
+
+  const [rows, setRows] = useState<PecRow[]>([]);
+  const [isSaving, setIsSaving] = useState(false);
+
+  useEffect(() => {
+    if (!isLoading) setRows(generatePecMonthRows(month, year, savedRows));
+  }, [isLoading, savedRows, month, year, loadKey]);
+
+  const updateCell = (idx: number, field: keyof PecRow, value: number) => {
+    setRows(prev => {
+      const next = [...prev];
+      next[idx] = { ...next[idx], [field]: value, _dirty: true };
+      return next;
+    });
+  };
+
+  const handleSave = async () => {
+    setIsSaving(true);
+    try {
+      const dirty = rows.filter(r => r._dirty);
+      for (const row of dirty) {
+        const { _dirty, id, ...data } = row as any;
+        if (id) {
+          const res = await fetch(`/api/pec-ventures-entries/${id}`, {
+            method: 'PUT', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(data), credentials: 'include',
+          });
+          if (!res.ok) throw new Error('Save failed');
+        } else {
+          const res = await fetch('/api/pec-ventures-entries', {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(data), credentials: 'include',
+          });
+          if (!res.ok) throw new Error('Save failed');
+        }
+      }
+      await qc.invalidateQueries({ queryKey: ['/api/pec-ventures-entries', month, year] });
+      toast({ title: 'Saved', description: 'PEC Ventures canteen data saved successfully.' });
+    } catch (err: any) {
+      toast({ title: 'Error', description: err.message, variant: 'destructive' });
+    } finally { setIsSaving(false); }
+  };
+
+  const handlePrint = () => {
+    const MN = ["January","February","March","April","May","June","July","August","September","October","November","December"];
+    const fq = (v: number, dec = 3) => v === 0 ? '' : v % 1 === 0 ? String(v) : v.toFixed(dec).replace(/\.?0+$/, '');
+    const fa = (v: number) => v === 0 ? '' : v.toFixed(2);
+    const th = `border:1px solid #000;padding:3px 4px;text-align:center;font-size:9px;font-weight:600;background:#d9e1f2;`;
+    const td = `border:1px solid #000;padding:2px 4px;text-align:center;font-size:8.5px;`;
+    const tdr = `border:1px solid #000;padding:2px 4px;text-align:right;font-size:8.5px;`;
+    const tdl = `border:1px solid #000;padding:2px 3px;text-align:left;font-size:8.5px;`;
+    const tot: Record<string, number> = { redLabel:0,tataTea:0,coffee:0,sugar:0,ginger:0,biscuit:0,teaCup:0,greenElaychi:0,greenTea:0,blackSalt:0,milkMorning:0,milkEvening:0 };
+    const dataRows = rows.map(r => {
+      const milkTotal = n(r.milkMorningQty) + n(r.milkEveningQty);
+      tot.redLabel += n(r.redLabelQty); tot.tataTea += n(r.tataTeaQty); tot.coffee += n(r.coffeeQty);
+      tot.sugar += n(r.sugarQty); tot.ginger += n(r.gingerQty); tot.biscuit += n(r.biscuitQty);
+      tot.teaCup += n(r.teaCupQty); tot.greenElaychi += n(r.greenElaychiQty); tot.greenTea += n(r.greenTeaQty);
+      tot.blackSalt += n(r.blackSaltQty); tot.milkMorning += n(r.milkMorningQty); tot.milkEvening += n(r.milkEveningQty);
+      const d = new Date(r.entryDate + 'T00:00:00');
+      const dd = `${String(d.getDate()).padStart(2,'0')}-${String(d.getMonth()+1).padStart(2,'0')}-${d.getFullYear()}`;
+      return `<tr>
+        <td style="${tdl}">${dd}</td><td style="${td}">${r.weekDay}</td>
+        <td style="${tdr}">${fq(n(r.redLabelQty))}</td><td style="${tdr}">${n(r.redLabelQty)?PEC_RATES.redLabel:''}</td><td style="${tdr}">${fa(n(r.redLabelQty)*PEC_RATES.redLabel)}</td>
+        <td style="${tdr}">${fq(n(r.tataTeaQty))}</td><td style="${tdr}">${n(r.tataTeaQty)?PEC_RATES.tataTea:''}</td><td style="${tdr}">${fa(n(r.tataTeaQty)*PEC_RATES.tataTea)}</td>
+        <td style="${tdr}">${fq(n(r.coffeeQty))}</td><td style="${tdr}">${n(r.coffeeQty)?PEC_RATES.coffee:''}</td><td style="${tdr}">${fa(n(r.coffeeQty)*PEC_RATES.coffee)}</td>
+        <td style="${tdr}">${fq(n(r.sugarQty))}</td><td style="${tdr}">${n(r.sugarQty)?PEC_RATES.sugar:''}</td><td style="${tdr}">${fa(n(r.sugarQty)*PEC_RATES.sugar)}</td>
+        <td style="${tdr}">${fq(n(r.gingerQty))}</td><td style="${tdr}">${n(r.gingerQty)?PEC_RATES.ginger:''}</td><td style="${tdr}">${fa(n(r.gingerQty)*PEC_RATES.ginger)}</td>
+        <td style="${tdr}">${fq(n(r.biscuitQty))}</td><td style="${tdr}">${n(r.biscuitQty)?PEC_RATES.biscuit:''}</td><td style="${tdr}">${fa(n(r.biscuitQty)*PEC_RATES.biscuit)}</td>
+        <td style="${tdr}">${fq(n(r.teaCupQty))}</td><td style="${tdr}">${n(r.teaCupQty)?PEC_RATES.teaCup:''}</td><td style="${tdr}">${fa(n(r.teaCupQty)*PEC_RATES.teaCup)}</td>
+        <td style="${tdr}">${fq(n(r.greenElaychiQty))}</td><td style="${tdr}">${n(r.greenElaychiQty)?PEC_RATES.greenElaychi:''}</td><td style="${tdr}">${fa(n(r.greenElaychiQty)*PEC_RATES.greenElaychi)}</td>
+        <td style="${tdr}">${fq(n(r.greenTeaQty))}</td><td style="${tdr}">${n(r.greenTeaQty)?PEC_RATES.greenTea:''}</td><td style="${tdr}">${fa(n(r.greenTeaQty)*PEC_RATES.greenTea)}</td>
+        <td style="${tdr}">${fq(n(r.blackSaltQty))}</td><td style="${tdr}">${n(r.blackSaltQty)?PEC_RATES.blackSalt:''}</td><td style="${tdr}">${fa(n(r.blackSaltQty)*PEC_RATES.blackSalt)}</td>
+        <td style="${tdr}">${fq(n(r.milkMorningQty))}</td><td style="${tdr}">${fq(n(r.milkEveningQty))}</td>
+        <td style="${tdr}">${milkTotal||''}</td><td style="${tdr}">${milkTotal?PEC_RATES.milk:''}</td><td style="${tdr}">${fa(milkTotal*PEC_RATES.milk)}</td>
+      </tr>`;
+    }).join('');
+    const milkTotTotal = tot.milkMorning + tot.milkEvening;
+    const grandTotal = (tot.redLabel*PEC_RATES.redLabel)+(tot.tataTea*PEC_RATES.tataTea)+(tot.coffee*PEC_RATES.coffee)+(tot.sugar*PEC_RATES.sugar)+(tot.ginger*PEC_RATES.ginger)+(tot.biscuit*PEC_RATES.biscuit)+(tot.teaCup*PEC_RATES.teaCup)+(tot.greenElaychi*PEC_RATES.greenElaychi)+(tot.greenTea*PEC_RATES.greenTea)+(tot.blackSalt*PEC_RATES.blackSalt)+(milkTotTotal*PEC_RATES.milk);
+    const html = `<!DOCTYPE html><html><head><meta charset="UTF-8"><title>PEC Ventures Canteen</title>
+    <style>@page{size:A3 landscape;margin:8mm}body{font-family:Arial,sans-serif;margin:0}table{border-collapse:collapse;width:100%}@media print{.no-print{display:none}}</style>
+    </head><body>
+    <table>
+      <tr><td colspan="37" style="text-align:center;font-size:13px;font-weight:bold;border:1px solid #000;padding:4px;background:#d9e1f2;">DJ Hospitality &amp; Facility Management Pvt. Ltd.</td></tr>
+      <tr><td colspan="37" style="text-align:center;font-size:11px;font-weight:bold;border:1px solid #000;padding:4px;background:#e2efda;">Expense Toward Canteen Per Day to PEC VENTURES PRIVATE LIMITED - ${MN[month-1]} - ${year}</td></tr>
+      <tr>
+        <th style="${th}" rowspan="2">Date</th><th style="${th}" rowspan="2">Days</th>
+        <th style="${th}" colspan="3">Red Label Tea Powder</th>
+        <th style="${th}" colspan="3">Tata Tea Powder</th>
+        <th style="${th}" colspan="3">Coffee</th>
+        <th style="${th}" colspan="3">Sugar</th>
+        <th style="${th}" colspan="3">Ginger</th>
+        <th style="${th}" colspan="3">Biscuit</th>
+        <th style="${th}" colspan="3">Tea Cup</th>
+        <th style="${th}" colspan="3">Green Elaychi</th>
+        <th style="${th}" colspan="3">Green Tea</th>
+        <th style="${th}" colspan="3">Black Salt</th>
+        <th style="${th}" colspan="5">Milk</th>
+      </tr>
+      <tr>
+        <th style="${th}">Qty in Kg</th><th style="${th}">Rate</th><th style="${th}">Total</th>
+        <th style="${th}">Qty in Kg</th><th style="${th}">Rate</th><th style="${th}">Total</th>
+        <th style="${th}">Qty in Gm</th><th style="${th}">Rate</th><th style="${th}">Total</th>
+        <th style="${th}">Qty in Kg</th><th style="${th}">Rate</th><th style="${th}">Total</th>
+        <th style="${th}">Qty in Kg</th><th style="${th}">Rate</th><th style="${th}">Total</th>
+        <th style="${th}">Qty in Pcs</th><th style="${th}">Rate</th><th style="${th}">Total</th>
+        <th style="${th}">Qty in Pcs</th><th style="${th}">Rate</th><th style="${th}">Total</th>
+        <th style="${th}">Qty in Gm</th><th style="${th}">Rate</th><th style="${th}">Total</th>
+        <th style="${th}">Qty in Pkt</th><th style="${th}">Rate</th><th style="${th}">Total</th>
+        <th style="${th}">Qty in Kg</th><th style="${th}">Rate</th><th style="${th}">Total</th>
+        <th style="${th}">Morning Qty</th><th style="${th}">Evning Qty</th><th style="${th}">Total</th><th style="${th}">Rate</th><th style="${th}">Total</th>
+      </tr>
+      ${dataRows}
+      <tr style="font-weight:bold;background:#fff2cc;">
+        <td style="${tdl}" colspan="2">TOTAL</td>
+        <td style="${tdr}">${fq(tot.redLabel)}</td><td style="${td}"></td><td style="${tdr}">${fa(tot.redLabel*PEC_RATES.redLabel)}</td>
+        <td style="${tdr}">${fq(tot.tataTea)}</td><td style="${td}"></td><td style="${tdr}">${fa(tot.tataTea*PEC_RATES.tataTea)}</td>
+        <td style="${tdr}">${fq(tot.coffee)}</td><td style="${td}"></td><td style="${tdr}">${fa(tot.coffee*PEC_RATES.coffee)}</td>
+        <td style="${tdr}">${fq(tot.sugar)}</td><td style="${td}"></td><td style="${tdr}">${fa(tot.sugar*PEC_RATES.sugar)}</td>
+        <td style="${tdr}">${fq(tot.ginger)}</td><td style="${td}"></td><td style="${tdr}">${fa(tot.ginger*PEC_RATES.ginger)}</td>
+        <td style="${tdr}">${fq(tot.biscuit)}</td><td style="${td}"></td><td style="${tdr}">${fa(tot.biscuit*PEC_RATES.biscuit)}</td>
+        <td style="${tdr}">${fq(tot.teaCup)}</td><td style="${td}"></td><td style="${tdr}">${fa(tot.teaCup*PEC_RATES.teaCup)}</td>
+        <td style="${tdr}">${fq(tot.greenElaychi)}</td><td style="${td}"></td><td style="${tdr}">${fa(tot.greenElaychi*PEC_RATES.greenElaychi)}</td>
+        <td style="${tdr}">${fq(tot.greenTea)}</td><td style="${td}"></td><td style="${tdr}">${fa(tot.greenTea*PEC_RATES.greenTea)}</td>
+        <td style="${tdr}">${fq(tot.blackSalt)}</td><td style="${td}"></td><td style="${tdr}">${fa(tot.blackSalt*PEC_RATES.blackSalt)}</td>
+        <td style="${tdr}">${fq(tot.milkMorning)}</td><td style="${tdr}">${fq(tot.milkEvening)}</td>
+        <td style="${tdr}">${milkTotTotal||''}</td><td style="${td}"></td><td style="${tdr}">${fa(milkTotTotal*PEC_RATES.milk)}</td>
+      </tr>
+      <tr><td colspan="37" style="text-align:right;font-weight:bold;font-size:10px;border:1px solid #000;padding:4px;background:#fff2cc;">Grand Total: ₹${fa(grandTotal)}</td></tr>
+    </table>
+    <script>window.onload=()=>{window.print();}</script>
+    </body></html>`;
+    const w = window.open('', '_blank');
+    if (w) { w.document.write(html); w.document.close(); }
+  };
+
+  const totals = rows.reduce((acc, r) => ({
+    redLabel: acc.redLabel + n(r.redLabelQty),
+    tataTea: acc.tataTea + n(r.tataTeaQty),
+    coffee: acc.coffee + n(r.coffeeQty),
+    sugar: acc.sugar + n(r.sugarQty),
+    ginger: acc.ginger + n(r.gingerQty),
+    biscuit: acc.biscuit + n(r.biscuitQty),
+    teaCup: acc.teaCup + n(r.teaCupQty),
+    greenElaychi: acc.greenElaychi + n(r.greenElaychiQty),
+    greenTea: acc.greenTea + n(r.greenTeaQty),
+    blackSalt: acc.blackSalt + n(r.blackSaltQty),
+    milkMorning: acc.milkMorning + n(r.milkMorningQty),
+    milkEvening: acc.milkEvening + n(r.milkEveningQty),
+  }), { redLabel:0, tataTea:0, coffee:0, sugar:0, ginger:0, biscuit:0, teaCup:0, greenElaychi:0, greenTea:0, blackSalt:0, milkMorning:0, milkEvening:0 });
+
+  const fq = (v: number) => v === 0 ? '' : v % 1 === 0 ? String(v) : v.toFixed(3).replace(/\.?0+$/, '');
+  const fa = (v: number) => v === 0 ? '' : v.toFixed(2);
+
+  const inputSx = "w-16 h-6 text-right text-xs border rounded px-1 focus:outline-none focus:ring-1 focus:ring-blue-400 bg-white dark:bg-slate-900";
+  const thSx = "border border-gray-300 dark:border-gray-600 bg-blue-100 dark:bg-blue-900/40 text-center text-xs font-semibold px-1 py-1 whitespace-nowrap";
+  const tdSx = "border border-gray-200 dark:border-gray-700 text-center text-xs px-1 py-0.5";
+  const tdRSx = "border border-gray-200 dark:border-gray-700 text-right text-xs px-1 py-0.5 text-gray-500 dark:text-gray-400";
+  const totSx = "border border-gray-300 dark:border-gray-600 text-center text-xs font-bold px-1 py-1 bg-amber-50 dark:bg-amber-900/20";
+  const totRSx = "border border-gray-300 dark:border-gray-600 text-right text-xs font-bold px-1 py-1 bg-amber-50 dark:bg-amber-900/20 text-emerald-700 dark:text-emerald-400";
+
+  if (isLoading) return <div className="flex justify-center py-10"><Loader2 className="w-6 h-6 animate-spin text-blue-500" /></div>;
+
+  return (
+    <div className="space-y-3">
+      <div className="flex items-center gap-2 flex-wrap">
+        <Button onClick={handleSave} disabled={isSaving} className="h-8 px-4 bg-blue-600 hover:bg-blue-700 text-white text-sm gap-2" data-testid="btn-pec-save">
+          {isSaving ? <Loader2 className="w-3 h-3 animate-spin" /> : <Save className="w-3 h-3" />}
+          {isSaving ? "Saving..." : "Save"}
+        </Button>
+        <Button onClick={handlePrint} variant="outline" className="h-8 px-4 text-sm gap-2" data-testid="btn-pec-print">
+          <Printer className="w-3 h-3" /> Print / Export
+        </Button>
+        <span className="text-xs text-muted-foreground">Rates fixed: Red Label ₹620/kg · Tata Tea ₹310/kg · Coffee ₹5.5/gm · Sugar ₹48/kg · Ginger ₹180/kg · Biscuit ₹5/pcs · Tea Cup ₹0.8/pcs · Green Elaychi ₹3.6/gm · Green Tea ₹120/pkt · Black Salt ₹115/kg · Milk ₹28/L</span>
+      </div>
+
+      <div className="overflow-x-auto rounded-lg border border-gray-200 dark:border-gray-700">
+        <table className="border-collapse min-w-max">
+          <thead>
+            <tr>
+              <th className={thSx} rowSpan={2}>Date</th>
+              <th className={thSx} rowSpan={2}>Day</th>
+              <th className={`${thSx} bg-red-100 dark:bg-red-900/30`} colSpan={3}>Red Label Tea<br/>620/kg</th>
+              <th className={`${thSx} bg-orange-100 dark:bg-orange-900/30`} colSpan={3}>Tata Tea<br/>310/kg</th>
+              <th className={`${thSx} bg-amber-100 dark:bg-amber-900/30`} colSpan={3}>Coffee<br/>5.5/gm</th>
+              <th className={`${thSx} bg-yellow-100 dark:bg-yellow-900/30`} colSpan={3}>Sugar<br/>48/kg</th>
+              <th className={`${thSx} bg-lime-100 dark:bg-lime-900/30`} colSpan={3}>Ginger<br/>180/kg</th>
+              <th className={`${thSx} bg-green-100 dark:bg-green-900/30`} colSpan={3}>Biscuit<br/>5/pcs</th>
+              <th className={`${thSx} bg-teal-100 dark:bg-teal-900/30`} colSpan={3}>Tea Cup<br/>0.8/pcs</th>
+              <th className={`${thSx} bg-cyan-100 dark:bg-cyan-900/30`} colSpan={3}>Grn Elaychi<br/>3.6/gm</th>
+              <th className={`${thSx} bg-sky-100 dark:bg-sky-900/30`} colSpan={3}>Green Tea<br/>120/pkt</th>
+              <th className={`${thSx} bg-indigo-100 dark:bg-indigo-900/30`} colSpan={3}>Black Salt<br/>115/kg</th>
+              <th className={`${thSx} bg-purple-100 dark:bg-purple-900/30`} colSpan={5}>Milk · 28/L</th>
+            </tr>
+            <tr>
+              {[["Qty","Rate","Amt"],["Qty","Rate","Amt"],["Qty(gm)","Rate","Amt"],["Qty","Rate","Amt"],["Qty","Rate","Amt"],
+                ["Qty(pcs)","Rate","Amt"],["Qty(pcs)","Rate","Amt"],["Qty(gm)","Rate","Amt"],["Qty(pkt)","Rate","Amt"],["Qty","Rate","Amt"]].map((g,gi) =>
+                g.map((h,hi) => <th key={`${gi}-${hi}`} className={thSx}>{h}</th>)
+              )}
+              <th className={thSx}>Morning</th><th className={thSx}>Evening</th><th className={thSx}>Total</th><th className={thSx}>Rate</th><th className={thSx}>Amt</th>
+            </tr>
+          </thead>
+          <tbody>
+            {rows.map((r, i) => {
+              const milkTot = n(r.milkMorningQty) + n(r.milkEveningQty);
+              const isSun = r.weekDay === 'Sun';
+              const rowBg = isSun ? 'bg-red-50 dark:bg-red-950/20' : '';
+              return (
+                <tr key={r.entryDate} className={rowBg}>
+                  <td className={`${tdSx} text-left font-medium whitespace-nowrap`}>{safeFormat(r.entryDate)}</td>
+                  <td className={`${tdSx} ${isSun ? 'text-red-600 font-semibold' : ''}`}>{r.weekDay}</td>
+                  {/* Red Label */}
+                  <td className={tdSx}><input type="number" min="0" step="0.001" className={inputSx} value={n(r.redLabelQty)||''} onChange={e=>updateCell(i,'redLabelQty',Number(e.target.value))} data-testid={`pec-redlabel-${i}`}/></td>
+                  <td className={tdRSx}>{n(r.redLabelQty)?PEC_RATES.redLabel:''}</td>
+                  <td className={`${tdRSx} font-medium`}>{fa(n(r.redLabelQty)*PEC_RATES.redLabel)}</td>
+                  {/* Tata Tea */}
+                  <td className={tdSx}><input type="number" min="0" step="0.001" className={inputSx} value={n(r.tataTeaQty)||''} onChange={e=>updateCell(i,'tataTeaQty',Number(e.target.value))} data-testid={`pec-tata-${i}`}/></td>
+                  <td className={tdRSx}>{n(r.tataTeaQty)?PEC_RATES.tataTea:''}</td>
+                  <td className={`${tdRSx} font-medium`}>{fa(n(r.tataTeaQty)*PEC_RATES.tataTea)}</td>
+                  {/* Coffee */}
+                  <td className={tdSx}><input type="number" min="0" step="0.001" className={inputSx} value={n(r.coffeeQty)||''} onChange={e=>updateCell(i,'coffeeQty',Number(e.target.value))} data-testid={`pec-coffee-${i}`}/></td>
+                  <td className={tdRSx}>{n(r.coffeeQty)?PEC_RATES.coffee:''}</td>
+                  <td className={`${tdRSx} font-medium`}>{fa(n(r.coffeeQty)*PEC_RATES.coffee)}</td>
+                  {/* Sugar */}
+                  <td className={tdSx}><input type="number" min="0" step="0.001" className={inputSx} value={n(r.sugarQty)||''} onChange={e=>updateCell(i,'sugarQty',Number(e.target.value))} data-testid={`pec-sugar-${i}`}/></td>
+                  <td className={tdRSx}>{n(r.sugarQty)?PEC_RATES.sugar:''}</td>
+                  <td className={`${tdRSx} font-medium`}>{fa(n(r.sugarQty)*PEC_RATES.sugar)}</td>
+                  {/* Ginger */}
+                  <td className={tdSx}><input type="number" min="0" step="0.001" className={inputSx} value={n(r.gingerQty)||''} onChange={e=>updateCell(i,'gingerQty',Number(e.target.value))} data-testid={`pec-ginger-${i}`}/></td>
+                  <td className={tdRSx}>{n(r.gingerQty)?PEC_RATES.ginger:''}</td>
+                  <td className={`${tdRSx} font-medium`}>{fa(n(r.gingerQty)*PEC_RATES.ginger)}</td>
+                  {/* Biscuit */}
+                  <td className={tdSx}><input type="number" min="0" step="0.001" className={inputSx} value={n(r.biscuitQty)||''} onChange={e=>updateCell(i,'biscuitQty',Number(e.target.value))} data-testid={`pec-biscuit-${i}`}/></td>
+                  <td className={tdRSx}>{n(r.biscuitQty)?PEC_RATES.biscuit:''}</td>
+                  <td className={`${tdRSx} font-medium`}>{fa(n(r.biscuitQty)*PEC_RATES.biscuit)}</td>
+                  {/* Tea Cup */}
+                  <td className={tdSx}><input type="number" min="0" step="0.001" className={inputSx} value={n(r.teaCupQty)||''} onChange={e=>updateCell(i,'teaCupQty',Number(e.target.value))} data-testid={`pec-teacup-${i}`}/></td>
+                  <td className={tdRSx}>{n(r.teaCupQty)?PEC_RATES.teaCup:''}</td>
+                  <td className={`${tdRSx} font-medium`}>{fa(n(r.teaCupQty)*PEC_RATES.teaCup)}</td>
+                  {/* Green Elaychi */}
+                  <td className={tdSx}><input type="number" min="0" step="0.001" className={inputSx} value={n(r.greenElaychiQty)||''} onChange={e=>updateCell(i,'greenElaychiQty',Number(e.target.value))} data-testid={`pec-elaychi-${i}`}/></td>
+                  <td className={tdRSx}>{n(r.greenElaychiQty)?PEC_RATES.greenElaychi:''}</td>
+                  <td className={`${tdRSx} font-medium`}>{fa(n(r.greenElaychiQty)*PEC_RATES.greenElaychi)}</td>
+                  {/* Green Tea */}
+                  <td className={tdSx}><input type="number" min="0" step="0.001" className={inputSx} value={n(r.greenTeaQty)||''} onChange={e=>updateCell(i,'greenTeaQty',Number(e.target.value))} data-testid={`pec-greentea-${i}`}/></td>
+                  <td className={tdRSx}>{n(r.greenTeaQty)?PEC_RATES.greenTea:''}</td>
+                  <td className={`${tdRSx} font-medium`}>{fa(n(r.greenTeaQty)*PEC_RATES.greenTea)}</td>
+                  {/* Black Salt */}
+                  <td className={tdSx}><input type="number" min="0" step="0.001" className={inputSx} value={n(r.blackSaltQty)||''} onChange={e=>updateCell(i,'blackSaltQty',Number(e.target.value))} data-testid={`pec-blacksalt-${i}`}/></td>
+                  <td className={tdRSx}>{n(r.blackSaltQty)?PEC_RATES.blackSalt:''}</td>
+                  <td className={`${tdRSx} font-medium`}>{fa(n(r.blackSaltQty)*PEC_RATES.blackSalt)}</td>
+                  {/* Milk */}
+                  <td className={tdSx}><input type="number" min="0" step="0.001" className={inputSx} value={n(r.milkMorningQty)||''} onChange={e=>updateCell(i,'milkMorningQty',Number(e.target.value))} data-testid={`pec-milk-morning-${i}`}/></td>
+                  <td className={tdSx}><input type="number" min="0" step="0.001" className={inputSx} value={n(r.milkEveningQty)||''} onChange={e=>updateCell(i,'milkEveningQty',Number(e.target.value))} data-testid={`pec-milk-evening-${i}`}/></td>
+                  <td className={tdRSx}>{milkTot||''}</td>
+                  <td className={tdRSx}>{milkTot?PEC_RATES.milk:''}</td>
+                  <td className={`${tdRSx} font-medium`}>{fa(milkTot*PEC_RATES.milk)}</td>
+                </tr>
+              );
+            })}
+          </tbody>
+          <tfoot>
+            <tr>
+              <td className={`${totSx} text-left font-bold`} colSpan={2}>TOTAL</td>
+              <td className={totSx}>{fq(totals.redLabel)}</td><td className={totSx}></td><td className={totRSx}>{fa(totals.redLabel*PEC_RATES.redLabel)}</td>
+              <td className={totSx}>{fq(totals.tataTea)}</td><td className={totSx}></td><td className={totRSx}>{fa(totals.tataTea*PEC_RATES.tataTea)}</td>
+              <td className={totSx}>{fq(totals.coffee)}</td><td className={totSx}></td><td className={totRSx}>{fa(totals.coffee*PEC_RATES.coffee)}</td>
+              <td className={totSx}>{fq(totals.sugar)}</td><td className={totSx}></td><td className={totRSx}>{fa(totals.sugar*PEC_RATES.sugar)}</td>
+              <td className={totSx}>{fq(totals.ginger)}</td><td className={totSx}></td><td className={totRSx}>{fa(totals.ginger*PEC_RATES.ginger)}</td>
+              <td className={totSx}>{fq(totals.biscuit)}</td><td className={totSx}></td><td className={totRSx}>{fa(totals.biscuit*PEC_RATES.biscuit)}</td>
+              <td className={totSx}>{fq(totals.teaCup)}</td><td className={totSx}></td><td className={totRSx}>{fa(totals.teaCup*PEC_RATES.teaCup)}</td>
+              <td className={totSx}>{fq(totals.greenElaychi)}</td><td className={totSx}></td><td className={totRSx}>{fa(totals.greenElaychi*PEC_RATES.greenElaychi)}</td>
+              <td className={totSx}>{fq(totals.greenTea)}</td><td className={totSx}></td><td className={totRSx}>{fa(totals.greenTea*PEC_RATES.greenTea)}</td>
+              <td className={totSx}>{fq(totals.blackSalt)}</td><td className={totSx}></td><td className={totRSx}>{fa(totals.blackSalt*PEC_RATES.blackSalt)}</td>
+              <td className={totSx}>{fq(totals.milkMorning)}</td><td className={totSx}>{fq(totals.milkEvening)}</td>
+              <td className={totSx}>{fq(totals.milkMorning+totals.milkEvening)}</td><td className={totSx}></td>
+              <td className={totRSx}>{fa((totals.milkMorning+totals.milkEvening)*PEC_RATES.milk)}</td>
+            </tr>
+          </tfoot>
+        </table>
+      </div>
+    </div>
+  );
+}
+
 // Main Date Entry Tab — with UBL sub-tabs
 // ============================================================
 
@@ -6083,6 +6460,7 @@ const CLIENT_OPTIONS = [
   { value: "unichem", label: "Unichem Laboratories Ltd" },
   { value: "cipla", label: "Cipla Limited" },
   { value: "hul", label: "Hindustan Unilever Limited (HUL)" },
+  { value: "pec_ventures", label: "PEC Ventures Private Limited" },
 ];
 
 export function DateEntryTab() {
@@ -6100,6 +6478,7 @@ export function DateEntryTab() {
       if (o.value === "unichem") return perms.includes("dateentry_ubl");
       if (o.value === "cipla") return perms.includes("dateentry_cipla");
       if (o.value === "hul") return perms.includes("dateentry_hul") || perms.includes("dateentry_ubl");
+      if (o.value === "pec_ventures") return perms.includes("dateentry_ubl") || perms.includes("dateentry_cipla") || perms.includes("dateentry_hul");
       return false;
     });
   }, [currentUser]);
@@ -6127,7 +6506,7 @@ export function DateEntryTab() {
   const years = Array.from({ length: 6 }, (_, i) => String(now.getFullYear() - 2 + i));
   const { label: billingLabel } = getBillingRange(parseInt(month), parseInt(year));
   const periodLabel = useMemo(() => {
-    if (selectedClient === "unichem" || selectedClient === "hul") {
+    if (selectedClient === "unichem" || selectedClient === "hul" || selectedClient === "pec_ventures") {
       const m = parseInt(month); const y = parseInt(year);
       const lastDay = getDaysInMonth(m, y);
       return `1 ${MONTHS[m-1].slice(0,3)} ${y} – ${lastDay} ${MONTHS[m-1].slice(0,3)} ${y}`;
@@ -6282,6 +6661,12 @@ export function DateEntryTab() {
             <CiplaSummaryTab month={parseInt(month)} year={parseInt(year)}/>
           </TabsContent>
         </Tabs>
+      )}
+      {selectedClient === "pec_ventures" && (
+        <div>
+          <div className="mb-2 text-sm text-muted-foreground font-medium">PEC Ventures Private Limited — Canteen Expense Per Day (1st to last day of month)</div>
+          <PecVenturesTab month={parseInt(month)} year={parseInt(year)} loadKey={loadKey}/>
+        </div>
       )}
       {selectedClient === "hul" && (
         <Tabs defaultValue="hul_kpf">

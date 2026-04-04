@@ -44,6 +44,8 @@ import {
   hulDateEntries,
   hulKpfExecSnacks,
   dailyPnlEntries,
+  pecVenturesEntries,
+  type PecVenturesEntry,
   type DailyPnlEntry,
   type UblDateEntry,
   type CiplaDateEntry,
@@ -280,6 +282,11 @@ export interface IStorage {
   getDailyPnlYearlySummary(clientName?: string): Promise<any[]>;
   getCashSealForDate(date: string): Promise<any | null>;
   getLastPurchasePrice(itemName: string): Promise<number>;
+  // PEC Ventures Entries
+  getPecVenturesEntries(month: number, year: number): Promise<PecVenturesEntry[]>;
+  createPecVenturesEntry(data: any): Promise<PecVenturesEntry>;
+  updatePecVenturesEntry(id: number, data: any): Promise<PecVenturesEntry>;
+  deletePecVenturesEntry(id: number): Promise<void>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -2363,6 +2370,37 @@ export class DatabaseStorage implements IStorage {
     `) as any;
     const row = (rows as any[])[0];
     return row ? Number(row.unit_price) : 0;
+  }
+
+  // PEC Ventures Entries
+  async getPecVenturesEntries(month: number, year: number): Promise<PecVenturesEntry[]> {
+    return await db.select().from(pecVenturesEntries)
+      .where(and(eq(pecVenturesEntries.month, month), eq(pecVenturesEntries.year, year)))
+      .orderBy(pecVenturesEntries.entryDate);
+  }
+  async createPecVenturesEntry(data: any): Promise<PecVenturesEntry> {
+    const { entryDate, month, year, weekDay, redLabelQty, tataTeaQty, coffeeQty, sugarQty, gingerQty, biscuitQty, teaCupQty, greenElaychiQty, greenTeaQty, blackSaltQty, milkMorningQty, milkEveningQty } = data;
+    await db.execute(sql`
+      INSERT INTO pec_ventures_entries (entry_date, month, year, week_day, red_label_qty, tata_tea_qty, coffee_qty, sugar_qty, ginger_qty, biscuit_qty, tea_cup_qty, green_elaychi_qty, green_tea_qty, black_salt_qty, milk_morning_qty, milk_evening_qty)
+      VALUES (${entryDate}, ${month}, ${year}, ${weekDay || null}, ${redLabelQty || 0}, ${tataTeaQty || 0}, ${coffeeQty || 0}, ${sugarQty || 0}, ${gingerQty || 0}, ${biscuitQty || 0}, ${teaCupQty || 0}, ${greenElaychiQty || 0}, ${greenTeaQty || 0}, ${blackSaltQty || 0}, ${milkMorningQty || 0}, ${milkEveningQty || 0})
+      ON DUPLICATE KEY UPDATE
+        red_label_qty = VALUES(red_label_qty), tata_tea_qty = VALUES(tata_tea_qty), coffee_qty = VALUES(coffee_qty),
+        sugar_qty = VALUES(sugar_qty), ginger_qty = VALUES(ginger_qty), biscuit_qty = VALUES(biscuit_qty),
+        tea_cup_qty = VALUES(tea_cup_qty), green_elaychi_qty = VALUES(green_elaychi_qty), green_tea_qty = VALUES(green_tea_qty),
+        black_salt_qty = VALUES(black_salt_qty), milk_morning_qty = VALUES(milk_morning_qty), milk_evening_qty = VALUES(milk_evening_qty),
+        week_day = VALUES(week_day), updated_at = NOW()
+    `);
+    const rows = await db.select().from(pecVenturesEntries).where(eq(pecVenturesEntries.entryDate, entryDate));
+    return rows[0];
+  }
+  async updatePecVenturesEntry(id: number, data: any): Promise<PecVenturesEntry> {
+    const { id: _id, entryDate, createdAt, _dirty, ...safeData } = data;
+    await db.update(pecVenturesEntries).set({ ...safeData, updatedAt: new Date() }).where(eq(pecVenturesEntries.id, id));
+    const rows = await db.select().from(pecVenturesEntries).where(eq(pecVenturesEntries.id, id));
+    return rows[0];
+  }
+  async deletePecVenturesEntry(id: number): Promise<void> {
+    await db.delete(pecVenturesEntries).where(eq(pecVenturesEntries.id, id));
   }
 }
 
