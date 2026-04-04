@@ -5386,6 +5386,66 @@ function HulSummaryTab({ month, year }: { month: number; year: number }) {
         makeMealYrSheet(wb.addWorksheet('TEC'), 'TEC', filtTecEx, 'FF1A3A8A');
         makeExecYrSheet(wb.addWorksheet('KPF Exec Snacks'), filtExecEx);
 
+        // ---- Combined Summary Sheet ----
+        const wsSumm = wb.addWorksheet('Combined Summary');
+        const summCols = [
+          'Month',
+          'KPF Breakfast','KPF Lunch','KPF Evng Snacks','KPF Night Snacks','KPF Meal Sub (₹)',
+          'KPF G.Bfast','KPF G.Lunch','KPF G.Evng','KPF G.Night','KPF Guest Sub (₹)','KPF Total (₹)',
+          'TEC Breakfast','TEC Lunch','TEC Evng Snacks','TEC Night Snacks','TEC Meal Sub (₹)',
+          'TEC G.Bfast','TEC G.Lunch','TEC G.Evng','TEC G.Night','TEC Guest Sub (₹)','TEC Total (₹)',
+          'Exec Snacks','Exec Biscuit','Exec Chips','Exec Cold Drink & Water','Exec Total (₹)',
+          'Grand Total (₹)',
+        ];
+        wsSumm.mergeCells(1,1,1,summCols.length);
+        const sTit = wsSumm.getCell('A1');
+        sTit.value = `HUL Combined Yearly Summary — ${summaryYear}`;
+        sTit.font={bold:true,size:13,color:{argb:'FFFFFFFF'}}; sTit.fill=mkFill('FF374151'); sTit.alignment={horizontal:'center'}; sTit.border=thin;
+        // Sub-header groups
+        wsSumm.mergeCells(2,1,2,1);
+        [[2,12,'FF1A6B2E','KPF — Meal & Guest'],[13,23,'FF1A3A8A','TEC — Meal & Guest'],[24,28,'FFB45309','KPF Exec Snacks'],[29,29,'FF374151','']].forEach(([s,e,c,label])=>{
+          if (label) { wsSumm.mergeCells(2,Number(s),2,Number(e)); const cell=wsSumm.getCell(2,Number(s)); cell.value=label; cell.font=wFont; cell.fill=mkFill(c as string); cell.alignment={horizontal:'center'}; cell.border=thin; }
+          else { const cell=wsSumm.getCell(2,Number(s)); cell.fill=mkFill(c as string); cell.border=thin; }
+        });
+        const summHdr = wsSumm.addRow(summCols);
+        summHdr.eachCell((c:any,ci:number)=>{
+          const argb = ci<=12?'FF1A6B2E':ci<=23?'FF1A3A8A':ci<=28?'FFB45309':'FF374151';
+          c.font=wFont; c.fill=mkFill(argb); c.border=thin; c.alignment={horizontal:'center',wrapText:true};
+        });
+        wsSumm.getRow(3).height=32;
+        wsSumm.columns = summCols.map((_,i)=>({width:i===0?14:16}));
+
+        // Grand totals accumulators
+        let gKpfMeal=0,gKpfGuest=0,gTecMeal=0,gTecGuest=0,gExec=0;
+        visMths.forEach(m=>{
+          const kpf=filtKpfEx.find(r=>r.month===m);
+          const tec=filtTecEx.find(r=>r.month===m);
+          const exc=filtExecEx.find(r=>r.month===m);
+          const kbf=kpf?.breakfast||0,kln=kpf?.lunch||0,kes=kpf?.eveningSnacks||0,kns=kpf?.nightSnacks||0;
+          const kgbf=kpf?.guestBreakfast||0,kgln=kpf?.guestLunch||0,kges=kpf?.guestEveningSnacks||0,kgns=kpf?.guestNightSnacks||0;
+          const kMeal=kbf*35+kln*50+kes*30+kns*17, kGuest=kgbf*40+kgln*70+kges*40+kgns*27;
+          const tbf=tec?.breakfast||0,tln=tec?.lunch||0,tes=tec?.eveningSnacks||0,tns=tec?.nightSnacks||0;
+          const tgbf=tec?.guestBreakfast||0,tgln=tec?.guestLunch||0,tges=tec?.guestEveningSnacks||0,tgns=tec?.guestNightSnacks||0;
+          const tMeal=tbf*35+tln*50+tes*30+tns*17, tGuest=tgbf*40+tgln*70+tges*40+tgns*27;
+          const esn=exc?.snacks||0,ebi=exc?.biscuit||0,ech=exc?.chips||0,ecw=exc?.coldDrinkWater||0;
+          const eTotal=esn*25+ebi*10+ech*10+ecw*10;
+          const grand=kMeal+kGuest+tMeal+tGuest+eTotal;
+          gKpfMeal+=kMeal; gKpfGuest+=kGuest; gTecMeal+=tMeal; gTecGuest+=tGuest; gExec+=eTotal;
+          const dr=wsSumm.addRow([
+            MONTHS[m-1],
+            kbf||'',kln||'',kes||'',kns||'',kMeal||'',
+            kgbf||'',kgln||'',kges||'',kgns||'',kGuest||'',kMeal+kGuest||'',
+            tbf||'',tln||'',tes||'',tns||'',tMeal||'',
+            tgbf||'',tgln||'',tges||'',tgns||'',tGuest||'',tMeal+tGuest||'',
+            esn||'',ebi||'',ech||'',ecw||'',eTotal||'',
+            grand||'',
+          ]);
+          dr.eachCell((c:any)=>{c.border=thin;c.alignment={horizontal:'center'};});
+        });
+        const gKpf=gKpfMeal+gKpfGuest, gTec=gTecMeal+gTecGuest, gGrand=gKpf+gTec+gExec;
+        const totR=wsSumm.addRow(['GRAND TOTAL','','','','',gKpfMeal||'','','','','',gKpfGuest||'',gKpf||'','','','','',gTecMeal||'','','','','',gTecGuest||'',gTec||'','','','','',gExec||'',gGrand||'']);
+        totR.eachCell((c:any)=>{c.font={bold:true};c.fill=mkFill('FFFFF2CC');c.border=thin;c.alignment={horizontal:'center'};});
+
         const buf = await wb.xlsx.writeBuffer();
         const blob = new Blob([buf],{type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'});
         const a = document.createElement('a'); a.href=URL.createObjectURL(blob);
@@ -6840,6 +6900,23 @@ function PecVentureSummaryTab({ currentYear }: { currentYear: number }) {
       const totVals = ['GRAND TOTAL', ...PEC_ITEMS.map(c=>grandTotQty(c.key)||''), grandMilkQty()||'', ...PEC_ITEMS.map(c=>(grandTotQty(c.key)*c.rate)||''), (grandMilkQty()*PEC_RATES.milk)||'', grandTotal()||''];
       const totRow = ws.addRow(totVals);
       totRow.eachCell((c:any)=>{c.font={bold:true};c.fill=mkFill('FFFFF2CC');c.border=thin;c.alignment={horizontal:'center'};});
+
+      // ---- Summary Sheet (amounts-only, one row per month) ----
+      const wsSumm = wb.addWorksheet('Summary');
+      const summCols = ['Month', ...PEC_ITEMS.map(c=>c.label+' (₹)'), 'Milk (₹)', 'Grand Total (₹)'];
+      wsSumm.mergeCells(1,1,1,summCols.length);
+      const sT=wsSumm.getCell('A1'); sT.value=`DJ Hospitality — PEC Ventures Amount Summary — ${summaryYear}`; sT.font={bold:true,size:12,color:{argb:'FFFFFFFF'}}; sT.fill=mkFill('FF4F2B91'); sT.alignment={horizontal:'center'}; sT.border=thin;
+      const sHdr=wsSumm.addRow(summCols); sHdr.eachCell((c:any)=>{c.font=wFont;c.fill=mkFill('FF1A3A5A');c.border=thin;c.alignment={horizontal:'center',wrapText:true};});
+      wsSumm.getRow(2).height=28;
+      wsSumm.columns=summCols.map((_,i)=>({width:i===0?14:18}));
+      filteredMonths.forEach(m=>{
+        const r:PecYearRow = rowsMap.get(m) ?? {month:m,redLabel:0,tataTea:0,coffee:0,sugar:0,ginger:0,biscuit:0,teaCup:0,greenElaychi:0,greenTea:0,blackSalt:0,milkMorning:0,milkEvening:0};
+        const milkAmt=getMilkQty(r)*PEC_RATES.milk; const rTotal=getRowTotal(r);
+        const amtVals=[MONTHS[m-1],...PEC_ITEMS.map(c=>((r[c.key]||0)*c.rate)||''),milkAmt||'',rTotal||''];
+        const dr=wsSumm.addRow(amtVals); dr.eachCell((c:any)=>{c.border=thin;c.alignment={horizontal:'center'};});
+      });
+      const gTotVals=['GRAND TOTAL',...PEC_ITEMS.map(c=>(grandTotQty(c.key)*c.rate)||''),(grandMilkQty()*PEC_RATES.milk)||'',grandTotal()||''];
+      const gTotRow=wsSumm.addRow(gTotVals); gTotRow.eachCell((c:any)=>{c.font={bold:true};c.fill=mkFill('FFFFF2CC');c.border=thin;c.alignment={horizontal:'center'};});
 
       const buf = await wb.xlsx.writeBuffer();
       const blob = new Blob([buf],{type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'});
