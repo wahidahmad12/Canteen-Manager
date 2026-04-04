@@ -6170,6 +6170,7 @@ function PecVenturesTab({ month, year, loadKey = 0 }: { month: number; year: num
 
   const [rows, setRows] = useState<PecRow[]>([]);
   const [isSaving, setIsSaving] = useState(false);
+  const importRefPec = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     if (!isLoading) setRows(generatePecMonthRows(month, year, savedRows));
@@ -6208,6 +6209,138 @@ function PecVenturesTab({ month, year, loadKey = 0 }: { month: number; year: num
     } catch (err: any) {
       toast({ title: 'Error', description: err.message, variant: 'destructive' });
     } finally { setIsSaving(false); }
+  };
+
+  const PEC_COLS: { header: string; field: keyof PecRow; isDate?: boolean; isDay?: boolean }[] = [
+    { header: 'Date',              field: 'entryDate', isDate: true },
+    { header: 'Day',               field: 'weekDay',   isDay: true  },
+    { header: 'Red Label Qty (Kg)',field: 'redLabelQty'    },
+    { header: 'Tata Tea Qty (Kg)', field: 'tataTeaQty'     },
+    { header: 'Coffee Qty (Gm)',   field: 'coffeeQty'      },
+    { header: 'Sugar Qty (Kg)',    field: 'sugarQty'       },
+    { header: 'Ginger Qty (Kg)',   field: 'gingerQty'      },
+    { header: 'Biscuit Qty (Pcs)', field: 'biscuitQty'     },
+    { header: 'Tea Cup Qty (Pcs)', field: 'teaCupQty'      },
+    { header: 'Green Elaychi (Gm)',field: 'greenElaychiQty'},
+    { header: 'Green Tea (Pkt)',   field: 'greenTeaQty'    },
+    { header: 'Black Salt Qty (Kg)',field:'blackSaltQty'   },
+    { header: 'Milk Morning (L)',  field: 'milkMorningQty' },
+    { header: 'Milk Evening (L)',  field: 'milkEveningQty' },
+  ];
+
+  const pecDateDisplay = (ds: string) => {
+    const d = new Date(ds + 'T00:00:00');
+    return `${String(d.getDate()).padStart(2,'0')}-${String(d.getMonth()+1).padStart(2,'0')}-${d.getFullYear()}`;
+  };
+
+  const handleExportExcelPec = async () => {
+    const ExcelJS = (await import('exceljs')).default;
+    const wb = new ExcelJS.Workbook();
+    const ws = wb.addWorksheet('PEC Ventures Canteen');
+    const thin = { top:{style:'thin' as const}, bottom:{style:'thin' as const}, left:{style:'thin' as const}, right:{style:'thin' as const} };
+    // Title row
+    ws.mergeCells(1, 1, 1, PEC_COLS.length);
+    const title = ws.getCell('A1');
+    title.value = `DJ Hospitality — PEC Ventures Canteen — ${MONTHS[month-1]} ${year}`;
+    title.font={bold:true,color:{argb:'FFFFFFFF'}}; title.fill={type:'pattern',pattern:'solid',fgColor:{argb:'FF4F2B91'}}; title.alignment={horizontal:'center'}; title.border=thin;
+    // Header row
+    const hdr = ws.addRow(PEC_COLS.map(c => c.header));
+    hdr.eachCell(cell => { cell.font={bold:true,color:{argb:'FFFFFFFF'}}; cell.fill={type:'pattern',pattern:'solid',fgColor:{argb:'FF1A3A5A'}}; cell.border=thin; cell.alignment={horizontal:'center'}; });
+    ws.columns = PEC_COLS.map((c,i) => ({ width: i<=1?14:18 }));
+    // Data rows
+    rows.forEach(r => {
+      const row = ws.addRow(PEC_COLS.map(c => {
+        if (c.isDate) return pecDateDisplay(r.entryDate);
+        if (c.isDay) return r.weekDay;
+        return n(r[c.field]) || '';
+      }));
+      if (r.weekDay === 'Sun') row.eachCell(cell => { cell.fill={type:'pattern',pattern:'solid',fgColor:{argb:'FFFFF3CD'}}; });
+      row.eachCell(cell => { cell.border=thin; cell.alignment={horizontal:'center'}; });
+    });
+    // Totals row
+    const totRow = ws.addRow(['', 'TOTAL', ...PEC_COLS.slice(2).map(c => rows.reduce((s,r)=>s+n(r[c.field]),0)||'')]);
+    totRow.eachCell(cell => { cell.font={bold:true}; cell.fill={type:'pattern',pattern:'solid',fgColor:{argb:'FFFFF2CC'}}; cell.border=thin; cell.alignment={horizontal:'center'}; });
+    const buf = await wb.xlsx.writeBuffer();
+    const blob = new Blob([buf],{type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'});
+    const a = document.createElement('a'); a.href=URL.createObjectURL(blob);
+    a.download=`PEC_Ventures_${MONTHS[month-1]}_${year}.xlsx`; a.click();
+  };
+
+  const handleDownloadPecTemplate = async () => {
+    const ExcelJS = (await import('exceljs')).default;
+    const wb = new ExcelJS.Workbook();
+    const ws = wb.addWorksheet('PEC Ventures Template');
+    const thin = { top:{style:'thin' as const}, bottom:{style:'thin' as const}, left:{style:'thin' as const}, right:{style:'thin' as const} };
+    ws.mergeCells(1, 1, 1, PEC_COLS.length);
+    const title = ws.getCell('A1');
+    title.value = `PEC Ventures — Import Template — ${MONTHS[month-1]} ${year}`;
+    title.font={bold:true,color:{argb:'FFFFFFFF'}}; title.fill={type:'pattern',pattern:'solid',fgColor:{argb:'FF4F2B91'}}; title.alignment={horizontal:'center'}; title.border=thin;
+    const hdr = ws.addRow(PEC_COLS.map(c => c.header));
+    hdr.eachCell(cell => { cell.font={bold:true,color:{argb:'FFFFFFFF'}}; cell.fill={type:'pattern',pattern:'solid',fgColor:{argb:'FF1A3A5A'}}; cell.border=thin; cell.alignment={horizontal:'center'}; });
+    ws.columns = PEC_COLS.map((c,i) => ({ width: i<=1?14:18 }));
+    const days = getDaysInMonth(month, year);
+    for (let d = 1; d <= days; d++) {
+      const ds = `${year}-${String(month).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+      const row = ws.addRow([pecDateDisplay(ds), getWeekDay(ds), ...PEC_COLS.slice(2).map(()=>'')]);
+      if (getWeekDay(ds) === 'Sun') row.eachCell(cell => { cell.fill={type:'pattern',pattern:'solid',fgColor:{argb:'FFFFF3CD'}}; });
+      row.eachCell(cell => { cell.border=thin; cell.alignment={horizontal:'center'}; });
+    }
+    const buf = await wb.xlsx.writeBuffer();
+    const blob = new Blob([buf],{type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'});
+    const a = document.createElement('a'); a.href=URL.createObjectURL(blob);
+    a.download=`PEC_Ventures_Template_${MONTHS[month-1]}_${year}.xlsx`; a.click();
+  };
+
+  const handleImportExcelPec = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]; if (!file) return;
+    e.target.value = "";
+    try {
+      const ExcelJS = (await import('exceljs')).default;
+      const wb = new ExcelJS.Workbook();
+      await wb.xlsx.load(await file.arrayBuffer());
+      const ws = wb.worksheets[0];
+      // Find header row (first row with 'Date' cell)
+      let headerRowIdx = -1;
+      ws.eachRow((row, ri) => {
+        if (headerRowIdx >= 0) return;
+        row.eachCell(cell => { if (String(cell.value??'').trim()==='Date') headerRowIdx=ri; });
+      });
+      if (headerRowIdx < 0) { toast({ title:'Import Failed', description:'Could not find header row with "Date" column.', variant:'destructive'}); return; }
+      const headers: string[] = [];
+      ws.getRow(headerRowIdx).eachCell(cell => headers.push(String(cell.value??'').trim()));
+      const fieldMap: Record<number,keyof PecRow> = {};
+      PEC_COLS.forEach(c => { const i = headers.indexOf(c.header); if (i>=0) fieldMap[i]=c.field; });
+      const dateIdx = headers.indexOf('Date');
+      const importedMap = new Map<string,PecRow>();
+      ws.eachRow((row, ri) => {
+        if (ri <= headerRowIdx) return;
+        const rawDate = row.getCell(dateIdx+1).value;
+        if (!rawDate) return;
+        let ds = '';
+        if (rawDate instanceof Date) {
+          ds = `${rawDate.getFullYear()}-${String(rawDate.getMonth()+1).padStart(2,'0')}-${String(rawDate.getDate()).padStart(2,'0')}`;
+        } else {
+          const s = String(rawDate).trim();
+          const dmy = s.match(/^(\d{1,2})[-\/](\d{1,2})[-\/](\d{4})$/);
+          if (dmy) ds = `${dmy[3]}-${dmy[2].padStart(2,'0')}-${dmy[1].padStart(2,'0')}`;
+          else if (/^\d{4}-\d{2}-\d{2}/.test(s)) ds = s.substring(0,10);
+        }
+        if (!ds) return;
+        const existing = importedMap.get(ds) ?? { ...pecRowDefaults(ds, month, year) };
+        row.eachCell((cell, ci) => {
+          const f = fieldMap[ci-1];
+          if (!f || f==='entryDate' || f==='weekDay' || f==='month' || f==='year') return;
+          (existing as any)[f] = parseFloat(String(cell.value??0))||0;
+        });
+        existing._dirty = true;
+        importedMap.set(ds, existing);
+      });
+      // Merge imported data into current rows
+      setRows(prev => prev.map(r => importedMap.has(r.entryDate) ? { ...importedMap.get(r.entryDate)!, id: r.id } : r));
+      toast({ title:`Imported ${importedMap.size} rows`, description:'Review and click Save to persist.' });
+    } catch(err:any) {
+      toast({ title:'Import Failed', description:err.message, variant:'destructive' });
+    }
   };
 
   const handlePrint = () => {
@@ -6401,9 +6534,19 @@ function PecVenturesTab({ month, year, loadKey = 0 }: { month: number; year: num
           {isSaving ? "Saving..." : "Save"}
         </Button>
         <Button onClick={handlePrint} variant="outline" className="h-8 px-4 text-sm gap-2" data-testid="btn-pec-print">
-          <Printer className="w-3 h-3" /> Print / Export
+          <Printer className="w-3 h-3" /> Print
         </Button>
-        <span className="text-xs text-muted-foreground">Rates fixed: Red Label ₹620/kg · Tata Tea ₹310/kg · Coffee ₹5.5/gm · Sugar ₹48/kg · Ginger ₹180/kg · Biscuit ₹5/pcs · Tea Cup ₹0.8/pcs · Green Elaychi ₹3.6/gm · Green Tea ₹120/pkt · Black Salt ₹115/kg · Milk ₹28/L</span>
+        <Button onClick={handleExportExcelPec} variant="outline" className="h-8 px-4 text-sm gap-2 text-green-700 border-green-300 hover:bg-green-50" data-testid="btn-pec-export">
+          <FileDown className="w-3 h-3" /> Export Excel
+        </Button>
+        <Button onClick={() => importRefPec.current?.click()} variant="outline" className="h-8 px-4 text-sm gap-2 text-blue-700 border-blue-300 hover:bg-blue-50" data-testid="btn-pec-import">
+          <FileUp className="w-3 h-3" /> Import Excel
+        </Button>
+        <Button onClick={handleDownloadPecTemplate} variant="outline" className="h-8 px-4 text-sm gap-2 text-purple-700 border-purple-300 hover:bg-purple-50" data-testid="btn-pec-template">
+          <FileDown className="w-3 h-3" /> Template
+        </Button>
+        <input ref={importRefPec} type="file" accept=".xlsx,.xls" className="hidden" onChange={handleImportExcelPec} />
+        <span className="text-xs text-muted-foreground">Rates: Red Label ₹620/kg · Tata Tea ₹310/kg · Coffee ₹5.5/gm · Sugar ₹48/kg · Ginger ₹180/kg · Biscuit ₹5/pcs · Tea Cup ₹0.8/pcs · Green Elaychi ₹3.6/gm · Green Tea ₹120/pkt · Black Salt ₹115/kg · Milk ₹28/L</span>
       </div>
 
       <div className="overflow-x-auto rounded-lg border border-gray-200 dark:border-gray-700">
