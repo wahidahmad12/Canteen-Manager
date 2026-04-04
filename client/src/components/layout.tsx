@@ -5,7 +5,7 @@ import logoImg from '@assets/logo1_1771660912341.png';
 import { useCurrentUser, useLogout } from '@/hooks/use-reports';
 import { Button } from '@/components/ui/button';
 
-const labourWorksPaths = ['/employee-master', '/muster-roll', '/salary', '/skill-wage-rates', '/registers', '/form-xiii', '/form-vi-a', '/bonus-return', '/half-yearly-return', '/leave-with-wages', '/epfo-esic', '/letterhead', '/ptax-report'];
+const labourWorksPaths = ['/employee-master', '/muster-roll', '/salary', '/skill-wage-rates', '/shift-duty', '/registers', '/form-xiii', '/form-vi-a', '/bonus-return', '/half-yearly-return', '/leave-with-wages', '/epfo-esic', '/letterhead', '/ptax-report'];
 
 export function Layout({ children }: { children: React.ReactNode }) {
   const [location] = useLocation();
@@ -87,6 +87,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
     { href: '/muster-roll', label: 'Muster Roll', icon: CalendarDays },
     { href: '/salary', label: 'Salary Register', icon: Wallet },
     ...(user?.role === 'admin' ? [{ href: '/skill-wage-rates', label: 'Base Wage Rates', icon: IndianRupee }] : []),
+    ...(user?.role === 'admin' ? [{ href: '/shift-duty', label: 'Shift Duty Chart', icon: CalendarDays }] : []),
     { href: '/registers', label: 'Registers', icon: BookOpen },
     { href: '/form-xiii', label: 'Workmen Register', icon: FileText },
     { href: '/form-vi-a', label: 'Form VI-A (Notice)', icon: FileText },

@@ -1053,3 +1053,60 @@ export const pecVenturesEntries = mysqlTable("pec_ventures_entries", {
 });
 export type PecVenturesEntry = typeof pecVenturesEntries.$inferSelect;
 export const insertPecVenturesEntrySchema = createInsertSchema(pecVenturesEntries).omit({ id: true, createdAt: true, updatedAt: true });
+
+// === EMPLOYEE SHIFT DUTIES — Monthly Chart ===
+export const employeeShiftDuties = mysqlTable("employee_shift_duties", {
+  id: int("id").autoincrement().primaryKey(),
+  employeeId: int("employee_id").notNull(),
+  month: int("month").notNull(),
+  year: int("year").notNull(),
+  day1: varchar("day1", { length: 5 }).default(""),
+  day2: varchar("day2", { length: 5 }).default(""),
+  day3: varchar("day3", { length: 5 }).default(""),
+  day4: varchar("day4", { length: 5 }).default(""),
+  day5: varchar("day5", { length: 5 }).default(""),
+  day6: varchar("day6", { length: 5 }).default(""),
+  day7: varchar("day7", { length: 5 }).default(""),
+  day8: varchar("day8", { length: 5 }).default(""),
+  day9: varchar("day9", { length: 5 }).default(""),
+  day10: varchar("day10", { length: 5 }).default(""),
+  day11: varchar("day11", { length: 5 }).default(""),
+  day12: varchar("day12", { length: 5 }).default(""),
+  day13: varchar("day13", { length: 5 }).default(""),
+  day14: varchar("day14", { length: 5 }).default(""),
+  day15: varchar("day15", { length: 5 }).default(""),
+  day16: varchar("day16", { length: 5 }).default(""),
+  day17: varchar("day17", { length: 5 }).default(""),
+  day18: varchar("day18", { length: 5 }).default(""),
+  day19: varchar("day19", { length: 5 }).default(""),
+  day20: varchar("day20", { length: 5 }).default(""),
+  day21: varchar("day21", { length: 5 }).default(""),
+  day22: varchar("day22", { length: 5 }).default(""),
+  day23: varchar("day23", { length: 5 }).default(""),
+  day24: varchar("day24", { length: 5 }).default(""),
+  day25: varchar("day25", { length: 5 }).default(""),
+  day26: varchar("day26", { length: 5 }).default(""),
+  day27: varchar("day27", { length: 5 }).default(""),
+  day28: varchar("day28", { length: 5 }).default(""),
+  day29: varchar("day29", { length: 5 }).default(""),
+  day30: varchar("day30", { length: 5 }).default(""),
+  day31: varchar("day31", { length: 5 }).default(""),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+export type EmployeeShiftDuty = typeof employeeShiftDuties.$inferSelect;
+export const insertEmployeeShiftDutySchema = createInsertSchema(employeeShiftDuties).omit({ id: true, createdAt: true, updatedAt: true });
+
+// === FLASH MESSAGES — Admin to Employee Notifications ===
+export const flashMessages = mysqlTable("flash_messages", {
+  id: int("id").autoincrement().primaryKey(),
+  title: varchar("title", { length: 200 }).notNull(),
+  message: text("message").notNull(),
+  type: varchar("type", { length: 20 }).default("info"),
+  isActive: boolean("is_active").default(true),
+  createdBy: varchar("created_by", { length: 100 }),
+  expiresAt: date("expires_at"),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+export type FlashMessage = typeof flashMessages.$inferSelect;
+export const insertFlashMessageSchema = createInsertSchema(flashMessages).omit({ id: true, createdAt: true });

@@ -33,6 +33,7 @@ import BonusReturn from "./pages/bonus-return";
 import HalfYearlyReturn from "./pages/half-yearly-return";
 import LeaveWithWages from "./pages/leave-with-wages";
 import SkillWageRates from "./pages/skill-wage-rates";
+import ShiftDuty from "./pages/shift-duty";
 import EpfoEsic from "./pages/epfo-esic";
 import LetterheadPage from "./pages/letterhead";
 import PtaxReport from "./pages/ptax-report";
@@ -132,6 +133,7 @@ function AuthenticatedRouter() {
       <Route path="/half-yearly-return" component={HalfYearlyReturn} />
       <Route path="/leave-with-wages" component={LeaveWithWages} />
       <Route path="/skill-wage-rates">{() => <AdminOnlyRoute><SkillWageRates /></AdminOnlyRoute>}</Route>
+      <Route path="/shift-duty">{() => <AdminOnlyRoute><ShiftDuty /></AdminOnlyRoute>}</Route>
       <Route path="/epfo-esic" component={EpfoEsic} />
       <Route path="/letterhead" component={LetterheadPage} />
       <Route path="/ptax-report" component={PtaxReport} />

@@ -1,9 +1,12 @@
 import { useState } from "react";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { apiRequest } from "@/lib/queryClient";
 import { Layout } from "@/components/layout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 import { 
   useItemMaster,
   useCreateItemMasterItem,
@@ -28,7 +31,8 @@ import {
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Loader2, Plus, Pencil, Trash2, Save, X, Lock, KeyRound, Building2, Users, UserPlus, Store, Package, Search, Shield, ShieldCheck, ArrowLeft, Settings, Phone, MapPin, Crown, User, ShoppingCart, Coins, RefreshCw, Link2 } from "lucide-react";
+import { Loader2, Plus, Pencil, Trash2, Save, X, Lock, KeyRound, Building2, Users, UserPlus, Store, Package, Search, Shield, ShieldCheck, ArrowLeft, Settings, Phone, MapPin, Crown, User, ShoppingCart, Coins, RefreshCw, Link2, MessageSquare, Bell, AlertCircle, Info, CheckCircle, AlertTriangle } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 import { useLocation } from "wouter";
 
@@ -143,6 +147,46 @@ export default function Admin() {
   const [editUserRole, setEditUserRole] = useState("user");
   const [editUserClient, setEditUserClient] = useState("");
   const [editUserPerms, setEditUserPerms] = useState<string[]>([]);
+
+  // Flash Messages
+  const queryClient2 = useQueryClient();
+  const { data: flashMessages = [], isLoading: flashLoading, refetch: refetchFlash } = useQuery<any[]>({
+    queryKey: ['/api/flash-messages'],
+    queryFn: async () => { const r = await fetch('/api/flash-messages', { credentials: 'include' }); return r.json(); },
+  });
+  const [flashTitle, setFlashTitle] = useState("");
+  const [flashMessage, setFlashMessage] = useState("");
+  const [flashType, setFlashType] = useState("info");
+  const [flashExpiry, setFlashExpiry] = useState("");
+  const [flashCreating, setFlashCreating] = useState(false);
+  const createFlashMessage = async () => {
+    if (!flashTitle.trim() || !flashMessage.trim()) { toast({ title: "Required fields", description: "Title and message are required.", variant: "destructive" }); return; }
+    setFlashCreating(true);
+    try {
+      await fetch('/api/flash-messages', { method: 'POST', headers: { 'Content-Type': 'application/json' }, credentials: 'include',
+        body: JSON.stringify({ title: flashTitle, message: flashMessage, type: flashType, expiresAt: flashExpiry || null, isActive: true }) });
+      setFlashTitle(""); setFlashMessage(""); setFlashType("info"); setFlashExpiry("");
+      queryClient2.invalidateQueries({ queryKey: ['/api/flash-messages'] });
+      toast({ title: "Flash message created", description: "It will appear on employee dashboards." });
+    } catch(e: any) { toast({ title: "Failed", description: e.message, variant: "destructive" }); }
+    finally { setFlashCreating(false); }
+  };
+  const toggleFlashActive = async (id: number, isActive: boolean) => {
+    await fetch(`/api/flash-messages/${id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, credentials: 'include', body: JSON.stringify({ isActive: !isActive }) });
+    queryClient2.invalidateQueries({ queryKey: ['/api/flash-messages'] });
+  };
+  const deleteFlashMessage = async (id: number) => {
+    await fetch(`/api/flash-messages/${id}`, { method: 'DELETE', credentials: 'include' });
+    queryClient2.invalidateQueries({ queryKey: ['/api/flash-messages'] });
+    toast({ title: "Deleted" });
+  };
+  const flashTypeIcon = (type: string) => {
+    if (type === 'warning') return <AlertTriangle className="w-3.5 h-3.5 text-amber-500" />;
+    if (type === 'error') return <AlertCircle className="w-3.5 h-3.5 text-red-500" />;
+    if (type === 'success') return <CheckCircle className="w-3.5 h-3.5 text-green-500" />;
+    return <Info className="w-3.5 h-3.5 text-blue-500" />;
+  };
+  const flashTypeBg: Record<string, string> = { info: 'bg-blue-50 border-blue-200 dark:bg-blue-950/20 dark:border-blue-800/50', warning: 'bg-amber-50 border-amber-200 dark:bg-amber-950/20 dark:border-amber-800/50', error: 'bg-red-50 border-red-200 dark:bg-red-950/20 dark:border-red-800/50', success: 'bg-green-50 border-green-200 dark:bg-green-950/20 dark:border-green-800/50' };
 
   const permissionLabels: Record<string, string> = {
     expense: 'Daily Cash Expance',
@@ -1544,6 +1588,88 @@ export default function Admin() {
                 <div className="px-3 py-2 text-xs text-blue-600 dark:text-blue-400 border-t border-blue-200 dark:border-blue-800/50 bg-blue-50/50 dark:bg-blue-950/10 font-semibold">
                   {filteredItems.length} items {itemSearchQuery || itemTypeFilter !== 'all' ? '(filtered)' : 'total'}
                 </div>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
+        {/* Flash Messages Management */}
+        <Card className="border border-purple-200 dark:border-purple-800/50">
+          <CardHeader className="pb-3 bg-gradient-to-r from-purple-50 to-violet-50 dark:from-purple-950/20 dark:to-violet-950/10 border-b border-purple-200 dark:border-purple-800/50">
+            <CardTitle className="text-base font-semibold text-purple-800 dark:text-purple-200 flex items-center gap-2">
+              <MessageSquare className="w-4 h-4" /> Flash Messages
+              <Badge variant="secondary" className="ml-auto text-xs">{flashMessages.filter((m: any) => m.isActive).length} active</Badge>
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="p-4 space-y-4">
+            {/* Create new flash message */}
+            <div className="p-3 rounded-xl bg-gradient-to-br from-purple-50 to-violet-50 dark:from-purple-950/20 dark:to-violet-950/20 border border-purple-200 dark:border-purple-800/50 space-y-3">
+              <p className="text-xs font-semibold text-purple-700 dark:text-purple-300 uppercase tracking-wide flex items-center gap-1.5"><Bell className="w-3.5 h-3.5" /> Create New Announcement</p>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                <div className="space-y-1">
+                  <Label className="text-xs">Title <span className="text-red-500">*</span></Label>
+                  <Input value={flashTitle} onChange={e => setFlashTitle(e.target.value)} placeholder="e.g. Holiday Notice" data-testid="input-flash-title" />
+                </div>
+                <div className="grid grid-cols-2 gap-2">
+                  <div className="space-y-1">
+                    <Label className="text-xs">Type</Label>
+                    <Select value={flashType} onValueChange={setFlashType}>
+                      <SelectTrigger data-testid="select-flash-type"><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="info">ℹ️ Info</SelectItem>
+                        <SelectItem value="warning">⚠️ Warning</SelectItem>
+                        <SelectItem value="success">✅ Success</SelectItem>
+                        <SelectItem value="error">🚨 Alert</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-1">
+                    <Label className="text-xs">Expires On</Label>
+                    <Input type="date" value={flashExpiry} onChange={e => setFlashExpiry(e.target.value)} data-testid="input-flash-expiry" />
+                  </div>
+                </div>
+              </div>
+              <div className="space-y-1">
+                <Label className="text-xs">Message <span className="text-red-500">*</span></Label>
+                <Textarea value={flashMessage} onChange={e => setFlashMessage(e.target.value)} placeholder="Write the announcement message here..." rows={3} data-testid="input-flash-message" />
+              </div>
+              <Button size="sm" onClick={createFlashMessage} disabled={flashCreating} data-testid="button-create-flash">
+                {flashCreating ? <Loader2 className="w-3.5 h-3.5 mr-1 animate-spin" /> : <Plus className="w-3.5 h-3.5 mr-1" />}
+                Post Announcement
+              </Button>
+            </div>
+
+            {/* Existing flash messages */}
+            {flashLoading ? (
+              <div className="flex items-center justify-center py-6"><Loader2 className="w-5 h-5 animate-spin text-purple-400" /></div>
+            ) : flashMessages.length === 0 ? (
+              <p className="text-sm text-muted-foreground text-center py-4">No announcements yet</p>
+            ) : (
+              <div className="space-y-2 max-h-80 overflow-y-auto">
+                {flashMessages.map((msg: any) => (
+                  <div key={msg.id} className={`border rounded-lg p-3 ${flashTypeBg[msg.type] || flashTypeBg.info} ${!msg.isActive ? 'opacity-50' : ''}`} data-testid={`flash-msg-${msg.id}`}>
+                    <div className="flex items-start gap-2">
+                      <span className="mt-0.5">{flashTypeIcon(msg.type)}</span>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <p className="text-sm font-semibold truncate">{msg.title}</p>
+                          <Badge variant={msg.isActive ? "default" : "secondary"} className="text-[10px] px-1.5">{msg.isActive ? "Active" : "Inactive"}</Badge>
+                          {msg.expiresAt && <span className="text-[10px] text-muted-foreground">Expires: {new Date(msg.expiresAt).toLocaleDateString('en-IN')}</span>}
+                        </div>
+                        <p className="text-xs text-muted-foreground mt-0.5 line-clamp-2">{msg.message}</p>
+                        <p className="text-[10px] text-muted-foreground/60 mt-1">By {msg.createdBy} • {new Date(msg.createdAt).toLocaleDateString('en-IN')}</p>
+                      </div>
+                      <div className="flex items-center gap-1 shrink-0">
+                        <Button size="icon" variant="ghost" className="h-6 w-6 text-xs" onClick={() => toggleFlashActive(msg.id, msg.isActive)} title={msg.isActive ? "Deactivate" : "Activate"} data-testid={`button-toggle-flash-${msg.id}`}>
+                          {msg.isActive ? <X className="w-3 h-3" /> : <CheckCircle className="w-3 h-3" />}
+                        </Button>
+                        <Button size="icon" variant="ghost" className="h-6 w-6 text-destructive hover:bg-destructive/10" onClick={() => deleteFlashMessage(msg.id)} data-testid={`button-delete-flash-${msg.id}`}>
+                          <Trash2 className="w-3 h-3" />
+                        </Button>
+                      </div>
+                    </div>
+                  </div>
+                ))}
               </div>
             )}
           </CardContent>

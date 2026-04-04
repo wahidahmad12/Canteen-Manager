@@ -3,10 +3,15 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Label } from '@/components/ui/label';
-import { User, CalendarDays, LogOut, Download, Building2, Phone, MapPin, Briefcase, IdCard, Smartphone, X, Share } from 'lucide-react';
+import { User, CalendarDays, LogOut, Download, Building2, Phone, MapPin, Briefcase, IdCard, Smartphone, X, Share, Info, AlertTriangle, AlertCircle, CheckCircle } from 'lucide-react';
 import { useCurrentUser, useLogout } from '@/hooks/use-reports';
 import { useState, useEffect, useRef } from 'react';
 import logoImg from '@assets/logo1_1771660912341.png';
+
+interface FlashMessage {
+  id: number; title: string; message: string; type: string;
+  isActive: boolean; expiresAt?: string; createdAt: string; createdBy?: string;
+}
 
 interface EmployeeInfo {
   id: number;
@@ -108,6 +113,37 @@ export default function EmployeeDashboard() {
   const deferredPrompt = useRef<any>(null);
   const [showInstallBanner, setShowInstallBanner] = useState(false);
   const [isIos, setIsIos] = useState(false);
+
+  const [dismissedFlash, setDismissedFlash] = useState<number[]>(() => {
+    try { return JSON.parse(localStorage.getItem('dismissed-flash-messages') || '[]'); } catch { return []; }
+  });
+  const { data: flashMessages = [] } = useQuery<FlashMessage[]>({
+    queryKey: ['/api/flash-messages-active'],
+    queryFn: async () => {
+      const r = await fetch('/api/flash-messages?active=true', { credentials: 'include' });
+      if (!r.ok) return [];
+      return r.json();
+    },
+    enabled: !!user,
+    refetchInterval: 5 * 60 * 1000,
+  });
+  const visibleFlash = flashMessages.filter(m => {
+    if (!m.isActive) return false;
+    if (dismissedFlash.includes(m.id)) return false;
+    if (m.expiresAt && new Date(m.expiresAt) < new Date()) return false;
+    return true;
+  });
+  const dismissFlash = (id: number) => {
+    const next = [...dismissedFlash, id];
+    setDismissedFlash(next);
+    localStorage.setItem('dismissed-flash-messages', JSON.stringify(next));
+  };
+  const flashBannerStyle: Record<string, { bg: string; border: string; icon: any; textColor: string }> = {
+    info:    { bg: 'from-blue-600 to-indigo-600',   border: 'border-blue-400',   icon: Info,          textColor: 'text-white' },
+    warning: { bg: 'from-amber-500 to-orange-500',  border: 'border-amber-400',  icon: AlertTriangle, textColor: 'text-white' },
+    error:   { bg: 'from-red-600 to-rose-600',      border: 'border-red-400',    icon: AlertCircle,   textColor: 'text-white' },
+    success: { bg: 'from-green-600 to-emerald-600', border: 'border-green-400',  icon: CheckCircle,   textColor: 'text-white' },
+  };
 
   useEffect(() => {
     if (!user) return;
@@ -459,6 +495,34 @@ export default function EmployeeDashboard() {
               </Button>
             )}
           </div>
+        </div>
+      )}
+
+      {visibleFlash.length > 0 && (
+        <div className="max-w-5xl mx-auto px-4 pt-4 space-y-2">
+          {visibleFlash.map(msg => {
+            const style = flashBannerStyle[msg.type] || flashBannerStyle.info;
+            const IconComp = style.icon;
+            return (
+              <div key={msg.id} className={`bg-gradient-to-r ${style.bg} rounded-xl p-4 shadow-lg text-white relative border ${style.border}`} data-testid={`banner-flash-${msg.id}`}>
+                <button onClick={() => dismissFlash(msg.id)} className="absolute top-2 right-2 p-1 rounded-full hover:bg-white/20 transition" data-testid={`button-dismiss-flash-${msg.id}`}>
+                  <X className="w-4 h-4" />
+                </button>
+                <div className="flex items-start gap-3 pr-6">
+                  <div className="w-8 h-8 rounded-lg bg-white/20 flex items-center justify-center shrink-0 mt-0.5">
+                    <IconComp className="w-4 h-4" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <h3 className="font-bold text-sm">{msg.title}</h3>
+                    <p className="text-xs text-white/90 mt-0.5 whitespace-pre-line">{msg.message}</p>
+                    {msg.expiresAt && (
+                      <p className="text-[10px] text-white/60 mt-1">Expires: {new Date(msg.expiresAt).toLocaleDateString('en-IN')}</p>
+                    )}
+                  </div>
+                </div>
+              </div>
+            );
+          })}
         </div>
       )}
 

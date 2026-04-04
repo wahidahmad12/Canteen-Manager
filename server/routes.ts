@@ -2012,6 +2012,54 @@ export async function registerRoutes(
     await storage.deletePecVenturesEntry(Number(req.params.id)); res.status(204).send();
   });
 
+  // === EMPLOYEE SHIFT DUTIES ===
+  app.get('/api/shift-duties', requireAuth, async (req, res) => {
+    try {
+      const month = Number(req.query.month) || new Date().getMonth() + 1;
+      const year = Number(req.query.year) || new Date().getFullYear();
+      res.json(await storage.getShiftDuties(month, year));
+    } catch (err: any) { res.status(500).json({ message: err.message }); }
+  });
+  app.post('/api/shift-duties', requireAuth, async (req, res) => {
+    try { res.json(await storage.upsertShiftDuty(req.body)); }
+    catch (err: any) { res.status(500).json({ message: err.message }); }
+  });
+  app.get('/api/shift-duties/employee/:employeeId', requireAuth, async (req, res) => {
+    try {
+      const month = Number(req.query.month) || new Date().getMonth() + 1;
+      const year = Number(req.query.year) || new Date().getFullYear();
+      const row = await storage.getEmployeeShiftDuty(Number(req.params.employeeId), month, year);
+      res.json(row || null);
+    } catch (err: any) { res.status(500).json({ message: err.message }); }
+  });
+
+  // === FLASH MESSAGES ===
+  app.get('/api/flash-messages', requireAuth, async (req, res) => {
+    try {
+      const activeOnly = req.query.active === 'true';
+      res.json(await storage.getFlashMessages(activeOnly));
+    } catch (err: any) { res.status(500).json({ message: err.message }); }
+  });
+  app.post('/api/flash-messages', requireAuth, async (req, res) => {
+    try {
+      if ((req as any).session?.user?.role !== 'admin') return res.status(403).json({ message: 'Admin only' });
+      const data = { ...req.body, createdBy: (req as any).session?.user?.displayName || 'Admin' };
+      res.status(201).json(await storage.createFlashMessage(data));
+    } catch (err: any) { res.status(500).json({ message: err.message }); }
+  });
+  app.patch('/api/flash-messages/:id', requireAuth, async (req, res) => {
+    try {
+      if ((req as any).session?.user?.role !== 'admin') return res.status(403).json({ message: 'Admin only' });
+      res.json(await storage.updateFlashMessage(Number(req.params.id), req.body));
+    } catch (err: any) { res.status(500).json({ message: err.message }); }
+  });
+  app.delete('/api/flash-messages/:id', requireAuth, async (req, res) => {
+    try {
+      if ((req as any).session?.user?.role !== 'admin') return res.status(403).json({ message: 'Admin only' });
+      await storage.deleteFlashMessage(Number(req.params.id)); res.status(204).send();
+    } catch (err: any) { res.status(500).json({ message: err.message }); }
+  });
+
   return httpServer;
 }
 

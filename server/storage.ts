@@ -2429,6 +2429,76 @@ export class DatabaseStorage implements IStorage {
       blackSalt: Number(r.blackSalt), milkMorning: Number(r.milkMorning), milkEvening: Number(r.milkEvening),
     }));
   }
+
+  // === EMPLOYEE SHIFT DUTIES ===
+  async getShiftDuties(month: number, year: number): Promise<any[]> {
+    const { employeeShiftDuties, employees } = await import('../shared/schema');
+    const { eq, and } = await import('drizzle-orm');
+    const rows = await db
+      .select({ duty: employeeShiftDuties, emp: { id: employees.id, name: employees.name, employeeCode: employees.employeeCode, department: employees.department, designation: employees.designation, clientName: employees.clientName } })
+      .from(employeeShiftDuties)
+      .leftJoin(employees, eq(employeeShiftDuties.employeeId, employees.id))
+      .where(and(eq(employeeShiftDuties.month, month), eq(employeeShiftDuties.year, year)));
+    return rows.map(r => ({ ...r.duty, employeeName: r.emp?.name, employeeCode: r.emp?.employeeCode, department: r.emp?.department, designation: r.emp?.designation, clientName: r.emp?.clientName }));
+  }
+
+  async upsertShiftDuty(data: any): Promise<any> {
+    const { employeeShiftDuties } = await import('../shared/schema');
+    const { eq, and } = await import('drizzle-orm');
+    const existing = await db.select({ id: employeeShiftDuties.id }).from(employeeShiftDuties).where(and(eq(employeeShiftDuties.employeeId, data.employeeId), eq(employeeShiftDuties.month, data.month), eq(employeeShiftDuties.year, data.year)));
+    if (existing.length > 0) {
+      await db.update(employeeShiftDuties).set({ ...data, updatedAt: new Date() }).where(eq(employeeShiftDuties.id, existing[0].id));
+      const updated = await db.select().from(employeeShiftDuties).where(eq(employeeShiftDuties.id, existing[0].id));
+      return updated[0];
+    } else {
+      const result = await db.insert(employeeShiftDuties).values(data);
+      const inserted = await db.select().from(employeeShiftDuties).where(eq(employeeShiftDuties.id, (result as any).insertId));
+      return inserted[0];
+    }
+  }
+
+  async getEmployeeShiftDuty(employeeId: number, month: number, year: number): Promise<any | null> {
+    const { employeeShiftDuties } = await import('../shared/schema');
+    const { eq, and } = await import('drizzle-orm');
+    const rows = await db.select().from(employeeShiftDuties).where(and(eq(employeeShiftDuties.employeeId, employeeId), eq(employeeShiftDuties.month, month), eq(employeeShiftDuties.year, year)));
+    return rows[0] || null;
+  }
+
+  // === FLASH MESSAGES ===
+  async getFlashMessages(activeOnly = false): Promise<any[]> {
+    const { flashMessages } = await import('../shared/schema');
+    const { eq } = await import('drizzle-orm');
+    let rows: any[];
+    if (activeOnly) {
+      rows = await db.select().from(flashMessages).where(eq(flashMessages.isActive, true));
+    } else {
+      rows = await db.select().from(flashMessages);
+    }
+    const today = new Date().toISOString().split('T')[0];
+    return rows.filter((r: any) => !r.expiresAt || r.expiresAt >= today).sort((a: any, b: any) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+  }
+
+  async createFlashMessage(data: any): Promise<any> {
+    const { flashMessages } = await import('../shared/schema');
+    const { eq } = await import('drizzle-orm');
+    const result = await db.insert(flashMessages).values(data);
+    const inserted = await db.select().from(flashMessages).where(eq(flashMessages.id, (result as any).insertId));
+    return inserted[0];
+  }
+
+  async updateFlashMessage(id: number, data: Partial<any>): Promise<any> {
+    const { flashMessages } = await import('../shared/schema');
+    const { eq } = await import('drizzle-orm');
+    await db.update(flashMessages).set(data).where(eq(flashMessages.id, id));
+    const rows = await db.select().from(flashMessages).where(eq(flashMessages.id, id));
+    return rows[0];
+  }
+
+  async deleteFlashMessage(id: number): Promise<void> {
+    const { flashMessages } = await import('../shared/schema');
+    const { eq } = await import('drizzle-orm');
+    await db.delete(flashMessages).where(eq(flashMessages.id, id));
+  }
 }
 
 export const storage = new DatabaseStorage();
