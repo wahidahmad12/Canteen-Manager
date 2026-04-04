@@ -5148,6 +5148,9 @@ function HulSummaryTab({ month, year }: { month: number; year: number }) {
   const printRef = useRef<HTMLDivElement>(null);
   const [viewMode, setViewMode] = useState<'monthly' | 'yearly'>('monthly');
   const [summaryYear, setSummaryYear] = useState(year);
+  const [selectedMonths, setSelectedMonths] = useState<Set<number>>(new Set(Array.from({length:12},(_,i)=>i+1)));
+  const toggleMonth = (m: number) => setSelectedMonths(prev => { const s = new Set(prev); s.has(m) ? s.delete(m) : s.add(m); return s; });
+  const allMonthsSelected = selectedMonths.size === 12;
   const monthLabel = `${MONTHS[month - 1]} - ${year}`;
   const yearLabel = String(summaryYear);
 
@@ -5329,6 +5332,68 @@ function HulSummaryTab({ month, year }: { month: number; year: number }) {
       const mkFill = (argb: string) => ({ type:'pattern' as const, pattern:'solid' as const, fgColor:{argb} });
       const wFont = { bold:true, color:{argb:'FFFFFFFF'} };
 
+      // ===== YEARLY EXPORT =====
+      if (viewMode === 'yearly') {
+        const filtKpfEx = yrKpf.filter(r => selectedMonths.has(r.month));
+        const filtTecEx = yrTec.filter(r => selectedMonths.has(r.month));
+        const filtExecEx = yrExec.filter(r => selectedMonths.has(r.month));
+        const visMths = Array.from({length:12},(_,i)=>i+1).filter(m => selectedMonths.has(m));
+
+        const makeMealYrSheet = (ws: any, loc: string, filtData: YearlyMealRow[], hArgb: string) => {
+          const cols = ['Month','Breakfast','Lunch','Evng Snacks','Night Snacks','Meal Sub (₹)','G.Breakfast','G.Lunch','G.Evng Snacks','G.Night Snacks','Guest Sub (₹)','Grand Total (₹)'];
+          ws.mergeCells(1,1,1,cols.length);
+          const t=ws.getCell('A1'); t.value=`HUL ${loc} — Rate Wise Yearly Summary — ${summaryYear}`; t.font={bold:true,size:12,color:{argb:'FFFFFFFF'}}; t.fill=mkFill(hArgb); t.alignment={horizontal:'center'}; t.border=thin;
+          const hdr=ws.addRow(cols); hdr.eachCell((c:any)=>{c.font=wFont;c.fill=mkFill(hArgb);c.border=thin;c.alignment={horizontal:'center'};});
+          ws.columns=cols.map((_:any,i:number)=>({width:i===0?14:14}));
+          visMths.forEach(m=>{
+            const r=filtData.find(x=>x.month===m);
+            const bf=r?.breakfast||0,ln=r?.lunch||0,es=r?.eveningSnacks||0,ns=r?.nightSnacks||0;
+            const gbf=r?.guestBreakfast||0,gln=r?.guestLunch||0,ges=r?.guestEveningSnacks||0,gns=r?.guestNightSnacks||0;
+            const mSub=bf*35+ln*50+es*30+ns*17,gSub=gbf*40+gln*70+ges*40+gns*27;
+            const dr=ws.addRow([MONTHS[m-1],bf||'',ln||'',es||'',ns||'',mSub||'',gbf||'',gln||'',ges||'',gns||'',gSub||'',(mSub+gSub)||'']);
+            dr.eachCell((c:any)=>{c.border=thin;c.alignment={horizontal:'center'};});
+          });
+          const tbf=filtData.reduce((s,r)=>s+(r.breakfast||0),0),tln=filtData.reduce((s,r)=>s+(r.lunch||0),0);
+          const tes=filtData.reduce((s,r)=>s+(r.eveningSnacks||0),0),tns=filtData.reduce((s,r)=>s+(r.nightSnacks||0),0);
+          const tgbf=filtData.reduce((s,r)=>s+(r.guestBreakfast||0),0),tgln=filtData.reduce((s,r)=>s+(r.guestLunch||0),0);
+          const tges=filtData.reduce((s,r)=>s+(r.guestEveningSnacks||0),0),tgns=filtData.reduce((s,r)=>s+(r.guestNightSnacks||0),0);
+          const tmSub=tbf*35+tln*50+tes*30+tns*17,tgSub=tgbf*40+tgln*70+tges*40+tgns*27;
+          const tot=ws.addRow(['GRAND TOTAL',tbf||'',tln||'',tes||'',tns||'',tmSub||'',tgbf||'',tgln||'',tges||'',tgns||'',tgSub||'',(tmSub+tgSub)||'']);
+          tot.eachCell((c:any)=>{c.font={bold:true};c.fill=mkFill('FFFFF2CC');c.border=thin;c.alignment={horizontal:'center'};});
+        };
+
+        const makeExecYrSheet = (ws: any, filtData: YearlyExecRow[]) => {
+          const cols = ['Month','Snacks Qty','Snacks Amt (₹)','Biscuit Qty','Biscuit Amt (₹)','Chips Qty','Chips Amt (₹)','Cold Drink & Water Qty','Cold Drink & Water Amt (₹)','Grand Total (₹)'];
+          ws.mergeCells(1,1,1,cols.length);
+          const t=ws.getCell('A1'); t.value=`HUL KPF Exec Snacks — Rate Wise Yearly Summary — ${summaryYear}`; t.font={bold:true,size:12,color:{argb:'FFFFFFFF'}}; t.fill=mkFill('FFB45309'); t.alignment={horizontal:'center'}; t.border=thin;
+          const hdr=ws.addRow(cols); hdr.eachCell((c:any)=>{c.font=wFont;c.fill=mkFill('FFB45309');c.border=thin;c.alignment={horizontal:'center'};});
+          ws.columns=cols.map((_:any,i:number)=>({width:i===0?14:16}));
+          visMths.forEach(m=>{
+            const r=filtData.find(x=>x.month===m);
+            const sn=r?.snacks||0,bi=r?.biscuit||0,ch=r?.chips||0,cw=r?.coldDrinkWater||0;
+            const grand=sn*25+bi*10+ch*10+cw*10;
+            const dr=ws.addRow([MONTHS[m-1],sn||'',sn?sn*25:'',bi||'',bi?bi*10:'',ch||'',ch?ch*10:'',cw||'',cw?cw*10:'',grand||'']);
+            dr.eachCell((c:any)=>{c.border=thin;c.alignment={horizontal:'center'};});
+          });
+          const tsn=filtData.reduce((s,r)=>s+(r.snacks||0),0),tbi=filtData.reduce((s,r)=>s+(r.biscuit||0),0);
+          const tch=filtData.reduce((s,r)=>s+(r.chips||0),0),tcw=filtData.reduce((s,r)=>s+(r.coldDrinkWater||0),0);
+          const tg=tsn*25+tbi*10+tch*10+tcw*10;
+          const tot=ws.addRow(['GRAND TOTAL',tsn||'',tsn?tsn*25:'',tbi||'',tbi?tbi*10:'',tch||'',tch?tch*10:'',tcw||'',tcw?tcw*10:'',tg||'']);
+          tot.eachCell((c:any)=>{c.font={bold:true};c.fill=mkFill('FFFFF2CC');c.border=thin;c.alignment={horizontal:'center'};});
+        };
+
+        makeMealYrSheet(wb.addWorksheet('KPF'), 'KPF', filtKpfEx, 'FF1A6B2E');
+        makeMealYrSheet(wb.addWorksheet('TEC'), 'TEC', filtTecEx, 'FF1A3A8A');
+        makeExecYrSheet(wb.addWorksheet('KPF Exec Snacks'), filtExecEx);
+
+        const buf = await wb.xlsx.writeBuffer();
+        const blob = new Blob([buf],{type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'});
+        const a = document.createElement('a'); a.href=URL.createObjectURL(blob);
+        a.download=`HUL_Yearly_Summary_${summaryYear}.xlsx`; a.click();
+        return;
+      }
+
+      // ===== MONTHLY EXPORT =====
       const makeMealSheet = (ws: any, loc: string, rows: HulRow[]) => {
         ws.mergeCells('A1:K1');
         const t = ws.getCell('A1');
@@ -5438,6 +5503,21 @@ function HulSummaryTab({ month, year }: { month: number; year: number }) {
         </div>
       </div>
 
+      {/* Month filter — yearly mode only */}
+      {viewMode === 'yearly' && (
+        <div className="flex flex-wrap gap-1.5 p-3 rounded-lg bg-muted/40 border mb-4">
+          <span className="text-xs font-semibold text-muted-foreground self-center mr-1">Filter Months:</span>
+          <button onClick={()=>setSelectedMonths(allMonthsSelected?new Set():new Set(Array.from({length:12},(_,i)=>i+1)))}
+            className={`px-2 py-0.5 rounded text-xs font-medium border ${allMonthsSelected?'bg-green-700 text-white border-green-700':'bg-white text-gray-600 border-gray-300 hover:bg-gray-50'}`}
+            data-testid="btn-hul-month-all">All</button>
+          {MONTHS.map((mn,i)=>(
+            <button key={i} onClick={()=>toggleMonth(i+1)}
+              className={`px-2 py-0.5 rounded text-xs font-medium border transition-colors ${selectedMonths.has(i+1)?'bg-green-700 text-white border-green-700':'bg-white text-gray-600 border-gray-300 hover:bg-gray-50'}`}
+              data-testid={`btn-hul-month-${i+1}`}>{mn.slice(0,3)}</button>
+          ))}
+        </div>
+      )}
+
       {isLoading && <div className="flex items-center justify-center py-12 text-muted-foreground"><RefreshCw className="w-5 h-5 animate-spin mr-2"/>Loading...</div>}
 
       {/* ===================== YEARLY VIEW ===================== */}
@@ -5451,7 +5531,9 @@ function HulSummaryTab({ month, year }: { month: number; year: number }) {
           data: any[]; fields: string[]; headers: string[]; locName: string;
           hStyle: React.CSSProperties; guestStart?: number;
         }) => {
-          const totals = fields.reduce((acc, f) => ({ ...acc, [f]: data.reduce((s, r) => s + (r[f] || 0), 0) }), {} as Record<string,number>);
+          const filteredData = data.filter(r => selectedMonths.has(r.month));
+          const totals = fields.reduce((acc, f) => ({ ...acc, [f]: filteredData.reduce((s, r) => s + (r[f] || 0), 0) }), {} as Record<string,number>);
+          const visibleMonths = Array.from({length:12},(_,i)=>i+1).filter(m => selectedMonths.has(m));
           return (
             <div className="mb-5">
               <div className="text-center font-bold text-sm py-1.5" style={{ background: hStyle.background as string, color:'#fff' }}>
@@ -5467,19 +5549,20 @@ function HulSummaryTab({ month, year }: { month: number; year: number }) {
                     </tr>
                   </thead>
                   <tbody>
-                    {MONTHS.map((mName, mi) => {
-                      const row = data.find(r => r.month === mi + 1);
+                    {visibleMonths.map((m, idx) => {
+                      const mi = m - 1; const mName = MONTHS[mi];
+                      const row = data.find(r => r.month === m);
                       const vals = fields.map(f => row ? (row[f] || 0) : 0);
                       const rowTotal = vals.reduce((s, v) => s + v, 0);
                       if (!row && rowTotal === 0) return (
-                        <tr key={mi} style={{ background: mi % 2 === 0 ? '#f9fafb' : '#ffffff' }}>
+                        <tr key={m} style={{ background: idx % 2 === 0 ? '#f9fafb' : '#ffffff' }}>
                           <td style={{ border:'1px solid #ddd', padding:'2px 6px', fontWeight:500, textAlign:'left', fontSize:10 }}>{mName}</td>
                           {fields.map((_, fi) => <td key={fi} style={{ border:'1px solid #ddd', padding:'2px 5px', textAlign:'center', fontSize:10, color:'#ccc' }}>—</td>)}
                           <td style={{ border:'1px solid #ddd', padding:'2px 5px', textAlign:'center', fontSize:10, color:'#ccc' }}>—</td>
                         </tr>
                       );
                       return (
-                        <tr key={mi} style={{ background: mi % 2 === 0 ? '#f9fafb' : '#ffffff' }}>
+                        <tr key={m} style={{ background: idx % 2 === 0 ? '#f9fafb' : '#ffffff' }}>
                           <td style={{ border:'1px solid #ddd', padding:'2px 6px', fontWeight:500, textAlign:'left', fontSize:10 }}>{mName}</td>
                           {vals.map((v, fi) => <td key={fi} style={{ border:'1px solid #ddd', padding:'2px 5px', textAlign:'center', fontSize:10 }}>{v || ''}</td>)}
                           <td style={{ border:'1px solid #ddd', padding:'2px 5px', textAlign:'center', fontSize:10, fontWeight:'bold', background:'#f0fdf4' }}>{rowTotal || ''}</td>
@@ -5498,9 +5581,13 @@ function HulSummaryTab({ month, year }: { month: number; year: number }) {
           );
         };
 
-        const yrKpfT = mealFields.reduce((a, f) => ({ ...a, [f]: yrKpf.reduce((s, r) => s + (r[f] || 0), 0) }), {} as Record<string,number>);
-        const yrTecT = mealFields.reduce((a, f) => ({ ...a, [f]: yrTec.reduce((s, r) => s + (r[f] || 0), 0) }), {} as Record<string,number>);
-        const yrExT = execFields.reduce((a, f) => ({ ...a, [f]: yrExec.reduce((s, r) => s + (r[f] || 0), 0) }), {} as Record<string,number>);
+        const filtKpf = yrKpf.filter(r => selectedMonths.has(r.month));
+        const filtTec = yrTec.filter(r => selectedMonths.has(r.month));
+        const filtExec = yrExec.filter(r => selectedMonths.has(r.month));
+        const yrKpfT = mealFields.reduce((a, f) => ({ ...a, [f]: filtKpf.reduce((s, r) => s + (r[f] || 0), 0) }), {} as Record<string,number>);
+        const yrTecT = mealFields.reduce((a, f) => ({ ...a, [f]: filtTec.reduce((s, r) => s + (r[f] || 0), 0) }), {} as Record<string,number>);
+        const yrExT = execFields.reduce((a, f) => ({ ...a, [f]: filtExec.reduce((s, r) => s + (r[f] || 0), 0) }), {} as Record<string,number>);
+        const visibleMonthsList = Array.from({length:12},(_,i)=>i+1).filter(m => selectedMonths.has(m));
 
         return (
           <>
@@ -5552,15 +5639,16 @@ function HulSummaryTab({ month, year }: { month: number; year: number }) {
               { label:'TEC', data: yrTec, hStyle: thB },
             ].map(({ label, data, hStyle }) => {
               const thH = (extra?: object): React.CSSProperties => ({ ...hStyle, ...extra, fontSize:10, padding:'3px 5px' });
+              const filtData = data.filter((r: any) => selectedMonths.has(r.month));
               const grandTotRow = (() => {
-                const bf = data.reduce((s,r)=>s+(r.breakfast||0),0);
-                const ln = data.reduce((s,r)=>s+(r.lunch||0),0);
-                const es = data.reduce((s,r)=>s+(r.eveningSnacks||0),0);
-                const ns = data.reduce((s,r)=>s+(r.nightSnacks||0),0);
-                const gbf = data.reduce((s,r)=>s+(r.guestBreakfast||0),0);
-                const gln = data.reduce((s,r)=>s+(r.guestLunch||0),0);
-                const ges = data.reduce((s,r)=>s+(r.guestEveningSnacks||0),0);
-                const gns = data.reduce((s,r)=>s+(r.guestNightSnacks||0),0);
+                const bf = filtData.reduce((s:number,r:any)=>s+(r.breakfast||0),0);
+                const ln = filtData.reduce((s:number,r:any)=>s+(r.lunch||0),0);
+                const es = filtData.reduce((s:number,r:any)=>s+(r.eveningSnacks||0),0);
+                const ns = filtData.reduce((s:number,r:any)=>s+(r.nightSnacks||0),0);
+                const gbf = filtData.reduce((s:number,r:any)=>s+(r.guestBreakfast||0),0);
+                const gln = filtData.reduce((s:number,r:any)=>s+(r.guestLunch||0),0);
+                const ges = filtData.reduce((s:number,r:any)=>s+(r.guestEveningSnacks||0),0);
+                const gns = filtData.reduce((s:number,r:any)=>s+(r.guestNightSnacks||0),0);
                 const mealSub = bf*35+ln*50+es*30+ns*17;
                 const guestSub = gbf*40+gln*70+ges*40+gns*27;
                 return { bf,ln,es,ns,gbf,gln,ges,gns,mealSub,guestSub };
@@ -5597,22 +5685,23 @@ function HulSummaryTab({ month, year }: { month: number; year: number }) {
                         </tr>
                       </thead>
                       <tbody>
-                        {MONTHS.map((mName, mi) => {
-                          const row = data.find(r => r.month === mi + 1);
+                        {visibleMonthsList.map((m, idx) => {
+                          const mi = m - 1; const mName = MONTHS[mi];
+                          const row = data.find((r:any) => r.month === m);
                           const bf = row?.breakfast||0, ln = row?.lunch||0, es = row?.eveningSnacks||0, ns = row?.nightSnacks||0;
                           const gbf = row?.guestBreakfast||0, gln = row?.guestLunch||0, ges = row?.guestEveningSnacks||0, gns = row?.guestNightSnacks||0;
                           const mealSub = bf*35+ln*50+es*30+ns*17;
                           const guestSub = gbf*40+gln*70+ges*40+gns*27;
-                          const bg = mi%2===0 ? '#f9fafb' : '#fff';
+                          const bg = idx%2===0 ? '#f9fafb' : '#fff';
                           const fmt = (n: number) => n ? n.toLocaleString('en-IN') : '';
                           if (!row) return (
-                            <tr key={mi} style={{ background: bg }}>
+                            <tr key={m} style={{ background: bg }}>
                               <td style={{ border:'1px solid #ddd', padding:'2px 5px', fontWeight:500, textAlign:'left', fontSize:10 }}>{mName}</td>
                               {Array.from({length:19},(_,i)=><td key={i} style={{ border:'1px solid #ddd', padding:'2px 4px', textAlign:'center', fontSize:10, color:'#ccc' }}>—</td>)}
                             </tr>
                           );
                           return (
-                            <tr key={mi} style={{ background: bg }}>
+                            <tr key={m} style={{ background: bg }}>
                               <td style={{ border:'1px solid #ddd', padding:'2px 5px', fontWeight:500, textAlign:'left', fontSize:10 }}>{mName}</td>
                               <td style={tdC}>{bf||''}</td><td style={tdR}>{fmt(bf*35)}</td>
                               <td style={tdC}>{ln||''}</td><td style={tdR}>{fmt(ln*50)}</td>
@@ -5672,20 +5761,21 @@ function HulSummaryTab({ month, year }: { month: number; year: number }) {
                     </tr>
                   </thead>
                   <tbody>
-                    {MONTHS.map((mName, mi) => {
-                      const row = yrExec.find(r => r.month === mi + 1);
+                    {visibleMonthsList.map((m, idx) => {
+                      const mName = MONTHS[m-1];
+                      const row = yrExec.find(r => r.month === m);
                       const sn = row?.snacks||0, bi = row?.biscuit||0, ch = row?.chips||0, cw = row?.coldDrinkWater||0;
                       const grand = sn*25+bi*10+ch*10+cw*10;
-                      const bg = mi%2===0 ? '#f9fafb' : '#fff';
+                      const bg = idx%2===0 ? '#f9fafb' : '#fff';
                       const fmt = (n: number) => n ? n.toLocaleString('en-IN') : '';
                       if (!row) return (
-                        <tr key={mi} style={{ background: bg }}>
+                        <tr key={m} style={{ background: bg }}>
                           <td style={{ border:'1px solid #ddd', padding:'2px 5px', fontWeight:500, textAlign:'left', fontSize:10 }}>{mName}</td>
                           {Array.from({length:9},(_,i)=><td key={i} style={{ border:'1px solid #ddd', padding:'2px 4px', textAlign:'center', fontSize:10, color:'#ccc' }}>—</td>)}
                         </tr>
                       );
                       return (
-                        <tr key={mi} style={{ background: bg }}>
+                        <tr key={m} style={{ background: bg }}>
                           <td style={{ border:'1px solid #ddd', padding:'2px 5px', fontWeight:500, textAlign:'left', fontSize:10 }}>{mName}</td>
                           <td style={tdC}>{sn||''}</td><td style={tdR}>{fmt(sn*25)}</td>
                           <td style={tdC}>{bi||''}</td><td style={tdR}>{fmt(bi*10)}</td>
@@ -5696,10 +5786,10 @@ function HulSummaryTab({ month, year }: { month: number; year: number }) {
                       );
                     })}
                     {(() => {
-                      const totSn = yrExec.reduce((s,r)=>s+(r.snacks||0),0);
-                      const totBi = yrExec.reduce((s,r)=>s+(r.biscuit||0),0);
-                      const totCh = yrExec.reduce((s,r)=>s+(r.chips||0),0);
-                      const totCw = yrExec.reduce((s,r)=>s+(r.coldDrinkWater||0),0);
+                      const totSn = filtExec.reduce((s,r)=>s+(r.snacks||0),0);
+                      const totBi = filtExec.reduce((s,r)=>s+(r.biscuit||0),0);
+                      const totCh = filtExec.reduce((s,r)=>s+(r.chips||0),0);
+                      const totCw = filtExec.reduce((s,r)=>s+(r.coldDrinkWater||0),0);
                       const grand = totSn*25+totBi*10+totCh*10+totCw*10;
                       return (
                         <tr>
