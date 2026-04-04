@@ -6320,16 +6320,23 @@ function PecVenturesTab({ month, year, loadKey = 0 }: { month: number; year: num
     const totalColspan = 2 + visCols.reduce((s, c) => s + c.colspan, 0);
     const grandTotal = visCols.reduce((s, c) => s + c.amount(), 0);
 
-    // Filter rows that have at least one non-zero value
-    const nonEmptyRows = rows.filter(r =>
-      n(r.redLabelQty) || n(r.tataTeaQty) || n(r.coffeeQty) || n(r.sugarQty) || n(r.gingerQty) ||
-      n(r.biscuitQty) || n(r.teaCupQty) || n(r.greenElaychiQty) || n(r.greenTeaQty) ||
-      n(r.blackSaltQty) || n(r.milkMorningQty) || n(r.milkEveningQty)
-    );
+    // Build a lookup: dateStr → row
+    const rowByDate = new Map(rows.map(r => [r.entryDate, r]));
+    const DAYS_LABEL = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+    const daysInMonth = getDaysInMonth(month, year);
 
-    const dataRows = nonEmptyRows.map(r => {
-      const d = new Date(r.entryDate + 'T00:00:00');
-      const dd = `${String(d.getDate()).padStart(2,'0')}-${String(d.getMonth()+1).padStart(2,'0')}-${d.getFullYear()}`;
+    // Generate one row per day 1→last, using saved data or zeros
+    const dataRows = Array.from({ length: daysInMonth }, (_, i) => {
+      const dayNum = i + 1;
+      const dateStr = `${year}-${String(month).padStart(2,'0')}-${String(dayNum).padStart(2,'0')}`;
+      const r: PecRow = rowByDate.get(dateStr) ?? {
+        entryDate: dateStr, month, year,
+        weekDay: DAYS_LABEL[new Date(dateStr + 'T00:00:00').getDay()],
+        redLabelQty:0, tataTeaQty:0, coffeeQty:0, sugarQty:0, gingerQty:0,
+        biscuitQty:0, teaCupQty:0, greenElaychiQty:0, greenTeaQty:0, blackSaltQty:0,
+        milkMorningQty:0, milkEveningQty:0,
+      };
+      const dd = `${String(dayNum).padStart(2,'0')}-${String(month).padStart(2,'0')}-${year}`;
       return `<tr><td style="${tdl}">${dd}</td><td style="${td}">${r.weekDay}</td>${visCols.map(c => c.cell(r)).join('')}</tr>`;
     }).join('');
 
