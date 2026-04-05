@@ -128,7 +128,11 @@ export default function ShiftDuty() {
 
   const fillRow = (empId: number, shift: string) => {
     const changes: Record<string, string> = {};
-    for (let d = 1; d <= daysInMonth; d++) changes[`${empId}-${d}`] = shift;
+    for (let d = 1; d <= daysInMonth; d++) {
+      // Never overwrite a weekly-off day with a work shift
+      if (isAutoWeekOff(empId, d) && !shiftMap[empId]?.[`day${d}`]) continue;
+      changes[`${empId}-${d}`] = shift;
+    }
     setLocalChanges(prev => ({ ...prev, ...changes }));
   };
 
