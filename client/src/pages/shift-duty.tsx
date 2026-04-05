@@ -90,6 +90,11 @@ export default function ShiftDuty() {
     return true;
   }), [activeEmployees, deptFilter, clientFilter]);
 
+  // Show Client column only when there are employees from more than one client
+  const multiClient = useMemo(() =>
+    new Set(filteredEmployees.map(e => e.clientName).filter(Boolean)).size > 1,
+  [filteredEmployees]);
+
   const shiftMap = useMemo(() => {
     const m: Record<number, ShiftRow> = {};
     shiftRows.forEach(r => { m[r.employeeId] = r; });
@@ -173,15 +178,15 @@ export default function ShiftDuty() {
       const thin = { top:{style:'thin' as const}, bottom:{style:'thin' as const}, left:{style:'thin' as const}, right:{style:'thin' as const} };
       const mkFill = (argb: string) => ({ type:'pattern' as const, pattern:'solid' as const, fgColor:{argb} });
       const days = Array.from({ length: daysInMonth }, (_, i) => i + 1);
-      const hdrRow = ws.addRow(['#', 'Emp Code', 'Name', 'Dept', 'Client', ...days.map(d => `${d}\n${getDayOfWeek(year, month, d).slice(0,2)}`)]);
+      const hdrRow = ws.addRow(['#', 'Emp Code', 'Name', 'Dept', ...(multiClient ? ['Client'] : []), ...days.map(d => `${d}\n${getDayOfWeek(year, month, d).slice(0,2)}`)]);
       ws.getRow(1).height = 32;
       hdrRow.eachCell((c: any) => {
         c.font = { bold: true, color: { argb: 'FFFFFFFF' }, size: 9 };
         c.fill = mkFill('FF1e3a5f'); c.border = thin; c.alignment = { horizontal: 'center', vertical: 'middle', wrapText: true };
       });
-      ws.columns = [{ width: 4 }, { width: 12 }, { width: 22 }, { width: 14 }, { width: 18 }, ...days.map(() => ({ width: 5 }))];
+      ws.columns = [{ width: 4 }, { width: 12 }, { width: 22 }, { width: 14 }, ...(multiClient ? [{ width: 18 }] : []), ...days.map(() => ({ width: 5 }))];
       filteredEmployees.forEach((emp, idx) => {
-        const cellVals: any[] = [idx + 1, emp.employeeCode || '', emp.name, emp.department || '', emp.clientName || ''];
+        const cellVals: any[] = [idx + 1, emp.employeeCode || '', emp.name, emp.department || '', ...(multiClient ? [emp.clientName || ''] : [])];
         days.forEach(d => { cellVals.push(getCell(emp.id, d) || ''); });
         const dr = ws.addRow(cellVals);
         dr.eachCell((c: any, ci: number) => {
@@ -212,7 +217,7 @@ export default function ShiftDuty() {
       <th style="border:1px solid #475569;padding:4px 6px;font-size:9px;text-align:left;">Emp Code</th>
       <th style="border:1px solid #475569;padding:4px 6px;font-size:9px;text-align:left;min-width:120px;">Name</th>
       <th style="border:1px solid #475569;padding:4px 6px;font-size:9px;text-align:left;">Dept</th>
-      <th style="border:1px solid #475569;padding:4px 6px;font-size:9px;text-align:left;">Client</th>
+      ${multiClient ? `<th style="border:1px solid #475569;padding:4px 6px;font-size:9px;text-align:left;">Client</th>` : ''}
       ${days.map(d => {
         const dow = getDayOfWeek(year, month, d);
         const bg = dow === 'Sun' ? '#991b1b' : dow === 'Sat' ? '#9a3412' : '#1e3a5f';
@@ -241,7 +246,7 @@ export default function ShiftDuty() {
         <td style="border:1px solid #e2e8f0;padding:3px 5px;font-size:9px;font-family:monospace;">${emp.employeeCode || ''}</td>
         <td style="border:1px solid #e2e8f0;padding:3px 5px;font-size:9px;font-weight:600;">${emp.name}${emp.weeklyOffDay ? `<br/><span style="font-size:7px;color:#94a3b8;font-weight:normal;">${emp.weeklyOffDay.slice(0,3)} off</span>` : ''}</td>
         <td style="border:1px solid #e2e8f0;padding:3px 5px;font-size:8px;color:#64748b;">${emp.department || ''}</td>
-        <td style="border:1px solid #e2e8f0;padding:3px 5px;font-size:8px;color:#64748b;">${emp.clientName || ''}</td>
+        ${multiClient ? `<td style="border:1px solid #e2e8f0;padding:3px 5px;font-size:8px;color:#64748b;">${emp.clientName || ''}</td>` : ''}
         ${cells}
         <td style="border:1px solid #e2e8f0;padding:3px;text-align:center;white-space:nowrap;">${summParts}</td>
       </tr>`;
@@ -445,7 +450,7 @@ export default function ShiftDuty() {
                         </div>
                         <div className="flex gap-2 mt-0.5 flex-wrap">
                           {emp.department && <span className="text-[10px] text-slate-400">{emp.department}</span>}
-                          {emp.clientName && <span className="text-[10px] text-slate-400">• {emp.clientName}</span>}
+                          {multiClient && emp.clientName && <span className="text-[10px] text-slate-400">• {emp.clientName}</span>}
                         </div>
                       </div>
                       {/* Mini shift counts */}
@@ -560,7 +565,7 @@ export default function ShiftDuty() {
                     <th className="border border-slate-300 bg-slate-700 text-white px-2 py-1.5 text-left sticky left-8 z-20 min-w-[80px]">Code</th>
                     <th className="border border-slate-300 bg-slate-700 text-white px-2 py-1.5 text-left sticky left-[112px] z-20 min-w-[140px]">Name</th>
                     <th className="border border-slate-300 bg-slate-700 text-white px-2 py-1.5 text-left min-w-[90px]">Dept</th>
-                    <th className="border border-slate-300 bg-slate-700 text-white px-2 py-1.5 text-left min-w-[100px]">Client</th>
+                    {multiClient && <th className="border border-slate-300 bg-slate-700 text-white px-2 py-1.5 text-left min-w-[100px]">Client</th>}
                     <th className="border border-slate-300 bg-slate-700 text-white px-1.5 py-1 text-center min-w-[40px]">Fill</th>
                     {Array.from({ length: daysInMonth }, (_, i) => {
                       const d = i + 1;
@@ -592,7 +597,7 @@ export default function ShiftDuty() {
                           {emp.weeklyOffDay && <span className="ml-1 text-[9px] text-slate-400 font-normal">({emp.weeklyOffDay.slice(0,3)} off)</span>}
                         </td>
                         <td className="border border-slate-200 px-1.5 py-1 text-slate-600 dark:text-slate-400 whitespace-nowrap">{emp.department || '—'}</td>
-                        <td className="border border-slate-200 px-1.5 py-1 text-slate-600 dark:text-slate-400 whitespace-nowrap text-[10px]">{emp.clientName || '—'}</td>
+                        {multiClient && <td className="border border-slate-200 px-1.5 py-1 text-slate-600 dark:text-slate-400 whitespace-nowrap text-[10px]">{emp.clientName || '—'}</td>}
                         <td className="border border-slate-200 px-1 py-1">
                           <select
                             className="text-[10px] border border-slate-300 rounded px-0.5 py-0 w-full bg-white dark:bg-gray-800"
