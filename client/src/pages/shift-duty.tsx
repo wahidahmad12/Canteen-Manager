@@ -575,42 +575,117 @@ export default function ShiftDuty() {
 
             {/* ── Day-wise summary card ── */}
             {filteredEmployees.length > 0 && (() => {
-              const SHIFT_CODES = ["A","AA","B","BB","C","G","O"];
+              const WORKING_CODES = ["A","AA","B","BB","C","G"];
+
+              const dayData = Array.from({ length: daysInMonth }, (_, i) => {
+                const d = i + 1;
+                const dc: Record<string, number> = {};
+                filteredEmployees.forEach(emp => {
+                  const v = getCell(emp.id, d);
+                  if (v) dc[v] = (dc[v] || 0) + 1;
+                });
+                const present = WORKING_CODES.reduce((s, c) => s + (dc[c] || 0), 0);
+                const off = dc["O"] || 0;
+                return { d, dc, present, off, total: present + off };
+              });
+
+              const rowTotal = (code: string) => dayData.reduce((s, dd) => s + (dd.dc[code] || 0), 0);
+              const totalPresent = dayData.reduce((s, dd) => s + dd.present, 0);
+              const totalOff = dayData.reduce((s, dd) => s + dd.off, 0);
+              const totalEmps = dayData.reduce((s, dd) => s + dd.total, 0);
+
               return (
                 <Card className="border border-slate-300 dark:border-slate-600 overflow-hidden">
                   <div className="px-3 py-2 bg-slate-800 text-white text-xs font-bold flex items-center gap-2">
                     <CalendarDays className="w-3.5 h-3.5" /> Day-wise Summary
                   </div>
                   <div className="overflow-x-auto">
-                    <div className="flex gap-1.5 p-2 min-w-max">
-                      {Array.from({ length: daysInMonth }, (_, i) => {
-                        const d = i + 1;
-                        const dow = getDayOfWeek(year, month, d);
-                        const isSun = dow === "Sun";
-                        const isSat = dow === "Sat";
-                        const dc: Record<string, number> = {};
-                        filteredEmployees.forEach(emp => {
-                          const v = getCell(emp.id, d);
-                          if (v) dc[v] = (dc[v] || 0) + 1;
-                        });
-                        const hasAny = SHIFT_CODES.some(c => dc[c]);
-                        return (
-                          <div key={d} className={`flex flex-col items-center rounded-lg border px-1.5 py-1.5 min-w-[42px] ${isSun ? 'bg-red-50 border-red-200 dark:bg-red-900/20 dark:border-red-700' : isSat ? 'bg-orange-50 border-orange-200 dark:bg-orange-900/20 dark:border-orange-700' : 'bg-slate-50 border-slate-200 dark:bg-slate-800 dark:border-slate-600'}`}>
-                            <span className={`text-[11px] font-bold leading-none ${isSun ? 'text-red-600' : isSat ? 'text-orange-600' : 'text-slate-600 dark:text-slate-300'}`}>{d}</span>
-                            <span className={`text-[9px] mb-1 leading-none ${isSun ? 'text-red-400' : isSat ? 'text-orange-400' : 'text-slate-400'}`}>{dow.slice(0,2)}</span>
-                            {hasAny
-                              ? SHIFT_CODES.filter(c => dc[c]).map(c => (
-                                  <span key={c} className="text-[9px] font-bold rounded px-0.5 w-full text-center leading-tight mb-0.5"
-                                    style={{ background: shiftStyle(c).bg, color: shiftStyle(c).textColor }}>
-                                    {c}:{dc[c]}
-                                  </span>
-                                ))
-                              : <span className="text-[8px] text-slate-300">—</span>
-                            }
-                          </div>
-                        );
-                      })}
-                    </div>
+                    <table className="border-collapse text-[10px] min-w-max">
+                      {/* Day header row */}
+                      <thead>
+                        <tr>
+                          <th className="border border-slate-300 bg-slate-700 text-white px-2 py-1 text-left sticky left-0 z-10 min-w-[110px] whitespace-nowrap">Shift</th>
+                          {dayData.map(({ d }) => {
+                            const dow = getDayOfWeek(year, month, d);
+                            const isSun = dow === "Sun"; const isSat = dow === "Sat";
+                            return (
+                              <th key={d} className={`border border-slate-300 px-1 py-0.5 text-center min-w-[26px] ${isSun ? 'bg-red-700 text-white' : isSat ? 'bg-orange-600 text-white' : 'bg-slate-700 text-white'}`}>
+                                <div className="font-bold">{d}</div>
+                                <div className="text-[8px] opacity-75">{dow.slice(0,2)}</div>
+                              </th>
+                            );
+                          })}
+                          <th className="border border-slate-300 bg-slate-700 text-white px-1 py-0.5 text-center min-w-[32px]">Tot</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {/* One row per working shift */}
+                        {WORKING_CODES.map(code => {
+                          const st = shiftStyle(code);
+                          return (
+                            <tr key={code} style={{ background: "#f8fafc" }}>
+                              <td className="border border-slate-200 px-2 py-0.5 sticky left-0 z-10 whitespace-nowrap" style={{ background: "#f8fafc" }}>
+                                <span className="text-slate-700 font-medium">{st.label}</span>
+                                <span className="ml-1.5 text-[9px] font-bold px-1 rounded" style={{ background: st.bg, color: st.textColor }}>{code}</span>
+                              </td>
+                              {dayData.map(({ d, dc }) => {
+                                const val = dc[code] || 0;
+                                return (
+                                  <td key={d} className="border border-slate-200 px-0 py-0.5 text-center font-bold"
+                                    style={{ background: val ? st.bg : "#f8fafc", color: val ? st.textColor : "#cbd5e1" }}>
+                                    {val || ""}
+                                  </td>
+                                );
+                              })}
+                              <td className="border border-slate-300 px-0 py-0.5 text-center font-bold"
+                                style={{ background: rowTotal(code) ? st.bg : "#f1f5f9", color: rowTotal(code) ? st.textColor : "#94a3b8" }}>
+                                {rowTotal(code) || ""}
+                              </td>
+                            </tr>
+                          );
+                        })}
+
+                        {/* Present Total */}
+                        <tr style={{ background: "#dcfce7" }}>
+                          <td className="border border-green-300 px-2 py-0.5 sticky left-0 z-10 font-bold text-green-700 whitespace-nowrap" style={{ background: "#dcfce7" }}>Present Total</td>
+                          {dayData.map(({ d, present }) => (
+                            <td key={d} className="border border-green-300 px-0 py-0.5 text-center font-bold"
+                              style={{ background: present > 0 ? "#bbf7d0" : "#dcfce7", color: "#15803d" }}>
+                              {present > 0 ? present : ""}
+                            </td>
+                          ))}
+                          <td className="border border-green-400 px-0 py-0.5 text-center font-bold" style={{ background: "#86efac", color: "#14532d" }}>{totalPresent || ""}</td>
+                        </tr>
+
+                        {/* Off */}
+                        <tr style={{ background: "#f1f5f9" }}>
+                          <td className="border border-slate-300 px-2 py-0.5 sticky left-0 z-10 font-bold text-slate-500 whitespace-nowrap" style={{ background: "#f1f5f9" }}>
+                            Off <span className="text-[9px] px-1 rounded" style={{ background: "#e2e8f0", color: "#475569" }}>O</span>
+                          </td>
+                          {dayData.map(({ d, off }) => (
+                            <td key={d} className="border border-slate-200 px-0 py-0.5 text-center font-bold"
+                              style={{ background: off > 0 ? "#e2e8f0" : "#f1f5f9", color: "#475569" }}>
+                              {off > 0 ? off : ""}
+                            </td>
+                          ))}
+                          <td className="border border-slate-300 px-0 py-0.5 text-center font-bold" style={{ background: "#e2e8f0", color: "#334155" }}>{totalOff || ""}</td>
+                        </tr>
+
+                        {/* Total Employ */}
+                        <tr style={{ background: "#1e293b" }}>
+                          <td className="border border-slate-600 px-2 py-0.5 sticky left-0 z-10 font-bold text-white whitespace-nowrap" style={{ background: "#1e293b" }}>Total Employ</td>
+                          {dayData.map(({ d, total }) => (
+                            <td key={d} className="border border-slate-600 px-0 py-0.5 text-center font-bold"
+                              style={{ background: "#334155", color: "#f8fafc" }}>
+                              {total > 0 ? total : ""}
+                            </td>
+                          ))}
+                          <td className="border border-slate-600 px-0 py-0.5 text-center font-bold" style={{ background: "#0f172a", color: "#f8fafc" }}>
+                            {Math.round(totalEmps / daysInMonth) || ""}
+                          </td>
+                        </tr>
+                      </tbody>
+                    </table>
                   </div>
                 </Card>
               );
