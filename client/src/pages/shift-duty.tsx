@@ -704,55 +704,94 @@ export default function ShiftDuty() {
                       </tr>
                     );
                   })}
-                  {/* ── Daily summary footer row ── */}
+                  {/* ── Daily summary footer rows ── */}
                   {filteredEmployees.length > 0 && (() => {
-                    const SHIFT_CODES = ["A","AA","B","BB","C","G","O"];
+                    const WORKING_CODES = ["A","AA","B","BB","C","G"];
+                    const FIXED_COLS = 5 + (multiClient ? 1 : 0); // #,Code,Name,Dept,[Client],Fill
+
+                    // Per-day counts for every shift code and present/off/total
+                    const dayData = Array.from({ length: daysInMonth }, (_, i) => {
+                      const d = i + 1;
+                      const dc: Record<string, number> = {};
+                      filteredEmployees.forEach(emp => {
+                        const v = getCell(emp.id, d);
+                        if (v) dc[v] = (dc[v] || 0) + 1;
+                      });
+                      const present = WORKING_CODES.reduce((s, c) => s + (dc[c] || 0), 0);
+                      const off = dc["O"] || 0;
+                      return { dc, present, off, total: present + off };
+                    });
+
+                    // Row totals (summ column)
+                    const rowTotal = (code: string) => dayData.reduce((s, d) => s + (d.dc[code] || 0), 0);
+                    const totalPresent = dayData.reduce((s, d) => s + d.present, 0);
+                    const totalOff = dayData.reduce((s, d) => s + d.off, 0);
+                    const totalEmps = dayData.reduce((s, d) => s + d.total, 0);
+
+                    const numCell = (val: number, bg: string, fg: string, border: string) => (
+                      <td className="border px-0 py-0.5 text-center text-[10px] font-bold"
+                        style={{ background: bg, color: fg, borderColor: border }}>
+                        {val > 0 ? val : ""}
+                      </td>
+                    );
+
+                    const labelCell = (label: string, code: string, bg: string, fg: string) => (
+                      <td
+                        colSpan={FIXED_COLS}
+                        className="border px-2 py-0.5 sticky left-0 z-20 whitespace-nowrap"
+                        style={{ background: bg, borderColor: "#d1d5db" }}
+                      >
+                        <span className="text-[10px] font-semibold" style={{ color: fg }}>{label}</span>
+                        {code && <span className="ml-1.5 text-[9px] font-bold px-1 rounded" style={{ background: shiftStyle(code).bg, color: shiftStyle(code).textColor }}>{code}</span>}
+                      </td>
+                    );
+
                     return (
-                      <tr style={{ background: "#78350f", borderTop: "3px solid #f59e0b" }} className="sticky bottom-0 z-10">
-                        <td style={{ background: "#78350f", borderTop: "3px solid #f59e0b" }}
-                          className="border border-amber-700 px-2 py-1.5 text-center font-extrabold text-white sticky left-0 z-20 whitespace-nowrap"
-                          colSpan={3 + (multiClient ? 1 : 0) + 1}>
-                          <span className="text-[11px] tracking-wide">📊 Daily Total</span>
-                        </td>
-                        <td className="border border-amber-700 px-1 py-1" style={{ background: "#78350f" }}></td>
-                        {Array.from({ length: daysInMonth }, (_, i) => {
-                          const d = i + 1;
-                          const dow = getDayOfWeek(year, month, d);
-                          const dayCounts: Record<string, number> = {};
-                          filteredEmployees.forEach(emp => {
-                            const v = getCell(emp.id, d);
-                            if (v) dayCounts[v] = (dayCounts[v] || 0) + 1;
-                          });
-                          const cellBg = dow === "Sun" ? "#7f1d1d" : dow === "Sat" ? "#7c2d12" : "#78350f";
+                      <>
+                        {/* Separator */}
+                        <tr><td colSpan={FIXED_COLS + daysInMonth + 1} style={{ background: "#1e293b", height: "3px", padding: 0 }} /></tr>
+
+                        {/* One row per working shift */}
+                        {WORKING_CODES.map(code => {
+                          const st = shiftStyle(code);
                           return (
-                            <td key={d} className="border border-amber-700 px-0 py-1 text-center align-top" style={{ background: cellBg }}>
-                              {SHIFT_CODES.filter(c => dayCounts[c]).map(c => (
-                                <span key={c} className="block text-[8px] font-extrabold leading-tight mx-0.5 mb-0.5 rounded"
-                                  style={{ background: shiftStyle(c).bg, color: shiftStyle(c).textColor, padding: "0 2px" }}>
-                                  {c}:{dayCounts[c]}
-                                </span>
-                              ))}
-                            </td>
+                            <tr key={code} style={{ background: "#f8fafc" }}>
+                              {labelCell(st.label, code, "#f8fafc", "#374151")}
+                              {dayData.map((dd, i) =>
+                                numCell(dd.dc[code] || 0, dd.dc[code] ? st.bg : "#f8fafc", dd.dc[code] ? st.textColor : "#cbd5e1", "#e2e8f0")
+                              )}
+                              {numCell(rowTotal(code), rowTotal(code) ? st.bg : "#f8fafc", rowTotal(code) ? st.textColor : "#cbd5e1", "#e2e8f0")}
+                            </tr>
                           );
                         })}
-                        <td className="border border-amber-700 px-1 py-1 text-[9px]" style={{ background: "#78350f" }}>
-                          {(() => {
-                            const total: Record<string, number> = {};
-                            filteredEmployees.forEach(emp => {
-                              for (let d = 1; d <= daysInMonth; d++) {
-                                const v = getCell(emp.id, d);
-                                if (v) total[v] = (total[v] || 0) + 1;
-                              }
-                            });
-                            return SHIFT_CODES.filter(c => total[c]).map(c => (
-                              <span key={c} className="block text-[8px] font-extrabold leading-tight rounded mb-0.5"
-                                style={{ background: shiftStyle(c).bg, color: shiftStyle(c).textColor, padding: "0 2px" }}>
-                                {c}:{total[c]}
-                              </span>
-                            ));
-                          })()}
-                        </td>
-                      </tr>
+
+                        {/* Present Total */}
+                        <tr style={{ background: "#dcfce7" }}>
+                          {labelCell("Present Total", "", "#dcfce7", "#15803d")}
+                          {dayData.map((dd, i) =>
+                            numCell(dd.present, dd.present > 0 ? "#bbf7d0" : "#dcfce7", "#15803d", "#86efac")
+                          )}
+                          {numCell(totalPresent, "#bbf7d0", "#15803d", "#86efac")}
+                        </tr>
+
+                        {/* Off */}
+                        <tr style={{ background: "#f1f5f9" }}>
+                          {labelCell("Off", "O", "#f1f5f9", "#475569")}
+                          {dayData.map((dd, i) =>
+                            numCell(dd.off, dd.off > 0 ? "#e2e8f0" : "#f1f5f9", "#475569", "#cbd5e1")
+                          )}
+                          {numCell(totalOff, "#e2e8f0", "#475569", "#cbd5e1")}
+                        </tr>
+
+                        {/* Total Employ */}
+                        <tr style={{ background: "#1e293b" }}>
+                          {labelCell("Total Employ", "", "#1e293b", "#f8fafc")}
+                          {dayData.map((dd, i) =>
+                            numCell(dd.total, "#334155", "#f8fafc", "#475569")
+                          )}
+                          {numCell(Math.round(totalEmps / daysInMonth), "#0f172a", "#f8fafc", "#475569")}
+                        </tr>
+                      </>
                     );
                   })()}
                 </tbody>
