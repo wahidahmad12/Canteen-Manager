@@ -252,6 +252,29 @@ export default function ShiftDuty() {
       </tr>`;
     }).join('');
 
+    // ── Daily summary footer row ──────────────────────────────────────────────
+    const PRINT_CODES = ["A","AA","B","BB","C","G","O"];
+    const dailySumCells = days.map(d => {
+      const dc: Record<string, number> = {};
+      filteredEmployees.forEach(emp => { const v = getCell(emp.id, d); if (v) dc[v] = (dc[v] || 0) + 1; });
+      const chips = PRINT_CODES.filter(c => dc[c])
+        .map(c => `<div style="background:${shiftBg[c]};color:${shiftColor[c]};font-size:6px;font-weight:bold;border-radius:2px;padding:0 2px;line-height:1.5;margin:1px 0;">${c}:${dc[c]}</div>`)
+        .join('');
+      return `<td style="border:1px solid #475569;padding:1px 0;text-align:center;vertical-align:top;">${chips}</td>`;
+    }).join('');
+    const grandTotal: Record<string, number> = {};
+    filteredEmployees.forEach(emp => {
+      days.forEach(d => { const v = getCell(emp.id, d); if (v) grandTotal[v] = (grandTotal[v] || 0) + 1; });
+    });
+    const grandSumm = PRINT_CODES.filter(c => grandTotal[c])
+      .map(c => `<span style="background:${shiftBg[c]};color:${shiftColor[c]};font-size:7px;padding:0 3px;border-radius:2px;display:inline-block;margin:1px;">${c}:${grandTotal[c]}</span>`)
+      .join('');
+    const dailySumRow = `<tr style="background:#1e3a5f;">
+      <td colspan="${multiClient ? 5 : 4}" style="border:1px solid #475569;padding:3px 6px;font-size:9px;font-weight:bold;color:#fff;text-align:center;vertical-align:middle;">Daily Total</td>
+      ${dailySumCells}
+      <td style="border:1px solid #475569;padding:2px 3px;text-align:center;vertical-align:top;">${grandSumm}</td>
+    </tr>`;
+
     const filterNote = [
       deptFilter !== 'all' ? `Dept: ${deptFilter}` : '',
       clientFilter !== 'all' ? `Client: ${clientFilter}` : '',
@@ -286,7 +309,7 @@ export default function ShiftDuty() {
       </div>
       <table>
         <thead>${headerRow}</thead>
-        <tbody>${bodyRows}</tbody>
+        <tbody>${bodyRows}${dailySumRow}</tbody>
       </table>
       <div class="legend">${legend}</div>
       <div class="footer">
