@@ -178,13 +178,13 @@ export default function ShiftDuty() {
       const thin = { top:{style:'thin' as const}, bottom:{style:'thin' as const}, left:{style:'thin' as const}, right:{style:'thin' as const} };
       const mkFill = (argb: string) => ({ type:'pattern' as const, pattern:'solid' as const, fgColor:{argb} });
       const days = Array.from({ length: daysInMonth }, (_, i) => i + 1);
-      const hdrRow = ws.addRow(['#', 'Emp Code', 'Name', 'Dept', ...(multiClient ? ['Client'] : []), ...days.map(d => `${d}\n${getDayOfWeek(year, month, d).slice(0,2)}`)]);
+      const hdrRow = ws.addRow(['#', 'Emp Code', 'Name', 'Dept', ...(multiClient ? ['Client'] : []), ...days.map(d => `${d}\n${getDayOfWeek(year, month, d).slice(0,2)}`), 'Summ.']);
       ws.getRow(1).height = 32;
       hdrRow.eachCell((c: any) => {
         c.font = { bold: true, color: { argb: 'FFFFFFFF' }, size: 9 };
         c.fill = mkFill('FF1e3a5f'); c.border = thin; c.alignment = { horizontal: 'center', vertical: 'middle', wrapText: true };
       });
-      ws.columns = [{ width: 4 }, { width: 12 }, { width: 22 }, { width: 14 }, ...(multiClient ? [{ width: 18 }] : []), ...days.map(() => ({ width: 5 }))];
+      ws.columns = [{ width: 4 }, { width: 12 }, { width: 22 }, { width: 14 }, ...(multiClient ? [{ width: 18 }] : []), ...days.map(() => ({ width: 5 })), { width: 7 }];
       filteredEmployees.forEach((emp, idx) => {
         const cellVals: any[] = [idx + 1, emp.employeeCode || '', emp.name, emp.department || '', ...(multiClient ? [emp.clientName || ''] : [])];
         days.forEach(d => { cellVals.push(getCell(emp.id, d) || ''); });
@@ -195,6 +195,113 @@ export default function ShiftDuty() {
         });
         [2,3,4,5].forEach(i => { (dr.getCell(i) as any).alignment = { horizontal: 'left', vertical: 'middle' }; });
       });
+      // ── Summary footer rows ─────────────────────────────────────────────────
+      const WORKING_CODES = ["A","AA","B","BB","C","G"];
+      const FIXED = 4 + (multiClient ? 1 : 0); // #, Code, Name, Dept, [Client]
+
+      // Pre-compute per-day counts
+      const dayDc = days.map(d => {
+        const dc: Record<string, number> = {};
+        filteredEmployees.forEach(emp => {
+          const v = getCell(emp.id, d);
+          if (v) dc[v] = (dc[v] || 0) + 1;
+        });
+        const present = WORKING_CODES.reduce((s, c) => s + (dc[c] || 0), 0);
+        return { dc, present, off: dc["O"] || 0, total: present + (dc["O"] || 0) };
+      });
+
+      const rowTot = (code: string) => dayDc.reduce((s, d) => s + (d.dc[code] || 0), 0);
+      const totPresent = dayDc.reduce((s, d) => s + d.present, 0);
+      const totOff = dayDc.reduce((s, d) => s + d.off, 0);
+
+      // Helper: style all cells in a row including empty ones
+      const styleRow = (row: any, styleFn: (c: any, ci: number) => void) => {
+        for (let ci = 1; ci <= FIXED + days.length + 1; ci++) {
+          styleFn(row.getCell(ci), ci);
+        }
+      };
+
+      // Separator row
+      ws.addRow([]).height = 3;
+      const sepRow2 = ws.lastRow as any;
+      for (let ci = 1; ci <= FIXED + days.length + 1; ci++) {
+        const c = sepRow2.getCell(ci); c.fill = mkFill('FF1e293b');
+      }
+
+      // One row per working shift
+      WORKING_CODES.forEach(code => {
+        const st = shiftStyle(code);
+        const argbBg = st.bg.replace('#', 'FF');
+        const argbFg = st.textColor.replace('#', 'FF');
+        const cells: any[] = [st.label, code, '', ...(multiClient ? [''] : []), ''];
+        dayDc.forEach(d => { cells.push(d.dc[code] > 0 ? d.dc[code] : ''); });
+        cells.push(rowTot(code) > 0 ? rowTot(code) : '');
+        const sr = ws.addRow(cells);
+        sr.height = 14;
+        styleRow(sr, (c, ci) => {
+          c.border = thin;
+          c.alignment = { horizontal: 'center', vertical: 'middle' };
+          if (ci === 1) {
+            c.font = { size: 9, color: { argb: 'FF374151' } };
+            c.fill = mkFill('FFF8FAFC');
+            c.alignment = { horizontal: 'left', vertical: 'middle' };
+          } else if (ci === 2) {
+            c.font = { bold: true, size: 9, color: { argb: argbFg } };
+            c.fill = mkFill(argbBg);
+          } else if (ci <= FIXED) {
+            c.fill = mkFill('FFF8FAFC');
+            c.font = { size: 9 };
+          } else {
+            const val = c.value;
+            c.font = { bold: true, size: 9, color: { argb: val ? argbFg : 'FFCBD5E1' } };
+            c.fill = mkFill(val ? argbBg : 'FFF8FAFC');
+          }
+        });
+      });
+
+      // Present Total
+      const pCells: any[] = ['Present Total', '', '', ...(multiClient ? [''] : []), ''];
+      dayDc.forEach(d => { pCells.push(d.present > 0 ? d.present : ''); });
+      pCells.push(totPresent > 0 ? totPresent : '');
+      const pRow = ws.addRow(pCells);
+      pRow.height = 14;
+      styleRow(pRow, (c, ci) => {
+        c.border = thin; c.alignment = { horizontal: 'center', vertical: 'middle' };
+        c.font = { bold: true, size: 9, color: { argb: 'FF15803D' } };
+        const val = c.value;
+        c.fill = mkFill(ci === 1 ? 'FFDCFCE7' : val ? 'FFBBF7D0' : 'FFDCFCE7');
+        if (ci === 1) c.alignment = { horizontal: 'left', vertical: 'middle' };
+      });
+
+      // Off
+      const oCells: any[] = ['Off', 'O', '', ...(multiClient ? [''] : []), ''];
+      dayDc.forEach(d => { oCells.push(d.off > 0 ? d.off : ''); });
+      oCells.push(totOff > 0 ? totOff : '');
+      const oRow = ws.addRow(oCells);
+      oRow.height = 14;
+      styleRow(oRow, (c, ci) => {
+        c.border = thin; c.alignment = { horizontal: 'center', vertical: 'middle' };
+        c.font = { bold: true, size: 9, color: { argb: 'FF475569' } };
+        const val = c.value;
+        c.fill = mkFill(ci <= 2 || val ? 'FFE2E8F0' : 'FFF1F5F9');
+        if (ci === 1) c.alignment = { horizontal: 'left', vertical: 'middle' };
+      });
+
+      // Total Employ
+      const tCells: any[] = ['Total Employ', '', '', ...(multiClient ? [''] : []), ''];
+      dayDc.forEach(d => { tCells.push(d.total > 0 ? d.total : ''); });
+      tCells.push(totPresent + totOff > 0 ? Math.round((totPresent + totOff) / days.length) : '');
+      const tRow = ws.addRow(tCells);
+      tRow.height = 15;
+      styleRow(tRow, (c, ci) => {
+        c.border = thin; c.alignment = { horizontal: 'center', vertical: 'middle' };
+        c.font = { bold: true, size: 9, color: { argb: 'FFF8FAFC' } };
+        c.fill = mkFill(ci === FIXED + days.length + 1 ? 'FF0F172A' : 'FF334155');
+        if (ci === 1) c.alignment = { horizontal: 'left', vertical: 'middle' };
+      });
+
+      // ────────────────────────────────────────────────────────────────────────
+
       const buf = await wb.xlsx.writeBuffer();
       const blob = new Blob([buf], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
       const a = document.createElement('a'); a.href = URL.createObjectURL(blob);
