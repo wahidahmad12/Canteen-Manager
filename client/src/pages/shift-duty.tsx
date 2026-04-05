@@ -421,7 +421,7 @@ export default function ShiftDuty() {
           <div className="space-y-3">
             {filteredEmployees.map((emp, idx) => {
               const isOpen = expandedCards[emp.id] !== false; // default open
-              const counts: Record<string, number> = { A: 0, B: 0, C: 0, G: 0, O: 0 };
+              const counts: Record<string, number> = { A: 0, AA: 0, B: 0, BB: 0, C: 0, G: 0, O: 0 };
               for (let d = 1; d <= daysInMonth; d++) {
                 const v = getCell(emp.id, d);
                 if (v && counts[v] !== undefined) counts[v]++;
@@ -583,7 +583,7 @@ export default function ShiftDuty() {
                 </thead>
                 <tbody>
                   {filteredEmployees.map((emp, idx) => {
-                    const counts: Record<string, number> = { A: 0, B: 0, C: 0, G: 0, O: 0 };
+                    const counts: Record<string, number> = { A: 0, AA: 0, B: 0, BB: 0, C: 0, G: 0, O: 0 };
                     for (let d = 1; d <= daysInMonth; d++) {
                       const v = getCell(emp.id, d);
                       if (v && counts[v] !== undefined) counts[v]++;
@@ -638,6 +638,51 @@ export default function ShiftDuty() {
                       </tr>
                     );
                   })}
+                  {/* ── Daily summary footer row ── */}
+                  {filteredEmployees.length > 0 && (() => {
+                    const SHIFT_CODES = ["A","AA","B","BB","C","G","O"];
+                    return (
+                      <tr className="bg-slate-800 text-white sticky bottom-0 z-10">
+                        <td className="border border-slate-600 px-1 py-1 text-center text-[9px] font-bold sticky left-0 bg-slate-800 z-20" colSpan={3 + (multiClient ? 1 : 0) + 1}>Daily Total</td>
+                        <td className="border border-slate-600 px-1 py-1 text-[9px] text-slate-300"></td>
+                        {Array.from({ length: daysInMonth }, (_, i) => {
+                          const d = i + 1;
+                          const dayCounts: Record<string, number> = {};
+                          filteredEmployees.forEach(emp => {
+                            const v = getCell(emp.id, d);
+                            if (v) dayCounts[v] = (dayCounts[v] || 0) + 1;
+                          });
+                          return (
+                            <td key={d} className="border border-slate-600 px-0 py-0.5 text-center align-top">
+                              {SHIFT_CODES.filter(c => dayCounts[c]).map(c => (
+                                <span key={c} className="block text-[7px] font-bold leading-tight mx-0.5 rounded"
+                                  style={{ background: shiftStyle(c).bg, color: shiftStyle(c).textColor }}>
+                                  {c}:{dayCounts[c]}
+                                </span>
+                              ))}
+                            </td>
+                          );
+                        })}
+                        <td className="border border-slate-600 px-1 py-1 text-[9px]">
+                          {(() => {
+                            const total: Record<string, number> = {};
+                            filteredEmployees.forEach(emp => {
+                              for (let d = 1; d <= daysInMonth; d++) {
+                                const v = getCell(emp.id, d);
+                                if (v) total[v] = (total[v] || 0) + 1;
+                              }
+                            });
+                            return SHIFT_CODES.filter(c => total[c]).map(c => (
+                              <span key={c} className="block text-[7px] font-bold leading-tight rounded"
+                                style={{ background: shiftStyle(c).bg, color: shiftStyle(c).textColor }}>
+                                {c}:{total[c]}
+                              </span>
+                            ));
+                          })()}
+                        </td>
+                      </tr>
+                    );
+                  })()}
                 </tbody>
               </table>
             </CardContent>
