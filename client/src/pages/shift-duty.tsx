@@ -14,9 +14,9 @@ const WEEKDAYS = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
 
 const SHIFTS: { code: string; label: string; color: string; bg: string; textColor: string }[] = [
   { code: "",  label: "—",       color: "bg-gray-100",   bg: "#f3f4f6", textColor: "#6b7280" },
-  { code: "M", label: "Morning", color: "bg-blue-100",   bg: "#dbeafe", textColor: "#1d4ed8" },
-  { code: "E", label: "Evening", color: "bg-orange-100", bg: "#ffedd5", textColor: "#c2410c" },
-  { code: "N", label: "Night",   color: "bg-purple-100", bg: "#f3e8ff", textColor: "#7e22ce" },
+  { code: "A", label: "Morning", color: "bg-blue-100",   bg: "#dbeafe", textColor: "#1d4ed8" },
+  { code: "B", label: "Evening", color: "bg-orange-100", bg: "#ffedd5", textColor: "#c2410c" },
+  { code: "C", label: "Night",   color: "bg-purple-100", bg: "#f3e8ff", textColor: "#7e22ce" },
   { code: "G", label: "General", color: "bg-green-100",  bg: "#dcfce7", textColor: "#15803d" },
   { code: "O", label: "Off",     color: "bg-slate-200",  bg: "#e2e8f0", textColor: "#475569" },
 ];
