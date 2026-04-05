@@ -17,12 +17,14 @@ const WEEK_OFF_SHORT: Record<string, string> = {
 };
 
 const SHIFTS: { code: string; label: string; bg: string; textColor: string; border: string }[] = [
-  { code: "",  label: "—",       bg: "#f3f4f6", textColor: "#9ca3af", border: "#e5e7eb" },
-  { code: "A", label: "Morning", bg: "#dbeafe", textColor: "#1d4ed8", border: "#93c5fd" },
-  { code: "B", label: "Evening", bg: "#ffedd5", textColor: "#c2410c", border: "#fdba74" },
-  { code: "C", label: "Night",   bg: "#f3e8ff", textColor: "#7e22ce", border: "#c4b5fd" },
-  { code: "G", label: "General", bg: "#dcfce7", textColor: "#15803d", border: "#86efac" },
-  { code: "O", label: "Off",     bg: "#e2e8f0", textColor: "#475569", border: "#cbd5e1" },
+  { code: "",   label: "—",              bg: "#f3f4f6", textColor: "#9ca3af", border: "#e5e7eb" },
+  { code: "A",  label: "Morning 6 Am",  bg: "#dbeafe", textColor: "#1d4ed8", border: "#93c5fd" },
+  { code: "AA", label: "Morning 7 Am",  bg: "#bfdbfe", textColor: "#1e40af", border: "#60a5fa" },
+  { code: "B",  label: "Evening 11 Am", bg: "#ffedd5", textColor: "#c2410c", border: "#fdba74" },
+  { code: "BB", label: "Evening 2 Pm",  bg: "#fef3c7", textColor: "#b45309", border: "#fcd34d" },
+  { code: "C",  label: "Night 10 Pm",   bg: "#f3e8ff", textColor: "#7e22ce", border: "#c4b5fd" },
+  { code: "G",  label: "General 9 Am",  bg: "#dcfce7", textColor: "#15803d", border: "#86efac" },
+  { code: "O",  label: "Off",            bg: "#e2e8f0", textColor: "#475569", border: "#cbd5e1" },
 ];
 
 const shiftStyle = (code: string) => SHIFTS.find(s => s.code === code) ?? SHIFTS[0];
@@ -199,10 +201,10 @@ export default function ShiftDuty() {
     const days = Array.from({ length: daysInMonth }, (_, i) => i + 1);
 
     const shiftBg: Record<string, string> = {
-      A: '#dbeafe', B: '#ffedd5', C: '#f3e8ff', G: '#dcfce7', O: '#e2e8f0',
+      A: '#dbeafe', AA: '#bfdbfe', B: '#ffedd5', BB: '#fef3c7', C: '#f3e8ff', G: '#dcfce7', O: '#e2e8f0',
     };
     const shiftColor: Record<string, string> = {
-      A: '#1d4ed8', B: '#c2410c', C: '#7e22ce', G: '#15803d', O: '#475569',
+      A: '#1d4ed8', AA: '#1e40af', B: '#c2410c', BB: '#b45309', C: '#7e22ce', G: '#15803d', O: '#475569',
     };
 
     const headerRow = `<tr style="background:#1e3a5f;color:#fff;">
@@ -230,7 +232,7 @@ export default function ShiftDuty() {
           ${val || ''}${isWO ? '<br/><span style="font-size:6px;font-weight:normal;color:#94a3b8;">WO</span>' : ''}
         </td>`;
       }).join('');
-      const counts: Record<string, number> = { A:0, B:0, C:0, G:0, O:0 };
+      const counts: Record<string, number> = { A:0, AA:0, B:0, BB:0, C:0, G:0, O:0 };
       days.forEach(d => { const v = getCell(emp.id, d); if (v && counts[v] !== undefined) counts[v]++; });
       const summParts = Object.entries(counts).filter(([,v]) => v > 0)
         .map(([k, v]) => `<span style="background:${shiftBg[k]};color:${shiftColor[k]};padding:0 3px;border-radius:2px;font-size:7px;">${k}:${v}</span>`).join(' ');
