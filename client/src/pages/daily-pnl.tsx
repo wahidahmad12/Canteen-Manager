@@ -2,7 +2,7 @@ import { useState, useRef, useEffect, useCallback } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
 import { useClientNames } from "@/hooks/use-reports";
-import { RefreshCw, Save, Printer, TrendingUp, TrendingDown, Plus, Trash2, BarChart3, ClipboardEdit } from "lucide-react";
+import { RefreshCw, Save, Printer, TrendingUp, TrendingDown, Plus, Trash2, BarChart3, ClipboardEdit, LayoutList, Table2 } from "lucide-react";
 import { format } from "date-fns";
 import { Layout } from "@/components/layout";
 
@@ -115,6 +115,244 @@ function ExpenseTable({ rows, onChange, onAdd, onDelete, onBlurItem, itemNames }
   );
 }
 
+// ─── Mobile card: Expense section ─────────────────────────────────────────────
+function ExpenseCards({ rows, onChange, onAdd, onDelete, onBlurItem, itemNames, color }: {
+  rows: ExpenseItem[]; onChange: (r: ExpenseItem[]) => void;
+  onAdd: () => void; onDelete: (i: number) => void;
+  onBlurItem?: (i: number) => void;
+  itemNames: string[]; color: string;
+}) {
+  const lid = `mc-${rows[0]?.slNo ?? Math.random()}`;
+  const total = rows.reduce((s, r) => s + r.total, 0);
+  return (
+    <div>
+      <datalist id={lid}>{itemNames.map((n, i) => <option key={i} value={n} />)}</datalist>
+      <div className="space-y-2">
+        {rows.map((r, i) => (
+          <div key={i} className="border rounded-lg p-2.5 bg-white shadow-sm">
+            <div className="flex items-center gap-1.5 mb-2">
+              <span className="text-xs font-semibold text-gray-400 w-5">{r.slNo}.</span>
+              <input list={lid} className="flex-1 border border-gray-200 rounded px-2 py-1 text-sm bg-amber-50 outline-none"
+                value={r.itemName} placeholder="Item name…"
+                onChange={e => onChange(rows.map((x, xi) => xi === i ? { ...x, itemName: e.target.value } : x))}
+                onBlur={() => onBlurItem?.(i)} />
+              <button onClick={() => onDelete(i)} className="text-red-400 hover:text-red-600 p-0.5 ml-1"><Trash2 className="w-4 h-4" /></button>
+            </div>
+            <div className="grid grid-cols-3 gap-1.5">
+              <div className="flex flex-col gap-0.5">
+                <label className="text-[10px] text-gray-500 font-medium uppercase tracking-wide">UoM</label>
+                <input className="border border-gray-200 rounded px-2 py-1 text-sm text-center outline-none"
+                  value={r.uom} placeholder="Kg…"
+                  onChange={e => onChange(rows.map((x, xi) => xi === i ? { ...x, uom: e.target.value } : x))} />
+              </div>
+              <div className="flex flex-col gap-0.5">
+                <label className="text-[10px] text-gray-500 font-medium uppercase tracking-wide">Qty</label>
+                <input type="number" inputMode="decimal" className="border border-gray-200 rounded px-2 py-1 text-sm text-center outline-none"
+                  value={r.qty || ""} placeholder="0"
+                  onChange={e => {
+                    const qty = parseFloat(e.target.value) || 0;
+                    onChange(rows.map((x, xi) => xi === i ? { ...x, qty, total: qty * x.rate } : x));
+                  }} />
+              </div>
+              <div className="flex flex-col gap-0.5">
+                <label className="text-[10px] text-gray-500 font-medium uppercase tracking-wide">Rate ₹</label>
+                <input type="number" inputMode="decimal" className="border border-yellow-300 rounded px-2 py-1 text-sm text-center outline-none bg-yellow-50"
+                  value={r.rate || ""} placeholder="0"
+                  onChange={e => {
+                    const rate = parseFloat(e.target.value) || 0;
+                    onChange(rows.map((x, xi) => xi === i ? { ...x, rate, total: x.qty * rate } : x));
+                  }} />
+              </div>
+            </div>
+            {r.total > 0 && (
+              <div className="mt-1.5 text-right text-xs font-bold text-green-700">
+                Total: ₹{r.total.toLocaleString("en-IN", { minimumFractionDigits: 2 })}
+              </div>
+            )}
+          </div>
+        ))}
+      </div>
+      <div className="flex items-center justify-between mt-2 pt-1.5 border-t">
+        <button onClick={onAdd} className="flex items-center gap-1 text-blue-600 text-xs font-medium hover:text-blue-800">
+          <Plus className="w-3.5 h-3.5" /> Add Row
+        </button>
+        {total > 0 && <span className="text-xs font-bold text-gray-700">Total: ₹{total.toLocaleString("en-IN", { minimumFractionDigits: 2 })}</span>}
+      </div>
+    </div>
+  );
+}
+
+// ─── Mobile card: PS Sale section ─────────────────────────────────────────────
+function PsSaleCards({ rows, onChange, psCalc, totalPsSale }: {
+  rows: PsSaleRow[];
+  onChange: (r: PsSaleRow[]) => void;
+  psCalc: (PsSaleRow & { cashAmt: number; onlineAmt: number; coTotal: number; billAmt: number; totalAmt: number })[];
+  totalPsSale: number;
+}) {
+  return (
+    <div className="space-y-2">
+      {psCalc.map((r, i) => (
+        <div key={i} className="border border-green-100 rounded-lg p-3 bg-white shadow-sm">
+          <div className="flex items-center justify-between mb-2">
+            <span className="font-semibold text-sm text-green-800">{r.itemName}</span>
+            {r.totalAmt > 0 && <span className="text-xs font-bold bg-green-100 text-green-800 px-2 py-0.5 rounded-full">₹{r.totalAmt.toLocaleString("en-IN")}</span>}
+          </div>
+          <div className="grid grid-cols-3 gap-2">
+            <div className="flex flex-col gap-0.5">
+              <label className="text-[10px] text-yellow-700 font-semibold uppercase">Cash Qty <span className="font-normal text-gray-400">×₹{r.cashRate}</span></label>
+              <input type="number" inputMode="numeric" className="border border-yellow-200 rounded px-2 py-1.5 text-sm text-center outline-none bg-yellow-50"
+                value={r.cashQty || ""} placeholder="0"
+                onChange={e => onChange(rows.map((x, xi) => xi === i ? { ...x, cashQty: parseFloat(e.target.value) || 0 } : x))} />
+              {r.cashAmt > 0 && <span className="text-[10px] text-center text-yellow-700">₹{r.cashAmt.toLocaleString("en-IN")}</span>}
+            </div>
+            <div className="flex flex-col gap-0.5">
+              <label className="text-[10px] text-blue-700 font-semibold uppercase">Online <span className="font-normal text-gray-400">×₹{r.onlineRate}</span></label>
+              <input type="number" inputMode="numeric" className="border border-blue-200 rounded px-2 py-1.5 text-sm text-center outline-none bg-blue-50"
+                value={r.onlineQty || ""} placeholder="0"
+                onChange={e => onChange(rows.map((x, xi) => xi === i ? { ...x, onlineQty: parseFloat(e.target.value) || 0 } : x))} />
+              {r.onlineAmt > 0 && <span className="text-[10px] text-center text-blue-700">₹{r.onlineAmt.toLocaleString("en-IN")}</span>}
+            </div>
+            <div className="flex flex-col gap-0.5">
+              <label className="text-[10px] text-pink-700 font-semibold uppercase">Bill <span className="font-normal text-gray-400">×₹{r.billRate}</span></label>
+              <input type="number" inputMode="numeric" className="border border-pink-200 rounded px-2 py-1.5 text-sm text-center outline-none bg-pink-50"
+                value={r.billQty || ""} placeholder="0"
+                onChange={e => onChange(rows.map((x, xi) => xi === i ? { ...x, billQty: parseFloat(e.target.value) || 0 } : x))} />
+              {r.billAmt > 0 && <span className="text-[10px] text-center text-pink-700">₹{r.billAmt.toLocaleString("en-IN")}</span>}
+            </div>
+          </div>
+        </div>
+      ))}
+      {totalPsSale > 0 && (
+        <div className="text-right text-sm font-bold text-green-800 pt-1 border-t border-green-100">
+          Total PS Sale: ₹{totalPsSale.toLocaleString("en-IN", { minimumFractionDigits: 2 })}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ─── Mobile card: TP Sale section ─────────────────────────────────────────────
+function TpSaleCards({ rows, onChange, tpCalc, totalTpSale }: {
+  rows: TpSaleRow[];
+  onChange: (r: TpSaleRow[]) => void;
+  tpCalc: (TpSaleRow & { cashAmt: number; onlineAmt: number; totalQty: number; coTotal: number })[];
+  totalTpSale: number;
+}) {
+  return (
+    <div className="space-y-2">
+      {tpCalc.map((r, i) => (
+        <div key={i} className="border border-blue-100 rounded-lg p-3 bg-white shadow-sm">
+          <div className="flex items-center justify-between mb-2">
+            <div>
+              <span className="font-semibold text-sm text-blue-900">{r.itemName}</span>
+              <span className="ml-1.5 text-xs text-blue-500 font-medium">₹{r.rate}/pax</span>
+            </div>
+            {r.coTotal > 0 && <span className="text-xs font-bold bg-blue-100 text-blue-800 px-2 py-0.5 rounded-full">₹{r.coTotal.toLocaleString("en-IN")}</span>}
+          </div>
+          <div className="grid grid-cols-2 gap-2">
+            <div className="flex flex-col gap-0.5">
+              <label className="text-[10px] text-yellow-700 font-semibold uppercase">Cash Qty</label>
+              <input type="number" inputMode="numeric" className="border border-yellow-200 rounded px-2 py-1.5 text-sm text-center outline-none bg-yellow-50"
+                value={r.cashQty || ""} placeholder="0"
+                onChange={e => onChange(rows.map((x, xi) => xi === i ? { ...x, cashQty: parseFloat(e.target.value) || 0 } : x))} />
+              {r.cashAmt > 0 && <span className="text-[10px] text-center text-yellow-700">₹{r.cashAmt.toLocaleString("en-IN")}</span>}
+            </div>
+            <div className="flex flex-col gap-0.5">
+              <label className="text-[10px] text-blue-700 font-semibold uppercase">Online Qty</label>
+              <input type="number" inputMode="numeric" className="border border-blue-200 rounded px-2 py-1.5 text-sm text-center outline-none bg-blue-50"
+                value={r.onlineQty || ""} placeholder="0"
+                onChange={e => onChange(rows.map((x, xi) => xi === i ? { ...x, onlineQty: parseFloat(e.target.value) || 0 } : x))} />
+              {r.onlineAmt > 0 && <span className="text-[10px] text-center text-blue-700">₹{r.onlineAmt.toLocaleString("en-IN")}</span>}
+            </div>
+          </div>
+          {r.totalQty > 0 && (
+            <div className="mt-1.5 text-right text-xs text-gray-500">Total Qty: <span className="font-bold text-gray-700">{r.totalQty}</span></div>
+          )}
+        </div>
+      ))}
+      {totalTpSale > 0 && (
+        <div className="text-right text-sm font-bold text-blue-800 pt-1 border-t border-blue-100">
+          Total TP Sale: ₹{totalTpSale.toLocaleString("en-IN", { minimumFractionDigits: 2 })}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ─── Mobile card: Manpower section ────────────────────────────────────────────
+function ManpowerCards({ manpower, setManpower, mpCalc, totalMp, employees, skillRates }: {
+  manpower: ManpowerItem[]; setManpower: (fn: (mp: ManpowerItem[]) => ManpowerItem[]) => void;
+  mpCalc: (ManpowerItem & { pf: number; esic: number; bonus: number; leave: number; total: number })[];
+  totalMp: number; employees: any[]; skillRates: any[];
+}) {
+  return (
+    <div className="space-y-2">
+      <datalist id="mc-emp-list">{employees.map((em: any) => <option key={em.id} value={em.name} />)}</datalist>
+      {mpCalc.map((r, i) => (
+        <div key={i} className="border border-indigo-100 rounded-lg p-3 bg-white shadow-sm">
+          <div className="flex items-center gap-1.5 mb-2">
+            <span className="text-xs font-semibold text-gray-400 w-5">{r.slNo}.</span>
+            <input list="mc-emp-list" className="flex-1 border border-gray-200 rounded px-2 py-1 text-sm bg-indigo-50 outline-none"
+              value={r.employeeName} placeholder="Employee name…"
+              onChange={e => setManpower(mp => mp.map((x, xi) => xi === i ? { ...x, employeeName: e.target.value } : x))}
+              onBlur={e => {
+                const emp = employees.find((em: any) => em.name === e.target.value);
+                if (emp) {
+                  const sr = skillRates.find((s: any) => s.skillCategory === emp.skills && s.year === new Date().getFullYear() && s.month === new Date().getMonth() + 1);
+                  if (sr) setManpower(mp => mp.map((x, xi) => xi === i ? { ...x, basicWagesPerDay: Number(sr.dailyRate) } : x));
+                }
+              }} />
+            <button onClick={() => setManpower(mp => mp.filter((_, xi) => xi !== i).map((x, xi) => ({ ...x, slNo: xi + 1 })))}
+              className="text-red-400 hover:text-red-600 p-0.5 ml-1"><Trash2 className="w-4 h-4" /></button>
+          </div>
+          <div className="grid grid-cols-2 gap-1.5 mb-1.5">
+            <div className="flex flex-col gap-0.5">
+              <label className="text-[10px] text-gray-500 font-medium uppercase">Wages/Day ₹</label>
+              <input type="number" inputMode="decimal" className="border border-yellow-200 rounded px-2 py-1.5 text-sm text-center outline-none bg-yellow-50"
+                value={r.basicWagesPerDay || ""} placeholder="0"
+                onChange={e => setManpower(mp => mp.map((x, xi) => xi === i ? { ...x, basicWagesPerDay: parseFloat(e.target.value) || 0 } : x))} />
+            </div>
+            <div className="flex flex-col gap-0.5">
+              <label className="text-[10px] text-purple-600 font-medium uppercase">Leave Bal ₹</label>
+              <input type="number" inputMode="decimal" className="border border-purple-200 rounded px-2 py-1.5 text-sm text-center outline-none bg-purple-50"
+                value={r.leaveBalance ?? 30} placeholder="30"
+                onChange={e => setManpower(mp => mp.map((x, xi) => xi === i ? { ...x, leaveBalance: parseFloat(e.target.value) || 0 } : x))} />
+            </div>
+          </div>
+          {r.basicWagesPerDay > 0 && (
+            <div className="grid grid-cols-3 gap-1 text-[10px] text-center mb-1">
+              <div className="bg-green-50 rounded px-1 py-0.5">
+                <div className="text-green-600 font-medium">PF 13%</div>
+                <div className="font-bold text-green-800">₹{r.pf.toFixed(2)}</div>
+              </div>
+              <div className="bg-blue-50 rounded px-1 py-0.5">
+                <div className="text-blue-600 font-medium">ESIC 3.25%</div>
+                <div className="font-bold text-blue-800">₹{r.esic.toFixed(2)}</div>
+              </div>
+              <div className="bg-orange-50 rounded px-1 py-0.5">
+                <div className="text-orange-600 font-medium">Bonus 8.33%</div>
+                <div className="font-bold text-orange-800">₹{r.bonus.toFixed(2)}</div>
+              </div>
+            </div>
+          )}
+          {r.total > 0 && (
+            <div className="text-right text-xs font-bold text-indigo-700 pt-1 border-t border-indigo-50">
+              Total: ₹{r.total.toFixed(2)}
+            </div>
+          )}
+        </div>
+      ))}
+      <div className="flex items-center justify-between mt-1 pt-1.5 border-t">
+        <button onClick={() => setManpower(mp => [...mp, { slNo: mp.length + 1, employeeName: "", basicWagesPerDay: 0, leaveBalance: 30 }])}
+          className="flex items-center gap-1 text-blue-600 text-xs font-medium hover:text-blue-800">
+          <Plus className="w-3.5 h-3.5" /> Add Employee
+        </button>
+        {totalMp > 0 && <span className="text-xs font-bold text-indigo-800">Total: ₹{totalMp.toLocaleString("en-IN", { minimumFractionDigits: 2 })}</span>}
+      </div>
+    </div>
+  );
+}
+
 // ─── Main page ────────────────────────────────────────────────────────────────
 export default function DailyPnlPage() {
   const { toast } = useToast();
@@ -129,6 +367,7 @@ export default function DailyPnlPage() {
   const [dashView,  setDashView]  = useState<"daily" | "monthly" | "yearly">("daily");
   const [repYear,   setRepYear]   = useState(new Date().getFullYear());
   const [repClient, setRepClient] = useState("");
+  const [mobileView, setMobileView] = useState(false);
 
   // Expense states
   const [breakfast, setBreakfast] = useState<ExpenseItem[]>([makeExpItem(1), makeExpItem(2)]);
@@ -391,6 +630,12 @@ export default function DailyPnlPage() {
           </div>
           {/* Row 1 (desktop) / Row 2 (mobile): action buttons */}
           <div className="flex items-center gap-2 sm:float-right sm:mt-[-30px]">
+            <button onClick={() => setMobileView(v => !v)}
+              className={`flex-1 sm:flex-none px-3 py-1.5 border rounded text-xs font-medium flex items-center justify-center gap-1 ${mobileView ? "bg-amber-100 border-amber-400 text-amber-800" : "border-gray-300 bg-white text-gray-600 hover:bg-gray-50"}`}
+              data-testid="btn-pnl-mobile-view" title={mobileView ? "Switch to table view" : "Switch to card view"}>
+              {mobileView ? <Table2 className="w-3.5 h-3.5" /> : <LayoutList className="w-3.5 h-3.5" />}
+              <span className="hidden sm:inline">{mobileView ? "Table" : "Cards"}</span>
+            </button>
             <button onClick={handlePrint} className="flex-1 sm:flex-none px-3 py-1.5 border border-gray-300 rounded text-xs font-medium flex items-center justify-center gap-1 hover:bg-gray-50 bg-white" data-testid="btn-pnl-print">
               <Printer className="w-3.5 h-3.5" /> Print
             </button>
@@ -423,32 +668,55 @@ export default function DailyPnlPage() {
                 <div className="text-center font-bold py-1 mb-3 text-white text-sm rounded" style={{ background: "#78350f" }}>EXPENSE</div>
 
                 <Section title="Breakfast" color="#92400e">
-                  <ExpenseTable rows={breakfast} onChange={setBreakfast} itemNames={itemNames}
-                    onAdd={() => setBreakfast(r => [...r, makeExpItem(r.length + 1)])}
-                    onDelete={i => setBreakfast(r => r.filter((_, xi) => xi !== i).map((x, xi) => ({ ...x, slNo: xi + 1 })))}
-                    onBlurItem={i => fetchLastPrice(breakfast, i, setBreakfast)} />
+                  {mobileView
+                    ? <ExpenseCards rows={breakfast} onChange={setBreakfast} itemNames={itemNames} color="#92400e"
+                        onAdd={() => setBreakfast(r => [...r, makeExpItem(r.length + 1)])}
+                        onDelete={i => setBreakfast(r => r.filter((_, xi) => xi !== i).map((x, xi) => ({ ...x, slNo: xi + 1 })))}
+                        onBlurItem={i => fetchLastPrice(breakfast, i, setBreakfast)} />
+                    : <ExpenseTable rows={breakfast} onChange={setBreakfast} itemNames={itemNames}
+                        onAdd={() => setBreakfast(r => [...r, makeExpItem(r.length + 1)])}
+                        onDelete={i => setBreakfast(r => r.filter((_, xi) => xi !== i).map((x, xi) => ({ ...x, slNo: xi + 1 })))}
+                        onBlurItem={i => fetchLastPrice(breakfast, i, setBreakfast)} />}
                 </Section>
                 <Section title="Lunch" color="#92400e">
-                  <ExpenseTable rows={lunch} onChange={setLunch} itemNames={itemNames}
-                    onAdd={() => setLunch(r => [...r, makeExpItem(r.length + 1)])}
-                    onDelete={i => setLunch(r => r.filter((_, xi) => xi !== i).map((x, xi) => ({ ...x, slNo: xi + 1 })))}
-                    onBlurItem={i => fetchLastPrice(lunch, i, setLunch)} />
+                  {mobileView
+                    ? <ExpenseCards rows={lunch} onChange={setLunch} itemNames={itemNames} color="#92400e"
+                        onAdd={() => setLunch(r => [...r, makeExpItem(r.length + 1)])}
+                        onDelete={i => setLunch(r => r.filter((_, xi) => xi !== i).map((x, xi) => ({ ...x, slNo: xi + 1 })))}
+                        onBlurItem={i => fetchLastPrice(lunch, i, setLunch)} />
+                    : <ExpenseTable rows={lunch} onChange={setLunch} itemNames={itemNames}
+                        onAdd={() => setLunch(r => [...r, makeExpItem(r.length + 1)])}
+                        onDelete={i => setLunch(r => r.filter((_, xi) => xi !== i).map((x, xi) => ({ ...x, slNo: xi + 1 })))}
+                        onBlurItem={i => fetchLastPrice(lunch, i, setLunch)} />}
                 </Section>
                 <Section title="Evening Snacks" color="#92400e">
-                  <ExpenseTable rows={evening} onChange={setEvening} itemNames={itemNames}
-                    onAdd={() => setEvening(r => [...r, makeExpItem(r.length + 1)])}
-                    onDelete={i => setEvening(r => r.filter((_, xi) => xi !== i).map((x, xi) => ({ ...x, slNo: xi + 1 })))}
-                    onBlurItem={i => fetchLastPrice(evening, i, setEvening)} />
+                  {mobileView
+                    ? <ExpenseCards rows={evening} onChange={setEvening} itemNames={itemNames} color="#92400e"
+                        onAdd={() => setEvening(r => [...r, makeExpItem(r.length + 1)])}
+                        onDelete={i => setEvening(r => r.filter((_, xi) => xi !== i).map((x, xi) => ({ ...x, slNo: xi + 1 })))}
+                        onBlurItem={i => fetchLastPrice(evening, i, setEvening)} />
+                    : <ExpenseTable rows={evening} onChange={setEvening} itemNames={itemNames}
+                        onAdd={() => setEvening(r => [...r, makeExpItem(r.length + 1)])}
+                        onDelete={i => setEvening(r => r.filter((_, xi) => xi !== i).map((x, xi) => ({ ...x, slNo: xi + 1 })))}
+                        onBlurItem={i => fetchLastPrice(evening, i, setEvening)} />}
                 </Section>
                 <Section title="Night Snacks" color="#92400e">
-                  <ExpenseTable rows={night} onChange={setNight} itemNames={itemNames}
-                    onAdd={() => setNight(r => [...r, makeExpItem(r.length + 1)])}
-                    onDelete={i => setNight(r => r.filter((_, xi) => xi !== i).map((x, xi) => ({ ...x, slNo: xi + 1 })))}
-                    onBlurItem={i => fetchLastPrice(night, i, setNight)} />
+                  {mobileView
+                    ? <ExpenseCards rows={night} onChange={setNight} itemNames={itemNames} color="#92400e"
+                        onAdd={() => setNight(r => [...r, makeExpItem(r.length + 1)])}
+                        onDelete={i => setNight(r => r.filter((_, xi) => xi !== i).map((x, xi) => ({ ...x, slNo: xi + 1 })))}
+                        onBlurItem={i => fetchLastPrice(night, i, setNight)} />
+                    : <ExpenseTable rows={night} onChange={setNight} itemNames={itemNames}
+                        onAdd={() => setNight(r => [...r, makeExpItem(r.length + 1)])}
+                        onDelete={i => setNight(r => r.filter((_, xi) => xi !== i).map((x, xi) => ({ ...x, slNo: xi + 1 })))}
+                        onBlurItem={i => fetchLastPrice(night, i, setNight)} />}
                 </Section>
 
                 {/* Manpower */}
                 <Section title="Daily Manpower" color="#1e3a8a">
+                  {mobileView ? (
+                    <ManpowerCards manpower={manpower} setManpower={setManpower} mpCalc={mpCalc} totalMp={totalMp} employees={employees as any[]} skillRates={skillRates as any[]} />
+                  ) : (
                   <div className="overflow-x-auto">
                     <table className="w-full border-collapse" style={{ fontSize: 11 }}>
                       <thead>
@@ -512,6 +780,7 @@ export default function DailyPnlPage() {
                       </tbody>
                     </table>
                   </div>
+                  )}
                 </Section>
 
                 {/* Other expense */}
@@ -534,7 +803,9 @@ export default function DailyPnlPage() {
                 <div className="text-xs text-gray-500 mb-2 italic">
                   Cash &amp; Online Qty auto-loaded from Daily Cash Seal (PS). Breakfast ×₹5 · Lunch ×₹20 · Evening ×₹10 · Night ×₹10 | Bill: Breakfast ×₹30 · Lunch ×₹50 · Evening ×₹30 · Night ×₹17
                 </div>
-                <div className="overflow-x-auto">
+                {mobileView
+                  ? <PsSaleCards rows={psSale} onChange={setPsSale} psCalc={psCalc} totalPsSale={totalPsSale} />
+                  : <div className="overflow-x-auto">
                   <table className="w-full border-collapse" style={{ fontSize: 11 }}>
                     <thead>
                       <tr>
@@ -582,7 +853,7 @@ export default function DailyPnlPage() {
                       </tr>
                     </tbody>
                   </table>
-                </div>
+                </div>}
               </div>
 
               {/* ─── SALE THIRD PARTY ─── */}
@@ -591,7 +862,9 @@ export default function DailyPnlPage() {
                 <div className="text-xs text-gray-500 mb-2 italic">
                   Rates: Breakfast ₹20 · Lunch Veg ₹35 · Egg ₹45 · Chicken ₹65 · Fish ₹55 · Evening ₹20 · Night ₹30
                 </div>
-                <div className="overflow-x-auto">
+                {mobileView
+                  ? <TpSaleCards rows={tpSale} onChange={setTpSale} tpCalc={tpCalc} totalTpSale={totalTpSale} />
+                  : <div className="overflow-x-auto">
                   <table className="w-full border-collapse" style={{ fontSize: 11 }}>
                     <thead>
                       <tr>
@@ -633,7 +906,7 @@ export default function DailyPnlPage() {
                       </tr>
                     </tbody>
                   </table>
-                </div>
+                </div>}
               </div>
 
               {/* ─── P&L SUMMARY ─── */}
