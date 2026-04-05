@@ -572,6 +572,49 @@ export default function ShiftDuty() {
                 </Card>
               );
             })}
+
+            {/* ── Day-wise summary card ── */}
+            {filteredEmployees.length > 0 && (() => {
+              const SHIFT_CODES = ["A","AA","B","BB","C","G","O"];
+              return (
+                <Card className="border border-slate-300 dark:border-slate-600 overflow-hidden">
+                  <div className="px-3 py-2 bg-slate-800 text-white text-xs font-bold flex items-center gap-2">
+                    <CalendarDays className="w-3.5 h-3.5" /> Day-wise Summary
+                  </div>
+                  <div className="overflow-x-auto">
+                    <div className="flex gap-1.5 p-2 min-w-max">
+                      {Array.from({ length: daysInMonth }, (_, i) => {
+                        const d = i + 1;
+                        const dow = getDayOfWeek(year, month, d);
+                        const isSun = dow === "Sun";
+                        const isSat = dow === "Sat";
+                        const dc: Record<string, number> = {};
+                        filteredEmployees.forEach(emp => {
+                          const v = getCell(emp.id, d);
+                          if (v) dc[v] = (dc[v] || 0) + 1;
+                        });
+                        const hasAny = SHIFT_CODES.some(c => dc[c]);
+                        return (
+                          <div key={d} className={`flex flex-col items-center rounded-lg border px-1.5 py-1.5 min-w-[42px] ${isSun ? 'bg-red-50 border-red-200 dark:bg-red-900/20 dark:border-red-700' : isSat ? 'bg-orange-50 border-orange-200 dark:bg-orange-900/20 dark:border-orange-700' : 'bg-slate-50 border-slate-200 dark:bg-slate-800 dark:border-slate-600'}`}>
+                            <span className={`text-[11px] font-bold leading-none ${isSun ? 'text-red-600' : isSat ? 'text-orange-600' : 'text-slate-600 dark:text-slate-300'}`}>{d}</span>
+                            <span className={`text-[9px] mb-1 leading-none ${isSun ? 'text-red-400' : isSat ? 'text-orange-400' : 'text-slate-400'}`}>{dow.slice(0,2)}</span>
+                            {hasAny
+                              ? SHIFT_CODES.filter(c => dc[c]).map(c => (
+                                  <span key={c} className="text-[9px] font-bold rounded px-0.5 w-full text-center leading-tight mb-0.5"
+                                    style={{ background: shiftStyle(c).bg, color: shiftStyle(c).textColor }}>
+                                    {c}:{dc[c]}
+                                  </span>
+                                ))
+                              : <span className="text-[8px] text-slate-300">—</span>
+                            }
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                </Card>
+              );
+            })()}
           </div>
 
         ) : (
