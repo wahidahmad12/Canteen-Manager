@@ -708,28 +708,34 @@ export default function ShiftDuty() {
                   {filteredEmployees.length > 0 && (() => {
                     const SHIFT_CODES = ["A","AA","B","BB","C","G","O"];
                     return (
-                      <tr className="bg-slate-800 text-white sticky bottom-0 z-10">
-                        <td className="border border-slate-600 px-1 py-1 text-center text-[9px] font-bold sticky left-0 bg-slate-800 z-20" colSpan={3 + (multiClient ? 1 : 0) + 1}>Daily Total</td>
-                        <td className="border border-slate-600 px-1 py-1 text-[9px] text-slate-300"></td>
+                      <tr style={{ background: "#78350f", borderTop: "3px solid #f59e0b" }} className="sticky bottom-0 z-10">
+                        <td style={{ background: "#78350f", borderTop: "3px solid #f59e0b" }}
+                          className="border border-amber-700 px-2 py-1.5 text-center font-extrabold text-white sticky left-0 z-20 whitespace-nowrap"
+                          colSpan={3 + (multiClient ? 1 : 0) + 1}>
+                          <span className="text-[11px] tracking-wide">📊 Daily Total</span>
+                        </td>
+                        <td className="border border-amber-700 px-1 py-1" style={{ background: "#78350f" }}></td>
                         {Array.from({ length: daysInMonth }, (_, i) => {
                           const d = i + 1;
+                          const dow = getDayOfWeek(year, month, d);
                           const dayCounts: Record<string, number> = {};
                           filteredEmployees.forEach(emp => {
                             const v = getCell(emp.id, d);
                             if (v) dayCounts[v] = (dayCounts[v] || 0) + 1;
                           });
+                          const cellBg = dow === "Sun" ? "#7f1d1d" : dow === "Sat" ? "#7c2d12" : "#78350f";
                           return (
-                            <td key={d} className="border border-slate-600 px-0 py-0.5 text-center align-top">
+                            <td key={d} className="border border-amber-700 px-0 py-1 text-center align-top" style={{ background: cellBg }}>
                               {SHIFT_CODES.filter(c => dayCounts[c]).map(c => (
-                                <span key={c} className="block text-[7px] font-bold leading-tight mx-0.5 rounded"
-                                  style={{ background: shiftStyle(c).bg, color: shiftStyle(c).textColor }}>
+                                <span key={c} className="block text-[8px] font-extrabold leading-tight mx-0.5 mb-0.5 rounded"
+                                  style={{ background: shiftStyle(c).bg, color: shiftStyle(c).textColor, padding: "0 2px" }}>
                                   {c}:{dayCounts[c]}
                                 </span>
                               ))}
                             </td>
                           );
                         })}
-                        <td className="border border-slate-600 px-1 py-1 text-[9px]">
+                        <td className="border border-amber-700 px-1 py-1 text-[9px]" style={{ background: "#78350f" }}>
                           {(() => {
                             const total: Record<string, number> = {};
                             filteredEmployees.forEach(emp => {
@@ -739,8 +745,8 @@ export default function ShiftDuty() {
                               }
                             });
                             return SHIFT_CODES.filter(c => total[c]).map(c => (
-                              <span key={c} className="block text-[7px] font-bold leading-tight rounded"
-                                style={{ background: shiftStyle(c).bg, color: shiftStyle(c).textColor }}>
+                              <span key={c} className="block text-[8px] font-extrabold leading-tight rounded mb-0.5"
+                                style={{ background: shiftStyle(c).bg, color: shiftStyle(c).textColor, padding: "0 2px" }}>
                                 {c}:{total[c]}
                               </span>
                             ));
