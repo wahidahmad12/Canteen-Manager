@@ -12,6 +12,11 @@ import { apiRequest } from "@/lib/queryClient";
 const MONTHS = ["January","February","March","April","May","June","July","August","September","October","November","December"];
 const WEEKDAYS = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
 
+const WEEK_OFF_SHORT: Record<string, string> = {
+  Sunday: "Sun", Monday: "Mon", Tuesday: "Tue", Wednesday: "Wed",
+  Thursday: "Thu", Friday: "Fri", Saturday: "Sat",
+};
+
 const SHIFTS: { code: string; label: string; color: string; bg: string; textColor: string }[] = [
   { code: "",  label: "—",       color: "bg-gray-100",   bg: "#f3f4f6", textColor: "#6b7280" },
   { code: "A", label: "Morning", color: "bg-blue-100",   bg: "#dbeafe", textColor: "#1d4ed8" },
@@ -33,6 +38,7 @@ function getDayOfWeek(year: number, month: number, day: number) {
 interface Employee {
   id: number; name: string; employeeCode: string; department: string;
   designation: string; clientName: string; isActive: boolean;
+  weeklyOffDay?: string | null;
 }
 interface ShiftRow {
   id?: number; employeeId: number; month: number; year: number;
@@ -88,11 +94,28 @@ export default function ShiftDuty() {
 
   const [localChanges, setLocalChanges] = useState<Record<string, string>>({});
 
+  const empMap = useMemo(() => {
+    const m: Record<number, Employee> = {};
+    activeEmployees.forEach(e => { m[e.id] = e; });
+    return m;
+  }, [activeEmployees]);
+
+  const isAutoWeekOff = (empId: number, day: number): boolean => {
+    const emp = empMap[empId];
+    if (!emp?.weeklyOffDay) return false;
+    const shortDay = WEEK_OFF_SHORT[emp.weeklyOffDay];
+    if (!shortDay) return false;
+    return getDayOfWeek(year, month, day) === shortDay;
+  };
+
   const getCell = (empId: number, day: number): string => {
     const key = `${empId}-${day}`;
     if (key in localChanges) return localChanges[key];
     const row = shiftMap[empId];
-    return row ? (row[`day${day}`] ?? "") : "";
+    const saved = row ? (row[`day${day}`] ?? "") : "";
+    if (saved) return saved;
+    if (isAutoWeekOff(empId, day)) return "O";
+    return "";
   };
 
   const setCell = (empId: number, day: number, val: string) => {
@@ -193,7 +216,7 @@ export default function ShiftDuty() {
   const isLoading = empLoading || shiftLoading;
 
   const shiftCounts = useMemo(() => {
-    const cnt: Record<string, number> = { M: 0, E: 0, N: 0, G: 0, O: 0 };
+    const cnt: Record<string, number> = { A: 0, B: 0, C: 0, G: 0, O: 0 };
     filteredEmployees.forEach(emp => {
       for (let d = 1; d <= daysInMonth; d++) {
         const v = getCell(emp.id, d);
@@ -303,7 +326,7 @@ export default function ShiftDuty() {
                   {filteredEmployees.length === 0 ? (
                     <tr><td colSpan={6 + daysInMonth + 1} className="text-center py-10 text-muted-foreground">No employees found</td></tr>
                   ) : filteredEmployees.map((emp, idx) => {
-                    const counts: Record<string, number> = { M: 0, E: 0, N: 0, G: 0, O: 0 };
+                    const counts: Record<string, number> = { A: 0, B: 0, C: 0, G: 0, O: 0 };
                     for (let d = 1; d <= daysInMonth; d++) {
                       const v = getCell(emp.id, d);
                       if (v && counts[v] !== undefined) counts[v]++;
@@ -312,7 +335,12 @@ export default function ShiftDuty() {
                       <tr key={emp.id} className={idx % 2 === 0 ? "bg-white dark:bg-gray-900" : "bg-slate-50 dark:bg-gray-800/50"}>
                         <td className="border border-slate-200 px-1 py-1 text-center text-slate-500 sticky left-0 z-10 bg-inherit">{idx + 1}</td>
                         <td className="border border-slate-200 px-1.5 py-1 font-mono sticky left-8 z-10 bg-inherit">{emp.employeeCode || '—'}</td>
-                        <td className="border border-slate-200 px-1.5 py-1 font-medium sticky left-[112px] z-10 bg-inherit whitespace-nowrap">{emp.name}</td>
+                        <td className="border border-slate-200 px-1.5 py-1 font-medium sticky left-[112px] z-10 bg-inherit whitespace-nowrap">
+                          <span>{emp.name}</span>
+                          {emp.weeklyOffDay && (
+                            <span className="ml-1 text-[9px] text-slate-400 font-normal">({emp.weeklyOffDay.slice(0,3)} off)</span>
+                          )}
+                        </td>
                         <td className="border border-slate-200 px-1.5 py-1 text-slate-600 dark:text-slate-400 whitespace-nowrap">{emp.department || '—'}</td>
                         <td className="border border-slate-200 px-1.5 py-1 text-slate-600 dark:text-slate-400 whitespace-nowrap text-[10px]">{emp.clientName || '—'}</td>
                         <td className="border border-slate-200 px-1 py-1">
@@ -331,16 +359,20 @@ export default function ShiftDuty() {
                           const val = getCell(emp.id, d);
                           const st = shiftStyle(val);
                           const isDirty = `${emp.id}-${d}` in localChanges;
+                          const isWO = !isDirty && val === "O" && isAutoWeekOff(emp.id, d);
                           return (
                             <td
                               key={d}
                               className="border border-slate-200 px-0 py-0 text-center cursor-pointer select-none"
                               style={{ background: val ? st.bg : undefined, color: val ? st.textColor : undefined }}
                               onClick={() => cycleShift(emp.id, d)}
-                              title={`${emp.name} — Day ${d}: ${st.label}`}
+                              title={`${emp.name} — Day ${d}: ${st.label}${isWO ? ' (Weekly Off)' : ''}`}
                               data-testid={`cell-shift-${emp.id}-${d}`}
                             >
-                              <span className={`block w-full h-full py-1 font-semibold ${isDirty ? 'ring-1 ring-inset ring-yellow-400' : ''}`}>{val || ''}</span>
+                              <span className={`block w-full h-full py-0.5 font-semibold leading-none ${isDirty ? 'ring-1 ring-inset ring-yellow-400' : ''}`}>
+                                <span className="block">{val || ''}</span>
+                                {isWO && <span className="block text-[8px] font-normal opacity-70 leading-none">WO</span>}
+                              </span>
                             </td>
                           );
                         })}
