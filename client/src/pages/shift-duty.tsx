@@ -6,7 +6,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { Loader2, Save, Download, CalendarDays, Users, RefreshCw, LayoutGrid, Table2, ChevronDown, ChevronUp } from "lucide-react";
+import { Loader2, Save, Download, CalendarDays, Users, RefreshCw, LayoutGrid, Table2, ChevronDown, ChevronUp, Printer } from "lucide-react";
 
 const MONTHS = ["January","February","March","April","May","June","July","August","September","October","November","December"];
 const WEEKDAYS = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
@@ -191,6 +191,104 @@ export default function ShiftDuty() {
     } catch (err: any) { toast({ title: 'Export failed', description: err.message, variant: 'destructive' }); }
   };
 
+  const handlePrint = () => {
+    const days = Array.from({ length: daysInMonth }, (_, i) => i + 1);
+
+    const shiftBg: Record<string, string> = {
+      A: '#dbeafe', B: '#ffedd5', C: '#f3e8ff', G: '#dcfce7', O: '#e2e8f0',
+    };
+    const shiftColor: Record<string, string> = {
+      A: '#1d4ed8', B: '#c2410c', C: '#7e22ce', G: '#15803d', O: '#475569',
+    };
+
+    const headerRow = `<tr style="background:#1e3a5f;color:#fff;">
+      <th style="border:1px solid #475569;padding:4px 3px;font-size:9px;text-align:center;">#</th>
+      <th style="border:1px solid #475569;padding:4px 6px;font-size:9px;text-align:left;">Emp Code</th>
+      <th style="border:1px solid #475569;padding:4px 6px;font-size:9px;text-align:left;min-width:120px;">Name</th>
+      <th style="border:1px solid #475569;padding:4px 6px;font-size:9px;text-align:left;">Dept</th>
+      <th style="border:1px solid #475569;padding:4px 6px;font-size:9px;text-align:left;">Client</th>
+      ${days.map(d => {
+        const dow = getDayOfWeek(year, month, d);
+        const bg = dow === 'Sun' ? '#991b1b' : dow === 'Sat' ? '#9a3412' : '#1e3a5f';
+        return `<th style="border:1px solid #475569;padding:2px 1px;font-size:8px;text-align:center;background:${bg};min-width:20px;">${d}<br/><span style="font-weight:normal;font-size:7px;">${dow.slice(0,2)}</span></th>`;
+      }).join('')}
+      <th style="border:1px solid #475569;padding:4px 3px;font-size:9px;text-align:center;min-width:50px;">Summ.</th>
+    </tr>`;
+
+    const bodyRows = filteredEmployees.map((emp, idx) => {
+      const rowBg = idx % 2 === 0 ? '#ffffff' : '#f8fafc';
+      const cells = days.map(d => {
+        const val = getCell(emp.id, d);
+        const isWO = !(`${emp.id}-${d}` in localChanges) && val === 'O' && isAutoWeekOff(emp.id, d);
+        const bg = val ? shiftBg[val] || '#f3f4f6' : '';
+        const color = val ? shiftColor[val] || '#374151' : '#94a3b8';
+        return `<td style="border:1px solid #e2e8f0;padding:2px 0;text-align:center;font-size:9px;font-weight:bold;background:${bg || rowBg};color:${color};">
+          ${val || ''}${isWO ? '<br/><span style="font-size:6px;font-weight:normal;color:#94a3b8;">WO</span>' : ''}
+        </td>`;
+      }).join('');
+      const counts: Record<string, number> = { A:0, B:0, C:0, G:0, O:0 };
+      days.forEach(d => { const v = getCell(emp.id, d); if (v && counts[v] !== undefined) counts[v]++; });
+      const summParts = Object.entries(counts).filter(([,v]) => v > 0)
+        .map(([k, v]) => `<span style="background:${shiftBg[k]};color:${shiftColor[k]};padding:0 3px;border-radius:2px;font-size:7px;">${k}:${v}</span>`).join(' ');
+      return `<tr style="background:${rowBg};">
+        <td style="border:1px solid #e2e8f0;padding:3px;text-align:center;font-size:9px;color:#94a3b8;">${idx + 1}</td>
+        <td style="border:1px solid #e2e8f0;padding:3px 5px;font-size:9px;font-family:monospace;">${emp.employeeCode || ''}</td>
+        <td style="border:1px solid #e2e8f0;padding:3px 5px;font-size:9px;font-weight:600;">${emp.name}${emp.weeklyOffDay ? `<br/><span style="font-size:7px;color:#94a3b8;font-weight:normal;">${emp.weeklyOffDay.slice(0,3)} off</span>` : ''}</td>
+        <td style="border:1px solid #e2e8f0;padding:3px 5px;font-size:8px;color:#64748b;">${emp.department || ''}</td>
+        <td style="border:1px solid #e2e8f0;padding:3px 5px;font-size:8px;color:#64748b;">${emp.clientName || ''}</td>
+        ${cells}
+        <td style="border:1px solid #e2e8f0;padding:3px;text-align:center;white-space:nowrap;">${summParts}</td>
+      </tr>`;
+    }).join('');
+
+    const filterNote = [
+      deptFilter !== 'all' ? `Dept: ${deptFilter}` : '',
+      clientFilter !== 'all' ? `Client: ${clientFilter}` : '',
+    ].filter(Boolean).join(' | ');
+
+    const legend = SHIFTS.filter(s => s.code).map(s =>
+      `<span style="display:inline-block;margin-right:8px;padding:2px 8px;border-radius:10px;font-size:9px;font-weight:600;background:${s.bg};color:${s.textColor};border:1px solid ${s.border};">
+        ${s.code} = ${s.label}
+      </span>`
+    ).join('');
+
+    const html = `<!DOCTYPE html><html><head>
+      <title>Shift Duty Chart — ${MONTHS[month-1]} ${year}</title>
+      <style>
+        @page { size: landscape; margin: 10mm 8mm; }
+        * { box-sizing: border-box; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+        body { font-family: Arial, sans-serif; margin: 0; padding: 0; }
+        .header { text-align: center; margin-bottom: 10px; }
+        .header h1 { font-size: 14px; color: #1e3a5f; margin: 0 0 2px; }
+        .header h2 { font-size: 11px; color: #475569; margin: 0 0 4px; font-weight: normal; }
+        .header .meta { font-size: 9px; color: #94a3b8; }
+        table { border-collapse: collapse; width: 100%; }
+        .legend { margin-top: 8px; }
+        .footer { margin-top: 6px; font-size: 8px; color: #94a3b8; display: flex; justify-content: space-between; }
+        @media print { button { display: none; } }
+      </style>
+    </head><body>
+      <div class="header">
+        <h1>DJ Hospitality &amp; Facility Management</h1>
+        <h2>Monthly Shift Duty Chart — ${MONTHS[month-1]} ${year}</h2>
+        ${filterNote ? `<div class="meta">${filterNote}</div>` : ''}
+      </div>
+      <table>
+        <thead>${headerRow}</thead>
+        <tbody>${bodyRows}</tbody>
+      </table>
+      <div class="legend">${legend}</div>
+      <div class="footer">
+        <span>Total Employees: ${filteredEmployees.length}</span>
+        <span>Printed: ${new Date().toLocaleDateString('en-IN', { day:'2-digit', month:'short', year:'numeric' })}</span>
+      </div>
+      <script>window.onload = function() { window.print(); window.onafterprint = function() { window.close(); }; }</script>
+    </body></html>`;
+
+    const w = window.open('', '_blank', 'width=1200,height=700');
+    if (w) { w.document.write(html); w.document.close(); }
+  };
+
   const dirtyCount = Object.keys(localChanges).length;
   const isLoading = empLoading || shiftLoading;
 
@@ -265,6 +363,9 @@ export default function ShiftDuty() {
 
           <Button variant="outline" size="sm" onClick={() => { setLocalChanges({}); refetch(); }} data-testid="button-refresh">
             <RefreshCw className="w-3.5 h-3.5" />
+          </Button>
+          <Button variant="outline" size="sm" onClick={handlePrint} data-testid="button-print">
+            <Printer className="w-3.5 h-3.5 mr-1" /> Print
           </Button>
           <Button variant="outline" size="sm" onClick={handleExportExcel} data-testid="button-export">
             <Download className="w-3.5 h-3.5 mr-1" /> Excel
