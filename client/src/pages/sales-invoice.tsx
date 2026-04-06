@@ -1482,7 +1482,7 @@ export default function SalesInvoicePage() {
           </TabsContent>
 
           <TabsContent value="date-entry" className="mt-4">
-            <DateEntryTab />
+            {activeTab === "date-entry" && <DateEntryTab />}
           </TabsContent>
         </Tabs>
       </div>
