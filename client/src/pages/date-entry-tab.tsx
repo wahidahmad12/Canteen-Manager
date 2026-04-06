@@ -15,7 +15,9 @@ const WEEKDAYS = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
 
 function normDate(dateStr: string): string {
   if (!dateStr) return "";
-  return dateStr.includes("T") ? dateStr.split("T")[0] : dateStr;
+  const s = dateStr.includes("T") ? dateStr.split("T")[0] : String(dateStr);
+  if (/^\d{2}-\d{2}-\d{4}$/.test(s)) { const [d, m, y] = s.split('-'); return `${y}-${m}-${d}`; }
+  return s;
 }
 
 function localDateStr(d: Date): string {
@@ -252,7 +254,7 @@ function UblDateEntryTab({ month, year, loadKey = 0 }: { month: number; year: nu
     // Data
     rows.forEach(r => {
       const calMonth = r.entryDate ? parseInt(r.entryDate.split('-')[1]) || r.month : r.month;
-      const row = ws.addRow(UBL1_COLS.map(c => c.field==="month" ? calMonth : ((r as any)[c.field] ?? "")));
+      const row = ws.addRow(UBL1_COLS.map(c => c.field==="entryDate" ? safeFormat((r as any).entryDate) : c.field==="month" ? calMonth : ((r as any)[c.field] ?? "")));
       row.eachCell(cell => { cell.border=thin; cell.alignment={horizontal:"center"}; });
     });
     const buf = await wb.xlsx.writeBuffer();
@@ -285,6 +287,7 @@ function UblDateEntryTab({ month, year, loadKey = 0 }: { month: number; year: nu
           r[f] = (f==="entryDate"||f==="weekDay") ? String(v??"") : (parseInt(String(v||0))||0);
         });
         if (!r.entryDate) return;
+        r.entryDate = normDate(r.entryDate);
         if (!r.weekDay) r.weekDay = getWeekDay(r.entryDate);
         imported.push(r as UblRow);
       });
@@ -806,7 +809,7 @@ function UblLunchEntryTab({ month, year, loadKey = 0 }: { month: number; year: n
     ws.columns = UBL2_COLS.map((_,i)=>({ width: i===0?14:14 }));
     rows.forEach(r => {
       const calMonth = r.entryDate ? parseInt(r.entryDate.split('-')[1]) || r.month : r.month;
-      const row = ws.addRow(UBL2_COLS.map(c => c.field==="month" ? calMonth : ((r as any)[c.field] ?? "")));
+      const row = ws.addRow(UBL2_COLS.map(c => c.field==="entryDate" ? safeFormat((r as any).entryDate) : c.field==="month" ? calMonth : ((r as any)[c.field] ?? "")));
       row.eachCell(cell => { cell.border=thin; cell.alignment={horizontal:"center"}; });
     });
     const buf = await wb.xlsx.writeBuffer();
@@ -838,6 +841,7 @@ function UblLunchEntryTab({ month, year, loadKey = 0 }: { month: number; year: n
           r[f] = (f==="entryDate"||f==="weekDay") ? String(v??"") : (parseInt(String(v||0))||0);
         });
         if (!r.entryDate) return;
+        r.entryDate = normDate(r.entryDate);
         if (!r.weekDay) r.weekDay = getWeekDay(r.entryDate);
         imported.push(r as UblLunchRow);
       });
@@ -1293,7 +1297,7 @@ function UnichemSnackTab({ month, year, loadKey = 0 }: { month: number; year: nu
     hdr.eachCell(cell => { cell.font={bold:true,color:{argb:"FFFFFFFF"}}; cell.fill={type:"pattern",pattern:"solid",fgColor:{argb:"FF1A3A5A"}}; cell.border=thin; cell.alignment={horizontal:"center"}; });
     ws.columns = SNACK_COLS.map((_, i) => ({ width: i === 0 ? 14 : i === 6 ? 22 : 16 }));
     rows.forEach(r => {
-      const row = ws.addRow(SNACK_COLS.map(c => (r as any)[c.field] ?? ""));
+      const row = ws.addRow(SNACK_COLS.map(c => c.field==="entryDate" ? safeFormat((r as any).entryDate) : ((r as any)[c.field] ?? "")));
       row.eachCell(cell => { cell.border=thin; cell.alignment={horizontal:"center"}; });
     });
     const buf = await wb.xlsx.writeBuffer();
@@ -1326,6 +1330,7 @@ function UnichemSnackTab({ month, year, loadKey = 0 }: { month: number; year: nu
           r[f] = (f==="entryDate"||f==="weekDay"||f==="remarks") ? String(v??"") : (parseInt(String(v||0))||0);
         });
         if (!r.entryDate) return;
+        r.entryDate = normDate(r.entryDate);
         if (!r.weekDay) r.weekDay = getWeekDay(r.entryDate);
         imported.push(r as SnackRow);
       });
@@ -2060,7 +2065,7 @@ function UnichemMealSubTab({ month, year, location, mealType, loadKey = 0 }: { m
     hdr.eachCell(cell => { cell.font={bold:true,color:{argb:"FFFFFFFF"}}; cell.fill={type:"pattern",pattern:"solid",fgColor:{argb:"FF1A3A5A"}}; cell.border=thin; cell.alignment={horizontal:"center"}; });
     ws.columns = MEAL_COLS.map((_, i) => ({ width: i === 0 ? 14 : 12 }));
     rows.forEach(r => {
-      const row = ws.addRow(MEAL_COLS.map(c => (r as any)[c.field] ?? ""));
+      const row = ws.addRow(MEAL_COLS.map(c => c.field==="entryDate" ? safeFormat((r as any).entryDate) : ((r as any)[c.field] ?? "")));
       row.eachCell(cell => { cell.border=thin; cell.alignment={horizontal:"center"}; });
     });
     const buf = await wb.xlsx.writeBuffer();
@@ -2101,6 +2106,7 @@ function UnichemMealSubTab({ month, year, location, mealType, loadKey = 0 }: { m
           r[f] = (f==="entryDate"||f==="weekDay") ? String(v??"") : (parseInt(String(v||0))||0);
         });
         if (!r.entryDate) return;
+        r.entryDate = normDate(r.entryDate);
         if (!r.weekDay) r.weekDay = getWeekDay(r.entryDate);
         imported.push(r as LunchRow);
       });
@@ -2600,7 +2606,7 @@ function CiplaDateEntryTab({ month, year, loadKey = 0 }: { month: number; year: 
     ws.columns = CIPLA_COLS.map((_,i)=>({ width: i===0?14:16 }));
     rows.forEach(r => {
       const calMonth = r.entryDate ? parseInt(r.entryDate.split('-')[1]) || r.month : r.month;
-      const row = ws.addRow(CIPLA_COLS.map(c => c.field==="month" ? calMonth : ((r as any)[c.field] ?? "")));
+      const row = ws.addRow(CIPLA_COLS.map(c => c.field==="entryDate" ? safeFormat((r as any).entryDate) : c.field==="month" ? calMonth : ((r as any)[c.field] ?? "")));
       row.eachCell(cell => { cell.border=thin; cell.alignment={horizontal:"center"}; });
     });
     const buf = await wb.xlsx.writeBuffer();
@@ -2632,6 +2638,7 @@ function CiplaDateEntryTab({ month, year, loadKey = 0 }: { month: number; year: 
           r[f] = (f==="entryDate"||f==="weekDay") ? String(v??"") : (parseInt(String(v||0))||0);
         });
         if (!r.entryDate) return;
+        r.entryDate = normDate(r.entryDate);
         if (!r.weekDay) r.weekDay = getWeekDay(r.entryDate);
         imported.push(r as CiplaRow);
       });
@@ -3598,7 +3605,7 @@ function HulSpecialOrderTab({ month, year, loadKey = 0 }: { month: number; year:
       ws.columns = [{ width: 8 }, { width: 16 }, { width: 40 }, { width: 10 }, { width: 16 }, { width: 14 }];
 
       rows.forEach((row, idx) => {
-        const dr = ws.addRow([row.slNo, row.dateOfSupply || '', row.particulars, row.qty || '', row.ratePerPlate || '', row.total || '']);
+        const dr = ws.addRow([row.slNo, safeFormat(row.dateOfSupply), row.particulars, row.qty || '', row.ratePerPlate || '', row.total || '']);
         dr.eachCell((c: any, ci: number) => {
           c.border = thin; c.alignment = { horizontal: ci === 3 ? 'left' : 'center', vertical: 'middle' };
           c.fill = mkFill(idx % 2 === 0 ? 'FFF8FAFC' : 'FFFFFFFF');
@@ -3629,7 +3636,7 @@ function HulSpecialOrderTab({ month, year, loadKey = 0 }: { month: number; year:
     const bodyRows = rows.map((row, idx) => `
       <tr>
         <td style="${td(idx)}text-align:center;">${row.slNo}</td>
-        <td style="${td(idx)}text-align:center;">${row.dateOfSupply || ''}</td>
+        <td style="${td(idx)}text-align:center;">${safeFormat(row.dateOfSupply)}</td>
         <td style="${td(idx)}text-align:left;">${row.particulars || ''}</td>
         <td style="${td(idx)}text-align:center;">${row.qty || ''}</td>
         <td style="${td(idx)}text-align:center;">${row.ratePerPlate || ''}</td>
