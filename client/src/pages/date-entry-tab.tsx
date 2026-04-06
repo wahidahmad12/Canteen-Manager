@@ -3489,6 +3489,7 @@ type SpecialOrderRow = {
   month: number;
   year: number;
   slNo: number;
+  dateOfSupply: string;
   particulars: string;
   qty: number;
   ratePerPlate: number;
@@ -3497,7 +3498,7 @@ type SpecialOrderRow = {
 };
 
 function emptySpecialRow(slNo: number, month: number, year: number): SpecialOrderRow {
-  return { month, year, slNo, particulars: '', qty: 0, ratePerPlate: 0, total: 0, _dirty: false };
+  return { month, year, slNo, dateOfSupply: '', particulars: '', qty: 0, ratePerPlate: 0, total: 0, _dirty: false };
 }
 
 function HulSpecialOrderTab({ month, year, loadKey = 0 }: { month: number; year: number; loadKey?: number }) {
@@ -3516,7 +3517,7 @@ function HulSpecialOrderTab({ month, year, loadKey = 0 }: { month: number; year:
 
   useEffect(() => {
     if (dbRows.length > 0) {
-      setRows(dbRows.map(r => ({ ...r, qty: Number(r.qty), ratePerPlate: Number(r.ratePerPlate), total: Number(r.total), _dirty: false })));
+      setRows(dbRows.map(r => ({ ...r, dateOfSupply: r.dateOfSupply || '', qty: Number(r.qty), ratePerPlate: Number(r.ratePerPlate), total: Number(r.total), _dirty: false })));
     } else {
       setRows([emptySpecialRow(1, month, year)]);
     }
@@ -3554,7 +3555,7 @@ function HulSpecialOrderTab({ month, year, loadKey = 0 }: { month: number; year:
     try {
       for (const row of rows) {
         if (!row._dirty) continue;
-        const payload = { month, year, slNo: row.slNo, particulars: row.particulars, qty: row.qty, ratePerPlate: row.ratePerPlate, total: row.total };
+        const payload = { month, year, slNo: row.slNo, dateOfSupply: row.dateOfSupply || '', particulars: row.particulars, qty: row.qty, ratePerPlate: row.ratePerPlate, total: row.total };
         if (row.id) {
           await fetch(`/api/hul-special-orders/${row.id}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload), credentials: 'include' });
         } else {
@@ -3579,7 +3580,7 @@ function HulSpecialOrderTab({ month, year, loadKey = 0 }: { month: number; year:
       const mkFill = (argb: string) => ({ type:'pattern' as const, pattern:'solid' as const, fgColor:{argb} });
       const MONTHS = ["January","February","March","April","May","June","July","August","September","October","November","December"];
 
-      ws.mergeCells('A1:E1');
+      ws.mergeCells('A1:F1');
       const titleCell = ws.getCell('A1');
       titleCell.value = `HUL Special Order — ${MONTHS[month-1]} ${year}`;
       titleCell.font = { bold: true, size: 13, color: { argb: 'FFFFFFFF' } };
@@ -3587,19 +3588,19 @@ function HulSpecialOrderTab({ month, year, loadKey = 0 }: { month: number; year:
       titleCell.alignment = { horizontal: 'center', vertical: 'middle' };
       ws.getRow(1).height = 24;
 
-      const hdr = ws.addRow(['Sl. No.', 'Particulars', 'Qty', 'Rate Per Plate', 'Total']);
+      const hdr = ws.addRow(['Sl. No.', 'Date of Supply', 'Particulars', 'Qty', 'Rate Per Plate', 'Total']);
       hdr.eachCell((c: any) => {
         c.font = { bold: true, color: { argb: 'FFFFFFFF' }, size: 10 };
         c.fill = mkFill('FF3b82f6'); c.border = thin;
         c.alignment = { horizontal: 'center', vertical: 'middle', wrapText: true };
       });
       ws.getRow(2).height = 22;
-      ws.columns = [{ width: 8 }, { width: 45 }, { width: 10 }, { width: 16 }, { width: 14 }];
+      ws.columns = [{ width: 8 }, { width: 16 }, { width: 40 }, { width: 10 }, { width: 16 }, { width: 14 }];
 
       rows.forEach((row, idx) => {
-        const dr = ws.addRow([row.slNo, row.particulars, row.qty || '', row.ratePerPlate || '', row.total || '']);
+        const dr = ws.addRow([row.slNo, row.dateOfSupply || '', row.particulars, row.qty || '', row.ratePerPlate || '', row.total || '']);
         dr.eachCell((c: any, ci: number) => {
-          c.border = thin; c.alignment = { horizontal: ci === 2 ? 'left' : 'center', vertical: 'middle' };
+          c.border = thin; c.alignment = { horizontal: ci === 3 ? 'left' : 'center', vertical: 'middle' };
           c.fill = mkFill(idx % 2 === 0 ? 'FFF8FAFC' : 'FFFFFFFF');
           c.font = { size: 10 };
         });
@@ -3607,10 +3608,10 @@ function HulSpecialOrderTab({ month, year, loadKey = 0 }: { month: number; year:
 
       // Grand Total row
       const grandTotal = rows.reduce((s, r) => s + Number(r.total), 0);
-      const totRow = ws.addRow(['', 'Grand Total', '', '', grandTotal]);
+      const totRow = ws.addRow(['', '', 'Grand Total', '', '', grandTotal]);
       totRow.eachCell((c: any, ci: number) => {
         c.border = thin; c.font = { bold: true, size: 10, color: { argb: 'FFFFFFFF' } };
-        c.fill = mkFill('FF1e3a5f'); c.alignment = { horizontal: ci === 2 ? 'left' : 'center', vertical: 'middle' };
+        c.fill = mkFill('FF1e3a5f'); c.alignment = { horizontal: ci === 3 ? 'left' : 'center', vertical: 'middle' };
       });
 
       const buf = await wb.xlsx.writeBuffer();
@@ -3628,6 +3629,7 @@ function HulSpecialOrderTab({ month, year, loadKey = 0 }: { month: number; year:
     const bodyRows = rows.map((row, idx) => `
       <tr>
         <td style="${td(idx)}text-align:center;">${row.slNo}</td>
+        <td style="${td(idx)}text-align:center;">${row.dateOfSupply || ''}</td>
         <td style="${td(idx)}text-align:left;">${row.particulars || ''}</td>
         <td style="${td(idx)}text-align:center;">${row.qty || ''}</td>
         <td style="${td(idx)}text-align:center;">${row.ratePerPlate || ''}</td>
@@ -3641,6 +3643,7 @@ function HulSpecialOrderTab({ month, year, loadKey = 0 }: { month: number; year:
       <table>
         <thead><tr>
           <th style="${th}width:60px;">Sl. No.</th>
+          <th style="${th}width:100px;">Date of Supply</th>
           <th style="${th}text-align:left;">Particulars</th>
           <th style="${th}width:70px;">Qty</th>
           <th style="${th}width:120px;">Rate Per Plate</th>
@@ -3648,7 +3651,7 @@ function HulSpecialOrderTab({ month, year, loadKey = 0 }: { month: number; year:
         </tr></thead>
         <tbody>${bodyRows}</tbody>
         <tfoot><tr>
-          <td colspan="4" style="border:1px solid #94a3b8;padding:6px 10px;font-size:10px;font-weight:bold;text-align:right;background:#1e3a5f;color:#fff;">Grand Total</td>
+          <td colspan="5" style="border:1px solid #94a3b8;padding:6px 10px;font-size:10px;font-weight:bold;text-align:right;background:#1e3a5f;color:#fff;">Grand Total</td>
           <td style="border:1px solid #94a3b8;padding:6px 10px;font-size:10px;font-weight:bold;text-align:center;background:#1e3a5f;color:#fff;">${grandTotal.toFixed(2)}</td>
         </tr></tfoot>
       </table>
@@ -3688,18 +3691,28 @@ function HulSpecialOrderTab({ month, year, loadKey = 0 }: { month: number; year:
           <table className="border-collapse w-full text-sm">
             <thead>
               <tr style={{ background: '#3b82f6' }}>
-                <th className="border border-blue-400 px-3 py-2.5 text-white font-bold text-center w-16">Sl. No.</th>
+                <th className="border border-blue-400 px-3 py-2.5 text-white font-bold text-center w-14">Sl. No.</th>
+                <th className="border border-blue-400 px-3 py-2.5 text-white font-bold text-center w-32">Date of Supply</th>
                 <th className="border border-blue-400 px-4 py-2.5 text-white font-bold text-left">Particulars</th>
-                <th className="border border-blue-400 px-3 py-2.5 text-white font-bold text-center w-24">Qty</th>
-                <th className="border border-blue-400 px-3 py-2.5 text-white font-bold text-center w-32">Rate Per Plate</th>
-                <th className="border border-blue-400 px-3 py-2.5 text-white font-bold text-center w-28">Total</th>
-                <th className="border border-blue-400 px-2 py-2.5 text-white font-bold text-center w-12"></th>
+                <th className="border border-blue-400 px-3 py-2.5 text-white font-bold text-center w-20">Qty</th>
+                <th className="border border-blue-400 px-3 py-2.5 text-white font-bold text-center w-28">Rate Per Plate</th>
+                <th className="border border-blue-400 px-3 py-2.5 text-white font-bold text-center w-24">Total</th>
+                <th className="border border-blue-400 px-2 py-2.5 text-white font-bold text-center w-10"></th>
               </tr>
             </thead>
             <tbody>
               {rows.map((row, idx) => (
                 <tr key={idx} className={row._dirty ? 'ring-1 ring-inset ring-yellow-400' : idx % 2 === 0 ? 'bg-white' : 'bg-slate-50'}>
                   <td className="border border-slate-200 px-2 py-1 text-center text-slate-500 font-mono text-xs">{row.slNo}</td>
+                  <td className="border border-slate-200 px-2 py-1">
+                    <input
+                      type="date"
+                      className="w-full border-0 bg-transparent focus:outline-none focus:ring-1 focus:ring-blue-400 rounded px-1 text-sm text-center"
+                      value={row.dateOfSupply || ''}
+                      onChange={e => updateRow(idx, 'dateOfSupply', e.target.value)}
+                      data-testid={`input-date-supply-${idx}`}
+                    />
+                  </td>
                   <td className="border border-slate-200 px-2 py-1">
                     <input
                       type="text"
@@ -3747,7 +3760,7 @@ function HulSpecialOrderTab({ month, year, loadKey = 0 }: { month: number; year:
             </tbody>
             <tfoot>
               <tr style={{ background: '#1e3a5f' }}>
-                <td colSpan={4} className="border border-slate-600 px-4 py-2 text-right font-bold text-white text-sm">Grand Total</td>
+                <td colSpan={5} className="border border-slate-600 px-4 py-2 text-right font-bold text-white text-sm">Grand Total</td>
                 <td className="border border-slate-600 px-2 py-2 text-center font-bold text-white text-sm">
                   {grandTotal > 0 ? grandTotal.toFixed(2) : ''}
                 </td>

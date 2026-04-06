@@ -1117,6 +1117,7 @@ export const hulSpecialOrders = mysqlTable("hul_special_orders", {
   month: int("month").notNull(),
   year: int("year").notNull(),
   slNo: int("sl_no").notNull(),
+  dateOfSupply: varchar("date_of_supply", { length: 20 }).default(""),
   particulars: varchar("particulars", { length: 500 }).notNull().default(""),
   qty: decimal("qty", { precision: 10, scale: 2 }).default("0"),
   ratePerPlate: decimal("rate_per_plate", { precision: 10, scale: 2 }).default("0"),
