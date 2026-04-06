@@ -3131,18 +3131,18 @@ function HulKpfExecSnacksTab({ month, year, loadKey = 0 }: { month: number; year
       const res = await fetch('/api/hul-kpf-exec-snacks', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(data), credentials: 'include' });
       return res.json();
     },
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['/api/hul-kpf-exec-snacks', month, year] }),
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ['/api/hul-kpf-exec-snacks', month, year] }); qc.invalidateQueries({ queryKey: ['/api/hul-kpf-exec-snacks/yearly-summary'] }); },
   });
   const updateMutation = useMutation({
     mutationFn: async ({ id, data }: { id: number; data: any }) => {
       const res = await fetch(`/api/hul-kpf-exec-snacks/${id}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(data), credentials: 'include' });
       return res.json();
     },
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['/api/hul-kpf-exec-snacks', month, year] }),
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ['/api/hul-kpf-exec-snacks', month, year] }); qc.invalidateQueries({ queryKey: ['/api/hul-kpf-exec-snacks/yearly-summary'] }); },
   });
   const deleteMutation = useMutation({
     mutationFn: async (id: number) => { await fetch(`/api/hul-kpf-exec-snacks/${id}`, { method: 'DELETE', credentials: 'include' }); },
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['/api/hul-kpf-exec-snacks', month, year] }),
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ['/api/hul-kpf-exec-snacks', month, year] }); qc.invalidateQueries({ queryKey: ['/api/hul-kpf-exec-snacks/yearly-summary'] }); },
   });
 
   const syncRows = () => { if (localRows.length === 0) setLocalRows(dbRows.map(r => ({ ...r }))); };
@@ -3822,18 +3822,18 @@ function HulLocationTab({ month, year, location, loadKey = 0 }: { month: number;
       const res = await fetch('/api/hul-date-entries', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(data), credentials: 'include' });
       return res.json();
     },
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['/api/hul-date-entries', month, year, location] }),
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ['/api/hul-date-entries', month, year, location] }); qc.invalidateQueries({ queryKey: ['/api/hul-date-entries/yearly-summary'] }); },
   });
   const updateMutation = useMutation({
     mutationFn: async ({ id, data }: { id: number; data: any }) => {
       const res = await fetch(`/api/hul-date-entries/${id}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(data), credentials: 'include' });
       return res.json();
     },
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['/api/hul-date-entries', month, year, location] }),
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ['/api/hul-date-entries', month, year, location] }); qc.invalidateQueries({ queryKey: ['/api/hul-date-entries/yearly-summary'] }); },
   });
   const deleteMutation = useMutation({
     mutationFn: async (id: number) => { await fetch(`/api/hul-date-entries/${id}`, { method: 'DELETE', credentials: 'include' }); },
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['/api/hul-date-entries', month, year, location] }),
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ['/api/hul-date-entries', month, year, location] }); qc.invalidateQueries({ queryKey: ['/api/hul-date-entries/yearly-summary'] }); },
   });
 
   const syncRows = () => { if (localRows.length === 0) setLocalRows(dbRows.map(r => ({ ...r }))); };
