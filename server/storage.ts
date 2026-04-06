@@ -2300,10 +2300,10 @@ export class DatabaseStorage implements IStorage {
       .orderBy(hulSpecialOrders.slNo);
   }
   async createHulSpecialOrder(data: any): Promise<HulSpecialOrder> {
-    const { month, year, slNo, particulars, qty, ratePerPlate, total } = data;
+    const { month, year, slNo, dateOfSupply, particulars, qty, ratePerPlate, total } = data;
     const [result] = await db.execute(sql`
-      INSERT INTO hul_special_orders (month, year, sl_no, particulars, qty, rate_per_plate, total)
-      VALUES (${month}, ${year}, ${slNo}, ${particulars || ''}, ${qty || 0}, ${ratePerPlate || 0}, ${total || 0})
+      INSERT INTO hul_special_orders (month, year, sl_no, date_of_supply, particulars, qty, rate_per_plate, total)
+      VALUES (${month}, ${year}, ${slNo}, ${dateOfSupply || ''}, ${particulars || ''}, ${qty || 0}, ${ratePerPlate || 0}, ${total || 0})
     `);
     const id = (result as any).insertId;
     const rows = await db.select().from(hulSpecialOrders).where(eq(hulSpecialOrders.id, id));
