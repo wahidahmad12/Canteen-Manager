@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
-import { RotateCcw, Download, Loader2, FileSpreadsheet, Save, Plus, X, Upload, Eye, Pencil, Trash2, History, RefreshCw } from "lucide-react";
+import { RotateCcw, Download, Loader2, FileSpreadsheet, Save, Plus, X, Upload, Eye, Pencil, Trash2, History, RefreshCw, MessageCircle, Copy, CheckCheck } from "lucide-react";
 import { format, addDays, getDay } from "date-fns";
 import { useClientNames, useCreateSavedMenu, useSavedMenu, useSavedMenus, useUpdateSavedMenu, useDeleteSavedMenu, useSavedItemNames } from "@/hooks/use-reports";
 import { useToast } from "@/hooks/use-toast";
@@ -99,6 +99,11 @@ export default function MenuManager() {
   const [viewingMenu, setViewingMenu] = useState<{ id: number; clientName: string; startDate: string; endDate: string; menuData: string; createdAt: string } | null>(null);
   const [importForSavedId, setImportForSavedId] = useState<number | null>(null);
   const [confirmDeleteId, setConfirmDeleteId] = useState<number | null>(null);
+  const [whatsappOpen, setWhatsappOpen] = useState(false);
+  const [whatsappDate, setWhatsappDate] = useState("");
+  const [whatsappMsg, setWhatsappMsg] = useState("");
+  const [whatsappCopied, setWhatsappCopied] = useState(false);
+  const [whatsappSavedMenu, setWhatsappSavedMenu] = useState<{ clientName: string; startDate: string; endDate: string; menuData: string } | null>(null);
   const { toast } = useToast();
 
   const searchString = useSearch();
@@ -364,6 +369,112 @@ export default function MenuManager() {
   const handleExportSavedImage = async (menu: { clientName: string; startDate: string; endDate: string; menuData: string }) => {
     handleLoadSavedMenuIntoEditor(menu);
     toast({ title: "Menu Loaded", description: "Menu loaded into editor. Now click the Image button to export." });
+  };
+
+  const WA_MEAL_LABELS: Record<string, string> = { lunch: "Lunch", dinner: "Dinner", breakfast: "Breakfast", evening: "Evening", night: "Night" };
+  // Category ids 7 (Curd) and 8 (Paneer) go under "Veg" sub-section in lunch/dinner for HUL
+  const VEG_SUB_CAT_IDS = new Set([7, 8]);
+
+  const buildWhatsappMsg = (
+    targetDateStr: string,
+    cells: Record<string, string>,
+    cName: string,
+    w1: Date[],
+    w2: Date[],
+    ldCats: Category[],
+  ): string => {
+    let weekNum = 0, dayIdx = -1;
+    for (let i = 0; i < w1.length; i++) {
+      if (format(w1[i], "yyyy-MM-dd") === targetDateStr) { weekNum = 1; dayIdx = i; break; }
+    }
+    if (!weekNum) {
+      for (let i = 0; i < w2.length; i++) {
+        if (format(w2[i], "yyyy-MM-dd") === targetDateStr) { weekNum = 2; dayIdx = i; break; }
+      }
+    }
+    if (!weekNum || dayIdx === -1) return "";
+    const date = new Date(targetDateStr + "T00:00:00");
+    const fullDayName = format(date, "EEEE");
+    const dateLabel = format(date, "dd-MM-yyyy");
+    let msg = `${fullDayName} ${dateLabel}\n`;
+    for (const mt of MEAL_TYPES) {
+      const isLunchDinner = mt.key === "lunch" || mt.key === "dinner";
+      const cats = isLunchDinner ? ldCats : snackCategories;
+      const label = WA_MEAL_LABELS[mt.key] || mt.label;
+      // Main items (exclude veg sub cats for lunch/dinner)
+      const mainCats = isLunchDinner ? cats.filter(c => !VEG_SUB_CAT_IDS.has(c.id)) : cats;
+      const vegCats = isLunchDinner ? cats.filter(c => VEG_SUB_CAT_IDS.has(c.id)) : [];
+      msg += `\n${label}\n`;
+      mainCats.forEach((cat, i) => {
+        const key = `${mt.prefix}w${weekNum}_c${cat.id}_d${dayIdx}`;
+        const val = cells[key] || cat.def;
+        msg += `${i + 1}. ${val}\n`;
+      });
+      if (vegCats.length > 0) {
+        msg += `Veg\n`;
+        vegCats.forEach((cat, i) => {
+          const key = `${mt.prefix}w${weekNum}_c${cat.id}_d${dayIdx}`;
+          const val = cells[key] || cat.def;
+          msg += `${i + 1}. ${val}\n`;
+        });
+      }
+    }
+    return msg.trimEnd();
+  };
+
+  const openWhatsappDialog = (savedMenu?: { clientName: string; startDate: string; endDate: string; menuData: string }) => {
+    const src = savedMenu || null;
+    setWhatsappSavedMenu(src || null);
+    // Default to the first date in range
+    let firstDate = "";
+    if (src) {
+      const sd = src.startDate?.includes("T") ? src.startDate.split("T")[0] : src.startDate;
+      firstDate = sd;
+    } else {
+      firstDate = format(week1Dates[0], "yyyy-MM-dd");
+    }
+    setWhatsappDate(firstDate);
+    setWhatsappCopied(false);
+    // Build initial message
+    const cells = src ? (() => { try { return JSON.parse(src.menuData || "{}"); } catch { return {}; } })() : cellValues;
+    const cName = src ? src.clientName : client;
+    const sd = src ? (src.startDate?.includes("T") ? src.startDate.split("T")[0] : src.startDate) : format(week1Dates[0], "yyyy-MM-dd");
+    const parsedSd = new Date(sd + "T00:00:00");
+    const isH = cName === "Hindustan Unilever Limited" || cName === "United Breweries Limited";
+    const dd = isH ? 7 : 6;
+    const w1 = src ? getWeekDates(parsedSd, dd, !isH) : week1Dates;
+    const w2 = src ? getWeekDates(addDays(w1[w1.length - 1], 1), dd, !isH) : week2Dates;
+    const ldCats = [...baseCategories, ...(isH ? hul_extras : unichem_extras)];
+    setWhatsappMsg(buildWhatsappMsg(firstDate, cells, cName, w1, w2, ldCats));
+    setWhatsappOpen(true);
+  };
+
+  const onWhatsappDateChange = (dateStr: string) => {
+    setWhatsappDate(dateStr);
+    setWhatsappCopied(false);
+    const src = whatsappSavedMenu;
+    const cells = src ? (() => { try { return JSON.parse(src.menuData || "{}"); } catch { return {}; } })() : cellValues;
+    const cName = src ? src.clientName : client;
+    const sd = src ? (src.startDate?.includes("T") ? src.startDate.split("T")[0] : src.startDate) : format(week1Dates[0], "yyyy-MM-dd");
+    const parsedSd = new Date(sd + "T00:00:00");
+    const isH = cName === "Hindustan Unilever Limited" || cName === "United Breweries Limited";
+    const dd = isH ? 7 : 6;
+    const w1 = src ? getWeekDates(parsedSd, dd, !isH) : week1Dates;
+    const w2 = src ? getWeekDates(addDays(w1[w1.length - 1], 1), dd, !isH) : week2Dates;
+    const ldCats = [...baseCategories, ...(isH ? hul_extras : unichem_extras)];
+    setWhatsappMsg(buildWhatsappMsg(dateStr, cells, cName, w1, w2, ldCats));
+  };
+
+  const handleCopyWhatsapp = () => {
+    navigator.clipboard.writeText(whatsappMsg).then(() => {
+      setWhatsappCopied(true);
+      setTimeout(() => setWhatsappCopied(false), 2500);
+    });
+  };
+
+  const handleOpenWhatsApp = () => {
+    const encoded = encodeURIComponent(whatsappMsg);
+    window.open(`https://wa.me/?text=${encoded}`, "_blank");
   };
 
   const handleImportForSaved = (id: number) => {
@@ -881,6 +992,16 @@ export default function MenuManager() {
             <RotateCcw className="w-4 h-4 mr-1" />
             Reset
           </Button>
+          {isHUL_UB && (
+            <Button
+              onClick={() => openWhatsappDialog()}
+              className="bg-[#25D366] text-white font-bold text-xs sm:text-sm h-9 flex-1 sm:flex-none"
+              data-testid="button-menu-whatsapp"
+            >
+              <MessageCircle className="w-4 h-4 mr-1" />
+              Daily WhatsApp
+            </Button>
+          )}
         </div>
       </div>
 
@@ -1085,6 +1206,11 @@ export default function MenuManager() {
                     <Button size="sm" variant="outline" className="h-8 text-xs gap-1 text-purple-600 border-purple-300 hover:bg-purple-50" onClick={() => handleImportForSaved(menu.id)} data-testid={`button-import-saved-${menu.id}`}>
                       <Upload className="w-3.5 h-3.5" /> Import
                     </Button>
+                    {(menu.clientName === "Hindustan Unilever Limited" || menu.clientName === "United Breweries Limited") && (
+                      <Button size="sm" variant="outline" className="h-8 text-xs gap-1 text-[#25D366] border-[#25D366] hover:bg-green-50" onClick={() => openWhatsappDialog(menu)} data-testid={`button-whatsapp-saved-${menu.id}`}>
+                        <MessageCircle className="w-3.5 h-3.5" /> WhatsApp
+                      </Button>
+                    )}
                     <Button size="sm" variant="destructive" className="h-8 text-xs gap-1" onClick={() => setConfirmDeleteId(menu.id)} data-testid={`button-delete-saved-${menu.id}`}>
                       <Trash2 className="w-3.5 h-3.5" /> Delete
                     </Button>
@@ -1170,6 +1296,80 @@ export default function MenuManager() {
           </DialogContent>
         </Dialog>
       )}
+
+      {/* ===== DAILY WHATSAPP DIALOG ===== */}
+      <Dialog open={whatsappOpen} onOpenChange={open => { if (!open) setWhatsappOpen(false); }}>
+        <DialogContent className="max-w-lg w-full">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-[#25D366]">
+              <MessageCircle className="w-5 h-5" /> Daily WhatsApp Menu
+            </DialogTitle>
+          </DialogHeader>
+
+          {/* Date selector from date range */}
+          {(() => {
+            const src = whatsappSavedMenu;
+            const cName = src ? src.clientName : client;
+            const sd = src ? (src.startDate?.includes("T") ? src.startDate.split("T")[0] : src.startDate) : format(week1Dates[0], "yyyy-MM-dd");
+            const parsedSd = new Date(sd + "T00:00:00");
+            const isH = cName === "Hindustan Unilever Limited" || cName === "United Breweries Limited";
+            const dd = isH ? 7 : 6;
+            const w1 = src ? getWeekDates(parsedSd, dd, !isH) : week1Dates;
+            const w2 = src ? getWeekDates(addDays(w1[w1.length - 1], 1), dd, !isH) : week2Dates;
+            const allDates = [...w1, ...w2];
+            return (
+              <div className="flex flex-col gap-3">
+                <div className="flex items-center gap-2">
+                  <label className="text-sm font-medium shrink-0">Select Date:</label>
+                  <select
+                    value={whatsappDate}
+                    onChange={e => onWhatsappDateChange(e.target.value)}
+                    className="flex-1 border rounded px-3 py-1.5 text-sm font-medium"
+                    data-testid="select-whatsapp-date"
+                  >
+                    {allDates.map(d => {
+                      const ds = format(d, "yyyy-MM-dd");
+                      return (
+                        <option key={ds} value={ds}>
+                          {format(d, "EEEE, dd-MM-yyyy")}
+                        </option>
+                      );
+                    })}
+                  </select>
+                </div>
+
+                <div className="relative">
+                  <textarea
+                    readOnly
+                    value={whatsappMsg}
+                    rows={16}
+                    className="w-full border rounded-lg px-3 py-2 text-sm font-mono bg-gray-50 resize-none focus:outline-none"
+                    data-testid="text-whatsapp-preview"
+                  />
+                </div>
+
+                <div className="flex gap-2 flex-wrap">
+                  <Button
+                    onClick={handleCopyWhatsapp}
+                    className="flex-1 bg-slate-700 hover:bg-slate-800 text-white font-semibold"
+                    data-testid="button-copy-whatsapp"
+                  >
+                    {whatsappCopied ? <><CheckCheck className="w-4 h-4 mr-1 text-green-400" /> Copied!</> : <><Copy className="w-4 h-4 mr-1" /> Copy Message</>}
+                  </Button>
+                  <Button
+                    onClick={handleOpenWhatsApp}
+                    className="flex-1 font-semibold text-white"
+                    style={{ background: "#25D366" }}
+                    data-testid="button-open-whatsapp"
+                  >
+                    <MessageCircle className="w-4 h-4 mr-1" /> Open WhatsApp
+                  </Button>
+                </div>
+              </div>
+            );
+          })()}
+        </DialogContent>
+      </Dialog>
 
       {/* ===== CONFIRM DELETE DIALOG ===== */}
       {confirmDeleteId !== null && (
