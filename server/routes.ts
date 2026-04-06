@@ -1950,6 +1950,24 @@ export async function registerRoutes(
     await storage.deleteHulKpfExecSnack(Number(req.params.id)); res.status(204).send();
   });
 
+  // === HUL SPECIAL ORDERS ===
+  app.get('/api/hul-special-orders', requirePermission('salesinvoice'), async (req, res) => {
+    const month = Number(req.query.month) || new Date().getMonth() + 1;
+    const year = Number(req.query.year) || new Date().getFullYear();
+    res.json(await storage.getHulSpecialOrders(month, year));
+  });
+  app.post('/api/hul-special-orders', requirePermission('salesinvoice'), async (req, res) => {
+    try { res.status(201).json(await storage.createHulSpecialOrder(req.body)); }
+    catch (err: any) { res.status(500).json({ message: err.message }); }
+  });
+  app.put('/api/hul-special-orders/:id', requirePermission('salesinvoice'), async (req, res) => {
+    try { res.json(await storage.updateHulSpecialOrder(Number(req.params.id), req.body)); }
+    catch (err: any) { res.status(500).json({ message: err.message }); }
+  });
+  app.delete('/api/hul-special-orders/:id', requirePermission('salesinvoice'), async (req, res) => {
+    await storage.deleteHulSpecialOrder(Number(req.params.id)); res.status(204).send();
+  });
+
   // === DAILY P&L ROUTES ===
   app.get('/api/daily-pnl/entry', requireAuth, async (req, res) => {
     const date = String(req.query.date || '');

@@ -55,6 +55,8 @@ import {
   type UnichEmLunchEntry,
   type HulDateEntry,
   type HulKpfExecSnack,
+  type HulSpecialOrder,
+  hulSpecialOrders,
   type DailyReport, 
   type ExpenseItem,
   type CreateReportRequest,
@@ -2289,6 +2291,32 @@ export class DatabaseStorage implements IStorage {
   }
   async deleteHulKpfExecSnack(id: number): Promise<void> {
     await db.delete(hulKpfExecSnacks).where(eq(hulKpfExecSnacks.id, id));
+  }
+
+  // === HUL SPECIAL ORDERS ===
+  async getHulSpecialOrders(month: number, year: number): Promise<HulSpecialOrder[]> {
+    return await db.select().from(hulSpecialOrders)
+      .where(and(eq(hulSpecialOrders.month, month), eq(hulSpecialOrders.year, year)))
+      .orderBy(hulSpecialOrders.slNo);
+  }
+  async createHulSpecialOrder(data: any): Promise<HulSpecialOrder> {
+    const { month, year, slNo, particulars, qty, ratePerPlate, total } = data;
+    const [result] = await db.execute(sql`
+      INSERT INTO hul_special_orders (month, year, sl_no, particulars, qty, rate_per_plate, total)
+      VALUES (${month}, ${year}, ${slNo}, ${particulars || ''}, ${qty || 0}, ${ratePerPlate || 0}, ${total || 0})
+    `);
+    const id = (result as any).insertId;
+    const rows = await db.select().from(hulSpecialOrders).where(eq(hulSpecialOrders.id, id));
+    return rows[0];
+  }
+  async updateHulSpecialOrder(id: number, data: any): Promise<HulSpecialOrder> {
+    const { id: _id, createdAt, ...safeData } = data;
+    await db.update(hulSpecialOrders).set({ ...safeData, updatedAt: new Date() }).where(eq(hulSpecialOrders.id, id));
+    const rows = await db.select().from(hulSpecialOrders).where(eq(hulSpecialOrders.id, id));
+    return rows[0];
+  }
+  async deleteHulSpecialOrder(id: number): Promise<void> {
+    await db.delete(hulSpecialOrders).where(eq(hulSpecialOrders.id, id));
   }
 
   // === DAILY P&L ===

@@ -1110,3 +1110,19 @@ export const flashMessages = mysqlTable("flash_messages", {
 });
 export type FlashMessage = typeof flashMessages.$inferSelect;
 export const insertFlashMessageSchema = createInsertSchema(flashMessages).omit({ id: true, createdAt: true });
+
+// === HUL SPECIAL ORDERS ===
+export const hulSpecialOrders = mysqlTable("hul_special_orders", {
+  id: int("id").autoincrement().primaryKey(),
+  month: int("month").notNull(),
+  year: int("year").notNull(),
+  slNo: int("sl_no").notNull(),
+  particulars: varchar("particulars", { length: 500 }).notNull().default(""),
+  qty: decimal("qty", { precision: 10, scale: 2 }).default("0"),
+  ratePerPlate: decimal("rate_per_plate", { precision: 10, scale: 2 }).default("0"),
+  total: decimal("total", { precision: 10, scale: 2 }).default("0"),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+export type HulSpecialOrder = typeof hulSpecialOrders.$inferSelect;
+export const insertHulSpecialOrderSchema = createInsertSchema(hulSpecialOrders).omit({ id: true, createdAt: true, updatedAt: true });

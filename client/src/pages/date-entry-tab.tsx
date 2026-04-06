@@ -3483,6 +3483,289 @@ function HulKpfExecSnacksTab({ month, year, loadKey = 0 }: { month: number; year
   );
 }
 
+// ─── HUL Special Order Tab ───────────────────────────────────────────────────
+type SpecialOrderRow = {
+  id?: number;
+  month: number;
+  year: number;
+  slNo: number;
+  particulars: string;
+  qty: number;
+  ratePerPlate: number;
+  total: number;
+  _dirty?: boolean;
+};
+
+function emptySpecialRow(slNo: number, month: number, year: number): SpecialOrderRow {
+  return { month, year, slNo, particulars: '', qty: 0, ratePerPlate: 0, total: 0, _dirty: false };
+}
+
+function HulSpecialOrderTab({ month, year, loadKey = 0 }: { month: number; year: number; loadKey?: number }) {
+  const qc = useQueryClient();
+  const { toast } = useToast();
+  const [rows, setRows] = useState<SpecialOrderRow[]>([emptySpecialRow(1, month, year)]);
+  const [saving, setSaving] = useState(false);
+
+  const { data: dbRows = [], isLoading } = useQuery<SpecialOrderRow[]>({
+    queryKey: ['/api/hul-special-orders', month, year],
+    queryFn: async () => {
+      const res = await fetch(`/api/hul-special-orders?month=${month}&year=${year}`, { credentials: 'include' });
+      return res.json();
+    },
+  });
+
+  useEffect(() => {
+    if (dbRows.length > 0) {
+      setRows(dbRows.map(r => ({ ...r, qty: Number(r.qty), ratePerPlate: Number(r.ratePerPlate), total: Number(r.total), _dirty: false })));
+    } else {
+      setRows([emptySpecialRow(1, month, year)]);
+    }
+  }, [dbRows, month, year]);
+
+  const updateRow = (idx: number, field: keyof SpecialOrderRow, value: string | number) => {
+    setRows(prev => {
+      const next = [...prev];
+      const row = { ...next[idx], [field]: value, _dirty: true };
+      if (field === 'qty' || field === 'ratePerPlate') {
+        const q = field === 'qty' ? Number(value) : Number(next[idx].qty);
+        const r = field === 'ratePerPlate' ? Number(value) : Number(next[idx].ratePerPlate);
+        row.total = parseFloat((q * r).toFixed(2));
+      }
+      next[idx] = row;
+      return next;
+    });
+  };
+
+  const addRow = () => {
+    setRows(prev => [...prev, emptySpecialRow(prev.length + 1, month, year)]);
+  };
+
+  const deleteRow = async (idx: number) => {
+    const row = rows[idx];
+    if (row.id) {
+      await fetch(`/api/hul-special-orders/${row.id}`, { method: 'DELETE', credentials: 'include' });
+      qc.invalidateQueries({ queryKey: ['/api/hul-special-orders', month, year] });
+    }
+    setRows(prev => prev.filter((_, i) => i !== idx).map((r, i) => ({ ...r, slNo: i + 1 })));
+  };
+
+  const saveAll = async () => {
+    setSaving(true);
+    try {
+      for (const row of rows) {
+        if (!row._dirty) continue;
+        const payload = { month, year, slNo: row.slNo, particulars: row.particulars, qty: row.qty, ratePerPlate: row.ratePerPlate, total: row.total };
+        if (row.id) {
+          await fetch(`/api/hul-special-orders/${row.id}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload), credentials: 'include' });
+        } else {
+          await fetch('/api/hul-special-orders', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload), credentials: 'include' });
+        }
+      }
+      await qc.invalidateQueries({ queryKey: ['/api/hul-special-orders', month, year] });
+      toast({ title: 'Saved', description: 'Special orders saved successfully.' });
+    } catch (err: any) {
+      toast({ title: 'Save failed', description: err.message, variant: 'destructive' });
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleExportExcel = async () => {
+    try {
+      const ExcelJS = (await import('exceljs')).default;
+      const wb = new ExcelJS.Workbook();
+      const ws = wb.addWorksheet('HUL Special Orders');
+      const thin = { top:{style:'thin' as const}, bottom:{style:'thin' as const}, left:{style:'thin' as const}, right:{style:'thin' as const} };
+      const mkFill = (argb: string) => ({ type:'pattern' as const, pattern:'solid' as const, fgColor:{argb} });
+      const MONTHS = ["January","February","March","April","May","June","July","August","September","October","November","December"];
+
+      ws.mergeCells('A1:E1');
+      const titleCell = ws.getCell('A1');
+      titleCell.value = `HUL Special Order — ${MONTHS[month-1]} ${year}`;
+      titleCell.font = { bold: true, size: 13, color: { argb: 'FFFFFFFF' } };
+      titleCell.fill = mkFill('FF1e3a5f');
+      titleCell.alignment = { horizontal: 'center', vertical: 'middle' };
+      ws.getRow(1).height = 24;
+
+      const hdr = ws.addRow(['Sl. No.', 'Particulars', 'Qty', 'Rate Per Plate', 'Total']);
+      hdr.eachCell((c: any) => {
+        c.font = { bold: true, color: { argb: 'FFFFFFFF' }, size: 10 };
+        c.fill = mkFill('FF3b82f6'); c.border = thin;
+        c.alignment = { horizontal: 'center', vertical: 'middle', wrapText: true };
+      });
+      ws.getRow(2).height = 22;
+      ws.columns = [{ width: 8 }, { width: 45 }, { width: 10 }, { width: 16 }, { width: 14 }];
+
+      rows.forEach((row, idx) => {
+        const dr = ws.addRow([row.slNo, row.particulars, row.qty || '', row.ratePerPlate || '', row.total || '']);
+        dr.eachCell((c: any, ci: number) => {
+          c.border = thin; c.alignment = { horizontal: ci === 2 ? 'left' : 'center', vertical: 'middle' };
+          c.fill = mkFill(idx % 2 === 0 ? 'FFF8FAFC' : 'FFFFFFFF');
+          c.font = { size: 10 };
+        });
+      });
+
+      // Grand Total row
+      const grandTotal = rows.reduce((s, r) => s + Number(r.total), 0);
+      const totRow = ws.addRow(['', 'Grand Total', '', '', grandTotal]);
+      totRow.eachCell((c: any, ci: number) => {
+        c.border = thin; c.font = { bold: true, size: 10, color: { argb: 'FFFFFFFF' } };
+        c.fill = mkFill('FF1e3a5f'); c.alignment = { horizontal: ci === 2 ? 'left' : 'center', vertical: 'middle' };
+      });
+
+      const buf = await wb.xlsx.writeBuffer();
+      const blob = new Blob([buf], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+      const a = document.createElement('a'); a.href = URL.createObjectURL(blob);
+      a.download = `HUL_SpecialOrder_${MONTHS[month-1]}_${year}.xlsx`; a.click();
+    } catch (err: any) { toast({ title: 'Export failed', description: err.message, variant: 'destructive' }); }
+  };
+
+  const handlePrint = () => {
+    const MONTHS = ["January","February","March","April","May","June","July","August","September","October","November","December"];
+    const grandTotal = rows.reduce((s, r) => s + Number(r.total), 0);
+    const th = 'border:1px solid #94a3b8;padding:6px 10px;font-size:10px;text-align:center;background:#3b82f6;color:#fff;font-weight:bold;';
+    const td = (i: number) => `border:1px solid #e2e8f0;padding:5px 8px;font-size:10px;background:${i%2===0?'#f8fafc':'#fff'};`;
+    const bodyRows = rows.map((row, idx) => `
+      <tr>
+        <td style="${td(idx)}text-align:center;">${row.slNo}</td>
+        <td style="${td(idx)}text-align:left;">${row.particulars || ''}</td>
+        <td style="${td(idx)}text-align:center;">${row.qty || ''}</td>
+        <td style="${td(idx)}text-align:center;">${row.ratePerPlate || ''}</td>
+        <td style="${td(idx)}text-align:center;font-weight:600;">${row.total || ''}</td>
+      </tr>`).join('');
+    const win = window.open('', '_blank');
+    win?.document.write(`<html><head><title>HUL Special Order</title><style>body{font-family:Arial,sans-serif;margin:16px;}table{border-collapse:collapse;width:100%;}</style></head>
+    <body>
+      <h3 style="text-align:center;color:#1e3a5f;margin-bottom:4px;">Hindustan Unilever Limited</h3>
+      <h4 style="text-align:center;color:#374151;margin-bottom:12px;">Special Order — ${MONTHS[month-1]} ${year}</h4>
+      <table>
+        <thead><tr>
+          <th style="${th}width:60px;">Sl. No.</th>
+          <th style="${th}text-align:left;">Particulars</th>
+          <th style="${th}width:70px;">Qty</th>
+          <th style="${th}width:120px;">Rate Per Plate</th>
+          <th style="${th}width:100px;">Total</th>
+        </tr></thead>
+        <tbody>${bodyRows}</tbody>
+        <tfoot><tr>
+          <td colspan="4" style="border:1px solid #94a3b8;padding:6px 10px;font-size:10px;font-weight:bold;text-align:right;background:#1e3a5f;color:#fff;">Grand Total</td>
+          <td style="border:1px solid #94a3b8;padding:6px 10px;font-size:10px;font-weight:bold;text-align:center;background:#1e3a5f;color:#fff;">${grandTotal.toFixed(2)}</td>
+        </tr></tfoot>
+      </table>
+    </body></html>`);
+    win?.document.close(); win?.print();
+  };
+
+  const grandTotal = rows.reduce((s, r) => s + Number(r.total), 0);
+  const MONTHS = ["January","February","March","April","May","June","July","August","September","October","November","December"];
+
+  return (
+    <div className="space-y-3">
+      {/* Header */}
+      <div className="flex flex-wrap items-center gap-2 justify-between">
+        <div>
+          <h3 className="font-semibold text-base text-blue-900">HUL — Special Order</h3>
+          <p className="text-xs text-muted-foreground">{MONTHS[month-1]} {year}</p>
+        </div>
+        <div className="flex gap-2 flex-wrap">
+          <Button size="sm" variant="outline" onClick={handlePrint} className="h-8 text-xs gap-1">
+            🖨️ Print
+          </Button>
+          <Button size="sm" variant="outline" onClick={handleExportExcel} className="h-8 text-xs gap-1 text-green-700 border-green-300 hover:bg-green-50">
+            📊 Excel
+          </Button>
+          <Button size="sm" onClick={saveAll} disabled={saving} className="h-8 text-xs gap-1 bg-blue-700 hover:bg-blue-800">
+            {saving ? '⏳ Saving…' : '💾 Save All'}
+          </Button>
+        </div>
+      </div>
+
+      {/* Table */}
+      {isLoading ? (
+        <div className="flex items-center justify-center py-16"><Loader2 className="w-7 h-7 animate-spin text-blue-500" /></div>
+      ) : (
+        <div className="overflow-x-auto rounded-lg border border-slate-200">
+          <table className="border-collapse w-full text-sm">
+            <thead>
+              <tr style={{ background: '#3b82f6' }}>
+                <th className="border border-blue-400 px-3 py-2.5 text-white font-bold text-center w-16">Sl. No.</th>
+                <th className="border border-blue-400 px-4 py-2.5 text-white font-bold text-left">Particulars</th>
+                <th className="border border-blue-400 px-3 py-2.5 text-white font-bold text-center w-24">Qty</th>
+                <th className="border border-blue-400 px-3 py-2.5 text-white font-bold text-center w-32">Rate Per Plate</th>
+                <th className="border border-blue-400 px-3 py-2.5 text-white font-bold text-center w-28">Total</th>
+                <th className="border border-blue-400 px-2 py-2.5 text-white font-bold text-center w-12"></th>
+              </tr>
+            </thead>
+            <tbody>
+              {rows.map((row, idx) => (
+                <tr key={idx} className={row._dirty ? 'ring-1 ring-inset ring-yellow-400' : idx % 2 === 0 ? 'bg-white' : 'bg-slate-50'}>
+                  <td className="border border-slate-200 px-2 py-1 text-center text-slate-500 font-mono text-xs">{row.slNo}</td>
+                  <td className="border border-slate-200 px-2 py-1">
+                    <input
+                      type="text"
+                      className="w-full border-0 bg-transparent focus:outline-none focus:ring-1 focus:ring-blue-400 rounded px-1 text-sm"
+                      value={row.particulars}
+                      placeholder="Enter item description…"
+                      onChange={e => updateRow(idx, 'particulars', e.target.value)}
+                      data-testid={`input-particulars-${idx}`}
+                    />
+                  </td>
+                  <td className="border border-slate-200 px-2 py-1">
+                    <input
+                      type="number"
+                      className="w-full border-0 bg-transparent focus:outline-none focus:ring-1 focus:ring-blue-400 rounded px-1 text-center text-sm"
+                      value={row.qty || ''}
+                      min={0}
+                      onChange={e => updateRow(idx, 'qty', parseFloat(e.target.value) || 0)}
+                      data-testid={`input-qty-${idx}`}
+                    />
+                  </td>
+                  <td className="border border-slate-200 px-2 py-1">
+                    <input
+                      type="number"
+                      className="w-full border-0 bg-transparent focus:outline-none focus:ring-1 focus:ring-blue-400 rounded px-1 text-center text-sm"
+                      value={row.ratePerPlate || ''}
+                      min={0}
+                      step={0.01}
+                      onChange={e => updateRow(idx, 'ratePerPlate', parseFloat(e.target.value) || 0)}
+                      data-testid={`input-rate-${idx}`}
+                    />
+                  </td>
+                  <td className="border border-slate-200 px-2 py-1 text-center font-semibold text-blue-900 bg-blue-50">
+                    {row.total > 0 ? row.total.toFixed(2) : ''}
+                  </td>
+                  <td className="border border-slate-200 px-1 py-1 text-center">
+                    <button
+                      onClick={() => deleteRow(idx)}
+                      className="text-red-400 hover:text-red-600 hover:bg-red-50 rounded p-0.5 transition-colors"
+                      title="Delete row"
+                      data-testid={`btn-delete-row-${idx}`}
+                    >✕</button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+            <tfoot>
+              <tr style={{ background: '#1e3a5f' }}>
+                <td colSpan={4} className="border border-slate-600 px-4 py-2 text-right font-bold text-white text-sm">Grand Total</td>
+                <td className="border border-slate-600 px-2 py-2 text-center font-bold text-white text-sm">
+                  {grandTotal > 0 ? grandTotal.toFixed(2) : ''}
+                </td>
+                <td className="border border-slate-600" />
+              </tr>
+            </tfoot>
+          </table>
+        </div>
+      )}
+
+      {/* Add Row button */}
+      <Button size="sm" variant="outline" onClick={addRow} className="h-8 text-xs gap-1 border-dashed border-blue-300 text-blue-700 hover:bg-blue-50" data-testid="btn-add-special-row">
+        + Add Row
+      </Button>
+    </div>
+  );
+}
+
 function HulLocationTab({ month, year, location, loadKey = 0 }: { month: number; year: number; location: string; loadKey?: number }) {
   const qc = useQueryClient();
   const { toast } = useToast();
@@ -7288,6 +7571,9 @@ export function DateEntryTab() {
             <TabsTrigger value="hul_tec" className="text-xs sm:text-sm" data-testid="tab-hul-tec">
               TEC
             </TabsTrigger>
+            <TabsTrigger value="hul_special_order" className="text-xs sm:text-sm" data-testid="tab-hul-special-order">
+              Special Order
+            </TabsTrigger>
             <TabsTrigger value="hul_summary" className="text-xs sm:text-sm" data-testid="tab-hul-summary">
               Summary
             </TabsTrigger>
@@ -7303,6 +7589,10 @@ export function DateEntryTab() {
           <TabsContent value="hul_tec">
             <div className="mb-2 text-sm text-muted-foreground font-medium">Hindustan Unilever Limited — TEC — Meal Charges &amp; Guest Meal Charges (1st to last day of month)</div>
             <HulLocationTab location="TEC" month={parseInt(month)} year={parseInt(year)} loadKey={loadKey}/>
+          </TabsContent>
+          <TabsContent value="hul_special_order">
+            <div className="mb-2 text-sm text-muted-foreground font-medium">HUL — Special Order Entry (Sl. No., Particulars, Qty, Rate Per Plate, Total)</div>
+            <HulSpecialOrderTab month={parseInt(month)} year={parseInt(year)} loadKey={loadKey}/>
           </TabsContent>
           <TabsContent value="hul_summary">
             <div className="mb-2 text-sm text-muted-foreground font-medium">HUL Combined Summary — KPF, TEC, KPF Exec Snacks (full month data + combined totals)</div>
