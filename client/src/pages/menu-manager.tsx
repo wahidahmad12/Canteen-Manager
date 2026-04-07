@@ -1276,11 +1276,23 @@ export default function MenuManager() {
                 <div>
                   {MEAL_TYPES.map(mt => {
                     const cats = (mt.key === "lunch" || mt.key === "dinner") ? lunchDinnerCats : snackCategories;
+                    const getCellVal = (weekNum: number, cat: { id: number; def: string }, di: number) => {
+                      const key = `${mt.prefix}w${weekNum}_c${cat.id}_d${di}`;
+                      return (key in cells ? cells[key] : cat.def || "").trim();
+                    };
+                    // Check if entire meal type has any data at all
+                    const mealHasData = [1, 2].some(wn =>
+                      (wn === 1 ? w1 : w2).some((_, di) => cats.some(cat => getCellVal(wn, cat, di) !== ""))
+                    );
+                    if (!mealHasData) return null;
                     return (
                       <div key={mt.key} className="mb-6">
                         <div className="font-bold text-white text-sm px-3 py-2 rounded-t-md mb-0" style={{ background: mt.color }}>{mt.label}</div>
                         {[1, 2].map(weekNum => {
                           const dates = weekNum === 1 ? w1 : w2;
+                          // Only show category rows that have at least one non-empty value in this week
+                          const visibleCats = cats.filter(cat => dates.some((_, di) => getCellVal(weekNum, cat, di) !== ""));
+                          if (visibleCats.length === 0) return null;
                           return (
                             <div key={weekNum} className="overflow-x-auto mb-3">
                               <table style={{ width: "100%", borderCollapse: "collapse", minWidth: "600px", border: `2px solid ${mt.color}` }}>
@@ -1293,12 +1305,12 @@ export default function MenuManager() {
                                   </tr>
                                 </thead>
                                 <tbody>
-                                  {cats.map(cat => (
+                                  {visibleCats.map(cat => (
                                     <tr key={cat.id}>
                                       <td style={{ border: "1px solid #ccc", padding: "4px 8px", fontSize: "11px", fontWeight: 600, background: "#f5f7fa", color: mt.color }}>{cat.name}</td>
                                       {dates.map((_, di) => (
                                         <td key={di} style={{ border: "1px solid #ccc", padding: "4px", textAlign: "center", fontSize: "11px", color: cat.isRed ? "#d32f2f" : "#000", fontWeight: cat.isRed ? "bold" : "normal" }}>
-                                          {cells[`${mt.prefix}w${weekNum}_c${cat.id}_d${di}`] || cat.def}
+                                          {getCellVal(weekNum, cat, di)}
                                         </td>
                                       ))}
                                     </tr>
