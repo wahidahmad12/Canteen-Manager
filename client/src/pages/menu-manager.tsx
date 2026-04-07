@@ -257,13 +257,31 @@ export default function MenuManager() {
 
   const handleSaveMenu = async () => {
     try {
-      await saveMenuMutation.mutateAsync({
-        clientName: client,
-        startDate: format(rangeStart, "yyyy-MM-dd"),
-        endDate: format(rangeEnd, "yyyy-MM-dd"),
-        menuData: JSON.stringify(cellValues),
+      const rangeStartStr = format(rangeStart, "yyyy-MM-dd");
+      const existing = (allSavedMenus || []).find((m: any) => {
+        const msd = m.startDate?.includes("T") ? m.startDate.split("T")[0] : m.startDate;
+        return m.clientName === client && msd === rangeStartStr;
       });
-      toast({ title: "Success", description: "Menu saved successfully" });
+      if (existing) {
+        await updateMenuMutation.mutateAsync({
+          id: existing.id,
+          data: {
+            clientName: client,
+            startDate: rangeStartStr,
+            endDate: format(rangeEnd, "yyyy-MM-dd"),
+            menuData: JSON.stringify(cellValues),
+          },
+        });
+        toast({ title: "Updated", description: "Existing menu updated successfully." });
+      } else {
+        await saveMenuMutation.mutateAsync({
+          clientName: client,
+          startDate: rangeStartStr,
+          endDate: format(rangeEnd, "yyyy-MM-dd"),
+          menuData: JSON.stringify(cellValues),
+        });
+        toast({ title: "Saved", description: "Menu saved successfully." });
+      }
     } catch (e: any) {
       toast({ title: "Error", description: e.message || "Failed to save menu", variant: "destructive" });
     }
@@ -995,7 +1013,18 @@ export default function MenuManager() {
           </Button>
           {isHUL_UB && (
             <Button
-              onClick={() => openWhatsappDialog()}
+              onClick={() => {
+                const rangeStartStr = format(rangeStart, "yyyy-MM-dd");
+                const savedMenu = (allSavedMenus || []).find((m: any) => {
+                  const msd = m.startDate?.includes("T") ? m.startDate.split("T")[0] : m.startDate;
+                  return m.clientName === client && msd === rangeStartStr;
+                });
+                if (!savedMenu) {
+                  toast({ title: "Menu Not Saved", description: "Please save the menu first to use Daily WhatsApp.", variant: "destructive" });
+                  return;
+                }
+                openWhatsappDialog(savedMenu);
+              }}
               className="bg-[#25D366] text-white font-bold text-xs sm:text-sm h-9 flex-1 sm:flex-none"
               data-testid="button-menu-whatsapp"
             >
