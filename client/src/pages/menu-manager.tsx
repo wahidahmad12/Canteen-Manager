@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
-import { RotateCcw, Download, Loader2, FileSpreadsheet, Save, Plus, X, Upload, Eye, Pencil, Trash2, History, RefreshCw, MessageCircle, Copy, CheckCheck } from "lucide-react";
+import { RotateCcw, Download, Loader2, FileSpreadsheet, Save, Plus, X, Upload, Eye, Pencil, Trash2, History, RefreshCw, MessageCircle, Copy, CheckCheck, Printer } from "lucide-react";
 import { format, addDays, getDay } from "date-fns";
 import { useClientNames, useCreateSavedMenu, useSavedMenu, useSavedMenus, useUpdateSavedMenu, useDeleteSavedMenu, useSavedItemNames } from "@/hooks/use-reports";
 import { useToast } from "@/hooks/use-toast";
@@ -337,6 +337,10 @@ export default function MenuManager() {
       const w2 = getWeekDates(addDays(w1[w1.length - 1], 1), dd, !isHUL);
       const savedCells: Record<string, string> = JSON.parse(menu.menuData || "{}");
       const lunchDinnerCats = [...baseCategories, ...(isHUL ? hul_extras : unichem_extras)];
+      const getCellVal = (prefix: string, weekNum: number, catId: number, catDef: string, di: number) => {
+        const key = `${prefix}w${weekNum}_c${catId}_d${di}`;
+        return (key in savedCells ? savedCells[key] : catDef || "").trim();
+      };
 
       const ExcelJS = (await import("exceljs")).default;
       const { saveAs } = await import("file-saver");
@@ -344,6 +348,12 @@ export default function MenuManager() {
 
       for (const mt of MEAL_TYPES) {
         const cats = (mt.key === "lunch" || mt.key === "dinner") ? lunchDinnerCats : snackCategories;
+        // Check if this meal type has any data
+        const mealHasData = [1, 2].some(wn =>
+          (wn === 1 ? w1 : w2).some((_, di) => cats.some(cat => getCellVal(mt.prefix, wn, cat.id, cat.def, di) !== ""))
+        );
+        if (!mealHasData) continue;
+
         const worksheet = workbook.addWorksheet(mt.label);
         const navyFill = { type: "pattern", pattern: "solid", fgColor: { argb: "FF1A3A5A" } } as const;
         const grayFill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFF1F4F7" } } as const;
@@ -358,11 +368,13 @@ export default function MenuManager() {
 
         for (let weekNum = 1; weekNum <= 2; weekNum++) {
           const dates = weekNum === 1 ? w1 : w2;
+          const visibleCats = cats.filter(cat => dates.some((_, di) => getCellVal(mt.prefix, weekNum, cat.id, cat.def, di) !== ""));
+          if (visibleCats.length === 0) continue;
           const wkRow = worksheet.addRow([`WEEK ${weekNum} SCHEDULE`, ...dates.map(d => format(d, "EEE dd"))]);
           wkRow.font = whiteFont; wkRow.fill = navyFill; wkRow.height = 20;
           wkRow.eachCell(c => { c.border = border; c.alignment = { horizontal: "center", vertical: "middle" }; });
-          cats.forEach(cat => {
-            const row = worksheet.addRow([cat.name, ...dates.map((_, di) => savedCells[`${mt.prefix}w${weekNum}_c${cat.id}_d${di}`] || cat.def)]);
+          visibleCats.forEach(cat => {
+            const row = worksheet.addRow([cat.name, ...dates.map((_, di) => getCellVal(mt.prefix, weekNum, cat.id, cat.def, di))]);
             const catCell = row.getCell(1);
             catCell.font = navyFont; catCell.fill = grayFill;
             row.eachCell((c, ci) => {
@@ -382,6 +394,56 @@ export default function MenuManager() {
     } catch (err: any) {
       toast({ title: "Export Failed", description: err.message, variant: "destructive" });
     }
+  };
+
+  const handlePrintSavedMenu = (menu: { clientName: string; startDate: string; endDate: string; menuData: string }) => {
+    const sd = menu.startDate?.includes("T") ? menu.startDate.split("T")[0] : menu.startDate;
+    const ed = menu.endDate?.includes("T") ? menu.endDate.split("T")[0] : menu.endDate;
+    const parsedSd = new Date(sd + "T00:00:00");
+    const isHUL = menu.clientName === "Hindustan Unilever Limited" || menu.clientName === "United Breweries Limited";
+    const dd = isHUL ? 7 : 6;
+    const w1 = getWeekDates(parsedSd, dd, !isHUL);
+    const w2 = getWeekDates(addDays(w1[w1.length - 1], 1), dd, !isHUL);
+    const savedCells: Record<string, string> = JSON.parse(menu.menuData || "{}");
+    const lunchDinnerCats = [...baseCategories, ...(isHUL ? hul_extras : unichem_extras)];
+    const getCellVal = (prefix: string, weekNum: number, catId: number, catDef: string, di: number) => {
+      const key = `${prefix}w${weekNum}_c${catId}_d${di}`;
+      return (key in savedCells ? savedCells[key] : catDef || "").trim();
+    };
+
+    const th = `border:1px solid #ccc;padding:5px 8px;text-align:center;font-size:10px;font-weight:700;background:#1a3a5a;color:#fff;`;
+    const tdH = `border:1px solid #ccc;padding:4px 8px;font-size:10px;font-weight:700;background:#f1f4f7;color:#1a3a5a;text-align:left;`;
+    const td = `border:1px solid #ccc;padding:4px 6px;text-align:center;font-size:10px;`;
+    const mt_colors: Record<string, string> = { lunch: "#E65100", dinner: "#1565C0", breakfast: "#2E7D32", evening: "#6A1B9A", night: "#37474F" };
+
+    let html = `<html><head><title>${menu.clientName} Menu</title>
+    <style>body{font-family:Arial,sans-serif;margin:16px;}table{border-collapse:collapse;width:100%;margin-bottom:14px;}h2{font-size:13px;margin:0 0 4px;}h3{font-size:11px;margin:6px 0 3px;}@media print{body{margin:8px;}}p.date{font-size:10px;color:#555;margin:0 0 12px;}</style>
+    </head><body>
+    <h2>${menu.clientName} — Weekly Menu</h2>
+    <p class="date">${sd} → ${ed}</p>`;
+
+    for (const mt of MEAL_TYPES) {
+      const cats = (mt.key === "lunch" || mt.key === "dinner") ? lunchDinnerCats : snackCategories;
+      const mealHasData = [1, 2].some(wn =>
+        (wn === 1 ? w1 : w2).some((_, di) => cats.some(cat => getCellVal(mt.prefix, wn, cat.id, cat.def, di) !== ""))
+      );
+      if (!mealHasData) continue;
+      const color = mt_colors[mt.key] || "#1a3a5a";
+      html += `<h2 style="background:${color};color:#fff;padding:4px 10px;border-radius:4px;font-size:12px;">${mt.label}</h2>`;
+      for (let weekNum = 1; weekNum <= 2; weekNum++) {
+        const dates = weekNum === 1 ? w1 : w2;
+        const visibleCats = cats.filter(cat => dates.some((_, di) => getCellVal(mt.prefix, weekNum, cat.id, cat.def, di) !== ""));
+        if (visibleCats.length === 0) continue;
+        html += `<h3>Week ${weekNum}</h3><table><thead><tr><th style="${th}width:120px">Category</th>${dates.map(d => `<th style="${th}">${format(d, "EEE dd")}</th>`).join("")}</tr></thead><tbody>`;
+        visibleCats.forEach(cat => {
+          html += `<tr><td style="${tdH}">${cat.name}</td>${dates.map((_, di) => `<td style="${td}${cat.isRed ? "color:#d32f2f;font-weight:700;" : ""}">${getCellVal(mt.prefix, weekNum, cat.id, cat.def, di)}</td>`).join("")}</tr>`;
+        });
+        html += `</tbody></table>`;
+      }
+    }
+    html += `</body></html>`;
+    const win = window.open("", "_blank");
+    if (win) { win.document.write(html); win.document.close(); win.focus(); win.print(); }
   };
 
   const handleExportSavedImage = async (menu: { clientName: string; startDate: string; endDate: string; menuData: string }) => {
@@ -1327,8 +1389,11 @@ export default function MenuManager() {
                     <Button className="bg-[#1a3a5a] text-white" onClick={() => { handleLoadSavedMenuIntoEditor(viewingMenu); setViewingMenu(null); }} data-testid="button-view-dialog-edit">
                       <Pencil className="w-4 h-4 mr-1" /> Load into Editor
                     </Button>
-                    <Button variant="outline" onClick={() => { handleExportSavedExcel(viewingMenu); }} data-testid="button-view-dialog-excel">
+                    <Button variant="outline" className="text-green-700 border-green-400 hover:bg-green-50" onClick={() => { handleExportSavedExcel(viewingMenu); }} data-testid="button-view-dialog-excel">
                       <FileSpreadsheet className="w-4 h-4 mr-1" /> Export Excel
+                    </Button>
+                    <Button variant="outline" className="text-blue-700 border-blue-400 hover:bg-blue-50" onClick={() => handlePrintSavedMenu(viewingMenu)} data-testid="button-view-dialog-print">
+                      <Printer className="w-4 h-4 mr-1" /> Print
                     </Button>
                     <Button variant="outline" onClick={() => setViewingMenu(null)} data-testid="button-view-dialog-close">Close</Button>
                   </div>
