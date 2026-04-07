@@ -422,12 +422,12 @@ export default function MenuManager() {
       // Main items (exclude veg sub cats for lunch/dinner)
       const mainCats = isLunchDinner ? cats.filter(c => !VEG_SUB_CAT_IDS.has(c.id)) : cats;
       const vegCats = isLunchDinner ? cats.filter(c => VEG_SUB_CAT_IDS.has(c.id)) : [];
-      // Collect non-empty values only
+      // Collect non-empty values only; use default only when key is absent (not when user cleared it)
       const mainItems = mainCats
-        .map(cat => { const key = `${mt.prefix}w${weekNum}_c${cat.id}_d${dayIdx}`; return (cells[key] || cat.def || "").trim(); })
+        .map(cat => { const key = `${mt.prefix}w${weekNum}_c${cat.id}_d${dayIdx}`; return (key in cells ? cells[key] : cat.def || "").trim(); })
         .filter(v => v !== "");
       const vegItems = vegCats
-        .map(cat => { const key = `${mt.prefix}w${weekNum}_c${cat.id}_d${dayIdx}`; return (cells[key] || cat.def || "").trim(); })
+        .map(cat => { const key = `${mt.prefix}w${weekNum}_c${cat.id}_d${dayIdx}`; return (key in cells ? cells[key] : cat.def || "").trim(); })
         .filter(v => v !== "");
       // Skip entire meal section if nothing to show
       if (mainItems.length === 0 && vegItems.length === 0) continue;
