@@ -159,6 +159,16 @@ export async function registerRoutes(
     res.json(result);
   });
 
+  app.get("/api/employee/me/shift-duty", requireAuth, async (req, res) => {
+    const employeeId = req.session.employeeId;
+    if (!employeeId) return res.status(404).json({ message: "No linked employee" });
+    const { month, year } = req.query;
+    if (!month || !year) return res.status(400).json({ message: "month and year required" });
+    const row = await storage.getEmployeeShiftDuty(employeeId, Number(month), Number(year));
+    if (!row) return res.status(404).json({ message: "No shift duty record" });
+    res.json(row);
+  });
+
   // === USER MANAGEMENT ROUTES (admin only) ===
   app.get(api.users.list.path, requireAdmin, async (req, res) => {
     const users = await storage.getUsers();

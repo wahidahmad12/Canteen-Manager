@@ -3,7 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Label } from '@/components/ui/label';
-import { User, CalendarDays, LogOut, Download, Building2, Phone, MapPin, Briefcase, IdCard, Smartphone, X, Share, Info, AlertTriangle, AlertCircle, CheckCircle } from 'lucide-react';
+import { User, CalendarDays, LogOut, Download, Building2, Phone, MapPin, Briefcase, IdCard, Smartphone, X, Share, Info, AlertTriangle, AlertCircle, CheckCircle, Clock } from 'lucide-react';
 import { useCurrentUser, useLogout } from '@/hooks/use-reports';
 import { useState, useEffect, useRef } from 'react';
 import logoImg from '@assets/logo1_1771660912341.png';
@@ -208,6 +208,16 @@ export default function EmployeeDashboard() {
     queryKey: ['/api/employee/me/salary', selectedMonth, selectedYear],
     queryFn: async () => {
       const res = await fetch(`/api/employee/me/salary?month=${selectedMonth}&year=${selectedYear}`, { credentials: 'include' });
+      if (!res.ok) return null;
+      return res.json();
+    },
+    enabled: !!user?.employeeId,
+  });
+
+  const { data: shiftDuty } = useQuery<Record<string, any>>({
+    queryKey: ['/api/employee/me/shift-duty', selectedMonth, selectedYear],
+    queryFn: async () => {
+      const res = await fetch(`/api/employee/me/shift-duty?month=${selectedMonth}&year=${selectedYear}`, { credentials: 'include' });
       if (!res.ok) return null;
       return res.json();
     },
@@ -763,6 +773,84 @@ export default function EmployeeDashboard() {
                   </Button>
                 </div>
               </div>
+            )}
+          </CardContent>
+        </Card>
+        {/* === SHIFT DUTY CHART === */}
+        <Card className="border-purple-200 shadow-sm">
+          <CardHeader className="pb-3">
+            <CardTitle className="text-base flex items-center gap-2">
+              <Clock className="w-4 h-4 text-purple-600" /> Shift Duty Chart — {monthNames[Number(selectedMonth)]} {selectedYear}
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            {shiftDuty ? (() => {
+              const SHIFTS: Record<string, { label: string; bg: string; text: string }> = {
+                A:  { label: 'Morning 6 AM',  bg: 'bg-blue-600',    text: 'text-white' },
+                AA: { label: 'Morning 7 AM',  bg: 'bg-blue-400',    text: 'text-white' },
+                B:  { label: 'Evening 11 AM', bg: 'bg-orange-500',  text: 'text-white' },
+                BB: { label: 'Evening 2 PM',  bg: 'bg-amber-400',   text: 'text-white' },
+                C:  { label: 'Night 10 PM',   bg: 'bg-purple-600',  text: 'text-white' },
+                G:  { label: 'General 9 AM',  bg: 'bg-green-600',   text: 'text-white' },
+                O:  { label: 'Off',           bg: 'bg-slate-300',   text: 'text-slate-700' },
+              };
+              const counts: Record<string, number> = {};
+              for (let d = 1; d <= 31; d++) {
+                const v = (shiftDuty[`day${d}`] || '').trim();
+                if (v) counts[v] = (counts[v] || 0) + 1;
+              }
+              return (
+                <>
+                  {/* Legend */}
+                  <div className="flex flex-wrap gap-2 mb-3">
+                    {Object.entries(SHIFTS).map(([code, info]) => (
+                      <span key={code} className={`inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-bold ${info.bg} ${info.text}`}>
+                        {code} <span className="font-normal opacity-80">= {info.label}</span>
+                      </span>
+                    ))}
+                  </div>
+                  {/* Calendar grid */}
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-xs border-collapse" data-testid="table-shift-duty">
+                      <thead>
+                        <tr>
+                          {Array.from({ length: 31 }, (_, i) => (
+                            <th key={i} className="border border-slate-200 px-1 py-1 text-center bg-slate-50 dark:bg-slate-800 min-w-[28px] font-semibold text-slate-600">{i + 1}</th>
+                          ))}
+                        </tr>
+                      </thead>
+                      <tbody>
+                        <tr>
+                          {Array.from({ length: 31 }, (_, i) => {
+                            const val = (shiftDuty[`day${i + 1}`] || '').trim();
+                            const s = SHIFTS[val];
+                            return (
+                              <td key={i} className={`border border-slate-200 px-0.5 py-1 text-center font-bold ${s ? `${s.bg} ${s.text}` : 'text-slate-400'}`} data-testid={`shift-day-${i+1}`}>
+                                {val || '—'}
+                              </td>
+                            );
+                          })}
+                        </tr>
+                      </tbody>
+                    </table>
+                  </div>
+                  {/* Summary badges */}
+                  {Object.keys(counts).length > 0 && (
+                    <div className="flex flex-wrap gap-2 mt-3 pt-3 border-t border-slate-100">
+                      {Object.entries(counts).sort().map(([code, cnt]) => {
+                        const s = SHIFTS[code];
+                        return (
+                          <span key={code} className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold ${s ? `${s.bg} ${s.text}` : 'bg-slate-200 text-slate-700'}`} data-testid={`shift-summary-${code}`}>
+                            {code} <span className="font-normal opacity-90">× {cnt} days</span>
+                          </span>
+                        );
+                      })}
+                    </div>
+                  )}
+                </>
+              );
+            })() : (
+              <p className="text-sm text-muted-foreground text-center py-4">No shift duty schedule found for {monthNames[Number(selectedMonth)]} {selectedYear}</p>
             )}
           </CardContent>
         </Card>
