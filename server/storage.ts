@@ -279,6 +279,7 @@ export interface IStorage {
   // Daily P&L
   getDailyPnlEntry(date: string, clientName: string): Promise<any | null>;
   saveDailyPnlEntry(data: any): Promise<number>;
+  getPrevDailyPnlBalance(date: string, clientName: string): Promise<number>;
   getDailyPnlMonthSummary(month: number, year: number): Promise<any[]>;
   getDailyPnlMonthlySummary(year: number, clientName?: string): Promise<any[]>;
   getDailyPnlYearlySummary(clientName?: string): Promise<any[]>;
@@ -2336,6 +2337,16 @@ export class DatabaseStorage implements IStorage {
     await db.insert(dailyPnlEntries).values(fields);
     const [r] = await db.execute(sql`SELECT LAST_INSERT_ID() as insertId`) as any;
     return Number(r[0]?.insertId ?? 0);
+  }
+
+  async getPrevDailyPnlBalance(date: string, clientName: string): Promise<number> {
+    const [rows] = await db.execute(sql`
+      SELECT balance_in_hand FROM daily_pnl_entries
+      WHERE entry_date < ${date} AND client_name = ${clientName}
+      ORDER BY entry_date DESC LIMIT 1
+    `) as any;
+    const row = (rows as any[])[0];
+    return row ? Number(row.balance_in_hand) || 0 : 0;
   }
 
   async getDailyPnlMonthSummary(month: number, year: number): Promise<DailyPnlEntry[]> {

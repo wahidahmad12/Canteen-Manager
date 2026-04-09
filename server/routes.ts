@@ -2020,6 +2020,13 @@ export async function registerRoutes(
     const clientName = req.query.client ? String(req.query.client) : undefined;
     res.json(await storage.getDailyPnlYearlySummary(clientName));
   });
+  app.get('/api/daily-pnl/prev-balance', requireAuth, async (req, res) => {
+    const date = String(req.query.date || '');
+    const clientName = String(req.query.client || 'KPF');
+    if (!date) return res.json({ balance: 0 });
+    const balance = await storage.getPrevDailyPnlBalance(date, clientName);
+    res.json({ balance });
+  });
   app.get('/api/daily-pnl/cash-seal', requireAuth, async (req, res) => {
     const date = String(req.query.date || '');
     if (!date) return res.json(null);

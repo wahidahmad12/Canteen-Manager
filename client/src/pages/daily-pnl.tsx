@@ -376,6 +376,7 @@ export default function DailyPnlPage() {
   const [night,     setNight]     = useState<ExpenseItem[]>([makeExpItem(1), makeExpItem(2)]);
   const [manpower,  setManpower]  = useState<ManpowerItem[]>([{ slNo: 1, employeeName: "", basicWagesPerDay: 0, leaveBalance: 30 }]);
   const [otherExpense, setOtherExpense] = useState(0);
+  const [openingBalance, setOpeningBalance] = useState(0);
 
   // Sale states
   const [psSale, setPsSale] = useState<PsSaleRow[]>(PS_ROWS.map(makePsRow));
@@ -415,8 +416,11 @@ export default function DailyPnlPage() {
   });
   const totalTpSale = tpCalc.reduce((s, r) => s + r.coTotal, 0);
 
-  const totalSale  = totalPsSale + totalTpSale;
-  const profitLoss = totalSale - totalExpense;
+  const totalSale    = totalPsSale + totalTpSale;
+  const profitLoss   = totalSale - totalExpense;
+  const cashFromPs   = psCalc.reduce((s, r) => s + r.cashAmt, 0);
+  const cashFromTp   = tpCalc.reduce((s, r) => s + r.cashAmt, 0);
+  const balanceInHand = openingBalance + cashFromPs + cashFromTp - totalExpense;
 
   // ── Queries ───────────────────────────────────────────────────────────────
   const { data: dbClients = [] } = useClientNames();
@@ -484,6 +488,7 @@ export default function DailyPnlPage() {
       setPsSale(ps.length ? ps.map((r: any, i: number) => ({ ...r, cashRate: PS_ROWS[i]?.cashRate ?? 5, onlineRate: PS_ROWS[i]?.onlineRate ?? 5, billRate: PS_ROWS[i]?.billRate ?? 30 })) : PS_ROWS.map(makePsRow));
       const tp = parse(data.saleItems);      setTpSale(tp.length ? tp : TP_ROWS.map(makeTpRow));
       setOtherExpense(Number(data.otherExpense) || 0);
+      setOpeningBalance(Number(data.openingBalance) || 0);
     } else {
       setEntryId(undefined);
       setBreakfast([makeExpItem(1), makeExpItem(2)]);
@@ -495,6 +500,16 @@ export default function DailyPnlPage() {
       setPsSale(PS_ROWS.map(makePsRow));
       setTpSale(TP_ROWS.map(makeTpRow));
       await loadCashSeal();
+      // Auto-populate opening balance from previous day's balance in hand
+      if (clientName) {
+        try {
+          const pb = await fetch(`/api/daily-pnl/prev-balance?date=${entryDate}&client=${encodeURIComponent(clientName)}`, { credentials: "include" });
+          const { balance } = await pb.json();
+          setOpeningBalance(Number(balance) || 0);
+        } catch { setOpeningBalance(0); }
+      } else {
+        setOpeningBalance(0);
+      }
     }
   }, [entryDate, clientName, loadCashSeal, buildManpowerFromEmployees]);
 
@@ -536,6 +551,8 @@ export default function DailyPnlPage() {
         totalExpense:   totalExpense.toFixed(2),
         totalSale:      totalSale.toFixed(2),
         profitLoss:     profitLoss.toFixed(2),
+        openingBalance: openingBalance.toFixed(2),
+        balanceInHand:  balanceInHand.toFixed(2),
       };
       const r = await fetch("/api/daily-pnl/entry", { method: "POST", credentials: "include", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
       return r.json();
@@ -921,7 +938,7 @@ export default function DailyPnlPage() {
                     <div className="font-bold text-blue-800">{fmtINR(totalTpSale)}</div>
                   </div>
                 </div>
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-center">
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-center mb-3">
                   <div className="bg-red-50 border border-red-200 rounded-lg p-3">
                     <div className="text-xs text-red-500 font-medium mb-1">Total Expense</div>
                     <div className="text-lg font-bold text-red-700">{fmtINR(totalExpense)}</div>
@@ -937,6 +954,42 @@ export default function DailyPnlPage() {
                     </div>
                     <div className="text-lg font-bold" style={{ color: profitLoss >= 0 ? "#15803d" : "#b91c1c" }}>{fmtINR(Math.abs(profitLoss))}</div>
                     <div className="text-xs mt-0.5" style={{ color: profitLoss >= 0 ? "#15803d" : "#b91c1c" }}>{profitLoss >= 0 ? "Profit" : "Loss"}</div>
+                  </div>
+                </div>
+
+                {/* ── Cash in Hand section ── */}
+                <div className="border-t border-amber-200 pt-3">
+                  <div className="text-xs font-semibold text-amber-800 mb-2 text-center">CASH IN HAND STATEMENT</div>
+                  <div className="grid grid-cols-1 sm:grid-cols-4 gap-2 text-center text-xs">
+                    <div className="bg-amber-50 border border-amber-200 rounded-lg p-2">
+                      <div className="text-amber-700 font-medium mb-1">Opening Balance</div>
+                      <input
+                        type="number"
+                        value={openingBalance || ""}
+                        onChange={e => setOpeningBalance(parseFloat(e.target.value) || 0)}
+                        className="w-full text-center text-sm font-bold text-amber-800 border border-amber-300 rounded px-1 py-0.5 bg-white"
+                        placeholder="0.00"
+                        data-testid="input-opening-balance"
+                      />
+                      <div className="text-amber-500 text-[10px] mt-0.5">Auto from prev. day</div>
+                    </div>
+                    <div className="bg-green-50 border border-green-200 rounded-lg p-2">
+                      <div className="text-green-700 font-medium mb-1">Cash Received (PS)</div>
+                      <div className="text-sm font-bold text-green-800">{fmtINR(cashFromPs)}</div>
+                      <div className="text-green-500 text-[10px] mt-0.5">PS cash sales</div>
+                    </div>
+                    <div className="bg-teal-50 border border-teal-200 rounded-lg p-2">
+                      <div className="text-teal-700 font-medium mb-1">Cash Received (TP)</div>
+                      <div className="text-sm font-bold text-teal-800">{fmtINR(cashFromTp)}</div>
+                      <div className="text-teal-500 text-[10px] mt-0.5">TP cash sales</div>
+                    </div>
+                    <div className={`border rounded-lg p-2 ${balanceInHand >= 0 ? "bg-emerald-50 border-emerald-300" : "bg-red-50 border-red-300"}`}>
+                      <div className={`font-semibold mb-1 ${balanceInHand >= 0 ? "text-emerald-700" : "text-red-700"}`}>Balance in Hand</div>
+                      <div className={`text-sm font-bold ${balanceInHand >= 0 ? "text-emerald-800" : "text-red-800"}`}>{fmtINR(Math.abs(balanceInHand))}</div>
+                      <div className={`text-[10px] mt-0.5 ${balanceInHand >= 0 ? "text-emerald-600" : "text-red-600"}`}>
+                        {balanceInHand >= 0 ? "Opening + Cash In − Expenses" : "Deficit"}
+                      </div>
+                    </div>
                   </div>
                 </div>
               </div>

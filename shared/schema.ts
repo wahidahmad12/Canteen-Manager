@@ -1023,6 +1023,8 @@ export const dailyPnlEntries = mysqlTable("daily_pnl_entries", {
   totalExpense: decimal("total_expense", { precision: 10, scale: 2 }).default("0"),
   totalSale: decimal("total_sale", { precision: 10, scale: 2 }).default("0"),
   profitLoss: decimal("profit_loss", { precision: 10, scale: 2 }).default("0"),
+  openingBalance: decimal("opening_balance", { precision: 10, scale: 2 }).default("0"),
+  balanceInHand: decimal("balance_in_hand", { precision: 10, scale: 2 }).default("0"),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 });
