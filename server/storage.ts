@@ -1276,22 +1276,23 @@ export class DatabaseStorage implements IStorage {
   }
 
   async createItemMasterItem(data: { itemName: string; uom?: string; rate?: string; hsnCode?: string; gstPercent?: string; itemType?: string; itemCategory?: string }): Promise<ItemMaster> {
+    const normalizedName = data.itemName.trim();
+    const existing = await db.select({ id: itemMaster.id }).from(itemMaster).where(eq(itemMaster.itemName, normalizedName));
+    if (existing.length > 0) {
+      throw new Error(`Item "${normalizedName}" already exists in Item Master.`);
+    }
     const [item] = await db.transaction(async (tx) => {
-
       await tx.insert(itemMaster).values({
-      itemName: data.itemName,
-      uom: data.uom || "Kg",
-      rate: data.rate || "0",
-      hsnCode: data.hsnCode || "",
-      gstPercent: data.gstPercent || "0",
-      itemType: data.itemType || "purchase",
-      itemCategory: data.itemCategory || "General",
-    });
-
+        itemName: normalizedName,
+        uom: data.uom || "Kg",
+        rate: data.rate || "0",
+        hsnCode: data.hsnCode || "",
+        gstPercent: data.gstPercent || "0",
+        itemType: data.itemType || "purchase",
+        itemCategory: data.itemCategory || "General",
+      });
       const __iid = await getInsertId(tx);
-
       return await tx.select().from(itemMaster).where(eq(itemMaster.id, __iid));
-
     });
     return item;
   }

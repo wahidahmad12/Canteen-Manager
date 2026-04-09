@@ -800,8 +800,16 @@ export async function registerRoutes(
       if (err instanceof z.ZodError) {
         return res.status(400).json({ message: err.errors[0].message, field: err.errors[0].path.join('.') });
       }
-      if (err instanceof Error && 'code' in (err as any) && (err as any).code === '23505') {
-        return res.status(400).json({ message: 'This item name already exists.' });
+      if (err instanceof Error) {
+        const msg = err.message || "";
+        const code = (err as any).code || "";
+        const errno = (err as any).errno;
+        if (
+          code === '23505' || code === 'ER_DUP_ENTRY' || errno === 1062 ||
+          msg.includes('already exists') || msg.toLowerCase().includes('duplicate')
+        ) {
+          return res.status(400).json({ message: err.message.includes('already exists') ? err.message : 'This item name already exists.' });
+        }
       }
       throw err;
     }
@@ -819,8 +827,16 @@ export async function registerRoutes(
       if (err instanceof Error && err.message === "Item not found") {
         return res.status(404).json({ message: "Item not found" });
       }
-      if (err instanceof Error && 'code' in (err as any) && (err as any).code === '23505') {
-        return res.status(400).json({ message: 'This item name already exists.' });
+      if (err instanceof Error) {
+        const msg = err.message || "";
+        const code = (err as any).code || "";
+        const errno = (err as any).errno;
+        if (
+          code === '23505' || code === 'ER_DUP_ENTRY' || errno === 1062 ||
+          msg.includes('already exists') || msg.toLowerCase().includes('duplicate')
+        ) {
+          return res.status(400).json({ message: 'This item name already exists.' });
+        }
       }
       throw err;
     }
