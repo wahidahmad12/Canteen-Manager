@@ -232,6 +232,31 @@ export default function MenuManager() {
     }
   }, [loadedMenu, loadedForId, loadId, initValues]);
 
+  const getClientCode = (name: string): string => {
+    const n = name.toUpperCase();
+    if (n.includes("UNILEVER") || n.includes("HUL")) return "HUL";
+    if (n.includes("BREWERIES") || n.includes("UBL")) return "UBL";
+    if (n.includes("UNICHEM") || n.includes("USL")) return "USL";
+    if (n.includes("CIPLA")) return "CPL";
+    if (n.includes("PEC")) return "PEC";
+    return "GEN";
+  };
+
+  const menuSerialMap = useMemo(() => {
+    if (!allSavedMenus) return {} as Record<number, string>;
+    const sorted = [...allSavedMenus].sort((a, b) => a.id - b.id);
+    const map: Record<number, string> = {};
+    sorted.forEach((m, idx) => {
+      const code = getClientCode(m.clientName);
+      const sd = m.startDate?.includes("T") ? m.startDate.split("T")[0] : m.startDate;
+      let yy = "26";
+      try { yy = format(new Date(sd + "T00:00:00"), "yy"); } catch {}
+      const serial = String(idx + 1).padStart(3, "0");
+      map[m.id] = `DJ-${code}-${yy}-M-${serial}`;
+    });
+    return map;
+  }, [allSavedMenus]);
+
   if (clientsLoading || !client) {
     return (
       <Layout>
@@ -457,31 +482,6 @@ export default function MenuManager() {
     const win = window.open("", "_blank");
     if (win) { win.document.write(html); win.document.close(); win.focus(); win.print(); }
   };
-
-  const getClientCode = (name: string): string => {
-    const n = name.toUpperCase();
-    if (n.includes("UNILEVER") || n.includes("HUL")) return "HUL";
-    if (n.includes("BREWERIES") || n.includes("UBL")) return "UBL";
-    if (n.includes("UNICHEM") || n.includes("USL")) return "USL";
-    if (n.includes("CIPLA")) return "CPL";
-    if (n.includes("PEC")) return "PEC";
-    return "GEN";
-  };
-
-  const menuSerialMap = useMemo(() => {
-    if (!allSavedMenus) return {} as Record<number, string>;
-    const sorted = [...allSavedMenus].sort((a, b) => a.id - b.id);
-    const map: Record<number, string> = {};
-    sorted.forEach((m, idx) => {
-      const code = getClientCode(m.clientName);
-      const sd = m.startDate?.includes("T") ? m.startDate.split("T")[0] : m.startDate;
-      let yy = "26";
-      try { yy = format(new Date(sd + "T00:00:00"), "yy"); } catch {}
-      const serial = String(idx + 1).padStart(3, "0");
-      map[m.id] = `DJ-${code}-${yy}-M-${serial}`;
-    });
-    return map;
-  }, [allSavedMenus]);
 
   const handleExportSavedImage = async (menu: { clientName: string; startDate: string; endDate: string; menuData: string }) => {
     handleLoadSavedMenuIntoEditor(menu);
