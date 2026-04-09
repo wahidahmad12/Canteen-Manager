@@ -92,6 +92,7 @@ export default function MenuManager() {
   const captureRef = useRef<HTMLDivElement>(null);
   const importRef = useRef<HTMLInputElement>(null);
   const savedImportRef = useRef<HTMLInputElement>(null);
+  const justLoadedMenuRef = useRef(false);
   const saveMenuMutation = useCreateSavedMenu();
   const updateMenuMutation = useUpdateSavedMenu();
   const deleteMenuMutation = useDeleteSavedMenu();
@@ -206,17 +207,27 @@ export default function MenuManager() {
   };
 
   useEffect(() => {
+    if (justLoadedMenuRef.current) {
+      justLoadedMenuRef.current = false;
+      return;
+    }
+    if (initialized) {
+      setCellValues({});
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [startDate]);
+
+  useEffect(() => {
     if (loadedMenu && loadedForId === loadId && loadId > 0) {
       try {
         const saved = JSON.parse(loadedMenu.menuData);
-        const defaults = initValues();
-        setCellValues({ ...defaults, ...saved });
+        setCellValues({ ...saved });
       } catch {
-        setCellValues(initValues());
+        setCellValues({});
       }
       setInitialized(true);
     } else if (!initialized) {
-      setCellValues(initValues());
+      setCellValues({});
       setInitialized(true);
     }
   }, [loadedMenu, loadedForId, loadId, initValues]);
@@ -238,17 +249,17 @@ export default function MenuManager() {
   const handleReset = () => {
     const mt = MEAL_TYPES.find(m => m.key === activeMealType)!;
     const cats = (activeMealType === "lunch" || activeMealType === "dinner") ? lunchDinnerCategories : snackCategories;
-    const defaults: Record<string, string> = { ...cellValues };
+    const cleared: Record<string, string> = { ...cellValues };
     for (let week = 1; week <= 2; week++) {
       const dates = week === 1 ? week1Dates : week2Dates;
       cats.forEach(cat => {
         dates.forEach((_, di) => {
-          defaults[`${mt.prefix}w${week}_c${cat.id}_d${di}`] = cat.def;
+          cleared[`${mt.prefix}w${week}_c${cat.id}_d${di}`] = "";
         });
       });
     }
-    setCellValues(defaults);
-    toast({ title: `${mt.label} reset to defaults` });
+    setCellValues(cleared);
+    toast({ title: `${mt.label} cleared` });
   };
 
   const handleClientChange = (val: string) => {
@@ -290,12 +301,13 @@ export default function MenuManager() {
   const handleLoadSavedMenuIntoEditor = (menu: { clientName: string; startDate: string; endDate: string; menuData: string }) => {
     setClient(menu.clientName);
     const sd = menu.startDate?.includes("T") ? menu.startDate.split("T")[0] : menu.startDate;
+    justLoadedMenuRef.current = true;
     setStartDate(sd);
     try {
       const saved = JSON.parse(menu.menuData);
-      setCellValues({ ...initValues(), ...saved });
+      setCellValues({ ...saved });
     } catch {
-      setCellValues(initValues());
+      setCellValues({});
     }
     toast({ title: "Menu Loaded", description: `${menu.clientName} menu loaded into editor.` });
   };
@@ -445,6 +457,31 @@ export default function MenuManager() {
     const win = window.open("", "_blank");
     if (win) { win.document.write(html); win.document.close(); win.focus(); win.print(); }
   };
+
+  const getClientCode = (name: string): string => {
+    const n = name.toUpperCase();
+    if (n.includes("UNILEVER") || n.includes("HUL")) return "HUL";
+    if (n.includes("BREWERIES") || n.includes("UBL")) return "UBL";
+    if (n.includes("UNICHEM") || n.includes("USL")) return "USL";
+    if (n.includes("CIPLA")) return "CPL";
+    if (n.includes("PEC")) return "PEC";
+    return "GEN";
+  };
+
+  const menuSerialMap = useMemo(() => {
+    if (!allSavedMenus) return {} as Record<number, string>;
+    const sorted = [...allSavedMenus].sort((a, b) => a.id - b.id);
+    const map: Record<number, string> = {};
+    sorted.forEach((m, idx) => {
+      const code = getClientCode(m.clientName);
+      const sd = m.startDate?.includes("T") ? m.startDate.split("T")[0] : m.startDate;
+      let yy = "26";
+      try { yy = format(new Date(sd + "T00:00:00"), "yy"); } catch {}
+      const serial = String(idx + 1).padStart(3, "0");
+      map[m.id] = `DJ-${code}-${yy}-M-${serial}`;
+    });
+    return map;
+  }, [allSavedMenus]);
 
   const handleExportSavedImage = async (menu: { clientName: string; startDate: string; endDate: string; menuData: string }) => {
     handleLoadSavedMenuIntoEditor(menu);
@@ -1271,7 +1308,12 @@ export default function MenuManager() {
               return (
                 <div key={menu.id} className="bg-card border rounded-xl p-4 flex flex-col sm:flex-row sm:items-center gap-3" data-testid={`saved-menu-row-${menu.id}`}>
                   <div className="flex-1 min-w-0">
-                    <div className="font-semibold text-sm truncate" data-testid={`saved-menu-client-${menu.id}`}>{menu.clientName}</div>
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span className="font-semibold text-sm truncate" data-testid={`saved-menu-client-${menu.id}`}>{menu.clientName}</span>
+                      {menuSerialMap[menu.id] && (
+                        <Badge className="bg-[#1a3a5a] text-white text-[10px] px-2 py-0 font-mono tracking-wider" data-testid={`saved-menu-serial-${menu.id}`}>{menuSerialMap[menu.id]}</Badge>
+                      )}
+                    </div>
                     <div className="text-xs text-muted-foreground mt-0.5">
                       {sd} → {ed}
                       {createdAt && !isNaN(createdAt.getTime()) && (
@@ -1319,7 +1361,12 @@ export default function MenuManager() {
         <Dialog open={!!viewingMenu} onOpenChange={open => { if (!open) setViewingMenu(null); }}>
           <DialogContent className="max-w-4xl w-full max-h-[90vh] overflow-y-auto">
             <DialogHeader>
-              <DialogTitle>View Saved Menu — {viewingMenu.clientName}</DialogTitle>
+              <DialogTitle className="flex items-center gap-2 flex-wrap">
+                View Saved Menu — {viewingMenu.clientName}
+                {menuSerialMap[viewingMenu.id] && (
+                  <Badge className="bg-[#1a3a5a] text-white text-[10px] px-2 py-0 font-mono tracking-wider">{menuSerialMap[viewingMenu.id]}</Badge>
+                )}
+              </DialogTitle>
             </DialogHeader>
             <div className="text-sm text-muted-foreground mb-4">
               {viewingMenu.startDate?.split("T")[0]} → {viewingMenu.endDate?.split("T")[0]}
