@@ -26,6 +26,7 @@ export default function EpfoEsicPage() {
   const [selectedClient, setSelectedClient] = useState("__all__");
   const [month, setMonth] = useState(new Date().getMonth() + 1);
   const [year, setYear] = useState(new Date().getFullYear());
+  const [loadTrigger, setLoadTrigger] = useState(0);
 
   const { data: employees = [] } = useQuery<Employee[]>({
     queryKey: ["/api/employees"],
@@ -38,15 +39,17 @@ export default function EpfoEsicPage() {
 
   const salaryQueries = useQueries({
     queries: clientsToFetch.map(cn => ({
-      queryKey: ["/api/salary", { clientName: cn, month, year }] as const,
+      queryKey: ["/api/salary", { clientName: cn, month, year, trigger: loadTrigger }] as const,
       queryFn: async () => {
         const res = await fetch(`/api/salary?clientName=${encodeURIComponent(cn)}&month=${month}&year=${year}`, { credentials: "include" });
         if (!res.ok) return [];
         return res.json() as Promise<SalaryRecord[]>;
       },
-      enabled: !!cn && !!month && !!year,
+      enabled: loadTrigger > 0 && !!cn && !!month && !!year,
     })),
   });
+
+  const isLoading = salaryQueries.some(q => q.isFetching);
 
   const salaryMap = useMemo(() => {
     const map = new Map<number, SalaryRecord>();
@@ -416,7 +419,7 @@ export default function EpfoEsicPage() {
                   <Label className="text-xs font-semibold flex items-center gap-1">
                     <Building2 className="w-3.5 h-3.5" /> Company / Client
                   </Label>
-                  <Select value={selectedClient} onValueChange={setSelectedClient}>
+                  <Select value={selectedClient} onValueChange={v => { setSelectedClient(v); setLoadTrigger(0); }}>
                     <SelectTrigger data-testid="select-client"><SelectValue placeholder="Select Company" /></SelectTrigger>
                     <SelectContent>
                       <SelectItem value="__all__">All Clients</SelectItem>
@@ -428,7 +431,7 @@ export default function EpfoEsicPage() {
                 </div>
                 <div className="space-y-1.5">
                   <Label className="text-xs font-semibold">Month</Label>
-                  <Select value={String(month)} onValueChange={(v) => setMonth(Number(v))}>
+                  <Select value={String(month)} onValueChange={v => { setMonth(Number(v)); setLoadTrigger(0); }}>
                     <SelectTrigger data-testid="select-month"><SelectValue /></SelectTrigger>
                     <SelectContent>
                       {MONTHS.map((m, i) => (
@@ -439,7 +442,7 @@ export default function EpfoEsicPage() {
                 </div>
                 <div className="space-y-1.5">
                   <Label className="text-xs font-semibold">Year</Label>
-                  <Select value={String(year)} onValueChange={(v) => setYear(Number(v))}>
+                  <Select value={String(year)} onValueChange={v => { setYear(Number(v)); setLoadTrigger(0); }}>
                     <SelectTrigger data-testid="select-year"><SelectValue /></SelectTrigger>
                     <SelectContent>
                       {years.map(y => (
@@ -448,6 +451,17 @@ export default function EpfoEsicPage() {
                     </SelectContent>
                   </Select>
                 </div>
+              </div>
+              <div className="flex justify-end">
+                <Button
+                  onClick={() => setLoadTrigger(t => t + 1)}
+                  disabled={isLoading}
+                  className="gap-2"
+                  data-testid="button-load-data"
+                >
+                  {isLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Download className="w-4 h-4" />}
+                  {isLoading ? "Loading..." : "Load Data"}
+                </Button>
               </div>
             </div>
           </CardContent>
@@ -496,7 +510,11 @@ export default function EpfoEsicPage() {
                       {epfoData.length === 0 ? (
                         <TableRow>
                           <TableCell colSpan={selectedClient === "__all__" ? 12 : 11} className="text-center text-muted-foreground py-8">
-                            No employees with UAN number found for the selected filter
+                            {loadTrigger === 0
+                              ? "Select filters above and click Load Data to fetch EPFO records"
+                              : isLoading
+                              ? "Loading..."
+                              : "No employees with UAN number found for the selected filter"}
                           </TableCell>
                         </TableRow>
                       ) : (
@@ -563,7 +581,11 @@ export default function EpfoEsicPage() {
                       {esicData.length === 0 ? (
                         <TableRow>
                           <TableCell colSpan={selectedClient === "__all__" ? 7 : 6} className="text-center text-muted-foreground py-8">
-                            No employees with ESIC number found for the selected filter
+                            {loadTrigger === 0
+                              ? "Select filters above and click Load Data to fetch ESIC records"
+                              : isLoading
+                              ? "Loading..."
+                              : "No employees with ESIC number found for the selected filter"}
                           </TableCell>
                         </TableRow>
                       ) : (
