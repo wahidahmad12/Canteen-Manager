@@ -257,6 +257,17 @@ export default function EpfoEsicPage() {
     const sheetName = clientName.length > 31 ? clientName.substring(0, 31) : clientName;
     const ws = wb.addWorksheet(sheetName);
 
+    // Set column widths and TEXT format BEFORE adding any rows
+    // so the format is inherited by all cells in each column
+    ws.columns = [
+      { width: 16, style: { numFmt: "@" } },
+      { width: 28, style: { numFmt: "@" } },
+      { width: 20, style: { numFmt: "@" } },
+      { width: 18, style: { numFmt: "@" } },
+      { width: 22, style: { numFmt: "@" } },
+      { width: 20, style: { numFmt: "@" } },
+    ];
+
     const headers = [
       "IP Number \n(10 Digits)",
       "IP Name\n( Only alphabets and space )",
@@ -284,26 +295,17 @@ export default function EpfoEsicPage() {
         String(row.noOfDays),
         String(row.totalMonthlyWages),
         String(row.reasonCode),
-        row.lastWorkingDay ? String(row.lastWorkingDay) : "",
+        row.lastWorkingDay ? String(row.lastWorkingDay) : null,
       ]);
-      dataRow.eachCell((cell: any) => {
+      // includeEmpty: true ensures blank cells (e.g. Last Working Day) also get text format
+      dataRow.eachCell({ includeEmpty: true }, (cell: any) => {
+        cell.numFmt = "@";
         cell.border = {
           top: { style: "thin" }, bottom: { style: "thin" },
           left: { style: "thin" }, right: { style: "thin" },
         };
-        cell.numFmt = "@";
       });
     }
-
-    ws.columns = [
-      { width: 16, style: { numFmt: "@" } },
-      { width: 28, style: { numFmt: "@" } },
-      { width: 20, style: { numFmt: "@" } },
-      { width: 18, style: { numFmt: "@" } },
-      { width: 22, style: { numFmt: "@" } },
-      { width: 20, style: { numFmt: "@" } },
-    ];
-
   };
 
   const addEsicInstructionsSheet = (wb: any) => {
