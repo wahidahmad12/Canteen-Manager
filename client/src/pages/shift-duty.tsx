@@ -193,6 +193,15 @@ export default function ShiftDuty() {
     window.open(`https://wa.me/?text=${encoded}`, "_blank");
   };
 
+  const shareGroupOnWhatsApp = () => {
+    if (filteredEmployees.length === 0) return;
+    const combined = filteredEmployees
+      .map(emp => buildWhatsAppMessage(emp))
+      .join("\n\n─────────────────────\n\n");
+    const encoded = encodeURIComponent(combined);
+    window.open(`https://wa.me/?text=${encoded}`, "_blank");
+  };
+
   const cycleShift = (empId: number, day: number) => {
     const cur = getCell(empId, day);
     const idx = SHIFTS.findIndex(s => s.code === cur);
@@ -611,7 +620,16 @@ export default function ShiftDuty() {
               ))}
             </SelectContent>
           </Select>
-          <span className="text-[10px] text-green-600">Click 📤 next to an employee to share their week schedule</span>
+          <button
+            onClick={shareGroupOnWhatsApp}
+            disabled={filteredEmployees.length === 0}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold bg-green-600 hover:bg-green-700 disabled:opacity-50 text-white shrink-0"
+            title="Share all employees' weekly schedules in one WhatsApp message"
+            data-testid="button-whatsapp-group"
+          >
+            <Share2 className="w-3.5 h-3.5" /> Share All ({filteredEmployees.length})
+          </button>
+          <span className="text-[10px] text-green-600">or click 📤 beside an employee for individual share</span>
         </div>
 
         {/* ── Summary totals ── */}
