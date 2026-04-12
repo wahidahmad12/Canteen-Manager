@@ -165,31 +165,25 @@ export default function ShiftDuty() {
 
   const buildWhatsAppMessage = (emp: Employee): string => {
     if (!selectedWeek) return "";
-    const DAY_NAMES_FULL = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+    const DAY_NAMES = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+    const FULL_MONTHS = ["January","February","March","April","May","June","July","August","September","October","November","December"];
+    const fmtLabel = (label: string) => label.replace(/(\d)(Am|Pm)/g, "$1 $2");
+
     const lines: string[] = [
-      `*📋 Weekly Shift Duty Chart*`,
-      `*DJ Hospitality & Facility Management*`,
+      emp.name,
+      `Week: ${selectedWeek.label} ${year}`,
       ``,
-      `👤 *${emp.name}*${emp.employeeCode ? ` (${emp.employeeCode})` : ""}`,
-      emp.clientName ? `🏢 ${emp.clientName}${emp.department ? ` | ${emp.department}` : ""}` : "",
-      ``,
-      `*📅 Week: ${selectedWeek.label} ${year}*`,
-      ``,
-    ].filter(Boolean);
+    ];
 
     selectedWeek.days.forEach((day, i) => {
-      const dowName = DAY_NAMES_FULL[(i + 1) % 7]; // Mon=idx0→dow1, Sun=idx6→dow0
+      const dowName = DAY_NAMES[(i + 1) % 7]; // i=0→Mon, i=6→Sun
       if (day === null) return;
       const val = getCell(emp.id, day);
       const shift = SHIFTS.find(s => s.code === val);
-      const emoji = val ? (SHIFT_EMOJI[val] || "📌") : "⬜";
-      const label = shift ? shift.label : "—";
-      const dateStr = `${String(day).padStart(2, "0")} ${MONTHS[month - 1].slice(0, 3)}`;
-      lines.push(`*${dowName} ${dateStr}:* ${emoji} ${val || "—"}${val ? ` (${label})` : ""}`);
+      const label = shift ? fmtLabel(shift.label) : "—";
+      lines.push(`${dowName} ${day} ${FULL_MONTHS[month - 1]} - ${val || "—"} (${label})`);
     });
 
-    lines.push("");
-    lines.push(`_Powered by DJ Hospitality Management_`);
     return lines.join("\n");
   };
 
