@@ -6,7 +6,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { Loader2, Save, Download, CalendarDays, Users, RefreshCw, LayoutGrid, Table2, ChevronDown, ChevronUp, Printer } from "lucide-react";
+import { Loader2, Save, Download, CalendarDays, Users, RefreshCw, LayoutGrid, Table2, ChevronDown, ChevronUp, Printer, Share2 } from "lucide-react";
 
 const MONTHS = ["January","February","March","April","May","June","July","August","September","October","November","December"];
 const WEEKDAYS = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
@@ -65,10 +65,47 @@ export default function ShiftDuty() {
   const [saving, setSaving] = useState(false);
   const [viewMode, setViewMode] = useState<"table" | "cards">("table");
   const [expandedCards, setExpandedCards] = useState<Record<number, boolean>>({});
+  const [selectedWeekIdx, setSelectedWeekIdx] = useState(0);
 
   const years = Array.from({ length: 5 }, (_, i) => now.getFullYear() - 1 + i);
   const daysInMonth = getDaysInMonth(month, year);
   const calendarGrid = useMemo(() => buildCalendarGrid(month, year, daysInMonth), [month, year, daysInMonth]);
+
+  // ── Mon-to-Sun weeks that overlap with the selected month ─────────────────
+  const weeks = useMemo(() => {
+    const result: { label: string; days: (number | null)[] }[] = [];
+    const firstOfMonth = new Date(year, month - 1, 1);
+    const lastOfMonth = new Date(year, month - 1, daysInMonth);
+    // Find the Monday on or before the 1st
+    const startDow = firstOfMonth.getDay(); // 0=Sun
+    const daysToMon = startDow === 0 ? -6 : 1 - startDow;
+    const weekStart = new Date(firstOfMonth);
+    weekStart.setDate(weekStart.getDate() + daysToMon);
+
+    const FMT_DAY = (d: Date) => `${d.getDate()} ${MONTHS[d.getMonth()].slice(0, 3)}`;
+    while (weekStart <= lastOfMonth) {
+      const days: (number | null)[] = [];
+      let monLabel = "", sunLabel = "";
+      for (let i = 0; i < 7; i++) {
+        const d = new Date(weekStart);
+        d.setDate(d.getDate() + i);
+        const inMonth = d.getMonth() + 1 === month && d.getFullYear() === year;
+        days.push(inMonth ? d.getDate() : null);
+        if (i === 0) monLabel = FMT_DAY(d);
+        if (i === 6) sunLabel = FMT_DAY(d);
+      }
+      result.push({ label: `${monLabel} – ${sunLabel}`, days });
+      weekStart.setDate(weekStart.getDate() + 7);
+    }
+    return result;
+  }, [month, year, daysInMonth]);
+
+  // Reset week index when month/year changes
+  const selectedWeek = weeks[selectedWeekIdx] ?? weeks[0];
+
+  const SHIFT_EMOJI: Record<string, string> = {
+    A: "🌅", AA: "🌄", B: "🌤", BB: "⛅", C: "🌙", G: "🏢", O: "🔴",
+  };
 
   const { data: employees = [], isLoading: empLoading } = useQuery<Employee[]>({
     queryKey: ['/api/employees'],
@@ -124,6 +161,42 @@ export default function ShiftDuty() {
     if (saved) return saved;
     if (isAutoWeekOff(empId, day)) return "O";
     return "";
+  };
+
+  const buildWhatsAppMessage = (emp: Employee): string => {
+    if (!selectedWeek) return "";
+    const DAY_NAMES_FULL = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+    const lines: string[] = [
+      `*📋 Weekly Shift Duty Chart*`,
+      `*DJ Hospitality & Facility Management*`,
+      ``,
+      `👤 *${emp.name}*${emp.employeeCode ? ` (${emp.employeeCode})` : ""}`,
+      emp.clientName ? `🏢 ${emp.clientName}${emp.department ? ` | ${emp.department}` : ""}` : "",
+      ``,
+      `*📅 Week: ${selectedWeek.label} ${year}*`,
+      ``,
+    ].filter(Boolean);
+
+    selectedWeek.days.forEach((day, i) => {
+      const dowName = DAY_NAMES_FULL[(i + 1) % 7]; // Mon=idx0→dow1, Sun=idx6→dow0
+      if (day === null) return;
+      const val = getCell(emp.id, day);
+      const shift = SHIFTS.find(s => s.code === val);
+      const emoji = val ? (SHIFT_EMOJI[val] || "📌") : "⬜";
+      const label = shift ? shift.label : "—";
+      const dateStr = `${String(day).padStart(2, "0")} ${MONTHS[month - 1].slice(0, 3)}`;
+      lines.push(`*${dowName} ${dateStr}:* ${emoji} ${val || "—"}${val ? ` (${label})` : ""}`);
+    });
+
+    lines.push("");
+    lines.push(`_Powered by DJ Hospitality Management_`);
+    return lines.join("\n");
+  };
+
+  const shareOnWhatsApp = (emp: Employee) => {
+    const text = buildWhatsAppMessage(emp);
+    const encoded = encodeURIComponent(text);
+    window.open(`https://wa.me/?text=${encoded}`, "_blank");
   };
 
   const cycleShift = (empId: number, day: number) => {
@@ -530,6 +603,23 @@ export default function ShiftDuty() {
           <span className="text-[10px] text-muted-foreground hidden sm:inline ml-1">Tap/click cell to cycle</span>
         </div>
 
+        {/* ── WhatsApp Weekly Share bar ── */}
+        <div className="flex flex-wrap items-center gap-2 bg-green-50 border border-green-200 rounded-lg px-3 py-2">
+          <Share2 className="w-3.5 h-3.5 text-green-600 shrink-0" />
+          <span className="text-xs font-semibold text-green-700">WhatsApp Weekly Share</span>
+          <Select value={String(selectedWeekIdx)} onValueChange={v => setSelectedWeekIdx(Number(v))}>
+            <SelectTrigger className="w-48 sm:w-56 text-xs h-7 border-green-300 bg-white" data-testid="select-week">
+              <SelectValue placeholder="Select week" />
+            </SelectTrigger>
+            <SelectContent>
+              {weeks.map((w, i) => (
+                <SelectItem key={i} value={String(i)}>W{i + 1}: {w.label}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <span className="text-[10px] text-green-600">Click 📤 next to an employee to share their week schedule</span>
+        </div>
+
         {/* ── Summary totals ── */}
         <div className="flex flex-wrap gap-1.5">
           {SHIFTS.filter(s => s.code).map(s => (
@@ -589,6 +679,14 @@ export default function ShiftDuty() {
                           <span key={k} className="text-[10px] px-1 rounded font-semibold" style={{ background: shiftStyle(k).bg, color: shiftStyle(k).textColor }}>{k}:{v}</span>
                         ))}
                       </div>
+                      <button
+                        onClick={e => { e.stopPropagation(); shareOnWhatsApp(emp); }}
+                        className="flex items-center gap-1 px-2 py-1 rounded text-xs font-semibold bg-green-500 hover:bg-green-600 text-white shrink-0"
+                        title={`Share ${emp.name}'s weekly schedule on WhatsApp`}
+                        data-testid={`button-whatsapp-${emp.id}`}
+                      >
+                        <Share2 className="w-3 h-3" /> 📤
+                      </button>
                       {isOpen ? <ChevronUp className="w-4 h-4 text-slate-400 shrink-0" /> : <ChevronDown className="w-4 h-4 text-slate-400 shrink-0" />}
                     </div>
                   </button>
@@ -841,8 +939,18 @@ export default function ShiftDuty() {
                         <td className="border border-slate-200 px-1 py-1 text-center text-slate-500 sticky left-0 z-10 bg-inherit">{idx + 1}</td>
                         <td className="border border-slate-200 px-1.5 py-1 font-mono sticky left-8 z-10 bg-inherit">{emp.employeeCode || '—'}</td>
                         <td className="border border-slate-200 px-1.5 py-1 font-medium sticky left-[112px] z-10 bg-inherit whitespace-nowrap">
-                          <span>{emp.name}</span>
-                          {emp.weeklyOffDay && <span className="ml-1 text-[9px] text-slate-400 font-normal">({emp.weeklyOffDay.slice(0,3)} off)</span>}
+                          <div className="flex items-center gap-1.5">
+                            <span>{emp.name}</span>
+                            {emp.weeklyOffDay && <span className="text-[9px] text-slate-400 font-normal">({emp.weeklyOffDay.slice(0,3)} off)</span>}
+                            <button
+                              onClick={() => shareOnWhatsApp(emp)}
+                              className="flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[10px] font-bold bg-green-500 hover:bg-green-600 text-white shrink-0"
+                              title={`Share ${emp.name}'s weekly WhatsApp schedule`}
+                              data-testid={`button-wa-${emp.id}`}
+                            >
+                              <Share2 className="w-2.5 h-2.5" />
+                            </button>
+                          </div>
                         </td>
                         <td className="border border-slate-200 px-1.5 py-1 text-slate-600 dark:text-slate-400 whitespace-nowrap">{emp.department || '—'}</td>
                         {multiClient && <td className="border border-slate-200 px-1.5 py-1 text-slate-600 dark:text-slate-400 whitespace-nowrap text-[10px]">{emp.clientName || '—'}</td>}
