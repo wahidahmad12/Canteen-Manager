@@ -1,8 +1,11 @@
 import { useParams, Link } from "wouter";
 import { useQuery } from "@tanstack/react-query";
-import { Loader2, Printer, ArrowLeft } from "lucide-react";
+import { useRef, useState } from "react";
+import { Loader2, Printer, ArrowLeft, Image, Share2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { useToast } from "@/hooks/use-toast";
 import logoPath from "@assets/logo1_1771660912341.png";
+import html2canvas from "html2canvas";
 
 const MONTHS = [
   "January", "February", "March", "April", "May", "June",
@@ -115,6 +118,9 @@ interface AttendanceRecord {
 export default function WageSlip() {
   const params = useParams<{ id: string }>();
   const id = Number(params.id);
+  const slipRef = useRef<HTMLDivElement>(null);
+  const [capturing, setCapturing] = useState(false);
+  const { toast } = useToast();
 
   const { data: salary, isLoading: salaryLoading } = useQuery<SalaryRecord>({
     queryKey: ["/api/salary", id],
@@ -220,6 +226,68 @@ export default function WageSlip() {
     setTimeout(() => { document.title = prevTitle; }, 500);
   };
 
+  const slipFileName = `WageSlip-${employee?.name || "Employee"}-${MONTHS[salary.month - 1]}-${salary.year}.png`;
+
+  const captureSlip = async (): Promise<Blob | null> => {
+    if (!slipRef.current) return null;
+    const canvas = await html2canvas(slipRef.current, {
+      scale: 2,
+      useCORS: true,
+      backgroundColor: "#ffffff",
+      logging: false,
+    });
+    return new Promise(resolve => canvas.toBlob(blob => resolve(blob), "image/png"));
+  };
+
+  const handleSaveImage = async () => {
+    setCapturing(true);
+    try {
+      const blob = await captureSlip();
+      if (!blob) return;
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = slipFileName;
+      a.click();
+      URL.revokeObjectURL(url);
+      toast({ title: "Image saved", description: "Wage slip saved as PNG image." });
+    } catch {
+      toast({ title: "Failed", description: "Could not capture the slip image.", variant: "destructive" });
+    } finally {
+      setCapturing(false);
+    }
+  };
+
+  const handleShareWhatsApp = async () => {
+    setCapturing(true);
+    try {
+      const blob = await captureSlip();
+      if (!blob) return;
+      const file = new File([blob], slipFileName, { type: "image/png" });
+      if (navigator.share && navigator.canShare && navigator.canShare({ files: [file] })) {
+        await navigator.share({
+          files: [file],
+          title: `Wage Slip – ${employee?.name || "Employee"}`,
+          text: `Wage Slip for ${MONTHS[salary.month - 1]} ${salary.year}\nNet Pay: ₹${Number(salary.netPay).toLocaleString("en-IN")}`,
+        });
+      } else {
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = slipFileName;
+        a.click();
+        URL.revokeObjectURL(url);
+        toast({ title: "Image downloaded", description: "Open WhatsApp and attach this saved image to share it." });
+      }
+    } catch (err: any) {
+      if (err?.name !== "AbortError") {
+        toast({ title: "Share failed", description: "Could not share the image.", variant: "destructive" });
+      }
+    } finally {
+      setCapturing(false);
+    }
+  };
+
   const C = {
     headerGrad: "linear-gradient(135deg, #1a237e 0%, #283593 30%, #3949ab 60%, #5c6bc0 100%)",
     periodGrad: "linear-gradient(135deg, #0d47a1 0%, #1565c0 50%, #1976d2 100%)",
@@ -258,20 +326,35 @@ export default function WageSlip() {
 
       <div className="min-h-screen bg-muted/20 p-4 sm:p-8">
         <div className="max-w-4xl mx-auto">
-          <div className="flex items-center justify-between mb-6 no-print">
+          <div className="flex flex-wrap items-center justify-between gap-2 mb-6 no-print">
             <Link href="/salary">
               <Button variant="outline" data-testid="button-back-salary">
                 <ArrowLeft className="w-4 h-4 mr-2" />
                 Back to Salary Register
               </Button>
             </Link>
-            <Button onClick={handlePrint} data-testid="button-print-slip">
-              <Printer className="w-4 h-4 mr-2" />
-              Print Wage Slip
-            </Button>
+            <div className="flex flex-wrap gap-2">
+              <Button variant="outline" onClick={handleSaveImage} disabled={capturing} data-testid="button-save-image">
+                {capturing ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Image className="w-4 h-4 mr-2" />}
+                Save as Image
+              </Button>
+              <Button
+                onClick={handleShareWhatsApp}
+                disabled={capturing}
+                className="bg-green-600 hover:bg-green-700 text-white"
+                data-testid="button-share-whatsapp"
+              >
+                {capturing ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Share2 className="w-4 h-4 mr-2" />}
+                Share on WhatsApp
+              </Button>
+              <Button onClick={handlePrint} data-testid="button-print-slip">
+                <Printer className="w-4 h-4 mr-2" />
+                Print
+              </Button>
+            </div>
           </div>
 
-          <div className="wage-slip-container bg-white dark:bg-card border-2 border-indigo-400 dark:border-indigo-700 shadow-2xl rounded-xl overflow-hidden">
+          <div ref={slipRef} className="wage-slip-container bg-white border-2 border-indigo-400 shadow-2xl rounded-xl overflow-hidden" style={{ backgroundColor: "#ffffff" }}>
             <table className="ws-table">
               <tbody>
                 <tr>
