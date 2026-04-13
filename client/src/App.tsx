@@ -43,6 +43,7 @@ import DailyPnlPage from "./pages/daily-pnl";
 import EmployeeDashboard from "./pages/employee-dashboard";
 import Login from "./pages/login";
 import { useCurrentUser } from "./hooks/use-reports";
+import { LanguageProvider } from "./contexts/language-context";
 import logoImg from "@assets/logo1_1771660912341.png";
 
 function SplashScreen() {
@@ -166,10 +167,12 @@ function AppContent() {
 function App() {
   return (
     <QueryClientProvider client={queryClient}>
-      <TooltipProvider>
-        <Toaster />
-        <AppContent />
-      </TooltipProvider>
+      <LanguageProvider>
+        <TooltipProvider>
+          <Toaster />
+          <AppContent />
+        </TooltipProvider>
+      </LanguageProvider>
     </QueryClientProvider>
   );
 }

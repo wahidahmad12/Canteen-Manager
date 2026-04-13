@@ -1,9 +1,11 @@
 import { useState, useEffect, useRef } from 'react';
 import { Link, useLocation } from 'wouter';
-import { LayoutDashboard, FilePlus, Settings, Calculator, ClipboardList, UtensilsCrossed, ShoppingCart, LogOut, User, Menu, X, Users, CalendarDays, Wallet, FileText, BookOpen, HardHat, ChevronDown, ChevronRight, IndianRupee, Smartphone, Download, Share, MoreHorizontal, Receipt, BarChart3 } from 'lucide-react';
+import { LayoutDashboard, FilePlus, Settings, Calculator, ClipboardList, UtensilsCrossed, ShoppingCart, LogOut, User, Menu, X, Users, CalendarDays, Wallet, FileText, BookOpen, HardHat, ChevronDown, ChevronRight, IndianRupee, Smartphone, Download, Share, MoreHorizontal, Receipt, BarChart3, Languages } from 'lucide-react';
 import logoImg from '@assets/logo1_1771660912341.png';
 import { useCurrentUser, useLogout } from '@/hooks/use-reports';
 import { Button } from '@/components/ui/button';
+import { useLang } from '@/contexts/language-context';
+import type { Lang } from '@/lib/translations';
 
 const labourWorksPaths = ['/employee-master', '/muster-roll', '/salary', '/skill-wage-rates', '/shift-duty', '/registers', '/form-xiii', '/form-vi-a', '/bonus-return', '/half-yearly-return', '/leave-with-wages', '/epfo-esic', '/letterhead', '/ptax-report'];
 
@@ -11,8 +13,10 @@ export function Layout({ children }: { children: React.ReactNode }) {
   const [location] = useLocation();
   const { data: user } = useCurrentUser();
   const logoutMutation = useLogout();
+  const { tr, lang, setLang } = useLang();
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [labourOpen, setLabourOpen] = useState(() => labourWorksPaths.some(p => location.startsWith(p)));
+  const [langMenuOpen, setLangMenuOpen] = useState(false);
 
   const perms = user?.role === 'admin' ? ['expense', 'cashseal', 'inventory', 'menu', 'purchase', 'labour', 'salesinvoice'] : (user?.permissions || []);
 
@@ -71,36 +75,36 @@ export function Layout({ children }: { children: React.ReactNode }) {
   }, [location]);
 
   const mainNavItems = [
-    { href: '/', label: 'Dashboard', icon: LayoutDashboard, perm: null },
-    { href: '/new', label: 'Daily Cash Expance', icon: FilePlus, perm: 'expense' },
-    { href: '/cash-seal', label: 'Daily Cash Seal', icon: Calculator, perm: 'cashseal' },
-    { href: '/inventory', label: 'Daily Inventory', icon: ClipboardList, perm: 'inventory' },
-    { href: '/menu', label: 'Menu Manager', icon: UtensilsCrossed, perm: 'menu' },
-    { href: '/purchase-request', label: 'Purchase Request', icon: ShoppingCart, perm: 'purchase' },
-    { href: '/purchase-invoice', label: 'Purchase Invoices', icon: Receipt, perm: 'purchase' },
-    { href: '/sales-invoice', label: 'Sales Invoice Ledger', icon: FileText, perm: 'salesinvoice' },
-    { href: '/daily-pnl', label: 'Daily P&L', icon: BarChart3, perm: null },
+    { href: '/', label: tr('dashboard'), icon: LayoutDashboard, perm: null },
+    { href: '/new', label: tr('dailyCashExpense'), icon: FilePlus, perm: 'expense' },
+    { href: '/cash-seal', label: tr('dailyCashSeal'), icon: Calculator, perm: 'cashseal' },
+    { href: '/inventory', label: tr('dailyInventory'), icon: ClipboardList, perm: 'inventory' },
+    { href: '/menu', label: tr('menuManager'), icon: UtensilsCrossed, perm: 'menu' },
+    { href: '/purchase-request', label: tr('purchaseRequest'), icon: ShoppingCart, perm: 'purchase' },
+    { href: '/purchase-invoice', label: tr('purchaseInvoices'), icon: Receipt, perm: 'purchase' },
+    { href: '/sales-invoice', label: tr('salesInvoiceLedger'), icon: FileText, perm: 'salesinvoice' },
+    { href: '/daily-pnl', label: tr('dailyPnl'), icon: BarChart3, perm: null },
   ].filter(item => item.perm === null || perms.includes(item.perm));
 
   const labourSubItems = [
-    ...(user?.role === 'admin' ? [{ href: '/employee-master', label: 'Employee Master', icon: Users }] : []),
-    { href: '/muster-roll', label: 'Muster Roll', icon: CalendarDays },
-    { href: '/salary', label: 'Salary Register', icon: Wallet },
-    ...(user?.role === 'admin' ? [{ href: '/skill-wage-rates', label: 'Base Wage Rates', icon: IndianRupee }] : []),
-    ...(user?.role === 'admin' ? [{ href: '/shift-duty', label: 'Shift Duty Chart', icon: CalendarDays }] : []),
-    { href: '/registers', label: 'Registers', icon: BookOpen },
-    { href: '/form-xiii', label: 'Workmen Register', icon: FileText },
-    { href: '/form-vi-a', label: 'Form VI-A (Notice)', icon: FileText },
-    { href: '/bonus-return', label: 'Bonus Return', icon: FileText },
-    { href: '/half-yearly-return', label: 'Half-Yearly Return', icon: FileText },
-    { href: '/leave-with-wages', label: 'Leave With Wages', icon: FileText },
-    { href: '/epfo-esic', label: 'EPFO & ESIC Export', icon: FileText },
-    { href: '/ptax-report', label: 'P.Tax Report', icon: IndianRupee },
-    { href: '/letterhead', label: 'Letterhead Letters', icon: FileText },
+    ...(user?.role === 'admin' ? [{ href: '/employee-master', label: tr('employeeMaster'), icon: Users }] : []),
+    { href: '/muster-roll', label: tr('musterRoll'), icon: CalendarDays },
+    { href: '/salary', label: tr('salaryRegister'), icon: Wallet },
+    ...(user?.role === 'admin' ? [{ href: '/skill-wage-rates', label: tr('baseWageRates'), icon: IndianRupee }] : []),
+    ...(user?.role === 'admin' ? [{ href: '/shift-duty', label: tr('shiftDutyChart'), icon: CalendarDays }] : []),
+    { href: '/registers', label: tr('registers'), icon: BookOpen },
+    { href: '/form-xiii', label: tr('workmenRegister'), icon: FileText },
+    { href: '/form-vi-a', label: tr('formVIA'), icon: FileText },
+    { href: '/bonus-return', label: tr('bonusReturn'), icon: FileText },
+    { href: '/half-yearly-return', label: tr('halfYearlyReturn'), icon: FileText },
+    { href: '/leave-with-wages', label: tr('leaveWithWages'), icon: FileText },
+    { href: '/epfo-esic', label: tr('epfoEsic'), icon: FileText },
+    { href: '/ptax-report', label: tr('ptaxReport'), icon: IndianRupee },
+    { href: '/letterhead', label: tr('letterheadLetters'), icon: FileText },
   ];
 
   const bottomNavItems = [
-    ...(user?.role === 'admin' ? [{ href: '/admin', label: 'Admin', icon: Settings, perm: null }] : []),
+    ...(user?.role === 'admin' ? [{ href: '/admin', label: tr('admin'), icon: Settings, perm: null }] : []),
   ];
 
   const isLabourActive = labourWorksPaths.some(p => location.startsWith(p));
@@ -161,7 +165,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
           <img src={logoImg} alt="DJ Hospitality" className="w-7 h-7 rounded-lg object-cover ring-1 ring-white/20" />
           <div>
             <h1 className="font-bold text-sm leading-tight text-white">DJ Hospitality</h1>
-            <p className="text-[10px] text-teal-300/80 leading-tight">Canteen Management</p>
+            <p className="text-[10px] text-teal-300/80 leading-tight">{tr('canteenManagement')}</p>
           </div>
         </div>
         {user && (
@@ -193,7 +197,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
             <img src={logoImg} alt="DJ Hospitality" className="w-10 h-10 rounded-xl object-cover shadow-lg" />
             <div>
               <h1 className="font-bold text-lg leading-none">DJ Hospitality</h1>
-              <p className="text-xs text-muted-foreground mt-1">Canteen Management</p>
+              <p className="text-xs text-muted-foreground mt-1">{tr('canteenManagement')}</p>
             </div>
           </div>
           <Button
@@ -224,7 +228,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
               `}
             >
               <HardHat className="w-4 h-4" />
-              <span className="flex-1 text-left">Labour Works</span>
+              <span className="flex-1 text-left">{tr('labourWorks')}</span>
               {labourOpen
                 ? <ChevronDown className="w-4 h-4" />
                 : <ChevronRight className="w-4 h-4" />
@@ -243,14 +247,34 @@ export function Layout({ children }: { children: React.ReactNode }) {
         </nav>
 
         {user && (
-          <div className="p-4 border-t border-border">
-            <div className="flex items-center gap-2 px-4 py-2 mb-2">
+          <div className="p-4 border-t border-border space-y-2">
+            <div className="flex items-center gap-2 px-4 py-2">
               <User className="w-4 h-4 text-muted-foreground" />
               <div className="flex-1 min-w-0">
                 <p className="text-sm font-medium truncate">{user.displayName}</p>
                 <p className="text-xs text-muted-foreground truncate">{user.clientName || user.role}</p>
               </div>
             </div>
+
+            {/* Language switcher */}
+            <div className="flex items-center gap-1.5 px-4">
+              <Languages className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
+              {(["en", "hi", "bn"] as Lang[]).map(l => (
+                <button
+                  key={l}
+                  onClick={() => setLang(l)}
+                  data-testid={`button-lang-${l}`}
+                  className={`flex-1 text-xs py-1 rounded font-semibold transition-colors ${
+                    lang === l
+                      ? "bg-primary text-primary-foreground"
+                      : "bg-muted text-muted-foreground hover:bg-muted/80"
+                  }`}
+                >
+                  {l === "en" ? "EN" : l === "hi" ? "हिं" : "বাং"}
+                </button>
+              ))}
+            </div>
+
             <Button
               variant="ghost"
               className="w-full justify-start gap-3 px-4 text-muted-foreground hover:text-destructive"
@@ -259,7 +283,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
               data-testid="button-logout"
             >
               <LogOut className="w-4 h-4" />
-              Logout
+              {tr('logout')}
             </Button>
           </div>
         )}
@@ -277,19 +301,17 @@ export function Layout({ children }: { children: React.ReactNode }) {
                   <Smartphone className="w-6 h-6" />
                 </div>
                 <div className="flex-1 min-w-0">
-                  <h3 className="font-bold text-sm">Install DJ Hospitality App</h3>
+                  <h3 className="font-bold text-sm">{tr('installApp')}</h3>
                   <p className="text-xs text-blue-100 mt-0.5">
-                    {isIos
-                      ? 'Tap the Share button below, then "Add to Home Screen"'
-                      : 'Install this app on your phone for quick access'}
+                    {isIos ? tr('installIosDesc') : tr('installDesc')}
                   </p>
                 </div>
               </div>
               {isIos ? (
                 <div className="mt-3 flex items-center justify-center gap-2 bg-white/10 rounded-lg p-2 text-xs">
-                  <span>Tap</span>
+                  <span>{tr('installTapShare')}</span>
                   <Share className="w-4 h-4" />
-                  <span>then "Add to Home Screen"</span>
+                  <span>{tr('installThenAdd')}</span>
                 </div>
               ) : (
                 <Button
@@ -298,7 +320,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
                   size="sm"
                   data-testid="button-install-app"
                 >
-                  <Download className="w-4 h-4 mr-2" /> Install App
+                  <Download className="w-4 h-4 mr-2" /> {tr('installBtn')}
                 </Button>
               )}
             </div>
@@ -318,7 +340,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
               className={`flex-1 flex flex-col items-center justify-center gap-0.5 transition-colors ${location === '/' ? 'text-teal-400' : 'text-slate-400 hover:text-slate-200'}`}
               data-testid="bottom-nav-dashboard">
               <LayoutDashboard className="w-5 h-5" />
-              <span className="text-[10px] font-medium">Home</span>
+              <span className="text-[10px] font-medium">{tr('home')}</span>
             </Link>
 
             {/* Expense — if permitted */}
@@ -327,7 +349,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
                 className={`flex-1 flex flex-col items-center justify-center gap-0.5 transition-colors ${location === '/new' || location.startsWith('/report') ? 'text-teal-400' : 'text-slate-400 hover:text-slate-200'}`}
                 data-testid="bottom-nav-expense">
                 <FilePlus className="w-5 h-5" />
-                <span className="text-[10px] font-medium">Expense</span>
+                <span className="text-[10px] font-medium">{tr('expense')}</span>
               </Link>
             )}
 
@@ -337,7 +359,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
                 className={`flex-1 flex flex-col items-center justify-center gap-0.5 transition-colors ${location.startsWith('/cash-seal') ? 'text-teal-400' : 'text-slate-400 hover:text-slate-200'}`}
                 data-testid="bottom-nav-cashseal">
                 <Calculator className="w-5 h-5" />
-                <span className="text-[10px] font-medium">Cash Seal</span>
+                <span className="text-[10px] font-medium">{tr('cashSeal')}</span>
               </Link>
             )}
 
@@ -347,7 +369,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
                 className={`flex-1 flex flex-col items-center justify-center gap-0.5 transition-colors ${location.startsWith('/inventory') ? 'text-teal-400' : 'text-slate-400 hover:text-slate-200'}`}
                 data-testid="bottom-nav-inventory">
                 <ClipboardList className="w-5 h-5" />
-                <span className="text-[10px] font-medium">Inventory</span>
+                <span className="text-[10px] font-medium">{tr('inventory')}</span>
               </Link>
             )}
 
@@ -356,7 +378,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
               className="flex-1 flex flex-col items-center justify-center gap-0.5 text-slate-400 hover:text-slate-200 transition-colors"
               data-testid="bottom-nav-more">
               <MoreHorizontal className="w-5 h-5" />
-              <span className="text-[10px] font-medium">More</span>
+              <span className="text-[10px] font-medium">{tr('more')}</span>
             </button>
           </div>
         </nav>
