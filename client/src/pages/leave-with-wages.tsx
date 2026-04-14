@@ -10,7 +10,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
 import { useClientNames, useCurrentUser } from "@/hooks/use-reports";
-import { ArrowLeft, Plus, Printer, Trash2, Pencil, Loader2, FileText, Building2, Users, RefreshCw } from "lucide-react";
+import { ArrowLeft, Plus, Printer, Trash2, Pencil, Loader2, FileText, Building2, Users, RefreshCw, FileSpreadsheet, Download } from "lucide-react";
 import { Link } from "wouter";
 import type { Employee, LeaveWithWages } from "@shared/schema";
 
@@ -202,6 +202,113 @@ export default function LeaveWithWagesPage() {
     }, 200);
   };
 
+  const handleExportExcel = async () => {
+    if (!selectedEmployee || leaveRecords.length === 0) {
+      toast({ title: "No records to export", variant: "destructive" });
+      return;
+    }
+    const ExcelJS = (await import("exceljs")).default;
+    const workbook = new ExcelJS.Workbook();
+    const ws = workbook.addWorksheet("Leave With Wages");
+
+    ws.columns = [
+      { key: "year", width: 12 },
+      { key: "leaveEarned", width: 16 },
+      { key: "leaveBF", width: 16 },
+      { key: "layOff", width: 12 },
+      { key: "maternity", width: 14 },
+      { key: "col6Earned", width: 14 },
+      { key: "col6Enjoyed", width: 14 },
+      { key: "others", width: 12 },
+      { key: "daysWorked", width: 16 },
+      { key: "allowedDate", width: 18 },
+      { key: "allowedDays", width: 14 },
+      { key: "rateRs", width: 12 },
+      { key: "rateP", width: 10 },
+      { key: "amtRs", width: 14 },
+      { key: "amtP", width: 10 },
+      { key: "paymentDate", width: 16 },
+      { key: "remarks", width: 20 },
+    ];
+
+    const titleRow = ws.addRow(["Register of Leave With Wages — Form No. 15"]);
+    titleRow.getCell(1).font = { bold: true, size: 14 };
+    ws.mergeCells("A1:Q1");
+    titleRow.alignment = { horizontal: "center" };
+
+    const empRow = ws.addRow([`Employee: ${selectedEmployee.name} (${selectedEmployee.employeeCode || ""})   Department: ${selectedEmployee.department || "Canteen"}   Joining: ${selectedEmployee.joiningDate ? new Date(selectedEmployee.joiningDate).toLocaleDateString("en-IN") : ""}`]);
+    empRow.getCell(1).font = { size: 10 };
+    ws.mergeCells("A2:Q2");
+
+    ws.addRow([]);
+
+    const headers = [
+      "Calendar Year", "Leave Earned (Col 2)", "Leave B/F (Col 3)",
+      "Lay Off (Col 4)", "Maternity (Col 5)", "Leave Earned (Col 6)", "Leave Enjoyed (Col 6)",
+      "Others (Col 7)", "Days Worked (Col 8)", "Leave Allowed Date (Col 9)", "Days Allowed (Col 9)",
+      "Rate Rs. (Col 10)", "Rate P.", "Amount Rs. (Col 11)", "Amount P.",
+      "Date of Payment (Col 12)", "Remarks (Col 13)",
+    ];
+    const hRow = ws.addRow(headers);
+    hRow.eachCell((cell) => {
+      cell.font = { bold: true, size: 9, color: { argb: "FFFFFFFF" } };
+      cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FF0F766E" } };
+      cell.border = { top: { style: "thin" }, bottom: { style: "thin" }, left: { style: "thin" }, right: { style: "thin" } };
+      cell.alignment = { horizontal: "center", wrapText: true };
+    });
+    hRow.height = 36;
+
+    const v = (val: string | null | undefined, asNum = false) => {
+      if (!val || val === "0" || val === "0.0") return asNum ? 0 : "";
+      return asNum ? Number(val) : val;
+    };
+
+    leaveRecords
+      .sort((a, b) => a.calendarYear - b.calendarYear)
+      .forEach((rec, idx) => {
+        const r = ws.addRow([
+          rec.calendarYear,
+          Math.floor(Number(rec.daysLeaveEarned || 0)) || "",
+          Math.floor(Number(rec.daysLeaveBroughtForward || 0)) || "",
+          v(rec.layOffDays), v(rec.maternityLeaveDays),
+          Math.floor(Number(rec.leaveEarned || 0)) || "",
+          v(rec.leaveEnjoyed),
+          v(rec.otherAbsenceDays), v(rec.actualDaysWorked),
+          rec.leaveAllowedDate || "", rec.leaveAllowedDays || "",
+          v(rec.rateOfWagesRs, true), v(rec.rateOfWagesP, true),
+          v(rec.amountOfWagesRs, true), v(rec.amountOfWagesP, true),
+          rec.dateOfPayment || "", rec.remarks || "",
+        ]);
+        r.eachCell({ includeEmpty: true }, (cell) => {
+          cell.border = { top: { style: "thin" }, bottom: { style: "thin" }, left: { style: "thin" }, right: { style: "thin" } };
+          cell.font = { size: 9 };
+        });
+        if (idx % 2 === 1) {
+          r.eachCell({ includeEmpty: true }, (cell) => {
+            cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFF0FDFA" } };
+          });
+        }
+      });
+
+    const totalAmt = leaveRecords.reduce((s, r) => s + Number(r.amountOfWagesRs || 0), 0);
+    const totalEarned = leaveRecords.reduce((s, r) => s + Number(r.daysLeaveEarned || 0), 0);
+    const totalWorked = leaveRecords.reduce((s, r) => s + Number(r.actualDaysWorked || 0), 0);
+    const totRow = ws.addRow(["TOTAL", totalEarned.toFixed(1), "", "", "", "", "", "", totalWorked.toFixed(1), "", "", "", "", totalAmt, "", "", ""]);
+    totRow.eachCell({ includeEmpty: true }, (cell) => {
+      cell.font = { bold: true, size: 9 };
+      cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFFEF08A" } };
+      cell.border = { top: { style: "thin" }, bottom: { style: "thin" }, left: { style: "thin" }, right: { style: "thin" } };
+    });
+
+    const buffer = await workbook.xlsx.writeBuffer();
+    const blob = new Blob([buffer], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
+    const link = document.createElement("a");
+    link.download = `LeaveWithWages_${selectedEmployee.name.replace(/\s+/g, "_")}.xlsx`;
+    link.href = URL.createObjectURL(blob);
+    link.click();
+    URL.revokeObjectURL(link.href);
+  };
+
   const currentYear = new Date().getFullYear();
   const displayYears: number[] = [];
   if (leaveRecords.length > 0) {
@@ -235,6 +342,16 @@ export default function LeaveWithWagesPage() {
           </div>
           {selectedEmployee && leaveRecords.length >= 0 && (
             <div className="flex flex-wrap gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleExportExcel}
+                disabled={leaveRecords.length === 0}
+                className="border-teal-300 text-teal-700 hover:bg-teal-50 dark:border-teal-700 dark:text-teal-400"
+                data-testid="button-save-excel"
+              >
+                <Download className="w-4 h-4 mr-1" /> Save Excel
+              </Button>
               <Button variant="outline" size="sm" onClick={handlePrint} data-testid="button-print">
                 <Printer className="w-4 h-4 mr-1" /> Print
               </Button>
