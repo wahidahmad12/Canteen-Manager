@@ -147,6 +147,7 @@ export function DateEntryDashboard({ year }: { year: number }) {
   const hulTecNight = sum(hulTec, 'nightSnacks');
   const hulExecSnacks = sum(hulExec, 'snacks');
   const hulExecBiscuit = sum(hulExec, 'biscuit');
+  const hulExecSOB = sum(hulExec, 'shiftOfficerBreakfast');
 
   // Chart data
   const ublDateChart = buildMonthChart(ublDate, ['breakfast','lunch','dinner','tea']);
@@ -156,7 +157,7 @@ export function DateEntryDashboard({ year }: { year: number }) {
   const unichLunchChart = buildMonthChart(unichEmLunch, ['lunch','dinner']);
   const hulKpfChart = buildMonthChart(hulKpf, ['breakfast','lunch','eveningSnacks','nightSnacks']);
   const hulTecChart = buildMonthChart(hulTec, ['breakfast','lunch','eveningSnacks','nightSnacks']);
-  const hulExecChart = buildMonthChart(hulExec, ['snacks','biscuit','chips','coldDrinkWater']);
+  const hulExecChart = buildMonthChart(hulExec, ['snacks','biscuit','chips','coldDrinkWater','shiftOfficerBreakfast']);
 
   // Combined HUL monthly (KPF+TEC combined)
   const hulCombinedChart = MONTHS_SHORT.map((name, i) => {
@@ -330,6 +331,11 @@ export function DateEntryDashboard({ year }: { year: number }) {
           <div className="text-lg font-bold text-amber-800">{hulExecBiscuit.toLocaleString()}</div>
           <div className="text-xs text-amber-600 mt-0.5">Biscuit packs</div>
         </div>
+        <div className="border rounded-lg p-3 bg-orange-50 dark:bg-orange-900/20">
+          <div className="text-xs font-semibold text-orange-700 mb-1">SO Breakfast</div>
+          <div className="text-lg font-bold text-orange-800">{hulExecSOB.toLocaleString()}</div>
+          <div className="text-xs text-orange-600 mt-0.5">Shift Officer Bfast</div>
+        </div>
       </div>
 
       {/* HUL Combined Overview */}
@@ -380,7 +386,7 @@ export function DateEntryDashboard({ year }: { year: number }) {
         </ChartCard>
       </div>
 
-      <ChartCard title="HUL KPF Exec Snacks — Monthly (Snacks / Biscuit / Chips / Cold Drink & Water)">
+      <ChartCard title="HUL KPF Exec Snacks — Monthly (Snacks / Biscuit / Chips / Cold Drink & Water / SO Breakfast)">
         <ResponsiveContainer width="100%" height={CHART_H}>
           <BarChart data={hulExecChart} margin={{ top: 5, right: 10, left: -10, bottom: 5 }}>
             <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
@@ -392,6 +398,7 @@ export function DateEntryDashboard({ year }: { year: number }) {
             <Bar dataKey="biscuit" name="Biscuit" fill={COLORS.biscuit} radius={[2,2,0,0]} />
             <Bar dataKey="chips" name="Chips" fill={COLORS.chips} radius={[2,2,0,0]} />
             <Bar dataKey="coldDrinkWater" name="Cold Drink & Water" fill={COLORS.coldDrinkWater} radius={[2,2,0,0]} />
+            <Bar dataKey="shiftOfficerBreakfast" name="SO Breakfast" fill="#ea580c" radius={[2,2,0,0]} />
           </BarChart>
         </ResponsiveContainer>
       </ChartCard>

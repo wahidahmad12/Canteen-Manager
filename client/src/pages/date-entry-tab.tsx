@@ -5719,7 +5719,7 @@ function HulSummaryTab({ month, year }: { month: number; year: number }) {
         });
         const summHdr = wsSumm.addRow(summCols);
         summHdr.eachCell((c:any,ci:number)=>{
-          const argb = ci<=12?'FF1A6B2E':ci<=23?'FF1A3A8A':ci<=28?'FFB45309':'FF374151';
+          const argb = ci<=12?'FF1A6B2E':ci<=23?'FF1A3A8A':ci<=29?'FFB45309':'FF374151';
           c.font=wFont; c.fill=mkFill(argb); c.border=thin; c.alignment={horizontal:'center',wrapText:true};
         });
         wsSumm.getRow(3).height=32;
@@ -6122,11 +6122,12 @@ function HulSummaryTab({ month, year }: { month: number; year: number }) {
                       <th colSpan={2} style={{ ...thBr, fontSize:10, padding:'3px 5px' }}>Biscuit (×₹10)</th>
                       <th colSpan={2} style={{ ...thBr, fontSize:10, padding:'3px 5px' }}>Chips (×₹10)</th>
                       <th colSpan={2} style={{ ...thBr, fontSize:10, padding:'3px 5px' }}>Cold Drink & Water (×₹10)</th>
+                      <th colSpan={2} style={{ ...thBr, fontSize:10, padding:'3px 5px', background:'#92400e', color:'#fff' }}>Shift Officer Bfast (×₹40)</th>
                       <th style={{ background:'#374151', color:'#fff', border:'1px solid #333', padding:'3px 5px', textAlign:'center', fontWeight:'bold', fontSize:10 }}>Grand Total</th>
                     </tr>
                     <tr>
                       <th style={{ ...thBr, fontSize:9, padding:'2px 4px' }}></th>
-                      {['Qty','Amt','Qty','Amt','Qty','Amt','Qty','Amt'].map((h,i)=><th key={i} style={{ ...thBr, fontSize:9, padding:'2px 4px' }}>{h}</th>)}
+                      {['Qty','Amt','Qty','Amt','Qty','Amt','Qty','Amt','Qty','Amt'].map((h,i)=><th key={i} style={{ ...thBr, fontSize:9, padding:'2px 4px' }}>{h}</th>)}
                       <th style={{ background:'#374151', color:'#fff', border:'1px solid #333', fontSize:9, padding:'2px 4px' }}></th>
                     </tr>
                   </thead>
@@ -6134,14 +6135,14 @@ function HulSummaryTab({ month, year }: { month: number; year: number }) {
                     {visibleMonthsList.map((m, idx) => {
                       const mName = MONTHS[m-1];
                       const row = yrExec.find(r => r.month === m);
-                      const sn = row?.snacks||0, bi = row?.biscuit||0, ch = row?.chips||0, cw = row?.coldDrinkWater||0;
-                      const grand = sn*25+bi*10+ch*10+cw*10;
+                      const sn = row?.snacks||0, bi = row?.biscuit||0, ch = row?.chips||0, cw = row?.coldDrinkWater||0, sob = row?.shiftOfficerBreakfast||0;
+                      const grand = sn*25+bi*10+ch*10+cw*10+sob*40;
                       const bg = idx%2===0 ? '#f9fafb' : '#fff';
                       const fmt = (n: number) => n ? n.toLocaleString('en-IN') : '';
                       if (!row) return (
                         <tr key={m} style={{ background: bg }}>
                           <td style={{ border:'1px solid #ddd', padding:'2px 5px', fontWeight:500, textAlign:'left', fontSize:10 }}>{mName}</td>
-                          {Array.from({length:9},(_,i)=><td key={i} style={{ border:'1px solid #ddd', padding:'2px 4px', textAlign:'center', fontSize:10, color:'#ccc' }}>—</td>)}
+                          {Array.from({length:11},(_,i)=><td key={i} style={{ border:'1px solid #ddd', padding:'2px 4px', textAlign:'center', fontSize:10, color:'#ccc' }}>—</td>)}
                         </tr>
                       );
                       return (
@@ -6151,6 +6152,7 @@ function HulSummaryTab({ month, year }: { month: number; year: number }) {
                           <td style={tdC}>{bi||''}</td><td style={tdR}>{fmt(bi*10)}</td>
                           <td style={tdC}>{ch||''}</td><td style={tdR}>{fmt(ch*10)}</td>
                           <td style={tdC}>{cw||''}</td><td style={tdR}>{fmt(cw*10)}</td>
+                          <td style={tdC}>{sob||''}</td><td style={tdR}>{fmt(sob*40)}</td>
                           <td style={{ ...tdR, background:'#fff7ed', fontWeight:'bold' }}>{fmt(grand)}</td>
                         </tr>
                       );
@@ -6160,7 +6162,8 @@ function HulSummaryTab({ month, year }: { month: number; year: number }) {
                       const totBi = filtExec.reduce((s,r)=>s+(r.biscuit||0),0);
                       const totCh = filtExec.reduce((s,r)=>s+(r.chips||0),0);
                       const totCw = filtExec.reduce((s,r)=>s+(r.coldDrinkWater||0),0);
-                      const grand = totSn*25+totBi*10+totCh*10+totCw*10;
+                      const totSob = filtExec.reduce((s,r)=>s+(r.shiftOfficerBreakfast||0),0);
+                      const grand = totSn*25+totBi*10+totCh*10+totCw*10+totSob*40;
                       return (
                         <tr>
                           <td style={tdTot}>Grand Total</td>
@@ -6168,6 +6171,7 @@ function HulSummaryTab({ month, year }: { month: number; year: number }) {
                           <td style={tdTot}>{totBi||'—'}</td><td style={tdTot}>{totBi ? `₹${(totBi*10).toLocaleString('en-IN')}` : '—'}</td>
                           <td style={tdTot}>{totCh||'—'}</td><td style={tdTot}>{totCh ? `₹${(totCh*10).toLocaleString('en-IN')}` : '—'}</td>
                           <td style={tdTot}>{totCw||'—'}</td><td style={tdTot}>{totCw ? `₹${(totCw*10).toLocaleString('en-IN')}` : '—'}</td>
+                          <td style={tdTot}>{totSob||'—'}</td><td style={tdTot}>{totSob ? `₹${(totSob*40).toLocaleString('en-IN')}` : '—'}</td>
                           <td style={{ ...tdTot, background:'#fed7aa' }}>{grand ? `₹${grand.toLocaleString('en-IN')}` : '—'}</td>
                         </tr>
                       );
