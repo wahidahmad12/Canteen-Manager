@@ -122,12 +122,10 @@ export default function VendorReport() {
 
       const grand = Number(inv.grandTotal) || 0;
       const paid = getInvPaid(inv);
-      const balance = grand - paid;
       existing.totalBillAmount += Number(inv.totalAmount) || 0;
       existing.totalGst += Number(inv.totalGst) || 0;
       existing.grandTotal += grand;
       existing.totalPaid += paid;
-      existing.totalBalance += Math.max(0, balance);
       existing.invoiceCount++;
       if (paid >= grand && grand > 0) existing.paidCount++;
       else if (paid > 0) existing.partialCount++;
@@ -136,7 +134,15 @@ export default function VendorReport() {
       map.set(key, existing);
     });
 
-    return Array.from(map.values()).sort((a, b) =>
+    // Compute balance at the vendor/group level so cross-invoice overpayments
+    // are correctly offset (e.g. paying ₹60k against a ₹48k invoice should
+    // reduce the outstanding balance of other invoices for the same vendor).
+    const result = Array.from(map.values());
+    result.forEach(row => {
+      row.totalBalance = Math.max(0, row.grandTotal - row.totalPaid);
+    });
+
+    return result.sort((a, b) =>
       groupBy === "vendor"
         ? a.vendorName.localeCompare(b.vendorName)
         : a.clientName.localeCompare(b.clientName)
