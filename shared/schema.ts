@@ -997,6 +997,7 @@ export const hulKpfExecSnacks = mysqlTable("hul_kpf_exec_snacks", {
   biscuit: int("biscuit").default(0),
   chips: int("chips").default(0),
   coldDrinkWater: int("cold_drink_water").default(0),
+  shiftOfficerBreakfast: int("shift_officer_breakfast").default(0),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 });

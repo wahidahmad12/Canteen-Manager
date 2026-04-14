@@ -3085,15 +3085,16 @@ type ExecSnackRow = {
   biscuit: number;
   chips: number;
   coldDrinkWater: number;
+  shiftOfficerBreakfast: number;
   _dirty?: boolean;
 };
 
 function execSnackRowDefaults(dateStr: string, month: number, year: number): ExecSnackRow {
-  return { entryDate: dateStr, month, year, weekDay: getWeekDay(dateStr), snacks: 0, biscuit: 0, chips: 0, coldDrinkWater: 0, _dirty: true };
+  return { entryDate: dateStr, month, year, weekDay: getWeekDay(dateStr), snacks: 0, biscuit: 0, chips: 0, coldDrinkWater: 0, shiftOfficerBreakfast: 0, _dirty: true };
 }
 
-const EXEC_SNACK_FIELDS: (keyof ExecSnackRow)[] = ['snacks', 'biscuit', 'chips', 'coldDrinkWater'];
-const EXEC_SNACK_LABELS = ['Snacks', 'Biscuit', 'Chips', 'Cold Drink & Water'];
+const EXEC_SNACK_FIELDS: (keyof ExecSnackRow)[] = ['snacks', 'biscuit', 'chips', 'coldDrinkWater', 'shiftOfficerBreakfast'];
+const EXEC_SNACK_LABELS = ['Snacks', 'Biscuit', 'Chips', 'Cold Drink & Water', 'Shift Officer Breakfast'];
 
 function HulKpfExecSnacksTab({ month, year, loadKey = 0 }: { month: number; year: number; loadKey?: number }) {
   const qc = useQueryClient();
@@ -3209,7 +3210,7 @@ function HulKpfExecSnacksTab({ month, year, loadKey = 0 }: { month: number; year
   };
 
   const handleSaveAll = async () => {
-    const dirty = rows.filter(r => r._dirty && (r.snacks || r.biscuit || r.chips || r.coldDrinkWater));
+    const dirty = rows.filter(r => r._dirty && (r.snacks || r.biscuit || r.chips || r.coldDrinkWater || r.shiftOfficerBreakfast));
     if (!dirty.length) { toast({ title: 'Nothing to save' }); return; }
     try {
       for (const row of dirty) await saveRow(row);
@@ -3235,6 +3236,7 @@ function HulKpfExecSnacksTab({ month, year, loadKey = 0 }: { month: number; year
         'Date': 'entryDate', 'Days': 'weekDay',
         'Snacks': 'snacks', 'Biscuit': 'biscuit', 'Chips': 'chips',
         'Cold Drink & Water': 'coldDrinkWater', 'Cold Drink and Water': 'coldDrinkWater',
+        'Shift Officer Breakfast': 'shiftOfficerBreakfast',
       };
       // Find header row (first row with "Date")
       let headerRowIdx = 1;
@@ -3296,19 +3298,19 @@ function HulKpfExecSnacksTab({ month, year, loadKey = 0 }: { month: number; year
     const wb = new ExcelJS.Workbook();
     const ws = wb.addWorksheet('HUL KPF Exec Snacks');
     const thin = { top:{style:'thin' as const}, bottom:{style:'thin' as const}, left:{style:'thin' as const}, right:{style:'thin' as const} };
-    ws.mergeCells('A1:G1');
+    ws.mergeCells('A1:H1');
     const t1 = ws.getCell('A1'); t1.value = 'DJ Hospitality & Facility Management Pvt. Ltd.'; t1.font={bold:true,size:13}; t1.alignment={horizontal:'center'}; t1.border=thin;
-    ws.mergeCells('A2:G2');
+    ws.mergeCells('A2:H2');
     const t2 = ws.getCell('A2'); t2.value = `Number of Snacks Per Day For Executives & Managers - ${MONTHS[month-1]} - ${year}`; t2.font={bold:true,size:11}; t2.alignment={horizontal:'center'}; t2.border=thin;
-    const hdr = ws.addRow(['Sl.No.','Date','Days','Snacks','Biscuit','Chips','Cold Drink & Water']);
+    const hdr = ws.addRow(['Sl.No.','Date','Days','Snacks','Biscuit','Chips','Cold Drink & Water','Shift Officer Breakfast']);
     hdr.eachCell(cell => { cell.font={bold:true}; cell.border=thin; cell.alignment={horizontal:'center'}; });
-    ws.columns = [7,14,8,10,10,10,16].map(w=>({width:w}));
+    ws.columns = [7,14,8,10,10,10,16,20].map(w=>({width:w}));
     rows.forEach((r,i) => {
-      const row = ws.addRow([i+1, safeFormat(r.entryDate), r.weekDay, r.snacks||'', r.biscuit||'', r.chips||'', r.coldDrinkWater||'']);
+      const row = ws.addRow([i+1, safeFormat(r.entryDate), r.weekDay, r.snacks||'', r.biscuit||'', r.chips||'', r.coldDrinkWater||'', r.shiftOfficerBreakfast||'']);
       if (isSunday(r.entryDate)) row.eachCell(cell => { cell.fill={type:'pattern',pattern:'solid',fgColor:{argb:'FFFFB380'}}; });
       row.eachCell(cell => { cell.border=thin; cell.alignment={horizontal:'center'}; });
     });
-    const tot = ws.addRow(['','Total','', rows.reduce((s,r)=>s+(r.snacks||0),0), rows.reduce((s,r)=>s+(r.biscuit||0),0), rows.reduce((s,r)=>s+(r.chips||0),0), rows.reduce((s,r)=>s+(r.coldDrinkWater||0),0)]);
+    const tot = ws.addRow(['','Total','', rows.reduce((s,r)=>s+(r.snacks||0),0), rows.reduce((s,r)=>s+(r.biscuit||0),0), rows.reduce((s,r)=>s+(r.chips||0),0), rows.reduce((s,r)=>s+(r.coldDrinkWater||0),0), rows.reduce((s,r)=>s+(r.shiftOfficerBreakfast||0),0)]);
     tot.eachCell(cell => { cell.font={bold:true}; cell.fill={type:'pattern',pattern:'solid',fgColor:{argb:'FFF0F0F0'}}; cell.border=thin; cell.alignment={horizontal:'center'}; });
     const buf = await wb.xlsx.writeBuffer();
     const blob = new Blob([buf],{type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'});
@@ -3322,14 +3324,14 @@ function HulKpfExecSnacksTab({ month, year, loadKey = 0 }: { month: number; year
       <table>
         <thead>
           <tr>
-            <th>Sl.No.</th><th>Date</th><th>Days</th><th>Snacks</th><th>Biscuit</th><th>Chips</th><th>Cold Drink &amp; Water</th>
+            <th>Sl.No.</th><th>Date</th><th>Days</th><th>Snacks</th><th>Biscuit</th><th>Chips</th><th>Cold Drink &amp; Water</th><th>Shift Officer Breakfast</th>
           </tr>
         </thead>
         <tbody>
           {rows.map((row,i)=>(
             <tr key={i} className={isSunday(row.entryDate)?"sun-row":""}>
               <td>{i+1}</td><td>{safeFormat(row.entryDate)}</td><td>{row.weekDay}</td>
-              <td>{row.snacks||""}</td><td>{row.biscuit||""}</td><td>{row.chips||""}</td><td>{row.coldDrinkWater||""}</td>
+              <td>{row.snacks||""}</td><td>{row.biscuit||""}</td><td>{row.chips||""}</td><td>{row.coldDrinkWater||""}</td><td>{row.shiftOfficerBreakfast||""}</td>
             </tr>
           ))}
           <tr className="total-row">
@@ -3338,6 +3340,7 @@ function HulKpfExecSnacksTab({ month, year, loadKey = 0 }: { month: number; year
             <td>{rows.reduce((s,r)=>s+(r.biscuit||0),0)||""}</td>
             <td>{rows.reduce((s,r)=>s+(r.chips||0),0)||""}</td>
             <td>{rows.reduce((s,r)=>s+(r.coldDrinkWater||0),0)||""}</td>
+            <td>{rows.reduce((s,r)=>s+(r.shiftOfficerBreakfast||0),0)||""}</td>
           </tr>
         </tbody>
       </table>
@@ -3428,12 +3431,12 @@ function HulKpfExecSnacksTab({ month, year, loadKey = 0 }: { month: number; year
         <table style={{borderCollapse:'collapse', minWidth:620, fontFamily:'Arial,sans-serif', fontSize:12}}>
           <thead>
             <tr>
-              <th colSpan={7} style={{padding:'8px', border:'1px solid #ccc', textAlign:'center', fontSize:13, fontWeight:'bold', background:'#fff'}}>
+              <th colSpan={8} style={{padding:'8px', border:'1px solid #ccc', textAlign:'center', fontSize:13, fontWeight:'bold', background:'#fff'}}>
                 DJ Hospitality &amp; Facility Management Pvt. Ltd.
               </th>
             </tr>
             <tr>
-              <th colSpan={7} style={{padding:'5px', border:'1px solid #ccc', textAlign:'center', fontSize:11, background:'#fff'}}>
+              <th colSpan={8} style={{padding:'5px', border:'1px solid #ccc', textAlign:'center', fontSize:11, background:'#fff'}}>
                 Number of Snacks Per Day For Executives &amp; Managers - {MONTHS[month-1]} - {year}
               </th>
             </tr>
@@ -3445,6 +3448,7 @@ function HulKpfExecSnacksTab({ month, year, loadKey = 0 }: { month: number; year
               <th style={{padding:'5px', border:'1px solid #ccc', minWidth:72}}>Biscuit</th>
               <th style={{padding:'5px', border:'1px solid #ccc', minWidth:72}}>Chips</th>
               <th style={{padding:'5px', border:'1px solid #ccc', minWidth:110}}>Cold Drink &amp; Water</th>
+              <th style={{padding:'5px', border:'1px solid #ccc', minWidth:140, background:'#fffbeb'}}>Shift Officer Breakfast<br/><span style={{fontSize:10,fontWeight:'normal',color:'#92400e'}}>@₹40/head</span></th>
               <th style={{padding:'5px', border:'1px solid #ccc', width:50}}>Act</th>
             </tr>
           </thead>
@@ -3466,6 +3470,7 @@ function HulKpfExecSnacksTab({ month, year, loadKey = 0 }: { month: number; year
                   <td style={{border:'1px solid #ccc', padding:0, textAlign:'center'}}>{numFld('biscuit',1)}</td>
                   <td style={{border:'1px solid #ccc', padding:0, textAlign:'center'}}>{numFld('chips',2)}</td>
                   <td style={{border:'1px solid #ccc', padding:0, textAlign:'center'}}>{numFld('coldDrinkWater',3)}</td>
+                  <td style={{border:'1px solid #ccc', padding:0, textAlign:'center', background:'#fffbeb'}}>{numFld('shiftOfficerBreakfast',4)}</td>
                   <td style={{border:'1px solid #ccc', padding:'2px', textAlign:'center'}}>
                     <button onClick={()=>handleSaveRow(idx)} title="Save" style={{color:'#22c55e', marginRight:4, background:'none', border:'none', cursor:'pointer'}}><Save style={{width:13,height:13}}/></button>
                     <button onClick={()=>handleDeleteRow(idx)} title="Clear" style={{color:'#e53e3e', background:'none', border:'none', cursor:'pointer'}}><Trash2 style={{width:13,height:13}}/></button>
@@ -5444,7 +5449,7 @@ function UnichemSummaryTab({ month, year }: { month: number; year: number }) {
 // ============================================================
 
 type YearlyMealRow = { month: number; breakfast: number; lunch: number; eveningSnacks: number; nightSnacks: number; guestBreakfast: number; guestLunch: number; guestEveningSnacks: number; guestNightSnacks: number };
-type YearlyExecRow = { month: number; snacks: number; biscuit: number; chips: number; coldDrinkWater: number };
+type YearlyExecRow = { month: number; snacks: number; biscuit: number; chips: number; coldDrinkWater: number; shiftOfficerBreakfast: number };
 
 function HulSummaryTab({ month, year }: { month: number; year: number }) {
   const { toast } = useToast();
@@ -5519,7 +5524,7 @@ function HulSummaryTab({ month, year }: { month: number; year: number }) {
   const sum = (arr: any[], field: string) => arr.reduce((s, r) => s + (r[field] || 0), 0);
   const kpfT = { breakfast: sum(kpfRows,'breakfast'), lunch: sum(kpfRows,'lunch'), eveningSnacks: sum(kpfRows,'eveningSnacks'), nightSnacks: sum(kpfRows,'nightSnacks'), guestBreakfast: sum(kpfRows,'guestBreakfast'), guestLunch: sum(kpfRows,'guestLunch'), guestEveningSnacks: sum(kpfRows,'guestEveningSnacks'), guestNightSnacks: sum(kpfRows,'guestNightSnacks') };
   const tecT = { breakfast: sum(tecRows,'breakfast'), lunch: sum(tecRows,'lunch'), eveningSnacks: sum(tecRows,'eveningSnacks'), nightSnacks: sum(tecRows,'nightSnacks'), guestBreakfast: sum(tecRows,'guestBreakfast'), guestLunch: sum(tecRows,'guestLunch'), guestEveningSnacks: sum(tecRows,'guestEveningSnacks'), guestNightSnacks: sum(tecRows,'guestNightSnacks') };
-  const exT = { snacks: sum(execRows,'snacks'), biscuit: sum(execRows,'biscuit'), chips: sum(execRows,'chips'), coldDrinkWater: sum(execRows,'coldDrinkWater') };
+  const exT = { snacks: sum(execRows,'snacks'), biscuit: sum(execRows,'biscuit'), chips: sum(execRows,'chips'), coldDrinkWater: sum(execRows,'coldDrinkWater'), shiftOfficerBreakfast: sum(execRows,'shiftOfficerBreakfast') };
 
   const thG: React.CSSProperties = { background:'#1a6b2e', color:'#fff', border:'1px solid #333', padding:'4px 6px', textAlign:'center', fontWeight:'bold', fontSize:11 };
   const thB: React.CSSProperties = { background:'#1a3a8a', color:'#fff', border:'1px solid #333', padding:'4px 6px', textAlign:'center', fontWeight:'bold', fontSize:11 };
@@ -5545,6 +5550,7 @@ function HulSummaryTab({ month, year }: { month: number; year: number }) {
     { key: 'biscuit', name: 'Biscuit', rate: 10 },
     { key: 'chips', name: 'Chips', rate: 10 },
     { key: 'coldDrinkWater', name: 'Cold Drink & Water', rate: 10 },
+    { key: 'shiftOfficerBreakfast', name: 'Shift Officer Breakfast', rate: 40 },
   ];
 
   const fmtINR = (n: number) => n ? `₹${n.toLocaleString('en-IN')}` : '—';
@@ -5666,22 +5672,23 @@ function HulSummaryTab({ month, year }: { month: number; year: number }) {
         };
 
         const makeExecYrSheet = (ws: any, filtData: YearlyExecRow[]) => {
-          const cols = ['Month','Snacks Qty','Snacks Amt (₹)','Biscuit Qty','Biscuit Amt (₹)','Chips Qty','Chips Amt (₹)','Cold Drink & Water Qty','Cold Drink & Water Amt (₹)','Grand Total (₹)'];
+          const cols = ['Month','Snacks Qty','Snacks Amt (₹)','Biscuit Qty','Biscuit Amt (₹)','Chips Qty','Chips Amt (₹)','Cold Drink & Water Qty','Cold Drink & Water Amt (₹)','Shift Officer Breakfast Qty','Shift Officer Breakfast Amt (₹)','Grand Total (₹)'];
           ws.mergeCells(1,1,1,cols.length);
           const t=ws.getCell('A1'); t.value=`HUL KPF Exec Snacks — Rate Wise Yearly Summary — ${summaryYear}`; t.font={bold:true,size:12,color:{argb:'FFFFFFFF'}}; t.fill=mkFill('FFB45309'); t.alignment={horizontal:'center'}; t.border=thin;
           const hdr=ws.addRow(cols); hdr.eachCell((c:any)=>{c.font=wFont;c.fill=mkFill('FFB45309');c.border=thin;c.alignment={horizontal:'center'};});
           ws.columns=cols.map((_:any,i:number)=>({width:i===0?14:16}));
           visMths.forEach(m=>{
             const r=filtData.find(x=>x.month===m);
-            const sn=r?.snacks||0,bi=r?.biscuit||0,ch=r?.chips||0,cw=r?.coldDrinkWater||0;
-            const grand=sn*25+bi*10+ch*10+cw*10;
-            const dr=ws.addRow([MONTHS[m-1],sn||'',sn?sn*25:'',bi||'',bi?bi*10:'',ch||'',ch?ch*10:'',cw||'',cw?cw*10:'',grand||'']);
+            const sn=r?.snacks||0,bi=r?.biscuit||0,ch=r?.chips||0,cw=r?.coldDrinkWater||0,sob=r?.shiftOfficerBreakfast||0;
+            const grand=sn*25+bi*10+ch*10+cw*10+sob*40;
+            const dr=ws.addRow([MONTHS[m-1],sn||'',sn?sn*25:'',bi||'',bi?bi*10:'',ch||'',ch?ch*10:'',cw||'',cw?cw*10:'',sob||'',sob?sob*40:'',grand||'']);
             dr.eachCell((c:any)=>{c.border=thin;c.alignment={horizontal:'center'};});
           });
           const tsn=filtData.reduce((s,r)=>s+(r.snacks||0),0),tbi=filtData.reduce((s,r)=>s+(r.biscuit||0),0);
           const tch=filtData.reduce((s,r)=>s+(r.chips||0),0),tcw=filtData.reduce((s,r)=>s+(r.coldDrinkWater||0),0);
-          const tg=tsn*25+tbi*10+tch*10+tcw*10;
-          const tot=ws.addRow(['GRAND TOTAL',tsn||'',tsn?tsn*25:'',tbi||'',tbi?tbi*10:'',tch||'',tch?tch*10:'',tcw||'',tcw?tcw*10:'',tg||'']);
+          const tsob=filtData.reduce((s,r)=>s+(r.shiftOfficerBreakfast||0),0);
+          const tg=tsn*25+tbi*10+tch*10+tcw*10+tsob*40;
+          const tot=ws.addRow(['GRAND TOTAL',tsn||'',tsn?tsn*25:'',tbi||'',tbi?tbi*10:'',tch||'',tch?tch*10:'',tcw||'',tcw?tcw*10:'',tsob||'',tsob?tsob*40:'',tg||'']);
           tot.eachCell((c:any)=>{c.font={bold:true};c.fill=mkFill('FFFFF2CC');c.border=thin;c.alignment={horizontal:'center'};});
         };
 
@@ -5697,7 +5704,7 @@ function HulSummaryTab({ month, year }: { month: number; year: number }) {
           'KPF G.Bfast','KPF G.Lunch','KPF G.Evng','KPF G.Night','KPF Guest Sub (₹)','KPF Total (₹)',
           'TEC Breakfast','TEC Lunch','TEC Evng Snacks','TEC Night Snacks','TEC Meal Sub (₹)',
           'TEC G.Bfast','TEC G.Lunch','TEC G.Evng','TEC G.Night','TEC Guest Sub (₹)','TEC Total (₹)',
-          'Exec Snacks','Exec Biscuit','Exec Chips','Exec Cold Drink & Water','Exec Total (₹)',
+          'Exec Snacks','Exec Biscuit','Exec Chips','Exec Cold Drink & Water','Exec Shift Officer Breakfast','Exec Total (₹)',
           'Grand Total (₹)',
         ];
         wsSumm.mergeCells(1,1,1,summCols.length);
@@ -5706,7 +5713,7 @@ function HulSummaryTab({ month, year }: { month: number; year: number }) {
         sTit.font={bold:true,size:13,color:{argb:'FFFFFFFF'}}; sTit.fill=mkFill('FF374151'); sTit.alignment={horizontal:'center'}; sTit.border=thin;
         // Sub-header groups
         wsSumm.mergeCells(2,1,2,1);
-        [[2,12,'FF1A6B2E','KPF — Meal & Guest'],[13,23,'FF1A3A8A','TEC — Meal & Guest'],[24,28,'FFB45309','KPF Exec Snacks'],[29,29,'FF374151','']].forEach(([s,e,c,label])=>{
+        [[2,12,'FF1A6B2E','KPF — Meal & Guest'],[13,23,'FF1A3A8A','TEC — Meal & Guest'],[24,29,'FFB45309','KPF Exec Snacks'],[30,30,'FF374151','']].forEach(([s,e,c,label])=>{
           if (label) { wsSumm.mergeCells(2,Number(s),2,Number(e)); const cell=wsSumm.getCell(2,Number(s)); cell.value=label; cell.font=wFont; cell.fill=mkFill(c as string); cell.alignment={horizontal:'center'}; cell.border=thin; }
           else { const cell=wsSumm.getCell(2,Number(s)); cell.fill=mkFill(c as string); cell.border=thin; }
         });
@@ -5730,8 +5737,8 @@ function HulSummaryTab({ month, year }: { month: number; year: number }) {
           const tbf=tec?.breakfast||0,tln=tec?.lunch||0,tes=tec?.eveningSnacks||0,tns=tec?.nightSnacks||0;
           const tgbf=tec?.guestBreakfast||0,tgln=tec?.guestLunch||0,tges=tec?.guestEveningSnacks||0,tgns=tec?.guestNightSnacks||0;
           const tMeal=tbf*35+tln*50+tes*30+tns*17, tGuest=tgbf*40+tgln*70+tges*40+tgns*27;
-          const esn=exc?.snacks||0,ebi=exc?.biscuit||0,ech=exc?.chips||0,ecw=exc?.coldDrinkWater||0;
-          const eTotal=esn*25+ebi*10+ech*10+ecw*10;
+          const esn=exc?.snacks||0,ebi=exc?.biscuit||0,ech=exc?.chips||0,ecw=exc?.coldDrinkWater||0,esob=exc?.shiftOfficerBreakfast||0;
+          const eTotal=esn*25+ebi*10+ech*10+ecw*10+esob*40;
           const grand=kMeal+kGuest+tMeal+tGuest+eTotal;
           gKpfMeal+=kMeal; gKpfGuest+=kGuest; gTecMeal+=tMeal; gTecGuest+=tGuest; gExec+=eTotal;
           const dr=wsSumm.addRow([
@@ -5740,13 +5747,13 @@ function HulSummaryTab({ month, year }: { month: number; year: number }) {
             kgbf||'',kgln||'',kges||'',kgns||'',kGuest||'',kMeal+kGuest||'',
             tbf||'',tln||'',tes||'',tns||'',tMeal||'',
             tgbf||'',tgln||'',tges||'',tgns||'',tGuest||'',tMeal+tGuest||'',
-            esn||'',ebi||'',ech||'',ecw||'',eTotal||'',
+            esn||'',ebi||'',ech||'',ecw||'',esob||'',eTotal||'',
             grand||'',
           ]);
           dr.eachCell((c:any)=>{c.border=thin;c.alignment={horizontal:'center'};});
         });
         const gKpf=gKpfMeal+gKpfGuest, gTec=gTecMeal+gTecGuest, gGrand=gKpf+gTec+gExec;
-        const totR=wsSumm.addRow(['GRAND TOTAL','','','','',gKpfMeal||'','','','','',gKpfGuest||'',gKpf||'','','','','',gTecMeal||'','','','','',gTecGuest||'',gTec||'','','','','',gExec||'',gGrand||'']);
+        const totR=wsSumm.addRow(['GRAND TOTAL','','','','',gKpfMeal||'','','','','',gKpfGuest||'',gKpf||'','','','','',gTecMeal||'','','','','',gTecGuest||'',gTec||'','','','','','',gExec||'',gGrand||'']);
         totR.eachCell((c:any)=>{c.font={bold:true};c.fill=mkFill('FFFFF2CC');c.border=thin;c.alignment={horizontal:'center'};});
 
         const buf = await wb.xlsx.writeBuffer();
@@ -5887,8 +5894,8 @@ function HulSummaryTab({ month, year }: { month: number; year: number }) {
       {!isLoading && viewMode === 'yearly' && (() => {
         const mealFields: (keyof YearlyMealRow)[] = ['breakfast','lunch','eveningSnacks','nightSnacks','guestBreakfast','guestLunch','guestEveningSnacks','guestNightSnacks'];
         const mealHeaders = ['Breakfast','Lunch','Evng Snacks','Night Snacks','G.Breakfast','G.Lunch','G.Evng Snacks','G.Night Snacks'];
-        const execFields: (keyof YearlyExecRow)[] = ['snacks','biscuit','chips','coldDrinkWater'];
-        const execHeaders = ['Snacks','Biscuit','Chips','Cold Drink & Water'];
+        const execFields: (keyof YearlyExecRow)[] = ['snacks','biscuit','chips','coldDrinkWater','shiftOfficerBreakfast'];
+        const execHeaders = ['Snacks','Biscuit','Chips','Cold Drink & Water','Shift Officer Breakfast'];
 
         const YearlyTable = ({ data, fields, headers, locName, hStyle, guestStart }: {
           data: any[]; fields: string[]; headers: string[]; locName: string;
@@ -6490,7 +6497,7 @@ function HulSummaryTab({ month, year }: { month: number; year: number }) {
         <p style={{ textAlign:'center', fontWeight:'bold', margin:'6px 0 2px' }}>KPF Exec Snacks — Number of Snacks Per Day For Executives &amp; Managers</p>
         <table style={{ width:'100%', borderCollapse:'collapse', marginBottom:10 }}>
           <thead>
-            <tr><th style={thBr}>Sl.</th><th style={thBr}>Date</th><th style={thBr}>Days</th><th style={thBr}>Snacks</th><th style={thBr}>Biscuit</th><th style={thBr}>Chips</th><th style={thBr}>Cold Drink &amp; Water</th></tr>
+            <tr><th style={thBr}>Sl.</th><th style={thBr}>Date</th><th style={thBr}>Days</th><th style={thBr}>Snacks</th><th style={thBr}>Biscuit</th><th style={thBr}>Chips</th><th style={thBr}>Cold Drink &amp; Water</th><th style={thBr}>Shift Officer Breakfast (@₹40)</th></tr>
           </thead>
           <tbody>
             {execRows.map((row, i) => {
@@ -6498,11 +6505,11 @@ function HulSummaryTab({ month, year }: { month: number; year: number }) {
               return (
                 <tr key={i} style={{ background: sun ? '#ffa500' : undefined }}>
                   <td style={td(sun)}>{i+1}</td><td style={td(sun)}>{safeFormat(row.entryDate)}</td><td style={td(sun)}>{row.weekDay}</td>
-                  <td style={td(sun)}>{row.snacks||''}</td><td style={td(sun)}>{row.biscuit||''}</td><td style={td(sun)}>{row.chips||''}</td><td style={td(sun)}>{row.coldDrinkWater||''}</td>
+                  <td style={td(sun)}>{row.snacks||''}</td><td style={td(sun)}>{row.biscuit||''}</td><td style={td(sun)}>{row.chips||''}</td><td style={td(sun)}>{row.coldDrinkWater||''}</td><td style={td(sun)}>{row.shiftOfficerBreakfast||''}</td>
                 </tr>
               );
             })}
-            <tr><td colSpan={3} style={tdTot}>Total</td><td style={tdTot}>{exT.snacks||''}</td><td style={tdTot}>{exT.biscuit||''}</td><td style={tdTot}>{exT.chips||''}</td><td style={tdTot}>{exT.coldDrinkWater||''}</td></tr>
+            <tr><td colSpan={3} style={tdTot}>Total</td><td style={tdTot}>{exT.snacks||''}</td><td style={tdTot}>{exT.biscuit||''}</td><td style={tdTot}>{exT.chips||''}</td><td style={tdTot}>{exT.coldDrinkWater||''}</td><td style={tdTot}>{exT.shiftOfficerBreakfast||''}</td></tr>
           </tbody>
         </table>
         {/* Combined totals print */}
@@ -6513,13 +6520,13 @@ function HulSummaryTab({ month, year }: { month: number; year: number }) {
               <th style={{ ...thG, textAlign:'left' }}>Section</th>
               {['Breakfast','Lunch','Evng Snacks','Night Snacks'].map(h=><th key={h} style={thG}>{h}</th>)}
               {['G.Breakfast','G.Lunch','G.Evng','G.Night'].map(h=><th key={h} style={thB}>{h}</th>)}
-              {['Snacks','Biscuit','Chips','Cold Drink'].map(h=><th key={h} style={thBr}>{h}</th>)}
+              {['Snacks','Biscuit','Chips','Cold Drink','SO Bfast'].map(h=><th key={h} style={thBr}>{h}</th>)}
             </tr>
           </thead>
           <tbody>
-            <tr><td style={{ ...tdTot, textAlign:'left' }}>KPF</td><td style={tdTot}>{kpfT.breakfast||'—'}</td><td style={tdTot}>{kpfT.lunch||'—'}</td><td style={tdTot}>{kpfT.eveningSnacks||'—'}</td><td style={tdTot}>{kpfT.nightSnacks||'—'}</td><td style={tdTot}>{kpfT.guestBreakfast||'—'}</td><td style={tdTot}>{kpfT.guestLunch||'—'}</td><td style={tdTot}>{kpfT.guestEveningSnacks||'—'}</td><td style={tdTot}>{kpfT.guestNightSnacks||'—'}</td><td style={tdTot}>—</td><td style={tdTot}>—</td><td style={tdTot}>—</td><td style={tdTot}>—</td></tr>
-            <tr><td style={{ ...tdTot, textAlign:'left' }}>TEC</td><td style={tdTot}>{tecT.breakfast||'—'}</td><td style={tdTot}>{tecT.lunch||'—'}</td><td style={tdTot}>{tecT.eveningSnacks||'—'}</td><td style={tdTot}>{tecT.nightSnacks||'—'}</td><td style={tdTot}>{tecT.guestBreakfast||'—'}</td><td style={tdTot}>{tecT.guestLunch||'—'}</td><td style={tdTot}>{tecT.guestEveningSnacks||'—'}</td><td style={tdTot}>{tecT.guestNightSnacks||'—'}</td><td style={tdTot}>—</td><td style={tdTot}>—</td><td style={tdTot}>—</td><td style={tdTot}>—</td></tr>
-            <tr><td style={{ ...tdTot, textAlign:'left' }}>KPF Exec Snacks</td><td style={tdTot}>—</td><td style={tdTot}>—</td><td style={tdTot}>—</td><td style={tdTot}>—</td><td style={tdTot}>—</td><td style={tdTot}>—</td><td style={tdTot}>—</td><td style={tdTot}>—</td><td style={tdTot}>{exT.snacks||'—'}</td><td style={tdTot}>{exT.biscuit||'—'}</td><td style={tdTot}>{exT.chips||'—'}</td><td style={tdTot}>{exT.coldDrinkWater||'—'}</td></tr>
+            <tr><td style={{ ...tdTot, textAlign:'left' }}>KPF</td><td style={tdTot}>{kpfT.breakfast||'—'}</td><td style={tdTot}>{kpfT.lunch||'—'}</td><td style={tdTot}>{kpfT.eveningSnacks||'—'}</td><td style={tdTot}>{kpfT.nightSnacks||'—'}</td><td style={tdTot}>{kpfT.guestBreakfast||'—'}</td><td style={tdTot}>{kpfT.guestLunch||'—'}</td><td style={tdTot}>{kpfT.guestEveningSnacks||'—'}</td><td style={tdTot}>{kpfT.guestNightSnacks||'—'}</td><td style={tdTot}>—</td><td style={tdTot}>—</td><td style={tdTot}>—</td><td style={tdTot}>—</td><td style={tdTot}>—</td></tr>
+            <tr><td style={{ ...tdTot, textAlign:'left' }}>TEC</td><td style={tdTot}>{tecT.breakfast||'—'}</td><td style={tdTot}>{tecT.lunch||'—'}</td><td style={tdTot}>{tecT.eveningSnacks||'—'}</td><td style={tdTot}>{tecT.nightSnacks||'—'}</td><td style={tdTot}>{tecT.guestBreakfast||'—'}</td><td style={tdTot}>{tecT.guestLunch||'—'}</td><td style={tdTot}>{tecT.guestEveningSnacks||'—'}</td><td style={tdTot}>{tecT.guestNightSnacks||'—'}</td><td style={tdTot}>—</td><td style={tdTot}>—</td><td style={tdTot}>—</td><td style={tdTot}>—</td><td style={tdTot}>—</td></tr>
+            <tr><td style={{ ...tdTot, textAlign:'left' }}>KPF Exec Snacks</td><td style={tdTot}>—</td><td style={tdTot}>—</td><td style={tdTot}>—</td><td style={tdTot}>—</td><td style={tdTot}>—</td><td style={tdTot}>—</td><td style={tdTot}>—</td><td style={tdTot}>—</td><td style={tdTot}>{exT.snacks||'—'}</td><td style={tdTot}>{exT.biscuit||'—'}</td><td style={tdTot}>{exT.chips||'—'}</td><td style={tdTot}>{exT.coldDrinkWater||'—'}</td><td style={tdTot}>{exT.shiftOfficerBreakfast||'—'}</td></tr>
           </tbody>
         </table>
       </div>

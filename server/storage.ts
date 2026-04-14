@@ -2249,13 +2249,14 @@ export class DatabaseStorage implements IStorage {
     }));
   }
 
-  async getHulExecYearlySummary(year: number): Promise<{ month: number; snacks: number; biscuit: number; chips: number; coldDrinkWater: number }[]> {
+  async getHulExecYearlySummary(year: number): Promise<{ month: number; snacks: number; biscuit: number; chips: number; coldDrinkWater: number; shiftOfficerBreakfast: number }[]> {
     const [rows] = await db.execute(sql`
       SELECT month,
         COALESCE(SUM(snacks),0) AS snacks,
         COALESCE(SUM(biscuit),0) AS biscuit,
         COALESCE(SUM(chips),0) AS chips,
-        COALESCE(SUM(cold_drink_water),0) AS coldDrinkWater
+        COALESCE(SUM(cold_drink_water),0) AS coldDrinkWater,
+        COALESCE(SUM(shift_officer_breakfast),0) AS shiftOfficerBreakfast
       FROM hul_kpf_exec_snacks
       WHERE year = ${year}
       GROUP BY month
@@ -2265,6 +2266,7 @@ export class DatabaseStorage implements IStorage {
       month: Number(r.month),
       snacks: Number(r.snacks), biscuit: Number(r.biscuit),
       chips: Number(r.chips), coldDrinkWater: Number(r.coldDrinkWater),
+      shiftOfficerBreakfast: Number(r.shiftOfficerBreakfast),
     }));
   }
 
@@ -2274,13 +2276,14 @@ export class DatabaseStorage implements IStorage {
       .orderBy(hulKpfExecSnacks.entryDate);
   }
   async createHulKpfExecSnack(data: any): Promise<HulKpfExecSnack> {
-    const { entryDate, month, year, weekDay, snacks, biscuit, chips, coldDrinkWater } = data;
+    const { entryDate, month, year, weekDay, snacks, biscuit, chips, coldDrinkWater, shiftOfficerBreakfast } = data;
     await db.execute(sql`
-      INSERT INTO hul_kpf_exec_snacks (entry_date, month, year, week_day, snacks, biscuit, chips, cold_drink_water)
-      VALUES (${entryDate}, ${month}, ${year}, ${weekDay || null}, ${snacks || 0}, ${biscuit || 0}, ${chips || 0}, ${coldDrinkWater || 0})
+      INSERT INTO hul_kpf_exec_snacks (entry_date, month, year, week_day, snacks, biscuit, chips, cold_drink_water, shift_officer_breakfast)
+      VALUES (${entryDate}, ${month}, ${year}, ${weekDay || null}, ${snacks || 0}, ${biscuit || 0}, ${chips || 0}, ${coldDrinkWater || 0}, ${shiftOfficerBreakfast || 0})
       ON DUPLICATE KEY UPDATE
         snacks = VALUES(snacks), biscuit = VALUES(biscuit), chips = VALUES(chips),
-        cold_drink_water = VALUES(cold_drink_water), week_day = VALUES(week_day), updated_at = NOW()
+        cold_drink_water = VALUES(cold_drink_water), shift_officer_breakfast = VALUES(shift_officer_breakfast),
+        week_day = VALUES(week_day), updated_at = NOW()
     `);
     const rows = await db.select().from(hulKpfExecSnacks).where(eq(hulKpfExecSnacks.entryDate, entryDate));
     return rows[0];
