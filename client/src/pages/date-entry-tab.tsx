@@ -6205,7 +6205,7 @@ function HulSummaryTab({ month, year }: { month: number; year: number }) {
                 <th style={{ ...thBr, width:28 }}>Sl.</th>
                 <th style={{ ...thBr, width:80 }}>Date</th>
                 <th style={{ ...thBr, width:34 }}>Days</th>
-                {['Snacks','Biscuit','Chips','Cold Drink & Water'].map(h => <th key={h} style={thBr}>{h}</th>)}
+                {['Snacks','Biscuit','Chips','Cold Drink & Water','Shift Officer Breakfast'].map(h => <th key={h} style={thBr}>{h}</th>)}
               </tr>
             </thead>
             <tbody>
@@ -6216,7 +6216,7 @@ function HulSummaryTab({ month, year }: { month: number; year: number }) {
                     <td style={td(sun)}>{i+1}</td>
                     <td style={td(sun)}>{safeFormat(row.entryDate)}</td>
                     <td style={td(sun)}>{row.weekDay}</td>
-                    {(['snacks','biscuit','chips','coldDrinkWater'] as (keyof ExecSnackRow)[]).map(f => (
+                    {(['snacks','biscuit','chips','coldDrinkWater','shiftOfficerBreakfast'] as (keyof ExecSnackRow)[]).map(f => (
                       <td key={f as string} style={td(sun)}>{row[f] || ''}</td>
                     ))}
                   </tr>
@@ -6224,7 +6224,7 @@ function HulSummaryTab({ month, year }: { month: number; year: number }) {
               })}
               <tr>
                 <td colSpan={3} style={tdTot}>Total</td>
-                {(['snacks','biscuit','chips','coldDrinkWater'] as (keyof ExecSnackRow)[]).map(f => (
+                {(['snacks','biscuit','chips','coldDrinkWater','shiftOfficerBreakfast'] as (keyof ExecSnackRow)[]).map(f => (
                   <td key={f as string} style={tdTot}>{execRows.reduce((s,r) => s+(r[f]||0), 0) || ''}</td>
                 ))}
               </tr>
@@ -6238,6 +6238,7 @@ function HulSummaryTab({ month, year }: { month: number; year: number }) {
               <div className="grid grid-cols-2 gap-x-3 mt-0.5">
                 <span>Snacks: <b>{row.snacks||0}</b></span><span>Biscuit: <b>{row.biscuit||0}</b></span>
                 <span>Chips: <b>{row.chips||0}</b></span><span>Cold Drink: <b>{row.coldDrinkWater||0}</b></span>
+                <span>SO Breakfast: <b>{row.shiftOfficerBreakfast||0}</b></span>
               </div>
             </div>
           ))}
