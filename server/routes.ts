@@ -847,6 +847,15 @@ export async function registerRoutes(
     res.status(204).send();
   });
 
+  app.post('/api/item-master/sync-rates', requireAdmin, async (req, res) => {
+    try {
+      const result = await storage.syncItemMasterRates();
+      res.json(result);
+    } catch (e: any) {
+      res.status(500).json({ error: e.message });
+    }
+  });
+
   // === EMPLOYEE MASTER ===
   app.get("/api/employees", requireAuth, async (req, res) => {
     const clientName = req.query.clientName as string | undefined;

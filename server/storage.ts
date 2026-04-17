@@ -176,6 +176,7 @@ export interface IStorage {
   createItemMasterItem(data: { itemName: string; uom?: string; rate?: string; hsnCode?: string; gstPercent?: string; itemType?: string }): Promise<ItemMaster>;
   updateItemMasterItem(id: number, data: { itemName?: string; uom?: string; rate?: string; hsnCode?: string; gstPercent?: string; itemType?: string }): Promise<ItemMaster>;
   deleteItemMasterItem(id: number): Promise<void>;
+  syncItemMasterRates(): Promise<{ updated: number; skipped: number; noMatch: number; details: Array<{ name: string; oldRate: string; newRate: string; source: string }> }>;
   getEmployees(clientName?: string): Promise<Employee[]>;
   getEmployee(id: number): Promise<Employee | undefined>;
   createEmployee(data: any): Promise<Employee>;
@@ -1316,6 +1317,92 @@ export class DatabaseStorage implements IStorage {
 
   async deleteItemMasterItem(id: number): Promise<void> {
     await db.delete(itemMaster).where(eq(itemMaster.id, id));
+  }
+
+  async syncItemMasterRates(): Promise<{ updated: number; skipped: number; noMatch: number; details: Array<{ name: string; oldRate: string; newRate: string; source: string }> }> {
+    // 1. All item master entries
+    const items = await db.select().from(itemMaster).orderBy(itemMaster.itemName);
+
+    // 2. Last purchase invoice price per item (MySQL-compatible MAX(id) subquery)
+    const invResult = await db.execute(sql`
+      SELECT t.item_name, t.unit_price
+      FROM purchase_invoice_items t
+      INNER JOIN (
+        SELECT item_name, MAX(id) AS max_id
+        FROM purchase_invoice_items
+        WHERE unit_price > 0
+        GROUP BY item_name
+      ) latest ON t.id = latest.max_id
+    `);
+    const invPrices = new Map<string, number>();
+    (invResult.rows || []).forEach((row: any) => {
+      const k = String(row.item_name || '').toLowerCase().trim();
+      if (k) invPrices.set(k, Number(row.unit_price) || 0);
+    });
+
+    // 3. Last daily cash expense price per description (all categories)
+    const expResult = await db.execute(sql`
+      SELECT ei.description, ei.rate
+      FROM expense_items ei
+      INNER JOIN (
+        SELECT description, MAX(id) AS max_id
+        FROM expense_items
+        WHERE description IS NOT NULL AND description != '' AND rate > 0
+        GROUP BY description
+      ) latest ON ei.id = latest.max_id
+    `);
+    const expPrices = new Map<string, number>();
+    (expResult.rows || []).forEach((row: any) => {
+      const k = String(row.description || '').toLowerCase().trim();
+      if (k) expPrices.set(k, Number(row.rate) || 0);
+    });
+
+    let updated = 0, skipped = 0, noMatch = 0;
+    const details: Array<{ name: string; oldRate: string; newRate: string; source: string }> = [];
+
+    for (const item of items) {
+      const nameKey = item.itemName.toLowerCase().trim();
+      let newRate: number | null = null;
+      let source = '';
+
+      // Step 1: Exact match — Purchase Invoice
+      if (invPrices.has(nameKey) && invPrices.get(nameKey)! > 0) {
+        newRate = invPrices.get(nameKey)!;
+        source = 'Purchase Invoice';
+      }
+      // Step 2: Fuzzy match — Purchase Invoice
+      if (!newRate) {
+        for (const [ik, iv] of invPrices) {
+          if (iv > 0 && (nameKey.includes(ik) || ik.includes(nameKey))) {
+            newRate = iv; source = `Purchase Invoice (~${ik})`; break;
+          }
+        }
+      }
+      // Step 3: Exact match — Daily Cash Expense
+      if (!newRate && expPrices.has(nameKey) && expPrices.get(nameKey)! > 0) {
+        newRate = expPrices.get(nameKey)!;
+        source = 'Cash Expense';
+      }
+      // Step 4: Fuzzy match — Daily Cash Expense
+      if (!newRate) {
+        for (const [ek, ev] of expPrices) {
+          if (ev > 0 && (nameKey.includes(ek) || ek.includes(nameKey))) {
+            newRate = ev; source = `Cash Expense (~${ek})`; break;
+          }
+        }
+      }
+
+      if (!newRate || newRate <= 0) { noMatch++; continue; }
+
+      const oldRate = Number(item.rate || '0');
+      if (Math.abs(oldRate - newRate) < 0.005) { skipped++; continue; }
+
+      await db.update(itemMaster).set({ rate: String(newRate.toFixed(2)) }).where(eq(itemMaster.id, item.id));
+      details.push({ name: item.itemName, oldRate: oldRate.toFixed(2), newRate: newRate.toFixed(2), source });
+      updated++;
+    }
+
+    return { updated, skipped, noMatch, details };
   }
 
   // === EMPLOYEE MASTER ===

@@ -58,6 +58,24 @@ export default function Admin() {
   const deleteMutation = useDeleteItemMasterItem();
   const changePinMutation = useChangeAdminPin();
   const { toast } = useToast();
+  const qc = useQueryClient();
+
+  const [syncResult, setSyncResult] = useState<{ updated: number; skipped: number; noMatch: number; details: Array<{ name: string; oldRate: string; newRate: string; source: string }> } | null>(null);
+  const [showSyncDetails, setShowSyncDetails] = useState(false);
+
+  const syncRatesMut = useMutation({
+    mutationFn: async () => {
+      const res = await apiRequest('POST', '/api/item-master/sync-rates', {});
+      return res.json() as Promise<{ updated: number; skipped: number; noMatch: number; details: Array<{ name: string; oldRate: string; newRate: string; source: string }> }>;
+    },
+    onSuccess: (data) => {
+      setSyncResult(data);
+      setShowSyncDetails(true);
+      qc.invalidateQueries({ queryKey: ['/api/item-master'] });
+      toast({ title: `Sync Complete — ${data.updated} item${data.updated !== 1 ? 's' : ''} updated`, description: `${data.skipped} already up to date · ${data.noMatch} no price found` });
+    },
+    onError: (e: any) => toast({ title: "Sync failed", description: e.message, variant: "destructive" }),
+  });
 
   const UOM_OPTIONS = ["Kg", "Gm", "Ltr", "Ml", "Pcs", "Pkt", "Box", "Dz", "Nos", "Bag", "Tin", "Cyl", "Plats", "Cup", "Set"];
   const GST_RATES = ["0", "5", "12", "18", "28"];
@@ -1349,10 +1367,58 @@ export default function Admin() {
             <CardTitle className="flex items-center gap-2 text-base sm:text-lg">
               <Package className="w-5 h-5" />
               Item Master
-              {itemMasterList && <span className="ml-auto text-sm font-normal bg-white/20 px-2.5 py-0.5 rounded-full">{itemMasterList.length}</span>}
+              {itemMasterList && <span className="text-sm font-normal bg-white/20 px-2.5 py-0.5 rounded-full">{itemMasterList.length}</span>}
+              <Button
+                size="sm"
+                variant="secondary"
+                className="ml-auto text-xs h-7 px-2.5 bg-white/20 hover:bg-white/30 text-white border-0 gap-1.5"
+                onClick={() => syncRatesMut.mutate()}
+                disabled={syncRatesMut.isPending}
+                data-testid="btn-sync-item-master-rates"
+              >
+                {syncRatesMut.isPending ? <Loader2 className="w-3 h-3 animate-spin" /> : <RefreshCw className="w-3 h-3" />}
+                {syncRatesMut.isPending ? "Syncing…" : "Sync Rates"}
+              </Button>
             </CardTitle>
           </CardHeader>
           <CardContent className="p-4 sm:p-6 space-y-4">
+            {showSyncDetails && syncResult && (
+              <div className="rounded-xl border border-green-200 bg-green-50 dark:bg-green-950/20 dark:border-green-800 p-4 space-y-3">
+                <div className="flex items-center justify-between">
+                  <p className="text-sm font-bold text-green-700 dark:text-green-400">Sync Results</p>
+                  <Button size="icon" variant="ghost" className="h-6 w-6 text-green-600" onClick={() => setShowSyncDetails(false)}><X className="w-3 h-3" /></Button>
+                </div>
+                <div className="flex gap-4 text-xs">
+                  <span className="bg-green-100 dark:bg-green-900/40 text-green-700 dark:text-green-300 font-semibold px-2 py-1 rounded-md">{syncResult.updated} Updated</span>
+                  <span className="bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 px-2 py-1 rounded-md">{syncResult.skipped} Already same</span>
+                  <span className="bg-orange-100 dark:bg-orange-900/40 text-orange-600 dark:text-orange-400 px-2 py-1 rounded-md">{syncResult.noMatch} No price found</span>
+                </div>
+                {syncResult.details.length > 0 && (
+                  <div className="max-h-60 overflow-y-auto rounded-lg border border-green-200 dark:border-green-800">
+                    <table className="w-full text-xs">
+                      <thead className="sticky top-0 bg-green-100 dark:bg-green-900/50">
+                        <tr>
+                          <th className="text-left px-3 py-1.5 font-semibold text-green-800 dark:text-green-300">Item</th>
+                          <th className="text-center px-3 py-1.5 font-semibold text-green-800 dark:text-green-300">Old ₹</th>
+                          <th className="text-center px-3 py-1.5 font-semibold text-green-800 dark:text-green-300">New ₹</th>
+                          <th className="text-left px-3 py-1.5 font-semibold text-green-800 dark:text-green-300">Source</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {syncResult.details.map((d, i) => (
+                          <tr key={i} className={i % 2 === 0 ? 'bg-white dark:bg-slate-900' : 'bg-green-50/50 dark:bg-green-950/10'}>
+                            <td className="px-3 py-1 font-medium text-slate-700 dark:text-slate-300">{d.name}</td>
+                            <td className="px-3 py-1 text-center text-slate-400 line-through">₹{d.oldRate}</td>
+                            <td className="px-3 py-1 text-center font-bold text-green-700 dark:text-green-400">₹{d.newRate}</td>
+                            <td className="px-3 py-1 text-slate-500 dark:text-slate-400 truncate max-w-[160px]">{d.source}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </div>
+            )}
             <div className="p-4 rounded-xl bg-gradient-to-br from-blue-50 to-indigo-50 dark:from-blue-950/20 dark:to-indigo-950/20 border border-blue-200 dark:border-blue-800/50 space-y-3">
               <p className="text-xs font-semibold text-blue-600 dark:text-blue-400 uppercase tracking-wide">Add New Item</p>
               <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 gap-2">
