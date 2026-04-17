@@ -449,28 +449,52 @@ export default function DailyPnlPage() {
   const { data: bomEvening   = [] } = useQuery<any[]>({ queryKey: ["/api/bom-items", clientName, "evening"],   queryFn: () => fetchBomItems("evening"),   enabled: !!clientName });
   const { data: bomNight     = [] } = useQuery<any[]>({ queryKey: ["/api/bom-items", clientName, "night"],     queryFn: () => fetchBomItems("night"),     enabled: !!clientName });
 
-  const { data: bomPriceList = [] } = useQuery<{ itemName: string; unitPrice: number }[]>({
+  const { data: bomPriceList = [] } = useQuery<{ itemName: string; unitPrice: number; uom: string }[]>({
     queryKey: ["/api/purchase-invoices/last-prices"],
     queryFn: () => fetch("/api/purchase-invoices/last-prices", { credentials: "include" }).then(r => r.ok ? r.json() : []),
   });
-  const bomPriceMap = useMemo(() => new Map(bomPriceList.map(p => [p.itemName.toLowerCase(), p.unitPrice])), [bomPriceList]);
+  const bomPriceMap = useMemo(() => new Map(bomPriceList.map(p => [p.itemName.toLowerCase(), p])), [bomPriceList]);
+
+  const { data: itemMasterForBom = [] } = useQuery<{ itemName: string; uom: string; rate?: string }[]>({
+    queryKey: ["/api/item-master", "bom-fallback"],
+    queryFn: () => fetch("/api/item-master", { credentials: "include" }).then(r => r.ok ? r.json() : []),
+  });
+  const itemMasterBomMap = useMemo(() =>
+    new Map(itemMasterForBom.map(i => [i.itemName.toLowerCase(), { unitPrice: parseFloat(i.rate || '0') || 0, uom: i.uom || '' }])),
+    [itemMasterForBom]
+  );
+
+  function qtyConverted(qty: number, bomUom: string, invUom: string): number {
+    const b = bomUom.toLowerCase().trim();
+    const iv = invUom.toLowerCase().trim();
+    if (b === iv) return qty;
+    if ((b === 'gm' || b === 'g') && iv === 'kg') return qty / 1000;
+    if (b === 'ml' && (iv === 'l' || iv === 'litre' || iv === 'liter' || iv === 'ltr')) return qty / 1000;
+    if (b === 'kg' && (iv === 'gm' || iv === 'g')) return qty * 1000;
+    if ((b === 'l' || b === 'litre') && iv === 'ml') return qty * 1000;
+    return qty;
+  }
 
   function buildDishCost(items: any[]): Map<string, number> {
     const m = new Map<string, number>();
     items.forEach((item: any) => {
       const dish = (item.dishName || "").trim();
       if (!dish) return;
-      const lp = bomPriceMap.get((item.ingredientName || "").toLowerCase());
-      if (!lp) return;
-      m.set(dish, (m.get(dish) || 0) + lp * parseFloat(item.qtyPerPerson || "0"));
+      const key = (item.ingredientName || "").toLowerCase();
+      const inv = bomPriceMap.get(key);
+      const im  = itemMasterBomMap.get(key);
+      const priceEntry = (inv && inv.unitPrice > 0) ? inv : (im && im.unitPrice > 0) ? im : null;
+      if (!priceEntry) return;
+      const converted = qtyConverted(parseFloat(item.qtyPerPerson || "0"), item.uom || '', priceEntry.uom);
+      m.set(dish, (m.get(dish) || 0) + priceEntry.unitPrice * converted);
     });
     return m;
   }
 
-  const bomBreakfastCost = useMemo(() => buildDishCost(bomBreakfast), [bomBreakfast, bomPriceMap]);
-  const bomLunchCost     = useMemo(() => buildDishCost(bomLunch),     [bomLunch,     bomPriceMap]);
-  const bomEveningCost   = useMemo(() => buildDishCost(bomEvening),   [bomEvening,   bomPriceMap]);
-  const bomNightCost     = useMemo(() => buildDishCost(bomNight),     [bomNight,     bomPriceMap]);
+  const bomBreakfastCost = useMemo(() => buildDishCost(bomBreakfast), [bomBreakfast, bomPriceMap, itemMasterBomMap]);
+  const bomLunchCost     = useMemo(() => buildDishCost(bomLunch),     [bomLunch,     bomPriceMap, itemMasterBomMap]);
+  const bomEveningCost   = useMemo(() => buildDishCost(bomEvening),   [bomEvening,   bomPriceMap, itemMasterBomMap]);
+  const bomNightCost     = useMemo(() => buildDishCost(bomNight),     [bomNight,     bomPriceMap, itemMasterBomMap]);
 
   const bomBreakfastNames = useMemo(() => [...new Set(bomBreakfast.map((i: any) => i.dishName))].filter(Boolean) as string[], [bomBreakfast]);
   const bomLunchNames     = useMemo(() => [...new Set(bomLunch.map((i: any)     => i.dishName))].filter(Boolean) as string[], [bomLunch]);

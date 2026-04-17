@@ -73,6 +73,18 @@ const SECTION_COLORS: Record<string, { bg: string; color: string; border: string
   "Other":                  { bg: "#f8fafc", color: "#475569", border: "#cbd5e1" },
 };
 
+// Convert BOM qty (in bomUom) to the invoice's UOM for correct cost calculation
+function qtyInInvoiceUom(qty: number, bomUom: string, invoiceUom: string): number {
+  const b = bomUom.toLowerCase().trim();
+  const iv = invoiceUom.toLowerCase().trim();
+  if (b === iv) return qty;
+  if ((b === 'gm' || b === 'g') && iv === 'kg') return qty / 1000;
+  if (b === 'ml' && (iv === 'l' || iv === 'litre' || iv === 'liter' || iv === 'litr' || iv === 'ltr')) return qty / 1000;
+  if (b === 'kg' && (iv === 'gm' || iv === 'g')) return qty * 1000;
+  if ((b === 'l' || b === 'litre') && iv === 'ml') return qty * 1000;
+  return qty; // same or unknown — use as-is
+}
+
 interface BomItem {
   id: number;
   clientName: string;
@@ -169,7 +181,7 @@ export default function BomPage() {
     onError: (e: any) => toast({ title: "Error", description: e.message, variant: "destructive" }),
   });
 
-  const { data: itemMasterList = [] } = useQuery<{ id: number; itemName: string; uom: string }[]>({
+  const { data: itemMasterList = [] } = useQuery<{ id: number; itemName: string; uom: string; rate?: string }[]>({
     queryKey: ['/api/item-master'],
     queryFn: async () => {
       const r = await fetch('/api/item-master', { credentials: 'include' });
@@ -178,7 +190,7 @@ export default function BomPage() {
     },
   });
 
-  const { data: lastPriceList = [] } = useQuery<{ itemName: string; unitPrice: number; gstRate: number }[]>({
+  const { data: lastPriceList = [] } = useQuery<{ itemName: string; unitPrice: number; gstRate: number; uom: string }[]>({
     queryKey: ['/api/purchase-invoices/last-prices'],
     queryFn: async () => {
       const r = await fetch('/api/purchase-invoices/last-prices', { credentials: 'include' });
@@ -191,6 +203,22 @@ export default function BomPage() {
     new Map(lastPriceList.map(p => [p.itemName.toLowerCase(), p])),
     [lastPriceList]
   );
+
+  // Item Master rate as fallback when no purchase invoice exists yet
+  const itemMasterRateMap = useMemo(() =>
+    new Map(itemMasterList.map(i => [i.itemName.toLowerCase(), { unitPrice: parseFloat(i.rate || '0') || 0, uom: i.uom || '' }])),
+    [itemMasterList]
+  );
+
+  // Resolve price for an ingredient: purchase invoice first, then item master
+  const resolvePrice = (ingredientName: string): { unitPrice: number; uom: string; source: 'invoice' | 'master' | null } => {
+    const key = ingredientName.toLowerCase();
+    const lp = lastPriceMap.get(key);
+    if (lp && lp.unitPrice > 0) return { unitPrice: lp.unitPrice, uom: lp.uom, source: 'invoice' };
+    const im = itemMasterRateMap.get(key);
+    if (im && im.unitPrice > 0) return { unitPrice: im.unitPrice, uom: im.uom, source: 'master' };
+    return { unitPrice: 0, uom: '', source: null };
+  };
 
   const filteredIngredients = useMemo(() => {
     if (!ingredientSearch.trim()) return itemMasterList;
@@ -267,9 +295,9 @@ export default function BomPage() {
         bodyHtml += `<tr style="background:${sc.bg};"><td colspan="8" style="padding:4px 12px;font-size:11px;font-weight:700;color:${sc.color};border-bottom:1px solid ${sc.border};">▸ ${section}</td></tr>`;
         secItems.forEach((item, idx) => {
           const ft = fmtTotal(item.qtyPerPerson, item.uom, hc);
-          const lp = lastPriceMap.get(item.ingredientName.toLowerCase());
-          const rate = lp ? `₹${lp.unitPrice.toFixed(2)}/${item.uom}` : '—';
-          const cost = lp ? `₹${(lp.unitPrice * parseFloat(item.qtyPerPerson) * hc).toFixed(2)}` : '—';
+          const rp = resolvePrice(item.ingredientName);
+          const rate = rp.source ? `₹${rp.unitPrice.toFixed(2)}/${rp.uom}` : '—';
+          const cost = rp.source ? `₹${(rp.unitPrice * qtyInInvoiceUom(parseFloat(item.qtyPerPerson), item.uom, rp.uom) * hc).toFixed(2)}` : '—';
           bodyHtml += `<tr style="background:${idx%2===0?'#fff':'#f9fafb'};">
             <td style="border:1px solid #e2e8f0;padding:4px 8px;font-size:11px;color:#64748b;">${section}</td>
             <td style="border:1px solid #e2e8f0;padding:4px 8px;font-size:11px;font-weight:600;">${item.ingredientName}</td>
@@ -339,9 +367,9 @@ export default function BomPage() {
 
           secItems.forEach((item, idx) => {
             const ft = fmtTotal(item.qtyPerPerson, item.uom, hc);
-            const lp = lastPriceMap.get(item.ingredientName.toLowerCase());
-            const rate = lp ? lp.unitPrice : null;
-            const cost = lp ? lp.unitPrice * parseFloat(item.qtyPerPerson) * hc : null;
+            const rp = resolvePrice(item.ingredientName);
+            const rate = rp.source ? rp.unitPrice : null;
+            const cost = rp.source ? rp.unitPrice * qtyInInvoiceUom(parseFloat(item.qtyPerPerson), item.uom, rp.uom) * hc : null;
             const row = ws.addRow([section, item.ingredientName, parseFloat(item.qtyPerPerson), item.uom, Number(ft.value), ft.unit, rate, cost, item.notes || '']);
             row.height = 16;
             const rowBg = idx % 2 === 0 ? 'FFFFFFFF' : 'FFF8FAFC';
@@ -480,7 +508,7 @@ export default function BomPage() {
                     {showIngDropdown && filteredIngredients.length > 0 && (
                       <div className="absolute z-50 top-full left-0 right-0 mt-0.5 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-md shadow-lg max-h-52 overflow-y-auto">
                         {filteredIngredients.slice(0, 50).map(item => {
-                          const lp = lastPriceMap.get(item.itemName.toLowerCase());
+                          const lp = resolvePrice(item.itemName);
                           return (
                             <button
                               key={item.id}
@@ -500,8 +528,10 @@ export default function BomPage() {
                             >
                               <span className="font-medium truncate">{item.itemName}</span>
                               <span className="flex items-center gap-2 shrink-0">
-                                {lp && (
-                                  <span className="text-xs font-semibold text-emerald-600">₹{Number(lp.unitPrice).toFixed(2)}/{item.uom}</span>
+                                {lp.source && (
+                                  <span className={`text-xs font-semibold ${lp.source === 'invoice' ? 'text-emerald-600' : 'text-amber-600'}`}>
+                                    ₹{lp.unitPrice.toFixed(2)}/{lp.uom || item.uom}
+                                  </span>
                                 )}
                                 <span className="text-xs text-slate-400">{item.uom}</span>
                               </span>
@@ -517,14 +547,22 @@ export default function BomPage() {
                     )}
                     {/* Last price badge — shown when an item is selected */}
                     {addForm.ingredientName && (() => {
+                      const rp = resolvePrice(addForm.ingredientName);
+                      if (!rp.source) return null;
                       const lp = lastPriceMap.get(addForm.ingredientName.toLowerCase());
-                      if (!lp) return null;
+                      const label = rp.source === 'invoice' ? 'Last Purchase:' : 'Item Master Rate:';
+                      const badgeClass = rp.source === 'invoice'
+                        ? "mt-1 inline-flex items-center gap-1.5 bg-emerald-50 border border-emerald-200 rounded px-2 py-0.5"
+                        : "mt-1 inline-flex items-center gap-1.5 bg-amber-50 border border-amber-200 rounded px-2 py-0.5";
+                      const labelClass = rp.source === 'invoice' ? "text-xs text-emerald-700 font-medium" : "text-xs text-amber-700 font-medium";
+                      const priceClass = rp.source === 'invoice' ? "text-xs font-bold text-emerald-800" : "text-xs font-bold text-amber-800";
+                      const unitClass  = rp.source === 'invoice' ? "text-xs text-emerald-600" : "text-xs text-amber-600";
                       return (
-                        <div className="mt-1 inline-flex items-center gap-1.5 bg-emerald-50 border border-emerald-200 rounded px-2 py-0.5">
-                          <span className="text-xs text-emerald-700 font-medium">Last Purchase:</span>
-                          <span className="text-xs font-bold text-emerald-800">₹{Number(lp.unitPrice).toFixed(2)}</span>
-                          <span className="text-xs text-emerald-600">/ {addForm.uom}</span>
-                          {lp.gstRate > 0 && (
+                        <div className={badgeClass}>
+                          <span className={labelClass}>{label}</span>
+                          <span className={priceClass}>₹{rp.unitPrice.toFixed(2)}</span>
+                          <span className={unitClass}>/ {rp.uom || addForm.uom}</span>
+                          {lp && lp.gstRate > 0 && (
                             <span className="text-xs text-slate-500 ml-1">+ {Number(lp.gstRate).toFixed(0)}% GST</span>
                           )}
                         </div>
@@ -658,11 +696,11 @@ export default function BomPage() {
                       return acc;
                     }, {});
                     const secCost = secItems.reduce((s, i) => {
-                      const lp = lastPriceMap.get(i.ingredientName.toLowerCase());
-                      if (!lp) return s;
-                      return s + lp.unitPrice * parseFloat(i.qtyPerPerson) * hc;
+                      const rp = resolvePrice(i.ingredientName);
+                      if (!rp.source) return s;
+                      return s + rp.unitPrice * qtyInInvoiceUom(parseFloat(i.qtyPerPerson), i.uom, rp.uom) * hc;
                     }, 0);
-                    const secHasCost = secItems.some(i => lastPriceMap.has(i.ingredientName.toLowerCase()));
+                    const secHasCost = secItems.some(i => resolvePrice(i.ingredientName).source !== null);
                     return (
                       <Card key={section} className="overflow-hidden" style={{ borderColor: sc.border }}>
                         <div className="flex items-center justify-between px-4 py-2" style={{ background: sc.bg, borderBottom: `1px solid ${sc.border}` }}>
@@ -699,11 +737,11 @@ export default function BomPage() {
                               </thead>
                               <tbody>
                                 {secItems.map((item, idx) => {
-                                  const total = parseFloat(item.qtyPerPerson) * hc;
                                   const isEditing = editId === item.id;
-                                  const lp = lastPriceMap.get(item.ingredientName.toLowerCase());
-                                  const unitRate = lp ? lp.unitPrice : null;
-                                  const totalCost = unitRate !== null ? unitRate * total : null;
+                                  const rp = resolvePrice(item.ingredientName);
+                                  const unitRate = rp.source ? rp.unitPrice : null;
+                                  const convertedQty = rp.source ? qtyInInvoiceUom(parseFloat(item.qtyPerPerson), item.uom, rp.uom) * hc : null;
+                                  const totalCost = unitRate !== null && convertedQty !== null ? unitRate * convertedQty : null;
                                   return (
                                     <tr key={item.id} style={{ background: isEditing ? '#eef2ff' : idx % 2 === 0 ? '#fff' : '#f9fafb' }}>
                                       {/* Ingredient */}
@@ -731,7 +769,11 @@ export default function BomPage() {
                                       {/* Rate */}
                                       <td className="border-b border-slate-100 px-3 py-1.5 text-center">
                                         {unitRate !== null
-                                          ? <span className="text-xs font-semibold text-blue-700">₹{unitRate.toFixed(2)}<span className="font-normal text-slate-400">/{item.uom}</span></span>
+                                          ? <span className="text-xs font-semibold text-blue-700">
+                                              ₹{unitRate.toFixed(2)}
+                                              <span className="font-normal text-slate-400">/{rp.uom || item.uom}</span>
+                                              {rp.source === 'master' && <span className="ml-1 text-[9px] text-amber-500">(IM)</span>}
+                                            </span>
                                           : <span className="text-xs text-slate-300">—</span>}
                                       </td>
                                       {/* Total Cost */}

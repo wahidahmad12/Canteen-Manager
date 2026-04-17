@@ -170,7 +170,7 @@ export interface IStorage {
   createPurchaseInvoice(data: { purchaseRequestId?: number | null; allPrIds?: number[]; clientName: string; vendorName: string; vendorInvoiceNo: string; date: string; paymentGiven?: boolean; createdBy?: string; items: { itemName: string; uom: string; qty: number; unitPrice: number; totalPrice: number; gstRate: number; gstAmount: number; netAmount: number }[] }): Promise<PurchaseInvoiceWithItems>;
   updatePurchaseInvoice(id: number, data: { purchaseRequestId?: number | null; clientName?: string; vendorName?: string; vendorInvoiceNo?: string; date?: string; paymentGiven?: boolean; items?: { id?: number; itemName: string; uom: string; qty: number; unitPrice: number; totalPrice: number; gstRate: number; gstAmount: number; netAmount: number }[] }): Promise<PurchaseInvoiceWithItems>;
   deletePurchaseInvoice(id: number): Promise<void>;
-  getLastPurchasePrices(): Promise<{ itemName: string; unitPrice: number; gstRate: number }[]>;
+  getLastPurchasePrices(): Promise<{ itemName: string; unitPrice: number; gstRate: number; uom: string }[]>;
   getLastVegetablePrices(): Promise<{ description: string; rate: number }[]>;
   getItemMasterItems(itemType?: string): Promise<ItemMaster[]>;
   createItemMasterItem(data: { itemName: string; uom?: string; rate?: string; hsnCode?: string; gstPercent?: string; itemType?: string }): Promise<ItemMaster>;
@@ -1249,9 +1249,9 @@ export class DatabaseStorage implements IStorage {
     }));
   }
 
-  async getLastPurchasePrices(): Promise<{ itemName: string; unitPrice: number; gstRate: number }[]> {
+  async getLastPurchasePrices(): Promise<{ itemName: string; unitPrice: number; gstRate: number; uom: string }[]> {
     const result = await db.execute(sql`
-      SELECT t.item_name, t.unit_price, t.gst_rate
+      SELECT t.item_name, t.unit_price, t.gst_rate, t.uom
       FROM purchase_invoice_items t
       INNER JOIN (
         SELECT item_name, MAX(id) AS max_id
@@ -1264,6 +1264,7 @@ export class DatabaseStorage implements IStorage {
       itemName: row.item_name,
       unitPrice: Number(row.unit_price) || 0,
       gstRate: Number(row.gst_rate) || 0,
+      uom: String(row.uom || ''),
     }));
   }
 
