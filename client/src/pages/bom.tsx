@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useRef, useEffect } from "react";
 import { Layout } from "@/components/layout";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -34,6 +34,25 @@ const INGREDIENT_SECTIONS = [
 ];
 
 const UOM_OPTIONS = ["kg","gm","litre","ml","pcs","tbsp","tsp","cup","inch","medium","large","small","dozen","packet","box","nos"];
+
+function normalizeUom(raw: string): string {
+  const m = (raw ?? "").trim().toLowerCase();
+  const map: Record<string, string> = {
+    kg: "kg", kgs: "kg", kilogram: "kg", kilograms: "kg",
+    gm: "gm", g: "gm", gram: "gm", grams: "gm",
+    litre: "litre", ltr: "litre", l: "litre", liter: "litre", liters: "litre", litres: "litre",
+    ml: "ml", milliliter: "ml", millilitre: "ml",
+    pcs: "pcs", pc: "pcs", pieces: "pcs", piece: "pcs",
+    nos: "nos", no: "nos", number: "nos",
+    tbsp: "tbsp", tablespoon: "tbsp",
+    tsp: "tsp", teaspoon: "tsp",
+    cup: "cup", cups: "cup",
+    packet: "packet", pack: "packet",
+    box: "box", dozen: "dozen",
+    inch: "inch", medium: "medium", large: "large", small: "small",
+  };
+  return map[m] ?? (UOM_OPTIONS.find(u => u === m) ?? "");
+}
 
 function fmtTotal(qtyPerPerson: string | number, uom: string, headcount: number): { value: string; unit: string } {
   const raw = parseFloat(String(qtyPerPerson)) * headcount;
@@ -99,6 +118,20 @@ export default function BomPage() {
   const [editId, setEditId] = useState<number | null>(null);
   const [editForm, setEditForm] = useState<Partial<AddForm>>({});
 
+  const [ingredientSearch, setIngredientSearch] = useState("");
+  const [showIngDropdown, setShowIngDropdown] = useState(false);
+  const ingRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    function handleClick(e: MouseEvent) {
+      if (ingRef.current && !ingRef.current.contains(e.target as Node)) {
+        setShowIngDropdown(false);
+      }
+    }
+    document.addEventListener("mousedown", handleClick);
+    return () => document.removeEventListener("mousedown", handleClick);
+  }, []);
+
   const qKey = ['/api/bom-items', client, mealType];
 
   const { data: items = [], isLoading } = useQuery<BomItem[]>({
@@ -116,6 +149,7 @@ export default function BomPage() {
       qc.invalidateQueries({ queryKey: qKey });
       setShowAdd(false);
       setNewDishMode(false);
+      setIngredientSearch("");
       if (vars.dishName) setActiveDish(vars.dishName);
       setAddForm(f => ({ ...emptyAdd, dishName: f.dishName }));
       toast({ title: "Ingredient added" });
@@ -134,6 +168,21 @@ export default function BomPage() {
     onSuccess: () => { qc.invalidateQueries({ queryKey: qKey }); toast({ title: "Deleted" }); },
     onError: (e: any) => toast({ title: "Error", description: e.message, variant: "destructive" }),
   });
+
+  const { data: itemMasterList = [] } = useQuery<{ id: number; itemName: string; uom: string }[]>({
+    queryKey: ['/api/item-master'],
+    queryFn: async () => {
+      const r = await fetch('/api/item-master', { credentials: 'include' });
+      if (!r.ok) throw new Error("Failed to load item master");
+      return r.json();
+    },
+  });
+
+  const filteredIngredients = useMemo(() => {
+    if (!ingredientSearch.trim()) return itemMasterList;
+    const q = ingredientSearch.toLowerCase();
+    return itemMasterList.filter(i => i.itemName.toLowerCase().includes(q));
+  }, [itemMasterList, ingredientSearch]);
 
   const hc = Math.max(1, Number(headcount) || 1);
 
@@ -344,7 +393,7 @@ export default function BomPage() {
             <Button variant="outline" size="sm" onClick={handleExcelExport} className="text-green-700 border-green-300 hover:bg-green-50" data-testid="button-bom-excel">
               <Download className="w-3.5 h-3.5 mr-1" /> Excel
             </Button>
-            <Button size="sm" onClick={() => { setShowAdd(true); setNewDishMode(true); setAddForm(emptyAdd); }}
+            <Button size="sm" onClick={() => { setShowAdd(true); setNewDishMode(true); setAddForm(emptyAdd); setIngredientSearch(""); }}
               className="bg-indigo-600 hover:bg-indigo-700 text-white" data-testid="button-add-dish">
               <Plus className="w-3.5 h-3.5 mr-1" /> Add Ingredient
             </Button>
@@ -386,10 +435,55 @@ export default function BomPage() {
               {/* Ingredient Row */}
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
                 <div className="sm:col-span-2">
-                  <label className="text-xs font-semibold text-slate-600 mb-1 block">Ingredient / Material *</label>
-                  <Input placeholder="e.g. Onions, Ginger Paste, Turmeric..."
-                    value={addForm.ingredientName} onChange={e => setAddForm(f => ({ ...f, ingredientName: e.target.value }))}
-                    className="h-8 text-sm" data-testid="input-ingredient-name" />
+                  <label className="text-xs font-semibold text-slate-600 mb-1 block">
+                    Ingredient / Material *
+                    <span className="ml-1 font-normal text-indigo-500">(from Item Master)</span>
+                  </label>
+                  <div className="relative" ref={ingRef}>
+                    <Input
+                      placeholder="Search item master…"
+                      value={ingredientSearch || addForm.ingredientName}
+                      onChange={e => {
+                        setIngredientSearch(e.target.value);
+                        setAddForm(f => ({ ...f, ingredientName: e.target.value }));
+                        setShowIngDropdown(true);
+                      }}
+                      onFocus={() => setShowIngDropdown(true)}
+                      className="h-8 text-sm"
+                      data-testid="input-ingredient-name"
+                      autoComplete="off"
+                    />
+                    {showIngDropdown && filteredIngredients.length > 0 && (
+                      <div className="absolute z-50 top-full left-0 right-0 mt-0.5 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-md shadow-lg max-h-52 overflow-y-auto">
+                        {filteredIngredients.slice(0, 50).map(item => (
+                          <button
+                            key={item.id}
+                            type="button"
+                            className="w-full text-left px-3 py-1.5 text-sm hover:bg-indigo-50 dark:hover:bg-indigo-950/40 flex items-center justify-between gap-2"
+                            onMouseDown={e => {
+                              e.preventDefault();
+                              const normUom = normalizeUom(item.uom);
+                              setAddForm(f => ({
+                                ...f,
+                                ingredientName: item.itemName,
+                                uom: normUom || f.uom,
+                              }));
+                              setIngredientSearch("");
+                              setShowIngDropdown(false);
+                            }}
+                          >
+                            <span className="font-medium truncate">{item.itemName}</span>
+                            <span className="text-xs text-slate-400 shrink-0">{item.uom}</span>
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                    {showIngDropdown && ingredientSearch && filteredIngredients.length === 0 && (
+                      <div className="absolute z-50 top-full left-0 right-0 mt-0.5 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-md shadow-sm px-3 py-2 text-xs text-slate-500">
+                        No match — item will be saved as typed
+                      </div>
+                    )}
+                  </div>
                 </div>
                 <div>
                   <label className="text-xs font-semibold text-slate-600 mb-1 block">Qty / Person</label>
@@ -421,7 +515,7 @@ export default function BomPage() {
                 <Button size="sm" onClick={handleAdd} disabled={createMut.isPending} className="bg-indigo-600 text-white" data-testid="button-confirm-add">
                   {createMut.isPending ? <Loader2 className="w-3.5 h-3.5 mr-1 animate-spin" /> : <Save className="w-3.5 h-3.5 mr-1" />} Add Ingredient
                 </Button>
-                <Button size="sm" variant="outline" onClick={() => { setShowAdd(false); setNewDishMode(false); setAddForm(emptyAdd); }}>
+                <Button size="sm" variant="outline" onClick={() => { setShowAdd(false); setNewDishMode(false); setAddForm(emptyAdd); setIngredientSearch(""); }}>
                   <X className="w-3.5 h-3.5 mr-1" /> Cancel
                 </Button>
               </div>
@@ -501,7 +595,7 @@ export default function BomPage() {
                       </div>
                       <Button size="sm" variant="outline"
                         className="border-white/30 text-white hover:bg-white/10 text-xs h-8"
-                        onClick={() => { setShowAdd(true); setAddForm(f => ({ ...emptyAdd, dishName: currentDish })); }}
+                        onClick={() => { setShowAdd(true); setAddForm(f => ({ ...emptyAdd, dishName: currentDish })); setIngredientSearch(""); }}
                         data-testid="button-add-to-dish">
                         <Plus className="w-3 h-3 mr-1" /> Add More
                       </Button>
