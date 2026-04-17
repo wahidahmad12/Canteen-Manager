@@ -617,7 +617,7 @@ export async function registerRoutes(
   });
 
   // === PURCHASE INVOICE ROUTES ===
-  app.get(api.purchaseInvoices.lastPrices.path, requirePermission('purchase'), async (req, res) => {
+  app.get(api.purchaseInvoices.lastPrices.path, requireAuth, async (req, res) => {
     const prices = await storage.getLastPurchasePrices();
     res.json(prices);
   });
