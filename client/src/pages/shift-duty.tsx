@@ -6,7 +6,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { Loader2, Save, Download, CalendarDays, Users, RefreshCw, LayoutGrid, Table2, ChevronDown, ChevronUp, Printer, Share2 } from "lucide-react";
+import { Loader2, Save, Download, CalendarDays, Users, RefreshCw, LayoutGrid, Table2, ChevronDown, ChevronUp, Printer, Share2, Copy } from "lucide-react";
 
 const MONTHS = ["January","February","March","April","May","June","July","August","September","October","November","December"];
 const WEEKDAYS = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
@@ -63,6 +63,7 @@ export default function ShiftDuty() {
   const [deptFilter, setDeptFilter] = useState("all");
   const [clientFilter, setClientFilter] = useState("all");
   const [saving, setSaving] = useState(false);
+  const [copyingPrev, setCopyingPrev] = useState(false);
   const [viewMode, setViewMode] = useState<"table" | "cards">("table");
   const [expandedCards, setExpandedCards] = useState<Record<number, boolean>>({});
   const [selectedWeekIdx, setSelectedWeekIdx] = useState(0);
@@ -217,6 +218,45 @@ export default function ShiftDuty() {
       changes[`${empId}-${d}`] = shift;
     }
     setLocalChanges(prev => ({ ...prev, ...changes }));
+  };
+
+  const handleCopyPrevMonth = async () => {
+    const prevMonth = month === 1 ? 12 : month - 1;
+    const prevYear  = month === 1 ? year - 1 : year;
+    setCopyingPrev(true);
+    try {
+      const res = await fetch(`/api/shift-duties?month=${prevMonth}&year=${prevYear}`, { credentials: 'include' });
+      if (!res.ok) throw new Error("Failed to fetch previous month data.");
+      const prevRows: ShiftRow[] = await res.json();
+      if (prevRows.length === 0) {
+        toast({ title: "No data found", description: `${MONTHS[prevMonth - 1]} ${prevYear} has no saved shift data.`, variant: "destructive" });
+        return;
+      }
+      const changes: Record<string, string> = {};
+      prevRows.forEach(row => {
+        for (let d = 1; d <= daysInMonth; d++) {
+          const val: string = row[`day${d}`] ?? "";
+          if (val) {
+            // If employee has an auto-week-off on this day in the new month, skip unless already saved
+            if (isAutoWeekOff(row.employeeId, d) && !shiftMap[row.employeeId]?.[`day${d}`] && val !== "O") continue;
+            changes[`${row.employeeId}-${d}`] = val;
+          }
+        }
+      });
+      if (Object.keys(changes).length === 0) {
+        toast({ title: "Nothing to copy", description: "Previous month has no shift entries to copy." });
+        return;
+      }
+      setLocalChanges(prev => ({ ...prev, ...changes }));
+      toast({
+        title: "Previous month copied",
+        description: `${Object.keys(changes).length} shift cells copied from ${MONTHS[prevMonth - 1]} ${prevYear}. Review and save when ready.`,
+      });
+    } catch (err: any) {
+      toast({ title: "Copy failed", description: err.message, variant: "destructive" });
+    } finally {
+      setCopyingPrev(false);
+    }
   };
 
   const handleSaveAll = async () => {
@@ -580,6 +620,17 @@ export default function ShiftDuty() {
 
           <Button variant="outline" size="sm" onClick={() => { setLocalChanges({}); refetch(); }} data-testid="button-refresh">
             <RefreshCw className="w-3.5 h-3.5" />
+          </Button>
+          <Button
+            variant="outline" size="sm"
+            onClick={handleCopyPrevMonth}
+            disabled={copyingPrev}
+            className="text-indigo-700 border-indigo-300 hover:bg-indigo-50"
+            title={`Copy previous month's (${MONTHS[month === 1 ? 11 : month - 2]} ${month === 1 ? year - 1 : year}) shift pattern into current month`}
+            data-testid="button-copy-prev-month"
+          >
+            {copyingPrev ? <Loader2 className="w-3.5 h-3.5 mr-1 animate-spin" /> : <Copy className="w-3.5 h-3.5 mr-1" />}
+            Copy Prev Month
           </Button>
           <Button variant="outline" size="sm" onClick={handlePrint} data-testid="button-print">
             <Printer className="w-3.5 h-3.5 mr-1" /> Print
