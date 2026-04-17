@@ -178,6 +178,20 @@ export default function BomPage() {
     },
   });
 
+  const { data: lastPriceList = [] } = useQuery<{ itemName: string; unitPrice: number; gstRate: number }[]>({
+    queryKey: ['/api/purchase-invoices/last-prices'],
+    queryFn: async () => {
+      const r = await fetch('/api/purchase-invoices/last-prices', { credentials: 'include' });
+      if (!r.ok) return [];
+      return r.json();
+    },
+  });
+
+  const lastPriceMap = useMemo(() =>
+    new Map(lastPriceList.map(p => [p.itemName.toLowerCase(), p])),
+    [lastPriceList]
+  );
+
   const filteredIngredients = useMemo(() => {
     if (!ingredientSearch.trim()) return itemMasterList;
     const q = ingredientSearch.toLowerCase();
@@ -455,27 +469,35 @@ export default function BomPage() {
                     />
                     {showIngDropdown && filteredIngredients.length > 0 && (
                       <div className="absolute z-50 top-full left-0 right-0 mt-0.5 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-md shadow-lg max-h-52 overflow-y-auto">
-                        {filteredIngredients.slice(0, 50).map(item => (
-                          <button
-                            key={item.id}
-                            type="button"
-                            className="w-full text-left px-3 py-1.5 text-sm hover:bg-indigo-50 dark:hover:bg-indigo-950/40 flex items-center justify-between gap-2"
-                            onMouseDown={e => {
-                              e.preventDefault();
-                              const normUom = normalizeUom(item.uom);
-                              setAddForm(f => ({
-                                ...f,
-                                ingredientName: item.itemName,
-                                uom: normUom || f.uom,
-                              }));
-                              setIngredientSearch("");
-                              setShowIngDropdown(false);
-                            }}
-                          >
-                            <span className="font-medium truncate">{item.itemName}</span>
-                            <span className="text-xs text-slate-400 shrink-0">{item.uom}</span>
-                          </button>
-                        ))}
+                        {filteredIngredients.slice(0, 50).map(item => {
+                          const lp = lastPriceMap.get(item.itemName.toLowerCase());
+                          return (
+                            <button
+                              key={item.id}
+                              type="button"
+                              className="w-full text-left px-3 py-1.5 text-sm hover:bg-indigo-50 dark:hover:bg-indigo-950/40 flex items-center justify-between gap-2"
+                              onMouseDown={e => {
+                                e.preventDefault();
+                                const normUom = normalizeUom(item.uom);
+                                setAddForm(f => ({
+                                  ...f,
+                                  ingredientName: item.itemName,
+                                  uom: normUom || f.uom,
+                                }));
+                                setIngredientSearch("");
+                                setShowIngDropdown(false);
+                              }}
+                            >
+                              <span className="font-medium truncate">{item.itemName}</span>
+                              <span className="flex items-center gap-2 shrink-0">
+                                {lp && (
+                                  <span className="text-xs font-semibold text-emerald-600">₹{Number(lp.unitPrice).toFixed(2)}/{item.uom}</span>
+                                )}
+                                <span className="text-xs text-slate-400">{item.uom}</span>
+                              </span>
+                            </button>
+                          );
+                        })}
                       </div>
                     )}
                     {showIngDropdown && ingredientSearch && filteredIngredients.length === 0 && (
@@ -483,6 +505,21 @@ export default function BomPage() {
                         No match — item will be saved as typed
                       </div>
                     )}
+                    {/* Last price badge — shown when an item is selected */}
+                    {addForm.ingredientName && (() => {
+                      const lp = lastPriceMap.get(addForm.ingredientName.toLowerCase());
+                      if (!lp) return null;
+                      return (
+                        <div className="mt-1 inline-flex items-center gap-1.5 bg-emerald-50 border border-emerald-200 rounded px-2 py-0.5">
+                          <span className="text-xs text-emerald-700 font-medium">Last Purchase:</span>
+                          <span className="text-xs font-bold text-emerald-800">₹{Number(lp.unitPrice).toFixed(2)}</span>
+                          <span className="text-xs text-emerald-600">/ {addForm.uom}</span>
+                          {lp.gstRate > 0 && (
+                            <span className="text-xs text-slate-500 ml-1">+ {Number(lp.gstRate).toFixed(0)}% GST</span>
+                          )}
+                        </div>
+                      );
+                    })()}
                   </div>
                 </div>
                 <div>
