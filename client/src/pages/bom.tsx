@@ -261,12 +261,15 @@ export default function BomPage() {
     Object.entries(dishesToPrint).forEach(([dish, sections]) => {
       const allItems = Object.values(sections).flat();
       const dishTotalKg = allItems.filter(i => i.uom === 'kg').reduce((s, i) => s + parseFloat(i.qtyPerPerson) * hc, 0);
-      bodyHtml += `<tr style="background:#1e3a5f;"><td colspan="6" style="padding:6px 10px;font-size:13px;font-weight:bold;color:#fff;">🍽 ${dish}</td></tr>`;
+      bodyHtml += `<tr style="background:#1e3a5f;"><td colspan="8" style="padding:6px 10px;font-size:13px;font-weight:bold;color:#fff;">🍽 ${dish}</td></tr>`;
       Object.entries(sections).forEach(([section, secItems]) => {
         const sc = SECTION_COLORS[section] ?? SECTION_COLORS["Other"];
-        bodyHtml += `<tr style="background:${sc.bg};"><td colspan="6" style="padding:4px 12px;font-size:11px;font-weight:700;color:${sc.color};border-bottom:1px solid ${sc.border};">▸ ${section}</td></tr>`;
+        bodyHtml += `<tr style="background:${sc.bg};"><td colspan="8" style="padding:4px 12px;font-size:11px;font-weight:700;color:${sc.color};border-bottom:1px solid ${sc.border};">▸ ${section}</td></tr>`;
         secItems.forEach((item, idx) => {
           const ft = fmtTotal(item.qtyPerPerson, item.uom, hc);
+          const lp = lastPriceMap.get(item.ingredientName.toLowerCase());
+          const rate = lp ? `₹${lp.unitPrice.toFixed(2)}/${item.uom}` : '—';
+          const cost = lp ? `₹${(lp.unitPrice * parseFloat(item.qtyPerPerson) * hc).toFixed(2)}` : '—';
           bodyHtml += `<tr style="background:${idx%2===0?'#fff':'#f9fafb'};">
             <td style="border:1px solid #e2e8f0;padding:4px 8px;font-size:11px;color:#64748b;">${section}</td>
             <td style="border:1px solid #e2e8f0;padding:4px 8px;font-size:11px;font-weight:600;">${item.ingredientName}</td>
@@ -274,17 +277,19 @@ export default function BomPage() {
             <td style="border:1px solid #e2e8f0;padding:4px 8px;font-size:11px;text-align:center;">${item.uom}</td>
             <td style="border:1px solid #e2e8f0;padding:4px 8px;font-size:11px;text-align:center;font-weight:700;color:#16a34a;">${ft.value}</td>
             <td style="border:1px solid #e2e8f0;padding:4px 8px;font-size:11px;text-align:center;">${ft.unit}</td>
+            <td style="border:1px solid #e2e8f0;padding:4px 8px;font-size:11px;text-align:center;color:#1d4ed8;">${rate}</td>
+            <td style="border:1px solid #e2e8f0;padding:4px 8px;font-size:11px;text-align:center;font-weight:700;color:#7e22ce;">${cost}</td>
           </tr>`;
         });
       });
-      bodyHtml += `<tr><td colspan="6" style="padding:2px;background:#f1f5f9;"></td></tr>`;
+      bodyHtml += `<tr><td colspan="8" style="padding:2px;background:#f1f5f9;"></td></tr>`;
     });
     const html = `<!DOCTYPE html><html><head><title>BOM — ${client} — ${mtLabel}</title>
     <style>body{font-family:Arial,sans-serif;margin:16px;}h2{color:#1e3a5f;margin:0;}p{margin:2px 0;font-size:12px;}table{border-collapse:collapse;width:100%;margin-top:10px;}th{background:#1e3a5f;color:#fff;padding:5px 8px;font-size:11px;}@media print{button{display:none}}</style></head><body>
     <h2>DJ Hospitality & Facility Management Pvt. Ltd.</h2>
     <p><strong>Bill of Material — ${mtLabel}</strong></p>
     <p>Client: <strong>${client}</strong> &nbsp;|&nbsp; Headcount: <strong>${hc}</strong> &nbsp;|&nbsp; Date: ${new Date().toLocaleDateString('en-IN')}</p>
-    <table><thead><tr><th>Section</th><th>Ingredient / Material</th><th>Qty/Person</th><th>UOM</th><th>Total Qty</th><th>UOM</th></tr></thead>
+    <table><thead><tr><th>Section</th><th>Ingredient / Material</th><th>Qty/Person</th><th>UOM</th><th>Total Qty</th><th>UOM</th><th>Rate (₹)</th><th>Cost (₹)</th></tr></thead>
     <tbody>${bodyHtml}</tbody></table>
     <script>window.onload=()=>{window.print();}</script></body></html>`;
     const w = window.open('', '_blank');
@@ -312,36 +317,40 @@ export default function BomPage() {
       ws.getCell('A2').alignment = { horizontal:'center' };
       ws.getRow(2).height = 18;
 
-      const hdrRow = ws.addRow(['Section / Group','Ingredient / Material','Qty / Person','UOM','Total Qty','UOM / Notes']);
+      const hdrRow = ws.addRow(['Section / Group','Ingredient / Material','Qty / Person','UOM','Total Qty','Total UOM','Rate (₹/UOM)','Cost (₹)','Notes']);
       hdrRow.font = { bold:true, color:{argb:'FFFFFFFF'}, size:10 };
       hdrRow.fill = mkFill('FF1E3A5F'); hdrRow.height = 18;
       hdrRow.eachCell(c => { (c as any).border = thin; (c as any).alignment = { horizontal:'center', vertical:'middle' }; });
 
       const dishesToExport = currentDish ? { [currentDish]: grouped[currentDish] } : grouped;
       Object.entries(dishesToExport).forEach(([dish, sections]) => {
-        ws.mergeCells(`A${ws.rowCount+1}:F${ws.rowCount+1}`);
         const dr = ws.addRow([`🍽 ${dish}`]);
-        ws.mergeCells(`A${dr.number}:F${dr.number}`);
+        ws.mergeCells(`A${dr.number}:I${dr.number}`);
         dr.font = { bold:true, size:11, color:{argb:'FFFFFFFF'} };
         dr.fill = mkFill('FF1E3A5F'); dr.height = 20;
         dr.getCell(1).border = thin;
         dr.getCell(1).alignment = { horizontal:'left', vertical:'middle' };
 
         Object.entries(sections).forEach(([section, secItems]) => {
-          const secRow = ws.addRow([`▸ ${section}`, '', '', '', '', '']);
+          const secRow = ws.addRow([`▸ ${section}`, '', '', '', '', '', '', '', '']);
           secRow.font = { bold:true, size:10, color:{argb:'FF374151'} };
           secRow.fill = mkFill('FFF1F5F9'); secRow.height = 16;
           secRow.eachCell(c => { (c as any).border = thin; });
 
           secItems.forEach((item, idx) => {
             const ft = fmtTotal(item.qtyPerPerson, item.uom, hc);
-            const row = ws.addRow([section, item.ingredientName, parseFloat(item.qtyPerPerson), item.uom, Number(ft.value), `${ft.unit}${item.notes ? ' — ' + item.notes : ''}`]);
+            const lp = lastPriceMap.get(item.ingredientName.toLowerCase());
+            const rate = lp ? lp.unitPrice : null;
+            const cost = lp ? lp.unitPrice * parseFloat(item.qtyPerPerson) * hc : null;
+            const row = ws.addRow([section, item.ingredientName, parseFloat(item.qtyPerPerson), item.uom, Number(ft.value), ft.unit, rate, cost, item.notes || '']);
             row.height = 16;
             const rowBg = idx % 2 === 0 ? 'FFFFFFFF' : 'FFF8FAFC';
             row.eachCell((c, ci) => {
               (c as any).border = thin;
-              (c as any).alignment = { vertical:'middle', horizontal: ci > 2 && ci < 6 ? 'center' : 'left' };
+              (c as any).alignment = { vertical:'middle', horizontal: ci > 2 && ci < 9 ? 'center' : 'left' };
               if (ci === 5) { (c as any).font = { bold:true, color:{argb:'FF16A34A'} }; (c as any).fill = mkFill('FFD1FAE5'); }
+              else if (ci === 7) { (c as any).font = { bold:true, color:{argb:'FF1D4ED8'} }; (c as any).fill = mkFill('FFDBEAFE'); (c as any).numFmt = '₹#,##0.00'; }
+              else if (ci === 8) { (c as any).font = { bold:true, color:{argb:'FF7E22CE'} }; (c as any).fill = mkFill('FFF3E8FF'); (c as any).numFmt = '₹#,##0.00'; }
               else { (c as any).fill = mkFill(rowBg); (c as any).font = { size:10 }; }
             });
           });
@@ -350,7 +359,8 @@ export default function BomPage() {
       });
 
       ws.getColumn(1).width = 22; ws.getColumn(2).width = 30; ws.getColumn(3).width = 14;
-      ws.getColumn(4).width = 10; ws.getColumn(5).width = 14; ws.getColumn(6).width = 26;
+      ws.getColumn(4).width = 10; ws.getColumn(5).width = 14; ws.getColumn(6).width = 12;
+      ws.getColumn(7).width = 16; ws.getColumn(8).width = 16; ws.getColumn(9).width = 28;
 
       const buf = await wb.xlsx.writeBuffer();
       saveAs(new Blob([buf]), `BOM_${client.replace(/\s+/g,'_')}_${activeMt.key}.xlsx`);
@@ -647,6 +657,12 @@ export default function BomPage() {
                       acc[ft.unit] = (acc[ft.unit] || 0) + parseFloat(ft.value);
                       return acc;
                     }, {});
+                    const secCost = secItems.reduce((s, i) => {
+                      const lp = lastPriceMap.get(i.ingredientName.toLowerCase());
+                      if (!lp) return s;
+                      return s + lp.unitPrice * parseFloat(i.qtyPerPerson) * hc;
+                    }, 0);
+                    const secHasCost = secItems.some(i => lastPriceMap.has(i.ingredientName.toLowerCase()));
                     return (
                       <Card key={section} className="overflow-hidden" style={{ borderColor: sc.border }}>
                         <div className="flex items-center justify-between px-4 py-2" style={{ background: sc.bg, borderBottom: `1px solid ${sc.border}` }}>
@@ -655,9 +671,16 @@ export default function BomPage() {
                             <span className="text-sm font-bold" style={{ color: sc.color }}>{section}</span>
                             <span className="text-xs text-muted-foreground">({secItems.length} item{secItems.length !== 1 ? 's' : ''})</span>
                           </div>
-                          <span className="text-xs font-semibold" style={{ color: sc.color }}>
-                            {Object.entries(secSummary).map(([u, q]) => `${q.toFixed(3)} ${u}`).join(' + ')}
-                          </span>
+                          <div className="flex items-center gap-3">
+                            <span className="text-xs font-semibold" style={{ color: sc.color }}>
+                              {Object.entries(secSummary).map(([u, q]) => `${q.toFixed(3)} ${u}`).join(' + ')}
+                            </span>
+                            {secHasCost && (
+                              <span className="text-xs font-bold text-purple-700 bg-purple-50 border border-purple-200 rounded px-2 py-0.5">
+                                ₹{secCost.toFixed(2)}
+                              </span>
+                            )}
+                          </div>
                         </div>
                         <CardContent className="p-0">
                           <div className="overflow-x-auto">
@@ -668,6 +691,8 @@ export default function BomPage() {
                                   <th className="px-3 py-2 text-center font-semibold text-slate-600 w-28">Qty / Person</th>
                                   <th className="px-3 py-2 text-center font-semibold text-slate-600 w-16">UOM</th>
                                   <th className="px-3 py-2 text-center font-semibold text-green-700 w-28">Total ({hc} pax)</th>
+                                  <th className="px-3 py-2 text-center font-semibold text-blue-700 w-24">Rate (₹)</th>
+                                  <th className="px-3 py-2 text-center font-semibold text-purple-700 w-28">Cost ({hc} pax)</th>
                                   <th className="px-3 py-2 text-left font-semibold text-slate-600">Specification / Notes</th>
                                   <th className="px-3 py-2 text-center font-semibold text-slate-600 w-16">Act.</th>
                                 </tr>
@@ -676,6 +701,9 @@ export default function BomPage() {
                                 {secItems.map((item, idx) => {
                                   const total = parseFloat(item.qtyPerPerson) * hc;
                                   const isEditing = editId === item.id;
+                                  const lp = lastPriceMap.get(item.ingredientName.toLowerCase());
+                                  const unitRate = lp ? lp.unitPrice : null;
+                                  const totalCost = unitRate !== null ? unitRate * total : null;
                                   return (
                                     <tr key={item.id} style={{ background: isEditing ? '#eef2ff' : idx % 2 === 0 ? '#fff' : '#f9fafb' }}>
                                       {/* Ingredient */}
@@ -696,9 +724,21 @@ export default function BomPage() {
                                           ? <Select value={editForm.uom ?? item.uom} onValueChange={v => setEditForm(f => ({ ...f, uom: v }))}><SelectTrigger className="h-7 text-xs w-16"><SelectValue /></SelectTrigger><SelectContent>{UOM_OPTIONS.map(u => <SelectItem key={u} value={u}>{u}</SelectItem>)}</SelectContent></Select>
                                           : item.uom}
                                       </td>
-                                      {/* Total */}
+                                      {/* Total Qty */}
                                       <td className="border-b border-slate-100 px-3 py-1.5 text-center">
                                         {(() => { const ft = fmtTotal(item.qtyPerPerson, isEditing ? (editForm.uom ?? item.uom) : item.uom, hc); return <><span className="font-bold text-green-700">{ft.value}</span><span className="text-xs text-slate-400 ml-1">{ft.unit}</span></>; })()}
+                                      </td>
+                                      {/* Rate */}
+                                      <td className="border-b border-slate-100 px-3 py-1.5 text-center">
+                                        {unitRate !== null
+                                          ? <span className="text-xs font-semibold text-blue-700">₹{unitRate.toFixed(2)}<span className="font-normal text-slate-400">/{item.uom}</span></span>
+                                          : <span className="text-xs text-slate-300">—</span>}
+                                      </td>
+                                      {/* Total Cost */}
+                                      <td className="border-b border-slate-100 px-3 py-1.5 text-center">
+                                        {totalCost !== null
+                                          ? <span className="text-xs font-bold text-purple-700">₹{totalCost.toFixed(2)}</span>
+                                          : <span className="text-xs text-slate-300">—</span>}
                                       </td>
                                       {/* Notes */}
                                       <td className="border-b border-slate-100 px-3 py-1.5 text-xs text-slate-500 italic">
