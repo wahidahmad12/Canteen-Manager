@@ -35,6 +35,13 @@ const INGREDIENT_SECTIONS = [
 
 const UOM_OPTIONS = ["kg","gm","litre","ml","pcs","tbsp","tsp","cup","inch","medium","large","small","dozen","packet","box","nos"];
 
+function fmtTotal(qtyPerPerson: string | number, uom: string, headcount: number): { value: string; unit: string } {
+  const raw = parseFloat(String(qtyPerPerson)) * headcount;
+  if (uom === "gm" && raw >= 1000) return { value: (raw / 1000).toFixed(3), unit: "kg" };
+  if (uom === "ml"  && raw >= 1000) return { value: (raw / 1000).toFixed(3), unit: "L"  };
+  return { value: raw.toFixed(3), unit: uom };
+}
+
 const SECTION_COLORS: Record<string, { bg: string; color: string; border: string }> = {
   "Main Item":              { bg: "#1e3a5f", color: "#ffffff", border: "#1e3a5f" },
   "Aromatics":              { bg: "#fff7ed", color: "#c2410c", border: "#fed7aa" },
@@ -196,14 +203,14 @@ export default function BomPage() {
         const sc = SECTION_COLORS[section] ?? SECTION_COLORS["Other"];
         bodyHtml += `<tr style="background:${sc.bg};"><td colspan="6" style="padding:4px 12px;font-size:11px;font-weight:700;color:${sc.color};border-bottom:1px solid ${sc.border};">▸ ${section}</td></tr>`;
         secItems.forEach((item, idx) => {
-          const total = (parseFloat(item.qtyPerPerson) * hc);
+          const ft = fmtTotal(item.qtyPerPerson, item.uom, hc);
           bodyHtml += `<tr style="background:${idx%2===0?'#fff':'#f9fafb'};">
             <td style="border:1px solid #e2e8f0;padding:4px 8px;font-size:11px;color:#64748b;">${section}</td>
             <td style="border:1px solid #e2e8f0;padding:4px 8px;font-size:11px;font-weight:600;">${item.ingredientName}</td>
             <td style="border:1px solid #e2e8f0;padding:4px 8px;font-size:11px;text-align:center;">${parseFloat(item.qtyPerPerson).toFixed(4)}</td>
             <td style="border:1px solid #e2e8f0;padding:4px 8px;font-size:11px;text-align:center;">${item.uom}</td>
-            <td style="border:1px solid #e2e8f0;padding:4px 8px;font-size:11px;text-align:center;font-weight:700;color:#16a34a;">${total.toFixed(3)}</td>
-            <td style="border:1px solid #e2e8f0;padding:4px 8px;font-size:11px;text-align:center;">${item.uom}</td>
+            <td style="border:1px solid #e2e8f0;padding:4px 8px;font-size:11px;text-align:center;font-weight:700;color:#16a34a;">${ft.value}</td>
+            <td style="border:1px solid #e2e8f0;padding:4px 8px;font-size:11px;text-align:center;">${ft.unit}</td>
           </tr>`;
         });
       });
@@ -264,8 +271,8 @@ export default function BomPage() {
           secRow.eachCell(c => { (c as any).border = thin; });
 
           secItems.forEach((item, idx) => {
-            const total = parseFloat(item.qtyPerPerson) * hc;
-            const row = ws.addRow([section, item.ingredientName, parseFloat(item.qtyPerPerson), item.uom, Number(total.toFixed(3)), `${item.uom}${item.notes ? ' — ' + item.notes : ''}`]);
+            const ft = fmtTotal(item.qtyPerPerson, item.uom, hc);
+            const row = ws.addRow([section, item.ingredientName, parseFloat(item.qtyPerPerson), item.uom, Number(ft.value), `${ft.unit}${item.notes ? ' — ' + item.notes : ''}`]);
             row.height = 16;
             const rowBg = idx % 2 === 0 ? 'FFFFFFFF' : 'FFF8FAFC';
             row.eachCell((c, ci) => {
@@ -407,7 +414,7 @@ export default function BomPage() {
               {/* Qty hint */}
               {addForm.qtyPerPerson && addForm.uom && (
                 <p className="text-xs text-indigo-600 font-medium">
-                  For {hc} persons → Total: <strong>{(parseFloat(addForm.qtyPerPerson) * hc).toFixed(3)} {addForm.uom}</strong>
+                  {(() => { const ft = fmtTotal(addForm.qtyPerPerson, addForm.uom, hc); return <>For {hc} persons → Total: <strong>{ft.value} {ft.unit}</strong></>; })()}
                 </p>
               )}
               <div className="flex gap-2">
@@ -464,7 +471,8 @@ export default function BomPage() {
                 <p className="text-xs font-bold text-green-700 mb-2">Total for {hc} persons</p>
                 {Object.entries(
                   allMealItems.reduce((acc: Record<string, number>, item) => {
-                    acc[item.uom] = (acc[item.uom] || 0) + parseFloat(item.qtyPerPerson) * hc;
+                    const ft = fmtTotal(item.qtyPerPerson, item.uom, hc);
+                    acc[ft.unit] = (acc[ft.unit] || 0) + parseFloat(ft.value);
                     return acc;
                   }, {})
                 ).map(([uom, qty]) => (
@@ -503,7 +511,11 @@ export default function BomPage() {
                   {/* Sections */}
                   {Object.entries(grouped[currentDish]).map(([section, secItems]) => {
                     const sc = SECTION_COLORS[section] ?? SECTION_COLORS["Other"];
-                    const secTotal = secItems.reduce((s, i) => s + parseFloat(i.qtyPerPerson) * hc, 0);
+                    const secSummary = secItems.reduce((acc: Record<string, number>, i) => {
+                      const ft = fmtTotal(i.qtyPerPerson, i.uom, hc);
+                      acc[ft.unit] = (acc[ft.unit] || 0) + parseFloat(ft.value);
+                      return acc;
+                    }, {});
                     return (
                       <Card key={section} className="overflow-hidden" style={{ borderColor: sc.border }}>
                         <div className="flex items-center justify-between px-4 py-2" style={{ background: sc.bg, borderBottom: `1px solid ${sc.border}` }}>
@@ -512,7 +524,9 @@ export default function BomPage() {
                             <span className="text-sm font-bold" style={{ color: sc.color }}>{section}</span>
                             <span className="text-xs text-muted-foreground">({secItems.length} item{secItems.length !== 1 ? 's' : ''})</span>
                           </div>
-                          <span className="text-xs font-semibold" style={{ color: sc.color }}>≈ {secTotal.toFixed(3)} (mixed)</span>
+                          <span className="text-xs font-semibold" style={{ color: sc.color }}>
+                            {Object.entries(secSummary).map(([u, q]) => `${q.toFixed(3)} ${u}`).join(' + ')}
+                          </span>
                         </div>
                         <CardContent className="p-0">
                           <div className="overflow-x-auto">
@@ -553,8 +567,7 @@ export default function BomPage() {
                                       </td>
                                       {/* Total */}
                                       <td className="border-b border-slate-100 px-3 py-1.5 text-center">
-                                        <span className="font-bold text-green-700">{total.toFixed(3)}</span>
-                                        <span className="text-xs text-slate-400 ml-1">{isEditing ? (editForm.uom ?? item.uom) : item.uom}</span>
+                                        {(() => { const ft = fmtTotal(item.qtyPerPerson, isEditing ? (editForm.uom ?? item.uom) : item.uom, hc); return <><span className="font-bold text-green-700">{ft.value}</span><span className="text-xs text-slate-400 ml-1">{ft.unit}</span></>; })()}
                                       </td>
                                       {/* Notes */}
                                       <td className="border-b border-slate-100 px-3 py-1.5 text-xs text-slate-500 italic">
