@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect, useCallback } from "react";
+import { useState, useRef, useEffect, useCallback, useMemo } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
 import { useClientNames } from "@/hooks/use-reports";
@@ -438,6 +438,45 @@ export default function DailyPnlPage() {
     (itemMasterData as any[]).map((v: any) => [v.itemName, { uom: v.uom || "", rate: parseFloat(v.rate) || 0 }])
   );
 
+  // ── BOM dish names + cost per person ──────────────────────────────────────
+  const fetchBomItems = (mt: string) =>
+    clientName
+      ? fetch(`/api/bom-items?clientName=${encodeURIComponent(clientName)}&mealType=${mt}`, { credentials: "include" }).then(r => r.ok ? r.json() : [])
+      : Promise.resolve([]);
+
+  const { data: bomBreakfast = [] } = useQuery<any[]>({ queryKey: ["/api/bom-items", clientName, "breakfast"], queryFn: () => fetchBomItems("breakfast"), enabled: !!clientName });
+  const { data: bomLunch     = [] } = useQuery<any[]>({ queryKey: ["/api/bom-items", clientName, "lunch"],     queryFn: () => fetchBomItems("lunch"),     enabled: !!clientName });
+  const { data: bomEvening   = [] } = useQuery<any[]>({ queryKey: ["/api/bom-items", clientName, "evening"],   queryFn: () => fetchBomItems("evening"),   enabled: !!clientName });
+  const { data: bomNight     = [] } = useQuery<any[]>({ queryKey: ["/api/bom-items", clientName, "night"],     queryFn: () => fetchBomItems("night"),     enabled: !!clientName });
+
+  const { data: bomPriceList = [] } = useQuery<{ itemName: string; unitPrice: number }[]>({
+    queryKey: ["/api/purchase-invoices/last-prices"],
+    queryFn: () => fetch("/api/purchase-invoices/last-prices", { credentials: "include" }).then(r => r.ok ? r.json() : []),
+  });
+  const bomPriceMap = useMemo(() => new Map(bomPriceList.map(p => [p.itemName.toLowerCase(), p.unitPrice])), [bomPriceList]);
+
+  function buildDishCost(items: any[]): Map<string, number> {
+    const m = new Map<string, number>();
+    items.forEach((item: any) => {
+      const dish = (item.dishName || "").trim();
+      if (!dish) return;
+      const lp = bomPriceMap.get((item.ingredientName || "").toLowerCase());
+      if (!lp) return;
+      m.set(dish, (m.get(dish) || 0) + lp * parseFloat(item.qtyPerPerson || "0"));
+    });
+    return m;
+  }
+
+  const bomBreakfastCost = useMemo(() => buildDishCost(bomBreakfast), [bomBreakfast, bomPriceMap]);
+  const bomLunchCost     = useMemo(() => buildDishCost(bomLunch),     [bomLunch,     bomPriceMap]);
+  const bomEveningCost   = useMemo(() => buildDishCost(bomEvening),   [bomEvening,   bomPriceMap]);
+  const bomNightCost     = useMemo(() => buildDishCost(bomNight),     [bomNight,     bomPriceMap]);
+
+  const bomBreakfastNames = useMemo(() => [...new Set(bomBreakfast.map((i: any) => i.dishName))].filter(Boolean) as string[], [bomBreakfast]);
+  const bomLunchNames     = useMemo(() => [...new Set(bomLunch.map((i: any)     => i.dishName))].filter(Boolean) as string[], [bomLunch]);
+  const bomEveningNames   = useMemo(() => [...new Set(bomEvening.map((i: any)   => i.dishName))].filter(Boolean) as string[], [bomEvening]);
+  const bomNightNames     = useMemo(() => [...new Set(bomNight.map((i: any)     => i.dishName))].filter(Boolean) as string[], [bomNight]);
+
 
   const loadCashSeal = useCallback(async () => {
     if (!entryDate) return;
@@ -515,11 +554,23 @@ export default function DailyPnlPage() {
 
   useEffect(() => { loadEntry(); }, [loadEntry]);
 
-  const fetchLastPrice = async (items: ExpenseItem[], i: number, setter: (r: ExpenseItem[]) => void) => {
+  const fetchLastPrice = async (items: ExpenseItem[], i: number, setter: (r: ExpenseItem[]) => void, bomCostMap?: Map<string, number>) => {
     const name = items[i]?.itemName?.trim();
     if (!name) return;
-    const masterInfo = itemMasterMap.get(name);
     const updates: Partial<ExpenseItem> = {};
+
+    // 1. Try BOM dish cost (cost per person for that dish)
+    if (items[i].rate === 0 && bomCostMap) {
+      const bomCost = bomCostMap.get(name);
+      if (bomCost && bomCost > 0) {
+        updates.rate  = parseFloat(bomCost.toFixed(2));
+        updates.total = items[i].qty * updates.rate;
+        return setter(items.map((x, xi) => xi === i ? { ...x, ...updates } : x));
+      }
+    }
+
+    // 2. Fall back to item master + last purchase price API
+    const masterInfo = itemMasterMap.get(name);
     if (!items[i].uom && masterInfo?.uom) updates.uom = masterInfo.uom;
     if (items[i].rate === 0) {
       const r = await fetch(`/api/daily-pnl/last-price?item=${encodeURIComponent(name)}`, { credentials: "include" });
@@ -686,47 +737,47 @@ export default function DailyPnlPage() {
 
                 <Section title="Breakfast" color="#92400e">
                   {mobileView
-                    ? <ExpenseCards rows={breakfast} onChange={setBreakfast} itemNames={itemNames} color="#92400e"
+                    ? <ExpenseCards rows={breakfast} onChange={setBreakfast} itemNames={bomBreakfastNames.length ? bomBreakfastNames : itemNames} color="#92400e"
                         onAdd={() => setBreakfast(r => [...r, makeExpItem(r.length + 1)])}
                         onDelete={i => setBreakfast(r => r.filter((_, xi) => xi !== i).map((x, xi) => ({ ...x, slNo: xi + 1 })))}
-                        onBlurItem={i => fetchLastPrice(breakfast, i, setBreakfast)} />
-                    : <ExpenseTable rows={breakfast} onChange={setBreakfast} itemNames={itemNames}
+                        onBlurItem={i => fetchLastPrice(breakfast, i, setBreakfast, bomBreakfastCost)} />
+                    : <ExpenseTable rows={breakfast} onChange={setBreakfast} itemNames={bomBreakfastNames.length ? bomBreakfastNames : itemNames}
                         onAdd={() => setBreakfast(r => [...r, makeExpItem(r.length + 1)])}
                         onDelete={i => setBreakfast(r => r.filter((_, xi) => xi !== i).map((x, xi) => ({ ...x, slNo: xi + 1 })))}
-                        onBlurItem={i => fetchLastPrice(breakfast, i, setBreakfast)} />}
+                        onBlurItem={i => fetchLastPrice(breakfast, i, setBreakfast, bomBreakfastCost)} />}
                 </Section>
                 <Section title="Lunch" color="#92400e">
                   {mobileView
-                    ? <ExpenseCards rows={lunch} onChange={setLunch} itemNames={itemNames} color="#92400e"
+                    ? <ExpenseCards rows={lunch} onChange={setLunch} itemNames={bomLunchNames.length ? bomLunchNames : itemNames} color="#92400e"
                         onAdd={() => setLunch(r => [...r, makeExpItem(r.length + 1)])}
                         onDelete={i => setLunch(r => r.filter((_, xi) => xi !== i).map((x, xi) => ({ ...x, slNo: xi + 1 })))}
-                        onBlurItem={i => fetchLastPrice(lunch, i, setLunch)} />
-                    : <ExpenseTable rows={lunch} onChange={setLunch} itemNames={itemNames}
+                        onBlurItem={i => fetchLastPrice(lunch, i, setLunch, bomLunchCost)} />
+                    : <ExpenseTable rows={lunch} onChange={setLunch} itemNames={bomLunchNames.length ? bomLunchNames : itemNames}
                         onAdd={() => setLunch(r => [...r, makeExpItem(r.length + 1)])}
                         onDelete={i => setLunch(r => r.filter((_, xi) => xi !== i).map((x, xi) => ({ ...x, slNo: xi + 1 })))}
-                        onBlurItem={i => fetchLastPrice(lunch, i, setLunch)} />}
+                        onBlurItem={i => fetchLastPrice(lunch, i, setLunch, bomLunchCost)} />}
                 </Section>
                 <Section title="Evening Snacks" color="#92400e">
                   {mobileView
-                    ? <ExpenseCards rows={evening} onChange={setEvening} itemNames={itemNames} color="#92400e"
+                    ? <ExpenseCards rows={evening} onChange={setEvening} itemNames={bomEveningNames.length ? bomEveningNames : itemNames} color="#92400e"
                         onAdd={() => setEvening(r => [...r, makeExpItem(r.length + 1)])}
                         onDelete={i => setEvening(r => r.filter((_, xi) => xi !== i).map((x, xi) => ({ ...x, slNo: xi + 1 })))}
-                        onBlurItem={i => fetchLastPrice(evening, i, setEvening)} />
-                    : <ExpenseTable rows={evening} onChange={setEvening} itemNames={itemNames}
+                        onBlurItem={i => fetchLastPrice(evening, i, setEvening, bomEveningCost)} />
+                    : <ExpenseTable rows={evening} onChange={setEvening} itemNames={bomEveningNames.length ? bomEveningNames : itemNames}
                         onAdd={() => setEvening(r => [...r, makeExpItem(r.length + 1)])}
                         onDelete={i => setEvening(r => r.filter((_, xi) => xi !== i).map((x, xi) => ({ ...x, slNo: xi + 1 })))}
-                        onBlurItem={i => fetchLastPrice(evening, i, setEvening)} />}
+                        onBlurItem={i => fetchLastPrice(evening, i, setEvening, bomEveningCost)} />}
                 </Section>
                 <Section title="Night Snacks" color="#92400e">
                   {mobileView
-                    ? <ExpenseCards rows={night} onChange={setNight} itemNames={itemNames} color="#92400e"
+                    ? <ExpenseCards rows={night} onChange={setNight} itemNames={bomNightNames.length ? bomNightNames : itemNames} color="#92400e"
                         onAdd={() => setNight(r => [...r, makeExpItem(r.length + 1)])}
                         onDelete={i => setNight(r => r.filter((_, xi) => xi !== i).map((x, xi) => ({ ...x, slNo: xi + 1 })))}
-                        onBlurItem={i => fetchLastPrice(night, i, setNight)} />
-                    : <ExpenseTable rows={night} onChange={setNight} itemNames={itemNames}
+                        onBlurItem={i => fetchLastPrice(night, i, setNight, bomNightCost)} />
+                    : <ExpenseTable rows={night} onChange={setNight} itemNames={bomNightNames.length ? bomNightNames : itemNames}
                         onAdd={() => setNight(r => [...r, makeExpItem(r.length + 1)])}
                         onDelete={i => setNight(r => r.filter((_, xi) => xi !== i).map((x, xi) => ({ ...x, slNo: xi + 1 })))}
-                        onBlurItem={i => fetchLastPrice(night, i, setNight)} />}
+                        onBlurItem={i => fetchLastPrice(night, i, setNight, bomNightCost)} />}
                 </Section>
 
                 {/* Manpower */}
