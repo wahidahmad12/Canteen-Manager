@@ -1057,6 +1057,24 @@ export const pecVenturesEntries = mysqlTable("pec_ventures_entries", {
 export type PecVenturesEntry = typeof pecVenturesEntries.$inferSelect;
 export const insertPecVenturesEntrySchema = createInsertSchema(pecVenturesEntries).omit({ id: true, createdAt: true, updatedAt: true });
 
+// === BILL OF MATERIAL ===
+export const bomItems = mysqlTable("bom_items", {
+  id: int("id").autoincrement().primaryKey(),
+  clientName: varchar("client_name", { length: 100 }).notNull(),
+  mealType: varchar("meal_type", { length: 50 }).notNull(),
+  categoryName: varchar("category_name", { length: 255 }).notNull(),
+  ingredientName: varchar("ingredient_name", { length: 255 }).notNull(),
+  qtyPerPerson: decimal("qty_per_person", { precision: 10, scale: 4 }).default("0").notNull(),
+  uom: varchar("uom", { length: 50 }).notNull().default("kg"),
+  notes: text("notes"),
+  sortOrder: int("sort_order").default(0),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+export type BomItem = typeof bomItems.$inferSelect;
+export const insertBomItemSchema = createInsertSchema(bomItems).omit({ id: true, createdAt: true, updatedAt: true });
+export type InsertBomItem = z.infer<typeof insertBomItemSchema>;
+
 // === EMPLOYEE SHIFT DUTIES — Monthly Chart ===
 export const employeeShiftDuties = mysqlTable("employee_shift_duties", {
   id: int("id").autoincrement().primaryKey(),

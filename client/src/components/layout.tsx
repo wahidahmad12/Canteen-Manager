@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { Link, useLocation } from 'wouter';
-import { LayoutDashboard, FilePlus, Settings, Calculator, ClipboardList, UtensilsCrossed, ShoppingCart, LogOut, User, Menu, X, Users, CalendarDays, Wallet, FileText, BookOpen, HardHat, ChevronDown, ChevronRight, IndianRupee, Smartphone, Download, Share, MoreHorizontal, Receipt, BarChart3, Languages } from 'lucide-react';
+import { LayoutDashboard, FilePlus, Settings, Calculator, ClipboardList, UtensilsCrossed, ShoppingCart, LogOut, User, Menu, X, Users, CalendarDays, Wallet, FileText, BookOpen, HardHat, ChevronDown, ChevronRight, IndianRupee, Smartphone, Download, Share, MoreHorizontal, Receipt, BarChart3, Languages, Package } from 'lucide-react';
 import logoImg from '@assets/logo1_1771660912341.png';
 import { useCurrentUser, useLogout } from '@/hooks/use-reports';
 import { Button } from '@/components/ui/button';
@@ -80,6 +80,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
     { href: '/cash-seal', label: tr('dailyCashSeal'), icon: Calculator, perm: 'cashseal' },
     { href: '/inventory', label: tr('dailyInventory'), icon: ClipboardList, perm: 'inventory' },
     { href: '/menu', label: tr('menuManager'), icon: UtensilsCrossed, perm: 'menu' },
+    { href: '/bom', label: 'Bill of Material', icon: Package, perm: 'menu' },
     { href: '/purchase-request', label: tr('purchaseRequest'), icon: ShoppingCart, perm: 'purchase' },
     { href: '/purchase-invoice', label: tr('purchaseInvoices'), icon: Receipt, perm: 'purchase' },
     { href: '/sales-invoice', label: tr('salesInvoiceLedger'), icon: FileText, perm: 'salesinvoice' },

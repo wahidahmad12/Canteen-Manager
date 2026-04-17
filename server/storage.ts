@@ -2542,6 +2542,32 @@ export class DatabaseStorage implements IStorage {
     const { eq } = await import('drizzle-orm');
     await db.delete(flashMessages).where(eq(flashMessages.id, id));
   }
+
+  // === BILL OF MATERIAL ===
+  async getBomItems(clientName: string, mealType: string): Promise<any[]> {
+    const { bomItems } = await import('../shared/schema');
+    const { eq, and } = await import('drizzle-orm');
+    return db.select().from(bomItems).where(and(eq(bomItems.clientName, clientName), eq(bomItems.mealType, mealType))).orderBy(bomItems.categoryName, bomItems.sortOrder, bomItems.ingredientName);
+  }
+  async createBomItem(data: any): Promise<any> {
+    const { bomItems } = await import('../shared/schema');
+    const { eq } = await import('drizzle-orm');
+    const result = await db.insert(bomItems).values(data);
+    const rows = await db.select().from(bomItems).where(eq(bomItems.id, (result as any).insertId));
+    return rows[0];
+  }
+  async updateBomItem(id: number, data: any): Promise<any> {
+    const { bomItems } = await import('../shared/schema');
+    const { eq } = await import('drizzle-orm');
+    await db.update(bomItems).set({ ...data, updatedAt: new Date() }).where(eq(bomItems.id, id));
+    const rows = await db.select().from(bomItems).where(eq(bomItems.id, id));
+    return rows[0];
+  }
+  async deleteBomItem(id: number): Promise<void> {
+    const { bomItems } = await import('../shared/schema');
+    const { eq } = await import('drizzle-orm');
+    await db.delete(bomItems).where(eq(bomItems.id, id));
+  }
 }
 
 export const storage = new DatabaseStorage();

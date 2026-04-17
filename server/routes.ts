@@ -2111,6 +2111,28 @@ export async function registerRoutes(
     } catch (err: any) { res.status(500).json({ message: err.message }); }
   });
 
+  // === BILL OF MATERIAL ===
+  app.get('/api/bom-items', requireAuth, async (req, res) => {
+    try {
+      const clientName = String(req.query.clientName || '');
+      const mealType = String(req.query.mealType || '');
+      if (!clientName || !mealType) return res.status(400).json({ message: 'clientName and mealType are required' });
+      res.json(await storage.getBomItems(clientName, mealType));
+    } catch (err: any) { res.status(500).json({ message: err.message }); }
+  });
+  app.post('/api/bom-items', requireAuth, async (req, res) => {
+    try { res.status(201).json(await storage.createBomItem(req.body)); }
+    catch (err: any) { res.status(500).json({ message: err.message }); }
+  });
+  app.put('/api/bom-items/:id', requireAuth, async (req, res) => {
+    try { res.json(await storage.updateBomItem(Number(req.params.id), req.body)); }
+    catch (err: any) { res.status(500).json({ message: err.message }); }
+  });
+  app.delete('/api/bom-items/:id', requireAuth, async (req, res) => {
+    try { await storage.deleteBomItem(Number(req.params.id)); res.status(204).send(); }
+    catch (err: any) { res.status(500).json({ message: err.message }); }
+  });
+
   return httpServer;
 }
 
