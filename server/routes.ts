@@ -636,6 +636,20 @@ export async function registerRoutes(
     res.json(invoices);
   });
 
+  // Must be registered BEFORE /:id to avoid "price-history" being treated as an ID
+  app.get('/api/purchase-invoices/price-history', requireAuth, async (req, res) => {
+    try {
+      const item = String(req.query.item || '').trim();
+      if (!item) return res.json([]);
+      const from = req.query.from ? String(req.query.from) : undefined;
+      const to   = req.query.to   ? String(req.query.to)   : undefined;
+      const rows = await storage.getPriceHistory(item, from, to);
+      res.json(rows);
+    } catch (e: any) {
+      res.status(500).json({ error: e.message });
+    }
+  });
+
   app.get(api.purchaseInvoices.get.path, requirePermission('purchase'), async (req, res) => {
     const invoice = await storage.getPurchaseInvoice(Number(req.params.id));
     if (!invoice) return res.status(404).json({ message: "Invoice not found" });
@@ -851,19 +865,6 @@ export async function registerRoutes(
     try {
       const result = await storage.syncItemMasterRates();
       res.json(result);
-    } catch (e: any) {
-      res.status(500).json({ error: e.message });
-    }
-  });
-
-  app.get('/api/purchase-invoices/price-history', requireAuth, async (req, res) => {
-    try {
-      const item = String(req.query.item || '').trim();
-      if (!item) return res.json([]);
-      const from = req.query.from ? String(req.query.from) : undefined;
-      const to   = req.query.to   ? String(req.query.to)   : undefined;
-      const rows = await storage.getPriceHistory(item, from, to);
-      res.json(rows);
     } catch (e: any) {
       res.status(500).json({ error: e.message });
     }
