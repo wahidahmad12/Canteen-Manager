@@ -475,15 +475,31 @@ export default function DailyPnlPage() {
     return qty;
   }
 
+  function resolveBomPrice(ingredientName: string): { unitPrice: number; uom: string } | null {
+    const key = ingredientName.toLowerCase().trim();
+    // 1. Exact — invoice
+    const inv = bomPriceMap.get(key);
+    if (inv && inv.unitPrice > 0) return inv;
+    // 2. Exact — item master
+    const im = itemMasterBomMap.get(key);
+    if (im && im.unitPrice > 0) return im;
+    // 3. Partial — invoice
+    for (const [mk, mv] of bomPriceMap) {
+      if (mv.unitPrice > 0 && (key.includes(mk) || mk.includes(key))) return mv;
+    }
+    // 4. Partial — item master
+    for (const [mk, mv] of itemMasterBomMap) {
+      if (mv.unitPrice > 0 && (key.includes(mk) || mk.includes(key))) return mv;
+    }
+    return null;
+  }
+
   function buildDishCost(items: any[]): Map<string, number> {
     const m = new Map<string, number>();
     items.forEach((item: any) => {
       const dish = (item.dishName || "").trim();
       if (!dish) return;
-      const key = (item.ingredientName || "").toLowerCase();
-      const inv = bomPriceMap.get(key);
-      const im  = itemMasterBomMap.get(key);
-      const priceEntry = (inv && inv.unitPrice > 0) ? inv : (im && im.unitPrice > 0) ? im : null;
+      const priceEntry = resolveBomPrice(item.ingredientName || "");
       if (!priceEntry) return;
       const converted = qtyConverted(parseFloat(item.qtyPerPerson || "0"), item.uom || '', priceEntry.uom);
       m.set(dish, (m.get(dish) || 0) + priceEntry.unitPrice * converted);

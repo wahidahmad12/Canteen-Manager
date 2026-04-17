@@ -210,13 +210,33 @@ export default function BomPage() {
     [itemMasterList]
   );
 
-  // Resolve price for an ingredient: purchase invoice first, then item master
+  // Resolve price for an ingredient: purchase invoice first, then item master.
+  // Also falls back to partial/fuzzy name match so "Onion (Payaaj)" → "Onion" works.
   const resolvePrice = (ingredientName: string): { unitPrice: number; uom: string; source: 'invoice' | 'master' | null } => {
-    const key = ingredientName.toLowerCase();
+    const key = ingredientName.toLowerCase().trim();
+
+    // 1. Exact — Purchase Invoice
     const lp = lastPriceMap.get(key);
     if (lp && lp.unitPrice > 0) return { unitPrice: lp.unitPrice, uom: lp.uom, source: 'invoice' };
+
+    // 2. Exact — Item Master
     const im = itemMasterRateMap.get(key);
     if (im && im.unitPrice > 0) return { unitPrice: im.unitPrice, uom: im.uom, source: 'master' };
+
+    // 3. Partial — Purchase Invoice  (e.g. "onion (payaaj)" contains "onion")
+    for (const [mk, mv] of lastPriceMap) {
+      if (mv.unitPrice > 0 && (key.includes(mk) || mk.includes(key))) {
+        return { unitPrice: mv.unitPrice, uom: mv.uom, source: 'invoice' };
+      }
+    }
+
+    // 4. Partial — Item Master
+    for (const [mk, mv] of itemMasterRateMap) {
+      if (mv.unitPrice > 0 && (key.includes(mk) || mk.includes(key))) {
+        return { unitPrice: mv.unitPrice, uom: mv.uom, source: 'master' };
+      }
+    }
+
     return { unitPrice: 0, uom: '', source: null };
   };
 
