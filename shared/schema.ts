@@ -1067,6 +1067,7 @@ export const bomItems = mysqlTable("bom_items", {
   ingredientName: varchar("ingredient_name", { length: 255 }).notNull(),
   qtyPerPerson: decimal("qty_per_person", { precision: 10, scale: 4 }).default("0").notNull(),
   uom: varchar("uom", { length: 50 }).notNull().default("kg"),
+  manualRate: decimal("manual_rate", { precision: 12, scale: 4 }),
   notes: text("notes"),
   sortOrder: int("sort_order").default(0),
   createdAt: timestamp("created_at").defaultNow(),

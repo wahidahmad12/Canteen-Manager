@@ -94,6 +94,7 @@ interface BomItem {
   ingredientName: string;
   qtyPerPerson: string;
   uom: string;
+  manualRate: string | null;
   notes: string | null;
   sortOrder: number;
 }
@@ -129,6 +130,7 @@ export default function BomPage() {
   const [addForm, setAddForm] = useState<AddForm>(emptyAdd);
   const [editId, setEditId] = useState<number | null>(null);
   const [editForm, setEditForm] = useState<Partial<AddForm>>({});
+  const [manualRateEdits, setManualRateEdits] = useState<Record<number, string>>({});
 
   const [ingredientSearch, setIngredientSearch] = useState("");
   const [showIngDropdown, setShowIngDropdown] = useState(false);
@@ -173,6 +175,13 @@ export default function BomPage() {
     mutationFn: ({ id, data }: { id: number; data: any }) => apiRequest('PUT', `/api/bom-items/${id}`, data),
     onSuccess: () => { qc.invalidateQueries({ queryKey: qKey }); setEditId(null); toast({ title: "Updated" }); },
     onError: (e: any) => toast({ title: "Error", description: e.message, variant: "destructive" }),
+  });
+
+  const manualRateMut = useMutation({
+    mutationFn: ({ id, manualRate }: { id: number; manualRate: string | null }) =>
+      apiRequest('PUT', `/api/bom-items/${id}`, { manualRate }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: qKey }),
+    onError: (e: any) => toast({ title: "Save failed", description: e.message, variant: "destructive" }),
   });
 
   const deleteMut = useMutation({
@@ -237,6 +246,15 @@ export default function BomPage() {
       }
     }
 
+    return { unitPrice: 0, uom: '', source: null };
+  };
+
+  // Extends resolvePrice with the item's own manualRate as final fallback
+  const getItemRate = (item: BomItem): { unitPrice: number; uom: string; source: 'invoice' | 'master' | 'manual' | null } => {
+    const auto = resolvePrice(item.ingredientName);
+    if (auto.source) return auto as any;
+    const mr = item.manualRate ? parseFloat(item.manualRate) : 0;
+    if (mr > 0) return { unitPrice: mr, uom: item.uom, source: 'manual' };
     return { unitPrice: 0, uom: '', source: null };
   };
 
@@ -315,8 +333,8 @@ export default function BomPage() {
         bodyHtml += `<tr style="background:${sc.bg};"><td colspan="8" style="padding:4px 12px;font-size:11px;font-weight:700;color:${sc.color};border-bottom:1px solid ${sc.border};">▸ ${section}</td></tr>`;
         secItems.forEach((item, idx) => {
           const ft = fmtTotal(item.qtyPerPerson, item.uom, hc);
-          const rp = resolvePrice(item.ingredientName);
-          const rate = rp.source ? `₹${rp.unitPrice.toFixed(2)}/${rp.uom}` : '—';
+          const rp = getItemRate(item);
+          const rate = rp.source ? `₹${rp.unitPrice.toFixed(2)}/${rp.uom || item.uom}${rp.source === 'manual' ? ' (M)' : ''}` : '—';
           const cost = rp.source ? `₹${(rp.unitPrice * qtyInInvoiceUom(parseFloat(item.qtyPerPerson), item.uom, rp.uom) * hc).toFixed(2)}` : '—';
           bodyHtml += `<tr style="background:${idx%2===0?'#fff':'#f9fafb'};">
             <td style="border:1px solid #e2e8f0;padding:4px 8px;font-size:11px;color:#64748b;">${section}</td>
@@ -387,7 +405,7 @@ export default function BomPage() {
 
           secItems.forEach((item, idx) => {
             const ft = fmtTotal(item.qtyPerPerson, item.uom, hc);
-            const rp = resolvePrice(item.ingredientName);
+            const rp = getItemRate(item);
             const rate = rp.source ? rp.unitPrice : null;
             const cost = rp.source ? rp.unitPrice * qtyInInvoiceUom(parseFloat(item.qtyPerPerson), item.uom, rp.uom) * hc : null;
             const row = ws.addRow([section, item.ingredientName, parseFloat(item.qtyPerPerson), item.uom, Number(ft.value), ft.unit, rate, cost, item.notes || '']);
@@ -716,11 +734,11 @@ export default function BomPage() {
                       return acc;
                     }, {});
                     const secCost = secItems.reduce((s, i) => {
-                      const rp = resolvePrice(i.ingredientName);
+                      const rp = getItemRate(i);
                       if (!rp.source) return s;
                       return s + rp.unitPrice * qtyInInvoiceUom(parseFloat(i.qtyPerPerson), i.uom, rp.uom) * hc;
                     }, 0);
-                    const secHasCost = secItems.some(i => resolvePrice(i.ingredientName).source !== null);
+                    const secHasCost = secItems.some(i => getItemRate(i).source !== null);
                     return (
                       <Card key={section} className="overflow-hidden" style={{ borderColor: sc.border }}>
                         <div className="flex items-center justify-between px-4 py-2" style={{ background: sc.bg, borderBottom: `1px solid ${sc.border}` }}>
@@ -758,10 +776,11 @@ export default function BomPage() {
                               <tbody>
                                 {secItems.map((item, idx) => {
                                   const isEditing = editId === item.id;
-                                  const rp = resolvePrice(item.ingredientName);
+                                  const rp = getItemRate(item);
                                   const unitRate = rp.source ? rp.unitPrice : null;
                                   const convertedQty = rp.source ? qtyInInvoiceUom(parseFloat(item.qtyPerPerson), item.uom, rp.uom) * hc : null;
                                   const totalCost = unitRate !== null && convertedQty !== null ? unitRate * convertedQty : null;
+                                  const draftRate = manualRateEdits[item.id] ?? (item.manualRate || "");
                                   return (
                                     <tr key={item.id} style={{ background: isEditing ? '#eef2ff' : idx % 2 === 0 ? '#fff' : '#f9fafb' }}>
                                       {/* Ingredient */}
@@ -788,13 +807,34 @@ export default function BomPage() {
                                       </td>
                                       {/* Rate */}
                                       <td className="border-b border-slate-100 px-3 py-1.5 text-center">
-                                        {unitRate !== null
+                                        {rp.source && rp.source !== 'manual'
                                           ? <span className="text-xs font-semibold text-blue-700">
-                                              ₹{unitRate.toFixed(2)}
+                                              ₹{unitRate!.toFixed(2)}
                                               <span className="font-normal text-slate-400">/{rp.uom || item.uom}</span>
                                               {rp.source === 'master' && <span className="ml-1 text-[9px] text-amber-500">(IM)</span>}
                                             </span>
-                                          : <span className="text-xs text-slate-300">—</span>}
+                                          : <span className="inline-flex items-center gap-1">
+                                              <input
+                                                type="number"
+                                                step="0.01"
+                                                min="0"
+                                                placeholder="Rate…"
+                                                value={draftRate}
+                                                onChange={e => setManualRateEdits(prev => ({ ...prev, [item.id]: e.target.value }))}
+                                                onBlur={e => {
+                                                  const val = e.target.value.trim();
+                                                  const prev = item.manualRate || "";
+                                                  if (val !== prev) {
+                                                    manualRateMut.mutate({ id: item.id, manualRate: val === "" ? null : val });
+                                                  }
+                                                  setManualRateEdits(p => { const n = { ...p }; delete n[item.id]; return n; });
+                                                }}
+                                                onKeyDown={e => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur(); }}
+                                                className="w-20 px-1.5 py-0.5 text-xs border border-slate-300 rounded focus:outline-none focus:ring-1 focus:ring-orange-400 text-right"
+                                                data-testid={`input-manual-rate-${item.id}`}
+                                              />
+                                              {rp.source === 'manual' && <span className="text-[9px] text-orange-500 font-semibold">(M)</span>}
+                                            </span>}
                                       </td>
                                       {/* Total Cost */}
                                       <td className="border-b border-slate-100 px-3 py-1.5 text-center">

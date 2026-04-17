@@ -499,7 +499,11 @@ export default function DailyPnlPage() {
     items.forEach((item: any) => {
       const dish = (item.dishName || "").trim();
       if (!dish) return;
-      const priceEntry = resolveBomPrice(item.ingredientName || "");
+      let priceEntry = resolveBomPrice(item.ingredientName || "");
+      // Fallback: use manual rate saved on the BOM item itself
+      if (!priceEntry && item.manualRate && parseFloat(item.manualRate) > 0) {
+        priceEntry = { unitPrice: parseFloat(item.manualRate), uom: item.uom || '' };
+      }
       if (!priceEntry) return;
       const converted = qtyConverted(parseFloat(item.qtyPerPerson || "0"), item.uom || '', priceEntry.uom);
       m.set(dish, (m.get(dish) || 0) + priceEntry.unitPrice * converted);
