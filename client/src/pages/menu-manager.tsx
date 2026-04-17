@@ -780,6 +780,90 @@ export default function MenuManager() {
     saveAs(new Blob([buffer]), fileName);
   };
 
+  const handleDownloadTemplate = async () => {
+    const ExcelJS = (await import("exceljs")).default;
+    const { saveAs } = await import("file-saver");
+    const wb = new ExcelJS.Workbook();
+
+    const navyFill = { type: "pattern", pattern: "solid", fgColor: { argb: "FF1A3A5A" } } as const;
+    const amberFill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFFFF9C4" } } as const;
+    const grayFill  = { type: "pattern", pattern: "solid", fgColor: { argb: "FFF1F4F7" } } as const;
+    const greenFill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFE8F5E9" } } as const;
+    const wFont  = { name: "Arial", color: { argb: "FFFFFFFF" }, bold: true,  size: 10 };
+    const bFont  = { name: "Arial", color: { argb: "FF1A3A5A" }, bold: true,  size: 10 };
+    const smFont = { name: "Arial", color: { argb: "FF555555" }, bold: false, size: 9  };
+    const thin   = { top:{style:"thin" as const}, left:{style:"thin" as const}, bottom:{style:"thin" as const}, right:{style:"thin" as const} };
+
+    const lunchDinnerCats = [...baseCategories, ...(isHUL_UB ? hul_extras : unichem_extras)];
+    const dayCount = isHUL_UB ? 7 : 6;
+    const dayLabels = isHUL_UB
+      ? ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"]
+      : ["Mon","Tue","Wed","Thu","Fri","Sat"];
+    const totalCols = dayCount + 1;
+    const lastColLetter = String.fromCharCode(64 + totalCols);
+
+    for (const mt of MEAL_TYPES) {
+      const cats = (mt.key === "lunch" || mt.key === "dinner") ? lunchDinnerCats : snackCategories;
+      const ws = wb.addWorksheet(mt.label);
+
+      // Title block
+      ws.mergeCells(`A1:${lastColLetter}1`);
+      const t1 = ws.getCell("A1"); t1.value = "DJ Hospitality & Facility Management Pvt. Ltd.";
+      t1.font = { name:"Arial", bold:true, size:13, color:{argb:"FF1A3A5A"} }; t1.alignment = { horizontal:"center" }; t1.border = thin;
+
+      ws.mergeCells(`A2:${lastColLetter}2`);
+      const t2 = ws.getCell("A2"); t2.value = `CLIENT: ${client}   |   ${mt.label.toUpperCase()} IMPORT TEMPLATE`;
+      t2.font = { name:"Arial", bold:true, size:11, color:{argb:"FFA52A2A"} }; t2.alignment = { horizontal:"center" }; t2.border = thin;
+
+      ws.mergeCells(`A3:${lastColLetter}3`);
+      const t3 = ws.getCell("A3");
+      t3.value = `INSTRUCTIONS: Fill in your menu items in the yellow cells. Each column = one day of the week. Leave blank to skip a day. Import this file using the Import button in Menu Manager.`;
+      t3.font = smFont; t3.fill = greenFill; t3.alignment = { horizontal:"left", wrapText:true }; t3.border = thin;
+      ws.getRow(3).height = 28;
+
+      ws.addRow([]);
+
+      for (let wk = 1; wk <= 2; wk++) {
+        // Week header
+        const wkRow = ws.addRow([`WEEK ${wk} SCHEDULE`]);
+        ws.mergeCells(`A${wkRow.number}:${lastColLetter}${wkRow.number}`);
+        wkRow.font = wFont; wkRow.fill = navyFill; wkRow.height = 20;
+        wkRow.eachCell(c => { c.border = thin; c.alignment = { horizontal:"center", vertical:"middle" }; });
+
+        // Day header
+        const hdrRow = ws.addRow(["CATEGORY", ...dayLabels]);
+        hdrRow.font = wFont; hdrRow.fill = navyFill; hdrRow.height = 22;
+        hdrRow.eachCell(c => { c.border = thin; c.alignment = { horizontal:"center", vertical:"middle" }; });
+
+        // Category rows
+        cats.forEach(cat => {
+          const row = ws.addRow([cat.name, ...dayLabels.map(() => cat.def)]);
+          row.height = 22;
+          row.getCell(1).font = bFont; row.getCell(1).fill = grayFill;
+          row.getCell(1).alignment = { horizontal:"left", vertical:"middle" };
+          row.getCell(1).border = thin;
+          for (let ci = 2; ci <= dayCount + 1; ci++) {
+            const c = row.getCell(ci);
+            c.fill = amberFill;
+            c.font = { name:"Arial", size:10, color:{argb:"FF000000"} };
+            c.alignment = { horizontal:"center", vertical:"middle", wrapText:true };
+            c.border = thin;
+          }
+        });
+
+        ws.addRow([]);
+      }
+
+      ws.getColumn(1).width = 26;
+      for (let i = 2; i <= totalCols; i++) ws.getColumn(i).width = 16;
+    }
+
+    const safeClient = client.replace(/\s+/g,"_").replace(/[^a-zA-Z0-9_]/g,"");
+    const buf = await wb.xlsx.writeBuffer();
+    saveAs(new Blob([buf]), `Menu_Import_Template_${safeClient}.xlsx`);
+    toast({ title: "Template Downloaded", description: `Fill in the yellow cells and import using the Import button.` });
+  };
+
   const handleImportExcel = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -790,10 +874,10 @@ export default function MenuManager() {
       const buffer = await file.arrayBuffer();
       await workbook.xlsx.load(buffer);
 
-      const ws = workbook.getWorksheet("Menu");
-      if (!ws) throw new Error("No 'Menu' sheet found. Please use a file exported from this app.");
-
       const mt = MEAL_TYPES.find(m => m.key === activeMealType)!;
+      const ws = workbook.getWorksheet("Menu") || workbook.getWorksheet(mt.label);
+      if (!ws) throw new Error(`No importable sheet found. Please use the template downloaded from this app.`);
+
       const cats = (activeMealType === "lunch" || activeMealType === "dinner") ? lunchDinnerCategories : snackCategories;
       const newValues: Record<string, string> = { ...cellValues };
       const newCustomItems: Record<number, string[]> = {};
@@ -1092,6 +1176,14 @@ export default function MenuManager() {
           >
             <FileSpreadsheet className="w-4 h-4 mr-1" />
             Excel
+          </Button>
+          <Button
+            onClick={handleDownloadTemplate}
+            className="bg-[#0288D1] text-white font-bold text-xs sm:text-sm h-9 flex-1 sm:flex-none"
+            data-testid="button-menu-template"
+          >
+            <Download className="w-4 h-4 mr-1" />
+            Template
           </Button>
           <Button
             onClick={() => importRef.current?.click()}
