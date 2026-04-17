@@ -6,40 +6,52 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { Loader2, Plus, Pencil, Trash2, Save, X, Printer, Download, Calculator, Package } from "lucide-react";
+import { Loader2, Plus, Pencil, Trash2, Save, X, Printer, Download, Calculator, Package, ChefHat, Layers } from "lucide-react";
 import { apiRequest } from "@/lib/queryClient";
 
 const CLIENTS = [
-  "HUL - KPF",
-  "HUL - TEC",
-  "UBL",
-  "Unichem",
-  "Cipla",
-  "PEC Ventures",
+  "HUL - KPF", "HUL - TEC", "UBL", "Unichem", "Cipla", "PEC Ventures",
 ];
 
 const MEAL_TYPES = [
-  { key: "breakfast",    label: "Breakfast",       color: "#f59e0b", bg: "#fffbeb" },
-  { key: "lunch",        label: "Lunch",            color: "#16a34a", bg: "#f0fdf4" },
-  { key: "evening",      label: "Evening Snacks",   color: "#7c3aed", bg: "#f5f3ff" },
-  { key: "dinner",       label: "Dinner",           color: "#1d4ed8", bg: "#eff6ff" },
-  { key: "night",        label: "Night Snacks",     color: "#be123c", bg: "#fff1f2" },
+  { key: "breakfast", label: "Breakfast",     color: "#b45309", bg: "#fffbeb", border: "#fcd34d" },
+  { key: "lunch",     label: "Lunch",          color: "#15803d", bg: "#f0fdf4", border: "#86efac" },
+  { key: "evening",   label: "Evening Snacks", color: "#6d28d9", bg: "#f5f3ff", border: "#c4b5fd" },
+  { key: "dinner",    label: "Dinner",         color: "#1d4ed8", bg: "#eff6ff", border: "#93c5fd" },
+  { key: "night",     label: "Night Snacks",   color: "#be123c", bg: "#fff1f2", border: "#fda4af" },
 ];
 
-const BASE_CATEGORIES = [
-  "Plain Rice", "Dal Fry", "Chapati / Roti", "Sabzi 1", "Sabzi 2",
-  "Khichdi / Pulao", "Poha / Upma", "Idli / Dosa", "Salad", "Pickle",
-  "Papad", "Curd", "Sweets / Dessert", "Chicken", "Fish / Egg",
-  "Bread / Toast", "Butter / Jam", "Boiled Egg", "Tea", "Coffee",
-  "Cold Drink", "Biscuit", "Chips", "Snacks Pack", "Other",
+const INGREDIENT_SECTIONS = [
+  "Main Item",
+  "Aromatics",
+  "Marinade & Dairy",
+  "Spice Profile (Dry)",
+  "Whole Spices",
+  "Vegetables",
+  "Garnish & Finishing",
+  "Oil & Fat",
+  "Other",
 ];
 
-const UOM_OPTIONS = ["kg", "gm", "litre", "ml", "pcs", "dozen", "packet", "box", "bundle", "nos"];
+const UOM_OPTIONS = ["kg","gm","litre","ml","pcs","tbsp","tsp","cup","inch","medium","large","small","dozen","packet","box","nos"];
+
+const SECTION_COLORS: Record<string, { bg: string; color: string; border: string }> = {
+  "Main Item":              { bg: "#1e3a5f", color: "#ffffff", border: "#1e3a5f" },
+  "Aromatics":              { bg: "#fff7ed", color: "#c2410c", border: "#fed7aa" },
+  "Marinade & Dairy":       { bg: "#fdf4ff", color: "#7e22ce", border: "#e9d5ff" },
+  "Spice Profile (Dry)":    { bg: "#fffbeb", color: "#b45309", border: "#fcd34d" },
+  "Whole Spices":           { bg: "#f0fdf4", color: "#15803d", border: "#86efac" },
+  "Vegetables":             { bg: "#ecfdf5", color: "#065f46", border: "#6ee7b7" },
+  "Garnish & Finishing":    { bg: "#f0f9ff", color: "#0369a1", border: "#7dd3fc" },
+  "Oil & Fat":              { bg: "#fefce8", color: "#854d0e", border: "#fde047" },
+  "Other":                  { bg: "#f8fafc", color: "#475569", border: "#cbd5e1" },
+};
 
 interface BomItem {
   id: number;
   clientName: string;
   mealType: string;
+  dishName: string;
   categoryName: string;
   ingredientName: string;
   qtyPerPerson: string;
@@ -49,6 +61,7 @@ interface BomItem {
 }
 
 interface AddForm {
+  dishName: string;
   categoryName: string;
   ingredientName: string;
   qtyPerPerson: string;
@@ -57,9 +70,10 @@ interface AddForm {
 }
 
 const emptyAdd: AddForm = {
-  categoryName: BASE_CATEGORIES[0],
+  dishName: "",
+  categoryName: "Main Item",
   ingredientName: "",
-  qtyPerPerson: "0.1",
+  qtyPerPerson: "0.100",
   uom: "kg",
   notes: "",
 };
@@ -71,7 +85,9 @@ export default function BomPage() {
   const [client, setClient] = useState(CLIENTS[0]);
   const [mealType, setMealType] = useState("lunch");
   const [headcount, setHeadcount] = useState("100");
+  const [activeDish, setActiveDish] = useState<string | null>(null);
   const [showAdd, setShowAdd] = useState(false);
+  const [newDishMode, setNewDishMode] = useState(false);
   const [addForm, setAddForm] = useState<AddForm>(emptyAdd);
   const [editId, setEditId] = useState<number | null>(null);
   const [editForm, setEditForm] = useState<Partial<AddForm>>({});
@@ -89,7 +105,14 @@ export default function BomPage() {
 
   const createMut = useMutation({
     mutationFn: (data: any) => apiRequest('POST', '/api/bom-items', data),
-    onSuccess: () => { qc.invalidateQueries({ queryKey: qKey }); setShowAdd(false); setAddForm(emptyAdd); toast({ title: "Ingredient added" }); },
+    onSuccess: (_, vars) => {
+      qc.invalidateQueries({ queryKey: qKey });
+      setShowAdd(false);
+      setNewDishMode(false);
+      if (vars.dishName) setActiveDish(vars.dishName);
+      setAddForm(f => ({ ...emptyAdd, dishName: f.dishName }));
+      toast({ title: "Ingredient added" });
+    },
     onError: (e: any) => toast({ title: "Error", description: e.message, variant: "destructive" }),
   });
 
@@ -105,260 +128,293 @@ export default function BomPage() {
     onError: (e: any) => toast({ title: "Error", description: e.message, variant: "destructive" }),
   });
 
-  const hc = Number(headcount) || 0;
+  const hc = Math.max(1, Number(headcount) || 1);
 
+  // Group: dishName → sectionName → BomItem[]
   const grouped = useMemo(() => {
-    const g: Record<string, BomItem[]> = {};
+    const g: Record<string, Record<string, BomItem[]>> = {};
     items.forEach(item => {
-      if (!g[item.categoryName]) g[item.categoryName] = [];
-      g[item.categoryName].push(item);
+      const dish = item.dishName || "(Unassigned)";
+      if (!g[dish]) g[dish] = {};
+      const sec = item.categoryName || "Other";
+      if (!g[dish][sec]) g[dish][sec] = [];
+      g[dish][sec].push(item);
     });
     return g;
   }, [items]);
 
+  const dishNames = useMemo(() => Object.keys(grouped), [grouped]);
+
+  // Keep activeDish in sync when dishes load
+  const currentDish = activeDish && grouped[activeDish] ? activeDish : (dishNames[0] ?? null);
+
   const activeMt = MEAL_TYPES.find(m => m.key === mealType)!;
 
   const handleAdd = () => {
+    const dish = addForm.dishName.trim();
+    if (!dish) { toast({ title: "Enter dish / menu item name", variant: "destructive" }); return; }
     if (!addForm.ingredientName.trim()) { toast({ title: "Enter ingredient name", variant: "destructive" }); return; }
+    const qty = parseFloat(addForm.qtyPerPerson);
+    if (isNaN(qty) || qty < 0) { toast({ title: "Enter valid quantity", variant: "destructive" }); return; }
     createMut.mutate({
       clientName: client,
       mealType,
+      dishName: dish,
       categoryName: addForm.categoryName,
       ingredientName: addForm.ingredientName.trim(),
-      qtyPerPerson: String(parseFloat(addForm.qtyPerPerson) || 0),
+      qtyPerPerson: qty.toFixed(4),
       uom: addForm.uom,
-      notes: addForm.notes || null,
-      sortOrder: items.length,
+      notes: addForm.notes.trim() || null,
+      sortOrder: items.filter(i => i.dishName === dish).length,
     });
   };
 
   const handleUpdate = (item: BomItem) => {
+    const qty = parseFloat(editForm.qtyPerPerson ?? item.qtyPerPerson);
     updateMut.mutate({
       id: item.id,
       data: {
+        dishName: (editForm.dishName ?? item.dishName).trim(),
         categoryName: editForm.categoryName ?? item.categoryName,
         ingredientName: (editForm.ingredientName ?? item.ingredientName).trim(),
-        qtyPerPerson: String(parseFloat(editForm.qtyPerPerson ?? item.qtyPerPerson) || 0),
+        qtyPerPerson: (isNaN(qty) ? parseFloat(item.qtyPerPerson) : qty).toFixed(4),
         uom: editForm.uom ?? item.uom,
-        notes: editForm.notes ?? item.notes ?? null,
+        notes: (editForm.notes ?? item.notes ?? "").trim() || null,
       },
     });
   };
 
   const handlePrint = () => {
     const mtLabel = activeMt.label;
-    const rows = items.map(item => {
-      const total = (parseFloat(item.qtyPerPerson) * hc).toFixed(3);
-      return `<tr>
-        <td style="border:1px solid #d1d5db;padding:5px 8px;font-size:11px;">${item.categoryName}</td>
-        <td style="border:1px solid #d1d5db;padding:5px 8px;font-size:11px;font-weight:600;">${item.ingredientName}</td>
-        <td style="border:1px solid #d1d5db;padding:5px 8px;font-size:11px;text-align:center;">${parseFloat(item.qtyPerPerson).toFixed(4)}</td>
-        <td style="border:1px solid #d1d5db;padding:5px 8px;font-size:11px;text-align:center;">${item.uom}</td>
-        <td style="border:1px solid #d1d5db;padding:5px 8px;font-size:11px;text-align:center;font-weight:700;color:#16a34a;">${total}</td>
-        <td style="border:1px solid #d1d5db;padding:5px 8px;font-size:11px;text-align:center;">${item.uom}</td>
-        <td style="border:1px solid #d1d5db;padding:5px 8px;font-size:10px;color:#6b7280;">${item.notes || ''}</td>
-      </tr>`;
-    }).join('');
-
-    const html = `<!DOCTYPE html><html><head><title>BOM - ${client} - ${mtLabel}</title>
-    <style>body{font-family:Arial,sans-serif;margin:20px;}h2{color:#1e3a5f;margin:0;}p{margin:2px 0;font-size:12px;color:#374151;}table{border-collapse:collapse;width:100%;margin-top:12px;}th{background:#1e3a5f;color:#fff;padding:6px 8px;font-size:11px;text-align:left;}@media print{button{display:none}}</style>
-    </head><body>
+    const dishesToPrint = currentDish ? { [currentDish]: grouped[currentDish] } : grouped;
+    let bodyHtml = '';
+    Object.entries(dishesToPrint).forEach(([dish, sections]) => {
+      const allItems = Object.values(sections).flat();
+      const dishTotalKg = allItems.filter(i => i.uom === 'kg').reduce((s, i) => s + parseFloat(i.qtyPerPerson) * hc, 0);
+      bodyHtml += `<tr style="background:#1e3a5f;"><td colspan="6" style="padding:6px 10px;font-size:13px;font-weight:bold;color:#fff;">🍽 ${dish}</td></tr>`;
+      Object.entries(sections).forEach(([section, secItems]) => {
+        const sc = SECTION_COLORS[section] ?? SECTION_COLORS["Other"];
+        bodyHtml += `<tr style="background:${sc.bg};"><td colspan="6" style="padding:4px 12px;font-size:11px;font-weight:700;color:${sc.color};border-bottom:1px solid ${sc.border};">▸ ${section}</td></tr>`;
+        secItems.forEach((item, idx) => {
+          const total = (parseFloat(item.qtyPerPerson) * hc);
+          bodyHtml += `<tr style="background:${idx%2===0?'#fff':'#f9fafb'};">
+            <td style="border:1px solid #e2e8f0;padding:4px 8px;font-size:11px;color:#64748b;">${section}</td>
+            <td style="border:1px solid #e2e8f0;padding:4px 8px;font-size:11px;font-weight:600;">${item.ingredientName}</td>
+            <td style="border:1px solid #e2e8f0;padding:4px 8px;font-size:11px;text-align:center;">${parseFloat(item.qtyPerPerson).toFixed(4)}</td>
+            <td style="border:1px solid #e2e8f0;padding:4px 8px;font-size:11px;text-align:center;">${item.uom}</td>
+            <td style="border:1px solid #e2e8f0;padding:4px 8px;font-size:11px;text-align:center;font-weight:700;color:#16a34a;">${total.toFixed(3)}</td>
+            <td style="border:1px solid #e2e8f0;padding:4px 8px;font-size:11px;text-align:center;">${item.uom}</td>
+          </tr>`;
+        });
+      });
+      bodyHtml += `<tr><td colspan="6" style="padding:2px;background:#f1f5f9;"></td></tr>`;
+    });
+    const html = `<!DOCTYPE html><html><head><title>BOM — ${client} — ${mtLabel}</title>
+    <style>body{font-family:Arial,sans-serif;margin:16px;}h2{color:#1e3a5f;margin:0;}p{margin:2px 0;font-size:12px;}table{border-collapse:collapse;width:100%;margin-top:10px;}th{background:#1e3a5f;color:#fff;padding:5px 8px;font-size:11px;}@media print{button{display:none}}</style></head><body>
     <h2>DJ Hospitality & Facility Management Pvt. Ltd.</h2>
     <p><strong>Bill of Material — ${mtLabel}</strong></p>
-    <p>Client: <strong>${client}</strong> &nbsp;|&nbsp; Headcount: <strong>${hc}</strong> &nbsp;|&nbsp; Date: <strong>${new Date().toLocaleDateString('en-IN')}</strong></p>
-    <table><thead><tr>
-      <th>Menu Category</th><th>Ingredient / Material</th>
-      <th>Qty/Person</th><th>UOM</th><th>Total Qty</th><th>UOM</th><th>Notes</th>
-    </tr></thead><tbody>${rows}</tbody></table>
+    <p>Client: <strong>${client}</strong> &nbsp;|&nbsp; Headcount: <strong>${hc}</strong> &nbsp;|&nbsp; Date: ${new Date().toLocaleDateString('en-IN')}</p>
+    <table><thead><tr><th>Section</th><th>Ingredient / Material</th><th>Qty/Person</th><th>UOM</th><th>Total Qty</th><th>UOM</th></tr></thead>
+    <tbody>${bodyHtml}</tbody></table>
     <script>window.onload=()=>{window.print();}</script></body></html>`;
-
     const w = window.open('', '_blank');
     if (w) { w.document.write(html); w.document.close(); }
   };
 
-  const handleExportExcel = async () => {
+  const handleExcelExport = async () => {
     try {
       const ExcelJS = (await import('exceljs')).default;
       const { saveAs } = await import('file-saver');
       const wb = new ExcelJS.Workbook();
-      const ws = wb.addWorksheet(`BOM ${client} ${activeMt.label}`);
+      const ws = wb.addWorksheet(`BOM ${activeMt.label}`);
       const thin = { top:{style:'thin' as const}, bottom:{style:'thin' as const}, left:{style:'thin' as const}, right:{style:'thin' as const} };
       const mkFill = (argb: string) => ({ type:'pattern' as const, pattern:'solid' as const, fgColor:{argb} });
 
-      ws.mergeCells('A1:G1');
-      const t1 = ws.getCell('A1');
-      t1.value = 'DJ Hospitality & Facility Management Pvt. Ltd.';
-      t1.font = { name:'Arial', bold:true, size:13, color:{argb:'FF1A3A5A'} };
-      t1.alignment = { horizontal:'center' }; ws.getRow(1).height = 22;
+      ws.mergeCells('A1:F1');
+      ws.getCell('A1').value = 'DJ Hospitality & Facility Management Pvt. Ltd.';
+      ws.getCell('A1').font = { name:'Arial', bold:true, size:13, color:{argb:'FF1A3A5A'} };
+      ws.getCell('A1').alignment = { horizontal:'center' };
+      ws.getRow(1).height = 22;
 
-      ws.mergeCells('A2:G2');
-      const t2 = ws.getCell('A2');
-      t2.value = `Bill of Material — ${activeMt.label} | Client: ${client} | Headcount: ${hc}`;
-      t2.font = { name:'Arial', bold:true, size:11, color:{argb:'FFA52A2A'} };
-      t2.alignment = { horizontal:'center' }; ws.getRow(2).height = 18;
+      ws.mergeCells('A2:F2');
+      ws.getCell('A2').value = `Bill of Material — ${activeMt.label} | Client: ${client} | Headcount: ${hc}`;
+      ws.getCell('A2').font = { name:'Arial', bold:true, size:11, color:{argb:'FFA52A2A'} };
+      ws.getCell('A2').alignment = { horizontal:'center' };
+      ws.getRow(2).height = 18;
 
-      const hdr = ws.addRow(['Menu Category','Ingredient / Material','Qty / Person','UOM','Total Qty','UOM','Notes']);
-      hdr.font = { bold:true, color:{argb:'FFFFFFFF'}, size:10 };
-      hdr.fill = mkFill('FF1E3A5F'); hdr.height = 18;
-      hdr.eachCell(c => { (c as any).border = thin; (c as any).alignment = { horizontal:'center', vertical:'middle' }; });
+      const hdrRow = ws.addRow(['Section / Group','Ingredient / Material','Qty / Person','UOM','Total Qty','UOM / Notes']);
+      hdrRow.font = { bold:true, color:{argb:'FFFFFFFF'}, size:10 };
+      hdrRow.fill = mkFill('FF1E3A5F'); hdrRow.height = 18;
+      hdrRow.eachCell(c => { (c as any).border = thin; (c as any).alignment = { horizontal:'center', vertical:'middle' }; });
 
-      items.forEach((item, idx) => {
-        const total = (parseFloat(item.qtyPerPerson) * hc).toFixed(3);
-        const row = ws.addRow([item.categoryName, item.ingredientName, parseFloat(item.qtyPerPerson), item.uom, Number(total), item.uom, item.notes || '']);
-        row.height = 16;
-        const rowBg = idx % 2 === 0 ? 'FFFFFFFF' : 'FFF8FAFC';
-        row.eachCell((c, ci) => {
-          (c as any).border = thin;
-          (c as any).alignment = { vertical:'middle', horizontal: ci > 2 && ci < 7 ? 'center' : 'left' };
-          if (ci === 5) {
-            (c as any).font = { bold:true, color:{argb:'FF16A34A'} };
-            (c as any).fill = mkFill('FFD1FAE5');
-          } else {
-            (c as any).fill = mkFill(rowBg);
-          }
+      const dishesToExport = currentDish ? { [currentDish]: grouped[currentDish] } : grouped;
+      Object.entries(dishesToExport).forEach(([dish, sections]) => {
+        ws.mergeCells(`A${ws.rowCount+1}:F${ws.rowCount+1}`);
+        const dr = ws.addRow([`🍽 ${dish}`]);
+        ws.mergeCells(`A${dr.number}:F${dr.number}`);
+        dr.font = { bold:true, size:11, color:{argb:'FFFFFFFF'} };
+        dr.fill = mkFill('FF1E3A5F'); dr.height = 20;
+        dr.getCell(1).border = thin;
+        dr.getCell(1).alignment = { horizontal:'left', vertical:'middle' };
+
+        Object.entries(sections).forEach(([section, secItems]) => {
+          const secRow = ws.addRow([`▸ ${section}`, '', '', '', '', '']);
+          secRow.font = { bold:true, size:10, color:{argb:'FF374151'} };
+          secRow.fill = mkFill('FFF1F5F9'); secRow.height = 16;
+          secRow.eachCell(c => { (c as any).border = thin; });
+
+          secItems.forEach((item, idx) => {
+            const total = parseFloat(item.qtyPerPerson) * hc;
+            const row = ws.addRow([section, item.ingredientName, parseFloat(item.qtyPerPerson), item.uom, Number(total.toFixed(3)), `${item.uom}${item.notes ? ' — ' + item.notes : ''}`]);
+            row.height = 16;
+            const rowBg = idx % 2 === 0 ? 'FFFFFFFF' : 'FFF8FAFC';
+            row.eachCell((c, ci) => {
+              (c as any).border = thin;
+              (c as any).alignment = { vertical:'middle', horizontal: ci > 2 && ci < 6 ? 'center' : 'left' };
+              if (ci === 5) { (c as any).font = { bold:true, color:{argb:'FF16A34A'} }; (c as any).fill = mkFill('FFD1FAE5'); }
+              else { (c as any).fill = mkFill(rowBg); (c as any).font = { size:10 }; }
+            });
+          });
         });
+        ws.addRow([]);
       });
 
-      ws.getColumn(1).width = 22; ws.getColumn(2).width = 28; ws.getColumn(3).width = 12;
-      ws.getColumn(4).width = 10; ws.getColumn(5).width = 14; ws.getColumn(6).width = 10; ws.getColumn(7).width = 24;
+      ws.getColumn(1).width = 22; ws.getColumn(2).width = 30; ws.getColumn(3).width = 14;
+      ws.getColumn(4).width = 10; ws.getColumn(5).width = 14; ws.getColumn(6).width = 26;
 
       const buf = await wb.xlsx.writeBuffer();
       saveAs(new Blob([buf]), `BOM_${client.replace(/\s+/g,'_')}_${activeMt.key}.xlsx`);
     } catch (e: any) { toast({ title: 'Export failed', description: e.message, variant: 'destructive' }); }
   };
 
+  const dishItems = currentDish && grouped[currentDish] ? Object.values(grouped[currentDish]).flat() : [];
+  const allMealItems = items;
+
   return (
     <Layout>
       <div className="max-w-6xl mx-auto p-3 sm:p-5 space-y-4">
 
-        {/* Header */}
+        {/* ── Header ── */}
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div className="flex items-center gap-2">
             <Package className="w-6 h-6 text-indigo-600" />
             <div>
               <h1 className="text-xl font-bold text-slate-800 dark:text-slate-100">Bill of Material</h1>
-              <p className="text-xs text-muted-foreground">Ingredient requirements per meal type & client</p>
+              <p className="text-xs text-muted-foreground">Ingredient requirements per dish, meal type & client</p>
             </div>
           </div>
-
-          {/* Client Selector */}
-          <Select value={client} onValueChange={setClient}>
-            <SelectTrigger className="w-44 sm:w-52 font-semibold" data-testid="select-bom-client">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {CLIENTS.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}
-            </SelectContent>
+          <Select value={client} onValueChange={v => { setClient(v); setActiveDish(null); }}>
+            <SelectTrigger className="w-44 sm:w-52 font-semibold" data-testid="select-bom-client"><SelectValue /></SelectTrigger>
+            <SelectContent>{CLIENTS.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}</SelectContent>
           </Select>
         </div>
 
-        {/* Meal Type Tabs */}
+        {/* ── Meal Type Tabs ── */}
         <div className="flex flex-wrap gap-1.5">
           {MEAL_TYPES.map(mt => (
-            <button
-              key={mt.key}
-              onClick={() => setMealType(mt.key)}
-              className={`px-3 py-1.5 rounded-full text-xs sm:text-sm font-semibold border transition-all ${mealType === mt.key ? 'shadow-md scale-105' : 'opacity-60 hover:opacity-90'}`}
+            <button key={mt.key} onClick={() => { setMealType(mt.key); setActiveDish(null); setShowAdd(false); }}
+              className="px-3 py-1.5 rounded-full text-xs sm:text-sm font-semibold border transition-all"
               style={mealType === mt.key
-                ? { background: mt.color, color: '#fff', borderColor: mt.color }
-                : { background: mt.bg, color: mt.color, borderColor: mt.color }}
-              data-testid={`tab-bom-${mt.key}`}
-            >
+                ? { background: mt.color, color: '#fff', borderColor: mt.color, boxShadow: '0 2px 8px rgba(0,0,0,0.15)' }
+                : { background: mt.bg, color: mt.color, borderColor: mt.border }}
+              data-testid={`tab-bom-${mt.key}`}>
               {mt.label}
             </button>
           ))}
         </div>
 
-        {/* Headcount Calculator + Action Buttons */}
-        <div className="flex flex-wrap items-center gap-2 bg-slate-50 dark:bg-slate-800/50 rounded-xl border border-slate-200 dark:border-slate-700 px-3 py-2.5">
-          <Calculator className="w-4 h-4 text-indigo-500 shrink-0" />
-          <span className="text-sm font-semibold text-slate-700 dark:text-slate-200 shrink-0">Headcount:</span>
-          <Input
-            type="number"
-            min={1}
-            value={headcount}
-            onChange={e => setHeadcount(e.target.value)}
-            className="w-24 h-8 text-sm font-bold text-center"
-            data-testid="input-headcount"
-          />
-          <span className="text-xs text-muted-foreground">persons → Total Qty = Qty/Person × Headcount</span>
-          <div className="flex gap-2 ml-auto">
+        {/* ── Headcount bar ── */}
+        <div className="flex flex-wrap items-center gap-2 bg-slate-50 dark:bg-slate-800/50 rounded-xl border px-3 py-2">
+          <Calculator className="w-4 h-4 text-indigo-500" />
+          <span className="text-sm font-semibold text-slate-700 dark:text-slate-200">Headcount:</span>
+          <Input type="number" min={1} value={headcount} onChange={e => setHeadcount(e.target.value)}
+            className="w-24 h-8 text-sm font-bold text-center" data-testid="input-headcount" />
+          <span className="text-xs text-muted-foreground">persons &nbsp;→&nbsp; Total = Qty/Person × Headcount</span>
+          <div className="flex gap-2 ml-auto flex-wrap">
             <Button variant="outline" size="sm" onClick={handlePrint} data-testid="button-bom-print">
               <Printer className="w-3.5 h-3.5 mr-1" /> Print
             </Button>
-            <Button variant="outline" size="sm" onClick={handleExportExcel} className="text-green-700 border-green-300 hover:bg-green-50" data-testid="button-bom-excel">
+            <Button variant="outline" size="sm" onClick={handleExcelExport} className="text-green-700 border-green-300 hover:bg-green-50" data-testid="button-bom-excel">
               <Download className="w-3.5 h-3.5 mr-1" /> Excel
             </Button>
-            <Button size="sm" onClick={() => setShowAdd(true)} className="bg-indigo-600 hover:bg-indigo-700 text-white" data-testid="button-bom-add">
+            <Button size="sm" onClick={() => { setShowAdd(true); setNewDishMode(true); setAddForm(emptyAdd); }}
+              className="bg-indigo-600 hover:bg-indigo-700 text-white" data-testid="button-add-dish">
               <Plus className="w-3.5 h-3.5 mr-1" /> Add Ingredient
             </Button>
           </div>
         </div>
 
-        {/* Add Form */}
+        {/* ── Add Ingredient Form ── */}
         {showAdd && (
-          <Card className="border-indigo-200 bg-indigo-50 dark:bg-indigo-950/30">
-            <CardContent className="p-4">
-              <p className="text-sm font-bold text-indigo-700 mb-3">New Ingredient — {client} / {activeMt.label}</p>
-              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2">
-                <div className="lg:col-span-1">
-                  <label className="text-xs font-semibold text-slate-600 mb-1 block">Menu Category</label>
+          <Card className="border-indigo-300 bg-indigo-50 dark:bg-indigo-950/30">
+            <CardContent className="p-4 space-y-3">
+              <p className="text-sm font-bold text-indigo-700 dark:text-indigo-300">
+                Add Ingredient — {client} / {activeMt.label}
+              </p>
+              {/* Dish Name */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                <div>
+                  <label className="text-xs font-semibold text-slate-600 mb-1 block">Dish / Menu Item *</label>
+                  <div className="flex gap-1">
+                    <Input
+                      placeholder="e.g. Chicken Kassa, Dal Fry, Poha..."
+                      value={addForm.dishName}
+                      onChange={e => setAddForm(f => ({ ...f, dishName: e.target.value }))}
+                      className="h-8 text-sm" list="dish-options"
+                      data-testid="input-dish-name"
+                    />
+                    <datalist id="dish-options">
+                      {dishNames.map(d => <option key={d} value={d} />)}
+                    </datalist>
+                  </div>
+                </div>
+                <div>
+                  <label className="text-xs font-semibold text-slate-600 mb-1 block">Section / Group *</label>
                   <Select value={addForm.categoryName} onValueChange={v => setAddForm(f => ({ ...f, categoryName: v }))}>
-                    <SelectTrigger className="h-8 text-xs" data-testid="select-add-category">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {BASE_CATEGORIES.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}
-                    </SelectContent>
+                    <SelectTrigger className="h-8 text-xs" data-testid="select-add-section"><SelectValue /></SelectTrigger>
+                    <SelectContent>{INGREDIENT_SECTIONS.map(s => <SelectItem key={s} value={s}>{s}</SelectItem>)}</SelectContent>
                   </Select>
                 </div>
-                <div className="lg:col-span-2">
+              </div>
+              {/* Ingredient Row */}
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                <div className="sm:col-span-2">
                   <label className="text-xs font-semibold text-slate-600 mb-1 block">Ingredient / Material *</label>
-                  <Input
-                    placeholder="e.g. Rice, Dal, Oil..."
-                    value={addForm.ingredientName}
-                    onChange={e => setAddForm(f => ({ ...f, ingredientName: e.target.value }))}
-                    className="h-8 text-sm"
-                    data-testid="input-ingredient-name"
-                  />
+                  <Input placeholder="e.g. Onions, Ginger Paste, Turmeric..."
+                    value={addForm.ingredientName} onChange={e => setAddForm(f => ({ ...f, ingredientName: e.target.value }))}
+                    className="h-8 text-sm" data-testid="input-ingredient-name" />
                 </div>
                 <div>
                   <label className="text-xs font-semibold text-slate-600 mb-1 block">Qty / Person</label>
-                  <Input
-                    type="number"
-                    step="0.001"
-                    min={0}
-                    value={addForm.qtyPerPerson}
+                  <Input type="number" step="0.001" min={0} value={addForm.qtyPerPerson}
                     onChange={e => setAddForm(f => ({ ...f, qtyPerPerson: e.target.value }))}
-                    className="h-8 text-sm"
-                    data-testid="input-qty-per-person"
-                  />
+                    className="h-8 text-sm" data-testid="input-qty-per-person" />
                 </div>
                 <div>
                   <label className="text-xs font-semibold text-slate-600 mb-1 block">UOM</label>
                   <Select value={addForm.uom} onValueChange={v => setAddForm(f => ({ ...f, uom: v }))}>
                     <SelectTrigger className="h-8 text-xs" data-testid="select-add-uom"><SelectValue /></SelectTrigger>
-                    <SelectContent>
-                      {UOM_OPTIONS.map(u => <SelectItem key={u} value={u}>{u}</SelectItem>)}
-                    </SelectContent>
+                    <SelectContent>{UOM_OPTIONS.map(u => <SelectItem key={u} value={u}>{u}</SelectItem>)}</SelectContent>
                   </Select>
                 </div>
-                <div>
-                  <label className="text-xs font-semibold text-slate-600 mb-1 block">Notes</label>
-                  <Input
-                    placeholder="optional"
-                    value={addForm.notes}
-                    onChange={e => setAddForm(f => ({ ...f, notes: e.target.value }))}
-                    className="h-8 text-sm"
-                    data-testid="input-notes"
-                  />
-                </div>
               </div>
-              <div className="flex gap-2 mt-3">
+              <div>
+                <label className="text-xs font-semibold text-slate-600 mb-1 block">Specification / Notes</label>
+                <Input placeholder="e.g. Freshly ground, Finely sliced, Kashmiri variety..."
+                  value={addForm.notes} onChange={e => setAddForm(f => ({ ...f, notes: e.target.value }))}
+                  className="h-8 text-sm" data-testid="input-notes" />
+              </div>
+              {/* Qty hint */}
+              {addForm.qtyPerPerson && addForm.uom && (
+                <p className="text-xs text-indigo-600 font-medium">
+                  For {hc} persons → Total: <strong>{(parseFloat(addForm.qtyPerPerson) * hc).toFixed(3)} {addForm.uom}</strong>
+                </p>
+              )}
+              <div className="flex gap-2">
                 <Button size="sm" onClick={handleAdd} disabled={createMut.isPending} className="bg-indigo-600 text-white" data-testid="button-confirm-add">
-                  {createMut.isPending ? <Loader2 className="w-3.5 h-3.5 mr-1 animate-spin" /> : <Save className="w-3.5 h-3.5 mr-1" />} Add
+                  {createMut.isPending ? <Loader2 className="w-3.5 h-3.5 mr-1 animate-spin" /> : <Save className="w-3.5 h-3.5 mr-1" />} Add Ingredient
                 </Button>
-                <Button size="sm" variant="outline" onClick={() => { setShowAdd(false); setAddForm(emptyAdd); }}>
+                <Button size="sm" variant="outline" onClick={() => { setShowAdd(false); setNewDishMode(false); setAddForm(emptyAdd); }}>
                   <X className="w-3.5 h-3.5 mr-1" /> Cancel
                 </Button>
               </div>
@@ -366,168 +422,182 @@ export default function BomPage() {
           </Card>
         )}
 
-        {/* Table */}
+        {/* ── Main Content ── */}
         {isLoading ? (
-          <div className="flex items-center justify-center py-16">
+          <div className="flex items-center justify-center py-20">
             <Loader2 className="w-8 h-8 animate-spin text-indigo-500" />
           </div>
-        ) : items.length === 0 ? (
-          <div className="text-center py-16 border-2 border-dashed border-slate-200 rounded-xl">
-            <Package className="w-10 h-10 text-slate-300 mx-auto mb-2" />
-            <p className="text-muted-foreground text-sm font-semibold">No ingredients added yet</p>
-            <p className="text-muted-foreground text-xs mt-1">Click "Add Ingredient" to define raw material requirements for {client} — {activeMt.label}</p>
+        ) : dishNames.length === 0 ? (
+          <div className="text-center py-20 border-2 border-dashed border-slate-200 rounded-xl">
+            <ChefHat className="w-12 h-12 text-slate-300 mx-auto mb-3" />
+            <p className="text-muted-foreground font-semibold text-sm">No dishes defined yet</p>
+            <p className="text-muted-foreground text-xs mt-1 max-w-sm mx-auto">
+              Click "Add Ingredient" to start building the Bill of Material for {client} — {activeMt.label}
+            </p>
           </div>
         ) : (
-          <Card>
-            <CardContent className="p-0 overflow-x-auto">
-              <div className="flex items-center gap-2 px-4 py-2.5 border-b" style={{ background: activeMt.bg }}>
-                <span className="text-sm font-bold" style={{ color: activeMt.color }}>{activeMt.label}</span>
-                <span className="text-xs text-muted-foreground">— {client}</span>
-                <span className="ml-auto text-xs font-semibold text-slate-600">{items.length} ingredient{items.length !== 1 ? 's' : ''}</span>
-              </div>
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="bg-slate-700 text-white text-xs">
-                    <th className="px-3 py-2 text-left font-semibold w-40">Menu Category</th>
-                    <th className="px-3 py-2 text-left font-semibold">Ingredient / Material</th>
-                    <th className="px-3 py-2 text-center font-semibold w-24">Qty / Person</th>
-                    <th className="px-3 py-2 text-center font-semibold w-16">UOM</th>
-                    <th className="px-3 py-2 text-center font-semibold w-28" style={{ background: '#166534' }}>
-                      Total Qty ({hc} pax)
-                    </th>
-                    <th className="px-3 py-2 text-center font-semibold w-16">UOM</th>
-                    <th className="px-3 py-2 text-left font-semibold w-32">Notes</th>
-                    <th className="px-3 py-2 text-center font-semibold w-20">Actions</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {Object.entries(grouped).map(([catName, catItems]) =>
-                    catItems.map((item, idx) => {
-                      const total = (parseFloat(item.qtyPerPerson) * hc);
-                      const isEditing = editId === item.id;
-                      const rowBg = idx % 2 === 0 ? '#ffffff' : '#f9fafb';
-                      return (
-                        <tr key={item.id} style={{ background: isEditing ? '#eef2ff' : rowBg }}>
-                          {/* Category */}
-                          <td className="border-b border-slate-100 px-3 py-1.5">
-                            {isEditing ? (
-                              <Select value={editForm.categoryName ?? item.categoryName} onValueChange={v => setEditForm(f => ({ ...f, categoryName: v }))}>
-                                <SelectTrigger className="h-7 text-xs w-36"><SelectValue /></SelectTrigger>
-                                <SelectContent>{BASE_CATEGORIES.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}</SelectContent>
-                              </Select>
-                            ) : (
-                              <span className="text-xs font-medium text-slate-500 bg-slate-100 px-1.5 py-0.5 rounded">{item.categoryName}</span>
-                            )}
-                          </td>
-                          {/* Ingredient */}
-                          <td className="border-b border-slate-100 px-3 py-1.5 font-semibold text-slate-800 dark:text-slate-100">
-                            {isEditing
-                              ? <Input value={editForm.ingredientName ?? item.ingredientName} onChange={e => setEditForm(f => ({ ...f, ingredientName: e.target.value }))} className="h-7 text-sm w-44" data-testid="input-edit-ingredient" />
-                              : item.ingredientName}
-                          </td>
-                          {/* Qty/Person */}
-                          <td className="border-b border-slate-100 px-3 py-1.5 text-center">
-                            {isEditing
-                              ? <Input type="number" step="0.001" value={editForm.qtyPerPerson ?? item.qtyPerPerson} onChange={e => setEditForm(f => ({ ...f, qtyPerPerson: e.target.value }))} className="h-7 text-sm w-20 text-center mx-auto" data-testid="input-edit-qty" />
-                              : <span className="text-xs font-mono">{parseFloat(item.qtyPerPerson).toFixed(4)}</span>}
-                          </td>
-                          {/* UOM */}
-                          <td className="border-b border-slate-100 px-3 py-1.5 text-center text-xs text-slate-500">
-                            {isEditing
-                              ? <Select value={editForm.uom ?? item.uom} onValueChange={v => setEditForm(f => ({ ...f, uom: v }))}><SelectTrigger className="h-7 text-xs w-16"><SelectValue /></SelectTrigger><SelectContent>{UOM_OPTIONS.map(u => <SelectItem key={u} value={u}>{u}</SelectItem>)}</SelectContent></Select>
-                              : item.uom}
-                          </td>
-                          {/* Total Qty */}
-                          <td className="border-b border-slate-100 px-3 py-1.5 text-center">
-                            <span className="font-bold text-green-700 text-sm">{total.toFixed(3)}</span>
-                          </td>
-                          {/* UOM for total */}
-                          <td className="border-b border-slate-100 px-3 py-1.5 text-center text-xs text-slate-500">
-                            {isEditing ? (editForm.uom ?? item.uom) : item.uom}
-                          </td>
-                          {/* Notes */}
-                          <td className="border-b border-slate-100 px-3 py-1.5 text-xs text-slate-400">
-                            {isEditing
-                              ? <Input value={editForm.notes ?? (item.notes || '')} onChange={e => setEditForm(f => ({ ...f, notes: e.target.value }))} className="h-7 text-xs w-28" data-testid="input-edit-notes" />
-                              : (item.notes || '—')}
-                          </td>
-                          {/* Actions */}
-                          <td className="border-b border-slate-100 px-3 py-1.5 text-center">
-                            {isEditing ? (
-                              <div className="flex items-center gap-1 justify-center">
-                                <Button size="icon" variant="ghost" className="h-6 w-6 text-green-600 hover:bg-green-50" onClick={() => handleUpdate(item)} disabled={updateMut.isPending} data-testid={`button-save-${item.id}`}>
-                                  {updateMut.isPending ? <Loader2 className="w-3 h-3 animate-spin" /> : <Save className="w-3 h-3" />}
-                                </Button>
-                                <Button size="icon" variant="ghost" className="h-6 w-6 text-slate-400 hover:bg-slate-100" onClick={() => setEditId(null)} data-testid={`button-cancel-${item.id}`}>
-                                  <X className="w-3 h-3" />
-                                </Button>
-                              </div>
-                            ) : (
-                              <div className="flex items-center gap-1 justify-center">
-                                <Button size="icon" variant="ghost" className="h-6 w-6 text-blue-500 hover:bg-blue-50" onClick={() => { setEditId(item.id); setEditForm({}); }} data-testid={`button-edit-${item.id}`}>
-                                  <Pencil className="w-3 h-3" />
-                                </Button>
-                                <Button size="icon" variant="ghost" className="h-6 w-6 text-red-400 hover:bg-red-50" onClick={() => { if (confirm('Delete this ingredient?')) deleteMut.mutate(item.id); }} disabled={deleteMut.isPending} data-testid={`button-delete-${item.id}`}>
-                                  <Trash2 className="w-3 h-3" />
-                                </Button>
-                              </div>
-                            )}
-                          </td>
-                        </tr>
-                      );
-                    })
-                  )}
-                </tbody>
-                {/* Grand Total Row */}
-                {items.length > 0 && (
-                  <tfoot>
-                    <tr className="bg-slate-700 text-white">
-                      <td colSpan={4} className="px-3 py-2 text-xs font-bold text-right">Grand Total for {hc} persons:</td>
-                      <td className="px-3 py-2 text-center">
-                        <span className="text-sm font-bold text-green-300">
-                          {Object.entries(
-                            items.reduce((acc: Record<string, number>, item) => {
-                              const k = item.uom;
-                              acc[k] = (acc[k] || 0) + parseFloat(item.qtyPerPerson) * hc;
-                              return acc;
-                            }, {})
-                          ).map(([uom, qty]) => `${qty.toFixed(3)} ${uom}`).join(' + ')}
-                        </span>
-                      </td>
-                      <td colSpan={3} className="px-3 py-2 text-xs text-slate-300">(grouped by UOM)</td>
-                    </tr>
-                  </tfoot>
-                )}
-              </table>
-            </CardContent>
-          </Card>
-        )}
+          <div className="grid grid-cols-1 lg:grid-cols-4 gap-4">
 
-        {/* Summary by UOM card */}
-        {items.length > 0 && hc > 0 && (
-          <Card className="border-green-200 bg-green-50 dark:bg-green-950/20">
-            <CardContent className="p-4">
-              <p className="text-sm font-bold text-green-800 dark:text-green-200 mb-3">
-                Procurement Summary — {activeMt.label} for {hc} persons ({client})
+            {/* ── Dish Sidebar ── */}
+            <div className="lg:col-span-1 space-y-1">
+              <p className="text-xs font-bold text-slate-500 uppercase tracking-wider px-1 mb-2 flex items-center gap-1">
+                <ChefHat className="w-3.5 h-3.5" /> Dishes ({dishNames.length})
               </p>
-              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
+              {dishNames.map(dish => {
+                const dishItemsForDish = Object.values(grouped[dish]).flat();
+                const isActive = dish === currentDish;
+                return (
+                  <button key={dish} onClick={() => setActiveDish(dish)}
+                    className={`w-full text-left px-3 py-2 rounded-lg border transition-all text-sm ${isActive ? 'bg-indigo-600 text-white border-indigo-600 shadow-md' : 'bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 hover:border-indigo-300 hover:bg-indigo-50 dark:hover:bg-indigo-950/30'}`}
+                    data-testid={`dish-tab-${dish}`}>
+                    <div className="font-semibold truncate">{dish}</div>
+                    <div className={`text-xs mt-0.5 ${isActive ? 'text-indigo-200' : 'text-muted-foreground'}`}>
+                      {dishItemsForDish.length} ingredient{dishItemsForDish.length !== 1 ? 's' : ''}
+                      {` · ${(dishItemsForDish.reduce((s, i) => s + parseFloat(i.qtyPerPerson) * hc, 0)).toFixed(2)} ${dishItemsForDish[0]?.uom ?? ''}`}
+                    </div>
+                  </button>
+                );
+              })}
+
+              {/* Summary */}
+              <div className="mt-4 bg-green-50 dark:bg-green-950/20 border border-green-200 rounded-lg p-3">
+                <p className="text-xs font-bold text-green-700 mb-2">Total for {hc} persons</p>
                 {Object.entries(
-                  items.reduce((acc: Record<string, { items: string[]; total: number; uom: string }>, item) => {
-                    if (!acc[item.uom]) acc[item.uom] = { items: [], total: 0, uom: item.uom };
-                    acc[item.uom].items.push(item.ingredientName);
-                    acc[item.uom].total += parseFloat(item.qtyPerPerson) * hc;
+                  allMealItems.reduce((acc: Record<string, number>, item) => {
+                    acc[item.uom] = (acc[item.uom] || 0) + parseFloat(item.qtyPerPerson) * hc;
                     return acc;
                   }, {})
-                ).map(([uom, data]) => (
-                  <div key={uom} className="bg-white dark:bg-slate-800 rounded-lg border border-green-200 px-3 py-2 shadow-sm">
-                    <p className="text-xs text-muted-foreground">{data.items.length} ingredient{data.items.length !== 1 ? 's' : ''} in {uom}</p>
-                    <p className="text-lg font-bold text-green-700">{data.total.toFixed(3)} <span className="text-sm font-semibold">{uom}</span></p>
-                    <p className="text-xs text-slate-400 truncate">{data.items.slice(0, 3).join(', ')}{data.items.length > 3 ? '...' : ''}</p>
+                ).map(([uom, qty]) => (
+                  <div key={uom} className="flex justify-between text-xs">
+                    <span className="text-slate-500">{uom}</span>
+                    <span className="font-bold text-green-700">{qty.toFixed(3)}</span>
                   </div>
                 ))}
               </div>
-            </CardContent>
-          </Card>
+            </div>
+
+            {/* ── Dish Detail ── */}
+            <div className="lg:col-span-3 space-y-3">
+              {currentDish && grouped[currentDish] && (
+                <>
+                  {/* Dish Header */}
+                  <div className="flex items-center justify-between bg-slate-800 text-white rounded-xl px-4 py-3">
+                    <div className="flex items-center gap-2">
+                      <ChefHat className="w-5 h-5 text-amber-400" />
+                      <span className="font-bold text-base">{currentDish}</span>
+                    </div>
+                    <div className="flex items-center gap-3">
+                      <div className="text-right">
+                        <p className="text-xs text-slate-400">Total Ingredients</p>
+                        <p className="text-sm font-bold text-amber-300">{dishItems.length}</p>
+                      </div>
+                      <Button size="sm" variant="outline"
+                        className="border-white/30 text-white hover:bg-white/10 text-xs h-8"
+                        onClick={() => { setShowAdd(true); setAddForm(f => ({ ...emptyAdd, dishName: currentDish })); }}
+                        data-testid="button-add-to-dish">
+                        <Plus className="w-3 h-3 mr-1" /> Add More
+                      </Button>
+                    </div>
+                  </div>
+
+                  {/* Sections */}
+                  {Object.entries(grouped[currentDish]).map(([section, secItems]) => {
+                    const sc = SECTION_COLORS[section] ?? SECTION_COLORS["Other"];
+                    const secTotal = secItems.reduce((s, i) => s + parseFloat(i.qtyPerPerson) * hc, 0);
+                    return (
+                      <Card key={section} className="overflow-hidden" style={{ borderColor: sc.border }}>
+                        <div className="flex items-center justify-between px-4 py-2" style={{ background: sc.bg, borderBottom: `1px solid ${sc.border}` }}>
+                          <div className="flex items-center gap-2">
+                            <Layers className="w-3.5 h-3.5" style={{ color: sc.color }} />
+                            <span className="text-sm font-bold" style={{ color: sc.color }}>{section}</span>
+                            <span className="text-xs text-muted-foreground">({secItems.length} item{secItems.length !== 1 ? 's' : ''})</span>
+                          </div>
+                          <span className="text-xs font-semibold" style={{ color: sc.color }}>≈ {secTotal.toFixed(3)} (mixed)</span>
+                        </div>
+                        <CardContent className="p-0">
+                          <div className="overflow-x-auto">
+                            <table className="w-full text-sm">
+                              <thead>
+                                <tr className="bg-slate-50 dark:bg-slate-800/50 text-xs border-b">
+                                  <th className="px-3 py-2 text-left font-semibold text-slate-600 w-48">Ingredient / Material</th>
+                                  <th className="px-3 py-2 text-center font-semibold text-slate-600 w-28">Qty / Person</th>
+                                  <th className="px-3 py-2 text-center font-semibold text-slate-600 w-16">UOM</th>
+                                  <th className="px-3 py-2 text-center font-semibold text-green-700 w-28">Total ({hc} pax)</th>
+                                  <th className="px-3 py-2 text-left font-semibold text-slate-600">Specification / Notes</th>
+                                  <th className="px-3 py-2 text-center font-semibold text-slate-600 w-16">Act.</th>
+                                </tr>
+                              </thead>
+                              <tbody>
+                                {secItems.map((item, idx) => {
+                                  const total = parseFloat(item.qtyPerPerson) * hc;
+                                  const isEditing = editId === item.id;
+                                  return (
+                                    <tr key={item.id} style={{ background: isEditing ? '#eef2ff' : idx % 2 === 0 ? '#fff' : '#f9fafb' }}>
+                                      {/* Ingredient */}
+                                      <td className="border-b border-slate-100 px-3 py-1.5 font-semibold text-slate-800 dark:text-slate-100">
+                                        {isEditing
+                                          ? <Input value={editForm.ingredientName ?? item.ingredientName} onChange={e => setEditForm(f => ({ ...f, ingredientName: e.target.value }))} className="h-7 text-sm w-40" data-testid={`edit-name-${item.id}`} />
+                                          : item.ingredientName}
+                                      </td>
+                                      {/* Qty/Person */}
+                                      <td className="border-b border-slate-100 px-3 py-1.5 text-center">
+                                        {isEditing
+                                          ? <Input type="number" step="0.001" value={editForm.qtyPerPerson ?? item.qtyPerPerson} onChange={e => setEditForm(f => ({ ...f, qtyPerPerson: e.target.value }))} className="h-7 text-sm w-20 text-center mx-auto" data-testid={`edit-qty-${item.id}`} />
+                                          : <span className="text-xs font-mono bg-slate-100 px-1.5 py-0.5 rounded">{parseFloat(item.qtyPerPerson).toFixed(4)}</span>}
+                                      </td>
+                                      {/* UOM */}
+                                      <td className="border-b border-slate-100 px-3 py-1.5 text-center text-xs text-slate-500">
+                                        {isEditing
+                                          ? <Select value={editForm.uom ?? item.uom} onValueChange={v => setEditForm(f => ({ ...f, uom: v }))}><SelectTrigger className="h-7 text-xs w-16"><SelectValue /></SelectTrigger><SelectContent>{UOM_OPTIONS.map(u => <SelectItem key={u} value={u}>{u}</SelectItem>)}</SelectContent></Select>
+                                          : item.uom}
+                                      </td>
+                                      {/* Total */}
+                                      <td className="border-b border-slate-100 px-3 py-1.5 text-center">
+                                        <span className="font-bold text-green-700">{total.toFixed(3)}</span>
+                                        <span className="text-xs text-slate-400 ml-1">{isEditing ? (editForm.uom ?? item.uom) : item.uom}</span>
+                                      </td>
+                                      {/* Notes */}
+                                      <td className="border-b border-slate-100 px-3 py-1.5 text-xs text-slate-500 italic">
+                                        {isEditing
+                                          ? <Input value={editForm.notes ?? (item.notes || '')} onChange={e => setEditForm(f => ({ ...f, notes: e.target.value }))} className="h-7 text-xs w-36" data-testid={`edit-notes-${item.id}`} />
+                                          : (item.notes || '—')}
+                                      </td>
+                                      {/* Actions */}
+                                      <td className="border-b border-slate-100 px-2 py-1.5">
+                                        {isEditing ? (
+                                          <div className="flex gap-0.5 justify-center">
+                                            <Button size="icon" variant="ghost" className="h-6 w-6 text-green-600" onClick={() => handleUpdate(item)} disabled={updateMut.isPending} data-testid={`save-${item.id}`}>
+                                              {updateMut.isPending ? <Loader2 className="w-3 h-3 animate-spin" /> : <Save className="w-3 h-3" />}
+                                            </Button>
+                                            <Button size="icon" variant="ghost" className="h-6 w-6 text-slate-400" onClick={() => setEditId(null)}>
+                                              <X className="w-3 h-3" />
+                                            </Button>
+                                          </div>
+                                        ) : (
+                                          <div className="flex gap-0.5 justify-center">
+                                            <Button size="icon" variant="ghost" className="h-6 w-6 text-blue-500 hover:bg-blue-50" onClick={() => { setEditId(item.id); setEditForm({}); }} data-testid={`edit-${item.id}`}>
+                                              <Pencil className="w-3 h-3" />
+                                            </Button>
+                                            <Button size="icon" variant="ghost" className="h-6 w-6 text-red-400 hover:bg-red-50" onClick={() => { if (confirm('Delete this ingredient?')) deleteMut.mutate(item.id); }} disabled={deleteMut.isPending} data-testid={`delete-${item.id}`}>
+                                              <Trash2 className="w-3 h-3" />
+                                            </Button>
+                                          </div>
+                                        )}
+                                      </td>
+                                    </tr>
+                                  );
+                                })}
+                              </tbody>
+                            </table>
+                          </div>
+                        </CardContent>
+                      </Card>
+                    );
+                  })}
+                </>
+              )}
+            </div>
+          </div>
         )}
       </div>
     </Layout>

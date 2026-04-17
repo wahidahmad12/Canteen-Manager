@@ -2547,7 +2547,7 @@ export class DatabaseStorage implements IStorage {
   async getBomItems(clientName: string, mealType: string): Promise<any[]> {
     const { bomItems } = await import('../shared/schema');
     const { eq, and } = await import('drizzle-orm');
-    return db.select().from(bomItems).where(and(eq(bomItems.clientName, clientName), eq(bomItems.mealType, mealType))).orderBy(bomItems.categoryName, bomItems.sortOrder, bomItems.ingredientName);
+    return db.select().from(bomItems).where(and(eq(bomItems.clientName, clientName), eq(bomItems.mealType, mealType))).orderBy(bomItems.dishName, bomItems.categoryName, bomItems.sortOrder, bomItems.ingredientName);
   }
   async createBomItem(data: any): Promise<any> {
     const { bomItems } = await import('../shared/schema');

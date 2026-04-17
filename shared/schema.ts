@@ -1062,6 +1062,7 @@ export const bomItems = mysqlTable("bom_items", {
   id: int("id").autoincrement().primaryKey(),
   clientName: varchar("client_name", { length: 100 }).notNull(),
   mealType: varchar("meal_type", { length: 50 }).notNull(),
+  dishName: varchar("dish_name", { length: 255 }).notNull().default(""),
   categoryName: varchar("category_name", { length: 255 }).notNull(),
   ingredientName: varchar("ingredient_name", { length: 255 }).notNull(),
   qtyPerPerson: decimal("qty_per_person", { precision: 10, scale: 4 }).default("0").notNull(),
