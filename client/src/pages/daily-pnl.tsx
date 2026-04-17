@@ -521,6 +521,30 @@ export default function DailyPnlPage() {
   const bomEveningNames   = useMemo(() => [...new Set(bomEvening.map((i: any)   => i.dishName))].filter(Boolean) as string[], [bomEvening]);
   const bomNightNames     = useMemo(() => [...new Set(bomNight.map((i: any)     => i.dishName))].filter(Boolean) as string[], [bomNight]);
 
+  // Auto-fill BOM dish names into blank rows when BOM data loads
+  useEffect(() => {
+    if (!bomBreakfastNames.length) return;
+    setBreakfast(prev => {
+      if (!prev.every(r => !r.itemName.trim())) return prev;
+      return bomBreakfastNames.map((n, i) => makeExpItem(i + 1, n));
+    });
+  }, [bomBreakfastNames]);
+
+  useEffect(() => {
+    if (!bomEveningNames.length) return;
+    setEvening(prev => {
+      if (!prev.every(r => !r.itemName.trim())) return prev;
+      return bomEveningNames.map((n, i) => makeExpItem(i + 1, n));
+    });
+  }, [bomEveningNames]);
+
+  useEffect(() => {
+    if (!bomNightNames.length) return;
+    setNight(prev => {
+      if (!prev.every(r => !r.itemName.trim())) return prev;
+      return bomNightNames.map((n, i) => makeExpItem(i + 1, n));
+    });
+  }, [bomNightNames]);
 
   const loadCashSeal = useCallback(async () => {
     if (!entryDate) return;
