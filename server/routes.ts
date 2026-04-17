@@ -856,6 +856,19 @@ export async function registerRoutes(
     }
   });
 
+  app.get('/api/purchase-invoices/price-history', requireAuth, async (req, res) => {
+    try {
+      const item = String(req.query.item || '').trim();
+      if (!item) return res.json([]);
+      const from = req.query.from ? String(req.query.from) : undefined;
+      const to   = req.query.to   ? String(req.query.to)   : undefined;
+      const rows = await storage.getPriceHistory(item, from, to);
+      res.json(rows);
+    } catch (e: any) {
+      res.status(500).json({ error: e.message });
+    }
+  });
+
   // === EMPLOYEE MASTER ===
   app.get("/api/employees", requireAuth, async (req, res) => {
     const clientName = req.query.clientName as string | undefined;

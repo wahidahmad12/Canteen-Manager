@@ -177,6 +177,7 @@ export interface IStorage {
   updateItemMasterItem(id: number, data: { itemName?: string; uom?: string; rate?: string; hsnCode?: string; gstPercent?: string; itemType?: string }): Promise<ItemMaster>;
   deleteItemMasterItem(id: number): Promise<void>;
   syncItemMasterRates(): Promise<{ updated: number; skipped: number; noMatch: number; details: Array<{ name: string; oldRate: string; newRate: string; source: string }> }>;
+  getPriceHistory(itemSearch: string, from?: string, to?: string): Promise<{ id: number; date: string; djInvoiceNo: string | null; vendorName: string; clientName: string; itemName: string; uom: string; qty: number; unitPrice: number; gstRate: number; totalPrice: number }[]>;
   getEmployees(clientName?: string): Promise<Employee[]>;
   getEmployee(id: number): Promise<Employee | undefined>;
   createEmployee(data: any): Promise<Employee>;
@@ -1317,6 +1318,45 @@ export class DatabaseStorage implements IStorage {
 
   async deleteItemMasterItem(id: number): Promise<void> {
     await db.delete(itemMaster).where(eq(itemMaster.id, id));
+  }
+
+  async getPriceHistory(itemSearch: string, from?: string, to?: string): Promise<{ id: number; date: string; djInvoiceNo: string | null; vendorName: string; clientName: string; itemName: string; uom: string; qty: number; unitPrice: number; gstRate: number; totalPrice: number }[]> {
+    const likePattern = `%${itemSearch}%`;
+    let query = sql`
+      SELECT
+        pii.id,
+        pi.date,
+        pi.dj_invoice_no,
+        pi.vendor_name,
+        pi.client_name,
+        pii.item_name,
+        pii.uom,
+        pii.qty,
+        pii.unit_price,
+        pii.gst_rate,
+        pii.total_price
+      FROM purchase_invoice_items pii
+      JOIN purchase_invoices pi ON pii.invoice_id = pi.id
+      WHERE pii.item_name LIKE ${likePattern}
+    `;
+    if (from) query = sql`${query} AND pi.date >= ${from}`;
+    if (to)   query = sql`${query} AND pi.date <= ${to}`;
+    query = sql`${query} ORDER BY pi.date DESC, pii.id DESC LIMIT 500`;
+
+    const result = await db.execute(query);
+    return (result.rows || []).map((row: any) => ({
+      id: Number(row.id),
+      date: String(row.date || ''),
+      djInvoiceNo: row.dj_invoice_no ? String(row.dj_invoice_no) : null,
+      vendorName: String(row.vendor_name || ''),
+      clientName: String(row.client_name || ''),
+      itemName: String(row.item_name || ''),
+      uom: String(row.uom || ''),
+      qty: Number(row.qty || 0),
+      unitPrice: Number(row.unit_price || 0),
+      gstRate: Number(row.gst_rate || 0),
+      totalPrice: Number(row.total_price || 0),
+    }));
   }
 
   async syncItemMasterRates(): Promise<{ updated: number; skipped: number; noMatch: number; details: Array<{ name: string; oldRate: string; newRate: string; source: string }> }> {
