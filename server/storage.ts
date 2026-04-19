@@ -183,6 +183,8 @@ export interface IStorage {
   createEmployee(data: any): Promise<Employee>;
   updateEmployee(id: number, data: any): Promise<Employee>;
   deleteEmployee(id: number): Promise<void>;
+  getAttendanceByEmployeeId(employeeId: number, month: number, year: number): Promise<Attendance | undefined>;
+  getSalaryByEmployeeId(employeeId: number, month: number, year: number): Promise<SalaryRecord | undefined>;
   getAttendance(clientName: string, month: number, year: number): Promise<Attendance[]>;
   saveAttendance(data: any): Promise<Attendance>;
   getSalaryRecords(clientName: string, month: number, year: number): Promise<SalaryRecord[]>;
@@ -1500,6 +1502,18 @@ export class DatabaseStorage implements IStorage {
   }
 
   // === ATTENDANCE / MUSTER ROLL ===
+  async getAttendanceByEmployeeId(employeeId: number, month: number, year: number): Promise<Attendance | undefined> {
+    const [record] = await db.select().from(attendance)
+      .where(and(eq(attendance.employeeId, employeeId), eq(attendance.month, month), eq(attendance.year, year)));
+    return record;
+  }
+
+  async getSalaryByEmployeeId(employeeId: number, month: number, year: number): Promise<SalaryRecord | undefined> {
+    const [record] = await db.select().from(salaryRecords)
+      .where(and(eq(salaryRecords.employeeId, employeeId), eq(salaryRecords.month, month), eq(salaryRecords.year, year)));
+    return record;
+  }
+
   async getAttendance(clientName: string, month: number, year: number): Promise<Attendance[]> {
     return await db.select().from(attendance)
       .where(and(eq(attendance.clientName, clientName), eq(attendance.month, month), eq(attendance.year, year)));

@@ -118,12 +118,7 @@ export async function registerRoutes(
     if (!employeeId) return res.status(404).json({ message: "No linked employee" });
     const { month, year } = req.query;
     if (!month || !year) return res.status(400).json({ message: "month and year required" });
-    const records = await storage.getAttendance(
-      req.session.clientName || "",
-      Number(month),
-      Number(year)
-    );
-    const record = records.find((r: any) => r.employeeId === employeeId);
+    const record = await storage.getAttendanceByEmployeeId(employeeId, Number(month), Number(year));
     if (!record) return res.status(404).json({ message: "No attendance record" });
     res.json(record);
   });
@@ -133,14 +128,11 @@ export async function registerRoutes(
     if (!employeeId) return res.status(404).json({ message: "No linked employee" });
     const { month, year } = req.query;
     if (!month || !year) return res.status(400).json({ message: "month and year required" });
-    const records = await storage.getSalaryRecords(
-      req.session.clientName || "",
-      Number(month),
-      Number(year)
-    );
-    const record = records.find((r: any) => r.employeeId === employeeId);
+    const record = await storage.getSalaryByEmployeeId(employeeId, Number(month), Number(year));
     if (!record) return res.status(404).json({ message: "No salary record" });
-    const otRecords = await storage.getOvertimeRecords(req.session.clientName || "");
+    // Fetch OT records from the employee's actual client name
+    const emp = await storage.getEmployee(employeeId);
+    const otRecords = await storage.getOvertimeRecords(emp?.clientName || record?.clientName || "");
     const empOt = otRecords.filter(ot => {
       if (ot.employeeId !== employeeId) return false;
       const d = new Date(ot.date);
