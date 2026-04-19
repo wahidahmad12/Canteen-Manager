@@ -895,13 +895,14 @@ export class DatabaseStorage implements IStorage {
     return safeUser as SafeUser;
   }
 
-  async updateUser(id: number, data: { displayName?: string; password?: string; role?: string; clientName?: string | null; permissions?: string[] }): Promise<SafeUser> {
+  async updateUser(id: number, data: { displayName?: string; password?: string; role?: string; clientName?: string | null; permissions?: string[]; employeeId?: number | null }): Promise<SafeUser> {
     const updates: any = {};
     if (data.displayName !== undefined) updates.displayName = data.displayName;
     if (data.role !== undefined) updates.role = data.role;
     if (data.clientName !== undefined) updates.clientName = data.clientName;
     if (data.permissions !== undefined) updates.permissions = data.permissions;
     if (data.password) updates.passwordHash = await bcrypt.hash(data.password, 10);
+    if ('employeeId' in data) updates.employeeId = data.employeeId ?? null;
     await db.update(users).set(updates).where(eq(users.id, id));
     const [user] = await db.select().from(users).where(eq(users.id, id));
     if (!user) throw new Error("User not found");

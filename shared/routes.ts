@@ -694,6 +694,7 @@ export const api = {
         role: z.string().optional(),
         clientName: z.string().nullable().optional(),
         permissions: z.array(z.string()).optional(),
+        employeeId: z.number().nullable().optional(),
       }),
       responses: {
         200: z.any(),

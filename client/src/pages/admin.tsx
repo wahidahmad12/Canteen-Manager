@@ -165,6 +165,11 @@ export default function Admin() {
   const [editUserRole, setEditUserRole] = useState("user");
   const [editUserClient, setEditUserClient] = useState("");
   const [editUserPerms, setEditUserPerms] = useState<string[]>([]);
+  const [editUserEmployeeId, setEditUserEmployeeId] = useState<number | null>(null);
+  const { data: allEmployees = [] } = useQuery<any[]>({
+    queryKey: ['/api/employees'],
+    queryFn: () => fetch('/api/employees', { credentials: 'include' }).then(r => r.json()),
+  });
 
   // Flash Messages
   const queryClient2 = useQueryClient();
@@ -453,6 +458,7 @@ export default function Admin() {
     setEditUserRole(u.role || "user");
     setEditUserClient(u.clientName || "");
     setEditUserPerms(u.role === 'admin' ? Object.keys(permissionLabels) : (u.permissions || []));
+    setEditUserEmployeeId(u.employeeId ?? null);
   };
 
   const cancelEditUser = () => {
@@ -462,6 +468,7 @@ export default function Admin() {
     setEditUserRole("user");
     setEditUserClient("");
     setEditUserPerms([]);
+    setEditUserEmployeeId(null);
   };
 
   const handleUpdateUser = async () => {
@@ -472,6 +479,7 @@ export default function Admin() {
         role: editUserRole,
         clientName: editUserClient || null,
         permissions: editUserPerms,
+        employeeId: editUserEmployeeId,
       };
       if (editUserPassword.trim()) data.password = editUserPassword.trim();
       await updateUserMutation.mutateAsync({ id: editingUserId, data });
@@ -1172,6 +1180,12 @@ export default function Admin() {
                               </td>
                               <td className="px-3 py-2" colSpan={2}>
                                 <div className="space-y-2">
+                                  <select className="flex h-8 w-full rounded-md border bg-background px-2 py-1 text-xs" value={editUserEmployeeId ?? ""} onChange={(e) => setEditUserEmployeeId(e.target.value ? Number(e.target.value) : null)} data-testid="select-edit-employee">
+                                    <option value="">— No Employee Linked —</option>
+                                    {allEmployees.map((e: any) => (
+                                      <option key={e.id} value={e.id}>{e.name} ({e.employeeCode})</option>
+                                    ))}
+                                  </select>
                                   <Input placeholder="New password (leave blank to keep)" value={editUserPassword} onChange={(e) => setEditUserPassword(e.target.value)} type="password" className="h-8 text-sm" data-testid="input-edit-password" />
                                   <div className="flex flex-wrap gap-1">
                                     {Object.entries(permissionLabels).map(([key, label]) => (
@@ -1269,12 +1283,19 @@ export default function Admin() {
                               <select className="flex h-9 w-full rounded-md border bg-background px-2 py-1 text-sm" value={editUserRole} onChange={(e) => setEditUserRole(e.target.value)}>
                                 <option value="user">User</option>
                                 <option value="admin">Admin</option>
+                                <option value="employee">Employee</option>
                               </select>
                               <select className="flex h-9 w-full rounded-md border bg-background px-2 py-1 text-sm" value={editUserClient} onChange={(e) => setEditUserClient(e.target.value)}>
                                 <option value="">No Client</option>
                                 {clients?.map((c) => (<option key={c.id} value={c.name}>{c.name}</option>))}
                               </select>
                             </div>
+                            <select className="flex h-9 w-full rounded-md border bg-background px-2 py-1 text-sm" value={editUserEmployeeId ?? ""} onChange={(e) => setEditUserEmployeeId(e.target.value ? Number(e.target.value) : null)} data-testid="select-edit-employee-mobile">
+                              <option value="">— No Employee Linked —</option>
+                              {allEmployees.map((e: any) => (
+                                <option key={e.id} value={e.id}>{e.name} ({e.employeeCode})</option>
+                              ))}
+                            </select>
                             <div className="flex flex-wrap gap-1">
                               {Object.entries(permissionLabels).map(([key, label]) => (
                                 <label key={key} className={`flex items-center gap-1 text-[10px] cursor-pointer px-2 py-1 rounded-full border transition-colors ${
