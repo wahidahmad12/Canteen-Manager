@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Button } from '@/components/ui/button';
-import { Printer, ArrowLeft, User, Building2, CreditCard, Landmark, Shield, FileText } from 'lucide-react';
+import { Printer, ArrowLeft, CreditCard, FileText, Building2, Shield, Landmark, User } from 'lucide-react';
 import { Link, useParams } from 'wouter';
 import type { Employee } from '@shared/schema';
 
@@ -16,7 +16,7 @@ const fmtDate = (d: string | null | undefined): string => {
 export default function FormXIV() {
   const params = useParams<{ id: string }>();
   const employeeId = Number(params.id);
-  const [viewMode, setViewMode] = useState<'card' | 'form'>('card');
+  const [viewMode, setViewMode] = useState<'form' | 'card'>('form');
 
   const { data: employee, isLoading } = useQuery<Employee>({
     queryKey: ['/api/employees', employeeId],
@@ -45,7 +45,7 @@ export default function FormXIV() {
   }
 
   return (
-    <div className={`${viewMode === 'form' ? 'max-w-3xl' : 'max-w-2xl'} mx-auto p-4 sm:p-8`}>
+    <div className={`${viewMode === 'card' ? 'max-w-2xl' : 'max-w-3xl'} mx-auto p-4 sm:p-8`}>
       <div className="flex items-center justify-between mb-4 print:hidden">
         <Link href="/form-xiii">
           <Button variant="ghost" size="icon" data-testid="button-back">
@@ -62,15 +62,6 @@ export default function FormXIV() {
 
       <div className="flex justify-center gap-2 mb-6 print:hidden">
         <Button
-          variant={viewMode === 'card' ? 'default' : 'outline'}
-          size="sm"
-          onClick={() => setViewMode('card')}
-          className="gap-1.5"
-          data-testid="button-view-card"
-        >
-          <CreditCard className="w-4 h-4" /> Detailed Card
-        </Button>
-        <Button
           variant={viewMode === 'form' ? 'default' : 'outline'}
           size="sm"
           onClick={() => setViewMode('form')}
@@ -79,14 +70,173 @@ export default function FormXIV() {
         >
           <FileText className="w-4 h-4" /> Govt. Form
         </Button>
+        <Button
+          variant={viewMode === 'card' ? 'default' : 'outline'}
+          size="sm"
+          onClick={() => setViewMode('card')}
+          className="gap-1.5"
+          data-testid="button-view-card"
+        >
+          <CreditCard className="w-4 h-4" /> Detailed Card
+        </Button>
       </div>
 
-      {viewMode === 'card' ? (
-        <DetailedCardView employee={employee} />
-      ) : (
+      {viewMode === 'form' ? (
         <GovernmentFormView employee={employee} />
+      ) : (
+        <DetailedCardView employee={employee} />
       )}
     </div>
+  );
+}
+
+function GovernmentFormView({ employee }: { employee: Employee }) {
+  const tenure = (() => {
+    const from = fmtDate(employee.joiningDate);
+    const to = fmtDate(employee.leavingDate);
+    if (from !== "-" && to !== "-") return `${from} to ${to}`;
+    if (from !== "-") return `${from} to Present`;
+    return "-";
+  })();
+
+  const age = employee.dob ? new Date().getFullYear() - new Date(employee.dob).getFullYear() : '';
+
+  return (
+    <>
+      <style>{`
+        @media print {
+          @page { size: A4 portrait; margin: 12mm 14mm; }
+          body * { visibility: hidden; }
+          .form-xiv-govt, .form-xiv-govt * { visibility: visible; }
+          .form-xiv-govt { position: absolute; left: 0; top: 0; width: 100%; }
+        }
+      `}</style>
+
+      <div className="form-xiv-govt border-2 border-black bg-white text-black text-[13px] leading-snug p-6 sm:p-10 print:border-2 print:border-black print:p-8 print:text-[12px]">
+
+        <div className="text-center mb-5">
+          <p className="text-[11px] font-medium">THE CONTRACT LABOUR (REGULATION AND ABOLITION) ACT, 1970</p>
+          <h2 className="text-[15px] font-bold uppercase tracking-wide mt-1" data-testid="text-form-title">FORM XIV</h2>
+          <p className="text-[11px] mt-0.5">(See Rule 76)</p>
+          <p className="text-[14px] font-bold mt-1 underline">Employment Card</p>
+        </div>
+
+        <table className="w-full border-collapse border border-black text-[12px] mb-4">
+          <tbody>
+            <tr>
+              <td className="border border-black px-3 py-1.5 font-semibold w-[45%] align-top">Name and address of contractor</td>
+              <td className="border border-black px-3 py-1.5 align-top">
+                DJ Hospitality &amp; Facility Management Pvt. Ltd.<br />
+                70D, Tiljala Road, Kolkata – 700046
+              </td>
+            </tr>
+            <tr>
+              <td className="border border-black px-3 py-1.5 font-semibold align-top">Name and address of establishment in/under which contract is carried on</td>
+              <td className="border border-black px-3 py-1.5 align-top">{employee.clientName || '___________________________'}</td>
+            </tr>
+            <tr>
+              <td className="border border-black px-3 py-1.5 font-semibold align-top">Nature and location of work</td>
+              <td className="border border-black px-3 py-1.5 align-top">{employee.department || 'Canteen'} Services</td>
+            </tr>
+            <tr>
+              <td className="border border-black px-3 py-1.5 font-semibold align-top">Name and address of principal employer</td>
+              <td className="border border-black px-3 py-1.5 align-top">{employee.clientName || '___________________________'}</td>
+            </tr>
+          </tbody>
+        </table>
+
+        <table className="w-full border-collapse border border-black text-[12px]">
+          <thead>
+            <tr className="bg-gray-100 print:bg-gray-100">
+              <th className="border border-black px-2 py-1.5 text-center w-8 font-bold">Sl.<br/>No.</th>
+              <th className="border border-black px-3 py-1.5 text-left w-[42%] font-bold">Particulars</th>
+              <th className="border border-black px-3 py-1.5 text-left font-bold">Details</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td className="border border-black px-2 py-2 text-center align-top">1.</td>
+              <td className="border border-black px-3 py-2 font-medium align-top">Name of the workman</td>
+              <td className="border border-black px-3 py-2 font-bold align-top">{employee.name}</td>
+            </tr>
+            <tr>
+              <td className="border border-black px-2 py-2 text-center align-top">2.</td>
+              <td className="border border-black px-3 py-2 font-medium align-top">Father's / Husband's name</td>
+              <td className="border border-black px-3 py-2 align-top">{employee.fatherName || '___________________________'}</td>
+            </tr>
+            <tr>
+              <td className="border border-black px-2 py-2 text-center align-top">3.</td>
+              <td className="border border-black px-3 py-2 font-medium align-top">Age / Date of Birth</td>
+              <td className="border border-black px-3 py-2 align-top">
+                {fmtDate(employee.dob) !== '-' ? `${fmtDate(employee.dob)}${age ? ` (Age: ${age} yrs)` : ''}` : '___________________________'}
+              </td>
+            </tr>
+            <tr>
+              <td className="border border-black px-2 py-2 text-center align-top">4.</td>
+              <td className="border border-black px-3 py-2 font-medium align-top">Identification marks</td>
+              <td className="border border-black px-3 py-2 align-top">{(employee as any).identificationMarks || '___________________________'}</td>
+            </tr>
+            <tr>
+              <td className="border border-black px-2 py-2 text-center align-top">5.</td>
+              <td className="border border-black px-3 py-2 font-medium align-top">Serial number in the register of workmen employed (Form XIII)</td>
+              <td className="border border-black px-3 py-2 font-mono align-top">{employee.employeeCode}</td>
+            </tr>
+            <tr>
+              <td className="border border-black px-2 py-2 text-center align-top">6.</td>
+              <td className="border border-black px-3 py-2 font-medium align-top">Nature of employment / Designation</td>
+              <td className="border border-black px-3 py-2 align-top">{employee.designation || '-'}</td>
+            </tr>
+            <tr>
+              <td className="border border-black px-2 py-2 text-center align-top">7.</td>
+              <td className="border border-black px-3 py-2 font-medium align-top">Wage rate with particulars of unit (in case of piece work)</td>
+              <td className="border border-black px-3 py-2 align-top">
+                {employee.dailyRate && employee.dailyRate !== "0" && employee.dailyRate !== "0.00"
+                  ? `₹${Number(employee.dailyRate).toLocaleString('en-IN')} per day`
+                  : '___________________________'}
+              </td>
+            </tr>
+            <tr>
+              <td className="border border-black px-2 py-2 text-center align-top">8.</td>
+              <td className="border border-black px-3 py-2 font-medium align-top">Wage period</td>
+              <td className="border border-black px-3 py-2 align-top">Monthly</td>
+            </tr>
+            <tr>
+              <td className="border border-black px-2 py-2 text-center align-top">9.</td>
+              <td className="border border-black px-3 py-2 font-medium align-top">Date of commencement of employment</td>
+              <td className="border border-black px-3 py-2 align-top">{fmtDate(employee.joiningDate) !== '-' ? fmtDate(employee.joiningDate) : '___________________________'}</td>
+            </tr>
+            <tr>
+              <td className="border border-black px-2 py-2 text-center align-top">10.</td>
+              <td className="border border-black px-3 py-2 font-medium align-top">Date of termination of employment</td>
+              <td className="border border-black px-3 py-2 align-top">{fmtDate(employee.leavingDate) !== '-' ? fmtDate(employee.leavingDate) : '___________________________'}</td>
+            </tr>
+            <tr>
+              <td className="border border-black px-2 py-2 text-center align-top">11.</td>
+              <td className="border border-black px-3 py-2 font-medium align-top">Remarks</td>
+              <td className="border border-black px-3 py-2 align-top">{employee.leavingReason || ''}</td>
+            </tr>
+          </tbody>
+        </table>
+
+        <div className="mt-10 flex justify-between text-[12px] print:mt-12">
+          <div className="text-center">
+            <div className="border-t-2 border-black w-48 pt-2">
+              Signature / Thumb impression of Workman
+            </div>
+          </div>
+          <div className="text-center">
+            <div className="border-t-2 border-black w-52 pt-2">
+              Signature of Contractor / Authorised Representative
+            </div>
+            <p className="text-[11px] mt-1">DJ Hospitality &amp; Facility Mgmt. Pvt. Ltd.</p>
+          </div>
+        </div>
+
+        <div className="mt-6 text-center text-[11px] text-gray-600">
+          <p>Place: Kolkata &nbsp;&nbsp;&nbsp; Date: _______________</p>
+        </div>
+      </div>
+    </>
   );
 }
 
@@ -102,7 +252,7 @@ function DetailedCardView({ employee }: { employee: Employee }) {
       </div>
 
       <div className="bg-indigo-50/50 dark:bg-indigo-950/20 text-center py-3 border-b border-indigo-200 print:bg-white print:border-black">
-        <p className="font-semibold text-sm text-indigo-800 dark:text-indigo-300 print:text-black">Name of Contractor: DJ Hospitality & Facility Management Pvt Ltd</p>
+        <p className="font-semibold text-sm text-indigo-800 dark:text-indigo-300 print:text-black">Name of Contractor: DJ Hospitality &amp; Facility Management Pvt Ltd</p>
         <p className="text-sm text-slate-600 dark:text-slate-400 print:text-black flex items-center justify-center gap-1">
           <Building2 className="w-3.5 h-3.5" /> Name of Establishment: {employee.clientName}
         </p>
@@ -118,6 +268,7 @@ function DetailedCardView({ employee }: { employee: Employee }) {
             <InfoRow label="Gender" value={employee.gender || '-'} />
             <InfoRow label="Date of Birth" value={fmtDate(employee.dob)} />
             <InfoRow label="Age" value={String(age)} />
+            <InfoRow label="Identification Marks" value={(employee as any).identificationMarks || '-'} />
             <InfoRow label="Mobile" value={employee.mobile || '-'} />
             <InfoRow label="Address" value={employee.address || '-'} />
           </div>
@@ -177,128 +328,6 @@ function DetailedCardView({ employee }: { employee: Employee }) {
         </div>
       </div>
     </div>
-  );
-}
-
-function GovernmentFormView({ employee }: { employee: Employee }) {
-  const tenure = (() => {
-    const from = fmtDate(employee.joiningDate);
-    const to = fmtDate(employee.leavingDate);
-    if (from !== "-" && to !== "-") return `${from} to ${to}`;
-    if (from !== "-") return `${from} to Present`;
-    return "-";
-  })();
-
-  return (
-    <>
-      <style>{`
-        @media print {
-          @page { size: A4 portrait; margin: 15mm 15mm; }
-          body * { visibility: hidden; }
-          .form-xiv-govt, .form-xiv-govt * { visibility: visible; }
-          .form-xiv-govt { position: absolute; left: 0; top: 0; width: 100%; }
-        }
-      `}</style>
-
-      <div className="form-xiv-govt border-2 border-black bg-white text-black p-6 sm:p-10 print:border-2 print:border-black print:p-10">
-        <div className="text-center mb-8">
-          <h2 className="text-lg font-bold uppercase tracking-wide" data-testid="text-form-title">FORM XIV</h2>
-          <p className="text-sm mt-1">(See Rule 76)</p>
-          <p className="text-base font-bold mt-2 underline">Employment Card</p>
-        </div>
-
-        <div className="space-y-4 text-sm leading-relaxed mb-8">
-          <table className="w-full border-collapse text-sm">
-            <tbody>
-              <tr>
-                <td className="border border-black px-3 py-2 font-semibold w-1/2 align-top">Name and address of contractor</td>
-                <td className="border border-black px-3 py-2 align-top">
-                  DJ Hospitality & Facility Management Pvt. Ltd.<br />
-                  70D, Tiljala Road, Kolkata - 700046
-                </td>
-              </tr>
-              <tr>
-                <td className="border border-black px-3 py-2 font-semibold align-top">Name and address of establishment in/under which contract is carried on</td>
-                <td className="border border-black px-3 py-2 align-top">{employee.clientName || '-'}</td>
-              </tr>
-              <tr>
-                <td className="border border-black px-3 py-2 font-semibold align-top">Nature of work and location of work</td>
-                <td className="border border-black px-3 py-2 align-top">{employee.department || 'Canteen'} Services</td>
-              </tr>
-              <tr>
-                <td className="border border-black px-3 py-2 font-semibold align-top">Name and address of principal employer</td>
-                <td className="border border-black px-3 py-2 align-top">{employee.clientName || '-'}</td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
-
-        <div className="space-y-0">
-          <table className="w-full border-collapse text-sm">
-            <tbody>
-              <tr>
-                <td className="border border-black px-3 py-3 font-semibold w-16 text-center align-top">1.</td>
-                <td className="border border-black px-3 py-3 font-semibold w-2/5 align-top">Name of the workman</td>
-                <td className="border border-black px-3 py-3 align-top font-bold">{employee.name}</td>
-              </tr>
-              <tr>
-                <td className="border border-black px-3 py-3 font-semibold text-center align-top">2.</td>
-                <td className="border border-black px-3 py-3 font-semibold align-top">Serial number in the register of workmen employed</td>
-                <td className="border border-black px-3 py-3 align-top font-mono">{employee.employeeCode}</td>
-              </tr>
-              <tr>
-                <td className="border border-black px-3 py-3 font-semibold text-center align-top">3.</td>
-                <td className="border border-black px-3 py-3 font-semibold align-top">Nature of employment / designation</td>
-                <td className="border border-black px-3 py-3 align-top">{employee.designation || '-'}</td>
-              </tr>
-              <tr>
-                <td className="border border-black px-3 py-3 font-semibold text-center align-top">4.</td>
-                <td className="border border-black px-3 py-3 font-semibold align-top">Wage rate with particulars of unit, in case of piece work</td>
-                <td className="border border-black px-3 py-3 align-top">
-                  {employee.dailyRate && employee.dailyRate !== "0" && employee.dailyRate !== "0.00"
-                    ? `₹${Number(employee.dailyRate).toLocaleString('en-IN')} per day`
-                    : '___________'}
-                </td>
-              </tr>
-              <tr>
-                <td className="border border-black px-3 py-3 font-semibold text-center align-top">5.</td>
-                <td className="border border-black px-3 py-3 font-semibold align-top">Wage period</td>
-                <td className="border border-black px-3 py-3 align-top">Monthly</td>
-              </tr>
-              <tr>
-                <td className="border border-black px-3 py-3 font-semibold text-center align-top">6.</td>
-                <td className="border border-black px-3 py-3 font-semibold align-top">Tenure of employment</td>
-                <td className="border border-black px-3 py-3 align-top">{tenure}</td>
-              </tr>
-              <tr>
-                <td className="border border-black px-3 py-3 font-semibold text-center align-top">7.</td>
-                <td className="border border-black px-3 py-3 font-semibold align-top">Remarks</td>
-                <td className="border border-black px-3 py-3 align-top">{employee.leavingReason || ''}</td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
-
-        <div className="mt-16 flex justify-between text-sm">
-          <div className="text-center">
-            <div className="border-t-2 border-black w-48 pt-2">
-              Signature / Thumb impression of Workman
-            </div>
-          </div>
-          <div className="text-center">
-            <div className="border-t-2 border-black w-48 pt-2">
-              Signature of Contractor
-            </div>
-            <p className="text-xs mt-1">DJ Hospitality & Facility Mgmt. Pvt. Ltd.</p>
-          </div>
-        </div>
-
-        <div className="mt-8 text-center text-xs text-gray-500">
-          <p>Place: Kolkata</p>
-          <p>Date: _______________</p>
-        </div>
-      </div>
-    </>
   );
 }
 
