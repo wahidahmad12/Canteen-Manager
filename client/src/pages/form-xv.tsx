@@ -120,7 +120,7 @@ export default function FormXV() {
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-8 gap-y-3">
             <div>
               <span className="font-semibold">Identification marks:</span>
-              <p className="mt-0.5">___________________________</p>
+              <p className="mt-0.5">{employee.identificationMarks || '___________________________'}</p>
             </div>
             <div>
               <span className="font-semibold">Father's / Husband's name:</span>

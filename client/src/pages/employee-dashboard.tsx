@@ -37,6 +37,7 @@ interface EmployeeInfo {
   skills: string;
   mobile: string;
   joiningDate: string;
+  identificationMarks: string;
   isActive: boolean;
 }
 
@@ -331,6 +332,10 @@ export default function EmployeeDashboard() {
             <td colspan="2" style="border:${b};${cp}">${formatDt(empInfo.joiningDate)}</td>
           </tr>
           <tr>
+            <td style="background:${C.infoLabelBg};color:${C.infoLabelColor};font-weight:600;white-space:nowrap;border:${b};${cp}" colspan="2">Identification Marks</td>
+            <td colspan="6" style="border:${b};${cp}">${empInfo.identificationMarks || "-"}</td>
+          </tr>
+          <tr>
             <td style="background:#ede7f6;color:#4a148c;font-weight:600;white-space:nowrap;border:${b};${cp}" colspan="2">ESIC No.:</td>
             <td colspan="3" style="font-family:monospace;font-size:12px;color:#4a148c;border:${b};${cp}">${empInfo.esicNo || "-"}</td>
             <td style="background:#ede7f6;color:#4a148c;font-weight:600;white-space:nowrap;border:${b};${cp}">UAN:</td>
@@ -558,6 +563,15 @@ export default function EmployeeDashboard() {
                     <p className="font-semibold">{empInfo.fatherName || '—'}</p>
                   </div>
                 </div>
+                {empInfo.identificationMarks && (
+                  <div className="flex items-start gap-2">
+                    <User className="w-4 h-4 text-slate-400 mt-0.5 shrink-0" />
+                    <div>
+                      <p className="text-xs text-muted-foreground">Identification Marks</p>
+                      <p className="font-semibold">{empInfo.identificationMarks}</p>
+                    </div>
+                  </div>
+                )}
                 <div className="flex items-start gap-2">
                   <Building2 className="w-4 h-4 text-slate-400 mt-0.5 shrink-0" />
                   <div>

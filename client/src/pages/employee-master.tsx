@@ -82,6 +82,7 @@ interface Employee {
   leavingReason: string | null;
   mobile: string | null;
   weeklyOffDay: string | null;
+  identificationMarks: string | null;
   isActive: boolean;
   createdAt: string | null;
 }
@@ -114,6 +115,7 @@ const emptyForm = {
   leavingReason: "",
   mobile: "",
   weeklyOffDay: "",
+  identificationMarks: "",
   isActive: true,
 };
 
@@ -232,6 +234,7 @@ export default function EmployeeMaster() {
       leavingReason: emp.leavingReason || "",
       mobile: emp.mobile || "",
       weeklyOffDay: emp.weeklyOffDay || "",
+      identificationMarks: emp.identificationMarks || "",
       isActive: emp.isActive,
     });
     setDialogOpen(true);
@@ -600,6 +603,10 @@ export default function EmployeeMaster() {
                     value={form.dob}
                     onChange={e => setField("dob", autoFormatDate(form.dob, e.target.value))}
                     data-testid="input-dob" />
+                </div>
+                <div className="sm:col-span-2">
+                  <Label htmlFor="identificationMarks">Identification Marks</Label>
+                  <Input id="identificationMarks" value={form.identificationMarks} onChange={e => setField("identificationMarks", e.target.value)} placeholder="e.g. Mole on left cheek, scar on right hand" data-testid="input-identification-marks" />
                 </div>
               </div>
             </div>
