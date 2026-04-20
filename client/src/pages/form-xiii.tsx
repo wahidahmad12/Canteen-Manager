@@ -6,11 +6,12 @@ import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
-import { Printer, Users, ArrowLeft, FileText, Building2, Briefcase, CreditCard } from 'lucide-react';
+import { Printer, Users, ArrowLeft, FileText, Building2, Briefcase, CreditCard, Download } from 'lucide-react';
 import { useClientNames } from '@/hooks/use-reports';
 import { Link } from 'wouter';
 import type { Employee } from '@shared/schema';
 import { PrintSettingsDialog } from '@/components/print-settings-dialog';
+import * as XLSX from 'xlsx';
 
 const fmtDate = (d: string | null | undefined): string => {
   if (!d) return "-";
@@ -49,6 +50,88 @@ export default function FormXIII() {
     setPrintDialogOpen(true);
   };
 
+  const exportToExcel = () => {
+    const wb = XLSX.utils.book_new();
+
+    const titleRows = [
+      ["FORM XIII – Register of Workmen Employed by Contractor"],
+      ["[See Rule 75 of Contract Labour (Regulation & Abolition) Central Rules, 1971]"],
+      [`Name of Establishment: ${selectedClient}`],
+      ["Name of Contractor: DJ Hospitality & Facility Management Pvt. Ltd., 70D Tiljala Road, Kolkata – 700046"],
+      [],
+      [
+        "S.No", "Name of Workman", "Father's / Husband's Name",
+        "Employee Code", "Designation", "Department", "Gender", "Age", "Date of Birth",
+        "Identification Marks",
+        "Aadhaar No", "PAN No", "PF Account No", "ESIC No", "UAN No",
+        "Joining Date", "Leaving Date", "Leaving Reason",
+        "Daily Rate (₹)", "Mobile",
+        "Permanent Address", "Local Address",
+        "Bank Name", "Account No", "IFSC Code",
+      ],
+    ];
+
+    const dataRows = activeEmployees.map((emp, idx) => {
+      const dob = emp.dob ? String(emp.dob).split("T")[0] : "";
+      const age = dob ? new Date().getFullYear() - new Date(dob).getFullYear() : "";
+      return [
+        idx + 1,
+        emp.name,
+        emp.fatherName || "",
+        emp.employeeCode,
+        emp.designation || "",
+        emp.department || "",
+        emp.gender || "",
+        age,
+        dob ? (() => { const [y,m,d] = dob.split("-"); return `${d}-${m}-${y}`; })() : "",
+        (emp as any).identificationMarks || "",
+        emp.aadhaarNo || "",
+        emp.panNo || "",
+        emp.pfNo || "",
+        emp.esicNo || "",
+        emp.uanNo || "",
+        fmtDate(emp.joiningDate) === "-" ? "" : fmtDate(emp.joiningDate),
+        fmtDate(emp.leavingDate) === "-" ? "" : fmtDate(emp.leavingDate),
+        emp.leavingReason || "",
+        Number(emp.dailyRate) || 0,
+        emp.mobile || "",
+        emp.permanentAddress || emp.address || "",
+        emp.localAddress || "",
+        emp.bankName || "",
+        emp.accountNo || "",
+        emp.ifscCode || "",
+      ];
+    });
+
+    const footerRow = [
+      "", `Total Workers: ${activeEmployees.length}`, "", "", "", "", "", "", "", "", "", "", "", "", "",
+      "", "", "",
+      activeEmployees.reduce((s, e) => s + Number(e.dailyRate), 0),
+      "", "", "", "", "", "",
+    ];
+
+    const wsData = [...titleRows, ...dataRows, [], footerRow];
+    const ws = XLSX.utils.aoa_to_sheet(wsData);
+
+    ws["!merges"] = [
+      { s: { r: 0, c: 0 }, e: { r: 0, c: 24 } },
+      { s: { r: 1, c: 0 }, e: { r: 1, c: 24 } },
+      { s: { r: 2, c: 0 }, e: { r: 2, c: 24 } },
+      { s: { r: 3, c: 0 }, e: { r: 3, c: 24 } },
+    ];
+
+    ws["!cols"] = [
+      { wch: 5 }, { wch: 22 }, { wch: 22 }, { wch: 12 }, { wch: 16 }, { wch: 14 },
+      { wch: 8 }, { wch: 5 }, { wch: 12 }, { wch: 20 },
+      { wch: 14 }, { wch: 12 }, { wch: 18 }, { wch: 14 }, { wch: 14 },
+      { wch: 12 }, { wch: 12 }, { wch: 16 }, { wch: 12 }, { wch: 12 },
+      { wch: 25 }, { wch: 25 }, { wch: 18 }, { wch: 16 }, { wch: 12 },
+    ];
+
+    XLSX.utils.book_append_sheet(wb, ws, "Form XIII");
+    XLSX.writeFile(wb, `Form_XIII_${selectedClient.replace(/\s+/g, '_')}_${new Date().toISOString().slice(0,10)}.xlsx`);
+  };
+
   const handlePrint = () => {
     const style = document.createElement("style");
     style.id = "form-xiii-print";
@@ -85,9 +168,14 @@ export default function FormXIII() {
             </div>
           </div>
           {selectedClient && activeEmployees.length > 0 && (
-            <Button onClick={openPrintDialog} variant="outline" className="gap-2" data-testid="button-print">
-              <Printer className="w-4 h-4" /> Print / PDF
-            </Button>
+            <div className="flex gap-2">
+              <Button onClick={exportToExcel} variant="outline" className="gap-2 text-emerald-700 border-emerald-300 hover:bg-emerald-50 dark:text-emerald-400 dark:border-emerald-700 dark:hover:bg-emerald-950" data-testid="button-export-excel">
+                <Download className="w-4 h-4" /> Export Excel
+              </Button>
+              <Button onClick={openPrintDialog} variant="outline" className="gap-2" data-testid="button-print">
+                <Printer className="w-4 h-4" /> Print / PDF
+              </Button>
+            </div>
           )}
         </div>
 
