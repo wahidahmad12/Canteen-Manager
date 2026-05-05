@@ -739,8 +739,18 @@ export default function EmployeeMaster() {
                   <Textarea id="address" value={form.address} onChange={e => setField("address", e.target.value)} rows={2} data-testid="input-address" />
                 </div>
                 <div>
-                  <Label htmlFor="skills">Skills</Label>
-                  <Input id="skills" value={form.skills} onChange={e => setField("skills", e.target.value)} placeholder="e.g. Cooking, Cleaning, Housekeeping" data-testid="input-skills" />
+                  <Label htmlFor="skills">Skills / Category</Label>
+                  <Select value={form.skills || ""} onValueChange={v => setField("skills", v)}>
+                    <SelectTrigger data-testid="select-skills">
+                      <SelectValue placeholder="Select skill category" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="Unskilled">Unskilled</SelectItem>
+                      <SelectItem value="Semi Skilled">Semi Skilled</SelectItem>
+                      <SelectItem value="Skilled">Skilled</SelectItem>
+                      <SelectItem value="High Skilled">High Skilled</SelectItem>
+                    </SelectContent>
+                  </Select>
                 </div>
                 <div>
                   <Label htmlFor="mobile">Mobile No.</Label>

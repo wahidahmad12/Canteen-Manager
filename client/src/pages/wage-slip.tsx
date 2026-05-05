@@ -96,6 +96,7 @@ interface Employee {
   bankName?: string;
   ifscCode?: string;
   dailyRate?: string;
+  skills?: string;
   gender?: string;
   dob?: string;
   address?: string;
@@ -397,7 +398,7 @@ export default function WageSlip() {
                   <td style={{ background: C.infoLabelBg, color: C.infoLabelColor, fontWeight: 600, whiteSpace: "nowrap" }} colSpan={2}>Father's / Husband's :</td>
                   <td colSpan={3} data-testid="text-father-name">{employee?.fatherName || "-"}</td>
                   <td style={{ background: C.infoLabelBg, color: C.infoLabelColor, fontWeight: 600, whiteSpace: "nowrap" }}>Skills:</td>
-                  <td colSpan={2}>{employee?.designation || "Unskilled"}</td>
+                  <td colSpan={2}>{employee?.skills || "Unskilled"}</td>
                 </tr>
                 <tr>
                   <td style={{ background: C.infoLabelBg, color: C.infoLabelColor, fontWeight: 600, whiteSpace: "nowrap" }} colSpan={2}>Date Of Birth</td>
