@@ -64,6 +64,8 @@ interface SalaryRecord {
   netPay: string;
   overtimeHours: string;
   overtimeAmount: string;
+  lwf: string;
+  paidOn: string | null;
 }
 
 const monthNames = ['', 'January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
@@ -289,21 +291,29 @@ export default function EmployeeDashboard() {
     const b = "1px solid #90a4ae";
     const cp = "padding:5px 8px;";
 
+    const now = new Date();
+    const genTs = now.toLocaleString("en-IN", { day: "2-digit", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit", second: "2-digit", hour12: true });
+
     const container = document.createElement('div');
     container.innerHTML = `
       <table style="width:100%;border-collapse:collapse;font-size:13px;font-family:Inter,Segoe UI,Arial,sans-serif;">
         <tbody>
           <tr>
             <td colspan="8" style="background:${C.headerGrad};color:#fff;text-align:center;padding:14px 8px 10px;border:none;">
-              <div style="font-size:17px;font-weight:800;letter-spacing:0.5px;">DJ HOSPITALITY & FACILITY MANAGEMENT PVT LTD</div>
-              <div style="font-size:10px;opacity:0.85;margin-top:2px;">Regd. & Head Office: 730, Tin Made, Sodiem Siolim, Mapusa Bardez, North Goa-403502, India</div>
-              <div style="font-size:10px;opacity:0.85;">Branch Office: 7 Crimatorium Street, Kolkata- 700014</div>
+              <div style="display:flex;align-items:center;justify-content:center;gap:14px;">
+                <img src="${logoImg}" alt="DJ Logo" style="width:54px;height:54px;border-radius:8px;border:2px solid rgba(255,255,255,0.4);background:#fff;padding:2px;" />
+                <div>
+                  <div style="font-size:17px;font-weight:800;letter-spacing:0.5px;text-shadow:1px 1px 2px rgba(0,0,0,0.3);">DJ HOSPITALITY &amp; FACILITY MANAGEMENT PVT LTD</div>
+                  <div style="font-size:10px;opacity:0.85;margin-top:2px;">Regd. &amp; Head Office: 730, Tin Made, Sodiem Siolim, Mapusa Bardez, North Goa-403502, India</div>
+                  <div style="font-size:10px;opacity:0.85;">Branch Office: 7 Crimatorium Street, Kolkata- 700014</div>
+                </div>
+              </div>
               <div style="margin-top:8px;font-size:15px;font-weight:700;letter-spacing:1px;background:rgba(255,255,255,0.15);display:inline-block;padding:3px 20px;border-radius:4px;">Form - XIX Wages Slip</div>
               <div style="font-size:10px;opacity:0.7;margin-top:2px;">[See rule 78(1)(b)]</div>
             </td>
           </tr>
           <tr>
-            <td colspan="8" style="background:${C.periodGrad};color:#fff;text-align:center;padding:10px;font-size:20px;font-weight:800;letter-spacing:2px;border:none;">
+            <td colspan="8" style="background:${C.periodGrad};color:#fff;text-align:center;padding:10px;font-size:20px;font-weight:800;letter-spacing:2px;border:none;text-shadow:1px 1px 3px rgba(0,0,0,0.3);">
               ${monthNames[Number(selectedMonth)].toUpperCase()} - ${selectedYear}
             </td>
           </tr>
@@ -320,6 +330,12 @@ export default function EmployeeDashboard() {
             <td colspan="6" style="font-size:16px;font-weight:800;color:#1a237e;border:${b};${cp}">${empInfo.name}</td>
           </tr>
           <tr>
+            <td style="background:${C.infoLabelBg};color:${C.infoLabelColor};font-weight:600;white-space:nowrap;border:${b};${cp}" colspan="2">Designation:</td>
+            <td colspan="3" style="border:${b};${cp}">${empInfo.designation || "-"}</td>
+            <td style="background:${C.infoLabelBg};color:${C.infoLabelColor};font-weight:600;white-space:nowrap;border:${b};${cp}">Emp Code:</td>
+            <td colspan="2" style="font-family:monospace;font-size:12px;border:${b};${cp}">${empInfo.employeeCode || "-"}</td>
+          </tr>
+          <tr>
             <td style="background:${C.infoLabelBg};color:${C.infoLabelColor};font-weight:600;white-space:nowrap;border:${b};${cp}" colspan="2">Father's / Husband's :</td>
             <td colspan="3" style="border:${b};${cp}">${empInfo.fatherName || "-"}</td>
             <td style="background:${C.infoLabelBg};color:${C.infoLabelColor};font-weight:600;white-space:nowrap;border:${b};${cp}">Skills:</td>
@@ -330,10 +346,6 @@ export default function EmployeeDashboard() {
             <td colspan="3" style="border:${b};${cp}">${formatDt(empInfo.dob)}</td>
             <td style="background:${C.infoLabelBg};color:${C.infoLabelColor};font-weight:600;white-space:nowrap;border:${b};${cp}">Joining Date :</td>
             <td colspan="2" style="border:${b};${cp}">${formatDt(empInfo.joiningDate)}</td>
-          </tr>
-          <tr>
-            <td style="background:${C.infoLabelBg};color:${C.infoLabelColor};font-weight:600;white-space:nowrap;border:${b};${cp}" colspan="2">Identification Marks</td>
-            <td colspan="6" style="border:${b};${cp}">${empInfo.identificationMarks || "-"}</td>
           </tr>
           <tr>
             <td style="background:#ede7f6;color:#4a148c;font-weight:600;white-space:nowrap;border:${b};${cp}" colspan="2">ESIC No.:</td>
@@ -357,7 +369,7 @@ export default function EmployeeDashboard() {
             <td style="background:#e0f2f1;color:#004d40;font-weight:600;white-space:nowrap;border:${b};${cp}" colspan="2">Bank Account No.:</td>
             <td colspan="3" style="font-family:monospace;font-size:12px;color:#00695c;border:${b};${cp}">${empInfo.accountNo || "-"}</td>
             <td style="background:#e0f2f1;color:#004d40;font-weight:600;white-space:nowrap;border:${b};${cp}">Pay. Date:</td>
-            <td colspan="2" style="border:${b};${cp}">-</td>
+            <td colspan="2" style="border:${b};${cp}">${salary.paidOn ? formatDt(salary.paidOn) : "-"}</td>
           </tr>
 
           <tr>
@@ -376,7 +388,7 @@ export default function EmployeeDashboard() {
           </tr>
           <tr>
             <td style="background:${C.attLabelBg};color:${C.attLabelColor};font-weight:600;border:${b};${cp}">Half Day</td>
-            <td style="text-align:right;font-weight:700;color:${C.attValColor};border:${b};${cp}">0</td>
+            <td style="text-align:right;font-weight:700;color:${C.attValColor};border:${b};${cp}">${halfDayCount}</td>
             <td style="background:${C.earnLabelBg};color:${C.earnLabelColor};font-weight:600;border:${b};${cp}" colspan="2">Basic</td>
             <td style="text-align:right;font-weight:700;color:${C.earnValColor};border:${b};${cp}">${basic}</td>
             <td style="background:${C.dedLabelBg};color:${C.dedLabelColor};font-weight:600;border:${b};${cp}" colspan="2">P-TAX</td>
@@ -428,7 +440,7 @@ export default function EmployeeDashboard() {
             <td style="background:${C.earnLabelBg};border:${b};${cp}" colspan="2"></td>
             <td style="border:${b};${cp}"></td>
             <td style="background:${C.netBg};color:#fff;font-weight:800;font-size:13px;letter-spacing:1px;border:${b};${cp}" colspan="2">NET SALARY</td>
-            <td style="background:${C.netBg};color:#fff;text-align:right;font-weight:900;font-size:18px;letter-spacing:0.5px;border:${b};${cp}">₹${netSalary.toLocaleString("en-IN")}</td>
+            <td style="background:${C.netBg};color:#fff;text-align:right;font-weight:900;font-size:18px;letter-spacing:0.5px;text-shadow:1px 1px 2px rgba(0,0,0,0.3);border:${b};${cp}">₹${netSalary.toLocaleString("en-IN")}</td>
           </tr>
 
           <tr>
@@ -439,9 +451,22 @@ export default function EmployeeDashboard() {
           <tr>
             <td colspan="8" style="height:70px;vertical-align:bottom;padding:10px 16px;background:#fafafa;border:${b};">
               <div style="display:flex;justify-content:space-between;">
-                <div style="text-align:center;"><div style="font-size:12px;font-weight:700;color:#1a237e;margin-bottom:8px;">${user?.displayName || ''}</div><div style="border-top:2px solid #283593;padding-top:6px;min-width:180px;font-size:11px;font-weight:600;color:#283593;">Generated By Name &amp; Signature</div></div>
-                <div style="text-align:center;"><div style="font-size:12px;font-weight:700;color:#1a237e;margin-bottom:2px;">Wahid Ahmad</div><div style="font-size:10px;color:#283593;margin-bottom:6px;">Zonal Manager &amp; Partner</div><div style="border-top:2px solid #283593;padding-top:6px;min-width:180px;font-size:11px;font-weight:600;color:#283593;">Approved By Signature and Stamp</div></div>
+                <div style="text-align:center;">
+                  <div style="font-size:12px;font-weight:700;color:#1a237e;margin-bottom:2px;">${user?.displayName || ''}</div>
+                  <div style="font-size:10px;color:#283593;margin-bottom:6px;visibility:hidden;">-</div>
+                  <div style="border-top:2px solid #283593;padding-top:6px;min-width:180px;font-size:11px;font-weight:600;color:#283593;">Generated By Name &amp; Signature</div>
+                </div>
+                <div style="text-align:center;">
+                  <div style="font-size:12px;font-weight:700;color:#1a237e;margin-bottom:2px;">Wahid Ahmad</div>
+                  <div style="font-size:10px;color:#283593;margin-bottom:6px;">Zonal Manager &amp; Partner</div>
+                  <div style="border-top:2px solid #283593;padding-top:6px;min-width:180px;font-size:11px;font-weight:600;color:#283593;">Approved By Signature and Stamp</div>
+                </div>
               </div>
+            </td>
+          </tr>
+          <tr>
+            <td colspan="8" style="background:#f5f5f5;border-top:1px solid #ccc;padding:4px 12px;text-align:center;font-size:9px;color:#888;font-style:italic;">
+              Generated on: ${genTs} &nbsp;|&nbsp; DJ Hospitality &amp; Facility Management Pvt. Ltd.
             </td>
           </tr>
         </tbody>
