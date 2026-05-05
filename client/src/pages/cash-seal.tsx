@@ -956,7 +956,7 @@ export default function CashSeal() {
                   <table className="w-full">
                     <thead>
                       <tr className="bg-gradient-to-r from-teal-700 to-teal-500 text-white">
-                        {["Sl#", "Date", "Put Days", "PS Income", "TP Income", "Total Income", "Expense", "Balance", "Akbar Ali", "Actions"].map(h => (
+                        {["Sl#", "Date", "Days", "PS Income", "TP Income", "Total Income", "Expense", "Balance", "Akbar Ali", "Actions"].map(h => (
                           <th key={h} className="px-3 py-3 text-xs font-bold uppercase tracking-wide text-left whitespace-nowrap first:rounded-tl-none last:text-center">{h}</th>
                         ))}
                       </tr>
@@ -980,7 +980,14 @@ export default function CashSeal() {
                           <tr key={seal.id} className={`${isEven ? "bg-white dark:bg-slate-800" : "bg-slate-50 dark:bg-slate-800/60"} hover:bg-teal-50/50 dark:hover:bg-teal-900/10 transition-colors`}>
                             <td className="px-3 py-2.5 text-sm text-slate-500 font-mono">{idx + 1}</td>
                             <td className="px-3 py-2.5">
-                              <div className="text-sm font-semibold text-slate-800 dark:text-slate-100 whitespace-nowrap">{formatDate(seal.date || "")}</div>
+                              <div className="text-sm font-semibold text-slate-800 dark:text-slate-100 whitespace-nowrap">
+                                {formatDate(seal.date || "")}
+                                {seal.date && (
+                                  <span className="ml-1.5 text-xs font-bold text-teal-600 dark:text-teal-400">
+                                    {["Sun","Mon","Tue","Wed","Thu","Fri","Sat"][(() => { try { const d = seal.date.includes("T") ? new Date(seal.date) : new Date(seal.date + "T00:00:00"); return d.getDay(); } catch { return 0; } })()]}
+                                  </span>
+                                )}
+                              </div>
                             </td>
                             <td className="px-3 py-2.5 text-center">
                               {Number(seal.putDays) > 0
@@ -1065,8 +1072,11 @@ export default function CashSeal() {
                             <span className="w-6 h-6 rounded-full bg-teal-100 dark:bg-teal-900/40 text-teal-700 text-xs font-bold flex items-center justify-center">{idx + 1}</span>
                             <div>
                               <div className="text-sm font-bold text-slate-800 dark:text-slate-100">{formatDate(seal.date || "")}</div>
-                              {Number(seal.putDays) > 0 && (
-                                <div className="text-[10px] text-amber-700 font-semibold">Put Days: {seal.putDays}</div>
+                              {seal.date && (
+                                <div className="text-[10px] text-teal-600 font-semibold">
+                                  {["Sun","Mon","Tue","Wed","Thu","Fri","Sat"][(() => { try { const d = seal.date.includes("T") ? new Date(seal.date) : new Date(seal.date + "T00:00:00"); return d.getDay(); } catch { return 0; } })()]}
+                                  {Number(seal.putDays) > 0 && ` · Days: ${seal.putDays}`}
+                                </div>
                               )}
                             </div>
                           </div>
@@ -1232,7 +1242,7 @@ export default function CashSeal() {
             </>
           )}
           <div className="flex items-center gap-2 ml-auto">
-            <span className="text-xs font-semibold text-slate-500 uppercase tracking-wide whitespace-nowrap">Put Days</span>
+            <span className="text-xs font-semibold text-slate-500 uppercase tracking-wide whitespace-nowrap">Days</span>
             <Input
               type="number"
               inputMode="numeric"
