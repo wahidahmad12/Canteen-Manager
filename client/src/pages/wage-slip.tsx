@@ -543,7 +543,7 @@ export default function WageSlip() {
                 </tr>
                 {captureTimestamp && (
                   <tr>
-                    <td colSpan={8} style={{ background: "#f5f5f5", borderTop: "1px solid #ccc", padding: "4px 12px", textAlign: "right", fontSize: "9px", color: "#888", fontStyle: "italic" }}>
+                    <td colSpan={8} style={{ background: "#f5f5f5", borderTop: "1px solid #ccc", padding: "4px 12px", textAlign: "center", fontSize: "9px", color: "#888", fontStyle: "italic" }}>
                       Generated on: {captureTimestamp} &nbsp;|&nbsp; DJ Hospitality &amp; Facility Management Pvt. Ltd.
                     </td>
                   </tr>
