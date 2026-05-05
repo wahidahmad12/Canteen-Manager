@@ -520,6 +520,8 @@ export default function WageSlip() {
                   <td colSpan={8} style={{ height: "70px", verticalAlign: "bottom", padding: "10px 16px", background: C.sigBg }}>
                     <div style={{ display: "flex", justifyContent: "space-between" }}>
                       <div style={{ textAlign: "center" }}>
+                        <div style={{ fontSize: "12px", fontWeight: 700, marginBottom: "2px", visibility: "hidden" }}>-</div>
+                        <div style={{ fontSize: "10px", marginBottom: "6px", visibility: "hidden" }}>-</div>
                         <div style={{ borderTop: "2px solid #283593", paddingTop: "6px", minWidth: "180px", fontSize: "11px", fontWeight: 600, color: "#283593" }}>Prepared By Signature</div>
                       </div>
                       <div style={{ textAlign: "center" }}>
