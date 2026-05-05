@@ -121,6 +121,7 @@ export default function WageSlip() {
   const id = Number(params.id);
   const slipRef = useRef<HTMLDivElement>(null);
   const [capturing, setCapturing] = useState(false);
+  const [captureTimestamp, setCaptureTimestamp] = useState<string | null>(null);
   const { toast } = useToast();
 
   const { data: salary, isLoading: salaryLoading } = useQuery<SalaryRecord>({
@@ -231,12 +232,20 @@ export default function WageSlip() {
 
   const captureSlip = async (): Promise<Blob | null> => {
     if (!slipRef.current) return null;
+    const now = new Date();
+    const ts = now.toLocaleString("en-IN", {
+      day: "2-digit", month: "short", year: "numeric",
+      hour: "2-digit", minute: "2-digit", second: "2-digit", hour12: true,
+    });
+    setCaptureTimestamp(ts);
+    await new Promise(r => setTimeout(r, 80));
     const canvas = await html2canvas(slipRef.current, {
       scale: 2,
       useCORS: true,
       backgroundColor: "#ffffff",
       logging: false,
     });
+    setCaptureTimestamp(null);
     return new Promise(resolve => canvas.toBlob(blob => resolve(blob), "image/png"));
   };
 
@@ -532,6 +541,13 @@ export default function WageSlip() {
                     </div>
                   </td>
                 </tr>
+                {captureTimestamp && (
+                  <tr>
+                    <td colSpan={8} style={{ background: "#f5f5f5", borderTop: "1px solid #ccc", padding: "4px 12px", textAlign: "right", fontSize: "9px", color: "#888", fontStyle: "italic" }}>
+                      Generated on: {captureTimestamp} &nbsp;|&nbsp; DJ Hospitality &amp; Facility Management Pvt. Ltd.
+                    </td>
+                  </tr>
+                )}
               </tbody>
             </table>
           </div>
