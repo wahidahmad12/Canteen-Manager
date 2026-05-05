@@ -524,6 +524,8 @@ export default function WageSlip() {
                       </div>
                       <div style={{ textAlign: "center" }}>
                         <div style={{ borderTop: "2px solid #283593", paddingTop: "6px", minWidth: "180px", fontSize: "11px", fontWeight: 600, color: "#283593" }}>Approved By Signature and Stamp</div>
+                        <div style={{ fontSize: "12px", fontWeight: 700, color: "#1a237e", marginTop: "3px" }}>Wahid Ahmad</div>
+                        <div style={{ fontSize: "10px", color: "#283593" }}>Zonal Manager &amp; Partner</div>
                       </div>
                     </div>
                   </td>
