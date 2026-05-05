@@ -94,6 +94,7 @@ export const cashSeals = mysqlTable("cash_seals", {
   incomeTpLunchChickenOnlineQty: decimal("income_tp_lunch_chicken_online_qty", { precision: 10, scale: 2 }).default("0"),
   incomeTpEveningOnlineQty: decimal("income_tp_evening_online_qty", { precision: 10, scale: 2 }).default("0"),
   incomeTpNightOnlineQty: decimal("income_tp_night_online_qty", { precision: 10, scale: 2 }).default("0"),
+  putDays: int("put_days").default(0),
 });
 
 // Daily Inventory records

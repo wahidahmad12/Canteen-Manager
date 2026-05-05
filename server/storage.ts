@@ -632,6 +632,7 @@ export class DatabaseStorage implements IStorage {
           incomeTpLunchChickenOnlineQty: data.incomeTpLunchChickenOnlineQty?.toString() || "0",
           incomeTpEveningOnlineQty: data.incomeTpEveningOnlineQty?.toString() || "0",
           incomeTpNightOnlineQty: data.incomeTpNightOnlineQty?.toString() || "0",
+          putDays: data.putDays != null ? Number(data.putDays) : 0,
         }).where(eq(cashSeals.id, existing[0].id));
         const [updated] = await tx.select().from(cashSeals).where(eq(cashSeals.id, existing[0].id));
         return { ...updated, date: data.date };
@@ -687,6 +688,7 @@ export class DatabaseStorage implements IStorage {
           incomeTpLunchChickenOnlineQty: data.incomeTpLunchChickenOnlineQty?.toString() || "0",
           incomeTpEveningOnlineQty: data.incomeTpEveningOnlineQty?.toString() || "0",
           incomeTpNightOnlineQty: data.incomeTpNightOnlineQty?.toString() || "0",
+          putDays: data.putDays != null ? Number(data.putDays) : 0,
         });
         const __iid = await getInsertId(tx);
         const [created] = await tx.select().from(cashSeals).where(eq(cashSeals.id, __iid));
@@ -746,6 +748,7 @@ export class DatabaseStorage implements IStorage {
       incomeTpLunchChickenOnlineQty: data.incomeTpLunchChickenOnlineQty?.toString() || "0",
       incomeTpEveningOnlineQty: data.incomeTpEveningOnlineQty?.toString() || "0",
       incomeTpNightOnlineQty: data.incomeTpNightOnlineQty?.toString() || "0",
+      putDays: data.putDays != null ? Number(data.putDays) : 0,
     }).where(eq(cashSeals.id, id));
     return this.getCashSeal(id);
   }

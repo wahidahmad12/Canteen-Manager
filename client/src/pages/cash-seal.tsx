@@ -454,6 +454,9 @@ export default function CashSeal() {
   const [tpEvOnline, setTpEvOnline] = useState(0);
   const [tpNtOnline, setTpNtOnline] = useState(0);
 
+  // ── Put Days state ─────────────────────────────────────────────
+  const [putDays, setPutDays] = useState(0);
+
   // ── Expense state ──────────────────────────────────────────────
   const [bananaQty, setBananaQty] = useState(0);
   const [dahiBharQty, setDahiBharQty] = useState(0);
@@ -500,6 +503,7 @@ export default function CashSeal() {
     setBananaQty(n(rec.expenseBananaQty)); setDahiBharQty(n(rec.expenseDahiBharQty));
     setDahiBharRate(n(rec.expenseDahiBharRate)); setOtherExpense(n(rec.expenseOtherAmount));
     setAkbarAliAmount(n(rec.totalGivenToAkbarAli));
+    setPutDays(n(rec.putDays));
     setAkbarAliManual(true);
     originalRec.current = rec;
     if (rec.date) { try { setDate(parseISO(rec.date)); } catch { setDate(new Date(rec.date)); } }
@@ -513,7 +517,7 @@ export default function CashSeal() {
     setTpBfOnline(0); setTpLvOnline(0); setTpNvOnline(0);
     setTpEgOnline(0); setTpFsOnline(0); setTpCkOnline(0); setTpEvOnline(0); setTpNtOnline(0);
     setBananaQty(0); setDahiBharQty(0); setDahiBharRate(0); setOtherExpense(0);
-    setAkbarAliAmount(0); setAkbarAliManual(false); setDate(new Date());
+    setAkbarAliAmount(0); setAkbarAliManual(false); setPutDays(0); setDate(new Date());
     originalRec.current = null;
   }
 
@@ -632,6 +636,7 @@ export default function CashSeal() {
     expenseBananaQty: bananaQty, expenseDahiBharQty: dahiBharQty,
     expenseDahiBharRate: dahiBharRate, expenseOtherAmount: otherExpense,
     totalGivenToAkbarAli: akbarAliAmount,
+    putDays,
   };
 
   const handleSave = async () => {
@@ -951,7 +956,7 @@ export default function CashSeal() {
                   <table className="w-full">
                     <thead>
                       <tr className="bg-gradient-to-r from-teal-700 to-teal-500 text-white">
-                        {["Sl#", "Date", "PS Income", "TP Income", "Total Income", "Expense", "Balance", "Akbar Ali", "Actions"].map(h => (
+                        {["Sl#", "Date", "Put Days", "PS Income", "TP Income", "Total Income", "Expense", "Balance", "Akbar Ali", "Actions"].map(h => (
                           <th key={h} className="px-3 py-3 text-xs font-bold uppercase tracking-wide text-left whitespace-nowrap first:rounded-tl-none last:text-center">{h}</th>
                         ))}
                       </tr>
@@ -976,6 +981,11 @@ export default function CashSeal() {
                             <td className="px-3 py-2.5 text-sm text-slate-500 font-mono">{idx + 1}</td>
                             <td className="px-3 py-2.5">
                               <div className="text-sm font-semibold text-slate-800 dark:text-slate-100 whitespace-nowrap">{formatDate(seal.date || "")}</div>
+                            </td>
+                            <td className="px-3 py-2.5 text-center">
+                              {Number(seal.putDays) > 0
+                                ? <span className="inline-block px-2 py-0.5 rounded-full bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-300 text-xs font-bold font-mono">{seal.putDays}</span>
+                                : <span className="text-slate-300">—</span>}
                             </td>
                             <td className="px-3 py-2.5 text-sm font-mono text-blue-700 dark:text-blue-400">{psTotal > 0 ? fmtN(psTotal) : <span className="text-slate-300">—</span>}</td>
                             <td className="px-3 py-2.5 text-sm font-mono text-green-700 dark:text-green-400">{tpTotal > 0 ? fmtN(tpTotal) : <span className="text-slate-300">—</span>}</td>
@@ -1033,7 +1043,7 @@ export default function CashSeal() {
                     {/* Footer totals */}
                     <tfoot>
                       <tr className="bg-teal-50 dark:bg-teal-900/20 border-t-2 border-teal-200 dark:border-teal-700">
-                        <td colSpan={4} className="px-3 py-2.5 text-xs font-bold uppercase text-teal-700 dark:text-teal-300 tracking-wide">Total ({filtered.length} records)</td>
+                        <td colSpan={5} className="px-3 py-2.5 text-xs font-bold uppercase text-teal-700 dark:text-teal-300 tracking-wide">Total ({filtered.length} records)</td>
                         <td className="px-3 py-2.5 text-sm font-bold font-mono text-emerald-700 dark:text-emerald-300">{fmtN(totals.income)}</td>
                         <td className="px-3 py-2.5 text-sm font-bold font-mono text-rose-600 dark:text-rose-400">{fmtN(totals.expense)}</td>
                         <td className="px-3 py-2.5 text-sm font-bold font-mono text-sky-700 dark:text-sky-300">{fmtN(totals.balance)}</td>
@@ -1055,6 +1065,9 @@ export default function CashSeal() {
                             <span className="w-6 h-6 rounded-full bg-teal-100 dark:bg-teal-900/40 text-teal-700 text-xs font-bold flex items-center justify-center">{idx + 1}</span>
                             <div>
                               <div className="text-sm font-bold text-slate-800 dark:text-slate-100">{formatDate(seal.date || "")}</div>
+                              {Number(seal.putDays) > 0 && (
+                                <div className="text-[10px] text-amber-700 font-semibold">Put Days: {seal.putDays}</div>
+                              )}
                             </div>
                           </div>
                           <div className="flex items-center gap-1">
@@ -1207,16 +1220,31 @@ export default function CashSeal() {
           </div>
         </div>
 
-        {/* Date */}
-        {!editId && (
-          <div className="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 px-4 py-3 flex items-center gap-3">
-            <span className="text-xs font-semibold text-slate-500 uppercase tracking-wide">Date</span>
-            <DatePicker date={date} setDate={(d) => d && setDate(d)} />
-            <span className="ml-auto text-xs font-bold px-2.5 py-1 rounded-full bg-teal-100 text-teal-700 dark:bg-teal-900/40 dark:text-teal-300 tracking-wide">
-              {["Sunday","Monday","Tuesday","Wednesday","Thursday","Friday","Saturday"][date.getDay()]}
-            </span>
+        {/* Date + Put Days */}
+        <div className="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 px-4 py-3 flex flex-wrap items-center gap-3">
+          {!editId && (
+            <>
+              <span className="text-xs font-semibold text-slate-500 uppercase tracking-wide">Date</span>
+              <DatePicker date={date} setDate={(d) => d && setDate(d)} />
+              <span className="text-xs font-bold px-2.5 py-1 rounded-full bg-teal-100 text-teal-700 dark:bg-teal-900/40 dark:text-teal-300 tracking-wide">
+                {["Sunday","Monday","Tuesday","Wednesday","Thursday","Friday","Saturday"][date.getDay()]}
+              </span>
+            </>
+          )}
+          <div className="flex items-center gap-2 ml-auto">
+            <span className="text-xs font-semibold text-slate-500 uppercase tracking-wide whitespace-nowrap">Put Days</span>
+            <Input
+              type="number"
+              inputMode="numeric"
+              min={0}
+              value={putDays === 0 ? "" : putDays}
+              onChange={e => setPutDays(Number(e.target.value) || 0)}
+              placeholder="0"
+              className="w-20 h-8 text-sm text-center font-mono"
+              data-testid="input-put-days"
+            />
           </div>
-        )}
+        </div>
 
         {/* ── PERMANENT STAFF ──────────────────────────────────── */}
         <div className="bg-white dark:bg-slate-800 rounded-xl border border-blue-200 dark:border-blue-800 overflow-hidden shadow-sm">
