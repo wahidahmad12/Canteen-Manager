@@ -4,6 +4,7 @@ import { useRef, useState } from "react";
 import { Loader2, Printer, ArrowLeft, Image, Share2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
+import { useCurrentUser } from "@/hooks/use-reports";
 import logoPath from "@assets/logo1_1771660912341.png";
 import html2canvas from "html2canvas";
 
@@ -123,6 +124,7 @@ export default function WageSlip() {
   const [capturing, setCapturing] = useState(false);
   const [captureTimestamp, setCaptureTimestamp] = useState<string | null>(null);
   const { toast } = useToast();
+  const { data: currentUser } = useCurrentUser();
 
   const { data: salary, isLoading: salaryLoading } = useQuery<SalaryRecord>({
     queryKey: ["/api/salary", id],
@@ -529,8 +531,8 @@ export default function WageSlip() {
                   <td colSpan={8} style={{ height: "70px", verticalAlign: "bottom", padding: "10px 16px", background: C.sigBg }}>
                     <div style={{ display: "flex", justifyContent: "space-between" }}>
                       <div style={{ textAlign: "center" }}>
-                        <div style={{ fontSize: "12px", fontWeight: 700, marginBottom: "2px", visibility: "hidden" }}>-</div>
-                        <div style={{ fontSize: "10px", marginBottom: "6px", visibility: "hidden" }}>-</div>
+                        <div style={{ fontSize: "12px", fontWeight: 700, color: "#1a237e", marginBottom: "2px" }}>{currentUser?.displayName || "\u00a0"}</div>
+                        <div style={{ fontSize: "10px", color: "#283593", marginBottom: "6px", visibility: "hidden" }}>-</div>
                         <div style={{ borderTop: "2px solid #283593", paddingTop: "6px", minWidth: "180px", fontSize: "11px", fontWeight: 600, color: "#283593" }}>Prepared By Signature</div>
                       </div>
                       <div style={{ textAlign: "center" }}>
