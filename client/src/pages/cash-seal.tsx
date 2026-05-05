@@ -956,7 +956,7 @@ export default function CashSeal() {
                   <table className="w-full">
                     <thead>
                       <tr className="bg-gradient-to-r from-teal-700 to-teal-500 text-white">
-                        {["Sl#", "Date", "Days", "PS Income", "TP Income", "Total Income", "Expense", "Balance", "Akbar Ali", "Actions"].map(h => (
+                        {["Sl#", "Date & Days", "PS Income", "TP Income", "Total Income", "Expense", "Balance", "Akbar Ali", "Actions"].map(h => (
                           <th key={h} className="px-3 py-3 text-xs font-bold uppercase tracking-wide text-left whitespace-nowrap first:rounded-tl-none last:text-center">{h}</th>
                         ))}
                       </tr>
@@ -988,11 +988,11 @@ export default function CashSeal() {
                                   </span>
                                 )}
                               </div>
-                            </td>
-                            <td className="px-3 py-2.5 text-center">
-                              {Number(seal.putDays) > 0
-                                ? <span className="inline-block px-2 py-0.5 rounded-full bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-300 text-xs font-bold font-mono">{seal.putDays}</span>
-                                : <span className="text-slate-300">—</span>}
+                              {Number(seal.putDays) > 0 && (
+                                <div className="mt-0.5">
+                                  <span className="inline-block px-2 py-0.5 rounded-full bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-300 text-xs font-bold font-mono">Days: {seal.putDays}</span>
+                                </div>
+                              )}
                             </td>
                             <td className="px-3 py-2.5 text-sm font-mono text-blue-700 dark:text-blue-400">{psTotal > 0 ? fmtN(psTotal) : <span className="text-slate-300">—</span>}</td>
                             <td className="px-3 py-2.5 text-sm font-mono text-green-700 dark:text-green-400">{tpTotal > 0 ? fmtN(tpTotal) : <span className="text-slate-300">—</span>}</td>
@@ -1050,7 +1050,7 @@ export default function CashSeal() {
                     {/* Footer totals */}
                     <tfoot>
                       <tr className="bg-teal-50 dark:bg-teal-900/20 border-t-2 border-teal-200 dark:border-teal-700">
-                        <td colSpan={5} className="px-3 py-2.5 text-xs font-bold uppercase text-teal-700 dark:text-teal-300 tracking-wide">Total ({filtered.length} records)</td>
+                        <td colSpan={4} className="px-3 py-2.5 text-xs font-bold uppercase text-teal-700 dark:text-teal-300 tracking-wide">Total ({filtered.length} records)</td>
                         <td className="px-3 py-2.5 text-sm font-bold font-mono text-emerald-700 dark:text-emerald-300">{fmtN(totals.income)}</td>
                         <td className="px-3 py-2.5 text-sm font-bold font-mono text-rose-600 dark:text-rose-400">{fmtN(totals.expense)}</td>
                         <td className="px-3 py-2.5 text-sm font-bold font-mono text-sky-700 dark:text-sky-300">{fmtN(totals.balance)}</td>
