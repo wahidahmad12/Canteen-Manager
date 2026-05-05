@@ -844,8 +844,19 @@ export default function CashSeal() {
 
     const totals = filtered.reduce((acc, s) => {
       const t = calcTotals(s);
-      return { income: acc.income + t.income, expense: acc.expense + t.expense, balance: acc.balance + t.balance, akbarAli: acc.akbarAli + (Number(s.totalGivenToAkbarAli) || 0) };
-    }, { income: 0, expense: 0, balance: 0, akbarAli: 0 });
+      const _n = (v: any) => Number(v) || 0;
+      const ps = (_n(s.incomePsBreakfastCashQty) + _n(s.incomePsBreakfastOnlineQty)) * PS_RATES.bf
+        + (_n(s.incomePsLunchCashQty) + _n(s.incomePsLunchOnlineQty)) * PS_RATES.ln
+        + (_n(s.incomePsEveningCashQty) + _n(s.incomePsEveningOnlineQty)) * PS_RATES.ev
+        + (_n(s.incomePsNightCashQty) + _n(s.incomePsNightOnlineQty)) * PS_RATES.nt
+        + (_n(s.incomePsRechargeCashQty) + _n(s.incomePsRechargeOnlineQty)) * _n(s.incomePsRechargeRate);
+      const tp = (_n(s.incomeTpBreakfastCashQty) + _n(s.incomeTpBreakfastOnlineQty)) * TP_RATES.bf
+        + (_n(s.incomeTpLunchVegCashQty) + _n(s.incomeTpLunchVegOnlineQty)) * TP_RATES.lv
+        + (_n(s.incomeTpLunchNvCashQty) + _n(s.incomeTpLunchNvOnlineQty)) * _n(s.incomeTpLunchNvRate)
+        + (_n(s.incomeTpEveningCashQty) + _n(s.incomeTpEveningOnlineQty)) * TP_RATES.ev
+        + (_n(s.incomeTpNightCashQty) + _n(s.incomeTpNightOnlineQty)) * TP_RATES.nt;
+      return { income: acc.income + t.income, expense: acc.expense + t.expense, balance: acc.balance + t.balance, akbarAli: acc.akbarAli + (Number(s.totalGivenToAkbarAli) || 0), ps: acc.ps + ps, tp: acc.tp + tp };
+    }, { income: 0, expense: 0, balance: 0, akbarAli: 0, ps: 0, tp: 0 });
 
     const statCards = [
       { label: "Total Records", value: String(filtered.length), isCount: true, grad: "from-blue-600 to-blue-400", icon: IndianRupee },
@@ -1050,7 +1061,9 @@ export default function CashSeal() {
                     {/* Footer totals */}
                     <tfoot>
                       <tr className="bg-teal-50 dark:bg-teal-900/20 border-t-2 border-teal-200 dark:border-teal-700">
-                        <td colSpan={4} className="px-3 py-2.5 text-xs font-bold uppercase text-teal-700 dark:text-teal-300 tracking-wide">Total ({filtered.length} records)</td>
+                        <td colSpan={2} className="px-3 py-2.5 text-xs font-bold uppercase text-teal-700 dark:text-teal-300 tracking-wide">Total ({filtered.length} records)</td>
+                        <td className="px-3 py-2.5 text-sm font-bold font-mono text-blue-700 dark:text-blue-300">{fmtN(totals.ps)}</td>
+                        <td className="px-3 py-2.5 text-sm font-bold font-mono text-green-700 dark:text-green-300">{fmtN(totals.tp)}</td>
                         <td className="px-3 py-2.5 text-sm font-bold font-mono text-emerald-700 dark:text-emerald-300">{fmtN(totals.income)}</td>
                         <td className="px-3 py-2.5 text-sm font-bold font-mono text-rose-600 dark:text-rose-400">{fmtN(totals.expense)}</td>
                         <td className="px-3 py-2.5 text-sm font-bold font-mono text-sky-700 dark:text-sky-300">{fmtN(totals.balance)}</td>
