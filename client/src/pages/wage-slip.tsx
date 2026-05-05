@@ -395,6 +395,12 @@ export default function WageSlip() {
                 </tr>
 
                 <tr>
+                  <td style={{ background: C.infoLabelBg, color: C.infoLabelColor, fontWeight: 600, whiteSpace: "nowrap" }} colSpan={2}>Designation:</td>
+                  <td colSpan={3} data-testid="text-designation">{employee?.designation || "-"}</td>
+                  <td style={{ background: C.infoLabelBg, color: C.infoLabelColor, fontWeight: 600, whiteSpace: "nowrap" }}>Emp Code:</td>
+                  <td colSpan={2} style={{ fontFamily: "monospace", fontSize: "12px" }} data-testid="text-emp-code">{employee?.employeeCode || "-"}</td>
+                </tr>
+                <tr>
                   <td style={{ background: C.infoLabelBg, color: C.infoLabelColor, fontWeight: 600, whiteSpace: "nowrap" }} colSpan={2}>Father's / Husband's :</td>
                   <td colSpan={3} data-testid="text-father-name">{employee?.fatherName || "-"}</td>
                   <td style={{ background: C.infoLabelBg, color: C.infoLabelColor, fontWeight: 600, whiteSpace: "nowrap" }}>Skills:</td>
