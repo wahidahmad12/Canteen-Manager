@@ -295,6 +295,7 @@ export interface IStorage {
   updatePecVenturesEntry(id: number, data: any): Promise<PecVenturesEntry>;
   deletePecVenturesEntry(id: number): Promise<void>;
   getPecVenturesYearlySummary(year: number): Promise<any[]>;
+  getPecVenturesLunchYearlySummary(year: number): Promise<{ month: number; lunch: number; dinner: number }[]>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -2592,6 +2593,20 @@ export class DatabaseStorage implements IStorage {
   async deletePecVenturesEntry(id: number): Promise<void> {
     await db.delete(pecVenturesEntries).where(eq(pecVenturesEntries.id, id));
   }
+  async getPecVenturesLunchYearlySummary(year: number): Promise<{ month: number; lunch: number; dinner: number }[]> {
+    const [rows] = await db.execute(sql`
+      SELECT month,
+        COALESCE(SUM(CASE WHEN meal_type='lunch' THEN bill_qty ELSE 0 END),0) AS lunch,
+        COALESCE(SUM(CASE WHEN meal_type='dinner' THEN bill_qty ELSE 0 END),0) AS dinner
+      FROM unichem_lunch_entries
+      WHERE year = ${year} AND location = 'PEC Ventures'
+      GROUP BY month ORDER BY month
+    `) as any;
+    return (rows as any[]).map((r: any) => ({
+      month: Number(r.month), lunch: Number(r.lunch), dinner: Number(r.dinner),
+    }));
+  }
+
   async getPecVenturesYearlySummary(year: number): Promise<any[]> {
     const [rows] = await db.execute(sql`
       SELECT month,

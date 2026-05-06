@@ -7168,12 +7168,18 @@ function PecVentureSummaryTab({ currentYear }: { currentYear: number }) {
     queryFn: () => fetch(`/api/pec-ventures-entries/yearly-summary?year=${summaryYear}`,{credentials:'include'}).then(r=>r.json()),
   });
 
+  const { data: lunchData = [] } = useQuery<{ month: number; lunch: number; dinner: number }[]>({
+    queryKey: ['/api/pec-ventures-entries/lunch-yearly-summary', summaryYear],
+    queryFn: () => fetch(`/api/pec-ventures-entries/lunch-yearly-summary?year=${summaryYear}`,{credentials:'include'}).then(r=>r.json()),
+  });
+
   const toggleMonth = (m: number) => setSelectedMonths(prev => {
     const s = new Set(prev); s.has(m) ? s.delete(m) : s.add(m); return s;
   });
   const allSelected = selectedMonths.size === 12;
 
   const rowsMap = new Map(yrData.map(r => [r.month, r]));
+  const lunchMap = new Map(lunchData.map(r => [r.month, r]));
   const filteredMonths = Array.from({length:12},(_,i)=>i+1).filter(m => selectedMonths.has(m));
 
   const fq = (v: number) => v === 0 ? '' : v % 1 === 0 ? String(v) : v.toFixed(3).replace(/\.?0+$/,'');
@@ -7188,12 +7194,16 @@ function PecVentureSummaryTab({ currentYear }: { currentYear: number }) {
     filteredMonths.reduce((s,m) => s + ((rowsMap.get(m)?.[key] as number)||0), 0);
   const grandMilkQty = () => filteredMonths.reduce((s,m) => { const r=rowsMap.get(m); return s+(r?(getMilkQty(r)):0); }, 0);
   const grandTotal = () => filteredMonths.reduce((s,m) => { const r=rowsMap.get(m); return s+(r?getRowTotal(r):0); }, 0);
+  const grandLunch = () => filteredMonths.reduce((s,m) => s + (lunchMap.get(m)?.lunch||0), 0);
+  const grandDinner = () => filteredMonths.reduce((s,m) => s + (lunchMap.get(m)?.dinner||0), 0);
 
   const thS = "border border-gray-400 bg-blue-900 text-white text-center text-xs font-bold px-2 py-1 whitespace-nowrap";
   const tdS = "border border-gray-300 text-center text-xs px-2 py-1";
   const tdA = "border border-gray-300 text-right text-xs px-2 py-1 text-emerald-700 font-medium";
   const totS = "border border-gray-400 bg-amber-50 text-center text-xs font-bold px-2 py-1";
   const totA = "border border-gray-400 bg-amber-50 text-right text-xs font-bold px-2 py-1 text-emerald-800";
+  const thLunch = "border border-gray-400 bg-orange-700 text-white text-center text-xs font-bold px-2 py-1 whitespace-nowrap";
+  const tdLunch = "border border-gray-300 text-center text-xs px-2 py-1 text-orange-700 font-medium";
 
   const handleExportExcel = async () => {
     try {
@@ -7295,11 +7305,13 @@ function PecVentureSummaryTab({ currentYear }: { currentYear: number }) {
             <thead>
               <tr>
                 <th className={thS} rowSpan={2}>Month</th>
+                <th className={thLunch} colSpan={2}>🍱 Lunch &amp; Dinner (Plates)</th>
                 {PEC_ITEMS.map(c=><th key={c.key} className={thS} colSpan={2}>{c.label}</th>)}
                 <th className={thS} colSpan={2}>Milk</th>
                 <th className={thS} rowSpan={2}>Grand Total</th>
               </tr>
               <tr>
+                <th className={thLunch}>Lunch</th><th className={thLunch}>Dinner</th>
                 {PEC_ITEMS.map(c=><><th key={c.key+'q'} className={thS}>Qty</th><th key={c.key+'a'} className={thS}>Amount</th></>)}
                 <th className={thS}>Qty (L)</th><th className={thS}>Amount</th>
               </tr>
@@ -7308,9 +7320,12 @@ function PecVentureSummaryTab({ currentYear }: { currentYear: number }) {
               {filteredMonths.map(m => {
                 const r: PecYearRow = rowsMap.get(m) ?? { month:m, redLabel:0,tataTea:0,coffee:0,sugar:0,ginger:0,biscuit:0,teaCup:0,greenElaychi:0,greenTea:0,blackSalt:0,milkMorning:0,milkEvening:0 };
                 const milkQ = getMilkQty(r);
+                const ld = lunchMap.get(m);
                 return (
                   <tr key={m} className="hover:bg-muted/30">
                     <td className={`${tdS} font-semibold`}>{MONTHS[m-1]}</td>
+                    <td className={tdLunch}>{fq(ld?.lunch||0)}</td>
+                    <td className={tdLunch}>{fq(ld?.dinner||0)}</td>
                     {PEC_ITEMS.map(c=>(
                       <>
                         <td key={c.key+'q'} className={tdS}>{fq(r[c.key] as number)}</td>
@@ -7327,6 +7342,8 @@ function PecVentureSummaryTab({ currentYear }: { currentYear: number }) {
             <tfoot>
               <tr className="font-bold">
                 <td className={totS}>TOTAL</td>
+                <td className={`${totS} text-orange-800`}>{fq(grandLunch())}</td>
+                <td className={`${totS} text-orange-800`}>{fq(grandDinner())}</td>
                 {PEC_ITEMS.map(c=>(
                   <>
                     <td key={c.key+'q'} className={totS}>{fq(grandTotQty(c.key))}</td>
