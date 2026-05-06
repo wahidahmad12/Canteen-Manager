@@ -2596,20 +2596,20 @@ export class DatabaseStorage implements IStorage {
   async getPecVenturesLunchYearlySummary(year: number): Promise<{ month: number; lunchOrder: number; lunchBill: number; lunchTotal: number; dinnerOrder: number; dinnerBill: number; dinnerTotal: number }[]> {
     const [rows] = await db.execute(sql`
       SELECT month,
-        COALESCE(SUM(CASE WHEN meal_type='lunch' THEN order_qty ELSE 0 END),0) AS lunchOrder,
-        COALESCE(SUM(CASE WHEN meal_type='lunch' THEN bill_qty  ELSE 0 END),0) AS lunchBill,
-        COALESCE(SUM(CASE WHEN meal_type='lunch' THEN total     ELSE 0 END),0) AS lunchTotal,
-        COALESCE(SUM(CASE WHEN meal_type='dinner' THEN order_qty ELSE 0 END),0) AS dinnerOrder,
-        COALESCE(SUM(CASE WHEN meal_type='dinner' THEN bill_qty  ELSE 0 END),0) AS dinnerBill,
-        COALESCE(SUM(CASE WHEN meal_type='dinner' THEN total     ELSE 0 END),0) AS dinnerTotal
+        COALESCE(SUM(CASE WHEN meal_type='lunch'  THEN order_qty ELSE 0 END),0) AS lunch_order,
+        COALESCE(SUM(CASE WHEN meal_type='lunch'  THEN bill_qty  ELSE 0 END),0) AS lunch_bill,
+        COALESCE(SUM(CASE WHEN meal_type='lunch'  THEN total     ELSE 0 END),0) AS lunch_total,
+        COALESCE(SUM(CASE WHEN meal_type='dinner' THEN order_qty ELSE 0 END),0) AS dinner_order,
+        COALESCE(SUM(CASE WHEN meal_type='dinner' THEN bill_qty  ELSE 0 END),0) AS dinner_bill,
+        COALESCE(SUM(CASE WHEN meal_type='dinner' THEN total     ELSE 0 END),0) AS dinner_total
       FROM unichem_lunch_entries
       WHERE year = ${year} AND location = 'PEC Ventures'
       GROUP BY month ORDER BY month
     `) as any;
     return (rows as any[]).map((r: any) => ({
-      month: Number(r.month),
-      lunchOrder: Number(r.lunchOrder), lunchBill: Number(r.lunchBill), lunchTotal: Number(r.lunchTotal),
-      dinnerOrder: Number(r.dinnerOrder), dinnerBill: Number(r.dinnerBill), dinnerTotal: Number(r.dinnerTotal),
+      month:       Number(r.month),
+      lunchOrder:  Number(r.lunch_order),  lunchBill:  Number(r.lunch_bill),  lunchTotal:  Number(r.lunch_total),
+      dinnerOrder: Number(r.dinner_order), dinnerBill: Number(r.dinner_bill), dinnerTotal: Number(r.dinner_total),
     }));
   }
 

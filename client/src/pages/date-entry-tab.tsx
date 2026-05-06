@@ -7349,14 +7349,14 @@ function PecVentureSummaryTab({ currentYear }: { currentYear: number }) {
             <thead>
               <tr>
                 <th className={thS} rowSpan={2}>Month</th>
-                <th className={thLunch} colSpan={4}>🍱 Lunch &amp; Dinner (Plates)</th>
-                <th className={thS} colSpan={11}>Qty</th>
-                <th className={thAmt} colSpan={11}>Amount (₹)</th>
-                <th className={thS} rowSpan={2}>Grand Total</th>
+                <th className={thLunch} colSpan={4}>🍱 Lunch &amp; Dinner (₹70 / plate)</th>
+                <th className={thS} colSpan={11}>Qty (Items)</th>
+                <th className={thAmt} colSpan={11}>Amount (₹) (Items)</th>
+                <th className={thS} rowSpan={2}>Grand Total (Items ₹)</th>
               </tr>
               <tr>
-                <th className={thLunch}>L-Bill Qty</th><th className={thLunch}>L-Amt(×70)</th>
-                <th className={thLunch}>D-Bill Qty</th><th className={thLunch}>D-Amt(×70)</th>
+                <th className={thLunch}>Lunch Bill Qty</th><th className={thLunch}>Lunch Amount (₹)</th>
+                <th className={thLunch}>Dinner Bill Qty</th><th className={thLunch}>Dinner Amount (₹)</th>
                 {PEC_ITEMS.flatMap(c=>[<th key={c.key+'q'} className={thS}>{c.label}</th>])}
                 <th className={thS}>Milk (L)</th>
                 {PEC_ITEMS.flatMap(c=>[<th key={c.key+'a'} className={thAmt}>{c.label}</th>])}
