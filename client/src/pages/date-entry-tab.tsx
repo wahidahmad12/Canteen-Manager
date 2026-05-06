@@ -2140,7 +2140,6 @@ function UnichemMealSubTab({ month, year, location, mealType, loadKey = 0 }: { m
         <table style="border-collapse:collapse;width:100%;font-size:11pt;">
           <thead>
             <tr><th colspan="6" style="${thS}background:#fff;font-size:13pt;">DJ Hospitality &amp; Facility Management Pvt. Ltd.</th></tr>
-            <tr><th colspan="6" style="${thS}background:#fff;">Number of ${mealLabel} Plates Per Day — Unichem Laboratories Ltd — ${location}</th></tr>
             <tr>
               <th style="${thS}${altBg}">Date</th><th style="${thS}${altBg}">Days</th>
               <th style="${thS}${altBg}">Order</th><th style="${thS}background:#a8d8ea;">Actual</th>
@@ -6943,6 +6942,7 @@ function PecVenturesTab({ month, year, loadKey = 0 }: { month: number; year: num
     </head><body>
     <table>
       <tr><td colspan="${totalColspan}" style="text-align:center;font-size:13px;font-weight:bold;border:1px solid #000;padding:4px;background:#d9e1f2;">DJ Hospitality &amp; Facility Management Pvt. Ltd.</td></tr>
+      <tr><td colspan="${totalColspan}" style="text-align:center;font-size:12px;font-weight:bold;border:1px solid #000;padding:4px;background:#fff2cc;">Number of Lunch Plates Per Day - PEC Ventures Private Limited</td></tr>
       <tr><td colspan="${totalColspan}" style="text-align:center;font-size:11px;font-weight:bold;border:1px solid #000;padding:4px;background:#e2efda;">Expense Toward Canteen Per Day to PEC VENTURES PRIVATE LIMITED - ${MN[month-1]} - ${year}</td></tr>
       <tr>
         <th style="${th}" rowspan="2">Date</th><th style="${th}" rowspan="2">Days</th>
