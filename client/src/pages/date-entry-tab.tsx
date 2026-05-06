@@ -6989,6 +6989,17 @@ function PecVenturesTab({ month, year, loadKey = 0 }: { month: number; year: num
   const totSx = "border border-gray-300 dark:border-gray-600 text-center text-xs font-bold px-1 py-1 bg-amber-50 dark:bg-amber-900/20";
   const totRSx = "border border-gray-300 dark:border-gray-600 text-right text-xs font-bold px-1 py-1 bg-amber-50 dark:bg-amber-900/20 text-emerald-700 dark:text-emerald-400";
 
+  const handlePecEnter = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key !== 'Enter') return;
+    e.preventDefault();
+    const all = Array.from(document.querySelectorAll<HTMLInputElement>('[data-pec-input]'));
+    const idx = all.indexOf(e.currentTarget);
+    if (idx >= 0 && idx < all.length - 1) {
+      all[idx + 1].focus();
+      all[idx + 1].select();
+    }
+  };
+
   if (isLoading) return <div className="flex justify-center py-10"><Loader2 className="w-6 h-6 animate-spin text-blue-500" /></div>;
 
   return (
@@ -7014,8 +7025,8 @@ function PecVenturesTab({ month, year, loadKey = 0 }: { month: number; year: num
         <span className="text-xs text-muted-foreground">Rates: Red Label ₹620/kg · Tata Tea ₹310/kg · Coffee ₹5.5/gm · Sugar ₹48/kg · Ginger ₹180/kg · Biscuit ₹5/pcs · Tea Cup ₹0.8/pcs · Green Elaychi ₹3.6/gm · Green Tea ₹120/pkt · Black Salt ₹115/kg · Milk ₹28/L</span>
       </div>
 
-      <div className="overflow-x-auto rounded-lg border border-gray-200 dark:border-gray-700">
-        <table className="border-collapse min-w-max">
+      <div className="rounded-lg border border-gray-200 dark:border-gray-700 w-full overflow-x-visible">
+        <table className="border-collapse w-full">
           <thead>
             <tr>
               <th className={thSx} rowSpan={2}>Date</th>
@@ -7050,48 +7061,48 @@ function PecVenturesTab({ month, year, loadKey = 0 }: { month: number; year: num
                   <td className={`${tdSx} text-left font-medium whitespace-nowrap`}>{safeFormat(r.entryDate)}</td>
                   <td className={`${tdSx} ${isSun ? 'text-red-600 font-semibold' : ''}`}>{r.weekDay}</td>
                   {/* Red Label */}
-                  <td className={tdSx}><input type="number" min="0" step="0.001" className={inputSx} value={n(r.redLabelQty)||''} onChange={e=>updateCell(i,'redLabelQty',Number(e.target.value))} data-testid={`pec-redlabel-${i}`}/></td>
+                  <td className={tdSx}><input type="number" min="0" step="0.001" className={inputSx} value={n(r.redLabelQty)||''} onChange={e=>updateCell(i,'redLabelQty',Number(e.target.value))} onKeyDown={handlePecEnter} data-pec-input data-testid={`pec-redlabel-${i}`}/></td>
                   <td className={tdRSx}>{n(r.redLabelQty)?PEC_RATES.redLabel:''}</td>
                   <td className={`${tdRSx} font-medium`}>{fa(n(r.redLabelQty)*PEC_RATES.redLabel)}</td>
                   {/* Tata Tea */}
-                  <td className={tdSx}><input type="number" min="0" step="0.001" className={inputSx} value={n(r.tataTeaQty)||''} onChange={e=>updateCell(i,'tataTeaQty',Number(e.target.value))} data-testid={`pec-tata-${i}`}/></td>
+                  <td className={tdSx}><input type="number" min="0" step="0.001" className={inputSx} value={n(r.tataTeaQty)||''} onChange={e=>updateCell(i,'tataTeaQty',Number(e.target.value))} onKeyDown={handlePecEnter} data-pec-input data-testid={`pec-tata-${i}`}/></td>
                   <td className={tdRSx}>{n(r.tataTeaQty)?PEC_RATES.tataTea:''}</td>
                   <td className={`${tdRSx} font-medium`}>{fa(n(r.tataTeaQty)*PEC_RATES.tataTea)}</td>
                   {/* Coffee */}
-                  <td className={tdSx}><input type="number" min="0" step="0.001" className={inputSx} value={n(r.coffeeQty)||''} onChange={e=>updateCell(i,'coffeeQty',Number(e.target.value))} data-testid={`pec-coffee-${i}`}/></td>
+                  <td className={tdSx}><input type="number" min="0" step="0.001" className={inputSx} value={n(r.coffeeQty)||''} onChange={e=>updateCell(i,'coffeeQty',Number(e.target.value))} onKeyDown={handlePecEnter} data-pec-input data-testid={`pec-coffee-${i}`}/></td>
                   <td className={tdRSx}>{n(r.coffeeQty)?PEC_RATES.coffee:''}</td>
                   <td className={`${tdRSx} font-medium`}>{fa(n(r.coffeeQty)*PEC_RATES.coffee)}</td>
                   {/* Sugar */}
-                  <td className={tdSx}><input type="number" min="0" step="0.001" className={inputSx} value={n(r.sugarQty)||''} onChange={e=>updateCell(i,'sugarQty',Number(e.target.value))} data-testid={`pec-sugar-${i}`}/></td>
+                  <td className={tdSx}><input type="number" min="0" step="0.001" className={inputSx} value={n(r.sugarQty)||''} onChange={e=>updateCell(i,'sugarQty',Number(e.target.value))} onKeyDown={handlePecEnter} data-pec-input data-testid={`pec-sugar-${i}`}/></td>
                   <td className={tdRSx}>{n(r.sugarQty)?PEC_RATES.sugar:''}</td>
                   <td className={`${tdRSx} font-medium`}>{fa(n(r.sugarQty)*PEC_RATES.sugar)}</td>
                   {/* Ginger */}
-                  <td className={tdSx}><input type="number" min="0" step="0.001" className={inputSx} value={n(r.gingerQty)||''} onChange={e=>updateCell(i,'gingerQty',Number(e.target.value))} data-testid={`pec-ginger-${i}`}/></td>
+                  <td className={tdSx}><input type="number" min="0" step="0.001" className={inputSx} value={n(r.gingerQty)||''} onChange={e=>updateCell(i,'gingerQty',Number(e.target.value))} onKeyDown={handlePecEnter} data-pec-input data-testid={`pec-ginger-${i}`}/></td>
                   <td className={tdRSx}>{n(r.gingerQty)?PEC_RATES.ginger:''}</td>
                   <td className={`${tdRSx} font-medium`}>{fa(n(r.gingerQty)*PEC_RATES.ginger)}</td>
                   {/* Biscuit */}
-                  <td className={tdSx}><input type="number" min="0" step="0.001" className={inputSx} value={n(r.biscuitQty)||''} onChange={e=>updateCell(i,'biscuitQty',Number(e.target.value))} data-testid={`pec-biscuit-${i}`}/></td>
+                  <td className={tdSx}><input type="number" min="0" step="0.001" className={inputSx} value={n(r.biscuitQty)||''} onChange={e=>updateCell(i,'biscuitQty',Number(e.target.value))} onKeyDown={handlePecEnter} data-pec-input data-testid={`pec-biscuit-${i}`}/></td>
                   <td className={tdRSx}>{n(r.biscuitQty)?PEC_RATES.biscuit:''}</td>
                   <td className={`${tdRSx} font-medium`}>{fa(n(r.biscuitQty)*PEC_RATES.biscuit)}</td>
                   {/* Tea Cup */}
-                  <td className={tdSx}><input type="number" min="0" step="0.001" className={inputSx} value={n(r.teaCupQty)||''} onChange={e=>updateCell(i,'teaCupQty',Number(e.target.value))} data-testid={`pec-teacup-${i}`}/></td>
+                  <td className={tdSx}><input type="number" min="0" step="0.001" className={inputSx} value={n(r.teaCupQty)||''} onChange={e=>updateCell(i,'teaCupQty',Number(e.target.value))} onKeyDown={handlePecEnter} data-pec-input data-testid={`pec-teacup-${i}`}/></td>
                   <td className={tdRSx}>{n(r.teaCupQty)?PEC_RATES.teaCup:''}</td>
                   <td className={`${tdRSx} font-medium`}>{fa(n(r.teaCupQty)*PEC_RATES.teaCup)}</td>
                   {/* Green Elaychi */}
-                  <td className={tdSx}><input type="number" min="0" step="0.001" className={inputSx} value={n(r.greenElaychiQty)||''} onChange={e=>updateCell(i,'greenElaychiQty',Number(e.target.value))} data-testid={`pec-elaychi-${i}`}/></td>
+                  <td className={tdSx}><input type="number" min="0" step="0.001" className={inputSx} value={n(r.greenElaychiQty)||''} onChange={e=>updateCell(i,'greenElaychiQty',Number(e.target.value))} onKeyDown={handlePecEnter} data-pec-input data-testid={`pec-elaychi-${i}`}/></td>
                   <td className={tdRSx}>{n(r.greenElaychiQty)?PEC_RATES.greenElaychi:''}</td>
                   <td className={`${tdRSx} font-medium`}>{fa(n(r.greenElaychiQty)*PEC_RATES.greenElaychi)}</td>
                   {/* Green Tea */}
-                  <td className={tdSx}><input type="number" min="0" step="0.001" className={inputSx} value={n(r.greenTeaQty)||''} onChange={e=>updateCell(i,'greenTeaQty',Number(e.target.value))} data-testid={`pec-greentea-${i}`}/></td>
+                  <td className={tdSx}><input type="number" min="0" step="0.001" className={inputSx} value={n(r.greenTeaQty)||''} onChange={e=>updateCell(i,'greenTeaQty',Number(e.target.value))} onKeyDown={handlePecEnter} data-pec-input data-testid={`pec-greentea-${i}`}/></td>
                   <td className={tdRSx}>{n(r.greenTeaQty)?PEC_RATES.greenTea:''}</td>
                   <td className={`${tdRSx} font-medium`}>{fa(n(r.greenTeaQty)*PEC_RATES.greenTea)}</td>
                   {/* Black Salt */}
-                  <td className={tdSx}><input type="number" min="0" step="0.001" className={inputSx} value={n(r.blackSaltQty)||''} onChange={e=>updateCell(i,'blackSaltQty',Number(e.target.value))} data-testid={`pec-blacksalt-${i}`}/></td>
+                  <td className={tdSx}><input type="number" min="0" step="0.001" className={inputSx} value={n(r.blackSaltQty)||''} onChange={e=>updateCell(i,'blackSaltQty',Number(e.target.value))} onKeyDown={handlePecEnter} data-pec-input data-testid={`pec-blacksalt-${i}`}/></td>
                   <td className={tdRSx}>{n(r.blackSaltQty)?PEC_RATES.blackSalt:''}</td>
                   <td className={`${tdRSx} font-medium`}>{fa(n(r.blackSaltQty)*PEC_RATES.blackSalt)}</td>
                   {/* Milk */}
-                  <td className={tdSx}><input type="number" min="0" step="0.001" className={inputSx} value={n(r.milkMorningQty)||''} onChange={e=>updateCell(i,'milkMorningQty',Number(e.target.value))} data-testid={`pec-milk-morning-${i}`}/></td>
-                  <td className={tdSx}><input type="number" min="0" step="0.001" className={inputSx} value={n(r.milkEveningQty)||''} onChange={e=>updateCell(i,'milkEveningQty',Number(e.target.value))} data-testid={`pec-milk-evening-${i}`}/></td>
+                  <td className={tdSx}><input type="number" min="0" step="0.001" className={inputSx} value={n(r.milkMorningQty)||''} onChange={e=>updateCell(i,'milkMorningQty',Number(e.target.value))} onKeyDown={handlePecEnter} data-pec-input data-testid={`pec-milk-morning-${i}`}/></td>
+                  <td className={tdSx}><input type="number" min="0" step="0.001" className={inputSx} value={n(r.milkEveningQty)||''} onChange={e=>updateCell(i,'milkEveningQty',Number(e.target.value))} onKeyDown={handlePecEnter} data-pec-input data-testid={`pec-milk-evening-${i}`}/></td>
                   <td className={tdRSx}>{milkTot||''}</td>
                   <td className={tdRSx}>{milkTot?PEC_RATES.milk:''}</td>
                   <td className={`${tdRSx} font-medium`}>{fa(milkTot*PEC_RATES.milk)}</td>
