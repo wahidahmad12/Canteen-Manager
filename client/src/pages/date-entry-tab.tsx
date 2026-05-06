@@ -1954,6 +1954,10 @@ function UnichemMealSubTab({ month, year, location, mealType, loadKey = 0, plate
 
   const handleSaveRow = async (idx: number) => {
     const row = rows[idx];
+    if (!row.id && (row.orderQty||0) === 0 && (row.actual||0) === 0) {
+      toast({ title: "Nothing to save", description: "Enter a quantity first." });
+      return;
+    }
     try {
       const { _dirty, id, ...data } = row;
       if (id) await updateMutation.mutateAsync({ id, data });
@@ -2025,11 +2029,10 @@ function UnichemMealSubTab({ month, year, location, mealType, loadKey = 0, plate
   };
 
   const handleSaveAll = async () => {
-    const dirty = rows.filter(r => r._dirty);
+    const dirty = rows.filter(r => r._dirty && (r.id || (r.orderQty||0) > 0 || (r.actual||0) > 0));
     if (!dirty.length) { toast({ title: "Nothing to save" }); return; }
     let saved = 0;
-    for (const row of rows) {
-      if (!row._dirty) continue;
+    for (const row of dirty) {
       try {
         const { _dirty, id, ...data } = row;
         if (id) await updateMutation.mutateAsync({ id, data });
@@ -7401,7 +7404,7 @@ function PecVenturesForm2Tab({ month, year, loadKey = 0 }: { month: number; year
           🍽️ Dinner
         </button>
       </div>
-      <UnichemMealSubTab key={`pec-${activeMeal}-${month}-${year}`} month={month} year={year} location="PEC Ventures" mealType={activeMeal} loadKey={loadKey} plateRate={70} />
+      <UnichemMealSubTab key={`pec-${activeMeal}-${month}-${year}`} month={month} year={year} location="PEC Ventures" mealType={activeMeal} loadKey={loadKey} />
     </div>
   );
 }
