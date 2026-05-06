@@ -295,7 +295,7 @@ export interface IStorage {
   updatePecVenturesEntry(id: number, data: any): Promise<PecVenturesEntry>;
   deletePecVenturesEntry(id: number): Promise<void>;
   getPecVenturesYearlySummary(year: number): Promise<any[]>;
-  getPecVenturesLunchYearlySummary(year: number): Promise<{ month: number; lunch: number; dinner: number }[]>;
+  getPecVenturesLunchYearlySummary(year: number): Promise<{ month: number; lunchOrder: number; lunchBill: number; lunchTotal: number; dinnerOrder: number; dinnerBill: number; dinnerTotal: number }[]>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -2593,17 +2593,23 @@ export class DatabaseStorage implements IStorage {
   async deletePecVenturesEntry(id: number): Promise<void> {
     await db.delete(pecVenturesEntries).where(eq(pecVenturesEntries.id, id));
   }
-  async getPecVenturesLunchYearlySummary(year: number): Promise<{ month: number; lunch: number; dinner: number }[]> {
+  async getPecVenturesLunchYearlySummary(year: number): Promise<{ month: number; lunchOrder: number; lunchBill: number; lunchTotal: number; dinnerOrder: number; dinnerBill: number; dinnerTotal: number }[]> {
     const [rows] = await db.execute(sql`
       SELECT month,
-        COALESCE(SUM(CASE WHEN meal_type='lunch' THEN bill_qty ELSE 0 END),0) AS lunch,
-        COALESCE(SUM(CASE WHEN meal_type='dinner' THEN bill_qty ELSE 0 END),0) AS dinner
+        COALESCE(SUM(CASE WHEN meal_type='lunch' THEN order_qty ELSE 0 END),0) AS lunchOrder,
+        COALESCE(SUM(CASE WHEN meal_type='lunch' THEN bill_qty  ELSE 0 END),0) AS lunchBill,
+        COALESCE(SUM(CASE WHEN meal_type='lunch' THEN total     ELSE 0 END),0) AS lunchTotal,
+        COALESCE(SUM(CASE WHEN meal_type='dinner' THEN order_qty ELSE 0 END),0) AS dinnerOrder,
+        COALESCE(SUM(CASE WHEN meal_type='dinner' THEN bill_qty  ELSE 0 END),0) AS dinnerBill,
+        COALESCE(SUM(CASE WHEN meal_type='dinner' THEN total     ELSE 0 END),0) AS dinnerTotal
       FROM unichem_lunch_entries
       WHERE year = ${year} AND location = 'PEC Ventures'
       GROUP BY month ORDER BY month
     `) as any;
     return (rows as any[]).map((r: any) => ({
-      month: Number(r.month), lunch: Number(r.lunch), dinner: Number(r.dinner),
+      month: Number(r.month),
+      lunchOrder: Number(r.lunchOrder), lunchBill: Number(r.lunchBill), lunchTotal: Number(r.lunchTotal),
+      dinnerOrder: Number(r.dinnerOrder), dinnerBill: Number(r.dinnerBill), dinnerTotal: Number(r.dinnerTotal),
     }));
   }
 
