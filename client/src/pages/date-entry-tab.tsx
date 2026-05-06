@@ -6989,14 +6989,17 @@ function PecVenturesTab({ month, year, loadKey = 0 }: { month: number; year: num
   const totSx = "border border-gray-300 dark:border-gray-600 text-center text-xs font-bold px-1 py-1 bg-amber-50 dark:bg-amber-900/20";
   const totRSx = "border border-gray-300 dark:border-gray-600 text-right text-xs font-bold px-1 py-1 bg-amber-50 dark:bg-amber-900/20 text-emerald-700 dark:text-emerald-400";
 
+  const COLS_PER_ROW = 12; // Red Label, Tata Tea, Coffee, Sugar, Ginger, Biscuit, Tea Cup, Green Elaychi, Green Tea, Black Salt, Milk Morning, Milk Evening
   const handlePecEnter = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key !== 'Enter') return;
     e.preventDefault();
     const all = Array.from(document.querySelectorAll<HTMLInputElement>('[data-pec-input]'));
     const idx = all.indexOf(e.currentTarget);
-    if (idx >= 0 && idx < all.length - 1) {
-      all[idx + 1].focus();
-      all[idx + 1].select();
+    if (idx < 0) return;
+    const nextRowFirst = (Math.floor(idx / COLS_PER_ROW) + 1) * COLS_PER_ROW;
+    if (nextRowFirst < all.length) {
+      all[nextRowFirst].focus();
+      all[nextRowFirst].select();
     }
   };
 
