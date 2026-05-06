@@ -2129,18 +2129,19 @@ function UnichemMealSubTab({ month, year, location, mealType, loadKey = 0 }: { m
 
   const handlePrint = () => {
     const monthLabel = `${MONTHS[month-1]} - ${year}`;
+    const clientName = location.toLowerCase().includes('pec') ? 'PEC Ventures Private Limited' : `Unichem Laboratories Ltd - ${location}`;
     const win = window.open('', '_blank', 'width=900,height=700');
     if (!win) return;
     const thS = `border:1px solid #000;padding:5px 8px;text-align:center;font-weight:bold;`;
     const tdS = `border:1px solid #000;padding:4px 8px;text-align:center;`;
     const altBg = `background:#fce4d6;`;
-    win.document.write(`<html><head><title>Unichem ${mealLabel} - ${location} - ${monthLabel}</title>
+    win.document.write(`<html><head><title>${clientName} ${mealLabel} - ${monthLabel}</title>
       <style>@media print{body{margin:10mm;}}</style></head>
       <body style="font-family:Arial,sans-serif;padding:20px;">
         <table style="border-collapse:collapse;width:100%;font-size:11pt;">
           <thead>
             <tr><th colspan="6" style="${thS}background:#fff;font-size:13pt;">DJ Hospitality &amp; Facility Management Pvt. Ltd.</th></tr>
-            <tr><th colspan="6" style="${thS}background:#fff2cc;font-size:11pt;">Number of ${mealLabel} Plates Per Day - Unichem Laboratories Ltd - ${location} - ${monthLabel}</th></tr>
+            <tr><th colspan="6" style="${thS}background:#fff2cc;font-size:11pt;">Number of ${mealLabel} Plates Per Day - ${clientName} - ${monthLabel}</th></tr>
             <tr>
               <th style="${thS}${altBg}">Date</th><th style="${thS}${altBg}">Days</th>
               <th style="${thS}${altBg}">Order</th><th style="${thS}background:#a8d8ea;">Actual</th>
