@@ -7028,12 +7028,12 @@ function PecVenturesTab({ month, year, loadKey = 0 }: { month: number; year: num
         <span className="text-xs text-muted-foreground">Rates: Red Label ₹620/kg · Tata Tea ₹310/kg · Coffee ₹5.5/gm · Sugar ₹48/kg · Ginger ₹180/kg · Biscuit ₹5/pcs · Tea Cup ₹0.8/pcs · Green Elaychi ₹3.6/gm · Green Tea ₹120/pkt · Black Salt ₹115/kg · Milk ₹28/L</span>
       </div>
 
-      <div className="rounded-lg border border-gray-200 dark:border-gray-700 w-full overflow-x-visible">
-        <table className="border-collapse w-full">
+      <div className="rounded-lg border border-gray-200 dark:border-gray-700 overflow-x-auto">
+        <table className="border-collapse min-w-max">
           <thead>
             <tr>
-              <th className={thSx} rowSpan={2}>Date</th>
-              <th className={thSx} rowSpan={2}>Day</th>
+              <th className={`${thSx} sticky left-0 z-30 min-w-[88px]`} rowSpan={2}>Date</th>
+              <th className={`${thSx} sticky left-[88px] z-30 min-w-[36px]`} rowSpan={2}>Day</th>
               <th className={`${thSx} bg-red-100 dark:bg-red-900/30`} colSpan={3}>Red Label Tea<br/>620/kg</th>
               <th className={`${thSx} bg-orange-100 dark:bg-orange-900/30`} colSpan={3}>Tata Tea<br/>310/kg</th>
               <th className={`${thSx} bg-amber-100 dark:bg-amber-900/30`} colSpan={3}>Coffee<br/>5.5/gm</th>
@@ -7061,8 +7061,8 @@ function PecVenturesTab({ month, year, loadKey = 0 }: { month: number; year: num
               const rowBg = isSun ? 'bg-red-50 dark:bg-red-950/20' : '';
               return (
                 <tr key={r.entryDate} className={rowBg}>
-                  <td className={`${tdSx} text-left font-medium whitespace-nowrap`}>{safeFormat(r.entryDate)}</td>
-                  <td className={`${tdSx} ${isSun ? 'text-red-600 font-semibold' : ''}`}>{r.weekDay}</td>
+                  <td className={`${tdSx} sticky left-0 z-10 text-left font-medium whitespace-nowrap ${isSun ? 'bg-red-50 dark:bg-red-950/20' : 'bg-white dark:bg-slate-900'}`}>{safeFormat(r.entryDate)}</td>
+                  <td className={`${tdSx} sticky left-[88px] z-10 ${isSun ? 'bg-red-50 dark:bg-red-950/20 text-red-600 font-semibold' : 'bg-white dark:bg-slate-900'}`}>{r.weekDay}</td>
                   {/* Red Label */}
                   <td className={tdSx}><input type="number" min="0" step="0.001" className={inputSx} value={n(r.redLabelQty)||''} onChange={e=>updateCell(i,'redLabelQty',Number(e.target.value))} onKeyDown={handlePecEnter} data-pec-input data-testid={`pec-redlabel-${i}`}/></td>
                   <td className={tdRSx}>{n(r.redLabelQty)?PEC_RATES.redLabel:''}</td>
@@ -7115,7 +7115,7 @@ function PecVenturesTab({ month, year, loadKey = 0 }: { month: number; year: num
           </tbody>
           <tfoot>
             <tr>
-              <td className={`${totSx} text-left font-bold`} colSpan={2}>TOTAL</td>
+              <td className={`${totSx} sticky left-0 z-10 text-left font-bold`} colSpan={2}>TOTAL</td>
               <td className={totSx}>{fq(totals.redLabel)}</td><td className={totSx}></td><td className={totRSx}>{fa(totals.redLabel*PEC_RATES.redLabel)}</td>
               <td className={totSx}>{fq(totals.tataTea)}</td><td className={totSx}></td><td className={totRSx}>{fa(totals.tataTea*PEC_RATES.tataTea)}</td>
               <td className={totSx}>{fq(totals.coffee)}</td><td className={totSx}></td><td className={totRSx}>{fa(totals.coffee*PEC_RATES.coffee)}</td>
