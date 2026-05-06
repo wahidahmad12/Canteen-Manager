@@ -6942,8 +6942,7 @@ function PecVenturesTab({ month, year, loadKey = 0 }: { month: number; year: num
     </head><body>
     <table>
       <tr><td colspan="${totalColspan}" style="text-align:center;font-size:13px;font-weight:bold;border:1px solid #000;padding:4px;background:#d9e1f2;">DJ Hospitality &amp; Facility Management Pvt. Ltd.</td></tr>
-      <tr><td colspan="${totalColspan}" style="text-align:center;font-size:12px;font-weight:bold;border:1px solid #000;padding:4px;background:#fff2cc;">Number of Lunch Plates Per Day - PEC Ventures Private Limited</td></tr>
-      <tr><td colspan="${totalColspan}" style="text-align:center;font-size:11px;font-weight:bold;border:1px solid #000;padding:4px;background:#e2efda;">Expense Toward Canteen Per Day to PEC VENTURES PRIVATE LIMITED - ${MN[month-1]} - ${year}</td></tr>
+      <tr><td colspan="${totalColspan}" style="text-align:center;font-size:12px;font-weight:bold;border:1px solid #000;padding:4px;background:#fff2cc;">Number of Lunch Plates Per Day - PEC Ventures Private Limited - ${MN[month-1]} ${year}</td></tr>
       <tr>
         <th style="${th}" rowspan="2">Date</th><th style="${th}" rowspan="2">Days</th>
         ${visCols.map(c => `<th style="${th}" colspan="${c.colspan}">${c.label}</th>`).join('')}
