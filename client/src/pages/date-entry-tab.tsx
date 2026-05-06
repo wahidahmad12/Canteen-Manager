@@ -7229,6 +7229,9 @@ function PecVentureSummaryTab({ currentYear }: { currentYear: number }) {
   const totA = "border border-gray-400 bg-amber-50 text-right text-xs font-bold px-2 py-1 text-emerald-800";
   const thLunch = "border border-gray-400 bg-orange-700 text-white text-center text-xs font-bold px-2 py-1 whitespace-nowrap";
   const tdLunch = "border border-gray-300 text-center text-xs px-2 py-1 text-orange-700 font-medium";
+  const thAmt  = "border border-gray-400 bg-teal-800 text-white text-center text-xs font-bold px-2 py-1 whitespace-nowrap";
+  const tdAmt  = "border border-gray-300 text-right text-xs px-2 py-1 text-teal-700 font-medium";
+  const totAmt = "border border-gray-400 bg-amber-50 text-right text-xs font-bold px-2 py-1 text-teal-800";
 
   const handleExportExcel = async () => {
     try {
@@ -7239,53 +7242,65 @@ function PecVentureSummaryTab({ currentYear }: { currentYear: number }) {
       const mkFill = (argb: string) => ({type:'pattern'as const,pattern:'solid'as const,fgColor:{argb}});
       const wFont = {bold:true,color:{argb:'FFFFFFFF'}};
 
-      const lunchCols = ['Lunch Order','Lunch Bill','Lunch Total','Dinner Order','Dinner Bill','Dinner Total'];
-      const itemCols = [...PEC_ITEMS.map(c=>c.label+' Qty'), 'Milk Qty (L)', ...PEC_ITEMS.map(c=>c.label+' Amt (₹)'), 'Milk Amt (₹)', 'Grand Total (₹)'];
-      const allCols = ['Month', ...lunchCols, ...itemCols];
+      // Columns: Month | L-Bill | L-Amt | D-Bill | D-Amt | 10×Qty + MilkQty | 10×Amt + MilkAmt | Grand Total
+      const allCols = [
+        'Month',
+        'Lunch Bill Qty Total', 'Amount (Lunch Bill Qty Total *70)',
+        'Dinner Bill Qty Total', 'Amount (Dinner Bill Qty Total *70)',
+        ...PEC_ITEMS.map(c=>c.label+' Qty'), 'Milk Qty (L)',
+        ...PEC_ITEMS.map(c=>c.label+' Amt (₹)'), 'Milk Amt (₹)',
+        'Grand Total (₹)',
+      ];
 
-      // Title
+      // Title row
       ws.mergeCells(1,1,1,allCols.length);
-      const t=ws.getCell('A1'); t.value=`DJ Hospitality — PEC Ventures Yearly Summary — ${summaryYear}`; t.font={bold:true,size:12,color:{argb:'FFFFFFFF'}}; t.fill=mkFill('FF4F2B91'); t.alignment={horizontal:'center'}; t.border=thin;
+      const t=ws.getCell('A1'); t.value=`DJ Hospitality — PEC Ventures Yearly Summary — ${summaryYear}`; t.font={bold:true,size:13,color:{argb:'FFFFFFFF'}}; t.fill=mkFill('FF4F2B91'); t.alignment={horizontal:'center'}; t.border=thin;
 
-      // Header
+      // Header row
       const hdr = ws.addRow(allCols);
-      hdr.eachCell((c:any,col:number)=>{ c.font=wFont; c.fill=mkFill(col>=2&&col<=7?'FFB45309':'FF1A3A5A'); c.border=thin; c.alignment={horizontal:'center',wrapText:true}; });
-      ws.columns = allCols.map((_,i)=>({width: i===0?16:14}));
-      ws.getRow(2).height = 28;
+      const ORG='FFB45309', BLU='FF1A3A5A', TEA='FF0F766E';
+      hdr.eachCell((c:any,col:number)=>{
+        const fill = col<=5?ORG:(col<=16?BLU:TEA);
+        c.font=wFont; c.fill=mkFill(fill); c.border=thin; c.alignment={horizontal:'center',wrapText:true};
+      });
+      ws.columns = allCols.map((_,i)=>({width: i===0?16 : i<=4?20 : 15}));
+      ws.getRow(2).height = 32;
 
-      // Data
+      // Data rows
       filteredMonths.forEach(m => {
-        const r: PecYearRow = rowsMap.get(m) ?? { month:m, redLabel:0,tataTea:0,coffee:0,sugar:0,ginger:0,biscuit:0,teaCup:0,greenElaychi:0,greenTea:0,blackSalt:0,milkMorning:0,milkEvening:0 };
+        const r: PecYearRow = rowsMap.get(m) ?? { month:m,redLabel:0,tataTea:0,coffee:0,sugar:0,ginger:0,biscuit:0,teaCup:0,greenElaychi:0,greenTea:0,blackSalt:0,milkMorning:0,milkEvening:0 };
         const ld = lunchMap.get(m);
-        const milkQ = getMilkQty(r); const rowTot = getRowTotal(r);
-        const lunchVals = [ld?.lunchOrder||'',ld?.lunchBill||'',ld?.lunchTotal||'',ld?.dinnerOrder||'',ld?.dinnerBill||'',ld?.dinnerTotal||''];
-        const vals = [MONTHS[m-1], ...lunchVals, ...PEC_ITEMS.map(c=>(r[c.key]||0)||''), milkQ||'', ...PEC_ITEMS.map(c=>((r[c.key]||0)*c.rate)||''), (milkQ*PEC_RATES.milk)||'', rowTot||''];
+        const milkQ = getMilkQty(r);
+        const lBill = ld?.lunchBill||0; const dBill = ld?.dinnerBill||0;
+        const vals = [
+          MONTHS[m-1],
+          lBill||'', lBill ? lBill*70 : '',
+          dBill||'', dBill ? dBill*70 : '',
+          ...PEC_ITEMS.map(c=>(r[c.key]||0)||''), milkQ||'',
+          ...PEC_ITEMS.map(c=>((r[c.key]||0)*c.rate)||''), (milkQ*PEC_RATES.milk)||'',
+          getRowTotal(r)||'',
+        ];
         const dr = ws.addRow(vals);
-        dr.eachCell((c:any)=>{c.border=thin;c.alignment={horizontal:'center'};});
+        dr.eachCell((c:any,col:number)=>{
+          c.border=thin;
+          c.alignment={horizontal: col<=5||col===allCols.length?'center':'right'};
+          if(col>=2&&col<=5) c.font={color:{argb:'FF92400E'}};
+          if(col>=17) c.font={color:{argb:'FF0F766E'}};
+        });
       });
 
-      // Totals
-      const lunchTotVals = [grandLunchOrder()||'-',grandLunchBill()||'-',grandLunchTotal()||'-',grandDinnerOrder()||'-',grandDinnerBill()||'-',grandDinnerTotal()||'-'];
-      const totVals = ['GRAND TOTAL', ...lunchTotVals, ...PEC_ITEMS.map(c=>grandTotQty(c.key)||''), grandMilkQty()||'', ...PEC_ITEMS.map(c=>(grandTotQty(c.key)*c.rate)||''), (grandMilkQty()*PEC_RATES.milk)||'', grandTotal()||''];
+      // Grand total row
+      const glb=grandLunchBill(), gdb=grandDinnerBill();
+      const totVals = [
+        'GRAND TOTAL',
+        glb||'-', glb ? glb*70 : '-',
+        gdb||'-', gdb ? gdb*70 : '-',
+        ...PEC_ITEMS.map(c=>grandTotQty(c.key)||''), grandMilkQty()||'',
+        ...PEC_ITEMS.map(c=>(grandTotQty(c.key)*c.rate)||''), (grandMilkQty()*PEC_RATES.milk)||'',
+        grandTotal()||'',
+      ];
       const totRow = ws.addRow(totVals);
       totRow.eachCell((c:any)=>{c.font={bold:true};c.fill=mkFill('FFFFF2CC');c.border=thin;c.alignment={horizontal:'center'};});
-
-      // ---- Summary Sheet (amounts-only, one row per month) ----
-      const wsSumm = wb.addWorksheet('Summary');
-      const summCols = ['Month', ...PEC_ITEMS.map(c=>c.label+' (₹)'), 'Milk (₹)', 'Grand Total (₹)'];
-      wsSumm.mergeCells(1,1,1,summCols.length);
-      const sT=wsSumm.getCell('A1'); sT.value=`DJ Hospitality — PEC Ventures Amount Summary — ${summaryYear}`; sT.font={bold:true,size:12,color:{argb:'FFFFFFFF'}}; sT.fill=mkFill('FF4F2B91'); sT.alignment={horizontal:'center'}; sT.border=thin;
-      const sHdr=wsSumm.addRow(summCols); sHdr.eachCell((c:any)=>{c.font=wFont;c.fill=mkFill('FF1A3A5A');c.border=thin;c.alignment={horizontal:'center',wrapText:true};});
-      wsSumm.getRow(2).height=28;
-      wsSumm.columns=summCols.map((_,i)=>({width:i===0?14:18}));
-      filteredMonths.forEach(m=>{
-        const r:PecYearRow = rowsMap.get(m) ?? {month:m,redLabel:0,tataTea:0,coffee:0,sugar:0,ginger:0,biscuit:0,teaCup:0,greenElaychi:0,greenTea:0,blackSalt:0,milkMorning:0,milkEvening:0};
-        const milkAmt=getMilkQty(r)*PEC_RATES.milk; const rTotal=getRowTotal(r);
-        const amtVals=[MONTHS[m-1],...PEC_ITEMS.map(c=>((r[c.key]||0)*c.rate)||''),milkAmt||'',rTotal||''];
-        const dr=wsSumm.addRow(amtVals); dr.eachCell((c:any)=>{c.border=thin;c.alignment={horizontal:'center'};});
-      });
-      const gTotVals=['GRAND TOTAL',...PEC_ITEMS.map(c=>(grandTotQty(c.key)*c.rate)||''),(grandMilkQty()*PEC_RATES.milk)||'',grandTotal()||''];
-      const gTotRow=wsSumm.addRow(gTotVals); gTotRow.eachCell((c:any)=>{c.font={bold:true};c.fill=mkFill('FFFFF2CC');c.border=thin;c.alignment={horizontal:'center'};});
 
       const buf = await wb.xlsx.writeBuffer();
       const blob = new Blob([buf],{type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'});
@@ -7334,16 +7349,18 @@ function PecVentureSummaryTab({ currentYear }: { currentYear: number }) {
             <thead>
               <tr>
                 <th className={thS} rowSpan={2}>Month</th>
-                <th className={thLunch} colSpan={6}>🍱 Lunch &amp; Dinner (Plates)</th>
-                {PEC_ITEMS.map(c=><th key={c.key} className={thS} colSpan={2}>{c.label}</th>)}
-                <th className={thS} colSpan={2}>Milk</th>
+                <th className={thLunch} colSpan={4}>🍱 Lunch &amp; Dinner (Plates)</th>
+                <th className={thS} colSpan={11}>Qty</th>
+                <th className={thAmt} colSpan={11}>Amount (₹)</th>
                 <th className={thS} rowSpan={2}>Grand Total</th>
               </tr>
               <tr>
-                <th className={thLunch}>L-Order</th><th className={thLunch}>L-Bill</th><th className={thLunch}>L-Total</th>
-                <th className={thLunch}>D-Order</th><th className={thLunch}>D-Bill</th><th className={thLunch}>D-Total</th>
-                {PEC_ITEMS.flatMap(c=>[<th key={c.key+'q'} className={thS}>Qty</th>,<th key={c.key+'a'} className={thS}>Amount</th>])}
-                <th className={thS}>Qty (L)</th><th className={thS}>Amount</th>
+                <th className={thLunch}>L-Bill Qty</th><th className={thLunch}>L-Amt(×70)</th>
+                <th className={thLunch}>D-Bill Qty</th><th className={thLunch}>D-Amt(×70)</th>
+                {PEC_ITEMS.flatMap(c=>[<th key={c.key+'q'} className={thS}>{c.label}</th>])}
+                <th className={thS}>Milk (L)</th>
+                {PEC_ITEMS.flatMap(c=>[<th key={c.key+'a'} className={thAmt}>{c.label}</th>])}
+                <th className={thAmt}>Milk</th>
               </tr>
             </thead>
             <tbody>
@@ -7354,19 +7371,19 @@ function PecVentureSummaryTab({ currentYear }: { currentYear: number }) {
                 return (
                   <tr key={m} className="hover:bg-muted/30">
                     <td className={`${tdS} font-semibold`}>{MONTHS[m-1]}</td>
-                    <td className={tdLunch}>{fq(ld?.lunchOrder||0)}</td>
                     <td className={tdLunch}>{fq(ld?.lunchBill||0)}</td>
-                    <td className={tdLunch}>{fq(ld?.lunchTotal||0)}</td>
-                    <td className={tdLunch}>{fq(ld?.dinnerOrder||0)}</td>
+                    <td className={tdLunch}>{ld?.lunchBill ? fa((ld.lunchBill)*70) : ''}</td>
                     <td className={tdLunch}>{fq(ld?.dinnerBill||0)}</td>
-                    <td className={tdLunch}>{fq(ld?.dinnerTotal||0)}</td>
+                    <td className={tdLunch}>{ld?.dinnerBill ? fa((ld.dinnerBill)*70) : ''}</td>
                     {PEC_ITEMS.flatMap(c=>[
-                      <td key={c.key+'q'} className={tdS}>{fq(r[c.key] as number)}</td>,
-                      <td key={c.key+'a'} className={tdA}>{fa((r[c.key] as number)*c.rate)}</td>
+                      <td key={c.key+'q'} className={tdS}>{fq(r[c.key] as number)}</td>
                     ])}
                     <td className={tdS}>{fq(milkQ)}</td>
-                    <td className={tdA}>{fa(milkQ*PEC_RATES.milk)}</td>
-                    <td className={`${tdA} font-bold`}>{fa(getRowTotal(r))}</td>
+                    {PEC_ITEMS.flatMap(c=>[
+                      <td key={c.key+'a'} className={tdAmt}>{fa((r[c.key] as number)*c.rate)}</td>
+                    ])}
+                    <td className={tdAmt}>{fa(milkQ*PEC_RATES.milk)}</td>
+                    <td className={`${tdAmt} font-bold`}>{fa(getRowTotal(r))}</td>
                   </tr>
                 );
               })}
@@ -7374,19 +7391,19 @@ function PecVentureSummaryTab({ currentYear }: { currentYear: number }) {
             <tfoot>
               <tr className="font-bold">
                 <td className={totS}>TOTAL</td>
-                <td className={`${totS} text-orange-800`}>{fq(grandLunchOrder()) || '-'}</td>
                 <td className={`${totS} text-orange-800`}>{fq(grandLunchBill()) || '-'}</td>
-                <td className={`${totS} text-orange-800`}>{fq(grandLunchTotal()) || '-'}</td>
-                <td className={`${totS} text-orange-800`}>{fq(grandDinnerOrder()) || '-'}</td>
+                <td className={`${totS} text-orange-800`}>{grandLunchBill() ? fa(grandLunchBill()*70) : '-'}</td>
                 <td className={`${totS} text-orange-800`}>{fq(grandDinnerBill()) || '-'}</td>
-                <td className={`${totS} text-orange-800`}>{fq(grandDinnerTotal()) || '-'}</td>
+                <td className={`${totS} text-orange-800`}>{grandDinnerBill() ? fa(grandDinnerBill()*70) : '-'}</td>
                 {PEC_ITEMS.flatMap(c=>[
-                  <td key={c.key+'q'} className={totS}>{fq(grandTotQty(c.key)) || '-'}</td>,
-                  <td key={c.key+'a'} className={totA}>{fa(grandTotQty(c.key)*c.rate) || '-'}</td>
+                  <td key={c.key+'q'} className={totS}>{fq(grandTotQty(c.key)) || '-'}</td>
                 ])}
                 <td className={totS}>{fq(grandMilkQty()) || '-'}</td>
-                <td className={totA}>{fa(grandMilkQty()*PEC_RATES.milk) || '-'}</td>
-                <td className={`${totA} text-base`}>{fa(grandTotal()) || '-'}</td>
+                {PEC_ITEMS.flatMap(c=>[
+                  <td key={c.key+'a'} className={totAmt}>{fa(grandTotQty(c.key)*c.rate) || '-'}</td>
+                ])}
+                <td className={totAmt}>{fa(grandMilkQty()*PEC_RATES.milk) || '-'}</td>
+                <td className={`${totAmt} text-sm font-bold`}>{fa(grandTotal()) || '-'}</td>
               </tr>
             </tfoot>
           </table>
