@@ -1895,7 +1895,7 @@ function unichEmLunchRowDefaults(dateStr: string, month: number, year: number, l
   return { location, entryDate: dateStr, month, year, weekDay: getWeekDay(dateStr), mealType, orderQty:0, actual:0, total:0, billQty:0, _dirty: true };
 }
 
-function UnichemMealSubTab({ month, year, location, mealType, loadKey = 0 }: { month: number; year: number; location: string; mealType: 'lunch'|'dinner'; loadKey?: number }) {
+function UnichemMealSubTab({ month, year, location, mealType, loadKey = 0, plateRate = 0 }: { month: number; year: number; location: string; mealType: 'lunch'|'dinner'; loadKey?: number; plateRate?: number }) {
   const qc = useQueryClient();
   const { toast } = useToast();
   const [localRows, setLocalRows] = useState<LunchRow[]>([]);
@@ -2130,6 +2130,8 @@ function UnichemMealSubTab({ month, year, location, mealType, loadKey = 0 }: { m
   const handlePrint = () => {
     const monthLabel = `${MONTHS[month-1]} - ${year}`;
     const clientName = location.toLowerCase().includes('pec') ? 'PEC Ventures Private Limited' : `Unichem Laboratories Ltd - ${location}`;
+    const totalBillQty = rows.reduce((s,r)=>s+(r.billQty||0),0);
+    const colCount = plateRate > 0 ? 7 : 6;
     const win = window.open('', '_blank', 'width=900,height=700');
     if (!win) return;
     const thS = `border:1px solid #000;padding:5px 8px;text-align:center;font-weight:bold;`;
@@ -2140,12 +2142,13 @@ function UnichemMealSubTab({ month, year, location, mealType, loadKey = 0 }: { m
       <body style="font-family:Arial,sans-serif;padding:20px;">
         <table style="border-collapse:collapse;width:100%;font-size:11pt;">
           <thead>
-            <tr><th colspan="6" style="${thS}background:#fff;font-size:13pt;">DJ Hospitality &amp; Facility Management Pvt. Ltd.</th></tr>
-            <tr><th colspan="6" style="${thS}background:#fff2cc;font-size:11pt;">Number of ${mealLabel} Plates Per Day - ${clientName} - ${monthLabel}</th></tr>
+            <tr><th colspan="${colCount}" style="${thS}background:#fff;font-size:13pt;">DJ Hospitality &amp; Facility Management Pvt. Ltd.</th></tr>
+            <tr><th colspan="${colCount}" style="${thS}background:#fff2cc;font-size:11pt;">Number of ${mealLabel} Plates Per Day - ${clientName} - ${monthLabel}</th></tr>
             <tr>
               <th style="${thS}${altBg}">Date</th><th style="${thS}${altBg}">Days</th>
               <th style="${thS}${altBg}">Order</th><th style="${thS}background:#a8d8ea;">Actual</th>
               <th style="${thS}background:#c8f7c5;">Total</th><th style="${thS}background:#c8f7c5;">Bill Qty</th>
+              ${plateRate > 0 ? `<th style="${thS}background:#d4edda;">Amount (₹)</th>` : ''}
             </tr>
           </thead>
           <tbody>
@@ -2158,6 +2161,7 @@ function UnichemMealSubTab({ month, year, location, mealType, loadKey = 0 }: { m
                 <td style="${tdS}">${r.actual||""}</td>
                 <td style="${tdS}">${r.total||""}</td>
                 <td style="${tdS}">${r.billQty||""}</td>
+                ${plateRate > 0 ? `<td style="${tdS}">${r.billQty ? '₹'+(r.billQty*plateRate).toFixed(2) : ""}</td>` : ''}
               </tr>`;
             }).join('')}
             <tr style="font-weight:bold;background:#e0e0e0">
@@ -2165,7 +2169,8 @@ function UnichemMealSubTab({ month, year, location, mealType, loadKey = 0 }: { m
               <td style="${tdS}">${rows.reduce((s,r)=>s+(r.orderQty||0),0)}</td>
               <td style="${tdS}">${rows.reduce((s,r)=>s+(r.actual||0),0)}</td>
               <td style="${tdS}">${rows.reduce((s,r)=>s+(r.total||0),0)}</td>
-              <td style="${tdS}">${rows.reduce((s,r)=>s+(r.billQty||0),0)}</td>
+              <td style="${tdS}">${totalBillQty}</td>
+              ${plateRate > 0 ? `<td style="${tdS}background:#d4edda;">₹${(totalBillQty*plateRate).toFixed(2)}</td>` : ''}
             </tr>
           </tbody>
         </table>
@@ -2258,12 +2263,18 @@ function UnichemMealSubTab({ month, year, location, mealType, loadKey = 0 }: { m
             <div className="border rounded-xl overflow-hidden shadow-sm">
               <div className="bg-slate-700 text-white px-3 py-2 text-sm font-bold">Totals</div>
               <div className="grid grid-cols-2 divide-x divide-y">
-                {[["Order",rows.reduce((s,r)=>s+(r.orderQty||0),0)],["Actual",rows.reduce((s,r)=>s+(r.actual||0),0)],["Total",rows.reduce((s,r)=>s+(r.total||0),0)],["Bill Qty",rows.reduce((s,r)=>s+(r.billQty||0),0)]].map(([label,val])=>(
-                  <div key={label as string} className="flex justify-between items-center px-3 py-2 text-sm">
+                {([["Order",rows.reduce((s,r)=>s+(r.orderQty||0),0)],["Actual",rows.reduce((s,r)=>s+(r.actual||0),0)],["Total",rows.reduce((s,r)=>s+(r.total||0),0)],["Bill Qty",rows.reduce((s,r)=>s+(r.billQty||0),0)]] as [string,number][]).map(([label,val])=>(
+                  <div key={label} className="flex justify-between items-center px-3 py-2 text-sm">
                     <span className="text-gray-600">{label}</span>
                     <span className="font-semibold">{val}</span>
                   </div>
                 ))}
+                {plateRate > 0 && (
+                  <div className="flex justify-between items-center px-3 py-2 text-sm col-span-2 bg-emerald-50">
+                    <span className="text-emerald-700 font-medium">Amount @₹{plateRate}/plate</span>
+                    <span className="font-bold text-emerald-800">₹{(rows.reduce((s,r)=>s+(r.billQty||0),0)*plateRate).toFixed(2)}</span>
+                  </div>
+                )}
               </div>
             </div>
           )}
@@ -2279,6 +2290,7 @@ function UnichemMealSubTab({ month, year, location, mealType, loadKey = 0 }: { m
                 <th className="border px-2 py-2 text-center font-semibold min-w-[68px] bg-blue-50 dark:bg-blue-950/20">Actual</th>
                 <th className="border px-2 py-2 text-center font-semibold min-w-[68px] bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-300">Total <span className="text-[9px] font-normal block">(auto)</span></th>
                 <th className="border px-2 py-2 text-center font-semibold min-w-[68px] bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-300">Bill Qty <span className="text-[9px] font-normal block">(auto)</span></th>
+                {plateRate > 0 && <th className="border px-2 py-2 text-center font-semibold min-w-[80px] bg-emerald-100 dark:bg-emerald-900/30 text-emerald-800 dark:text-emerald-300">Amount <span className="text-[9px] font-normal block">@₹{plateRate}/plate</span></th>}
                 <th className="border px-2 py-2 text-center font-semibold min-w-[70px]">Act</th>
               </tr>
             </thead>
@@ -2310,6 +2322,11 @@ function UnichemMealSubTab({ month, year, location, mealType, loadKey = 0 }: { m
                     <td className="border px-1 text-center text-xs font-semibold bg-green-100/60 dark:bg-green-900/20 text-green-800 dark:text-green-300 select-none" style={{minHeight:'36px'}} data-testid={`${mealType}-billqty-${idx}`}>
                       {row.billQty||""}
                     </td>
+                    {plateRate > 0 && (
+                      <td className="border px-1 text-center text-xs font-semibold bg-emerald-50 dark:bg-emerald-900/20 text-emerald-700 dark:text-emerald-300 select-none" style={{minHeight:'36px'}}>
+                        {row.billQty ? `₹${(row.billQty*plateRate).toFixed(2)}` : ""}
+                      </td>
+                    )}
                     <td className="border px-1 py-0.5 text-center">
                       <div className="flex gap-1 justify-center">
                         <button onClick={()=>handleSaveRow(idx)} title="Save row" className="p-1 rounded text-green-600 hover:bg-green-50 dark:hover:bg-green-900/30" data-testid={`${mealType}-save-row-${idx}`}>
@@ -2330,6 +2347,7 @@ function UnichemMealSubTab({ month, year, location, mealType, loadKey = 0 }: { m
                   <td className="border px-2 py-2 text-center text-blue-700">{rows.reduce((s,r)=>s+(r.actual||0),0)}</td>
                   <td className="border px-2 py-2 text-center text-green-700">{rows.reduce((s,r)=>s+(r.total||0),0)}</td>
                   <td className="border px-2 py-2 text-center text-green-700">{rows.reduce((s,r)=>s+(r.billQty||0),0)}</td>
+                  {plateRate > 0 && <td className="border px-2 py-2 text-center text-emerald-800 bg-emerald-50">₹{(rows.reduce((s,r)=>s+(r.billQty||0),0)*plateRate).toFixed(2)}</td>}
                   <td className="border px-2 py-2"></td>
                 </tr>
               )}
@@ -7305,13 +7323,14 @@ function PecVentureSummaryTab({ currentYear }: { currentYear: number }) {
             <thead>
               <tr>
                 <th className={thS} rowSpan={2}>Month</th>
-                <th className={thLunch} colSpan={2}>🍱 Lunch &amp; Dinner (Plates)</th>
+                <th className={thLunch} colSpan={4}>🍱 Lunch &amp; Dinner (Plates)</th>
                 {PEC_ITEMS.map(c=><th key={c.key} className={thS} colSpan={2}>{c.label}</th>)}
                 <th className={thS} colSpan={2}>Milk</th>
                 <th className={thS} rowSpan={2}>Grand Total</th>
               </tr>
               <tr>
-                <th className={thLunch}>Lunch</th><th className={thLunch}>Dinner</th>
+                <th className={thLunch}>Lunch</th><th className={thLunch}>Amt (₹)</th>
+                <th className={thLunch}>Dinner</th><th className={thLunch}>Amt (₹)</th>
                 {PEC_ITEMS.map(c=><><th key={c.key+'q'} className={thS}>Qty</th><th key={c.key+'a'} className={thS}>Amount</th></>)}
                 <th className={thS}>Qty (L)</th><th className={thS}>Amount</th>
               </tr>
@@ -7325,7 +7344,9 @@ function PecVentureSummaryTab({ currentYear }: { currentYear: number }) {
                   <tr key={m} className="hover:bg-muted/30">
                     <td className={`${tdS} font-semibold`}>{MONTHS[m-1]}</td>
                     <td className={tdLunch}>{fq(ld?.lunch||0)}</td>
+                    <td className={tdLunch}>{ld?.lunch ? `₹${((ld.lunch)*70).toFixed(2)}` : ""}</td>
                     <td className={tdLunch}>{fq(ld?.dinner||0)}</td>
+                    <td className={tdLunch}>{ld?.dinner ? `₹${((ld.dinner)*70).toFixed(2)}` : ""}</td>
                     {PEC_ITEMS.map(c=>(
                       <>
                         <td key={c.key+'q'} className={tdS}>{fq(r[c.key] as number)}</td>
@@ -7343,7 +7364,9 @@ function PecVentureSummaryTab({ currentYear }: { currentYear: number }) {
               <tr className="font-bold">
                 <td className={totS}>TOTAL</td>
                 <td className={`${totS} text-orange-800`}>{fq(grandLunch())}</td>
+                <td className={`${totS} text-orange-800`}>{grandLunch() ? `₹${(grandLunch()*70).toFixed(2)}` : ""}</td>
                 <td className={`${totS} text-orange-800`}>{fq(grandDinner())}</td>
+                <td className={`${totS} text-orange-800`}>{grandDinner() ? `₹${(grandDinner()*70).toFixed(2)}` : ""}</td>
                 {PEC_ITEMS.map(c=>(
                   <>
                     <td key={c.key+'q'} className={totS}>{fq(grandTotQty(c.key))}</td>
@@ -7380,7 +7403,7 @@ function PecVenturesForm2Tab({ month, year, loadKey = 0 }: { month: number; year
           🍽️ Dinner
         </button>
       </div>
-      <UnichemMealSubTab key={`pec-${activeMeal}-${month}-${year}`} month={month} year={year} location="PEC Ventures" mealType={activeMeal} loadKey={loadKey} />
+      <UnichemMealSubTab key={`pec-${activeMeal}-${month}-${year}`} month={month} year={year} location="PEC Ventures" mealType={activeMeal} loadKey={loadKey} plateRate={70} />
     </div>
   );
 }
