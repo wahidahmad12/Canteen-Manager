@@ -7367,12 +7367,10 @@ function PecVentureSummaryTab({ currentYear }: { currentYear: number }) {
                 <td className={`${totS} text-orange-800`}>{grandLunch() ? `₹${(grandLunch()*70).toFixed(2)}` : '-'}</td>
                 <td className={`${totS} text-orange-800`}>{grandDinner() || '-'}</td>
                 <td className={`${totS} text-orange-800`}>{grandDinner() ? `₹${(grandDinner()*70).toFixed(2)}` : '-'}</td>
-                {PEC_ITEMS.map(c=>(
-                  <React.Fragment key={c.key}>
-                    <td className={totS}>{fq(grandTotQty(c.key)) || '-'}</td>
-                    <td className={totA}>{fa(grandTotQty(c.key)*c.rate) || '-'}</td>
-                  </React.Fragment>
-                ))}
+                {PEC_ITEMS.flatMap(c=>[
+                  <td key={c.key+'q'} className={totS}>{fq(grandTotQty(c.key)) || '-'}</td>,
+                  <td key={c.key+'a'} className={totA}>{fa(grandTotQty(c.key)*c.rate) || '-'}</td>
+                ])}
                 <td className={totS}>{fq(grandMilkQty()) || '-'}</td>
                 <td className={totA}>{fa(grandMilkQty()*PEC_RATES.milk) || '-'}</td>
                 <td className={`${totA} text-base`}>{fa(grandTotal()) || '-'}</td>
