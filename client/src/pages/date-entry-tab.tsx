@@ -2140,6 +2140,7 @@ function UnichemMealSubTab({ month, year, location, mealType, loadKey = 0 }: { m
         <table style="border-collapse:collapse;width:100%;font-size:11pt;">
           <thead>
             <tr><th colspan="6" style="${thS}background:#fff;font-size:13pt;">DJ Hospitality &amp; Facility Management Pvt. Ltd.</th></tr>
+            <tr><th colspan="6" style="${thS}background:#fff2cc;font-size:11pt;">Number of ${mealLabel} Plates Per Day - Unichem Laboratories Ltd - ${location} - ${monthLabel}</th></tr>
             <tr>
               <th style="${thS}${altBg}">Date</th><th style="${thS}${altBg}">Days</th>
               <th style="${thS}${altBg}">Order</th><th style="${thS}background:#a8d8ea;">Actual</th>
