@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useRef, useEffect } from "react";
 import { useQuery, useQueries } from "@tanstack/react-query";
 import { Layout } from "@/components/layout";
 import { Card, CardContent } from "@/components/ui/card";
@@ -8,7 +8,7 @@ import { Label } from "@/components/ui/label";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { useClientNames } from "@/hooks/use-reports";
 import { Input } from "@/components/ui/input";
-import { ArrowLeft, Printer, FileSpreadsheet, IndianRupee, FileText } from "lucide-react";
+import { ArrowLeft, Printer, FileSpreadsheet, IndianRupee, FileText, ChevronDown, Check } from "lucide-react";
 import { Link } from "wouter";
 import type { Employee, SalaryRecord } from "@shared/schema";
 
@@ -16,18 +16,51 @@ const MONTHS = ["January","February","March","April","May","June","July","August
 
 export default function PtaxReport() {
   const { data: clientNames = [] } = useClientNames();
-  const [selectedClient, setSelectedClient] = useState("__all__");
+  const [selectedClients, setSelectedClients] = useState<Set<string>>(new Set());
   const [month, setMonth] = useState(new Date().getMonth() + 1);
   const [year, setYear] = useState(new Date().getFullYear());
+  const [dropdownOpen, setDropdownOpen] = useState(false);
+  const dropdownRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) {
+        setDropdownOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
 
   const { data: employees = [] } = useQuery<Employee[]>({
     queryKey: ["/api/employees"],
   });
 
+  const allClientNamesList = useMemo(() => clientNames.map(c => c.name), [clientNames]);
+
+  const isAllSelected = selectedClients.size === 0;
+
+  const toggleClient = (name: string) => {
+    setSelectedClients(prev => {
+      const next = new Set(prev);
+      if (next.has(name)) next.delete(name);
+      else next.add(name);
+      return next;
+    });
+  };
+
+  const toggleAll = () => setSelectedClients(new Set());
+
   const clientsToFetch = useMemo(() => {
-    if (selectedClient === "__all__") return clientNames.map(c => c.name);
-    return [selectedClient];
-  }, [selectedClient, clientNames]);
+    if (selectedClients.size === 0) return allClientNamesList;
+    return allClientNamesList.filter(n => selectedClients.has(n));
+  }, [selectedClients, allClientNamesList]);
+
+  const clientSelectorLabel = useMemo(() => {
+    if (selectedClients.size === 0) return "All Clients";
+    if (selectedClients.size === 1) return [...selectedClients][0];
+    return `${selectedClients.size} clients selected`;
+  }, [selectedClients]);
 
   const salaryQueries = useQueries({
     queries: clientsToFetch.map(cn => ({
@@ -69,12 +102,7 @@ export default function PtaxReport() {
         grouped.set(client, { employees: [], totalPtax: 0, totalGross: 0 });
       }
       const group = grouped.get(client)!;
-      group.employees.push({
-        name: emp.name,
-        designation: emp.designation || "",
-        grossWage: gross,
-        ptax,
-      });
+      group.employees.push({ name: emp.name, designation: emp.designation || "", grossWage: gross, ptax });
       group.totalPtax += ptax;
       group.totalGross += gross;
     }
@@ -93,6 +121,8 @@ export default function PtaxReport() {
     for (const [, group] of clientWiseData) total += group.totalGross;
     return total;
   }, [clientWiseData]);
+
+  const periodTitle = `${MONTHS[month-1]} ${year}${!isAllSelected ? " — " + clientSelectorLabel : ""}`;
 
   const handlePrint = () => {
     const pw = window.open('', '_blank');
@@ -121,7 +151,7 @@ export default function PtaxReport() {
       <td style="font-weight:bold;padding:6px 8px;border:1px solid #ccc;text-align:right;font-size:13px">${grandTotalPtax.toLocaleString()}</td>
     </tr>`;
 
-    pw.document.write(`<!DOCTYPE html><html><head><title>PTax Report - ${MONTHS[month-1]} ${year}</title>
+    pw.document.write(`<!DOCTYPE html><html><head><title>PTax Report - ${periodTitle}</title>
     <style>
       body { font-family: Arial, sans-serif; padding: 20px; }
       h2 { text-align: center; margin-bottom: 4px; }
@@ -132,7 +162,7 @@ export default function PtaxReport() {
     </style>
     </head><body>
       <h2>Professional Tax Report</h2>
-      <h4>${MONTHS[month-1]} ${year}${selectedClient !== "__all__" ? " — " + selectedClient : ""}</h4>
+      <h4>${periodTitle}</h4>
       <table>
         <thead><tr><th>#</th><th>Employee Name</th><th>Designation</th><th style="text-align:right">Gross Wage</th><th style="text-align:right">P.Tax</th></tr></thead>
         <tbody>${tableRows}</tbody>
@@ -148,7 +178,7 @@ export default function PtaxReport() {
     const wb = new ExcelJS.Workbook();
     const ws = wb.addWorksheet("PTax Report");
 
-    const title = ws.addRow([`Professional Tax Report - ${MONTHS[month-1]} ${year}`]);
+    const title = ws.addRow([`Professional Tax Report - ${periodTitle}`]);
     title.getCell(1).font = { bold: true, size: 14 };
     ws.mergeCells(1, 1, 1, 5);
     ws.addRow([]);
@@ -338,18 +368,69 @@ export default function PtaxReport() {
         <Card>
           <CardContent className="p-3 sm:p-4">
             <div className="flex flex-wrap items-end gap-3">
-              <div className="space-y-1.5 min-w-[140px]">
-                <Label className="text-xs font-semibold">Client</Label>
-                <Select value={selectedClient} onValueChange={setSelectedClient}>
-                  <SelectTrigger data-testid="select-client"><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="__all__">All Clients</SelectItem>
-                    {clientNames.map(c => (
-                      <SelectItem key={c.id} value={c.name}>{c.name}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+
+              {/* Multi-client selector */}
+              <div className="space-y-1.5" ref={dropdownRef}>
+                <Label className="text-xs font-semibold">Client(s)</Label>
+                <div className="relative">
+                  <button
+                    type="button"
+                    onClick={() => setDropdownOpen(o => !o)}
+                    className="flex items-center justify-between gap-2 min-w-[200px] h-9 rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
+                    data-testid="btn-client-selector"
+                  >
+                    <span className={`truncate ${isAllSelected ? "text-muted-foreground" : "font-medium"}`}>
+                      {clientSelectorLabel}
+                    </span>
+                    <ChevronDown className="w-4 h-4 shrink-0 opacity-50" />
+                  </button>
+
+                  {dropdownOpen && (
+                    <div className="absolute z-50 top-full mt-1 left-0 min-w-[240px] max-h-72 overflow-y-auto rounded-md border bg-popover shadow-md">
+                      {/* All Clients option */}
+                      <button
+                        type="button"
+                        onClick={() => { toggleAll(); setDropdownOpen(false); }}
+                        className={`flex items-center gap-2 w-full px-3 py-2 text-sm text-left hover:bg-accent transition-colors border-b ${isAllSelected ? "font-semibold bg-accent/50" : ""}`}
+                        data-testid="btn-client-all"
+                      >
+                        <div className={`w-4 h-4 rounded border flex items-center justify-center shrink-0 ${isAllSelected ? "bg-primary border-primary" : "border-muted-foreground"}`}>
+                          {isAllSelected && <Check className="w-3 h-3 text-primary-foreground" />}
+                        </div>
+                        All Clients
+                      </button>
+
+                      {/* Individual clients */}
+                      {allClientNamesList.map(name => {
+                        const checked = selectedClients.has(name);
+                        return (
+                          <button
+                            key={name}
+                            type="button"
+                            onClick={() => toggleClient(name)}
+                            className={`flex items-center gap-2 w-full px-3 py-2 text-sm text-left hover:bg-accent transition-colors ${checked ? "bg-accent/30" : ""}`}
+                            data-testid={`btn-client-${name}`}
+                          >
+                            <div className={`w-4 h-4 rounded border flex items-center justify-center shrink-0 ${checked ? "bg-primary border-primary" : "border-muted-foreground"}`}>
+                              {checked && <Check className="w-3 h-3 text-primary-foreground" />}
+                            </div>
+                            <span className="truncate">{name}</span>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+                {selectedClients.size > 0 && (
+                  <p className="text-[10px] text-muted-foreground">
+                    {selectedClients.size} of {allClientNamesList.length} selected —{" "}
+                    <button type="button" onClick={toggleAll} className="text-primary underline underline-offset-2">
+                      clear
+                    </button>
+                  </p>
+                )}
               </div>
+
               <div className="space-y-1.5 min-w-[120px]">
                 <Label className="text-xs font-semibold">Month</Label>
                 <Select value={String(month)} onValueChange={v => setMonth(Number(v))}>
@@ -445,6 +526,7 @@ export default function PtaxReport() {
           <Card>
             <CardContent className="p-8 text-center text-muted-foreground text-sm">
               No salary records found for {MONTHS[month - 1]} {year}
+              {selectedClients.size > 0 && ` (${clientSelectorLabel})`}
             </CardContent>
           </Card>
         )}
