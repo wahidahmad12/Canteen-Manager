@@ -164,6 +164,7 @@ export default function PurchaseInvoice() {
   const [prPopoverOpen, setPrPopoverOpen] = useState(false);
   const [calcOpen, setCalcOpen] = useState(false);
   const [calcIndex, setCalcIndex] = useState<number>(0);
+  const [showCalcBtn, setShowCalcBtn] = useState(false);
   const [items, setItems] = useState<InvoiceItem[]>([
     { itemName: "", uom: "Kg", qty: 0, unitPrice: 0, totalPrice: 0, gstRate: 0, gstAmount: 0, netAmount: 0 },
   ]);
@@ -650,9 +651,21 @@ export default function PurchaseInvoice() {
                 Invoice Items
                 <span className="text-sm font-normal bg-white/20 px-2 py-0.5 rounded-full">{items.filter(i => i.itemName).length}</span>
               </div>
-              <Button size="sm" variant="ghost" onClick={addItem} className="text-white/90 hover:text-white hover:bg-white/20 gap-1" data-testid="button-add-item">
-                <Plus className="w-4 h-4" /> Add Item
-              </Button>
+              <div className="flex items-center gap-2">
+                <label className="flex items-center gap-1.5 cursor-pointer select-none text-white/80 hover:text-white text-xs font-normal" title="Show calculator button next to Qty">
+                  <input
+                    type="checkbox"
+                    checked={showCalcBtn}
+                    onChange={e => setShowCalcBtn(e.target.checked)}
+                    className="w-3.5 h-3.5 accent-emerald-400 cursor-pointer"
+                    data-testid="checkbox-show-calc"
+                  />
+                  <Calculator className="w-3.5 h-3.5" /> Calc
+                </label>
+                <Button size="sm" variant="ghost" onClick={addItem} className="text-white/90 hover:text-white hover:bg-white/20 gap-1" data-testid="button-add-item">
+                  <Plus className="w-4 h-4" /> Add Item
+                </Button>
+              </div>
             </CardTitle>
           </CardHeader>
 
@@ -693,9 +706,11 @@ export default function PurchaseInvoice() {
                       <td className="py-2 px-2">
                         <div className="flex items-center gap-1">
                           <Input type="number" value={item.qty || ""} onChange={(e) => updateItem(index, "qty", Number(e.target.value) || 0)} className="h-8 text-right w-full" data-testid={`input-qty-${index}`} />
-                          <button type="button" onClick={() => { setCalcIndex(index); setCalcOpen(true); }} className="h-8 w-7 shrink-0 flex items-center justify-center rounded border border-input bg-background hover:bg-accent hover:border-primary transition-colors" data-testid={`button-qty-calc-${index}`} title="Open calculator">
-                            <Calculator className="w-3.5 h-3.5 text-muted-foreground" />
-                          </button>
+                          {showCalcBtn && (
+                            <button type="button" onClick={() => { setCalcIndex(index); setCalcOpen(true); }} className="h-8 w-7 shrink-0 flex items-center justify-center rounded border border-input bg-background hover:bg-accent hover:border-primary transition-colors" data-testid={`button-qty-calc-${index}`} title="Open calculator">
+                              <Calculator className="w-3.5 h-3.5 text-muted-foreground" />
+                            </button>
+                          )}
                         </div>
                       </td>
                       <td className="py-2 px-2">
@@ -762,9 +777,11 @@ export default function PurchaseInvoice() {
                       <Label className="text-xs text-muted-foreground">Qty</Label>
                       <div className="flex items-center gap-1 mt-1">
                         <Input type="number" value={item.qty || ""} onChange={(e) => updateItem(index, "qty", Number(e.target.value) || 0)} className="h-9 text-right w-full" data-testid={`input-qty-mobile-${index}`} />
-                        <button type="button" onClick={() => { setCalcIndex(index); setCalcOpen(true); }} className="h-9 w-8 shrink-0 flex items-center justify-center rounded border border-input bg-background hover:bg-accent hover:border-primary transition-colors" data-testid={`button-qty-calc-mobile-${index}`} title="Open calculator">
-                          <Calculator className="w-4 h-4 text-muted-foreground" />
-                        </button>
+                        {showCalcBtn && (
+                          <button type="button" onClick={() => { setCalcIndex(index); setCalcOpen(true); }} className="h-9 w-8 shrink-0 flex items-center justify-center rounded border border-input bg-background hover:bg-accent hover:border-primary transition-colors" data-testid={`button-qty-calc-mobile-${index}`} title="Open calculator">
+                            <Calculator className="w-4 h-4 text-muted-foreground" />
+                          </button>
+                        )}
                       </div>
                     </div>
                     <div>
