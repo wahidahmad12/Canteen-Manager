@@ -2780,32 +2780,58 @@ export class DatabaseStorage implements IStorage {
       JOIN daily_reports dr ON ei.report_id = dr.id
       WHERE dr.date LIKE ${likePrefix}`);
 
-    const [cashR] = await db.execute(sql`
-      SELECT COALESCE(SUM(CAST(received_amount AS DECIMAL(15,2))), 0) as cash_received,
-             COALESCE(SUM(CAST(give_by_wahid AS DECIMAL(15,2))), 0) as give_by_wahid
-      FROM daily_reports WHERE date LIKE ${likePrefix}`);
-
     const [cashSealR] = await db.execute(sql`
       SELECT COALESCE(SUM(CAST(cs.total_given_to_akbar_ali AS DECIMAL(15,2))), 0) as total
       FROM cash_seals cs
       JOIN daily_reports dr ON cs.report_id = dr.id
       WHERE dr.date LIKE ${likePrefix}`);
 
-    const [onlineR] = await db.execute(sql`
-      SELECT COALESCE(SUM(
-        CAST(cs.income_ps_breakfast_online_qty   AS DECIMAL(15,2)) * 5  +
-        CAST(cs.income_ps_lunch_online_qty        AS DECIMAL(15,2)) * 20 +
-        CAST(cs.income_ps_evening_online_qty      AS DECIMAL(15,2)) * 10 +
-        CAST(cs.income_ps_night_online_qty        AS DECIMAL(15,2)) * 10 +
-        CAST(cs.income_ps_recharge_online_qty     AS DECIMAL(15,2)) * CAST(COALESCE(cs.income_ps_recharge_rate, 1) AS DECIMAL(15,2)) +
-        CAST(cs.income_tp_breakfast_online_qty    AS DECIMAL(15,2)) * 20 +
-        CAST(cs.income_tp_lunch_veg_online_qty    AS DECIMAL(15,2)) * 35 +
-        CAST(cs.income_tp_lunch_egg_online_qty    AS DECIMAL(15,2)) * 45 +
-        CAST(cs.income_tp_lunch_chicken_online_qty AS DECIMAL(15,2)) * 65 +
-        CAST(cs.income_tp_lunch_fish_online_qty   AS DECIMAL(15,2)) * 55 +
-        CAST(cs.income_tp_evening_online_qty      AS DECIMAL(15,2)) * 20 +
-        CAST(cs.income_tp_night_online_qty        AS DECIMAL(15,2)) * 30
-      ), 0) as online_total
+    const [cashSealIncomeR] = await db.execute(sql`
+      SELECT
+        COALESCE(SUM(
+          CAST(cs.income_ps_breakfast_cash_qty   AS DECIMAL(15,2)) * 5  +
+          CAST(cs.income_ps_lunch_cash_qty        AS DECIMAL(15,2)) * 20 +
+          CAST(cs.income_ps_evening_cash_qty      AS DECIMAL(15,2)) * 10 +
+          CAST(cs.income_ps_night_cash_qty        AS DECIMAL(15,2)) * 10 +
+          CAST(cs.income_ps_recharge_cash_qty     AS DECIMAL(15,2)) * CAST(COALESCE(cs.income_ps_recharge_rate, 1) AS DECIMAL(15,2)) +
+          CAST(cs.income_ps_breakfast_online_qty  AS DECIMAL(15,2)) * 5  +
+          CAST(cs.income_ps_lunch_online_qty      AS DECIMAL(15,2)) * 20 +
+          CAST(cs.income_ps_evening_online_qty    AS DECIMAL(15,2)) * 10 +
+          CAST(cs.income_ps_night_online_qty      AS DECIMAL(15,2)) * 10 +
+          CAST(cs.income_ps_recharge_online_qty   AS DECIMAL(15,2)) * CAST(COALESCE(cs.income_ps_recharge_rate, 1) AS DECIMAL(15,2))
+        ), 0) as ps_income,
+        COALESCE(SUM(
+          CAST(cs.income_tp_breakfast_cash_qty        AS DECIMAL(15,2)) * 20 +
+          CAST(cs.income_tp_lunch_veg_cash_qty        AS DECIMAL(15,2)) * 35 +
+          CAST(cs.income_tp_lunch_nv_cash_qty         AS DECIMAL(15,2)) * CAST(COALESCE(cs.income_tp_lunch_nv_rate, 0) AS DECIMAL(15,2)) +
+          CAST(cs.income_tp_lunch_egg_cash_qty        AS DECIMAL(15,2)) * 45 +
+          CAST(cs.income_tp_lunch_fish_cash_qty       AS DECIMAL(15,2)) * 55 +
+          CAST(cs.income_tp_lunch_chicken_cash_qty    AS DECIMAL(15,2)) * 65 +
+          CAST(cs.income_tp_evening_cash_qty          AS DECIMAL(15,2)) * 20 +
+          CAST(cs.income_tp_night_cash_qty            AS DECIMAL(15,2)) * 20 +
+          CAST(cs.income_tp_breakfast_online_qty      AS DECIMAL(15,2)) * 20 +
+          CAST(cs.income_tp_lunch_veg_online_qty      AS DECIMAL(15,2)) * 35 +
+          CAST(cs.income_tp_lunch_nv_online_qty       AS DECIMAL(15,2)) * CAST(COALESCE(cs.income_tp_lunch_nv_rate, 0) AS DECIMAL(15,2)) +
+          CAST(cs.income_tp_lunch_egg_online_qty      AS DECIMAL(15,2)) * 45 +
+          CAST(cs.income_tp_lunch_fish_online_qty     AS DECIMAL(15,2)) * 55 +
+          CAST(cs.income_tp_lunch_chicken_online_qty  AS DECIMAL(15,2)) * 65 +
+          CAST(cs.income_tp_evening_online_qty        AS DECIMAL(15,2)) * 20 +
+          CAST(cs.income_tp_night_online_qty          AS DECIMAL(15,2)) * 20
+        ), 0) as tp_income,
+        COALESCE(SUM(
+          CAST(cs.income_morning_qty              AS DECIMAL(15,2)) * 5  +
+          CAST(cs.income_lunch_qty                AS DECIMAL(15,2)) * 20 +
+          CAST(cs.income_evening_qty              AS DECIMAL(15,2)) * 10 +
+          CAST(cs.income_night_qty                AS DECIMAL(15,2)) * 10 +
+          CAST(cs.income_non_veg_qty              AS DECIMAL(15,2)) * CAST(COALESCE(cs.income_non_veg_rate, 0) AS DECIMAL(15,2)) +
+          CAST(cs.income_veg_qty                  AS DECIMAL(15,2)) * CAST(COALESCE(cs.income_veg_rate, 0) AS DECIMAL(15,2)) +
+          CAST(cs.income_morning_cash_qty         AS DECIMAL(15,2)) * CAST(COALESCE(cs.income_morning_cash_rate, 0) AS DECIMAL(15,2)) +
+          CAST(cs.income_evening_cash_qty         AS DECIMAL(15,2)) * CAST(COALESCE(cs.income_evening_cash_rate, 0) AS DECIMAL(15,2)) +
+          CAST(cs.income_online_breakfast_qty     AS DECIMAL(15,2)) * 5  +
+          CAST(cs.income_online_lunch_qty         AS DECIMAL(15,2)) * 20 +
+          CAST(cs.income_online_evening_snacks_qty AS DECIMAL(15,2)) * 10 +
+          CAST(cs.income_online_night_qty         AS DECIMAL(15,2)) * 10
+        ), 0) as legacy_income
       FROM cash_seals cs
       JOIN daily_reports dr ON cs.report_id = dr.id
       WHERE dr.date LIKE ${likePrefix}`);
@@ -2815,9 +2841,13 @@ export class DatabaseStorage implements IStorage {
     const pr = (purchaseTotalR as any[])[0];
     const salr = (salaryTotalR as any[])[0];
     const expr = (expenseTotalR as any[])[0];
-    const cr = (cashR as any[])[0];
     const csr = (cashSealR as any[])[0];
-    const onr = (onlineR as any[])[0];
+    const csir = (cashSealIncomeR as any[])[0];
+
+    const psIncome = n(csir?.ps_income);
+    const tpIncome = n(csir?.tp_income);
+    const legacyIncome = n(csir?.legacy_income);
+    const cashSealIncome = psIncome + tpIncome + legacyIncome;
 
     return {
       salesTotal: n(sr?.total),
@@ -2827,9 +2857,10 @@ export class DatabaseStorage implements IStorage {
       salaryTotal: n(salr?.total),
       salaryByClient: (salaryByClientR as any[]).map(r => ({ clientName: r.client_name, total: n(r.total) })),
       expenseTotal: n(expr?.total),
-      cashReceived: n(cr?.cash_received),
-      giveByWahid: n(cr?.give_by_wahid),
-      onlineTotal: n(onr?.online_total),
+      cashSealIncome,
+      psIncome,
+      tpIncome,
+      legacyIncome,
       cashSealTotal: n(csr?.total),
       filteredByClients: hasClients ? clients : [],
     };

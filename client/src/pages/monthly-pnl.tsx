@@ -114,9 +114,11 @@ export default function MonthlyPnlPage() {
 
   const d = data || {};
   const salesTotal = d.salesTotal || 0;
-  const cashReceived = d.cashReceived || 0;
-  const onlineTotal = d.onlineTotal || 0;
-  const totalIncome = salesTotal + cashReceived + onlineTotal;
+  const cashSealIncome = d.cashSealIncome || 0;
+  const psIncome = d.psIncome || 0;
+  const tpIncome = d.tpIncome || 0;
+  const legacyIncome = d.legacyIncome || 0;
+  const totalIncome = salesTotal + cashSealIncome;
 
   const purchaseTotal = d.purchaseTotal || 0;
   const salaryTotal = d.salaryTotal || 0;
@@ -306,7 +308,7 @@ export default function MonthlyPnlPage() {
                 value={totalIncome}
                 icon={<TrendingUp className="w-8 h-8" />}
                 color="border-l-green-500"
-                sub="Sales + Cash Received"
+                sub="Sales + Cash Seal KPF"
               />
               <SummaryCard
                 title="Total Expenses"
@@ -360,13 +362,14 @@ export default function MonthlyPnlPage() {
                     </div>
                   </Accordion>
 
-                  {(cashReceived > 0 || onlineTotal > 0) && (
-                    <Accordion title="Daily Cash Received" total={cashReceived + onlineTotal} badge="Canteen" defaultOpen>
-                      {cashReceived > 0 && <DetailRow label="Cash Received" value={cashReceived} />}
-                      {onlineTotal > 0 && <DetailRow label="Online Received" value={onlineTotal} />}
+                  {cashSealIncome > 0 && (
+                    <Accordion title="Daily Cash Seal KPF" total={cashSealIncome} badge="Canteen" defaultOpen>
+                      {psIncome > 0 && <DetailRow label="PS Income" value={psIncome} sub={pct(psIncome, cashSealIncome)} />}
+                      {tpIncome > 0 && <DetailRow label="TP Income" value={tpIncome} sub={pct(tpIncome, cashSealIncome)} />}
+                      {legacyIncome > 0 && <DetailRow label="Other Income" value={legacyIncome} sub={pct(legacyIncome, cashSealIncome)} />}
                       <div className="flex justify-between py-2 font-bold border-t mt-1">
-                        <span>Total Cash + Online</span>
-                        <span>{fmtINR(cashReceived + onlineTotal)}</span>
+                        <span>Total Income (KPF)</span>
+                        <span>{fmtINR(cashSealIncome)}</span>
                       </div>
                     </Accordion>
                   )}
