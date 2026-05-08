@@ -305,7 +305,7 @@ function UblDateEntryTab({ month, year, loadKey = 0 }: { month: number; year: nu
 
   const handleReset1 = () => {
     if (!window.confirm("Reset all entries to blank? Unsaved changes will be lost.")) return;
-    setLocalRows(generateBillingRows(month, year, ublRowDefaults));
+    setLocalRows(generateBillingRows(month, year, ublRowDefaults).map(r => ({ ...r, _dirty: false })));
   };
 
   const totalTea = rows.reduce((s,r)=>s+(r.tea1||0)+(r.tea3||0)+(r.tea5||0)+(r.tea6||0),0);
@@ -859,7 +859,7 @@ function UblLunchEntryTab({ month, year, loadKey = 0 }: { month: number; year: n
 
   const handleReset2 = () => {
     if (!window.confirm("Reset all entries to blank? Unsaved changes will be lost.")) return;
-    setLocalRows(generateBillingRows(month, year, lunchRowDefaults));
+    setLocalRows(generateBillingRows(month, year, lunchRowDefaults).map(r => ({ ...r, _dirty: false })));
   };
 
   const numFld = (row: UblLunchRow, idx: number, field: keyof UblLunchRow, w=56) => (
@@ -1348,7 +1348,7 @@ function UnichemSnackTab({ month, year, loadKey = 0 }: { month: number; year: nu
 
   const handleResetSnack = () => {
     if (!window.confirm("Reset all entries to blank? Unsaved changes will be lost.")) return;
-    setLocalRows(generateMonthRows(month, year, (d, m, y) => snackRowDefaults(d, m, y, location)));
+    setLocalRows(generateMonthRows(month, year, (d, m, y) => snackRowDefaults(d, m, y, location)).map(r => ({ ...r, _dirty: false })));
   };
 
   const handleCellChange = (idx: number, field: keyof SnackRow, value: string) => {
@@ -2127,7 +2127,7 @@ function UnichemMealSubTab({ month, year, location, mealType, loadKey = 0, plate
 
   const handleResetMeal = () => {
     if (!window.confirm("Reset all entries to blank? Unsaved changes will be lost.")) return;
-    setLocalRows(generateMonthRows(month, year, (d, m, y) => unichEmLunchRowDefaults(d, m, y, location, mealType)));
+    setLocalRows(generateMonthRows(month, year, (d, m, y) => unichEmLunchRowDefaults(d, m, y, location, mealType)).map(r => ({ ...r, _dirty: false })));
   };
 
   const handlePrint = () => {
@@ -2678,7 +2678,7 @@ function CiplaDateEntryTab({ month, year, loadKey = 0 }: { month: number; year: 
 
   const handleReset3 = () => {
     if (!window.confirm("Reset all entries to blank? Unsaved changes will be lost.")) return;
-    setLocalRows(generateBillingRows(month, year, ciplaRowDefaults));
+    setLocalRows(generateBillingRows(month, year, ciplaRowDefaults).map(r => ({ ...r, _dirty: false })));
   };
 
   const numFld = (row: CiplaRow, idx: number, field: keyof CiplaRow, w=50) => (
