@@ -131,13 +131,15 @@ export default function MonthlyPnlPage() {
   const employerESIC = d.employerESIC || 0;
   const ptax = d.ptax || 0;
   const lwfTotal = d.lwfTotal || 0;
+  const statutoryTotal = epfoTotal + esicTotal + ptax + lwfTotal;
+  const totalSalaryCost = salaryTotal + statutoryTotal;
   const expenseTotal = d.expenseTotal || 0;
   const cashSealExpense = d.cashSealExpense || 0;
   const bananaExpense = d.bananaExpense || 0;
   const dahiBharExpense = d.dahiBharExpense || 0;
   const otherExpense = d.otherExpense || 0;
   const totalDailyOps = expenseTotal + cashSealExpense;
-  const totalExpenses = purchaseTotal + salaryTotal + totalDailyOps;
+  const totalExpenses = purchaseTotal + totalSalaryCost + totalDailyOps;
 
   const netPnl = totalIncome - totalExpenses;
   const isProfit = netPnl >= 0;
@@ -417,12 +419,12 @@ export default function MonthlyPnlPage() {
                     </div>
                   </Accordion>
 
-                  <Accordion title="Salary & Wages" total={salaryTotal} badge={`${(d.salaryByClient || []).length} clients`} defaultOpen>
+                  <Accordion title="Salary & Wages" total={totalSalaryCost} badge={`${(d.salaryByClient || []).length} clients`} defaultOpen>
                     {(d.salaryByClient || []).length === 0 ? (
                       <p className="text-muted-foreground py-2 text-xs">No salary records for this period.</p>
                     ) : (
                       (d.salaryByClient || []).map((c: any, i: number) => (
-                        <DetailRow key={i} label={c.clientName} value={c.total} sub={pct(c.total, salaryTotal)} />
+                        <DetailRow key={i} label={c.clientName} value={c.total} sub={pct(c.total, totalSalaryCost)} />
                       ))
                     )}
                     <div className="flex justify-between py-1.5 text-xs text-muted-foreground border-t mt-1 pt-2">
@@ -442,8 +444,8 @@ export default function MonthlyPnlPage() {
                       </>
                     )}
                     <div className="flex justify-between py-2 font-bold border-t mt-1">
-                      <span>Total Net Pay</span>
-                      <span>{fmtINR(salaryTotal)}</span>
+                      <span>Total Salary Cost</span>
+                      <span>{fmtINR(totalSalaryCost)}</span>
                     </div>
                   </Accordion>
 
@@ -500,7 +502,7 @@ export default function MonthlyPnlPage() {
                       <p>Purchase %</p>
                     </div>
                     <div>
-                      <p className="font-semibold text-sm text-foreground">{pct(salaryTotal, totalExpenses)}</p>
+                      <p className="font-semibold text-sm text-foreground">{pct(totalSalaryCost, totalExpenses)}</p>
                       <p>Salary %</p>
                     </div>
                     <div>
