@@ -123,8 +123,13 @@ export default function MonthlyPnlPage() {
   const purchaseTotal = d.purchaseTotal || 0;
   const salaryTotal = d.salaryTotal || 0;
   const expenseTotal = d.expenseTotal || 0;
+  const cashSealExpense = d.cashSealExpense || 0;
+  const bananaExpense = d.bananaExpense || 0;
+  const dahiBharExpense = d.dahiBharExpense || 0;
+  const otherExpense = d.otherExpense || 0;
   const cashSealTotal = d.cashSealTotal || 0;
-  const totalExpenses = purchaseTotal + salaryTotal + expenseTotal + cashSealTotal;
+  const totalDailyOps = expenseTotal + cashSealExpense;
+  const totalExpenses = purchaseTotal + salaryTotal + totalDailyOps + cashSealTotal;
 
   const netPnl = totalIncome - totalExpenses;
   const isProfit = netPnl >= 0;
@@ -418,12 +423,19 @@ export default function MonthlyPnlPage() {
                     </div>
                   </Accordion>
 
-                  {expenseTotal > 0 && (
-                    <Accordion title="Daily Operational Expenses" total={expenseTotal} badge="Canteen ops">
-                      <DetailRow label="Expense items (vegetables, fixed)" value={expenseTotal} />
+                  {totalDailyOps > 0 && (
+                    <Accordion title="Daily Operational Expenses" total={totalDailyOps} badge="Canteen ops">
+                      {expenseTotal > 0 && <DetailRow label="Expense items (vegetables, fixed)" value={expenseTotal} sub={pct(expenseTotal, totalDailyOps)} />}
+                      {cashSealExpense > 0 && <>
+                        <div className="px-2 pt-2 pb-0.5 text-xs font-semibold text-muted-foreground uppercase tracking-wider">Cash Seal KPF Expenses</div>
+                        {bananaExpense > 0 && <DetailRow label="Banana" value={bananaExpense} />}
+                        {dahiBharExpense > 0 && <DetailRow label="Dahi Bhar" value={dahiBharExpense} />}
+                        {otherExpense > 0 && <DetailRow label="Other Expenses" value={otherExpense} />}
+                        <DetailRow label="Cash Seal KPF Total Expense" value={cashSealExpense} sub={pct(cashSealExpense, totalDailyOps)} />
+                      </>}
                       <div className="flex justify-between py-2 font-bold border-t mt-1">
                         <span>Total Daily Expenses</span>
-                        <span>{fmtINR(expenseTotal)}</span>
+                        <span>{fmtINR(totalDailyOps)}</span>
                       </div>
                     </Accordion>
                   )}

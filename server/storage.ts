@@ -2786,6 +2786,15 @@ export class DatabaseStorage implements IStorage {
       JOIN daily_reports dr ON cs.report_id = dr.id
       WHERE dr.date LIKE ${likePrefix}`);
 
+    const [cashSealExpenseR] = await db.execute(sql`
+      SELECT
+        COALESCE(SUM(CAST(cs.expense_banana_qty AS DECIMAL(15,2)) * 4.5), 0)                                           AS banana_expense,
+        COALESCE(SUM(CAST(cs.expense_dahi_bhar_qty AS DECIMAL(15,2)) * CAST(COALESCE(cs.expense_dahi_bhar_rate, 0) AS DECIMAL(15,2))), 0) AS dahi_bhar_expense,
+        COALESCE(SUM(CAST(cs.expense_other_amount AS DECIMAL(15,2))), 0)                                               AS other_expense
+      FROM cash_seals cs
+      JOIN daily_reports dr ON cs.report_id = dr.id
+      WHERE dr.date LIKE ${likePrefix}`);
+
     const [cashSealIncomeR] = await db.execute(sql`
       SELECT
         COALESCE(SUM(
@@ -2843,11 +2852,17 @@ export class DatabaseStorage implements IStorage {
     const expr = (expenseTotalR as any[])[0];
     const csr = (cashSealR as any[])[0];
     const csir = (cashSealIncomeR as any[])[0];
+    const cser = (cashSealExpenseR as any[])[0];
 
     const psIncome = n(csir?.ps_income);
     const tpIncome = n(csir?.tp_income);
     const legacyIncome = n(csir?.legacy_income);
     const cashSealIncome = psIncome + tpIncome + legacyIncome;
+
+    const bananaExpense   = n(cser?.banana_expense);
+    const dahiBharExpense = n(cser?.dahi_bhar_expense);
+    const otherExpense    = n(cser?.other_expense);
+    const cashSealExpense = bananaExpense + dahiBharExpense + otherExpense;
 
     return {
       salesTotal: n(sr?.total),
@@ -2861,6 +2876,10 @@ export class DatabaseStorage implements IStorage {
       psIncome,
       tpIncome,
       legacyIncome,
+      cashSealExpense,
+      bananaExpense,
+      dahiBharExpense,
+      otherExpense,
       cashSealTotal: n(csr?.total),
       filteredByClients: hasClients ? clients : [],
     };
