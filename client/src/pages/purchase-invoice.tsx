@@ -672,15 +672,12 @@ export default function PurchaseInvoice() {
                         </Select>
                       </td>
                       <td className="py-2 px-2">
-                        <button
-                          type="button"
-                          onClick={() => { setCalcIndex(index); setCalcOpen(true); }}
-                          className="w-full h-8 text-right font-mono text-sm px-2 rounded-md border border-input bg-background hover:bg-accent hover:border-primary transition-colors flex items-center justify-between gap-1 group"
-                          data-testid={`button-qty-calc-${index}`}
-                        >
-                          <Calculator className="w-3 h-3 text-muted-foreground group-hover:text-primary shrink-0" />
-                          <span className={item.qty ? "text-foreground" : "text-muted-foreground"}>{item.qty || "0"}</span>
-                        </button>
+                        <div className="flex items-center gap-1">
+                          <Input type="number" value={item.qty || ""} onChange={(e) => updateItem(index, "qty", Number(e.target.value) || 0)} className="h-8 text-right w-full" data-testid={`input-qty-${index}`} />
+                          <button type="button" onClick={() => { setCalcIndex(index); setCalcOpen(true); }} className="h-8 w-7 shrink-0 flex items-center justify-center rounded border border-input bg-background hover:bg-accent hover:border-primary transition-colors" data-testid={`button-qty-calc-${index}`} title="Open calculator">
+                            <Calculator className="w-3.5 h-3.5 text-muted-foreground" />
+                          </button>
+                        </div>
                       </td>
                       <td className="py-2 px-2">
                         <Input type="number" value={item.unitPrice || ""} onChange={(e) => updateItem(index, "unitPrice", Number(e.target.value) || 0)} className="h-8 text-right" />
@@ -744,15 +741,12 @@ export default function PurchaseInvoice() {
                     </div>
                     <div>
                       <Label className="text-xs text-muted-foreground">Qty</Label>
-                      <button
-                        type="button"
-                        onClick={() => { setCalcIndex(index); setCalcOpen(true); }}
-                        className="w-full h-9 mt-1 text-right font-mono text-sm px-2 rounded-md border border-input bg-background hover:bg-accent hover:border-primary transition-colors flex items-center justify-between gap-1 group"
-                        data-testid={`button-qty-calc-mobile-${index}`}
-                      >
-                        <Calculator className="w-3.5 h-3.5 text-muted-foreground group-hover:text-primary shrink-0" />
-                        <span className={item.qty ? "text-foreground font-semibold" : "text-muted-foreground"}>{item.qty || "0"}</span>
-                      </button>
+                      <div className="flex items-center gap-1 mt-1">
+                        <Input type="number" value={item.qty || ""} onChange={(e) => updateItem(index, "qty", Number(e.target.value) || 0)} className="h-9 text-right w-full" data-testid={`input-qty-mobile-${index}`} />
+                        <button type="button" onClick={() => { setCalcIndex(index); setCalcOpen(true); }} className="h-9 w-8 shrink-0 flex items-center justify-center rounded border border-input bg-background hover:bg-accent hover:border-primary transition-colors" data-testid={`button-qty-calc-mobile-${index}`} title="Open calculator">
+                          <Calculator className="w-4 h-4 text-muted-foreground" />
+                        </button>
+                      </div>
                     </div>
                     <div>
                       <Label className="text-xs text-muted-foreground">Unit Price</Label>
