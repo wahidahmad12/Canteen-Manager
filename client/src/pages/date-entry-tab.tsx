@@ -304,6 +304,15 @@ function UblDateEntryTab({ month, year, loadKey = 0 }: { month: number; year: nu
     }
   };
 
+  const handleDeleteAll1 = async () => {
+    const toDelete = rows.filter(r => r.id);
+    if (!toDelete.length) { toast({ title: "Nothing to delete", description: "No saved records for this month." }); return; }
+    if (!window.confirm(`Delete all ${toDelete.length} saved records for this month? This cannot be undone.`)) return;
+    for (const row of toDelete) await deleteMutation.mutateAsync(row.id!);
+    setLocalRows(generateBillingRows(month, year, ublRowDefaults).map(r => ({ ...r, _dirty: false })));
+    toast({ title: `Deleted ${toDelete.length} records` });
+  };
+
   const handleReset1 = () => {
     if (!window.confirm("Reset all entries to blank? Unsaved changes will be lost.")) return;
     setLocalRows(generateBillingRows(month, year, ublRowDefaults).map(r => ({ ...r, _dirty: false })));
@@ -424,6 +433,7 @@ function UblDateEntryTab({ month, year, loadKey = 0 }: { month: number; year: nu
         <Button size="sm" variant="outline" onClick={()=>importRef1.current?.click()} className="h-10 px-4 text-sm text-blue-700 border-blue-300 hover:bg-blue-50"><FileUp className="w-4 h-4 mr-1.5"/>Import Excel</Button>
         <input ref={importRef1} type="file" accept=".xlsx,.xls" className="hidden" onChange={handleImportExcel1}/>
         <Button size="sm" variant="outline" onClick={handleReset1} className="h-10 px-4 text-sm text-red-600 border-red-300 hover:bg-red-50"><RefreshCw className="w-4 h-4 mr-1.5"/>Reset</Button>
+        <Button size="sm" variant="outline" onClick={handleDeleteAll1} className="h-10 px-4 text-sm text-red-700 border-red-500 hover:bg-red-100" disabled={deleteMutation.isPending}><Trash2 className="w-4 h-4 mr-1.5"/>Delete All</Button>
         <div className="flex items-center gap-2 text-xs text-muted-foreground ml-auto">
           <span className="inline-block w-3 h-3 rounded" style={{background:"#ffa500"}}></span>Sunday
           <span className="inline-block w-3 h-3 rounded" style={{background:"#90EE90"}}></span>Wednesday
@@ -859,6 +869,15 @@ function UblLunchEntryTab({ month, year, loadKey = 0 }: { month: number; year: n
     }
   };
 
+  const handleDeleteAll2 = async () => {
+    const toDelete = rows.filter(r => r.id);
+    if (!toDelete.length) { toast({ title: "Nothing to delete", description: "No saved records for this month." }); return; }
+    if (!window.confirm(`Delete all ${toDelete.length} saved records for this month? This cannot be undone.`)) return;
+    for (const row of toDelete) await deleteMutation.mutateAsync(row.id!);
+    setLocalRows(generateBillingRows(month, year, lunchRowDefaults).map(r => ({ ...r, _dirty: false })));
+    toast({ title: `Deleted ${toDelete.length} records` });
+  };
+
   const handleReset2 = () => {
     if (!window.confirm("Reset all entries to blank? Unsaved changes will be lost.")) return;
     setLocalRows(generateBillingRows(month, year, lunchRowDefaults).map(r => ({ ...r, _dirty: false })));
@@ -960,6 +979,7 @@ function UblLunchEntryTab({ month, year, loadKey = 0 }: { month: number; year: n
         <Button size="sm" variant="outline" onClick={()=>importRef2.current?.click()} className="h-10 px-4 text-sm text-blue-700 border-blue-300 hover:bg-blue-50"><FileUp className="w-4 h-4 mr-1.5"/>Import Excel</Button>
         <input ref={importRef2} type="file" accept=".xlsx,.xls" className="hidden" onChange={handleImportExcel2}/>
         <Button size="sm" variant="outline" onClick={handleReset2} className="h-10 px-4 text-sm text-red-600 border-red-300 hover:bg-red-50"><RefreshCw className="w-4 h-4 mr-1.5"/>Reset</Button>
+        <Button size="sm" variant="outline" onClick={handleDeleteAll2} className="h-10 px-4 text-sm text-red-700 border-red-500 hover:bg-red-100" disabled={deleteMutation.isPending}><Trash2 className="w-4 h-4 mr-1.5"/>Delete All</Button>
         <div className="flex items-center gap-2 text-xs text-muted-foreground ml-auto">
           <span className="inline-block w-3 h-3 rounded" style={{background:"#ffa500"}}></span>Sunday
           <span className="inline-block w-3 h-3 rounded bg-red-200"></span>Mismatch
@@ -1349,6 +1369,15 @@ function UnichemSnackTab({ month, year, loadKey = 0 }: { month: number; year: nu
     }
   };
 
+  const handleDeleteAllSnack = async () => {
+    const toDelete = rows.filter(r => r.id);
+    if (!toDelete.length) { toast({ title: "Nothing to delete", description: "No saved records for this month." }); return; }
+    if (!window.confirm(`Delete all ${toDelete.length} saved records for this month? This cannot be undone.`)) return;
+    for (const row of toDelete) await deleteMutation.mutateAsync(row.id!);
+    setLocalRows(generateMonthRows(month, year, (d, m, y) => snackRowDefaults(d, m, y, location)).map(r => ({ ...r, _dirty: false })));
+    toast({ title: `Deleted ${toDelete.length} records` });
+  };
+
   const handleResetSnack = () => {
     if (!window.confirm("Reset all entries to blank? Unsaved changes will be lost.")) return;
     setLocalRows(generateMonthRows(month, year, (d, m, y) => snackRowDefaults(d, m, y, location)).map(r => ({ ...r, _dirty: false })));
@@ -1707,6 +1736,9 @@ function UnichemSnackTab({ month, year, loadKey = 0 }: { month: number; year: nu
           <input ref={importRefSnack} type="file" accept=".xlsx,.xls" className="hidden" onChange={handleImportExcelSnack} />
           <Button size="sm" variant="outline" onClick={handleResetSnack} className="h-9 flex-1 sm:flex-none text-red-600 border-red-300 hover:bg-red-50" data-testid="btn-unichem-reset-snack">
             <RefreshCw className="w-3.5 h-3.5 mr-1" /> Reset
+          </Button>
+          <Button size="sm" variant="outline" onClick={handleDeleteAllSnack} className="h-9 flex-1 sm:flex-none text-red-700 border-red-500 hover:bg-red-100" disabled={deleteMutation.isPending} data-testid="btn-unichem-delete-all-snack">
+            <Trash2 className="w-3.5 h-3.5 mr-1" /> Delete All
           </Button>
         </div>
       </div>
@@ -2128,6 +2160,15 @@ function UnichemMealSubTab({ month, year, location, mealType, loadKey = 0, plate
     }
   };
 
+  const handleDeleteAllMeal = async () => {
+    const toDelete = rows.filter(r => r.id);
+    if (!toDelete.length) { toast({ title: "Nothing to delete", description: "No saved records for this month." }); return; }
+    if (!window.confirm(`Delete all ${toDelete.length} saved records for this month? This cannot be undone.`)) return;
+    for (const row of toDelete) await deleteMutation.mutateAsync(row.id!);
+    setLocalRows(generateMonthRows(month, year, (d, m, y) => unichEmLunchRowDefaults(d, m, y, location, mealType)).map(r => ({ ...r, _dirty: false })));
+    toast({ title: `Deleted ${toDelete.length} records` });
+  };
+
   const handleResetMeal = () => {
     if (!window.confirm("Reset all entries to blank? Unsaved changes will be lost.")) return;
     setLocalRows(generateMonthRows(month, year, (d, m, y) => unichEmLunchRowDefaults(d, m, y, location, mealType)).map(r => ({ ...r, _dirty: false })));
@@ -2206,6 +2247,9 @@ function UnichemMealSubTab({ month, year, location, mealType, loadKey = 0, plate
         <input ref={importRefMeal} type="file" accept=".xlsx,.xls" className="hidden" onChange={handleImportExcelMeal} />
         <Button size="sm" variant="outline" onClick={handleResetMeal} className="h-9 flex-1 sm:flex-none text-red-600 border-red-300 hover:bg-red-50" data-testid={`btn-unichem-reset-${mealType}`}>
           <RefreshCw className="w-3.5 h-3.5 mr-1" /> Reset
+        </Button>
+        <Button size="sm" variant="outline" onClick={handleDeleteAllMeal} className="h-9 flex-1 sm:flex-none text-red-700 border-red-500 hover:bg-red-100" disabled={deleteMutation.isPending} data-testid={`btn-unichem-delete-all-${mealType}`}>
+          <Trash2 className="w-3.5 h-3.5 mr-1" /> Delete All
         </Button>
       </div>
       {isLoading ? <div className="py-8 text-center text-muted-foreground"><Loader2 className="w-5 h-5 animate-spin inline mr-2"/>Loading...</div> : (<>
@@ -2680,6 +2724,15 @@ function CiplaDateEntryTab({ month, year, loadKey = 0 }: { month: number; year: 
     }
   };
 
+  const handleDeleteAll3 = async () => {
+    const toDelete = rows.filter(r => r.id);
+    if (!toDelete.length) { toast({ title: "Nothing to delete", description: "No saved records for this month." }); return; }
+    if (!window.confirm(`Delete all ${toDelete.length} saved records for this month? This cannot be undone.`)) return;
+    for (const row of toDelete) await deleteMutation.mutateAsync(row.id!);
+    setLocalRows(generateBillingRows(month, year, ciplaRowDefaults).map(r => ({ ...r, _dirty: false })));
+    toast({ title: `Deleted ${toDelete.length} records` });
+  };
+
   const handleReset3 = () => {
     if (!window.confirm("Reset all entries to blank? Unsaved changes will be lost.")) return;
     setLocalRows(generateBillingRows(month, year, ciplaRowDefaults).map(r => ({ ...r, _dirty: false })));
@@ -2829,6 +2882,7 @@ function CiplaDateEntryTab({ month, year, loadKey = 0 }: { month: number; year: 
         <Button size="sm" variant="outline" onClick={()=>importRef3.current?.click()} className="h-10 px-4 text-sm text-blue-700 border-blue-300 hover:bg-blue-50"><FileUp className="w-4 h-4 mr-1.5"/>Import Excel</Button>
         <input ref={importRef3} type="file" accept=".xlsx,.xls" className="hidden" onChange={handleImportExcel3}/>
         <Button size="sm" variant="outline" onClick={handleReset3} className="h-10 px-4 text-sm text-red-600 border-red-300 hover:bg-red-50"><RefreshCw className="w-4 h-4 mr-1.5"/>Reset</Button>
+        <Button size="sm" variant="outline" onClick={handleDeleteAll3} className="h-10 px-4 text-sm text-red-700 border-red-500 hover:bg-red-100" disabled={deleteMutation.isPending}><Trash2 className="w-4 h-4 mr-1.5"/>Delete All</Button>
       </div>
 
       {/* ── Mobile Card View ── */}
@@ -3298,6 +3352,15 @@ function HulKpfExecSnacksTab({ month, year, loadKey = 0 }: { month: number; year
     } catch (err: any) { toast({ title: 'Import Failed', description: err.message, variant: 'destructive' }); }
   };
 
+  const handleDeleteAllExec = async () => {
+    const toDelete = rows.filter(r => r.id);
+    if (!toDelete.length) { toast({ title: "Nothing to delete", description: "No saved records for this month." }); return; }
+    if (!window.confirm(`Delete all ${toDelete.length} saved records for this month? This cannot be undone.`)) return;
+    for (const row of toDelete) await deleteMutation.mutateAsync(row.id!);
+    setLocalRows(generateRows([]));
+    toast({ title: `Deleted ${toDelete.length} records` });
+  };
+
   const handleResetExec = () => {
     if (!window.confirm("Reset all entries to blank? Unsaved changes will be lost.")) return;
     setLocalRows(generateRows([]));
@@ -3401,6 +3464,9 @@ function HulKpfExecSnacksTab({ month, year, loadKey = 0 }: { month: number; year
           <input ref={importRefExec} type="file" accept=".xlsx,.xls" className="hidden" onChange={handleImportExcelExec}/>
           <Button size="sm" variant="outline" onClick={handleResetExec} className="h-9 text-red-600 border-red-300 hover:bg-red-50" data-testid="btn-exec-reset">
             <RefreshCw className="w-3.5 h-3.5 mr-1"/>Reset
+          </Button>
+          <Button size="sm" variant="outline" onClick={handleDeleteAllExec} className="h-9 text-red-700 border-red-500 hover:bg-red-100" disabled={deleteMutation.isPending} data-testid="btn-exec-delete-all">
+            <Trash2 className="w-3.5 h-3.5 mr-1"/>Delete All
           </Button>
         </div>
       </div>
@@ -4055,6 +4121,15 @@ function HulLocationTab({ month, year, location, loadKey = 0 }: { month: number;
     } catch (err: any) { toast({ title: 'Import Failed', description: err.message, variant: 'destructive' }); }
   };
 
+  const handleDeleteAllHul = async () => {
+    const toDelete = rows.filter(r => r.id);
+    if (!toDelete.length) { toast({ title: "Nothing to delete", description: "No saved records for this month." }); return; }
+    if (!window.confirm(`Delete all ${toDelete.length} saved records for this month? This cannot be undone.`)) return;
+    for (const row of toDelete) await deleteMutation.mutateAsync(row.id!);
+    setLocalRows(generateRows([]));
+    toast({ title: `Deleted ${toDelete.length} records` });
+  };
+
   const handleResetHul = () => {
     if (!window.confirm("Reset all entries to blank? Unsaved changes will be lost.")) return;
     setLocalRows(generateRows([]));
@@ -4176,6 +4251,9 @@ function HulLocationTab({ month, year, location, loadKey = 0 }: { month: number;
           <input ref={importRefHul} type="file" accept=".xlsx,.xls" className="hidden" onChange={handleImportExcelHul}/>
           <Button size="sm" variant="outline" onClick={handleResetHul} className="h-9 text-red-600 border-red-300 hover:bg-red-50" data-testid="btn-hul-reset">
             <RefreshCw className="w-3.5 h-3.5 mr-1"/>Reset
+          </Button>
+          <Button size="sm" variant="outline" onClick={handleDeleteAllHul} className="h-9 text-red-700 border-red-500 hover:bg-red-100" disabled={deleteMutation.isPending} data-testid="btn-hul-delete-all">
+            <Trash2 className="w-3.5 h-3.5 mr-1"/>Delete All
           </Button>
         </div>
       </div>
