@@ -116,7 +116,8 @@ export default function MonthlyPnlPage() {
   const salesTotal = d.salesTotal || 0;
   const cashReceived = d.cashReceived || 0;
   const giveByWahid = d.giveByWahid || 0;
-  const totalIncome = salesTotal + cashReceived + giveByWahid;
+  const onlineTotal = d.onlineTotal || 0;
+  const totalIncome = salesTotal + cashReceived + giveByWahid + onlineTotal;
 
   const purchaseTotal = d.purchaseTotal || 0;
   const salaryTotal = d.salaryTotal || 0;
@@ -360,13 +361,14 @@ export default function MonthlyPnlPage() {
                     </div>
                   </Accordion>
 
-                  {(cashReceived > 0 || giveByWahid > 0) && (
-                    <Accordion title="Daily Cash Received" total={cashReceived + giveByWahid} badge="Canteen" defaultOpen>
+                  {(cashReceived > 0 || giveByWahid > 0 || onlineTotal > 0) && (
+                    <Accordion title="Daily Cash Received" total={cashReceived + giveByWahid + onlineTotal} badge="Canteen" defaultOpen>
                       {cashReceived > 0 && <DetailRow label="Cash Received" value={cashReceived} />}
+                      {onlineTotal > 0 && <DetailRow label="Online Received" value={onlineTotal} />}
                       {giveByWahid > 0 && <DetailRow label="Given by Wahid" value={giveByWahid} />}
                       <div className="flex justify-between py-2 font-bold border-t mt-1">
-                        <span>Total Cash</span>
-                        <span>{fmtINR(cashReceived + giveByWahid)}</span>
+                        <span>Total Cash + Online</span>
+                        <span>{fmtINR(cashReceived + giveByWahid + onlineTotal)}</span>
                       </div>
                     </Accordion>
                   )}

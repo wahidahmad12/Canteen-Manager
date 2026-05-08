@@ -2791,6 +2791,25 @@ export class DatabaseStorage implements IStorage {
       JOIN daily_reports dr ON cs.report_id = dr.id
       WHERE dr.date LIKE ${likePrefix}`);
 
+    const [onlineR] = await db.execute(sql`
+      SELECT COALESCE(SUM(
+        CAST(cs.income_ps_breakfast_online_qty   AS DECIMAL(15,2)) * 5  +
+        CAST(cs.income_ps_lunch_online_qty        AS DECIMAL(15,2)) * 20 +
+        CAST(cs.income_ps_evening_online_qty      AS DECIMAL(15,2)) * 10 +
+        CAST(cs.income_ps_night_online_qty        AS DECIMAL(15,2)) * 10 +
+        CAST(cs.income_ps_recharge_online_qty     AS DECIMAL(15,2)) * CAST(COALESCE(cs.income_ps_recharge_rate, 1) AS DECIMAL(15,2)) +
+        CAST(cs.income_tp_breakfast_online_qty    AS DECIMAL(15,2)) * 20 +
+        CAST(cs.income_tp_lunch_veg_online_qty    AS DECIMAL(15,2)) * 35 +
+        CAST(cs.income_tp_lunch_egg_online_qty    AS DECIMAL(15,2)) * 45 +
+        CAST(cs.income_tp_lunch_chicken_online_qty AS DECIMAL(15,2)) * 65 +
+        CAST(cs.income_tp_lunch_fish_online_qty   AS DECIMAL(15,2)) * 55 +
+        CAST(cs.income_tp_evening_online_qty      AS DECIMAL(15,2)) * 20 +
+        CAST(cs.income_tp_night_online_qty        AS DECIMAL(15,2)) * 30
+      ), 0) as online_total
+      FROM cash_seals cs
+      JOIN daily_reports dr ON cs.report_id = dr.id
+      WHERE dr.date LIKE ${likePrefix}`);
+
     const n = (v: any) => Number(v ?? 0);
     const sr = (salesTotalR as any[])[0];
     const pr = (purchaseTotalR as any[])[0];
@@ -2798,6 +2817,7 @@ export class DatabaseStorage implements IStorage {
     const expr = (expenseTotalR as any[])[0];
     const cr = (cashR as any[])[0];
     const csr = (cashSealR as any[])[0];
+    const onr = (onlineR as any[])[0];
 
     return {
       salesTotal: n(sr?.total),
@@ -2809,6 +2829,7 @@ export class DatabaseStorage implements IStorage {
       expenseTotal: n(expr?.total),
       cashReceived: n(cr?.cash_received),
       giveByWahid: n(cr?.give_by_wahid),
+      onlineTotal: n(onr?.online_total),
       cashSealTotal: n(csr?.total),
       filteredByClients: hasClients ? clients : [],
     };
