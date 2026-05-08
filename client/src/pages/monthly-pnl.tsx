@@ -136,9 +136,8 @@ export default function MonthlyPnlPage() {
   const bananaExpense = d.bananaExpense || 0;
   const dahiBharExpense = d.dahiBharExpense || 0;
   const otherExpense = d.otherExpense || 0;
-  const cashSealTotal = d.cashSealTotal || 0;
   const totalDailyOps = expenseTotal + cashSealExpense;
-  const totalExpenses = purchaseTotal + salaryTotal + totalDailyOps + cashSealTotal;
+  const totalExpenses = purchaseTotal + salaryTotal + totalDailyOps;
 
   const netPnl = totalIncome - totalExpenses;
   const isProfit = netPnl >= 0;
@@ -465,16 +464,6 @@ export default function MonthlyPnlPage() {
                     </Accordion>
                   )}
 
-                  {cashSealTotal > 0 && (
-                    <Accordion title="Cash Seal Settlement" total={cashSealTotal} badge="Canteen">
-                      <DetailRow label="Total Given to Akbar Ali" value={cashSealTotal} />
-                      <div className="flex justify-between py-2 font-bold border-t mt-1">
-                        <span>Total Settlement</span>
-                        <span>{fmtINR(cashSealTotal)}</span>
-                      </div>
-                    </Accordion>
-                  )}
-
                   <div className="flex justify-between px-4 py-3 bg-red-50 dark:bg-red-900/20 rounded-lg font-bold text-red-700 dark:text-red-400 border border-red-200 dark:border-red-800">
                     <span>TOTAL EXPENSES</span>
                     <span>{fmtINR(totalExpenses)}</span>
@@ -515,7 +504,7 @@ export default function MonthlyPnlPage() {
                       <p>Salary %</p>
                     </div>
                     <div>
-                      <p className="font-semibold text-sm text-foreground">{pct(expenseTotal + cashSealTotal, totalExpenses)}</p>
+                      <p className="font-semibold text-sm text-foreground">{pct(totalDailyOps, totalExpenses)}</p>
                       <p>Ops %</p>
                     </div>
                   </div>
