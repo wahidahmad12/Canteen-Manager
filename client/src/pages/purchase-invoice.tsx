@@ -28,6 +28,25 @@ function QtyCalculator({ itemName, uom, current, onConfirm, onClose }: {
   const [expr, setExpr] = useState(current > 0 ? String(current) : "");
   const [justEvaled, setJustEvaled] = useState(false);
 
+  useEffect(() => {
+    const handleKey = (e: KeyboardEvent) => {
+      const k = e.key;
+      if (k >= "0" && k <= "9") { e.preventDefault(); press(k); }
+      else if (k === ".") { e.preventDefault(); press("."); }
+      else if (k === "+" ) { e.preventDefault(); press("+"); }
+      else if (k === "-" ) { e.preventDefault(); press("-"); }
+      else if (k === "*" ) { e.preventDefault(); press("×"); }
+      else if (k === "/" ) { e.preventDefault(); press("÷"); }
+      else if (k === "Enter" || k === "=") { e.preventDefault(); press("="); }
+      else if (k === "Backspace") { e.preventDefault(); press("⌫"); }
+      else if (k === "Escape") { e.preventDefault(); onClose(); }
+      else if (k === "c" || k === "C" || k === "Delete") { e.preventDefault(); press("C"); }
+    };
+    window.addEventListener("keydown", handleKey);
+    return () => window.removeEventListener("keydown", handleKey);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [expr, justEvaled]);
+
   const safeEval = (e: string): number | null => {
     try {
       const sanitized = e.replace(/×/g, "*").replace(/÷/g, "/");
