@@ -2160,7 +2160,9 @@ export async function registerRoutes(
       if (!month || !year || month < 1 || month > 12) {
         return res.status(400).json({ message: 'Invalid month or year' });
       }
-      const data = await storage.getMonthlyPnl(month, year);
+      const clientsRaw = req.query.clients as string | undefined;
+      const clients = clientsRaw ? clientsRaw.split(',').map(c => c.trim()).filter(Boolean) : [];
+      const data = await storage.getMonthlyPnl(month, year, clients.length ? clients : undefined);
       res.json(data);
     } catch (err: any) {
       res.status(500).json({ message: err.message });

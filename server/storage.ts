@@ -296,7 +296,7 @@ export interface IStorage {
   deletePecVenturesEntry(id: number): Promise<void>;
   getPecVenturesYearlySummary(year: number): Promise<any[]>;
   getPecVenturesLunchYearlySummary(year: number): Promise<{ month: number; lunchOrder: number; lunchBill: number; lunchTotal: number; dinnerOrder: number; dinnerBill: number; dinnerTotal: number }[]>;
-  getMonthlyPnl(month: number, year: number): Promise<any>;
+  getMonthlyPnl(month: number, year: number, clients?: string[]): Promise<any>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -2737,16 +2737,21 @@ export class DatabaseStorage implements IStorage {
     await db.delete(bomItems).where(eq(bomItems.id, id));
   }
 
-  async getMonthlyPnl(month: number, year: number): Promise<any> {
+  async getMonthlyPnl(month: number, year: number, clients?: string[]): Promise<any> {
     const monthStr = String(month).padStart(2, '0');
     const likePrefix = `${year}-${monthStr}%`;
 
+    const hasClients = clients && clients.length > 0;
+    const clientFilter = hasClients
+      ? sql` AND client_name IN (${sql.join(clients!.map(c => sql`${c}`), sql`, `)})`
+      : sql``;
+
     const [salesTotalR] = await db.execute(sql`
       SELECT COALESCE(SUM(CAST(total_bill_amount AS DECIMAL(15,2))), 0) as total
-      FROM sales_invoices WHERE bill_date LIKE ${likePrefix}`);
+      FROM sales_invoices WHERE bill_date LIKE ${likePrefix}${clientFilter}`);
     const [salesByClientR] = await db.execute(sql`
       SELECT client_name, COALESCE(SUM(CAST(total_bill_amount AS DECIMAL(15,2))), 0) as total
-      FROM sales_invoices WHERE bill_date LIKE ${likePrefix}
+      FROM sales_invoices WHERE bill_date LIKE ${likePrefix}${clientFilter}
       GROUP BY client_name ORDER BY total DESC`);
 
     const [purchaseTotalR] = await db.execute(sql`
@@ -2757,12 +2762,16 @@ export class DatabaseStorage implements IStorage {
       FROM purchase_invoices WHERE date LIKE ${likePrefix}
       GROUP BY vendor_name ORDER BY total DESC`);
 
+    const salaryClientFilter = hasClients
+      ? sql` AND client_name IN (${sql.join(clients!.map(c => sql`${c}`), sql`, `)})`
+      : sql``;
+
     const [salaryTotalR] = await db.execute(sql`
       SELECT COALESCE(SUM(CAST(net_pay AS DECIMAL(15,2))), 0) as total
-      FROM salary_records WHERE month = ${month} AND year = ${year}`);
+      FROM salary_records WHERE month = ${month} AND year = ${year}${salaryClientFilter}`);
     const [salaryByClientR] = await db.execute(sql`
       SELECT client_name, COALESCE(SUM(CAST(net_pay AS DECIMAL(15,2))), 0) as total
-      FROM salary_records WHERE month = ${month} AND year = ${year}
+      FROM salary_records WHERE month = ${month} AND year = ${year}${salaryClientFilter}
       GROUP BY client_name ORDER BY total DESC`);
 
     const [expenseTotalR] = await db.execute(sql`
@@ -2801,6 +2810,7 @@ export class DatabaseStorage implements IStorage {
       cashReceived: n(cr?.cash_received),
       giveByWahid: n(cr?.give_by_wahid),
       cashSealTotal: n(csr?.total),
+      filteredByClients: hasClients ? clients : [],
     };
   }
 }
