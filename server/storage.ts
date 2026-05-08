@@ -2773,6 +2773,14 @@ export class DatabaseStorage implements IStorage {
       SELECT client_name, COALESCE(SUM(CAST(net_pay AS DECIMAL(15,2))), 0) as total
       FROM salary_records WHERE month = ${month} AND year = ${year}${salaryClientFilter}
       GROUP BY client_name ORDER BY total DESC`);
+    const [salaryStatutoryR] = await db.execute(sql`
+      SELECT
+        COALESCE(SUM(CAST(pf_deduction      AS DECIMAL(15,2))), 0) AS employee_pf,
+        COALESCE(SUM(CAST(esic_deduction    AS DECIMAL(15,2))), 0) AS employee_esic,
+        COALESCE(SUM(CAST(professional_tax  AS DECIMAL(15,2))), 0) AS ptax,
+        COALESCE(SUM(CAST(lwf               AS DECIMAL(15,2))), 0) AS lwf,
+        COALESCE(SUM(CAST(gross_wage        AS DECIMAL(15,2))), 0) AS gross_wage
+      FROM salary_records WHERE month = ${month} AND year = ${year}${salaryClientFilter}`);
 
     const [expenseTotalR] = await db.execute(sql`
       SELECT COALESCE(SUM(CAST(ei.amount AS DECIMAL(15,2))), 0) as total
@@ -2849,6 +2857,7 @@ export class DatabaseStorage implements IStorage {
     const sr = (salesTotalR as any[])[0];
     const pr = (purchaseTotalR as any[])[0];
     const salr = (salaryTotalR as any[])[0];
+    const ssr = (salaryStatutoryR as any[])[0];
     const expr = (expenseTotalR as any[])[0];
     const csr = (cashSealR as any[])[0];
     const csir = (cashSealIncomeR as any[])[0];
@@ -2864,6 +2873,16 @@ export class DatabaseStorage implements IStorage {
     const otherExpense    = n(cser?.other_expense);
     const cashSealExpense = bananaExpense + dahiBharExpense + otherExpense;
 
+    const employeePF   = n(ssr?.employee_pf);
+    const employerPF   = employeePF;                                              // 12% = 12%
+    const employeeESIC = n(ssr?.employee_esic);
+    const employerESIC = Math.round((employeeESIC * (3.25 / 0.75)) * 100) / 100; // 3.25% vs 0.75%
+    const ptax         = n(ssr?.ptax);
+    const lwfTotal     = n(ssr?.lwf);
+    const grossWage    = n(ssr?.gross_wage);
+    const epfoTotal    = employeePF + employerPF;
+    const esicTotal    = employeeESIC + employerESIC;
+
     return {
       salesTotal: n(sr?.total),
       salesByClient: (salesByClientR as any[]).map(r => ({ clientName: r.client_name, total: n(r.total) })),
@@ -2871,6 +2890,10 @@ export class DatabaseStorage implements IStorage {
       purchaseByVendor: (purchaseByVendorR as any[]).map(r => ({ vendorName: r.vendor_name, total: n(r.total) })),
       salaryTotal: n(salr?.total),
       salaryByClient: (salaryByClientR as any[]).map(r => ({ clientName: r.client_name, total: n(r.total) })),
+      grossWage,
+      employeePF, employerPF, epfoTotal,
+      employeeESIC, employerESIC, esicTotal,
+      ptax, lwfTotal,
       expenseTotal: n(expr?.total),
       cashSealIncome,
       psIncome,

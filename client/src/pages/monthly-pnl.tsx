@@ -122,6 +122,15 @@ export default function MonthlyPnlPage() {
 
   const purchaseTotal = d.purchaseTotal || 0;
   const salaryTotal = d.salaryTotal || 0;
+  const grossWage = d.grossWage || 0;
+  const epfoTotal = d.epfoTotal || 0;
+  const employeePF = d.employeePF || 0;
+  const employerPF = d.employerPF || 0;
+  const esicTotal = d.esicTotal || 0;
+  const employeeESIC = d.employeeESIC || 0;
+  const employerESIC = d.employerESIC || 0;
+  const ptax = d.ptax || 0;
+  const lwfTotal = d.lwfTotal || 0;
   const expenseTotal = d.expenseTotal || 0;
   const cashSealExpense = d.cashSealExpense || 0;
   const bananaExpense = d.bananaExpense || 0;
@@ -417,8 +426,24 @@ export default function MonthlyPnlPage() {
                         <DetailRow key={i} label={c.clientName} value={c.total} sub={pct(c.total, salaryTotal)} />
                       ))
                     )}
+                    <div className="flex justify-between py-1.5 text-xs text-muted-foreground border-t mt-1 pt-2">
+                      <span>Gross Wages</span><span>{fmtINR(grossWage)}</span>
+                    </div>
+                    {(epfoTotal > 0 || esicTotal > 0 || ptax > 0 || lwfTotal > 0) && (
+                      <>
+                        <div className="px-2 pt-2 pb-0.5 text-xs font-semibold text-muted-foreground uppercase tracking-wider">Statutory Contributions</div>
+                        {epfoTotal > 0 && (
+                          <DetailRow label="EPFO (PF)" value={epfoTotal} sub={`Emp ₹${employeePF.toFixed(0)} + Empr ₹${employerPF.toFixed(0)}`} />
+                        )}
+                        {esicTotal > 0 && (
+                          <DetailRow label="ESIC" value={esicTotal} sub={`Emp ₹${employeeESIC.toFixed(0)} + Empr ₹${employerESIC.toFixed(0)}`} />
+                        )}
+                        {ptax > 0 && <DetailRow label="Professional Tax (PTax)" value={ptax} />}
+                        {lwfTotal > 0 && <DetailRow label="Labour Welfare Fund (LWF)" value={lwfTotal} />}
+                      </>
+                    )}
                     <div className="flex justify-between py-2 font-bold border-t mt-1">
-                      <span>Total Salary</span>
+                      <span>Total Net Pay</span>
                       <span>{fmtINR(salaryTotal)}</span>
                     </div>
                   </Accordion>
