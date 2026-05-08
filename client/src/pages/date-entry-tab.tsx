@@ -178,6 +178,7 @@ function UblDateEntryTab({ month, year, loadKey = 0 }: { month: number; year: nu
   };
 
   const handleSaveRow = async (row: UblRow, idx: number) => {
+    if (!row.id && !row._dirty) { toast({ title: "No changes to save" }); return; }
     try {
       const { _dirty, id, ...data } = row;
       if (id) await updateMutation.mutateAsync({ id, data });
@@ -734,6 +735,7 @@ function UblLunchEntryTab({ month, year, loadKey = 0 }: { month: number; year: n
   };
 
   const handleSaveRow = async (row: UblLunchRow, idx: number) => {
+    if (!row.id && !row._dirty) { toast({ title: "No changes to save" }); return; }
     try {
       const { _dirty, id, ...data } = row;
       if (id) await updateMutation.mutateAsync({ id, data });
@@ -1235,6 +1237,7 @@ function UnichemSnackTab({ month, year, loadKey = 0 }: { month: number; year: nu
 
   const handleSaveRow = async (idx: number) => {
     const row = rows[idx];
+    if (!row.id && !row._dirty) { toast({ title: "No changes to save" }); return; }
     try {
       const { _dirty, id, ...data } = row;
       // For Sunday rows, always latch sundayExtraSnacks from Form 2 Lunch Bill Qty
@@ -2542,6 +2545,7 @@ function CiplaDateEntryTab({ month, year, loadKey = 0 }: { month: number; year: 
   };
 
   const handleSaveRow = async (row: CiplaRow, idx: number) => {
+    if (!row.id && !row._dirty) { toast({ title: "No changes to save" }); return; }
     try {
       const { _dirty, id, ...data } = row;
       if (id) await updateMutation.mutateAsync({ id, data });
@@ -3213,8 +3217,10 @@ function HulKpfExecSnacksTab({ month, year, loadKey = 0 }: { month: number; year
   };
 
   const handleSaveRow = async (idx: number) => {
+    const row = rows[idx];
+    if (!row.id && !row._dirty) { toast({ title: 'No changes to save' }); return; }
     try {
-      await saveRow(rows[idx]);
+      await saveRow(row);
       const result = await refetch();
       setLocalRows(generateRows((result.data || []) as ExecSnackRow[]));
       toast({ title: 'Row saved' });
@@ -3908,8 +3914,10 @@ function HulLocationTab({ month, year, location, loadKey = 0 }: { month: number;
   };
 
   const handleSaveRow = async (idx: number) => {
+    const row = rows[idx];
+    if (!row.id && !row._dirty) { toast({ title: 'No changes to save' }); return; }
     try {
-      await saveRow(rows[idx]);
+      await saveRow(row);
       const result = await refetch();
       setLocalRows(generateRows((result.data || []) as HulRow[]));
       toast({ title: 'Row saved' });
