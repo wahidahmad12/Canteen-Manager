@@ -2779,7 +2779,8 @@ export class DatabaseStorage implements IStorage {
         COALESCE(SUM(CAST(esic_deduction    AS DECIMAL(15,2))), 0) AS employee_esic,
         COALESCE(SUM(CAST(professional_tax  AS DECIMAL(15,2))), 0) AS ptax,
         COALESCE(SUM(CAST(lwf               AS DECIMAL(15,2))), 0) AS lwf,
-        COALESCE(SUM(CAST(gross_wage        AS DECIMAL(15,2))), 0) AS gross_wage
+        COALESCE(SUM(CAST(gross_wage        AS DECIMAL(15,2))), 0) AS gross_wage,
+        ROUND(COALESCE(SUM(CAST(basic_wage  AS DECIMAL(15,2))), 0) * 0.0833, 2) AS bonus
       FROM salary_records WHERE month = ${month} AND year = ${year}${salaryClientFilter}`);
 
     const [expenseTotalR] = await db.execute(sql`
@@ -2880,6 +2881,7 @@ export class DatabaseStorage implements IStorage {
     const ptax         = n(ssr?.ptax);
     const lwfTotal     = n(ssr?.lwf);
     const grossWage    = n(ssr?.gross_wage);
+    const bonusAmount  = n(ssr?.bonus);
     const epfoTotal    = employeePF + employerPF;
     const esicTotal    = employeeESIC + employerESIC;
 
@@ -2893,7 +2895,7 @@ export class DatabaseStorage implements IStorage {
       grossWage,
       employeePF, employerPF, epfoTotal,
       employeeESIC, employerESIC, esicTotal,
-      ptax, lwfTotal,
+      ptax, lwfTotal, bonusAmount,
       expenseTotal: n(expr?.total),
       cashSealIncome,
       psIncome,

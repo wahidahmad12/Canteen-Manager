@@ -131,7 +131,8 @@ export default function MonthlyPnlPage() {
   const employerESIC = d.employerESIC || 0;
   const ptax = d.ptax || 0;
   const lwfTotal = d.lwfTotal || 0;
-  const statutoryTotal = epfoTotal + esicTotal + ptax + lwfTotal;
+  const bonusAmount = d.bonusAmount || 0;
+  const statutoryTotal = epfoTotal + esicTotal + ptax + lwfTotal + bonusAmount;
   const totalSalaryCost = salaryTotal + statutoryTotal;
   const expenseTotal = d.expenseTotal || 0;
   const cashSealExpense = d.cashSealExpense || 0;
@@ -441,6 +442,7 @@ export default function MonthlyPnlPage() {
                         )}
                         {ptax > 0 && <DetailRow label="Professional Tax (PTax)" value={ptax} />}
                         {lwfTotal > 0 && <DetailRow label="Labour Welfare Fund (LWF)" value={lwfTotal} />}
+                        {bonusAmount > 0 && <DetailRow label="Bonus (8.33% of Basic)" value={bonusAmount} />}
                       </>
                     )}
                     <div className="flex justify-between py-2 font-bold border-t mt-1">
