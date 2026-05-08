@@ -296,6 +296,7 @@ export interface IStorage {
   deletePecVenturesEntry(id: number): Promise<void>;
   getPecVenturesYearlySummary(year: number): Promise<any[]>;
   getPecVenturesLunchYearlySummary(year: number): Promise<{ month: number; lunchOrder: number; lunchBill: number; lunchTotal: number; dinnerOrder: number; dinnerBill: number; dinnerTotal: number }[]>;
+  getMonthlyPnl(month: number, year: number): Promise<any>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -2734,6 +2735,73 @@ export class DatabaseStorage implements IStorage {
     const { bomItems } = await import('../shared/schema');
     const { eq } = await import('drizzle-orm');
     await db.delete(bomItems).where(eq(bomItems.id, id));
+  }
+
+  async getMonthlyPnl(month: number, year: number): Promise<any> {
+    const monthStr = String(month).padStart(2, '0');
+    const likePrefix = `${year}-${monthStr}%`;
+
+    const [salesTotalR] = await db.execute(sql`
+      SELECT COALESCE(SUM(CAST(total_bill_amount AS DECIMAL(15,2))), 0) as total
+      FROM sales_invoices WHERE bill_date LIKE ${likePrefix}`);
+    const [salesByClientR] = await db.execute(sql`
+      SELECT client_name, COALESCE(SUM(CAST(total_bill_amount AS DECIMAL(15,2))), 0) as total
+      FROM sales_invoices WHERE bill_date LIKE ${likePrefix}
+      GROUP BY client_name ORDER BY total DESC`);
+
+    const [purchaseTotalR] = await db.execute(sql`
+      SELECT COALESCE(SUM(CAST(grand_total AS DECIMAL(15,2))), 0) as total
+      FROM purchase_invoices WHERE date LIKE ${likePrefix}`);
+    const [purchaseByVendorR] = await db.execute(sql`
+      SELECT vendor_name, COALESCE(SUM(CAST(grand_total AS DECIMAL(15,2))), 0) as total
+      FROM purchase_invoices WHERE date LIKE ${likePrefix}
+      GROUP BY vendor_name ORDER BY total DESC`);
+
+    const [salaryTotalR] = await db.execute(sql`
+      SELECT COALESCE(SUM(CAST(net_pay AS DECIMAL(15,2))), 0) as total
+      FROM salary_records WHERE month = ${month} AND year = ${year}`);
+    const [salaryByClientR] = await db.execute(sql`
+      SELECT client_name, COALESCE(SUM(CAST(net_pay AS DECIMAL(15,2))), 0) as total
+      FROM salary_records WHERE month = ${month} AND year = ${year}
+      GROUP BY client_name ORDER BY total DESC`);
+
+    const [expenseTotalR] = await db.execute(sql`
+      SELECT COALESCE(SUM(CAST(ei.amount AS DECIMAL(15,2))), 0) as total
+      FROM expense_items ei
+      JOIN daily_reports dr ON ei.report_id = dr.id
+      WHERE dr.date LIKE ${likePrefix}`);
+
+    const [cashR] = await db.execute(sql`
+      SELECT COALESCE(SUM(CAST(received_amount AS DECIMAL(15,2))), 0) as cash_received,
+             COALESCE(SUM(CAST(give_by_wahid AS DECIMAL(15,2))), 0) as give_by_wahid
+      FROM daily_reports WHERE date LIKE ${likePrefix}`);
+
+    const [cashSealR] = await db.execute(sql`
+      SELECT COALESCE(SUM(CAST(cs.total_given_to_akbar_ali AS DECIMAL(15,2))), 0) as total
+      FROM cash_seals cs
+      JOIN daily_reports dr ON cs.report_id = dr.id
+      WHERE dr.date LIKE ${likePrefix}`);
+
+    const n = (v: any) => Number(v ?? 0);
+    const sr = (salesTotalR as any[])[0];
+    const pr = (purchaseTotalR as any[])[0];
+    const salr = (salaryTotalR as any[])[0];
+    const expr = (expenseTotalR as any[])[0];
+    const cr = (cashR as any[])[0];
+    const csr = (cashSealR as any[])[0];
+
+    return {
+      salesTotal: n(sr?.total),
+      salesByClient: (salesByClientR as any[]).map(r => ({ clientName: r.client_name, total: n(r.total) })),
+      purchaseTotal: n(pr?.total),
+      purchaseByVendor: (purchaseByVendorR as any[]).map(r => ({ vendorName: r.vendor_name, total: n(r.total) })),
+      salaryTotal: n(salr?.total),
+      salaryByClient: (salaryByClientR as any[]).map(r => ({ clientName: r.client_name, total: n(r.total) })),
+      expenseTotal: n(expr?.total),
+      cashReceived: n(cr?.cash_received),
+      giveByWahid: n(cr?.give_by_wahid),
+      cashSealTotal: n(csr?.total),
+    };
   }
 }
 

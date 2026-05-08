@@ -86,6 +86,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
     { href: '/price-history', label: 'Price History', icon: History, perm: 'purchase' },
     { href: '/sales-invoice', label: tr('salesInvoiceLedger'), icon: FileText, perm: 'salesinvoice' },
     { href: '/daily-pnl', label: tr('dailyPnl'), icon: BarChart3, perm: null },
+    { href: '/monthly-pnl', label: tr('monthlyPnl'), icon: IndianRupee, perm: null },
   ].filter(item => item.perm === null || perms.includes(item.perm));
 
   const labourSubItems = [

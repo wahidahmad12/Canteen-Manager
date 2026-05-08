@@ -40,6 +40,7 @@ import PtaxReport from "./pages/ptax-report";
 import SalesInvoicePage from "./pages/sales-invoice";
 import SalesDashboard from "./pages/sales-dashboard";
 import DailyPnlPage from "./pages/daily-pnl";
+import MonthlyPnlPage from "./pages/monthly-pnl";
 import BomPage from "./pages/bom";
 import PriceHistoryPage from "./pages/price-history";
 import EmployeeDashboard from "./pages/employee-dashboard";
@@ -143,6 +144,7 @@ function AuthenticatedRouter() {
       <Route path="/sales-invoice" component={SalesInvoicePage} />
       <Route path="/sales-dashboard" component={SalesDashboard} />
       <Route path="/daily-pnl" component={DailyPnlPage} />
+      <Route path="/monthly-pnl" component={MonthlyPnlPage} />
       <Route path="/bom" component={BomPage} />
       <Route path="/price-history">{() => <PermRoute perm="purchase"><PriceHistoryPage /></PermRoute>}</Route>
       <Route component={NotFound} />

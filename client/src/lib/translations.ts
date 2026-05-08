@@ -12,6 +12,7 @@ const t = {
     purchaseInvoices: "Purchase Invoices",
     salesInvoiceLedger: "Sales Invoice Ledger",
     dailyPnl: "Daily P&L",
+    monthlyPnl: "Monthly P&L",
 
     // Navigation - Labour Works
     labourWorks: "Labour Works",

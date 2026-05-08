@@ -2152,6 +2152,21 @@ export async function registerRoutes(
     catch (err: any) { res.status(500).json({ message: err.message }); }
   });
 
+  // === MONTHLY P&L ===
+  app.get('/api/monthly-pnl', requireAuth, async (req, res) => {
+    try {
+      const month = parseInt(req.query.month as string);
+      const year = parseInt(req.query.year as string);
+      if (!month || !year || month < 1 || month > 12) {
+        return res.status(400).json({ message: 'Invalid month or year' });
+      }
+      const data = await storage.getMonthlyPnl(month, year);
+      res.json(data);
+    } catch (err: any) {
+      res.status(500).json({ message: err.message });
+    }
+  });
+
   return httpServer;
 }
 
