@@ -114,9 +114,7 @@ export default function MonthlyPnlPage() {
 
   const d = data || {};
   const salesTotal = d.salesTotal || 0;
-  const cashReceived = d.cashReceived || 0;
-  const giveByWahid = d.giveByWahid || 0;
-  const totalIncome = salesTotal + cashReceived + giveByWahid;
+  const totalIncome = salesTotal;
 
   const purchaseTotal = d.purchaseTotal || 0;
   const salaryTotal = d.salaryTotal || 0;
@@ -306,7 +304,7 @@ export default function MonthlyPnlPage() {
                 value={totalIncome}
                 icon={<TrendingUp className="w-8 h-8" />}
                 color="border-l-green-500"
-                sub="Sales + Cash"
+                sub="Sales Invoices"
               />
               <SummaryCard
                 title="Total Expenses"
@@ -359,17 +357,6 @@ export default function MonthlyPnlPage() {
                       <span>{fmtINR(salesTotal)}</span>
                     </div>
                   </Accordion>
-
-                  {(cashReceived > 0 || giveByWahid > 0) && (
-                    <Accordion title="Daily Cash Received" total={cashReceived + giveByWahid} badge="Canteen">
-                      <DetailRow label="Cash Received" value={cashReceived} />
-                      <DetailRow label="Given by Wahid" value={giveByWahid} />
-                      <div className="flex justify-between py-2 font-bold border-t mt-1">
-                        <span>Total Cash</span>
-                        <span>{fmtINR(cashReceived + giveByWahid)}</span>
-                      </div>
-                    </Accordion>
-                  )}
 
                   <div className="flex justify-between px-4 py-3 bg-green-50 dark:bg-green-900/20 rounded-lg font-bold text-green-700 dark:text-green-400 border border-green-200 dark:border-green-800">
                     <span>TOTAL INCOME</span>
