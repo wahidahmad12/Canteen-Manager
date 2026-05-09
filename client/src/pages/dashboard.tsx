@@ -82,6 +82,8 @@ export default function Dashboard() {
   const updatePurchaseMutation = useUpdatePurchaseRequest();
   const deleteInvoiceMutation = useDeletePurchaseInvoice();
   const [vendorSearch, setVendorSearch] = useState("");
+  const [reportMonth, setReportMonth] = useState<string>(String(new Date().getMonth() + 1));
+  const [reportYear, setReportYear] = useState<string>(String(new Date().getFullYear()));
   const { toast } = useToast();
 
   const renumberDjMutation = useMutation({
@@ -169,9 +171,15 @@ export default function Dashboard() {
     );
   }
 
-  const sortedReports = reports ? [...reports].sort((a, b) => 
-    new Date(b.date).getTime() - new Date(a.date).getTime()
-  ) : [];
+  const sortedReports = reports ? [...reports]
+    .filter((r: any) => {
+      const d = new Date(r.date);
+      const mMatch = !reportMonth || reportMonth === "all" || (d.getMonth() + 1) === Number(reportMonth);
+      const yMatch = !reportYear || d.getFullYear() === Number(reportYear);
+      return mMatch && yMatch;
+    })
+    .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
+  : [];
 
   const sortedInventories = inventories ? [...inventories].sort((a, b) =>
     new Date(b.date).getTime() - new Date(a.date).getTime()
@@ -470,6 +478,30 @@ export default function Dashboard() {
                       <span className="text-sm font-normal bg-white/20 px-2.5 py-0.5 rounded-full">{sortedReports.length}</span>
                     </span>
                   </CardTitle>
+                  {/* Month / Year filter */}
+                  <div className="flex items-center gap-2 mt-2">
+                    <select
+                      value={reportMonth}
+                      onChange={e => setReportMonth(e.target.value)}
+                      className="flex-1 h-8 rounded-lg bg-white/15 border border-white/25 text-white text-xs px-2 focus:outline-none focus:ring-1 focus:ring-white/50"
+                      data-testid="select-report-month"
+                    >
+                      <option value="all" className="text-black">All Months</option>
+                      {["January","February","March","April","May","June","July","August","September","October","November","December"].map((m, i) => (
+                        <option key={i+1} value={String(i+1)} className="text-black">{m}</option>
+                      ))}
+                    </select>
+                    <select
+                      value={reportYear}
+                      onChange={e => setReportYear(e.target.value)}
+                      className="w-24 h-8 rounded-lg bg-white/15 border border-white/25 text-white text-xs px-2 focus:outline-none focus:ring-1 focus:ring-white/50"
+                      data-testid="select-report-year"
+                    >
+                      {Array.from({ length: 5 }, (_, i) => new Date().getFullYear() - 2 + i).map(y => (
+                        <option key={y} value={String(y)} className="text-black">{y}</option>
+                      ))}
+                    </select>
+                  </div>
                 </CardHeader>
                 <CardContent className="p-0">
                   {/* Mobile cards */}
