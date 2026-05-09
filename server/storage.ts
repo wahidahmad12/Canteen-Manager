@@ -178,6 +178,7 @@ export interface IStorage {
   deleteItemMasterItem(id: number): Promise<void>;
   syncItemMasterRates(): Promise<{ updated: number; skipped: number; noMatch: number; details: Array<{ name: string; oldRate: string; newRate: string; source: string }> }>;
   getPriceHistory(itemSearch: string, from?: string, to?: string): Promise<{ id: number; date: string; djInvoiceNo: string | null; vendorName: string; clientName: string; itemName: string; uom: string; qty: number; unitPrice: number; gstRate: number; totalPrice: number }[]>;
+  renumberDjInvoiceNos(): Promise<{ updated: number }>;
   getEmployees(clientName?: string): Promise<Employee[]>;
   getEmployee(id: number): Promise<Employee | undefined>;
   createEmployee(data: any): Promise<Employee>;
@@ -1108,6 +1109,18 @@ export class DatabaseStorage implements IStorage {
     const items = await db.select().from(purchaseInvoiceItems).where(eq(purchaseInvoiceItems.invoiceId, id));
     const payments = await db.select().from(purchaseInvoicePayments).where(eq(purchaseInvoicePayments.invoiceId, id)).orderBy(purchaseInvoicePayments.paymentDate);
     return { ...inv, items, payments };
+  }
+
+  async renumberDjInvoiceNos(): Promise<{ updated: number }> {
+    const [rows] = await db.execute(sql`SELECT id FROM purchase_invoices ORDER BY id ASC`) as any;
+    const allRows = Array.isArray(rows) ? rows : [];
+    let updated = 0;
+    for (let i = 0; i < allRows.length; i++) {
+      const newNo = 'DJ' + String(i + 1).padStart(3, '0');
+      await db.execute(sql`UPDATE purchase_invoices SET dj_invoice_no = ${newNo} WHERE id = ${allRows[i].id}`);
+      updated++;
+    }
+    return { updated };
   }
 
   async getNextDjInvoiceNo(): Promise<string> {

@@ -686,6 +686,15 @@ export async function registerRoutes(
     res.status(204).send();
   });
 
+  app.post('/api/purchase-invoices/renumber-dj', requireAdmin, async (req, res) => {
+    try {
+      const result = await storage.renumberDjInvoiceNos();
+      res.json(result);
+    } catch (e: any) {
+      res.status(500).json({ message: e.message });
+    }
+  });
+
   app.get(api.purchaseInvoices.getPayments.path, requirePermission('purchase'), async (req, res) => {
     const payments = await storage.getPurchaseInvoicePayments(Number(req.params.id));
     res.json(payments);

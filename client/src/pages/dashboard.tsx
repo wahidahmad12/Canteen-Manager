@@ -1,5 +1,8 @@
 import { Link } from "wouter";
 import { useMemo, useState } from "react";
+import { useMutation } from "@tanstack/react-query";
+import { apiRequest, queryClient } from "@/lib/queryClient";
+import { useToast } from "@/hooks/use-toast";
 import { Plus, Loader2, FileText, ArrowRight, Calculator, ClipboardList, UtensilsCrossed, ShoppingCart, Trash2, Check, CheckCircle2, FileDown, Pencil, Receipt, BarChart3, IndianRupee, TrendingUp, TrendingDown, Wallet, CreditCard, DollarSign, Store, FileSpreadsheet, Search, X } from "lucide-react";
 import { useReports, useDeleteReport, useInventories, useCashSeals, useSavedMenus, useDeleteSavedMenu, usePurchaseRequests, useDeletePurchaseRequest, useUpdatePurchaseRequest, useCurrentUser, usePurchaseInvoices, useDeletePurchaseInvoice } from "@/hooks/use-reports";
 import { format } from "date-fns";
@@ -79,6 +82,17 @@ export default function Dashboard() {
   const updatePurchaseMutation = useUpdatePurchaseRequest();
   const deleteInvoiceMutation = useDeletePurchaseInvoice();
   const [vendorSearch, setVendorSearch] = useState("");
+  const { toast } = useToast();
+
+  const renumberDjMutation = useMutation({
+    mutationFn: () => apiRequest("POST", "/api/purchase-invoices/renumber-dj"),
+    onSuccess: async (res: any) => {
+      const data = await res.json();
+      await queryClient.invalidateQueries({ queryKey: ["/api/purchase-invoices"] });
+      toast({ title: "DJ Numbers Updated", description: `${data.updated} invoice(s) renumbered sequentially.` });
+    },
+    onError: () => toast({ title: "Error", description: "Failed to renumber DJ numbers.", variant: "destructive" }),
+  });
 
   const tabItems = [
     { value: 'reports', label: 'Reports', icon: FileText, perm: 'expense' },
@@ -1092,6 +1106,30 @@ export default function Dashboard() {
                     <Receipt className="w-5 h-5" />
                     Purchase Invoices
                     <span className="ml-auto flex items-center gap-2">
+                      {isAdmin && (
+                        <AlertDialog>
+                          <AlertDialogTrigger asChild>
+                            <Button size="sm" variant="ghost" className="h-7 text-white/90 hover:text-white hover:bg-white/20 text-xs gap-1" data-testid="button-renumber-dj" disabled={renumberDjMutation.isPending}>
+                              {renumberDjMutation.isPending ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <FileSpreadsheet className="w-3.5 h-3.5" />}
+                              Update DJ No.
+                            </Button>
+                          </AlertDialogTrigger>
+                          <AlertDialogContent>
+                            <AlertDialogHeader>
+                              <AlertDialogTitle>Update all DJ Numbers?</AlertDialogTitle>
+                              <AlertDialogDescription>
+                                This will re-sequence all Purchase Invoice DJ numbers starting from DJ001 in order of creation (oldest first). This cannot be undone.
+                              </AlertDialogDescription>
+                            </AlertDialogHeader>
+                            <AlertDialogFooter>
+                              <AlertDialogCancel>Cancel</AlertDialogCancel>
+                              <AlertDialogAction onClick={() => renumberDjMutation.mutate()} className="bg-rose-600 hover:bg-rose-700 text-white">
+                                Yes, Update
+                              </AlertDialogAction>
+                            </AlertDialogFooter>
+                          </AlertDialogContent>
+                        </AlertDialog>
+                      )}
                       <Link href="/purchase-invoice">
                         <Button size="sm" variant="ghost" className="h-7 text-white/90 hover:text-white hover:bg-white/20 text-xs gap-1" data-testid="button-new-purchase-invoice">
                           <Plus className="w-3.5 h-3.5" /> New Invoice
