@@ -1,6 +1,6 @@
 import { Link } from "wouter";
-import { useMemo } from "react";
-import { Plus, Loader2, FileText, ArrowRight, Calculator, ClipboardList, UtensilsCrossed, ShoppingCart, Trash2, Check, CheckCircle2, FileDown, Pencil, Receipt, BarChart3, IndianRupee, TrendingUp, TrendingDown, Wallet, CreditCard, DollarSign, Store, FileSpreadsheet } from "lucide-react";
+import { useMemo, useState } from "react";
+import { Plus, Loader2, FileText, ArrowRight, Calculator, ClipboardList, UtensilsCrossed, ShoppingCart, Trash2, Check, CheckCircle2, FileDown, Pencil, Receipt, BarChart3, IndianRupee, TrendingUp, TrendingDown, Wallet, CreditCard, DollarSign, Store, FileSpreadsheet, Search, X } from "lucide-react";
 import { useReports, useDeleteReport, useInventories, useCashSeals, useSavedMenus, useDeleteSavedMenu, usePurchaseRequests, useDeletePurchaseRequest, useUpdatePurchaseRequest, useCurrentUser, usePurchaseInvoices, useDeletePurchaseInvoice } from "@/hooks/use-reports";
 import { format } from "date-fns";
 import { Layout } from "@/components/layout";
@@ -18,6 +18,7 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Input } from "@/components/ui/input";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend, PieChart, Pie, Cell } from "recharts";
 
 const CHART_COLORS = ["#6366f1", "#f43f5e", "#10b981", "#f59e0b", "#8b5cf6", "#06b6d4", "#ec4899", "#14b8a6"];
@@ -77,6 +78,7 @@ export default function Dashboard() {
   const deletePurchaseMutation = useDeletePurchaseRequest();
   const updatePurchaseMutation = useUpdatePurchaseRequest();
   const deleteInvoiceMutation = useDeletePurchaseInvoice();
+  const [vendorSearch, setVendorSearch] = useState("");
 
   const tabItems = [
     { value: 'reports', label: 'Reports', icon: FileText, perm: 'expense' },
@@ -1098,11 +1100,28 @@ export default function Dashboard() {
                       <span className="text-sm font-normal bg-white/20 px-2.5 py-0.5 rounded-full">{purchaseInvoices.length}</span>
                     </span>
                   </CardTitle>
+                  {/* Vendor search bar */}
+                  <div className="relative mt-2">
+                    <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-white/60 pointer-events-none" />
+                    <input
+                      type="text"
+                      value={vendorSearch}
+                      onChange={e => setVendorSearch(e.target.value)}
+                      placeholder="Search vendor…"
+                      className="w-full h-8 pl-8 pr-7 rounded-lg bg-white/15 border border-white/25 text-white placeholder:text-white/50 text-xs focus:outline-none focus:ring-1 focus:ring-white/50"
+                      data-testid="input-vendor-search"
+                    />
+                    {vendorSearch && (
+                      <button onClick={() => setVendorSearch("")} className="absolute right-2 top-1/2 -translate-y-1/2 text-white/60 hover:text-white">
+                        <X className="w-3.5 h-3.5" />
+                      </button>
+                    )}
+                  </div>
                 </CardHeader>
                 <CardContent className="p-0">
                   {/* Mobile cards */}
                   <div className="sm:hidden divide-y">
-                    {purchaseInvoices.map((inv: any) => (
+                    {purchaseInvoices.filter((inv: any) => !vendorSearch || inv.vendorName?.toLowerCase().includes(vendorSearch.toLowerCase())).map((inv: any) => (
                       <div key={inv.id} className="p-3 flex flex-col gap-2" data-testid={`mobile-card-invoice-${inv.id}`}>
                         <div className="flex items-center justify-between gap-2">
                           <div className="flex items-center gap-2.5 min-w-0">
@@ -1157,7 +1176,7 @@ export default function Dashboard() {
                         </tr>
                       </thead>
                       <tbody>
-                        {purchaseInvoices.map((inv: any) => {
+                        {purchaseInvoices.filter((inv: any) => !vendorSearch || inv.vendorName?.toLowerCase().includes(vendorSearch.toLowerCase())).map((inv: any) => {
                           const totalPaid = (inv.payments || []).reduce((s: number, p: any) => s + Number(p.amount), 0);
                           const grandTotal = Number(inv.grandTotal);
                           const balance = grandTotal - totalPaid;
