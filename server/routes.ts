@@ -661,6 +661,9 @@ export async function registerRoutes(
       if (err instanceof z.ZodError) {
         return res.status(400).json({ message: err.errors[0].message, field: err.errors[0].path.join('.') });
       }
+      if (err instanceof Error && err.message.includes('already exists')) {
+        return res.status(409).json({ message: err.message });
+      }
       throw err;
     }
   });
@@ -676,6 +679,9 @@ export async function registerRoutes(
       }
       if (err instanceof Error && err.message === "Purchase invoice not found") {
         return res.status(404).json({ message: "Purchase invoice not found" });
+      }
+      if (err instanceof Error && err.message.includes('already exists')) {
+        return res.status(409).json({ message: err.message });
       }
       throw err;
     }

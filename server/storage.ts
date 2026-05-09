@@ -1124,15 +1124,21 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getNextDjInvoiceNo(): Promise<string> {
-    const [row] = await db.execute(sql`SELECT dj_invoice_no FROM purchase_invoices WHERE dj_invoice_no IS NOT NULL ORDER BY id DESC LIMIT 1`) as any;
+    // Use MAX of numeric part so we never produce a duplicate regardless of ordering
+    const [row] = await db.execute(sql`SELECT MAX(CAST(REGEXP_REPLACE(dj_invoice_no, '[^0-9]', '') AS UNSIGNED)) AS maxNum FROM purchase_invoices WHERE dj_invoice_no IS NOT NULL`) as any;
     const rows = Array.isArray(row) ? row : [];
-    if (rows.length === 0) return 'DJ001';
-    const last = rows[0]?.dj_invoice_no || 'DJ000';
-    const num = parseInt(last.replace(/\D/g, ''), 10) || 0;
-    return 'DJ' + String(num + 1).padStart(3, '0');
+    const maxNum = Number(rows[0]?.maxNum) || 0;
+    return 'DJ' + String(maxNum + 1).padStart(3, '0');
   }
 
   async createPurchaseInvoice(data: { purchaseRequestId?: number | null; allPrIds?: number[]; clientName: string; vendorName: string; vendorInvoiceNo: string; date: string; paymentGiven?: boolean; djInvoiceNo?: string; createdBy?: string; items: { itemName: string; uom: string; qty: number; unitPrice: number; totalPrice: number; gstRate: number; gstAmount: number; netAmount: number }[] }): Promise<PurchaseInvoiceWithItems> {
+    // Block duplicate DJ invoice numbers
+    if (data.djInvoiceNo) {
+      const [dupRows] = await db.execute(sql`SELECT id FROM purchase_invoices WHERE dj_invoice_no = ${data.djInvoiceNo} LIMIT 1`) as any;
+      if (Array.isArray(dupRows) && dupRows.length > 0) {
+        throw new Error(`DJ Invoice No "${data.djInvoiceNo}" already exists. Use a different number.`);
+      }
+    }
     const result = await db.transaction(async (tx) => {
       const totalAmount = data.items.reduce((sum, i) => sum + i.totalPrice, 0);
       const totalGst = data.items.reduce((sum, i) => sum + i.gstAmount, 0);
@@ -1179,6 +1185,13 @@ export class DatabaseStorage implements IStorage {
   }
 
   async updatePurchaseInvoice(id: number, data: { purchaseRequestId?: number | null; clientName?: string; vendorName?: string; vendorInvoiceNo?: string; date?: string; paymentGiven?: boolean; djInvoiceNo?: string; items?: { id?: number; itemName: string; uom: string; qty: number; unitPrice: number; totalPrice: number; gstRate: number; gstAmount: number; netAmount: number }[] }): Promise<PurchaseInvoiceWithItems> {
+    // Block duplicate DJ invoice numbers (allow same invoice to keep its own number)
+    if (data.djInvoiceNo) {
+      const [dupRows] = await db.execute(sql`SELECT id FROM purchase_invoices WHERE dj_invoice_no = ${data.djInvoiceNo} AND id != ${id} LIMIT 1`) as any;
+      if (Array.isArray(dupRows) && dupRows.length > 0) {
+        throw new Error(`DJ Invoice No "${data.djInvoiceNo}" already exists. Use a different number.`);
+      }
+    }
     return await db.transaction(async (tx) => {
       const updateFields: any = {};
       if (data.clientName) updateFields.clientName = data.clientName;
