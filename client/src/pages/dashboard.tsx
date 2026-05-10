@@ -503,6 +503,49 @@ export default function Dashboard() {
                     </select>
                   </div>
                 </CardHeader>
+
+                {/* Monthly totals summary strip */}
+                {(() => {
+                  const totals = sortedReports.reduce((acc: any, r: any) => {
+                    const opening = Number(r.openingBalance) || 0;
+                    const received = Number(r.receivedAmount) || 0;
+                    const wahid = Number(r.giveByWahid) || 0;
+                    const cash = opening + received + wahid;
+                    const expense = r.items?.reduce((s: number, i: any) => s + (Number(i.amount) || 0), 0) || 0;
+                    acc.opening += opening;
+                    acc.received += received;
+                    acc.wahid += wahid;
+                    acc.cash += cash;
+                    acc.expense += expense;
+                    acc.balance += (cash - expense);
+                    return acc;
+                  }, { opening: 0, received: 0, wahid: 0, cash: 0, expense: 0, balance: 0 });
+
+                  return sortedReports.length > 0 ? (
+                    <div className="bg-indigo-50 dark:bg-indigo-950/30 border-b border-indigo-200 dark:border-indigo-800/50 px-3 py-2.5">
+                      <div className="flex items-center gap-1.5 mb-1.5">
+                        <span className="text-[10px] font-bold uppercase tracking-wider text-indigo-600 dark:text-indigo-400">Monthly Total</span>
+                        <span className="text-[10px] text-muted-foreground">({sortedReports.length} reports)</span>
+                      </div>
+                      <div className="grid grid-cols-3 sm:grid-cols-6 gap-2">
+                        {[
+                          { label: "Opening", value: totals.opening, color: "text-slate-600" },
+                          { label: "Received", value: totals.received, color: "text-emerald-600" },
+                          { label: "By Wahid", value: totals.wahid, color: "text-orange-600" },
+                          { label: "Total Cash", value: totals.cash, color: "text-indigo-700 font-bold" },
+                          { label: "Expense", value: totals.expense, color: "text-rose-600 font-bold" },
+                          { label: "Balance", value: totals.balance, color: totals.balance >= 0 ? "text-emerald-700 font-bold" : "text-red-600 font-bold" },
+                        ].map(({ label, value, color }) => (
+                          <div key={label} className="bg-white dark:bg-slate-800/60 rounded-lg px-2 py-1.5 text-center shadow-sm">
+                            <div className="text-[9px] text-muted-foreground uppercase tracking-wide mb-0.5">{label}</div>
+                            <div className={`font-mono text-xs ${color}`}>{fmt(value)}</div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  ) : null;
+                })()}
+
                 <CardContent className="p-0">
                   {/* Mobile cards */}
                   <div className="sm:hidden divide-y">
