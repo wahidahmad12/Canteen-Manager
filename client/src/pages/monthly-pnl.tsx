@@ -143,7 +143,15 @@ export default function MonthlyPnlPage() {
   const totalDailyOps = expenseTotal + cashSealExpense;
   const totalExpenses = purchaseTotal + totalSalaryCost + totalDailyOps;
 
-  const netPnl = totalIncome - totalExpenses;
+  const HUL_CLIENT = "Hindustan Unilever Limited";
+  const showHulSections = selectedClients.length === 0 || selectedClients.includes(HUL_CLIENT);
+
+  // Exclude HUL canteen from totals when HUL is not in scope
+  const effectiveCashSealIncome = showHulSections ? cashSealIncome : 0;
+  const effectiveTotalDailyOps  = showHulSections ? totalDailyOps  : 0;
+  const effectiveTotalIncome    = salesTotal + effectiveCashSealIncome;
+  const effectiveTotalExpenses  = purchaseTotal + totalSalaryCost + effectiveTotalDailyOps;
+  const netPnl = effectiveTotalIncome - effectiveTotalExpenses;
   const isProfit = netPnl >= 0;
 
   const monthLabel = `${MONTHS[month-1]} ${year}`;
@@ -299,7 +307,7 @@ export default function MonthlyPnlPage() {
         {selectedClients.length > 0 && (
           <div className="mb-4 flex items-center gap-2 px-3 py-2 rounded-lg bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-800 text-xs text-blue-700 dark:text-blue-300">
             <Building2 className="w-3.5 h-3.5 flex-shrink-0" />
-            <span>Filtering Sales, Salary &amp; Purchase Invoices by: <strong>{selectedClients.join(', ')}</strong>. Daily Expenses &amp; Cash Seal (HUL Canteen) show all data.</span>
+            <span>Filtering Sales, Salary &amp; Purchase Invoices by: <strong>{selectedClients.join(', ')}</strong>.{!showHulSections && " HUL Canteen sections (Cash Seal KPF & Daily Ops) are hidden for non-HUL clients."}</span>
             <button className="ml-auto text-blue-400 hover:text-blue-600" onClick={() => setSelectedClients([])}>
               <X className="w-3.5 h-3.5" />
             </button>
@@ -322,17 +330,17 @@ export default function MonthlyPnlPage() {
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
               <SummaryCard
                 title="Total Income"
-                value={totalIncome}
+                value={effectiveTotalIncome}
                 icon={<TrendingUp className="w-8 h-8" />}
                 color="border-l-green-500"
-                sub="Sales + Cash Seal KPF"
+                sub={showHulSections ? "Sales + Cash Seal KPF" : "Sales Only"}
               />
               <SummaryCard
                 title="Total Expenses"
-                value={totalExpenses}
+                value={effectiveTotalExpenses}
                 icon={<TrendingDown className="w-8 h-8" />}
                 color="border-l-red-500"
-                sub="Purchase + Salary + Ops"
+                sub={showHulSections ? "Purchase + Salary + Ops" : "Purchase + Salary"}
               />
               <Card className={`border-l-4 ${isProfit ? 'border-l-emerald-600' : 'border-l-rose-600'}`}>
                 <CardContent className="pt-4 pb-3 px-4">
@@ -361,7 +369,7 @@ export default function MonthlyPnlPage() {
                 <CardHeader className="pb-2 pt-4">
                   <CardTitle className="text-base flex items-center gap-2 text-green-700 dark:text-green-400">
                     <TrendingUp className="w-4 h-4" /> Income
-                    <span className="ml-auto font-bold">{fmtINR(totalIncome)}</span>
+                    <span className="ml-auto font-bold">{fmtINR(effectiveTotalIncome)}</span>
                   </CardTitle>
                 </CardHeader>
                 <CardContent className="pb-4 space-y-2">
@@ -379,7 +387,7 @@ export default function MonthlyPnlPage() {
                     </div>
                   </Accordion>
 
-                  {cashSealIncome > 0 && (
+                  {showHulSections && cashSealIncome > 0 && (
                     <Accordion title="Daily Cash Seal KPF" total={cashSealIncome} badge="HUL Canteen" defaultOpen>
                       {psIncome > 0 && <DetailRow label="PS Income" value={psIncome} sub={pct(psIncome, cashSealIncome)} />}
                       {tpIncome > 0 && <DetailRow label="TP Income" value={tpIncome} sub={pct(tpIncome, cashSealIncome)} />}
@@ -393,7 +401,7 @@ export default function MonthlyPnlPage() {
 
                   <div className="flex justify-between px-4 py-3 bg-green-50 dark:bg-green-900/20 rounded-lg font-bold text-green-700 dark:text-green-400 border border-green-200 dark:border-green-800">
                     <span>TOTAL INCOME</span>
-                    <span>{fmtINR(totalIncome)}</span>
+                    <span>{fmtINR(effectiveTotalIncome)}</span>
                   </div>
                 </CardContent>
               </Card>
@@ -403,7 +411,7 @@ export default function MonthlyPnlPage() {
                 <CardHeader className="pb-2 pt-4">
                   <CardTitle className="text-base flex items-center gap-2 text-red-700 dark:text-red-400">
                     <TrendingDown className="w-4 h-4" /> Expenses
-                    <span className="ml-auto font-bold">{fmtINR(totalExpenses)}</span>
+                    <span className="ml-auto font-bold">{fmtINR(effectiveTotalExpenses)}</span>
                   </CardTitle>
                 </CardHeader>
                 <CardContent className="pb-4 space-y-2">
@@ -470,7 +478,7 @@ export default function MonthlyPnlPage() {
                     </div>
                   </Accordion>
 
-                  {totalDailyOps > 0 && (
+                  {showHulSections && totalDailyOps > 0 && (
                     <Accordion title="Daily Operational Expenses" total={totalDailyOps} badge="HUL Canteen ops">
                       {expenseTotal > 0 && <DetailRow label="Expense items (vegetables, fixed)" value={expenseTotal} sub={pct(expenseTotal, totalDailyOps)} />}
                       {cashSealExpense > 0 && <>
@@ -489,7 +497,7 @@ export default function MonthlyPnlPage() {
 
                   <div className="flex justify-between px-4 py-3 bg-red-50 dark:bg-red-900/20 rounded-lg font-bold text-red-700 dark:text-red-400 border border-red-200 dark:border-red-800">
                     <span>TOTAL EXPENSES</span>
-                    <span>{fmtINR(totalExpenses)}</span>
+                    <span>{fmtINR(effectiveTotalExpenses)}</span>
                   </div>
                 </CardContent>
               </Card>
@@ -501,11 +509,11 @@ export default function MonthlyPnlPage() {
                     <tbody>
                       <tr className="border-b">
                         <td className="py-2 text-green-700 dark:text-green-400 font-semibold">Total Income</td>
-                        <td className="py-2 text-right font-bold text-green-700 dark:text-green-400">{fmtINR(totalIncome)}</td>
+                        <td className="py-2 text-right font-bold text-green-700 dark:text-green-400">{fmtINR(effectiveTotalIncome)}</td>
                       </tr>
                       <tr className="border-b">
                         <td className="py-2 text-red-700 dark:text-red-400 font-semibold">Total Expenses</td>
-                        <td className="py-2 text-right font-bold text-red-700 dark:text-red-400">({fmtINR(totalExpenses)})</td>
+                        <td className="py-2 text-right font-bold text-red-700 dark:text-red-400">({fmtINR(effectiveTotalExpenses)})</td>
                       </tr>
                       <tr>
                         <td className={`py-3 text-lg font-bold ${isProfit ? 'text-emerald-700 dark:text-emerald-400' : 'text-rose-700 dark:text-rose-400'}`}>
@@ -517,19 +525,21 @@ export default function MonthlyPnlPage() {
                       </tr>
                     </tbody>
                   </table>
-                  <div className="mt-3 grid grid-cols-3 gap-3 pt-3 border-t text-center text-xs text-muted-foreground">
+                  <div className={`mt-3 grid gap-3 pt-3 border-t text-center text-xs text-muted-foreground ${showHulSections ? 'grid-cols-3' : 'grid-cols-2'}`}>
                     <div>
-                      <p className="font-semibold text-sm text-foreground">{pct(purchaseTotal, totalExpenses)}</p>
+                      <p className="font-semibold text-sm text-foreground">{pct(purchaseTotal, effectiveTotalExpenses)}</p>
                       <p>Purchase %</p>
                     </div>
                     <div>
-                      <p className="font-semibold text-sm text-foreground">{pct(totalSalaryCost, totalExpenses)}</p>
+                      <p className="font-semibold text-sm text-foreground">{pct(totalSalaryCost, effectiveTotalExpenses)}</p>
                       <p>Salary %</p>
                     </div>
-                    <div>
-                      <p className="font-semibold text-sm text-foreground">{pct(totalDailyOps, totalExpenses)}</p>
-                      <p>Ops %</p>
-                    </div>
+                    {showHulSections && (
+                      <div>
+                        <p className="font-semibold text-sm text-foreground">{pct(effectiveTotalDailyOps, effectiveTotalExpenses)}</p>
+                        <p>Ops %</p>
+                      </div>
+                    )}
                   </div>
                 </CardContent>
               </Card>
