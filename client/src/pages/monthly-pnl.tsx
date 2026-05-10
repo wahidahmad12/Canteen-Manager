@@ -1,11 +1,11 @@
 import { useState, useRef, useEffect } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueries } from "@tanstack/react-query";
 import { Layout } from "@/components/layout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
-import { Loader2, TrendingUp, TrendingDown, IndianRupee, Printer, ChevronDown, ChevronRight, BarChart3, Building2, Check, X } from "lucide-react";
+import { Loader2, TrendingUp, TrendingDown, IndianRupee, Printer, ChevronDown, ChevronRight, BarChart3, Building2, Check, X, CalendarDays, Calendar } from "lucide-react";
 
 const MONTHS = ["January","February","March","April","May","June","July","August","September","October","November","December"];
 const now = new Date();
@@ -74,11 +74,13 @@ function DetailRow({ label, value, sub }: { label: string; value: number; sub?: 
 
 export default function MonthlyPnlPage() {
   const printRef = useRef<HTMLDivElement>(null);
+  const annualPrintRef = useRef<HTMLDivElement>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
   const [month, setMonth] = useState(now.getMonth() + 1);
   const [year, setYear] = useState(now.getFullYear());
   const [selectedClients, setSelectedClients] = useState<string[]>([]);
   const [clientDropdownOpen, setClientDropdownOpen] = useState(false);
+  const [viewMode, setViewMode] = useState<"monthly" | "annual">("monthly");
 
   const years = Array.from({ length: 5 }, (_, i) => now.getFullYear() - 2 + i);
 
@@ -111,6 +113,66 @@ export default function MonthlyPnlPage() {
     queryFn: () => fetch(`/api/monthly-pnl?month=${month}&year=${year}${clientsParam}`, { credentials: 'include' }).then(r => r.json()),
     enabled: !!month && !!year,
   });
+
+  // Annual view — fetch all 12 months in parallel
+  const annualResults = useQueries({
+    queries: MONTHS.map((_, i) => ({
+      queryKey: ['/api/monthly-pnl', i + 1, year, selectedClients.join(',')],
+      queryFn: () => fetch(`/api/monthly-pnl?month=${i + 1}&year=${year}${clientsParam}`, { credentials: 'include' }).then(r => r.json()),
+      enabled: viewMode === 'annual',
+    })),
+  });
+  const annualLoading = annualResults.some(r => r.isLoading);
+
+  function calcTotals(d: any) {
+    const HUL_CLIENT = "Hindustan Unilever Limited";
+    const showHul = selectedClients.length === 0 || selectedClients.includes(HUL_CLIENT);
+    const salesTotal = Number(d?.salesTotal || 0);
+    const cashSealIncome = showHul ? Number(d?.cashSealIncome || 0) : 0;
+    const income = salesTotal + cashSealIncome;
+    const purchaseTotal = Number(d?.purchaseTotal || 0);
+    const salaryTotal = Number(d?.salaryTotal || 0);
+    const epfoTotal = Number(d?.epfoTotal || 0);
+    const esicTotal = Number(d?.esicTotal || 0);
+    const ptax = Number(d?.ptax || 0);
+    const lwfTotal = Number(d?.lwfTotal || 0);
+    const bonusAmount = Number(d?.bonusAmount || 0);
+    const totalSalaryCost = salaryTotal + epfoTotal + esicTotal + ptax + lwfTotal + bonusAmount;
+    const expenseTotal = Number(d?.expenseTotal || 0);
+    const cashSealExpense = showHul ? Number(d?.cashSealExpense || 0) : 0;
+    const totalDailyOps = showHul ? (expenseTotal + cashSealExpense) : 0;
+    const expenses = purchaseTotal + totalSalaryCost + totalDailyOps;
+    return { income, expenses, net: income - expenses, salesTotal, purchaseTotal, totalSalaryCost, totalDailyOps };
+  }
+
+  const annualRows = annualResults.map((r, i) => ({ month: i + 1, label: MONTHS[i].slice(0, 3), ...calcTotals(r.data) }));
+  const annualTotals = annualRows.reduce(
+    (acc, r) => ({ income: acc.income + r.income, expenses: acc.expenses + r.expenses, net: acc.net + r.net }),
+    { income: 0, expenses: 0, net: 0 }
+  );
+
+  const handleAnnualPrint = () => {
+    const content = annualPrintRef.current?.innerHTML;
+    if (!content) return;
+    const win = window.open('', '_blank');
+    if (!win) return;
+    win.document.write(`<!DOCTYPE html><html><head><title>Annual P&L – ${year}</title>
+    <style>
+      body { font-family: Arial, sans-serif; font-size: 12px; margin: 20px; color: #000; }
+      h1 { text-align: center; font-size: 16px; margin-bottom: 4px; }
+      h2 { text-align: center; font-size: 13px; color: #555; margin-bottom: 16px; }
+      table { width: 100%; border-collapse: collapse; }
+      th { background: #1e293b; color: #fff; padding: 6px 8px; text-align: left; font-size: 11px; }
+      td { padding: 5px 8px; border-bottom: 1px solid #e2e8f0; }
+      .right { text-align: right; }
+      .profit { color: #16a34a; font-weight: bold; }
+      .loss { color: #dc2626; font-weight: bold; }
+      .total-row td { font-weight: bold; background: #f1f5f9; font-size: 13px; }
+      @media print { body { margin: 10px; } }
+    </style></head><body>${content}</body></html>`);
+    win.document.close();
+    setTimeout(() => { win.print(); win.close(); }, 400);
+  };
 
   const d = data || {};
   const salesTotal = d.salesTotal || 0;
@@ -297,7 +359,25 @@ export default function MonthlyPnlPage() {
               </div>
             )}
 
-            <Button size="sm" variant="outline" onClick={handlePrint} className="h-9 gap-1">
+            {/* View mode toggle */}
+            <div className="flex rounded-lg border overflow-hidden h-9">
+              <button
+                className={`px-3 text-xs flex items-center gap-1.5 transition-colors ${viewMode === 'monthly' ? 'bg-primary text-primary-foreground' : 'bg-background text-muted-foreground hover:bg-muted'}`}
+                onClick={() => setViewMode('monthly')}
+                data-testid="button-view-monthly"
+              >
+                <Calendar className="w-3.5 h-3.5" /> Monthly
+              </button>
+              <button
+                className={`px-3 text-xs flex items-center gap-1.5 border-l transition-colors ${viewMode === 'annual' ? 'bg-primary text-primary-foreground' : 'bg-background text-muted-foreground hover:bg-muted'}`}
+                onClick={() => setViewMode('annual')}
+                data-testid="button-view-annual"
+              >
+                <CalendarDays className="w-3.5 h-3.5" /> Annual
+              </button>
+            </div>
+
+            <Button size="sm" variant="outline" onClick={viewMode === 'annual' ? handleAnnualPrint : handlePrint} className="h-9 gap-1">
               <Printer className="w-4 h-4" /> Print
             </Button>
           </div>
