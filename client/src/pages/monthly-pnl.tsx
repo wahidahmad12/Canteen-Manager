@@ -394,17 +394,104 @@ export default function MonthlyPnlPage() {
           </div>
         )}
 
-        {isLoading && (
+        {/* ── ANNUAL VIEW ─────────────────────────────────────────── */}
+        {viewMode === 'annual' && (
+          <>
+            {annualLoading && (
+              <div className="flex justify-center py-16">
+                <Loader2 className="w-8 h-8 animate-spin text-muted-foreground" />
+              </div>
+            )}
+            {!annualLoading && (
+              <>
+                {/* Annual summary cards */}
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
+                  <SummaryCard title="Annual Income" value={annualTotals.income} icon={<TrendingUp className="w-8 h-8" />} color="border-l-green-500" sub={`Year ${year}`} />
+                  <SummaryCard title="Annual Expenses" value={annualTotals.expenses} icon={<TrendingDown className="w-8 h-8" />} color="border-l-red-500" sub={`Year ${year}`} />
+                  <Card className={`border-l-4 ${annualTotals.net >= 0 ? 'border-l-emerald-600' : 'border-l-rose-600'}`}>
+                    <CardContent className="pt-4 pb-3 px-4">
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <p className="text-xs text-muted-foreground font-medium uppercase tracking-wide">Net {annualTotals.net >= 0 ? 'Profit' : 'Loss'}</p>
+                          <p className={`text-xl font-bold mt-0.5 ${annualTotals.net >= 0 ? 'text-emerald-600' : 'text-rose-600'}`}>{fmtINR(Math.abs(annualTotals.net))}</p>
+                          <p className="text-xs text-muted-foreground mt-0.5">Jan – Dec {year}</p>
+                        </div>
+                        <IndianRupee className={`w-8 h-8 opacity-50 ${annualTotals.net >= 0 ? 'text-emerald-600' : 'text-rose-600'}`} />
+                      </div>
+                    </CardContent>
+                  </Card>
+                </div>
+
+                {/* Annual table */}
+                <div ref={annualPrintRef}>
+                  <div style={{ display: 'none' }}>
+                    <h1>DJ Hospitality &amp; Facility Management</h1>
+                    <h2>Annual Profit &amp; Loss Statement — {year}</h2>
+                    {selectedClients.length > 0 && <h3>Clients: {selectedClients.join(', ')}</h3>}
+                  </div>
+                  <Card>
+                    <CardHeader className="pb-2 pt-4">
+                      <CardTitle className="text-base flex items-center gap-2">
+                        <CalendarDays className="w-4 h-4" /> Annual P&amp;L — {year}
+                        {selectedClients.length > 0 && <span className="text-xs font-normal text-muted-foreground ml-1">· {selectedClients.length} client{selectedClients.length !== 1 ? 's' : ''}</span>}
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent className="p-0 overflow-x-auto">
+                      <table className="w-full text-sm">
+                        <thead>
+                          <tr className="bg-slate-50 dark:bg-slate-900/50 border-b">
+                            <th className="px-4 py-2.5 text-left text-xs font-semibold text-muted-foreground">Month</th>
+                            <th className="px-4 py-2.5 text-right text-xs font-semibold text-green-700 dark:text-green-400">Income</th>
+                            <th className="px-4 py-2.5 text-right text-xs font-semibold text-red-700 dark:text-red-400">Expenses</th>
+                            <th className="px-4 py-2.5 text-right text-xs font-semibold text-muted-foreground">Net P&amp;L</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {annualRows.map((row) => {
+                            const isP = row.net >= 0;
+                            return (
+                              <tr key={row.month} className="border-b last:border-0 hover:bg-muted/30 transition-colors">
+                                <td className="px-4 py-2.5 font-medium">{MONTHS[row.month - 1]}</td>
+                                <td className="px-4 py-2.5 text-right font-mono text-sm text-green-700 dark:text-green-400">{row.income > 0 ? fmtINR(row.income) : <span className="text-muted-foreground text-xs">—</span>}</td>
+                                <td className="px-4 py-2.5 text-right font-mono text-sm text-red-700 dark:text-red-400">{row.expenses > 0 ? fmtINR(row.expenses) : <span className="text-muted-foreground text-xs">—</span>}</td>
+                                <td className={`px-4 py-2.5 text-right font-mono text-sm font-semibold ${isP ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-400'}`}>
+                                  {row.income === 0 && row.expenses === 0 ? <span className="text-muted-foreground text-xs font-normal">—</span> : `${isP ? '+' : '-'}${fmtINR(Math.abs(row.net))}`}
+                                </td>
+                              </tr>
+                            );
+                          })}
+                        </tbody>
+                        <tfoot>
+                          <tr className="bg-slate-100 dark:bg-slate-800/60 border-t-2 font-bold">
+                            <td className="px-4 py-3 text-sm">Total {year}</td>
+                            <td className="px-4 py-3 text-right font-mono text-sm text-green-700 dark:text-green-400">{fmtINR(annualTotals.income)}</td>
+                            <td className="px-4 py-3 text-right font-mono text-sm text-red-700 dark:text-red-400">{fmtINR(annualTotals.expenses)}</td>
+                            <td className={`px-4 py-3 text-right font-mono text-sm ${annualTotals.net >= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-400'}`}>
+                              {annualTotals.net >= 0 ? '+' : '-'}{fmtINR(Math.abs(annualTotals.net))}
+                            </td>
+                          </tr>
+                        </tfoot>
+                      </table>
+                    </CardContent>
+                  </Card>
+                </div>
+              </>
+            )}
+          </>
+        )}
+
+        {/* ── MONTHLY VIEW ────────────────────────────────────────── */}
+        {viewMode === 'monthly' && isLoading && (
           <div className="flex justify-center py-16">
             <Loader2 className="w-8 h-8 animate-spin text-muted-foreground" />
           </div>
         )}
 
-        {isError && (
+        {viewMode === 'monthly' && isError && (
           <div className="text-center py-16 text-destructive">Failed to load P&L data. Please try again.</div>
         )}
 
-        {!isLoading && !isError && data && (
+        {viewMode === 'monthly' && !isLoading && !isError && data && (
           <>
             {/* Summary Cards */}
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
@@ -639,7 +726,7 @@ export default function MonthlyPnlPage() {
           </>
         )}
 
-        {!isLoading && !isError && !data && (
+        {viewMode === 'monthly' && !isLoading && !isError && !data && (
           <div className="text-center py-16 text-muted-foreground">Select a month and year to view the P&L.</div>
         )}
       </div>
