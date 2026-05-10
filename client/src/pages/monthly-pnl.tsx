@@ -373,19 +373,31 @@ export default function MonthlyPnlPage() {
                   </CardTitle>
                 </CardHeader>
                 <CardContent className="pb-4 space-y-2">
-                  <Accordion title="Sales Invoices" total={salesTotal} badge={`${(d.salesByClient || []).length} clients`} defaultOpen>
-                    {(d.salesByClient || []).length === 0 ? (
-                      <p className="text-muted-foreground py-2 text-xs">No sales invoices for this period.</p>
-                    ) : (
-                      (d.salesByClient || []).map((c: any, i: number) => (
-                        <DetailRow key={i} label={c.clientName} value={c.total} sub={pct(c.total, salesTotal)} />
-                      ))
-                    )}
-                    <div className="flex justify-between py-2 font-bold border-t mt-1">
-                      <span>Total Sales</span>
-                      <span>{fmtINR(salesTotal)}</span>
-                    </div>
-                  </Accordion>
+                  {(() => {
+                    const apiClients: any[] = d.salesByClient || [];
+                    const apiNames = new Set(apiClients.map((c: any) => c.clientName));
+                    // Add selected clients that have no sales (₹0)
+                    const zeroClients = selectedClients
+                      .filter(name => !apiNames.has(name))
+                      .map(name => ({ clientName: name, total: 0 }));
+                    const displayClients = [...apiClients, ...zeroClients];
+                    const badgeCount = selectedClients.length > 0 ? selectedClients.length : apiClients.length;
+                    return (
+                      <Accordion title="Sales Invoices" total={salesTotal} badge={`${badgeCount} client${badgeCount !== 1 ? 's' : ''}`} defaultOpen>
+                        {displayClients.length === 0 ? (
+                          <p className="text-muted-foreground py-2 text-xs">No sales invoices for this period.</p>
+                        ) : (
+                          displayClients.map((c: any, i: number) => (
+                            <DetailRow key={i} label={c.clientName} value={c.total} sub={salesTotal > 0 ? pct(c.total, salesTotal) : "₹0"} />
+                          ))
+                        )}
+                        <div className="flex justify-between py-2 font-bold border-t mt-1">
+                          <span>Total Sales</span>
+                          <span>{fmtINR(salesTotal)}</span>
+                        </div>
+                      </Accordion>
+                    );
+                  })()}
 
                   {showHulSections && cashSealIncome > 0 && (
                     <Accordion title="Daily Cash Seal KPF" total={cashSealIncome} badge="HUL Canteen" defaultOpen>
