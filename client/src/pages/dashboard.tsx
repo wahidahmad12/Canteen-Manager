@@ -82,6 +82,7 @@ export default function Dashboard() {
   const updatePurchaseMutation = useUpdatePurchaseRequest();
   const deleteInvoiceMutation = useDeletePurchaseInvoice();
   const [vendorSearch, setVendorSearch] = useState("");
+  const [invoiceClientFilter, setInvoiceClientFilter] = useState("");
   const [reportMonth, setReportMonth] = useState<string>(String(new Date().getMonth() + 1));
   const [reportYear, setReportYear] = useState<string>(String(new Date().getFullYear()));
   const [sealMonth, setSealMonth] = useState<string>(String(new Date().getMonth() + 1));
@@ -1279,28 +1280,41 @@ export default function Dashboard() {
                       <span className="text-sm font-normal bg-white/20 px-2.5 py-0.5 rounded-full">{purchaseInvoices.length}</span>
                     </span>
                   </CardTitle>
-                  {/* Vendor search bar */}
-                  <div className="relative mt-2">
-                    <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-white/60 pointer-events-none" />
-                    <input
-                      type="text"
-                      value={vendorSearch}
-                      onChange={e => setVendorSearch(e.target.value)}
-                      placeholder="Search vendor…"
-                      className="w-full h-8 pl-8 pr-7 rounded-lg bg-white/15 border border-white/25 text-white placeholder:text-white/50 text-xs focus:outline-none focus:ring-1 focus:ring-white/50"
-                      data-testid="input-vendor-search"
-                    />
-                    {vendorSearch && (
-                      <button onClick={() => setVendorSearch("")} className="absolute right-2 top-1/2 -translate-y-1/2 text-white/60 hover:text-white">
-                        <X className="w-3.5 h-3.5" />
-                      </button>
-                    )}
+                  {/* Vendor search + Client filter */}
+                  <div className="flex gap-2 mt-2">
+                    <div className="relative flex-1">
+                      <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-white/60 pointer-events-none" />
+                      <input
+                        type="text"
+                        value={vendorSearch}
+                        onChange={e => setVendorSearch(e.target.value)}
+                        placeholder="Search vendor…"
+                        className="w-full h-8 pl-8 pr-7 rounded-lg bg-white/15 border border-white/25 text-white placeholder:text-white/50 text-xs focus:outline-none focus:ring-1 focus:ring-white/50"
+                        data-testid="input-vendor-search"
+                      />
+                      {vendorSearch && (
+                        <button onClick={() => setVendorSearch("")} className="absolute right-2 top-1/2 -translate-y-1/2 text-white/60 hover:text-white">
+                          <X className="w-3.5 h-3.5" />
+                        </button>
+                      )}
+                    </div>
+                    <select
+                      value={invoiceClientFilter}
+                      onChange={e => setInvoiceClientFilter(e.target.value)}
+                      className="h-8 px-2 rounded-lg bg-white/15 border border-white/25 text-white text-xs focus:outline-none focus:ring-1 focus:ring-white/50 min-w-[130px]"
+                      data-testid="select-invoice-client-filter"
+                    >
+                      <option value="" className="text-black bg-white">All Clients</option>
+                      {Array.from(new Set((purchaseInvoices || []).map((inv: any) => inv.clientName).filter(Boolean))).sort().map((name: any) => (
+                        <option key={name} value={name} className="text-black bg-white">{name}</option>
+                      ))}
+                    </select>
                   </div>
                 </CardHeader>
                 <CardContent className="p-0">
                   {/* Mobile cards */}
                   <div className="sm:hidden divide-y">
-                    {purchaseInvoices.filter((inv: any) => !vendorSearch || inv.vendorName?.toLowerCase().includes(vendorSearch.toLowerCase())).map((inv: any) => (
+                    {purchaseInvoices.filter((inv: any) => (!vendorSearch || inv.vendorName?.toLowerCase().includes(vendorSearch.toLowerCase())) && (!invoiceClientFilter || inv.clientName === invoiceClientFilter)).map((inv: any) => (
                       <div key={inv.id} className="p-3 flex flex-col gap-2" data-testid={`mobile-card-invoice-${inv.id}`}>
                         <div className="flex items-center justify-between gap-2">
                           <div className="flex items-center gap-2.5 min-w-0">
@@ -1355,7 +1369,7 @@ export default function Dashboard() {
                         </tr>
                       </thead>
                       <tbody>
-                        {purchaseInvoices.filter((inv: any) => !vendorSearch || inv.vendorName?.toLowerCase().includes(vendorSearch.toLowerCase())).map((inv: any) => {
+                        {purchaseInvoices.filter((inv: any) => (!vendorSearch || inv.vendorName?.toLowerCase().includes(vendorSearch.toLowerCase())) && (!invoiceClientFilter || inv.clientName === invoiceClientFilter)).map((inv: any) => {
                           const totalPaid = (inv.payments || []).reduce((s: number, p: any) => s + Number(p.amount), 0);
                           const grandTotal = Number(inv.grandTotal);
                           const balance = grandTotal - totalPaid;
