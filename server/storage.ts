@@ -2777,10 +2777,10 @@ export class DatabaseStorage implements IStorage {
       : sql``;
 
     const [salesTotalR] = await db.execute(sql`
-      SELECT COALESCE(SUM(CAST(total_bill_amount AS DECIMAL(15,2))), 0) as total
+      SELECT COALESCE(SUM(CAST(bill_amount AS DECIMAL(15,2))), 0) as total
       FROM sales_invoices WHERE bill_date LIKE ${likePrefix}${clientFilter}`);
     const [salesByClientR] = await db.execute(sql`
-      SELECT client_name, COALESCE(SUM(CAST(total_bill_amount AS DECIMAL(15,2))), 0) as total
+      SELECT client_name, COALESCE(SUM(CAST(bill_amount AS DECIMAL(15,2))), 0) as total
       FROM sales_invoices WHERE bill_date LIKE ${likePrefix}${clientFilter}
       GROUP BY client_name ORDER BY total DESC`);
 
