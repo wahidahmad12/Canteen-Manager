@@ -121,6 +121,7 @@ export default function MonthlyPnlPage() {
   const totalIncome = salesTotal + cashSealIncome;
 
   const purchaseTotal = d.purchaseTotal || 0;
+  const purchaseByClient: any[] = d.purchaseByClient || [];
   const salaryTotal = d.salaryTotal || 0;
   const grossWage = d.grossWage || 0;
   const epfoTotal = d.epfoTotal || 0;
@@ -298,7 +299,7 @@ export default function MonthlyPnlPage() {
         {selectedClients.length > 0 && (
           <div className="mb-4 flex items-center gap-2 px-3 py-2 rounded-lg bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-800 text-xs text-blue-700 dark:text-blue-300">
             <Building2 className="w-3.5 h-3.5 flex-shrink-0" />
-            <span>Filtering Sales &amp; Salary by: <strong>{selectedClients.join(', ')}</strong>. Purchase Invoices, Daily Expenses &amp; Cash Seal show all clients.</span>
+            <span>Filtering Sales, Salary &amp; Purchase Invoices by: <strong>{selectedClients.join(', ')}</strong>. Daily Expenses &amp; Cash Seal (HUL Canteen) show all data.</span>
             <button className="ml-auto text-blue-400 hover:text-blue-600" onClick={() => setSelectedClients([])}>
               <X className="w-3.5 h-3.5" />
             </button>
@@ -379,7 +380,7 @@ export default function MonthlyPnlPage() {
                   </Accordion>
 
                   {cashSealIncome > 0 && (
-                    <Accordion title="Daily Cash Seal KPF" total={cashSealIncome} badge="Canteen" defaultOpen>
+                    <Accordion title="Daily Cash Seal KPF" total={cashSealIncome} badge="HUL Canteen" defaultOpen>
                       {psIncome > 0 && <DetailRow label="PS Income" value={psIncome} sub={pct(psIncome, cashSealIncome)} />}
                       {tpIncome > 0 && <DetailRow label="TP Income" value={tpIncome} sub={pct(tpIncome, cashSealIncome)} />}
                       {legacyIncome > 0 && <DetailRow label="Other Income" value={legacyIncome} sub={pct(legacyIncome, cashSealIncome)} />}
@@ -406,13 +407,31 @@ export default function MonthlyPnlPage() {
                   </CardTitle>
                 </CardHeader>
                 <CardContent className="pb-4 space-y-2">
-                  <Accordion title="Purchase Invoices" total={purchaseTotal} badge={`${(d.purchaseByVendor || []).length} vendors`} defaultOpen>
+                  <Accordion
+                    title="Purchase Invoices"
+                    total={purchaseTotal}
+                    badge={selectedClients.length > 0 ? `${purchaseByClient.length} clients` : `${(d.purchaseByVendor || []).length} vendors`}
+                    defaultOpen
+                  >
                     {(d.purchaseByVendor || []).length === 0 ? (
                       <p className="text-muted-foreground py-2 text-xs">No purchase invoices for this period.</p>
                     ) : (
-                      (d.purchaseByVendor || []).map((v: any, i: number) => (
-                        <DetailRow key={i} label={v.vendorName || 'Unknown Vendor'} value={v.total} sub={pct(v.total, purchaseTotal)} />
-                      ))
+                      <>
+                        {/* Client breakdown (always shown) */}
+                        {purchaseByClient.length > 0 && (
+                          <>
+                            <div className="px-2 pt-2 pb-0.5 text-xs font-semibold text-muted-foreground uppercase tracking-wider">By Client</div>
+                            {purchaseByClient.map((c: any, i: number) => (
+                              <DetailRow key={i} label={c.clientName || 'Unknown Client'} value={c.total} sub={pct(c.total, purchaseTotal)} />
+                            ))}
+                          </>
+                        )}
+                        {/* Vendor breakdown */}
+                        <div className="px-2 pt-2 pb-0.5 text-xs font-semibold text-muted-foreground uppercase tracking-wider">By Vendor</div>
+                        {(d.purchaseByVendor || []).map((v: any, i: number) => (
+                          <DetailRow key={i} label={v.vendorName || 'Unknown Vendor'} value={v.total} sub={pct(v.total, purchaseTotal)} />
+                        ))}
+                      </>
                     )}
                     <div className="flex justify-between py-2 font-bold border-t mt-1">
                       <span>Total Purchases</span>
@@ -452,7 +471,7 @@ export default function MonthlyPnlPage() {
                   </Accordion>
 
                   {totalDailyOps > 0 && (
-                    <Accordion title="Daily Operational Expenses" total={totalDailyOps} badge="Canteen ops">
+                    <Accordion title="Daily Operational Expenses" total={totalDailyOps} badge="HUL Canteen ops">
                       {expenseTotal > 0 && <DetailRow label="Expense items (vegetables, fixed)" value={expenseTotal} sub={pct(expenseTotal, totalDailyOps)} />}
                       {cashSealExpense > 0 && <>
                         <div className="px-2 pt-2 pb-0.5 text-xs font-semibold text-muted-foreground uppercase tracking-wider">Cash Seal KPF Expenses</div>

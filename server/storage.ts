@@ -2784,13 +2784,21 @@ export class DatabaseStorage implements IStorage {
       FROM sales_invoices WHERE bill_date LIKE ${likePrefix}${clientFilter}
       GROUP BY client_name ORDER BY total DESC`);
 
+    const purchaseClientFilter = hasClients
+      ? sql` AND client_name IN (${sql.join(clients!.map(c => sql`${c}`), sql`, `)})`
+      : sql``;
+
     const [purchaseTotalR] = await db.execute(sql`
       SELECT COALESCE(SUM(CAST(grand_total AS DECIMAL(15,2))), 0) as total
-      FROM purchase_invoices WHERE date LIKE ${likePrefix}`);
+      FROM purchase_invoices WHERE date LIKE ${likePrefix}${purchaseClientFilter}`);
     const [purchaseByVendorR] = await db.execute(sql`
       SELECT vendor_name, COALESCE(SUM(CAST(grand_total AS DECIMAL(15,2))), 0) as total
-      FROM purchase_invoices WHERE date LIKE ${likePrefix}
+      FROM purchase_invoices WHERE date LIKE ${likePrefix}${purchaseClientFilter}
       GROUP BY vendor_name ORDER BY total DESC`);
+    const [purchaseByClientR] = await db.execute(sql`
+      SELECT client_name, COALESCE(SUM(CAST(grand_total AS DECIMAL(15,2))), 0) as total
+      FROM purchase_invoices WHERE date LIKE ${likePrefix}${purchaseClientFilter}
+      GROUP BY client_name ORDER BY total DESC`);
 
     const salaryClientFilter = hasClients
       ? sql` AND client_name IN (${sql.join(clients!.map(c => sql`${c}`), sql`, `)})`
@@ -2920,6 +2928,7 @@ export class DatabaseStorage implements IStorage {
       salesByClient: (salesByClientR as any[]).map(r => ({ clientName: r.client_name, total: n(r.total) })),
       purchaseTotal: n(pr?.total),
       purchaseByVendor: (purchaseByVendorR as any[]).map(r => ({ vendorName: r.vendor_name, total: n(r.total) })),
+      purchaseByClient: (purchaseByClientR as any[]).map(r => ({ clientName: r.client_name, total: n(r.total) })),
       salaryTotal: n(salr?.total),
       salaryByClient: (salaryByClientR as any[]).map(r => ({ clientName: r.client_name, total: n(r.total) })),
       grossWage,
