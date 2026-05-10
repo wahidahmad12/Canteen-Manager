@@ -145,6 +145,11 @@ interface InvoiceItem {
 const UOM_OPTIONS = ["Kg", "Gm", "Ltr", "Ml", "Pcs", "Pkt", "Box", "Dz", "Nos", "Bag", "Tin", "Cyl", "Plats", "Cup", "Set"];
 const GST_RATES = [0, 5, 12, 18, 28];
 
+function parseLinkedClients(raw: string | null | undefined): string[] {
+  if (!raw) return [];
+  try { return JSON.parse(raw); } catch { return []; }
+}
+
 export default function PurchaseInvoice() {
   const [, editParams] = useRoute("/purchase-invoice/:id/edit");
   const editId = editParams?.id ? Number(editParams.id) : null;
@@ -222,8 +227,23 @@ export default function PurchaseInvoice() {
     });
   };
 
+  // Filter vendors by selected client — vendors with no linked clients always show
+  const filteredVendors = (vendorsList || []).filter((v: any) => {
+    const linked = parseLinkedClients(v.linkedClients);
+    if (linked.length === 0) return true;
+    if (!clientName) return true;
+    return linked.includes(clientName);
+  });
+
   const allApprovedPRs = (purchaseRequests || []).filter((pr: any) => pr.status === 'approved');
   const approvedPRs = allApprovedPRs.filter((pr: any) => !pr.invoiced);
+
+  // Clear vendor if it's not valid for the newly selected client
+  useEffect(() => {
+    if (!vendorName) return;
+    const isStillValid = filteredVendors.some((v: any) => v.name === vendorName);
+    if (!isStillValid) setVendorName("");
+  }, [clientName]);
 
   // Auto-fill DJ Invoice No for new invoices
   useEffect(() => {
@@ -549,7 +569,7 @@ export default function PurchaseInvoice() {
                     <Select value={vendorName} onValueChange={setVendorName}>
                       <SelectTrigger data-testid="select-vendor"><SelectValue placeholder="Select vendor" /></SelectTrigger>
                       <SelectContent>
-                        {(vendorsList || []).map((v: any) => (
+                        {filteredVendors.map((v: any) => (
                           <SelectItem key={v.id} value={v.name}>{v.name}</SelectItem>
                         ))}
                       </SelectContent>
