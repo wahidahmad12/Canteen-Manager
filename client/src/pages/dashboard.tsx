@@ -84,6 +84,8 @@ export default function Dashboard() {
   const [vendorSearch, setVendorSearch] = useState("");
   const [reportMonth, setReportMonth] = useState<string>(String(new Date().getMonth() + 1));
   const [reportYear, setReportYear] = useState<string>(String(new Date().getFullYear()));
+  const [sealMonth, setSealMonth] = useState<string>(String(new Date().getMonth() + 1));
+  const [sealYear, setSealYear] = useState<string>(String(new Date().getFullYear()));
   const { toast } = useToast();
 
   const renumberDjMutation = useMutation({
@@ -184,6 +186,16 @@ export default function Dashboard() {
   const sortedInventories = inventories ? [...inventories].sort((a, b) =>
     new Date(b.date).getTime() - new Date(a.date).getTime()
   ) : [];
+
+  const filteredCashSeals = cashSeals ? [...cashSeals]
+    .filter((s: any) => {
+      const d = new Date(s.date);
+      const mMatch = !sealMonth || sealMonth === "all" || (d.getMonth() + 1) === Number(sealMonth);
+      const yMatch = !sealYear || d.getFullYear() === Number(sealYear);
+      return mMatch && yMatch;
+    })
+    .sort((a: any, b: any) => new Date(b.date).getTime() - new Date(a.date).getTime())
+  : [];
 
   const handleExportReportsExcel = async () => {
     if (!sortedReports.length) return;
@@ -691,13 +703,67 @@ export default function Dashboard() {
                   <CardTitle className="flex items-center gap-2 text-base">
                     <Calculator className="w-5 h-5" />
                     Daily Cash Seal Records
-                    <span className="ml-auto text-sm font-normal bg-white/20 px-2.5 py-0.5 rounded-full">{cashSeals.length}</span>
+                    <span className="ml-auto text-sm font-normal bg-white/20 px-2.5 py-0.5 rounded-full">{filteredCashSeals.length}</span>
                   </CardTitle>
+                  {/* Month / Year filter */}
+                  <div className="flex items-center gap-2 mt-2">
+                    <select value={sealMonth} onChange={e => setSealMonth(e.target.value)} className="flex-1 h-8 rounded-lg bg-white/15 border border-white/25 text-white text-xs px-2 focus:outline-none focus:ring-1 focus:ring-white/50" data-testid="select-seal-month">
+                      <option value="all" className="text-black">All Months</option>
+                      {["January","February","March","April","May","June","July","August","September","October","November","December"].map((m, i) => (
+                        <option key={i+1} value={String(i+1)} className="text-black">{m}</option>
+                      ))}
+                    </select>
+                    <select value={sealYear} onChange={e => setSealYear(e.target.value)} className="w-24 h-8 rounded-lg bg-white/15 border border-white/25 text-white text-xs px-2 focus:outline-none focus:ring-1 focus:ring-white/50" data-testid="select-seal-year">
+                      {Array.from({ length: 5 }, (_, i) => new Date().getFullYear() - 2 + i).map(y => (
+                        <option key={y} value={String(y)} className="text-black">{y}</option>
+                      ))}
+                    </select>
+                  </div>
                 </CardHeader>
+
+                {/* Monthly totals strip */}
+                {(() => {
+                  const n = (v: any) => Number(v) || 0;
+                  const totals = filteredCashSeals.reduce((acc: any, seal: any) => {
+                    const psIncome = n(seal.incomePsBreakfastCashQty)*5 + n(seal.incomePsLunchCashQty)*20 + n(seal.incomePsEveningCashQty)*10 + n(seal.incomePsNightCashQty)*10 + n(seal.incomePsRechargeRate)*n(seal.incomePsRechargeCashQty) + n(seal.incomePsBreakfastOnlineQty)*5 + n(seal.incomePsLunchOnlineQty)*20 + n(seal.incomePsEveningOnlineQty)*10 + n(seal.incomePsNightOnlineQty)*10 + n(seal.incomePsRechargeRate)*n(seal.incomePsRechargeOnlineQty);
+                    const tpIncome = n(seal.incomeTpBreakfastCashQty)*20 + n(seal.incomeTpLunchVegCashQty)*35 + n(seal.incomeTpLunchNvRate)*n(seal.incomeTpLunchNvCashQty) + n(seal.incomeTpEveningCashQty)*20 + n(seal.incomeTpNightCashQty)*20 + n(seal.incomeTpBreakfastOnlineQty)*20 + n(seal.incomeTpLunchVegOnlineQty)*35 + n(seal.incomeTpLunchNvRate)*n(seal.incomeTpLunchNvOnlineQty) + n(seal.incomeTpEveningOnlineQty)*20 + n(seal.incomeTpNightOnlineQty)*20;
+                    const legacyIncome = n(seal.incomeMorningQty)*5 + n(seal.incomeLunchQty)*20 + n(seal.incomeEveningQty)*10 + n(seal.incomeNightQty)*10 + n(seal.incomeNonVegRate)*n(seal.incomeNonVegQty) + n(seal.incomeVegRate)*n(seal.incomeVegQty) + n(seal.incomeMorningCashRate)*n(seal.incomeMorningCashQty) + n(seal.incomeEveningCashRate)*n(seal.incomeEveningCashQty) + n(seal.incomeOnlineBreakfastQty)*5 + n(seal.incomeOnlineLunchQty)*20 + n(seal.incomeOnlineEveningSnacksQty)*10 + n(seal.incomeOnlineNightQty)*10;
+                    const income = psIncome + tpIncome + legacyIncome;
+                    const expense = (n(seal.expenseBananaQty) * 4.5) + (n(seal.expenseDahiBharQty) * n(seal.expenseDahiBharRate)) + n(seal.expenseOtherAmount);
+                    acc.income += income;
+                    acc.expense += expense;
+                    acc.balance += (income - expense);
+                    acc.akbarAli += n(seal.totalGivenToAkbarAli);
+                    return acc;
+                  }, { income: 0, expense: 0, balance: 0, akbarAli: 0 });
+
+                  return filteredCashSeals.length > 0 ? (
+                    <div className="bg-teal-50 dark:bg-teal-950/30 border-b border-teal-200 dark:border-teal-800/50 px-3 py-2.5">
+                      <div className="flex items-center gap-1.5 mb-1.5">
+                        <span className="text-[10px] font-bold uppercase tracking-wider text-teal-600 dark:text-teal-400">Monthly Total</span>
+                        <span className="text-[10px] text-muted-foreground">({filteredCashSeals.length} records)</span>
+                      </div>
+                      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                        {[
+                          { label: "Total Income",  value: totals.income,   color: "text-emerald-700 font-bold" },
+                          { label: "Total Expense", value: totals.expense,  color: "text-rose-600 font-bold" },
+                          { label: "Balance",       value: totals.balance,  color: totals.balance >= 0 ? "text-blue-700 font-bold" : "text-red-600 font-bold" },
+                          { label: "Akbar Ali",     value: totals.akbarAli, color: "text-orange-600 font-bold" },
+                        ].map(({ label, value, color }) => (
+                          <div key={label} className="bg-white dark:bg-slate-800/60 rounded-lg px-2 py-1.5 text-center shadow-sm">
+                            <div className="text-[9px] text-muted-foreground uppercase tracking-wide mb-0.5">{label}</div>
+                            <div className={`font-mono text-xs ${color}`}>{fmt(value)}</div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  ) : null;
+                })()}
+
                 <CardContent className="p-0">
                   {/* Mobile cards */}
                   <div className="sm:hidden divide-y">
-                    {cashSeals.map((seal: any) => {
+                    {filteredCashSeals.map((seal: any) => {
                       const n = (v: any) => Number(v) || 0;
                       const psIncome = n(seal.incomePsBreakfastCashQty)*5 + n(seal.incomePsLunchCashQty)*20 + n(seal.incomePsEveningCashQty)*10 + n(seal.incomePsNightCashQty)*10 + n(seal.incomePsRechargeRate)*n(seal.incomePsRechargeCashQty) + n(seal.incomePsBreakfastOnlineQty)*5 + n(seal.incomePsLunchOnlineQty)*20 + n(seal.incomePsEveningOnlineQty)*10 + n(seal.incomePsNightOnlineQty)*10 + n(seal.incomePsRechargeRate)*n(seal.incomePsRechargeOnlineQty);
                       const tpIncome = n(seal.incomeTpBreakfastCashQty)*20 + n(seal.incomeTpLunchVegCashQty)*35 + n(seal.incomeTpLunchNvRate)*n(seal.incomeTpLunchNvCashQty) + n(seal.incomeTpEveningCashQty)*20 + n(seal.incomeTpNightCashQty)*20 + n(seal.incomeTpBreakfastOnlineQty)*20 + n(seal.incomeTpLunchVegOnlineQty)*35 + n(seal.incomeTpLunchNvRate)*n(seal.incomeTpLunchNvOnlineQty) + n(seal.incomeTpEveningOnlineQty)*20 + n(seal.incomeTpNightOnlineQty)*20;
@@ -759,7 +825,7 @@ export default function Dashboard() {
                         </tr>
                       </thead>
                       <tbody>
-                        {cashSeals.map((seal: any) => {
+                        {filteredCashSeals.map((seal: any) => {
                           const BANANA_RATE = 4.5;
                           const n = (v: any) => Number(v) || 0;
                           const psIncome = n(seal.incomePsBreakfastCashQty)*5 + n(seal.incomePsLunchCashQty)*20 + n(seal.incomePsEveningCashQty)*10 + n(seal.incomePsNightCashQty)*10 + n(seal.incomePsRechargeRate)*n(seal.incomePsRechargeCashQty) + n(seal.incomePsBreakfastOnlineQty)*5 + n(seal.incomePsLunchOnlineQty)*20 + n(seal.incomePsEveningOnlineQty)*10 + n(seal.incomePsNightOnlineQty)*10 + n(seal.incomePsRechargeRate)*n(seal.incomePsRechargeOnlineQty);
