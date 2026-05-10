@@ -166,6 +166,28 @@ export default function ReportForm() {
 
   const [lastEdited, setLastEdited] = useState<Record<number, 'rate' | 'amount'>>({});
   const [updatingOB, setUpdatingOB] = useState(false);
+  const [updatingReceived, setUpdatingReceived] = useState(false);
+
+  const handleUpdateReceived = async () => {
+    if (!report) return;
+    const dateStr = typeof report.date === 'string' ? report.date : format(new Date(report.date), 'yyyy-MM-dd');
+    setUpdatingReceived(true);
+    try {
+      const res = await fetch(`/api/cash-seals/by-date/${dateStr}`);
+      const data = await res.json();
+      if (data.totalGivenToAkbarAli !== undefined) {
+        const val = Math.round(Number(data.totalGivenToAkbarAli) * 100) / 100;
+        form.setValue("receivedAmount", val);
+        toast({ title: "Received Amount Updated", description: `Set to ₹${val.toLocaleString("en-IN", { minimumFractionDigits: 2 })}` });
+      } else {
+        toast({ title: "No cash seal record found for this date", variant: "destructive" });
+      }
+    } catch {
+      toast({ title: "Failed to fetch cash seal data", variant: "destructive" });
+    } finally {
+      setUpdatingReceived(false);
+    }
+  };
 
   const handleUpdateOpeningBalance = async () => {
     if (!report) return;
@@ -445,6 +467,20 @@ export default function ReportForm() {
                 <div className="bg-gradient-to-r from-violet-500 to-purple-500 px-3 py-2 flex items-center gap-2">
                   <Banknote className="w-4 h-4 text-white flex-shrink-0" />
                   <span className="text-white text-xs font-bold uppercase tracking-wide">Received &amp; Give By Wahid</span>
+                  {isEditMode && (
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="secondary"
+                      className="ml-auto h-6 px-2 text-[10px] font-semibold bg-white/20 hover:bg-white/30 text-white border-0 gap-1"
+                      onClick={handleUpdateReceived}
+                      disabled={updatingReceived}
+                      data-testid="button-update-received"
+                    >
+                      {updatingReceived ? <Loader2 className="w-3 h-3 animate-spin" /> : <RefreshCw className="w-3 h-3" />}
+                      Update
+                    </Button>
+                  )}
                 </div>
                 <div className="bg-white dark:bg-slate-800 px-3 py-3 space-y-2.5">
                   <div>

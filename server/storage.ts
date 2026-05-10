@@ -1272,14 +1272,18 @@ export class DatabaseStorage implements IStorage {
 
   async getLastVegetablePrices(): Promise<{ description: string; rate: number }[]> {
     const result = await db.execute(sql`
-      SELECT DISTINCT ON (description)
-        description,
-        rate
-      FROM expense_items
-      WHERE category = 'vegetable' AND description IS NOT NULL AND description != ''
-      ORDER BY description, id DESC
+      SELECT e.description, e.rate
+      FROM expense_items e
+      INNER JOIN (
+        SELECT description, MAX(id) AS max_id
+        FROM expense_items
+        WHERE category = 'vegetable' AND description IS NOT NULL AND description != ''
+        GROUP BY description
+      ) latest ON e.id = latest.max_id
+      ORDER BY e.description
     `);
-    return (result.rows || []).map((row: any) => ({
+    const rows = Array.isArray((result as any)[0]) ? (result as any)[0] : (result.rows || []);
+    return rows.map((row: any) => ({
       description: row.description,
       rate: Number(row.rate) || 0,
     }));
