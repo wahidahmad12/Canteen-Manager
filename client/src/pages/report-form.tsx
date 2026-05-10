@@ -11,7 +11,7 @@ import { Separator } from "@/components/ui/separator";
 import { useToast } from "@/hooks/use-toast";
 import { DatePicker } from "@/components/ui/date-picker";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { Loader2, Plus, Trash2, Calculator, Save, ArrowLeft, X, CalendarDays, Wallet, IndianRupee, ShoppingBasket, Leaf, TrendingDown, TrendingUp, Banknote, Package, FileDown } from "lucide-react";
+import { Loader2, Plus, Trash2, Calculator, Save, ArrowLeft, X, CalendarDays, Wallet, IndianRupee, ShoppingBasket, Leaf, TrendingDown, TrendingUp, Banknote, Package, FileDown, RefreshCw } from "lucide-react";
 import { useCreateReport, useUpdateReport, useReport, useItemMaster, useVegetableLastPrices } from "@/hooks/use-reports";
 import { insertDailyReportSchema, insertExpenseItemSchema } from "@shared/schema";
 import {
@@ -165,6 +165,28 @@ export default function ReportForm() {
   );
 
   const [lastEdited, setLastEdited] = useState<Record<number, 'rate' | 'amount'>>({});
+  const [updatingOB, setUpdatingOB] = useState(false);
+
+  const handleUpdateOpeningBalance = async () => {
+    if (!report) return;
+    const dateStr = typeof report.date === 'string' ? report.date : format(new Date(report.date), 'yyyy-MM-dd');
+    setUpdatingOB(true);
+    try {
+      const res = await fetch(`/api/reports/previous-balance/${dateStr}`);
+      const data = await res.json();
+      if (data.balance !== undefined) {
+        const newOB = Math.round(Number(data.balance) * 100) / 100;
+        form.setValue("openingBalance", newOB);
+        toast({ title: "Opening Balance Updated", description: `Set to ₹${newOB.toLocaleString("en-IN", { minimumFractionDigits: 2 })}` });
+      } else {
+        toast({ title: "No previous balance found", variant: "destructive" });
+      }
+    } catch {
+      toast({ title: "Failed to fetch balance", variant: "destructive" });
+    } finally {
+      setUpdatingOB(false);
+    }
+  };
 
   const form = useForm<FormValues>({
     resolver: zodResolver(formSchema),
@@ -385,6 +407,20 @@ export default function ReportForm() {
                 <div className="bg-gradient-to-r from-emerald-500 to-green-500 px-3 py-2 flex items-center gap-2">
                   <Wallet className="w-4 h-4 text-white flex-shrink-0" />
                   <span className="text-white text-xs font-bold uppercase tracking-wide">Opening Balance</span>
+                  {isEditMode && (
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="secondary"
+                      className="ml-auto h-6 px-2 text-[10px] font-semibold bg-white/20 hover:bg-white/30 text-white border-0 gap-1"
+                      onClick={handleUpdateOpeningBalance}
+                      disabled={updatingOB}
+                      data-testid="button-update-opening-balance"
+                    >
+                      {updatingOB ? <Loader2 className="w-3 h-3 animate-spin" /> : <RefreshCw className="w-3 h-3" />}
+                      Update
+                    </Button>
+                  )}
                 </div>
                 <div className="bg-white dark:bg-slate-800 px-3 py-3">
                   <div className="text-[10px] text-slate-400 dark:text-slate-500 mb-1.5">From previous day closing</div>
