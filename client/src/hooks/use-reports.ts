@@ -866,7 +866,7 @@ export function useVendors() {
 export function useCreateVendor() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: async (data: { name: string; phone?: string; address?: string; gstNo?: string }) => {
+    mutationFn: async (data: { name: string; phone?: string; address?: string; gstNo?: string; linkedClients?: string[] }) => {
       const res = await fetch(api.vendors.create.path, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -888,12 +888,12 @@ export function useCreateVendor() {
 export function useUpdateVendor() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: async ({ id, name, phone, address, gstNo }: { id: number; name: string; phone?: string; address?: string; gstNo?: string }) => {
+    mutationFn: async ({ id, name, phone, address, gstNo, linkedClients }: { id: number; name: string; phone?: string; address?: string; gstNo?: string; linkedClients?: string[] }) => {
       const url = buildUrl(api.vendors.update.path, { id });
       const res = await fetch(url, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name, phone, address, gstNo }),
+        body: JSON.stringify({ name, phone, address, gstNo, linkedClients }),
         credentials: "include",
       });
       if (!res.ok) {
