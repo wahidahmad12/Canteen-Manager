@@ -107,7 +107,6 @@ export default function CashSealMonthly() {
   // Aggregate PS fields
   const agg = filtered.reduce((acc, s) => {
     const psRcRate = n(s.incomePsRechargeRate);
-    const tpNvRate = n(s.incomeTpLunchNvRate);
     return {
       psBfCash: acc.psBfCash + n(s.incomePsBreakfastCashQty),
       psBfOnline: acc.psBfOnline + n(s.incomePsBreakfastOnlineQty),
@@ -125,10 +124,10 @@ export default function CashSealMonthly() {
       tpBfOnline: acc.tpBfOnline + n(s.incomeTpBreakfastOnlineQty),
       tpLvCash: acc.tpLvCash + n(s.incomeTpLunchVegCashQty),
       tpLvOnline: acc.tpLvOnline + n(s.incomeTpLunchVegOnlineQty),
-      tpNvCash: acc.tpNvCash + n(s.incomeTpLunchNvCashQty),
-      tpNvOnline: acc.tpNvOnline + n(s.incomeTpLunchNvOnlineQty),
-      tpNvCashTotal: acc.tpNvCashTotal + n(s.incomeTpLunchNvCashQty) * tpNvRate,
-      tpNvOnlineTotal: acc.tpNvOnlineTotal + n(s.incomeTpLunchNvOnlineQty) * tpNvRate,
+      tpNvCash: acc.tpNvCash + n(s.incomeTpLunchEggCashQty) + n(s.incomeTpLunchFishCashQty) + n(s.incomeTpLunchChickenCashQty),
+      tpNvOnline: acc.tpNvOnline + n(s.incomeTpLunchEggOnlineQty) + n(s.incomeTpLunchFishOnlineQty) + n(s.incomeTpLunchChickenOnlineQty),
+      tpNvCashTotal: acc.tpNvCashTotal + n(s.incomeTpLunchEggCashQty) * 45 + n(s.incomeTpLunchFishCashQty) * 55 + n(s.incomeTpLunchChickenCashQty) * 65,
+      tpNvOnlineTotal: acc.tpNvOnlineTotal + n(s.incomeTpLunchEggOnlineQty) * 45 + n(s.incomeTpLunchFishOnlineQty) * 55 + n(s.incomeTpLunchChickenOnlineQty) * 65,
       tpEvCash: acc.tpEvCash + n(s.incomeTpEveningCashQty),
       tpEvOnline: acc.tpEvOnline + n(s.incomeTpEveningOnlineQty),
       tpNtCash: acc.tpNtCash + n(s.incomeTpNightCashQty),

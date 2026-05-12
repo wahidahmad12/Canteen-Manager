@@ -127,11 +127,16 @@ export default function CashSealPDF() {
   ];
 
   // ── TP rows ──────────────────────────────────────────────────
-  const tpNvRate = n(seal.incomeTpLunchNvRate);
   const tpRows: SealRow[] = [
     { no: 1, name: "Breakfast", cashQty: n(seal.incomeTpBreakfastCashQty), cashTotal: n(seal.incomeTpBreakfastCashQty) * TP_RATES.bf, onlineQty: n(seal.incomeTpBreakfastOnlineQty), onlineTotal: n(seal.incomeTpBreakfastOnlineQty) * TP_RATES.bf },
     { no: 2, name: "Lunch Veg", cashQty: n(seal.incomeTpLunchVegCashQty), cashTotal: n(seal.incomeTpLunchVegCashQty) * TP_RATES.lv, onlineQty: n(seal.incomeTpLunchVegOnlineQty), onlineTotal: n(seal.incomeTpLunchVegOnlineQty) * TP_RATES.lv },
-    { no: 3, name: "Lunch Non Veg", cashQty: n(seal.incomeTpLunchNvCashQty), cashTotal: n(seal.incomeTpLunchNvCashQty) * tpNvRate, onlineQty: n(seal.incomeTpLunchNvOnlineQty), onlineTotal: n(seal.incomeTpLunchNvOnlineQty) * tpNvRate },
+    {
+      no: 3, name: "Lunch Non Veg",
+      cashQty: n(seal.incomeTpLunchEggCashQty) + n(seal.incomeTpLunchFishCashQty) + n(seal.incomeTpLunchChickenCashQty),
+      cashTotal: n(seal.incomeTpLunchEggCashQty) * 45 + n(seal.incomeTpLunchFishCashQty) * 55 + n(seal.incomeTpLunchChickenCashQty) * 65,
+      onlineQty: n(seal.incomeTpLunchEggOnlineQty) + n(seal.incomeTpLunchFishOnlineQty) + n(seal.incomeTpLunchChickenOnlineQty),
+      onlineTotal: n(seal.incomeTpLunchEggOnlineQty) * 45 + n(seal.incomeTpLunchFishOnlineQty) * 55 + n(seal.incomeTpLunchChickenOnlineQty) * 65,
+    },
     { no: 4, name: "Evening Snacks", cashQty: n(seal.incomeTpEveningCashQty), cashTotal: n(seal.incomeTpEveningCashQty) * TP_RATES.ev, onlineQty: n(seal.incomeTpEveningOnlineQty), onlineTotal: n(seal.incomeTpEveningOnlineQty) * TP_RATES.ev },
     { no: 5, name: "Night", cashQty: n(seal.incomeTpNightCashQty), cashTotal: n(seal.incomeTpNightCashQty) * TP_RATES.nt, onlineQty: n(seal.incomeTpNightOnlineQty), onlineTotal: n(seal.incomeTpNightOnlineQty) * TP_RATES.nt },
   ];

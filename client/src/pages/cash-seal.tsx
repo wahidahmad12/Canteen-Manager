@@ -852,7 +852,9 @@ export default function CashSeal() {
         + (_n(s.incomePsRechargeCashQty) + _n(s.incomePsRechargeOnlineQty)) * _n(s.incomePsRechargeRate);
       const tp = (_n(s.incomeTpBreakfastCashQty) + _n(s.incomeTpBreakfastOnlineQty)) * TP_RATES.bf
         + (_n(s.incomeTpLunchVegCashQty) + _n(s.incomeTpLunchVegOnlineQty)) * TP_RATES.lv
-        + (_n(s.incomeTpLunchNvCashQty) + _n(s.incomeTpLunchNvOnlineQty)) * _n(s.incomeTpLunchNvRate)
+        + (_n(s.incomeTpLunchEggCashQty) + _n(s.incomeTpLunchEggOnlineQty)) * TP_RATES.eg
+        + (_n(s.incomeTpLunchFishCashQty) + _n(s.incomeTpLunchFishOnlineQty)) * TP_RATES.fs
+        + (_n(s.incomeTpLunchChickenCashQty) + _n(s.incomeTpLunchChickenOnlineQty)) * TP_RATES.ck
         + (_n(s.incomeTpEveningCashQty) + _n(s.incomeTpEveningOnlineQty)) * TP_RATES.ev
         + (_n(s.incomeTpNightCashQty) + _n(s.incomeTpNightOnlineQty)) * TP_RATES.nt;
       return { income: acc.income + t.income, expense: acc.expense + t.expense, balance: acc.balance + t.balance, akbarAli: acc.akbarAli + (Number(s.totalGivenToAkbarAli) || 0), ps: acc.ps + ps, tp: acc.tp + tp };
@@ -982,7 +984,9 @@ export default function CashSeal() {
                           + (n(seal.incomePsRechargeCashQty) + n(seal.incomePsRechargeOnlineQty)) * n(seal.incomePsRechargeRate);
                         const tpTotal = (n(seal.incomeTpBreakfastCashQty) + n(seal.incomeTpBreakfastOnlineQty)) * TP_RATES.bf
                           + (n(seal.incomeTpLunchVegCashQty) + n(seal.incomeTpLunchVegOnlineQty)) * TP_RATES.lv
-                          + (n(seal.incomeTpLunchNvCashQty) + n(seal.incomeTpLunchNvOnlineQty)) * n(seal.incomeTpLunchNvRate)
+                          + (n(seal.incomeTpLunchEggCashQty) + n(seal.incomeTpLunchEggOnlineQty)) * TP_RATES.eg
+                          + (n(seal.incomeTpLunchFishCashQty) + n(seal.incomeTpLunchFishOnlineQty)) * TP_RATES.fs
+                          + (n(seal.incomeTpLunchChickenCashQty) + n(seal.incomeTpLunchChickenOnlineQty)) * TP_RATES.ck
                           + (n(seal.incomeTpEveningCashQty) + n(seal.incomeTpEveningOnlineQty)) * TP_RATES.ev
                           + (n(seal.incomeTpNightCashQty) + n(seal.incomeTpNightOnlineQty)) * TP_RATES.nt;
                         const { income, expense, balance } = calcTotals(seal);
