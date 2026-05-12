@@ -628,6 +628,27 @@ export async function registerRoutes(
     res.json(invoices);
   });
 
+  // Item-wise stock monthly report
+  app.get('/api/purchase-invoices/item-stock-report', requireAuth, async (req, res) => {
+    try {
+      const year = Number(req.query.year) || new Date().getFullYear();
+      const clientName = req.query.client ? String(req.query.client) : undefined;
+      const rows = await storage.getItemStockReport(year, clientName);
+      res.json(rows);
+    } catch (e: any) {
+      res.status(500).json({ error: e.message });
+    }
+  });
+
+  app.get('/api/purchase-invoices/item-stock-clients', requireAuth, async (req, res) => {
+    try {
+      const clients = await storage.getItemStockClients();
+      res.json(clients);
+    } catch (e: any) {
+      res.status(500).json({ error: e.message });
+    }
+  });
+
   // Must be registered BEFORE /:id to avoid "price-history" being treated as an ID
   app.get('/api/purchase-invoices/price-history', requireAuth, async (req, res) => {
     try {

@@ -178,6 +178,8 @@ export interface IStorage {
   deleteItemMasterItem(id: number): Promise<void>;
   syncItemMasterRates(): Promise<{ updated: number; skipped: number; noMatch: number; details: Array<{ name: string; oldRate: string; newRate: string; source: string }> }>;
   getPriceHistory(itemSearch: string, from?: string, to?: string): Promise<{ id: number; date: string; djInvoiceNo: string | null; vendorName: string; clientName: string; itemName: string; uom: string; qty: number; unitPrice: number; gstRate: number; totalPrice: number }[]>;
+  getItemStockReport(year: number, clientName?: string): Promise<{ itemName: string; uom: string; month: number; totalQty: number; totalAmount: number }[]>;
+  getItemStockClients(): Promise<string[]>;
   renumberDjInvoiceNos(): Promise<{ updated: number }>;
   getEmployees(clientName?: string): Promise<Employee[]>;
   getEmployee(id: number): Promise<Employee | undefined>;
@@ -1397,6 +1399,37 @@ export class DatabaseStorage implements IStorage {
       gstRate: Number(row.gst_rate || 0),
       totalPrice: Number(row.total_price || 0),
     }));
+  }
+
+  async getItemStockReport(year: number, clientName?: string): Promise<{ itemName: string; uom: string; month: number; totalQty: number; totalAmount: number }[]> {
+    const clientVal = clientName || null;
+    const query = sql`
+      SELECT
+        pii.item_name,
+        pii.uom,
+        MONTH(pi.date) AS month,
+        SUM(pii.qty) AS total_qty,
+        SUM(pii.total_price) AS total_amount
+      FROM purchase_invoice_items pii
+      JOIN purchase_invoices pi ON pii.invoice_id = pi.id
+      WHERE YEAR(pi.date) = ${year}
+        AND (${clientVal} IS NULL OR pi.client_name = ${clientVal})
+      GROUP BY pii.item_name, pii.uom, MONTH(pi.date)
+      ORDER BY pii.item_name, MONTH(pi.date)
+    `;
+    const [rows] = await db.execute(query) as any;
+    return (Array.isArray(rows) ? rows : []).map((row: any) => ({
+      itemName: String(row.item_name || ''),
+      uom: String(row.uom || ''),
+      month: Number(row.month),
+      totalQty: Number(row.total_qty || 0),
+      totalAmount: Number(row.total_amount || 0),
+    }));
+  }
+
+  async getItemStockClients(): Promise<string[]> {
+    const [rows] = await db.execute(sql`SELECT DISTINCT client_name FROM purchase_invoices ORDER BY client_name`) as any;
+    return (Array.isArray(rows) ? rows : []).map((r: any) => String(r.client_name || '')).filter(Boolean);
   }
 
   async syncItemMasterRates(): Promise<{ updated: number; skipped: number; noMatch: number; details: Array<{ name: string; oldRate: string; newRate: string; source: string }> }> {
