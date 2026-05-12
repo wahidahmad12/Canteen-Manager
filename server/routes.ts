@@ -628,6 +628,18 @@ export async function registerRoutes(
     res.json(invoices);
   });
 
+  // Expense item-wise stock monthly report (from daily cash expenses)
+  app.get('/api/expense-items/stock-report', requireAuth, async (req, res) => {
+    try {
+      const year = Number(req.query.year) || new Date().getFullYear();
+      const category = req.query.category ? String(req.query.category) : undefined;
+      const rows = await storage.getExpenseItemStockReport(year, category);
+      res.json(rows);
+    } catch (e: any) {
+      res.status(500).json({ error: e.message });
+    }
+  });
+
   // Item-wise stock monthly report
   app.get('/api/purchase-invoices/item-stock-report', requireAuth, async (req, res) => {
     try {

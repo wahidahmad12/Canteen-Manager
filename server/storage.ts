@@ -180,6 +180,7 @@ export interface IStorage {
   getPriceHistory(itemSearch: string, from?: string, to?: string): Promise<{ id: number; date: string; djInvoiceNo: string | null; vendorName: string; clientName: string; itemName: string; uom: string; qty: number; unitPrice: number; gstRate: number; totalPrice: number }[]>;
   getItemStockReport(year: number, clientName?: string): Promise<{ itemName: string; uom: string; month: number; totalQty: number; totalAmount: number }[]>;
   getItemStockClients(): Promise<string[]>;
+  getExpenseItemStockReport(year: number, category?: string): Promise<{ itemName: string; uom: string; category: string; month: number; totalQty: number; totalAmount: number }[]>;
   renumberDjInvoiceNos(): Promise<{ updated: number }>;
   getEmployees(clientName?: string): Promise<Employee[]>;
   getEmployee(id: number): Promise<Employee | undefined>;
@@ -1430,6 +1431,34 @@ export class DatabaseStorage implements IStorage {
   async getItemStockClients(): Promise<string[]> {
     const [rows] = await db.execute(sql`SELECT DISTINCT client_name FROM purchase_invoices ORDER BY client_name`) as any;
     return (Array.isArray(rows) ? rows : []).map((r: any) => String(r.client_name || '')).filter(Boolean);
+  }
+
+  async getExpenseItemStockReport(year: number, category?: string): Promise<{ itemName: string; uom: string; category: string; month: number; totalQty: number; totalAmount: number }[]> {
+    const catVal = (category && category !== 'all') ? category : null;
+    const query = sql`
+      SELECT
+        ei.description AS item_name,
+        ei.uom,
+        ei.category,
+        MONTH(dr.date) AS month,
+        SUM(COALESCE(ei.qty, 0)) AS total_qty,
+        SUM(COALESCE(ei.amount, 0)) AS total_amount
+      FROM expense_items ei
+      JOIN daily_reports dr ON ei.report_id = dr.id
+      WHERE YEAR(dr.date) = ${year}
+        AND (${catVal} IS NULL OR ei.category = ${catVal})
+      GROUP BY ei.description, ei.uom, ei.category, MONTH(dr.date)
+      ORDER BY ei.description, MONTH(dr.date)
+    `;
+    const [rows] = await db.execute(query) as any;
+    return (Array.isArray(rows) ? rows : []).map((row: any) => ({
+      itemName: String(row.item_name || ''),
+      uom: String(row.uom || ''),
+      category: String(row.category || ''),
+      month: Number(row.month),
+      totalQty: Number(row.total_qty || 0),
+      totalAmount: Number(row.total_amount || 0),
+    }));
   }
 
   async syncItemMasterRates(): Promise<{ updated: number; skipped: number; noMatch: number; details: Array<{ name: string; oldRate: string; newRate: string; source: string }> }> {
