@@ -922,14 +922,43 @@ export default function CashSeal() {
         + (_n(s.incomeTpLunchChickenCashQty) + _n(s.incomeTpLunchChickenOnlineQty)) * TP_RATES.ck
         + (_n(s.incomeTpEveningCashQty) + _n(s.incomeTpEveningOnlineQty)) * TP_RATES.ev
         + (_n(s.incomeTpNightCashQty) + _n(s.incomeTpNightOnlineQty)) * TP_RATES.nt;
-      return { income: acc.income + t.income, expense: acc.expense + t.expense, balance: acc.balance + t.balance, akbarAli: acc.akbarAli + (Number(s.totalGivenToAkbarAli) || 0), ps: acc.ps + ps, tp: acc.tp + tp };
-    }, { income: 0, expense: 0, balance: 0, akbarAli: 0, ps: 0, tp: 0 });
+
+      const psCash = _n(s.incomePsBreakfastCashQty) * PS_RATES.bf + _n(s.incomePsLunchCashQty) * PS_RATES.ln
+        + _n(s.incomePsEveningCashQty) * PS_RATES.ev + _n(s.incomePsNightCashQty) * PS_RATES.nt
+        + _n(s.incomePsRechargeCashQty) * _n(s.incomePsRechargeRate);
+      const psOnline = _n(s.incomePsBreakfastOnlineQty) * PS_RATES.bf + _n(s.incomePsLunchOnlineQty) * PS_RATES.ln
+        + _n(s.incomePsEveningOnlineQty) * PS_RATES.ev + _n(s.incomePsNightOnlineQty) * PS_RATES.nt
+        + _n(s.incomePsRechargeOnlineQty) * _n(s.incomePsRechargeRate);
+      const tpCash = _n(s.incomeTpBreakfastCashQty) * TP_RATES.bf + _n(s.incomeTpLunchVegCashQty) * TP_RATES.lv
+        + _n(s.incomeTpLunchEggCashQty) * TP_RATES.eg + _n(s.incomeTpLunchFishCashQty) * TP_RATES.fs
+        + _n(s.incomeTpLunchChickenCashQty) * TP_RATES.ck
+        + _n(s.incomeTpEveningCashQty) * TP_RATES.ev + _n(s.incomeTpNightCashQty) * TP_RATES.nt;
+      const tpOnline = _n(s.incomeTpBreakfastOnlineQty) * TP_RATES.bf + _n(s.incomeTpLunchVegOnlineQty) * TP_RATES.lv
+        + _n(s.incomeTpLunchEggOnlineQty) * TP_RATES.eg + _n(s.incomeTpLunchFishOnlineQty) * TP_RATES.fs
+        + _n(s.incomeTpLunchChickenOnlineQty) * TP_RATES.ck
+        + _n(s.incomeTpEveningOnlineQty) * TP_RATES.ev + _n(s.incomeTpNightOnlineQty) * TP_RATES.nt;
+      const legacyCash = _n(s.incomeMorningQty) * 5 + _n(s.incomeLunchQty) * 20
+        + _n(s.incomeEveningQty) * 10 + _n(s.incomeNightQty) * 10
+        + _n(s.incomeNonVegRate) * _n(s.incomeNonVegQty) + _n(s.incomeVegRate) * _n(s.incomeVegQty)
+        + _n(s.incomeMorningCashRate) * _n(s.incomeMorningCashQty) + _n(s.incomeEveningCashRate) * _n(s.incomeEveningCashQty);
+      const legacyOnline = _n(s.incomeOnlineBreakfastQty) * 5 + _n(s.incomeOnlineLunchQty) * 20
+        + _n(s.incomeOnlineEveningSnacksQty) * 10 + _n(s.incomeOnlineNightQty) * 10;
+      const cashIncome = psCash + tpCash + legacyCash;
+      const onlineIncome = psOnline + tpOnline + legacyOnline;
+
+      return {
+        income: acc.income + t.income, expense: acc.expense + t.expense,
+        balance: acc.balance + t.balance, akbarAli: acc.akbarAli + (Number(s.totalGivenToAkbarAli) || 0),
+        ps: acc.ps + ps, tp: acc.tp + tp,
+        cashIncome: acc.cashIncome + cashIncome, onlineIncome: acc.onlineIncome + onlineIncome,
+      };
+    }, { income: 0, expense: 0, balance: 0, akbarAli: 0, ps: 0, tp: 0, cashIncome: 0, onlineIncome: 0 });
 
     const statCards = [
-      { label: "Total Records", value: String(filtered.length), isCount: true, grad: "from-blue-600 to-blue-400", icon: IndianRupee },
-      { label: "Total Income", value: fmtN(totals.income), isCount: false, grad: "from-emerald-600 to-teal-400", icon: TrendingUp },
-      { label: "Total Expense", value: fmtN(totals.expense), isCount: false, grad: "from-rose-600 to-orange-400", icon: TrendingDown },
-      { label: "Net Balance", value: fmtN(totals.balance), isCount: false, grad: totals.balance >= 0 ? "from-sky-600 to-cyan-400" : "from-orange-600 to-red-400", icon: Wallet },
+      { label: "Total Records", value: String(filtered.length), isCount: true, grad: "from-blue-600 to-blue-400", icon: IndianRupee, cashIncome: null, onlineIncome: null },
+      { label: "Total Income", value: fmtN(totals.income), isCount: false, grad: "from-emerald-600 to-teal-400", icon: TrendingUp, cashIncome: totals.cashIncome, onlineIncome: totals.onlineIncome },
+      { label: "Total Expense", value: fmtN(totals.expense), isCount: false, grad: "from-rose-600 to-orange-400", icon: TrendingDown, cashIncome: null, onlineIncome: null },
+      { label: "Net Balance", value: fmtN(totals.balance), isCount: false, grad: totals.balance >= 0 ? "from-sky-600 to-cyan-400" : "from-orange-600 to-red-400", icon: Wallet, cashIncome: null, onlineIncome: null },
     ];
 
     return (
@@ -970,13 +999,25 @@ export default function CashSeal() {
 
             {/* ── Stat cards ── */}
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-              {statCards.map(({ label, value, isCount, grad, icon: Icon }) => (
+              {statCards.map(({ label, value, isCount, grad, icon: Icon, cashIncome, onlineIncome }) => (
                 <div key={label} className={`bg-gradient-to-br ${grad} rounded-2xl p-4 text-white shadow-md`}>
                   <div className="flex items-center gap-2 mb-2 opacity-90">
                     <Icon className="w-4 h-4" />
                     <span className="text-xs font-semibold uppercase tracking-wide">{label}</span>
                   </div>
                   <div className={`font-bold font-mono ${isCount ? "text-4xl" : "text-lg sm:text-xl"} leading-tight`}>{value}</div>
+                  {cashIncome !== null && onlineIncome !== null && (
+                    <div className="mt-2.5 pt-2 border-t border-white/20 grid grid-cols-2 gap-1.5">
+                      <div className="bg-white/15 rounded-lg px-2 py-1.5">
+                        <div className="text-[9px] font-bold uppercase tracking-wider opacity-80 mb-0.5">Cash</div>
+                        <div className="text-xs font-bold font-mono leading-tight">{fmtN(cashIncome)}</div>
+                      </div>
+                      <div className="bg-white/15 rounded-lg px-2 py-1.5">
+                        <div className="text-[9px] font-bold uppercase tracking-wider opacity-80 mb-0.5">Online</div>
+                        <div className="text-xs font-bold font-mono leading-tight">{fmtN(onlineIncome)}</div>
+                      </div>
+                    </div>
+                  )}
                 </div>
               ))}
             </div>
