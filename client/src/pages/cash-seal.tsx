@@ -998,25 +998,30 @@ export default function CashSeal() {
             </div>
 
             {/* ── Stat cards ── */}
-            <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 items-stretch">
               {statCards.map(({ label, value, isCount, grad, icon: Icon, cashIncome, onlineIncome }) => (
-                <div key={label} className={`bg-gradient-to-br ${grad} rounded-2xl p-4 text-white shadow-md`}>
-                  <div className="flex items-center gap-2 mb-2 opacity-90">
-                    <Icon className="w-4 h-4" />
-                    <span className="text-xs font-semibold uppercase tracking-wide">{label}</span>
+                <div key={label} className={`bg-gradient-to-br ${grad} rounded-2xl p-4 text-white shadow-md flex flex-col justify-between min-h-[120px]`}>
+                  <div>
+                    <div className="flex items-center gap-2 mb-2 opacity-90">
+                      <Icon className="w-4 h-4" />
+                      <span className="text-xs font-semibold uppercase tracking-wide">{label}</span>
+                    </div>
+                    <div className={`font-bold font-mono ${isCount ? "text-4xl" : "text-lg sm:text-xl"} leading-tight`}>{value}</div>
                   </div>
-                  <div className={`font-bold font-mono ${isCount ? "text-4xl" : "text-lg sm:text-xl"} leading-tight`}>{value}</div>
-                  {cashIncome !== null && onlineIncome !== null && (
-                    <div className="mt-2.5 pt-2 border-t border-white/20 grid grid-cols-2 gap-1.5">
-                      <div className="bg-white/15 rounded-lg px-2 py-1.5">
-                        <div className="text-[9px] font-bold uppercase tracking-wider opacity-80 mb-0.5">Cash</div>
-                        <div className="text-xs font-bold font-mono leading-tight">{fmtN(cashIncome)}</div>
+                  {cashIncome !== null && onlineIncome !== null ? (
+                    <div className="mt-2 pt-2 border-t border-white/25 flex items-center justify-between gap-1">
+                      <div className="flex-1 text-center">
+                        <div className="text-[9px] font-semibold uppercase tracking-wide opacity-75">Cash</div>
+                        <div className="text-[11px] font-bold font-mono">{fmtN(cashIncome)}</div>
                       </div>
-                      <div className="bg-white/15 rounded-lg px-2 py-1.5">
-                        <div className="text-[9px] font-bold uppercase tracking-wider opacity-80 mb-0.5">Online</div>
-                        <div className="text-xs font-bold font-mono leading-tight">{fmtN(onlineIncome)}</div>
+                      <div className="w-px h-7 bg-white/25" />
+                      <div className="flex-1 text-center">
+                        <div className="text-[9px] font-semibold uppercase tracking-wide opacity-75">Online</div>
+                        <div className="text-[11px] font-bold font-mono">{fmtN(onlineIncome)}</div>
                       </div>
                     </div>
+                  ) : (
+                    <div />
                   )}
                 </div>
               ))}
