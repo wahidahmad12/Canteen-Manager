@@ -44,8 +44,9 @@ function Accordion({ title, total, badge, children, defaultOpen = false }: {
   const [open, setOpen] = useState(defaultOpen);
   return (
     <div className="border rounded-lg overflow-hidden">
+      {/* Interactive toggle — hidden when printing */}
       <button
-        className="w-full flex items-center justify-between px-4 py-3 bg-muted/40 hover:bg-muted/70 transition-colors text-left"
+        className="print:hidden w-full flex items-center justify-between px-4 py-3 bg-muted/40 hover:bg-muted/70 transition-colors text-left"
         onClick={() => setOpen(o => !o)}
       >
         <div className="flex items-center gap-2">
@@ -55,7 +56,13 @@ function Accordion({ title, total, badge, children, defaultOpen = false }: {
         </div>
         <span className="font-bold text-sm">{fmtINR(total)}</span>
       </button>
-      {open && <div className="px-4 py-2 divide-y text-sm">{children}</div>}
+      {/* Print-only header row */}
+      <div className="hidden print:flex items-center justify-between px-4 py-2 bg-slate-100 font-semibold text-sm border-b">
+        <span>{title}</span>
+        <span>{fmtINR(total)}</span>
+      </div>
+      {/* Content — always rendered; toggled via CSS so print always shows it */}
+      <div className={`px-4 py-2 divide-y text-sm ${open ? '' : 'hidden print:block'}`}>{children}</div>
     </div>
   );
 }
@@ -151,28 +158,7 @@ export default function MonthlyPnlPage() {
     { income: 0, expenses: 0, net: 0 }
   );
 
-  const handleAnnualPrint = () => {
-    const content = annualPrintRef.current?.innerHTML;
-    if (!content) return;
-    const win = window.open('', '_blank');
-    if (!win) return;
-    win.document.write(`<!DOCTYPE html><html><head><title>Annual P&L – ${year}</title>
-    <style>
-      body { font-family: Arial, sans-serif; font-size: 12px; margin: 20px; color: #000; }
-      h1 { text-align: center; font-size: 16px; margin-bottom: 4px; }
-      h2 { text-align: center; font-size: 13px; color: #555; margin-bottom: 16px; }
-      table { width: 100%; border-collapse: collapse; }
-      th { background: #1e293b; color: #fff; padding: 6px 8px; text-align: left; font-size: 11px; }
-      td { padding: 5px 8px; border-bottom: 1px solid #e2e8f0; }
-      .right { text-align: right; }
-      .profit { color: #16a34a; font-weight: bold; }
-      .loss { color: #dc2626; font-weight: bold; }
-      .total-row td { font-weight: bold; background: #f1f5f9; font-size: 13px; }
-      @media print { body { margin: 10px; } }
-    </style></head><body>${content}</body></html>`);
-    win.document.close();
-    setTimeout(() => { win.print(); win.close(); }, 400);
-  };
+  const handleAnnualPrint = () => { window.print(); };
 
   const d = data || {};
   const salesTotal = d.salesTotal || 0;
@@ -223,36 +209,13 @@ export default function MonthlyPnlPage() {
     ? selectedClients[0]
     : `${selectedClients.length} Clients`;
 
-  const handlePrint = () => {
-    const content = printRef.current?.innerHTML;
-    if (!content) return;
-    const win = window.open('', '_blank');
-    if (!win) return;
-    win.document.write(`<!DOCTYPE html><html><head><title>Monthly P&L – ${monthLabel}</title>
-    <style>
-      body { font-family: Arial, sans-serif; font-size: 12px; margin: 20px; color: #000; }
-      h1 { text-align: center; font-size: 16px; margin-bottom: 4px; }
-      h2 { text-align: center; font-size: 13px; color: #555; margin-bottom: 4px; }
-      h3 { text-align: center; font-size: 11px; color: #888; margin-bottom: 16px; }
-      table { width: 100%; border-collapse: collapse; margin-bottom: 16px; }
-      th { background: #1e293b; color: #fff; padding: 6px 8px; text-align: left; font-size: 11px; }
-      td { padding: 5px 8px; border-bottom: 1px solid #e2e8f0; }
-      .amount { text-align: right; font-weight: 600; }
-      .total-row td { font-weight: bold; background: #f1f5f9; }
-      .profit { color: #16a34a; }
-      .loss { color: #dc2626; }
-      .section-header { background: #e2e8f0; font-weight: bold; padding: 5px 8px; }
-      @media print { body { margin: 10px; } }
-    </style></head><body>${content}</body></html>`);
-    win.document.close();
-    setTimeout(() => { win.print(); win.close(); }, 400);
-  };
+  const handlePrint = () => { window.print(); };
 
   return (
     <Layout>
       <div className="max-w-4xl mx-auto px-4 py-6">
         {/* Header */}
-        <div className="flex flex-wrap items-center gap-3 mb-5">
+        <div className="print:hidden flex flex-wrap items-center gap-3 mb-5">
           <div className="flex items-center gap-2">
             <BarChart3 className="w-6 h-6 text-primary" />
             <div>
@@ -385,7 +348,7 @@ export default function MonthlyPnlPage() {
 
         {/* Client filter notice */}
         {selectedClients.length > 0 && (
-          <div className="mb-4 flex items-center gap-2 px-3 py-2 rounded-lg bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-800 text-xs text-blue-700 dark:text-blue-300">
+          <div className="print:hidden mb-4 flex items-center gap-2 px-3 py-2 rounded-lg bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-800 text-xs text-blue-700 dark:text-blue-300">
             <Building2 className="w-3.5 h-3.5 flex-shrink-0" />
             <span>Filtering Sales, Salary &amp; Purchase Invoices by: <strong>{selectedClients.join(', ')}</strong>.{!showHulSections && " HUL Canteen sections (Cash Seal KPF & Daily Ops) are hidden for non-HUL clients."}</span>
             <button className="ml-auto text-blue-400 hover:text-blue-600" onClick={() => setSelectedClients([])}>
@@ -405,7 +368,7 @@ export default function MonthlyPnlPage() {
             {!annualLoading && (
               <>
                 {/* Annual summary cards */}
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
+                <div className="print:hidden grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
                   <SummaryCard title="Annual Income" value={annualTotals.income} icon={<TrendingUp className="w-8 h-8" />} color="border-l-green-500" sub={`Year ${year}`} />
                   <SummaryCard title="Annual Expenses" value={annualTotals.expenses} icon={<TrendingDown className="w-8 h-8" />} color="border-l-red-500" sub={`Year ${year}`} />
                   <Card className={`border-l-4 ${annualTotals.net >= 0 ? 'border-l-emerald-600' : 'border-l-rose-600'}`}>
@@ -424,10 +387,10 @@ export default function MonthlyPnlPage() {
 
                 {/* Annual table */}
                 <div ref={annualPrintRef}>
-                  <div style={{ display: 'none' }}>
-                    <h1>DJ Hospitality &amp; Facility Management</h1>
-                    <h2>Annual Profit &amp; Loss Statement — {year}</h2>
-                    {selectedClients.length > 0 && <h3>Clients: {selectedClients.join(', ')}</h3>}
+                  <div className="hidden print:block text-center mb-4">
+                    <h1 className="text-lg font-bold">DJ Hospitality &amp; Facility Management</h1>
+                    <h2 className="text-base font-semibold text-gray-600">Annual Profit &amp; Loss Statement — {year}</h2>
+                    {selectedClients.length > 0 && <h3 className="text-sm text-gray-500">Clients: {selectedClients.join(', ')}</h3>}
                   </div>
                   <Card>
                     <CardHeader className="pb-2 pt-4">
@@ -493,8 +456,8 @@ export default function MonthlyPnlPage() {
 
         {viewMode === 'monthly' && !isLoading && !isError && data && (
           <>
-            {/* Summary Cards */}
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
+            {/* Summary Cards — hidden in print (the NET P&L table at the bottom covers this) */}
+            <div className="print:hidden grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
               <SummaryCard
                 title="Total Income"
                 value={effectiveTotalIncome}
@@ -525,10 +488,10 @@ export default function MonthlyPnlPage() {
 
             {/* Printable Content */}
             <div ref={printRef}>
-              <div style={{ display: 'none' }}>
-                <h1>DJ Hospitality &amp; Facility Management</h1>
-                <h2>Monthly Profit &amp; Loss Statement — {monthLabel}</h2>
-                {selectedClients.length > 0 && <h3>Clients: {selectedClients.join(', ')}</h3>}
+              <div className="hidden print:block text-center mb-4">
+                <h1 className="text-lg font-bold">DJ Hospitality &amp; Facility Management</h1>
+                <h2 className="text-base font-semibold text-gray-600">Monthly Profit &amp; Loss Statement — {monthLabel}</h2>
+                {selectedClients.length > 0 && <h3 className="text-sm text-gray-500">Clients: {selectedClients.join(', ')}</h3>}
               </div>
 
               {/* INCOME SECTION */}
