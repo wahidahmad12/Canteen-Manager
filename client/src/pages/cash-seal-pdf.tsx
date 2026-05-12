@@ -148,9 +148,15 @@ export default function CashSealPDF() {
     { no: 5, name: "Night", cashQty: n(seal.incomeTpNightCashQty), cashTotal: n(seal.incomeTpNightCashQty) * TP_RATES.nt, onlineQty: n(seal.incomeTpNightOnlineQty), onlineTotal: n(seal.incomeTpNightOnlineQty) * TP_RATES.nt },
   ];
 
-  const psTotal = psRows.reduce((s, r) => s + r.cashTotal + r.onlineTotal, 0);
-  const tpTotal = tpRows.reduce((s, r) => s + r.cashTotal + r.onlineTotal, 0);
-  const grandIncome = psTotal + tpTotal;
+  const psCashTotal   = psRows.reduce((s, r) => s + r.cashTotal, 0);
+  const psOnlineTotal = psRows.reduce((s, r) => s + r.onlineTotal, 0);
+  const psTotal       = psCashTotal + psOnlineTotal;
+  const tpCashTotal   = tpRows.reduce((s, r) => s + r.cashTotal, 0);
+  const tpOnlineTotal = tpRows.reduce((s, r) => s + r.onlineTotal, 0);
+  const tpTotal       = tpCashTotal + tpOnlineTotal;
+  const grandCash     = psCashTotal + tpCashTotal;
+  const grandOnline   = psOnlineTotal + tpOnlineTotal;
+  const grandIncome   = psTotal + tpTotal;
   const bananaTotal = n(seal.expenseBananaQty) * BANANA_RATE;
   const dahiBharTotal = n(seal.expenseDahiBharQty) * n(seal.expenseDahiBharRate);
   const totalExpense = bananaTotal + dahiBharTotal + n(seal.expenseOtherAmount);
@@ -191,10 +197,43 @@ export default function CashSealPDF() {
         {/* Third Party section */}
         <ReportSection title="Third Party" color="green" rows={tpRows} />
 
-        {/* Grand Total Income */}
-        <div className="flex justify-between items-center bg-gray-800 text-white px-3 py-2 text-sm font-bold rounded mb-4 print:rounded-none">
-          <span>Grand Total (PS + Third Party)</span>
-          <span className="font-mono">{fmt(grandIncome)}</span>
+        {/* Grand Total Income Breakdown */}
+        <div className="mb-4 overflow-x-auto">
+          <div className="bg-gray-800 text-white text-center text-sm font-bold py-1.5 print:py-1">
+            Grand Total Income Summary (Permanent Staff + Third Party)
+          </div>
+          <table className="w-full border-collapse text-xs min-w-[500px]">
+            <thead>
+              <tr className="bg-gray-100">
+                <th className="border border-gray-300 px-2 py-1.5 text-left text-gray-700">Section</th>
+                <th className="border border-gray-300 px-2 py-1.5 text-right text-red-700">Cash Amount</th>
+                <th className="border border-gray-300 px-2 py-1.5 text-right text-blue-700">Online Amount</th>
+                <th className="border border-gray-300 px-2 py-1.5 text-right text-gray-800">Total (Cash + Online)</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr className="bg-blue-50">
+                <td className="border border-gray-300 px-2 py-1.5 font-semibold text-blue-800">Permanent Staff</td>
+                <td className="border border-gray-300 px-2 py-1.5 text-right font-mono text-red-600">{fmt(psCashTotal)}</td>
+                <td className="border border-gray-300 px-2 py-1.5 text-right font-mono text-blue-700">{fmt(psOnlineTotal)}</td>
+                <td className="border border-gray-300 px-2 py-1.5 text-right font-mono font-bold text-blue-800">{fmt(psTotal)}</td>
+              </tr>
+              <tr className="bg-green-50">
+                <td className="border border-gray-300 px-2 py-1.5 font-semibold text-green-800">Third Party</td>
+                <td className="border border-gray-300 px-2 py-1.5 text-right font-mono text-red-600">{fmt(tpCashTotal)}</td>
+                <td className="border border-gray-300 px-2 py-1.5 text-right font-mono text-blue-700">{fmt(tpOnlineTotal)}</td>
+                <td className="border border-gray-300 px-2 py-1.5 text-right font-mono font-bold text-green-800">{fmt(tpTotal)}</td>
+              </tr>
+            </tbody>
+            <tfoot>
+              <tr className="bg-gray-800 text-white">
+                <td className="border border-gray-600 px-2 py-2 font-bold text-sm">Grand Total</td>
+                <td className="border border-gray-600 px-2 py-2 text-right font-mono font-bold text-red-300">{fmt(grandCash)}</td>
+                <td className="border border-gray-600 px-2 py-2 text-right font-mono font-bold text-blue-300">{fmt(grandOnline)}</td>
+                <td className="border border-gray-600 px-2 py-2 text-right font-mono font-bold text-lg">{fmt(grandIncome)}</td>
+              </tr>
+            </tfoot>
+          </table>
         </div>
 
         {/* Expense section */}
