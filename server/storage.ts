@@ -1360,7 +1360,9 @@ export class DatabaseStorage implements IStorage {
 
   async getPriceHistory(itemSearch: string, from?: string, to?: string): Promise<{ id: number; date: string; djInvoiceNo: string | null; vendorName: string; clientName: string; itemName: string; uom: string; qty: number; unitPrice: number; gstRate: number; totalPrice: number }[]> {
     const likePattern = `%${itemSearch}%`;
-    let query = sql`
+    const fromVal = from || null;
+    const toVal   = to   || null;
+    const query = sql`
       SELECT
         pii.id,
         pi.date,
@@ -1376,13 +1378,13 @@ export class DatabaseStorage implements IStorage {
       FROM purchase_invoice_items pii
       JOIN purchase_invoices pi ON pii.invoice_id = pi.id
       WHERE pii.item_name LIKE ${likePattern}
+        AND (${fromVal} IS NULL OR pi.date >= ${fromVal})
+        AND (${toVal}   IS NULL OR pi.date <= ${toVal})
+      ORDER BY pi.date DESC, pii.id DESC
+      LIMIT 500
     `;
-    if (from) query = sql`${query} AND pi.date >= ${from}`;
-    if (to)   query = sql`${query} AND pi.date <= ${to}`;
-    query = sql`${query} ORDER BY pi.date DESC, pii.id DESC LIMIT 500`;
-
-    const result = await db.execute(query);
-    return (result.rows || []).map((row: any) => ({
+    const [rows] = await db.execute(query) as any;
+    return (Array.isArray(rows) ? rows : []).map((row: any) => ({
       id: Number(row.id),
       date: String(row.date || ''),
       djInvoiceNo: row.dj_invoice_no ? String(row.dj_invoice_no) : null,
