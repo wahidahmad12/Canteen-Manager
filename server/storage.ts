@@ -181,6 +181,8 @@ export interface IStorage {
   getItemStockReport(year: number, clientName?: string): Promise<{ itemName: string; uom: string; month: number; totalQty: number; totalAmount: number }[]>;
   getItemStockClients(): Promise<string[]>;
   getExpenseItemStockReport(year: number, category?: string): Promise<{ itemName: string; uom: string; category: string; month: number; totalQty: number; totalAmount: number }[]>;
+  getExpenseItemStockYears(): Promise<number[]>;
+  getPurchaseItemStockYears(): Promise<number[]>;
   renumberDjInvoiceNos(): Promise<{ updated: number }>;
   getEmployees(clientName?: string): Promise<Employee[]>;
   getEmployee(id: number): Promise<Employee | undefined>;
@@ -1431,6 +1433,16 @@ export class DatabaseStorage implements IStorage {
   async getItemStockClients(): Promise<string[]> {
     const [rows] = await db.execute(sql`SELECT DISTINCT client_name FROM purchase_invoices ORDER BY client_name`) as any;
     return (Array.isArray(rows) ? rows : []).map((r: any) => String(r.client_name || '')).filter(Boolean);
+  }
+
+  async getExpenseItemStockYears(): Promise<number[]> {
+    const [rows] = await db.execute(sql`SELECT DISTINCT YEAR(dr.date) AS yr FROM expense_items ei JOIN daily_reports dr ON ei.report_id = dr.id ORDER BY yr DESC`) as any;
+    return (Array.isArray(rows) ? rows : []).map((r: any) => Number(r.yr)).filter(Boolean);
+  }
+
+  async getPurchaseItemStockYears(): Promise<number[]> {
+    const [rows] = await db.execute(sql`SELECT DISTINCT YEAR(date) AS yr FROM purchase_invoices ORDER BY yr DESC`) as any;
+    return (Array.isArray(rows) ? rows : []).map((r: any) => Number(r.yr)).filter(Boolean);
   }
 
   async getExpenseItemStockReport(year: number, category?: string): Promise<{ itemName: string; uom: string; category: string; month: number; totalQty: number; totalAmount: number }[]> {

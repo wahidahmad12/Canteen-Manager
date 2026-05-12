@@ -628,6 +628,18 @@ export async function registerRoutes(
     res.json(invoices);
   });
 
+  // Available years for expense item stock report
+  app.get('/api/expense-items/stock-years', requireAuth, async (req, res) => {
+    try { res.json(await storage.getExpenseItemStockYears()); }
+    catch (e: any) { res.status(500).json({ error: e.message }); }
+  });
+
+  // Available years for purchase item stock report
+  app.get('/api/purchase-invoices/item-stock-years', requireAuth, async (req, res) => {
+    try { res.json(await storage.getPurchaseItemStockYears()); }
+    catch (e: any) { res.status(500).json({ error: e.message }); }
+  });
+
   // Expense item-wise stock monthly report (from daily cash expenses)
   app.get('/api/expense-items/stock-report', requireAuth, async (req, res) => {
     try {

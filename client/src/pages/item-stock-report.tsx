@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Layout } from "@/components/layout";
 import { Button } from "@/components/ui/button";
@@ -180,14 +180,34 @@ export default function ItemStockReportPage() {
   const { toast } = useToast();
   const now = new Date();
 
-  const [selectedYear,   setSelectedYear]   = useState(now.getFullYear());
+  const [purchaseYear,   setPurchaseYear]   = useState(now.getFullYear());
+  const [expenseYear,    setExpenseYear]    = useState(now.getFullYear());
   const [selectedClient, setSelectedClient] = useState("all");
   const [expCategory,    setExpCategory]    = useState("all");
   const [view,           setView]           = useState<"qty"|"amount"|"both">("both");
   const [source,         setSource]         = useState<"purchase"|"expense">("purchase");
 
-  const yearOptions: number[] = [];
-  for (let y = now.getFullYear() + 1; y >= 2020; y--) yearOptions.push(y);
+  const selectedYear = source === "purchase" ? purchaseYear : expenseYear;
+  const setSelectedYear = source === "purchase" ? setPurchaseYear : setExpenseYear;
+
+  // ── Available years (from DB) ──────────────────────────────────────────────
+  const { data: purchaseYears = [] } = useQuery<number[]>({
+    queryKey: ["/api/purchase-invoices/item-stock-years"],
+    queryFn: () => fetch("/api/purchase-invoices/item-stock-years", { credentials: "include" }).then(r => r.json()),
+  });
+
+  const { data: expenseYears = [] } = useQuery<number[]>({
+    queryKey: ["/api/expense-items/stock-years"],
+    queryFn: () => fetch("/api/expense-items/stock-years", { credentials: "include" }).then(r => r.json()),
+  });
+
+  // Auto-set year to the latest year with actual data
+  useEffect(() => { if (purchaseYears.length > 0) setPurchaseYear(purchaseYears[0]); }, [purchaseYears]);
+  useEffect(() => { if (expenseYears.length  > 0) setExpenseYear(expenseYears[0]);   }, [expenseYears]);
+
+  const yearOptions = source === "purchase"
+    ? (purchaseYears.length > 0 ? purchaseYears : [now.getFullYear()])
+    : (expenseYears.length  > 0 ? expenseYears  : [now.getFullYear()]);
 
   // ── Purchase data ──────────────────────────────────────────────────────────
   const { data: clients = [] } = useQuery<string[]>({
@@ -196,10 +216,10 @@ export default function ItemStockReportPage() {
   });
 
   const { data: purchaseRows = [], isLoading: purchaseLoading } = useQuery<StockRow[]>({
-    queryKey: ["/api/purchase-invoices/item-stock-report", selectedYear, selectedClient],
+    queryKey: ["/api/purchase-invoices/item-stock-report", purchaseYear, selectedClient],
     enabled: source === "purchase",
     queryFn: () => {
-      const params = new URLSearchParams({ year: String(selectedYear) });
+      const params = new URLSearchParams({ year: String(purchaseYear) });
       if (selectedClient !== "all") params.set("client", selectedClient);
       return fetch(`/api/purchase-invoices/item-stock-report?${params}`, { credentials: "include" }).then(r => r.json());
     },
@@ -207,10 +227,10 @@ export default function ItemStockReportPage() {
 
   // ── Expense data ───────────────────────────────────────────────────────────
   const { data: expenseRows = [], isLoading: expenseLoading } = useQuery<ExpenseRow[]>({
-    queryKey: ["/api/expense-items/stock-report", selectedYear, expCategory],
+    queryKey: ["/api/expense-items/stock-report", expenseYear, expCategory],
     enabled: source === "expense",
     queryFn: () => {
-      const params = new URLSearchParams({ year: String(selectedYear) });
+      const params = new URLSearchParams({ year: String(expenseYear) });
       if (expCategory !== "all") params.set("category", expCategory);
       return fetch(`/api/expense-items/stock-report?${params}`, { credentials: "include" }).then(r => r.json());
     },
