@@ -28,49 +28,56 @@ function ReportSection({ title, color, rows }: { title: string; color: "blue" | 
 
   return (
     <div className="mb-4">
-      {/* Section header */}
-      <div style={{ background: headerBg }} className="text-white text-center text-sm font-bold py-1.5 rounded-t">
+      <div style={{ background: headerBg }} className="text-white text-center text-sm font-bold py-1.5 print:py-1">
         {title}
       </div>
-      <table className="w-full border-collapse text-xs" style={{ borderLeft: "1px solid #ccc", borderRight: "1px solid #ccc" }}>
-        <thead>
-          <tr style={{ background: subHeaderBg }}>
-            <th className="border border-gray-300 px-1.5 py-1 text-center w-8" style={{ color: subHeaderColor }}>Sl No.</th>
-            <th className="border border-gray-300 px-1.5 py-1 text-left" style={{ color: subHeaderColor }}>Name</th>
-            <th className="border border-gray-300 px-1.5 py-1 text-right" style={{ color: subHeaderColor }}>Qty</th>
-            <th className="border border-gray-300 px-1.5 py-1 text-right" style={{ color: subHeaderColor }}>Total</th>
-            <th className="border border-gray-300 px-1.5 py-1 text-right" style={{ color: subHeaderColor }}>Online Qty</th>
-            <th className="border border-gray-300 px-1.5 py-1 text-right" style={{ color: subHeaderColor }}>Online Total</th>
-            <th className="border border-gray-300 px-1.5 py-1 text-right" style={{ color: subHeaderColor }}>Total Amount</th>
-          </tr>
-        </thead>
-        <tbody>
-          {rows.map(row => (
-            <tr key={row.no} className="hover:bg-gray-50">
-              <td className="border border-gray-300 px-1.5 py-1 text-center text-gray-600">{row.no}</td>
-              <td className="border border-gray-300 px-1.5 py-1 font-medium" style={{ color: color === "blue" ? "#166534" : "#166534" }}>{row.name}</td>
-              <td className="border border-gray-300 px-1.5 py-1 text-right font-mono">{row.cashQty > 0 ? row.cashQty : ""}</td>
-              <td className="border border-gray-300 px-1.5 py-1 text-right font-mono" style={{ color: "#dc2626" }}>{row.cashTotal > 0 ? fmt(row.cashTotal) : ""}</td>
-              <td className="border border-gray-300 px-1.5 py-1 text-right font-mono">{row.onlineQty > 0 ? row.onlineQty : ""}</td>
-              <td className="border border-gray-300 px-1.5 py-1 text-right font-mono" style={{ color: "#1d4ed8" }}>{row.onlineTotal > 0 ? fmt(row.onlineTotal) : ""}</td>
-              <td className="border border-gray-300 px-1.5 py-1 text-right font-mono font-semibold">{(row.cashTotal + row.onlineTotal) > 0 ? fmt(row.cashTotal + row.onlineTotal) : ""}</td>
+      <div className="overflow-x-auto">
+        <table className="w-full border-collapse text-xs min-w-[620px]">
+          <thead>
+            <tr style={{ background: subHeaderBg }}>
+              <th className="border border-gray-300 px-2 py-1 text-center w-8" style={{ color: subHeaderColor }}>Sl No.</th>
+              <th className="border border-gray-300 px-2 py-1 text-left" style={{ color: subHeaderColor }}>Name</th>
+              <th className="border border-gray-300 px-2 py-1 text-right" style={{ color: subHeaderColor }}>Total Cash Qty</th>
+              <th className="border border-gray-300 px-2 py-1 text-right" style={{ color: subHeaderColor }}>Total Cash Amount</th>
+              <th className="border border-gray-300 px-2 py-1 text-right" style={{ color: subHeaderColor }}>Total Online Qty</th>
+              <th className="border border-gray-300 px-2 py-1 text-right" style={{ color: subHeaderColor }}>Total Online Amount</th>
+              <th className="border border-gray-300 px-2 py-1 text-right" style={{ color: subHeaderColor }}>Cash + Online Qty</th>
+              <th className="border border-gray-300 px-2 py-1 text-right" style={{ color: subHeaderColor }}>Total Amount</th>
             </tr>
-          ))}
-        </tbody>
-        <tfoot>
-          <tr style={{ background: subHeaderBg }}>
-            <td colSpan={3} className="border border-gray-300 px-1.5 py-1 text-right font-bold text-xs">Total:</td>
-            <td className="border border-gray-300 px-1.5 py-1 text-right font-bold font-mono text-xs">{fmt(cashTotalSum)}</td>
-            <td className="border border-gray-300 px-1.5 py-1"></td>
-            <td className="border border-gray-300 px-1.5 py-1 text-right font-bold font-mono text-xs">{fmt(onlineTotalSum)}</td>
-            <td className="border border-gray-300 px-1.5 py-1"></td>
-          </tr>
-          <tr style={{ background: subHeaderBg }}>
-            <td colSpan={5} className="border border-gray-300 px-1.5 py-1 text-right font-bold text-xs">Total Cash + Total Online:</td>
-            <td colSpan={2} className="border border-gray-300 px-1.5 py-1 text-right font-bold font-mono text-sm">{fmt(grandSum)}</td>
-          </tr>
-        </tfoot>
-      </table>
+          </thead>
+          <tbody>
+            {rows.map(row => {
+              const combinedQty = row.cashQty + row.onlineQty;
+              const totalAmt = row.cashTotal + row.onlineTotal;
+              return (
+                <tr key={row.no} className="hover:bg-gray-50">
+                  <td className="border border-gray-300 px-2 py-1 text-center text-gray-500">{row.no}</td>
+                  <td className="border border-gray-300 px-2 py-1 font-medium text-green-800">{row.name}</td>
+                  <td className="border border-gray-300 px-2 py-1 text-right font-mono">{row.cashQty > 0 ? row.cashQty : ""}</td>
+                  <td className="border border-gray-300 px-2 py-1 text-right font-mono text-red-600">{row.cashTotal > 0 ? fmt(row.cashTotal) : ""}</td>
+                  <td className="border border-gray-300 px-2 py-1 text-right font-mono">{row.onlineQty > 0 ? row.onlineQty : ""}</td>
+                  <td className="border border-gray-300 px-2 py-1 text-right font-mono text-blue-700">{row.onlineTotal > 0 ? fmt(row.onlineTotal) : ""}</td>
+                  <td className="border border-gray-300 px-2 py-1 text-right font-mono">{combinedQty > 0 ? combinedQty : ""}</td>
+                  <td className="border border-gray-300 px-2 py-1 text-right font-mono font-semibold">{totalAmt > 0 ? fmt(totalAmt) : ""}</td>
+                </tr>
+              );
+            })}
+          </tbody>
+          <tfoot>
+            <tr style={{ background: subHeaderBg }}>
+              <td colSpan={3} className="border border-gray-300 px-2 py-1 text-right font-bold">Total:</td>
+              <td className="border border-gray-300 px-2 py-1 text-right font-bold font-mono">{fmt(cashTotalSum)}</td>
+              <td className="border border-gray-300 px-2 py-1"></td>
+              <td className="border border-gray-300 px-2 py-1 text-right font-bold font-mono">{fmt(onlineTotalSum)}</td>
+              <td colSpan={2} className="border border-gray-300 px-2 py-1"></td>
+            </tr>
+            <tr style={{ background: subHeaderBg }}>
+              <td colSpan={6} className="border border-gray-300 px-2 py-1 text-right font-bold">Total Cash + Total Online:</td>
+              <td colSpan={2} className="border border-gray-300 px-2 py-1 text-right font-bold font-mono text-sm">{fmt(grandSum)}</td>
+            </tr>
+          </tfoot>
+        </table>
+      </div>
     </div>
   );
 }
