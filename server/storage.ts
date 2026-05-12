@@ -1446,24 +1446,43 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getExpenseItemStockReport(year: number, category?: string): Promise<{ itemName: string; uom: string; category: string; month: number; totalQty: number; totalAmount: number }[]> {
-    const catVal = (category && category !== 'all') ? category : null;
-    const query = sql`
-      SELECT
-        ei.description AS item_name,
-        ei.uom,
-        ei.category,
-        MONTH(dr.date) AS month,
-        SUM(COALESCE(ei.qty, 0)) AS total_qty,
-        SUM(COALESCE(ei.amount, 0)) AS total_amount
-      FROM expense_items ei
-      JOIN daily_reports dr ON ei.report_id = dr.id
-      WHERE YEAR(dr.date) = ${year}
-        AND (${catVal} IS NULL OR ei.category = ${catVal})
-      GROUP BY ei.description, ei.uom, ei.category, MONTH(dr.date)
-      ORDER BY ei.description, MONTH(dr.date)
-    `;
-    const [rows] = await db.execute(query) as any;
-    return (Array.isArray(rows) ? rows : []).map((row: any) => ({
+    const useCat = !!(category && category !== 'all');
+    let rows: any[];
+    if (useCat) {
+      const [r] = await db.execute(sql`
+        SELECT
+          ei.description AS item_name,
+          ei.uom,
+          ei.category,
+          MONTH(dr.date) AS month,
+          SUM(COALESCE(ei.qty, 0)) AS total_qty,
+          SUM(COALESCE(ei.amount, 0)) AS total_amount
+        FROM expense_items ei
+        JOIN daily_reports dr ON ei.report_id = dr.id
+        WHERE YEAR(dr.date) = ${year}
+          AND ei.category = ${category}
+        GROUP BY ei.description, ei.uom, ei.category, MONTH(dr.date)
+        ORDER BY ei.description, MONTH(dr.date)
+      `) as any;
+      rows = Array.isArray(r) ? r : [];
+    } else {
+      const [r] = await db.execute(sql`
+        SELECT
+          ei.description AS item_name,
+          ei.uom,
+          ei.category,
+          MONTH(dr.date) AS month,
+          SUM(COALESCE(ei.qty, 0)) AS total_qty,
+          SUM(COALESCE(ei.amount, 0)) AS total_amount
+        FROM expense_items ei
+        JOIN daily_reports dr ON ei.report_id = dr.id
+        WHERE YEAR(dr.date) = ${year}
+        GROUP BY ei.description, ei.uom, ei.category, MONTH(dr.date)
+        ORDER BY ei.description, MONTH(dr.date)
+      `) as any;
+      rows = Array.isArray(r) ? r : [];
+    }
+    return rows.map((row: any) => ({
       itemName: String(row.item_name || ''),
       uom: String(row.uom || ''),
       category: String(row.category || ''),
