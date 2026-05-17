@@ -216,7 +216,7 @@ function InvoiceFormDialog({ invoice, onClose, clients, purchaseOrders, allInvoi
       .reduce((sum, inv) => sum + Number(inv.billAmount), 0);
     const balance = Math.round((Number(po.poAmount) - used) * 100) / 100;
     return balance > 0;
-  });
+  }).sort((a, b) => new Date(b.poDate).getTime() - new Date(a.poDate).getTime());
 
   const selectedPO = selectedPoId !== "none" ? purchaseOrders.find(po => po.id === Number(selectedPoId)) : null;
   const poUsedAmount = selectedPO
