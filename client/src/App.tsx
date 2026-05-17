@@ -1,4 +1,4 @@
-import { Switch, Route, Redirect } from "wouter";
+import { Switch, Route, Redirect, useLocation } from "wouter";
 import { queryClient } from "./lib/queryClient";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
@@ -47,6 +47,7 @@ import ItemStockReportPage from "./pages/item-stock-report";
 import EmployeeDashboard from "./pages/employee-dashboard";
 import QrScannerPage from "./pages/qr-scanner";
 import DailyAttendancePage from "./pages/daily-attendance";
+import AttendanceKiosk from "./pages/attendance-kiosk";
 import Login from "./pages/login";
 import { useCurrentUser } from "./hooks/use-reports";
 import { LanguageProvider } from "./contexts/language-context";
@@ -159,7 +160,12 @@ function AuthenticatedRouter() {
 }
 
 function AppContent() {
+  const [location] = useLocation();
   const { data: user, isLoading } = useCurrentUser();
+
+  if (location === "/kiosk") {
+    return <AttendanceKiosk />;
+  }
 
   if (isLoading) {
     return <SplashScreen />;

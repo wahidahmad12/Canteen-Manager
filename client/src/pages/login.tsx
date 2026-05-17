@@ -1,14 +1,16 @@
 import { useState } from "react";
+import { useLocation } from "wouter";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Loader2, LogIn, Eye, EyeOff } from "lucide-react";
+import { Loader2, LogIn, Eye, EyeOff, Fingerprint } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { api } from "@shared/routes";
 import logoImg from "@assets/logo1_1771660912341.png";
 
 export default function Login() {
+  const [, setLocation] = useLocation();
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [showPwd, setShowPwd] = useState(false);
@@ -117,6 +119,15 @@ export default function Login() {
             </Button>
           </form>
         </div>
+
+        <button
+          onClick={() => setLocation("/kiosk")}
+          className="mt-4 w-full flex items-center justify-center gap-2 py-2.5 rounded-xl border border-indigo-500/30 bg-indigo-500/10 hover:bg-indigo-500/20 text-indigo-300 hover:text-indigo-200 text-sm font-medium transition-colors"
+          data-testid="button-open-kiosk"
+        >
+          <Fingerprint className="w-4 h-4" />
+          Employee Attendance Kiosk
+        </button>
 
         <p className="text-center text-xs text-slate-500 mt-4">
           DJ KPF Daily Cash Expance &copy; {new Date().getFullYear()}

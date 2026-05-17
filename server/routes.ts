@@ -1133,6 +1133,103 @@ export async function registerRoutes(
     }
   });
 
+  // === ATTENDANCE KIOSK (public endpoints — no auth) ===
+  const kioskChallenges = new Map<number, string>();
+
+  app.get("/api/kiosk/clients", async (req, res) => {
+    try {
+      const [rows] = await pool.execute(`SELECT id, name FROM clients ORDER BY name ASC`) as any;
+      res.json(rows);
+    } catch (err: any) { res.status(500).json({ message: err.message }); }
+  });
+
+  app.get("/api/kiosk/employees", async (req, res) => {
+    try {
+      const { clientName } = req.query;
+      if (!clientName) return res.status(400).json({ message: "clientName required" });
+      const [rows] = await pool.execute(
+        `SELECT id, name, employee_code AS employeeCode, designation FROM employees WHERE client_name = ? AND is_active = 1 ORDER BY name ASC`,
+        [clientName]
+      ) as any;
+      res.json(rows);
+    } catch (err: any) { res.status(500).json({ message: err.message }); }
+  });
+
+  app.get("/api/kiosk/today-logs", async (req, res) => {
+    try {
+      const { clientName, date } = req.query;
+      if (!clientName || !date) return res.status(400).json({ message: "clientName and date required" });
+      const [rows] = await pool.execute(
+        `SELECT employee_id FROM daily_attendance_logs WHERE client_name = ? AND attendance_date = ?`,
+        [clientName, date]
+      ) as any;
+      res.json(rows);
+    } catch (err: any) { res.status(500).json({ message: err.message }); }
+  });
+
+  app.post("/api/kiosk/webauthn/challenge", async (req, res) => {
+    try {
+      const { employeeId } = req.body;
+      const creds = await storage.getEmployeeWebAuthnCredentials(Number(employeeId));
+      if (!creds.length) return res.status(400).json({ message: "No fingerprint registered for this employee. Please ask admin to register your fingerprint." });
+      const rpID = req.hostname;
+      const options = await generateAuthenticationOptions({
+        rpID,
+        timeout: 60000,
+        allowCredentials: creds.map((c: any) => ({
+          id: bufToStr(c.credential_id),
+          type: "public-key" as const,
+          transports: JSON.parse(bufToStr(c.transports || "[]")),
+        })),
+        userVerification: "required",
+      });
+      kioskChallenges.set(Number(employeeId), options.challenge);
+      res.json(options);
+    } catch (err: any) { res.status(500).json({ message: err.message }); }
+  });
+
+  app.post("/api/kiosk/webauthn/verify", async (req, res) => {
+    try {
+      const { employeeId, authenticationResponse, clientName, attendanceDate } = req.body;
+      const challenge = kioskChallenges.get(Number(employeeId));
+      if (!challenge) return res.status(400).json({ message: "No challenge found. Please try again." });
+      const rpID = req.hostname;
+      const origin = (req.headers.origin as string) || `https://${rpID}`;
+      const creds = await storage.getEmployeeWebAuthnCredentials(Number(employeeId));
+      const cred = creds.find((c: any) => bufToStr(c.credential_id) === authenticationResponse.id);
+      if (!cred) return res.status(400).json({ message: "Credential not found for this device" });
+      const verification = await verifyAuthenticationResponse({
+        response: authenticationResponse,
+        expectedChallenge: challenge,
+        expectedOrigin: origin,
+        expectedRPID: rpID,
+        requireUserVerification: true,
+        credential: {
+          id: bufToStr(cred.credential_id),
+          publicKey: isoBase64URL.toBuffer(bufToStr(cred.public_key)),
+          counter: Number(cred.counter),
+          transports: JSON.parse(bufToStr(cred.transports || "[]")),
+        },
+      });
+      if (!verification.verified) return res.status(400).json({ message: "Fingerprint verification failed" });
+      await storage.updateWebAuthnCounter(bufToStr(cred.credential_id), verification.authenticationInfo.newCounter);
+      kioskChallenges.delete(Number(employeeId));
+      const log = await storage.saveDailyAttendanceLog({
+        employeeId: Number(employeeId),
+        clientName,
+        attendanceDate,
+        status: "P",
+        scannedLat: null,
+        scannedLng: null,
+        scannedBy: "kiosk (fingerprint)",
+      });
+      res.json({ verified: true, log });
+    } catch (err: any) {
+      if (err.message?.includes("already recorded")) return res.status(409).json({ message: "Attendance already recorded today for this employee." });
+      res.status(400).json({ message: err.message || "Authentication failed" });
+    }
+  });
+
   // === DAILY ATTENDANCE LOGS (Face Recognition) ===
   app.get("/api/daily-attendance/month", requireAuth, async (req, res) => {
     const { clientName, month, year } = req.query;
