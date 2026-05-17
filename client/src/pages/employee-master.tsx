@@ -16,6 +16,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Plus, Loader2, Pencil, Trash2, Users, Search, UserCheck, UserX, Building2, IndianRupee, CreditCard, FileText, MapPin, Shield, Calendar, Printer, Fingerprint, QrCode, Download } from "lucide-react";
 import { startRegistration } from "@simplewebauthn/browser";
 import { QRCodeSVG } from "qrcode.react";
+import QRCodeLib from "qrcode";
 
 const fmtDate = (d: string | null | undefined): string => {
   if (!d) return "-";
@@ -392,6 +393,54 @@ export default function EmployeeMaster() {
     setTimeout(() => win.print(), 400);
   };
 
+  const handlePrintAllQR = async () => {
+    if (!filteredEmployees.length) return;
+    const win = window.open("", "_blank");
+    if (!win) return;
+    const today = new Date();
+    const printDate = `${String(today.getDate()).padStart(2,"0")}-${String(today.getMonth()+1).padStart(2,"0")}-${today.getFullYear()}`;
+    const clientLabel = filterClient && filterClient !== "all" ? filterClient : "All Clients";
+
+    const cards = await Promise.all(filteredEmployees.map(async (emp) => {
+      const data = `CODE:${emp.employeeCode}\nNAME:${emp.name}\nCLIENT:${emp.clientName}`;
+      const svg = await QRCodeLib.toString(data, { type: "svg", width: 130, margin: 1 });
+      return `
+        <div class="qr-card">
+          <div class="qr-img">${svg}</div>
+          <div class="emp-name">${emp.name}</div>
+          <div class="emp-code">${emp.employeeCode}</div>
+          <div class="emp-client">${emp.clientName}</div>
+        </div>`;
+    }));
+
+    win.document.write(`<!DOCTYPE html><html><head><title>Employee QR Codes — ${clientLabel}</title>
+    <style>
+      @page { size: A4 portrait; margin: 10mm; }
+      * { box-sizing: border-box; margin: 0; padding: 0; }
+      body { font-family: Arial, sans-serif; background: #fff; }
+      .header { text-align: center; margin-bottom: 8mm; padding-bottom: 4mm; border-bottom: 1.5px solid #333; }
+      .header h1 { font-size: 13pt; font-weight: bold; }
+      .header p { font-size: 9pt; color: #555; margin-top: 2px; }
+      .grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 5mm; }
+      .qr-card { border: 1px solid #ccc; border-radius: 6px; padding: 4mm; text-align: center; page-break-inside: avoid; background: #fafafa; }
+      .qr-img svg { width: 100%; height: auto; display: block; }
+      .emp-name { font-size: 8.5pt; font-weight: bold; margin-top: 3px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+      .emp-code { font-size: 7.5pt; font-family: monospace; color: #555; margin-top: 1px; }
+      .emp-client { font-size: 7pt; color: #777; margin-top: 1px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+      .footer { margin-top: 8mm; font-size: 8pt; color: #888; text-align: center; border-top: 1px solid #ddd; padding-top: 3mm; }
+    </style></head><body>
+    <div class="header">
+      <h1>DJ Hospitality &amp; Facility Management Pvt. Ltd.</h1>
+      <p>Employee QR Code Sheet &nbsp;|&nbsp; ${clientLabel} &nbsp;|&nbsp; ${printDate} &nbsp;|&nbsp; Total: ${filteredEmployees.length}</p>
+    </div>
+    <div class="grid">${cards.join("")}</div>
+    <div class="footer">DJ KPF &mdash; Employee Identification QR Codes &mdash; Printed: ${printDate}</div>
+    </body></html>`);
+    win.document.close();
+    win.focus();
+    setTimeout(() => win.print(), 500);
+  };
+
   return (
     <Layout>
       <div className="space-y-4 sm:space-y-6">
@@ -400,7 +449,10 @@ export default function EmployeeMaster() {
             <h1 className="text-xl sm:text-2xl font-bold tracking-tight" data-testid="text-employee-master-title">Employee Master</h1>
             <p className="text-muted-foreground text-xs sm:text-sm mt-1">Manage employee records</p>
           </div>
-          <div className="flex gap-2">
+          <div className="flex flex-wrap gap-2">
+            <Button variant="outline" onClick={handlePrintAllQR} className="gap-2 border-emerald-300 text-emerald-700 hover:bg-emerald-50 dark:border-emerald-700 dark:text-emerald-400" data-testid="button-print-all-qr">
+              <QrCode className="w-4 h-4" /> Print All QR
+            </Button>
             <Button variant="outline" onClick={handlePrintWeekOfReport} data-testid="button-print-weekof-report">
               <Printer className="w-4 h-4 mr-2" />
               Print Week Of Report
