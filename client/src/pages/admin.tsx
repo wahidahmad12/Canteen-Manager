@@ -124,6 +124,27 @@ export default function Admin() {
   const [editingClientLat, setEditingClientLat] = useState("");
   const [editingClientLng, setEditingClientLng] = useState("");
   const [editingClientRadius, setEditingClientRadius] = useState("200");
+  const [geocodingClient, setGeocodingClient] = useState(false);
+
+  const handleGeocodeAddress = async () => {
+    const addr = editingClientAddress.trim();
+    if (!addr) { toast({ title: "Enter an address first", variant: "destructive" }); return; }
+    setGeocodingClient(true);
+    try {
+      const res = await fetch(`https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(addr)}&format=json&limit=1`, {
+        headers: { "Accept-Language": "en", "User-Agent": "DJHospitality/1.0" }
+      });
+      const data = await res.json();
+      if (!data.length) { toast({ title: "Address not found", description: "Try a more specific address.", variant: "destructive" }); return; }
+      setEditingClientLat(Number(data[0].lat).toFixed(7));
+      setEditingClientLng(Number(data[0].lon).toFixed(7));
+      toast({ title: "Coordinates found!", description: `${Number(data[0].lat).toFixed(5)}, ${Number(data[0].lon).toFixed(5)}` });
+    } catch {
+      toast({ title: "Geocoding failed", description: "Check internet connection.", variant: "destructive" });
+    } finally {
+      setGeocodingClient(false);
+    }
+  };
 
   const { data: vendorsList, isLoading: vendorsLoading } = useVendors();
   const createVendorMutation = useCreateVendor();
@@ -708,7 +729,13 @@ export default function Admin() {
                           </div>
                         </div>
                         <div className="space-y-1">
-                          <Label className="text-xs font-semibold text-violet-700 dark:text-violet-400">📍 Face Attendance Location (GPS Lock)</Label>
+                          <div className="flex items-center justify-between">
+                            <Label className="text-xs font-semibold text-violet-700 dark:text-violet-400">📍 Face Attendance Location (GPS Lock)</Label>
+                            <Button type="button" size="sm" variant="outline" className="h-7 text-[11px] border-violet-300 text-violet-700 hover:bg-violet-50 dark:hover:bg-violet-900/20" onClick={handleGeocodeAddress} disabled={geocodingClient} data-testid="button-geocode-address">
+                              {geocodingClient ? <Loader2 className="w-3 h-3 mr-1 animate-spin" /> : <MapPin className="w-3 h-3 mr-1" />}
+                              {geocodingClient ? "Locating…" : "Get from Address"}
+                            </Button>
+                          </div>
                           <div className="grid grid-cols-3 gap-2">
                             <div>
                               <Label className="text-[10px] text-muted-foreground">Latitude</Label>
@@ -723,6 +750,11 @@ export default function Admin() {
                               <Input type="number" placeholder="200" value={editingClientRadius} onChange={e => setEditingClientRadius(e.target.value)} className="border-teal-300 text-xs" data-testid={`input-edit-client-radius-${client.id}`} />
                             </div>
                           </div>
+                          {editingClientLat && editingClientLng && (
+                            <a href={`https://www.google.com/maps?q=${editingClientLat},${editingClientLng}`} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 text-[11px] text-teal-600 hover:underline mt-1">
+                              <MapPin className="w-3 h-3" /> Verify on Google Maps ↗
+                            </a>
+                          )}
                         </div>
                         <div className="flex gap-2">
                           <Button size="sm" variant="ghost" className="text-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-900/20" onClick={() => handleUpdateClient(client.id)} data-testid={`button-save-client-${client.id}`}>
