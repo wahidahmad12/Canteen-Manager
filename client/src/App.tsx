@@ -90,7 +90,7 @@ function SplashScreen() {
 
 function PermRoute({ perm, children }: { perm: string; children: React.ReactNode }) {
   const { data: user } = useCurrentUser();
-  const perms = user?.role === 'admin' ? ['expense', 'cashseal', 'inventory', 'menu', 'purchase'] : (user?.permissions || []);
+  const perms = user?.role === 'admin' ? ['expense', 'cashseal', 'inventory', 'menu', 'purchase', 'labour', 'salesinvoice', 'attendance'] : (user?.permissions || []);
   if (!perms.includes(perm)) return <Redirect to="/" />;
   return <>{children}</>;
 }
