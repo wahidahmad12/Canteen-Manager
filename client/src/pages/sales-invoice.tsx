@@ -436,11 +436,17 @@ function InvoiceFormDialog({ invoice, onClose, clients, purchaseOrders, allInvoi
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="none">No PO</SelectItem>
-              {clientPOs.map(po => (
-                <SelectItem key={po.id} value={String(po.id)}>
-                  {po.poNumber} — {fmtCurrency(po.poAmount)} ({fmtDate(po.poDate)})
-                </SelectItem>
-              ))}
+              {clientPOs.map(po => {
+                const usedAmt = allInvoices
+                  .filter(inv => inv.poId === po.id && inv.id !== invoice?.id)
+                  .reduce((sum, inv) => sum + Number(inv.billAmount), 0);
+                const balAmt = Math.round((Number(po.poAmount) - usedAmt) * 100) / 100;
+                return (
+                  <SelectItem key={po.id} value={String(po.id)}>
+                    {po.poNumber} — {fmtDate(po.poDate)} &nbsp;|&nbsp; Bal: {fmtCurrency(balAmt)}
+                  </SelectItem>
+                );
+              })}
             </SelectContent>
           </Select>
           {selectedPO && (
