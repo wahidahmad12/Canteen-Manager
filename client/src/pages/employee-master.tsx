@@ -13,8 +13,9 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
-import { Plus, Loader2, Pencil, Trash2, Users, Search, UserCheck, UserX, Building2, IndianRupee, CreditCard, FileText, MapPin, Shield, Calendar, Printer, Fingerprint } from "lucide-react";
+import { Plus, Loader2, Pencil, Trash2, Users, Search, UserCheck, UserX, Building2, IndianRupee, CreditCard, FileText, MapPin, Shield, Calendar, Printer, Fingerprint, QrCode, Download } from "lucide-react";
 import { startRegistration } from "@simplewebauthn/browser";
+import { QRCodeSVG } from "qrcode.react";
 
 const fmtDate = (d: string | null | undefined): string => {
   if (!d) return "-";
@@ -131,6 +132,7 @@ export default function EmployeeMaster() {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [deleteId, setDeleteId] = useState<number | null>(null);
   const [registeringFingerprintId, setRegisteringFingerprintId] = useState<number | null>(null);
+  const [qrEmp, setQrEmp] = useState<any>(null);
   const [editingId, setEditingId] = useState<number | null>(null);
   const [form, setForm] = useState({ ...emptyForm });
 
@@ -517,6 +519,9 @@ export default function EmployeeMaster() {
                         <Button size="icon" variant="ghost" className="text-indigo-600 hover:bg-indigo-50 dark:hover:bg-indigo-900/20" title="Register Fingerprint" onClick={() => handleRegisterFingerprint(emp)} disabled={registeringFingerprintId === emp.id} data-testid={`button-fingerprint-mobile-${emp.id}`}>
                           {registeringFingerprintId === emp.id ? <Loader2 className="w-4 h-4 animate-spin" /> : <Fingerprint className="w-4 h-4" />}
                         </Button>
+                        <Button size="icon" variant="ghost" className="text-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-900/20" title="Generate QR Code" onClick={() => setQrEmp(emp)} data-testid={`button-qr-mobile-${emp.id}`}>
+                          <QrCode className="w-4 h-4" />
+                        </Button>
                         <Button size="icon" variant="ghost" onClick={() => openEdit(emp)} data-testid={`button-edit-employee-${emp.id}`}>
                           <Pencil className="w-4 h-4" />
                         </Button>
@@ -572,6 +577,9 @@ export default function EmployeeMaster() {
                             <div className="flex justify-end gap-1">
                               <Button size="icon" variant="ghost" className="text-indigo-600 hover:bg-indigo-50 dark:hover:bg-indigo-900/20" title="Register Fingerprint for attendance" onClick={() => handleRegisterFingerprint(emp)} disabled={registeringFingerprintId === emp.id} data-testid={`button-fingerprint-${emp.id}`}>
                                 {registeringFingerprintId === emp.id ? <Loader2 className="w-4 h-4 animate-spin" /> : <Fingerprint className="w-4 h-4" />}
+                              </Button>
+                              <Button size="icon" variant="ghost" className="text-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-900/20" title="Generate QR Code" onClick={() => setQrEmp(emp)} data-testid={`button-qr-${emp.id}`}>
+                                <QrCode className="w-4 h-4" />
                               </Button>
                               <Button size="icon" variant="ghost" onClick={() => openEdit(emp)} data-testid={`button-edit-employee-${emp.id}`}>
                                 <Pencil className="w-4 h-4" />
@@ -835,6 +843,70 @@ export default function EmployeeMaster() {
         </DialogContent>
       </Dialog>
 
+
+      {/* QR Code Dialog */}
+      <Dialog open={!!qrEmp} onOpenChange={open => { if (!open) setQrEmp(null); }}>
+        <DialogContent className="max-w-xs text-center">
+          <DialogHeader>
+            <DialogTitle className="flex items-center justify-center gap-2">
+              <QrCode className="w-4 h-4 text-emerald-600" /> Employee QR Code
+            </DialogTitle>
+          </DialogHeader>
+          {qrEmp && (
+            <div className="flex flex-col items-center gap-4 py-2">
+              <div id="emp-qr-canvas" className="p-4 bg-white rounded-xl border shadow-sm">
+                <QRCodeSVG
+                  value={`CODE:${qrEmp.employeeCode}\nNAME:${qrEmp.name}\nCLIENT:${qrEmp.clientName}`}
+                  size={200}
+                  level="M"
+                  includeMargin={false}
+                />
+              </div>
+              <div className="space-y-0.5 text-sm">
+                <p className="font-bold text-base">{qrEmp.name}</p>
+                <p className="text-muted-foreground font-mono text-xs">{qrEmp.employeeCode}</p>
+                <p className="text-muted-foreground text-xs">{qrEmp.clientName}</p>
+              </div>
+              <Button
+                size="sm"
+                className="gap-2 bg-emerald-600 hover:bg-emerald-700 text-white w-full"
+                onClick={() => {
+                  const svg = document.querySelector("#emp-qr-canvas svg") as SVGElement;
+                  if (!svg) return;
+                  const canvas = document.createElement("canvas");
+                  const size = 280;
+                  canvas.width = size; canvas.height = size + 70;
+                  const ctx = canvas.getContext("2d")!;
+                  ctx.fillStyle = "#ffffff";
+                  ctx.fillRect(0, 0, canvas.width, canvas.height);
+                  const img = new Image();
+                  const svgData = new XMLSerializer().serializeToString(svg);
+                  img.onload = () => {
+                    ctx.drawImage(img, (size - 200) / 2, 10, 200, 200);
+                    ctx.fillStyle = "#111827";
+                    ctx.font = "bold 14px sans-serif";
+                    ctx.textAlign = "center";
+                    ctx.fillText(qrEmp.name, size / 2, 230);
+                    ctx.fillStyle = "#6b7280";
+                    ctx.font = "12px monospace";
+                    ctx.fillText(qrEmp.employeeCode, size / 2, 248);
+                    ctx.font = "11px sans-serif";
+                    ctx.fillText(qrEmp.clientName, size / 2, 264);
+                    const a = document.createElement("a");
+                    a.href = canvas.toDataURL("image/png");
+                    a.download = `qr-${qrEmp.employeeCode}.png`;
+                    a.click();
+                  };
+                  img.src = "data:image/svg+xml;base64," + btoa(unescape(encodeURIComponent(svgData)));
+                }}
+                data-testid="button-download-qr"
+              >
+                <Download className="w-4 h-4" /> Download QR
+              </Button>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
 
       <AlertDialog open={deleteId !== null} onOpenChange={open => { if (!open) setDeleteId(null); }}>
         <AlertDialogContent>
