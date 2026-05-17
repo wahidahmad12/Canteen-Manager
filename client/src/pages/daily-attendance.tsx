@@ -22,6 +22,20 @@ const STATUS_CODES = ["P","A","H","P/HL","HD","WO","CL","SL","EL"];
 
 type ScanStep = "idle" | "loading-models" | "camera" | "detecting" | "matched" | "no-match" | "saving";
 
+function isVideoBlack(video: HTMLVideoElement): boolean {
+  try {
+    const canvas = document.createElement("canvas");
+    canvas.width = 64; canvas.height = 64;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return false;
+    ctx.drawImage(video, 0, 0, 64, 64);
+    const data = ctx.getImageData(0, 0, 64, 64).data;
+    let sum = 0;
+    for (let i = 0; i < data.length; i += 4) sum += data[i] + data[i + 1] + data[i + 2];
+    return sum < 1000;
+  } catch { return false; }
+}
+
 function todayStr() {
   const d = new Date();
   return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`;
@@ -37,6 +51,7 @@ export default function DailyAttendancePage() {
   const streamRef = useRef<MediaStream | null>(null);
 
   const [tab, setTab] = useState<"scan" | "monthly">("scan");
+  const [detectingAttempt, setDetectingAttempt] = useState(0);
   const [clientName, setClientName] = useState("");
   const [scanDate, setScanDate] = useState(todayStr());
 
@@ -213,12 +228,20 @@ export default function DailyAttendancePage() {
     if (!videoRef.current) return;
     const video = videoRef.current;
 
-    // Wait for video to have actual frame data
-    if (video.readyState < 2 || video.videoWidth === 0) {
-      await new Promise<void>(res => setTimeout(res, 600));
+    setDetectingAttempt(0);
+    setScanStep("detecting");
+
+    // Wait for video readyState and non-black frame (up to 3s)
+    let waited = 0;
+    while ((video.readyState < 2 || video.videoWidth === 0 || isVideoBlack(video)) && waited < 3000) {
+      await new Promise<void>(res => setTimeout(res, 300));
+      waited += 300;
     }
 
-    setScanStep("detecting");
+    if (video.videoWidth === 0) {
+      toast({ title: "Camera Not Ready", description: "Camera feed not available. Close and try again.", variant: "destructive" });
+      setScanStep("camera"); return;
+    }
 
     // Load enrolled descriptors
     let descriptors: { id: number; name: string; employeeCode: string; faceDescriptor: string }[] = [];
@@ -236,16 +259,18 @@ export default function DailyAttendancePage() {
     }
 
     try {
-      // Try with relaxed threshold first, then progressively more lenient
+      const attempts: [number, number][] = [[416, 0.3], [320, 0.2], [224, 0.15]];
       let result = null;
-      for (const [inputSize, scoreThreshold] of [[416, 0.3], [320, 0.2], [224, 0.15]] as [number, number][]) {
+      for (let i = 0; i < attempts.length; i++) {
+        setDetectingAttempt(i + 1);
+        const [inputSize, scoreThreshold] = attempts[i];
         const options = new faceapi.TinyFaceDetectorOptions({ inputSize, scoreThreshold });
         result = await faceapi.detectSingleFace(video, options).withFaceLandmarks(true).withFaceDescriptor();
         if (result) break;
-        await new Promise<void>(res => setTimeout(res, 200));
+        if (i < attempts.length - 1) await new Promise<void>(res => setTimeout(res, 300));
       }
       if (!result) {
-        toast({ title: "No Face Detected", description: "Make sure your face is well-lit and centred in the frame, then try again.", variant: "destructive" });
+        toast({ title: "No Face Detected", description: "Make sure your face is well-lit and centred. Hold still and try again.", variant: "destructive" });
         setScanStep("camera"); return;
       }
 
@@ -417,9 +442,12 @@ export default function DailyAttendancePage() {
                           <div className="relative rounded-xl overflow-hidden bg-black">
                             <video ref={videoRef} autoPlay muted playsInline className="w-full block" style={{ maxHeight: 280 }} />
                             {scanStep === "detecting" && (
-                              <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/50 gap-3">
+                              <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/50 gap-2">
                                 <Loader2 className="w-8 h-8 animate-spin text-white" />
-                                <p className="text-white text-sm">Scanning face…</p>
+                                <p className="text-white text-xs font-medium">
+                                  {detectingAttempt === 0 ? "Preparing camera…" : `Scanning… (attempt ${detectingAttempt} of 3)`}
+                                </p>
+                                <p className="text-white/70 text-[10px]">Hold still · face the camera · good lighting</p>
                               </div>
                             )}
                           </div>
@@ -429,7 +457,7 @@ export default function DailyAttendancePage() {
                             </Button>
                             <Button onClick={detectAndMatch} disabled={scanStep==="detecting"} className="flex-1 bg-violet-600 hover:bg-violet-700 text-white gap-1.5" data-testid="button-detect">
                               {scanStep==="detecting" ? <Loader2 className="w-4 h-4 animate-spin" /> : <ScanFace className="w-4 h-4" />}
-                              Scan Face
+                              {scanStep==="detecting" ? (detectingAttempt === 0 ? "Preparing…" : `Scanning ${detectingAttempt}/3…`) : "Scan Face"}
                             </Button>
                           </div>
                         </div>

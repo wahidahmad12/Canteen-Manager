@@ -16,12 +16,27 @@ interface Props {
 
 type Step = "idle" | "loading-models" | "camera" | "detecting" | "captured" | "saving";
 
+function isVideoBlack(video: HTMLVideoElement): boolean {
+  try {
+    const canvas = document.createElement("canvas");
+    canvas.width = 64; canvas.height = 64;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return false;
+    ctx.drawImage(video, 0, 0, 64, 64);
+    const data = ctx.getImageData(0, 0, 64, 64).data;
+    let sum = 0;
+    for (let i = 0; i < data.length; i += 4) sum += data[i] + data[i + 1] + data[i + 2];
+    return sum < 1000; // nearly all black
+  } catch { return false; }
+}
+
 export function FaceEnrollDialog({ employeeId, employeeName, hasExisting, onClose, onSuccess }: Props) {
   const { toast } = useToast();
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const [step, setStep] = useState<Step>("idle");
+  const [detectingAttempt, setDetectingAttempt] = useState(0);
   const [descriptor, setDescriptor] = useState<number[] | null>(null);
   const [faceBox, setFaceBox] = useState<{ x: number; y: number; w: number; h: number } | null>(null);
 
@@ -80,27 +95,38 @@ export function FaceEnrollDialog({ employeeId, employeeName, hasExisting, onClos
     if (!videoRef.current) return;
     const video = videoRef.current;
 
-    // Wait for video to have actual frame data
-    if (video.readyState < 2 || video.videoWidth === 0) {
-      await new Promise<void>(res => setTimeout(res, 600));
+    setStep("detecting");
+    setDetectingAttempt(0);
+
+    // Wait for video readyState and non-black frame (up to 3s)
+    let waited = 0;
+    while ((video.readyState < 2 || video.videoWidth === 0 || isVideoBlack(video)) && waited < 3000) {
+      await new Promise<void>(res => setTimeout(res, 300));
+      waited += 300;
     }
 
-    setStep("detecting");
+    if (video.videoWidth === 0) {
+      toast({ title: "Camera Not Ready", description: "Camera feed not available. Close and try again.", variant: "destructive" });
+      setStep("camera"); return;
+    }
+
     try {
-      // Try with relaxed threshold first, then more lenient if needed
+      const attempts: [number, number][] = [[416, 0.3], [320, 0.2], [224, 0.15]];
       let result = null;
-      for (const [inputSize, scoreThreshold] of [[416, 0.3], [320, 0.2], [224, 0.15]] as [number, number][]) {
+      for (let i = 0; i < attempts.length; i++) {
+        setDetectingAttempt(i + 1);
+        const [inputSize, scoreThreshold] = attempts[i];
         const options = new faceapi.TinyFaceDetectorOptions({ inputSize, scoreThreshold });
         result = await faceapi
           .detectSingleFace(video, options)
           .withFaceLandmarks(true)
           .withFaceDescriptor();
         if (result) break;
-        await new Promise<void>(res => setTimeout(res, 200));
+        if (i < attempts.length - 1) await new Promise<void>(res => setTimeout(res, 300));
       }
 
       if (!result) {
-        toast({ title: "No Face Detected", description: "Make sure your face is well-lit and centred in the frame, then try again.", variant: "destructive" });
+        toast({ title: "No Face Detected", description: "Make sure your face is well-lit and centred. Hold still and try again.", variant: "destructive" });
         setStep("camera"); return;
       }
 
@@ -189,14 +215,18 @@ export function FaceEnrollDialog({ employeeId, employeeName, hasExisting, onClos
               <div className="relative rounded-xl overflow-hidden bg-black">
                 <video ref={videoRef} autoPlay muted playsInline className="w-full block" style={{ maxHeight: 280 }} />
                 {step === "detecting" && (
-                  <div className="absolute inset-0 flex items-center justify-center bg-black/40">
+                  <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/50 gap-2">
                     <Loader2 className="w-8 h-8 animate-spin text-white" />
+                    <p className="text-white text-xs font-medium">
+                      {detectingAttempt === 0 ? "Preparing camera…" : `Scanning… (attempt ${detectingAttempt} of 3)`}
+                    </p>
+                    <p className="text-white/70 text-[10px]">Hold still · face the camera · good lighting</p>
                   </div>
                 )}
               </div>
               <Button onClick={captureAndDetect} disabled={step === "detecting"} className="w-full bg-violet-600 hover:bg-violet-700 text-white gap-2" data-testid="button-capture">
                 {step === "detecting" ? <Loader2 className="w-4 h-4 animate-spin" /> : <ScanFace className="w-4 h-4" />}
-                {step === "detecting" ? "Detecting…" : "Capture Face"}
+                {step === "detecting" ? (detectingAttempt === 0 ? "Preparing…" : `Scanning ${detectingAttempt}/3…`) : "Capture Face"}
               </Button>
             </div>
           )}
