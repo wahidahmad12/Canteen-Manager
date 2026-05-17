@@ -829,6 +829,20 @@ export async function registerRoutes(
     res.status(204).send();
   });
 
+  app.get("/api/geocode", requireAdmin, async (req, res) => {
+    const address = String(req.query.address || "").trim();
+    if (!address) return res.status(400).json({ message: "address required" });
+    try {
+      const url = `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(address)}&format=json&limit=1&addressdetails=1`;
+      const r = await fetch(url, { headers: { "User-Agent": "DJHospitality/1.0 (contact@djhospitality.in)", "Accept-Language": "en" } });
+      const data = await r.json() as any[];
+      if (!data.length) return res.json({ found: false });
+      res.json({ found: true, lat: data[0].lat, lng: data[0].lon, display: data[0].display_name });
+    } catch (e: any) {
+      res.status(500).json({ message: "Geocoding failed" });
+    }
+  });
+
   // === ADMIN ROUTES ===
   app.post(api.admin.verifyPin.path, requireAdmin, async (req, res) => {
     const { pin } = api.admin.verifyPin.input.parse(req.body);

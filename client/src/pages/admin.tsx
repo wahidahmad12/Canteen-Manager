@@ -131,19 +131,18 @@ export default function Admin() {
     if (!addr) { toast({ title: "Enter an address first", variant: "destructive" }); return; }
     setGeocodingClient(true);
     try {
-      const res = await fetch(`https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(addr)}&format=json&limit=1`, {
-        headers: { "Accept-Language": "en", "User-Agent": "DJHospitality/1.0" }
-      });
+      const res = await fetch(`/api/geocode?address=${encodeURIComponent(addr)}`, { credentials: "include" });
+      if (!res.ok) throw new Error("Server error");
       const data = await res.json();
-      if (!data.length) { toast({ title: "Address not found", description: "Try a more specific address.", variant: "destructive" }); return; }
-      const lat = Number(data[0].lat).toFixed(7);
-      const lng = Number(data[0].lon).toFixed(7);
+      if (!data.found) { toast({ title: "Address not found", description: "Try a shorter or more general address (e.g. city + state).", variant: "destructive" }); return; }
+      const lat = Number(data.lat).toFixed(7);
+      const lng = Number(data.lng).toFixed(7);
       setEditingClientLat(lat);
       setEditingClientLng(lng);
       window.open(`https://www.google.com/maps?q=${lat},${lng}`, "_blank", "noopener,noreferrer");
       toast({ title: "Coordinates found!", description: `${Number(lat).toFixed(5)}, ${Number(lng).toFixed(5)}` });
     } catch {
-      toast({ title: "Geocoding failed", description: "Check internet connection.", variant: "destructive" });
+      toast({ title: "Geocoding failed", description: "Could not look up address. Try again.", variant: "destructive" });
     } finally {
       setGeocodingClient(false);
     }
