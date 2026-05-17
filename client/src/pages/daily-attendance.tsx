@@ -169,6 +169,15 @@ export default function DailyAttendancePage() {
   };
 
   const startFaceScan = async () => {
+    if (navigator.permissions) {
+      try {
+        const perm = await navigator.permissions.query({ name: "camera" as PermissionName });
+        if (perm.state === "denied") {
+          toast({ title: "Camera Blocked", description: "Camera is blocked. Go to Browser Settings → Site permissions → Camera and allow this site, then reload.", variant: "destructive" });
+          return;
+        }
+      } catch {}
+    }
     setScanStep("loading-models");
     try {
       await loadFaceModels();
@@ -365,13 +374,20 @@ export default function DailyAttendancePage() {
                     </CardHeader>
                     <CardContent className="p-3 space-y-3">
                       {scanStep === "idle" && (
-                        <div className="text-center py-8 border-2 border-dashed border-violet-200 dark:border-violet-800 rounded-xl">
-                          <div className="w-16 h-16 mx-auto rounded-2xl bg-violet-100 dark:bg-violet-900/30 flex items-center justify-center mb-3">
+                        <div className="flex flex-col items-center gap-3 py-4 border-2 border-dashed border-violet-200 dark:border-violet-800 rounded-xl px-4">
+                          <div className="w-16 h-16 rounded-2xl bg-violet-100 dark:bg-violet-900/30 flex items-center justify-center">
                             <Camera className="w-8 h-8 text-violet-500" />
                           </div>
-                          <p className="text-sm text-muted-foreground mb-4">Open camera to scan employee face</p>
-                          <Button onClick={startFaceScan} className="bg-violet-600 hover:bg-violet-700 text-white gap-2" data-testid="button-start-scan">
-                            <Camera className="w-4 h-4" /> Open Camera
+                          <div className="text-center space-y-1">
+                            <p className="text-sm font-medium">Camera Permission Required</p>
+                            <p className="text-xs text-muted-foreground">Your <strong>front camera</strong> is needed to scan and identify employee faces.</p>
+                            <p className="text-xs text-muted-foreground">Tap the button below — when prompted, tap <strong>"Allow"</strong>.</p>
+                          </div>
+                          <div className="w-full bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-lg px-3 py-2 text-[11px] text-amber-700 dark:text-amber-400 text-center">
+                            📱 Camera blocked? Go to <strong>Browser Settings → Site permissions → Camera</strong> → Allow this site, then reload.
+                          </div>
+                          <Button onClick={startFaceScan} className="w-full bg-violet-600 hover:bg-violet-700 text-white gap-2 text-sm h-11" data-testid="button-start-scan">
+                            <Camera className="w-4 h-4" /> Allow Camera & Start Scan
                           </Button>
                         </div>
                       )}

@@ -35,6 +35,16 @@ export function FaceEnrollDialog({ employeeId, employeeName, hasExisting, onClos
   useEffect(() => () => stopCamera(), [stopCamera]);
 
   const startCamera = async () => {
+    // Pre-check permission state if Permissions API is available
+    if (navigator.permissions) {
+      try {
+        const perm = await navigator.permissions.query({ name: "camera" as PermissionName });
+        if (perm.state === "denied") {
+          toast({ title: "Camera Blocked", description: "Camera is blocked. Please go to your browser Settings → Site permissions → Camera and allow access, then reload.", variant: "destructive" });
+          return;
+        }
+      } catch {}
+    }
     setStep("loading-models");
     try {
       await loadFaceModels();
@@ -136,13 +146,20 @@ export function FaceEnrollDialog({ employeeId, employeeName, hasExisting, onClos
           )}
 
           {step === "idle" && (
-            <div className="flex flex-col items-center gap-4 py-6 border-2 border-dashed border-violet-200 dark:border-violet-800 rounded-xl">
+            <div className="flex flex-col items-center gap-4 py-4 border-2 border-dashed border-violet-200 dark:border-violet-800 rounded-xl px-4">
               <div className="w-16 h-16 rounded-2xl bg-violet-100 dark:bg-violet-900/30 flex items-center justify-center">
                 <Camera className="w-8 h-8 text-violet-500" />
               </div>
-              <p className="text-sm text-muted-foreground text-center">Open camera and look straight ahead to capture your face</p>
-              <Button onClick={startCamera} className="bg-violet-600 hover:bg-violet-700 text-white gap-2" data-testid="button-start-enroll">
-                <Camera className="w-4 h-4" /> Open Camera
+              <div className="text-center space-y-1">
+                <p className="text-sm font-medium">Camera Permission Required</p>
+                <p className="text-xs text-muted-foreground">This app needs your <strong>front camera</strong> to capture and enroll your face for attendance.</p>
+                <p className="text-xs text-muted-foreground">When your browser asks — tap <strong>"Allow"</strong> to grant access.</p>
+              </div>
+              <div className="w-full bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-lg px-3 py-2 text-[11px] text-amber-700 dark:text-amber-400 text-center">
+                📱 On mobile: if camera was previously blocked, go to <strong>Browser Settings → Site permissions → Camera</strong> and allow this site.
+              </div>
+              <Button onClick={startCamera} className="w-full bg-violet-600 hover:bg-violet-700 text-white gap-2 text-sm h-11" data-testid="button-start-enroll">
+                <Camera className="w-4 h-4" /> Allow Camera & Start Enrollment
               </Button>
             </div>
           )}
