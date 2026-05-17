@@ -372,9 +372,9 @@ export default function DailyAttendancePage() {
         <div className="flex items-center justify-between">
           <div>
             <h1 className="text-xl font-bold tracking-tight flex items-center gap-2">
-              <ScanFace className="w-5 h-5 text-violet-600" /> Daily Attendance
+              <Fingerprint className="w-5 h-5 text-indigo-600" /> Daily Attendance
             </h1>
-            <p className="text-xs text-muted-foreground mt-0.5">Face recognition attendance scanner</p>
+            <p className="text-xs text-muted-foreground mt-0.5">Fingerprint biometric attendance</p>
           </div>
         </div>
 
@@ -443,23 +443,8 @@ export default function DailyAttendancePage() {
                   </CardContent>
                 </Card>
 
-                {/* Scan Mode Toggle */}
-                <div className="flex gap-1 p-1 bg-muted rounded-lg">
-                  <button onClick={() => { setScanMode("face"); resetScan(); }}
-                    className={`flex-1 py-1.5 text-xs font-medium rounded-md transition-colors flex items-center justify-center gap-1.5 ${scanMode==="face" ? "bg-background shadow text-foreground" : "text-muted-foreground hover:text-foreground"}`}
-                    data-testid="tab-scan-face">
-                    <ScanFace className="w-3.5 h-3.5" /> Face Scan
-                  </button>
-                  <button onClick={() => { setScanMode("fingerprint"); setFpStatus("idle"); setFpResult(null); }}
-                    className={`flex-1 py-1.5 text-xs font-medium rounded-md transition-colors flex items-center justify-center gap-1.5 ${scanMode==="fingerprint" ? "bg-background shadow text-foreground" : "text-muted-foreground hover:text-foreground"}`}
-                    data-testid="tab-scan-fingerprint">
-                    <Fingerprint className="w-3.5 h-3.5" /> Fingerprint
-                  </button>
-                </div>
-
                 {/* Fingerprint Scanner */}
-                {scanMode === "fingerprint" && (
-                  <Card>
+                <Card>
                     <CardHeader className="pb-2 pt-3 px-3">
                       <CardTitle className="text-sm flex items-center gap-2">
                         <Fingerprint className="w-4 h-4 text-indigo-500" /> Fingerprint Attendance
@@ -524,136 +509,6 @@ export default function DailyAttendancePage() {
                       )}
                     </CardContent>
                   </Card>
-                )}
-
-                {/* Face Scanner */}
-                {scanMode === "face" && (!canScan ? (
-                  <Card className="border-dashed">
-                    <CardContent className="py-10 text-center text-sm text-muted-foreground">
-                      <AlertTriangle className="w-8 h-8 mx-auto mb-2 text-amber-500 opacity-70" />
-                      Verify your GPS location before scanning
-                    </CardContent>
-                  </Card>
-                ) : (
-                  <Card>
-                    <CardHeader className="pb-2 pt-3 px-3">
-                      <CardTitle className="text-sm flex items-center gap-2">
-                        <Camera className="w-4 h-4 text-violet-500" /> Face Scanner
-                      </CardTitle>
-                    </CardHeader>
-                    <CardContent className="p-3 space-y-3">
-                      {scanStep === "idle" && (
-                        <div className="flex flex-col items-center gap-3 py-4 border-2 border-dashed border-violet-200 dark:border-violet-800 rounded-xl px-4">
-                          <div className="w-16 h-16 rounded-2xl bg-violet-100 dark:bg-violet-900/30 flex items-center justify-center">
-                            <Camera className="w-8 h-8 text-violet-500" />
-                          </div>
-                          <div className="text-center space-y-1">
-                            <p className="text-sm font-medium">Camera Permission Required</p>
-                            <p className="text-xs text-muted-foreground">Your <strong>front camera</strong> is needed to scan and identify employee faces.</p>
-                            <p className="text-xs text-muted-foreground">Tap the button below — when prompted, tap <strong>"Allow"</strong>.</p>
-                          </div>
-                          <div className="w-full bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-lg px-3 py-2 text-[11px] text-amber-700 dark:text-amber-400 text-center">
-                            📱 Camera blocked? Go to <strong>Browser Settings → Site permissions → Camera</strong> → Allow this site, then reload.
-                          </div>
-                          <Button onClick={startFaceScan} className="w-full bg-violet-600 hover:bg-violet-700 text-white gap-2 text-sm h-11" data-testid="button-start-scan">
-                            <Camera className="w-4 h-4" /> Allow Camera & Start Scan
-                          </Button>
-                        </div>
-                      )}
-
-                      {scanStep === "loading-models" && (
-                        <div className="flex flex-col items-center gap-2 py-8">
-                          <Loader2 className="w-8 h-8 animate-spin text-violet-500" />
-                          <p className="text-sm text-muted-foreground">Loading face models…</p>
-                        </div>
-                      )}
-
-                      {(scanStep === "camera" || scanStep === "detecting") && (
-                        <div className="space-y-3">
-                          <div className="relative rounded-xl overflow-hidden bg-black">
-                            <video ref={videoRef} autoPlay muted playsInline className="w-full block" style={{ maxHeight: 280 }} />
-                            {scanStep === "detecting" && (
-                              <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/50 gap-2">
-                                <Loader2 className="w-8 h-8 animate-spin text-white" />
-                                <p className="text-white text-xs font-medium">
-                                  {detectingAttempt === 0 ? "Preparing camera…" : `Scanning… (attempt ${detectingAttempt} of 3)`}
-                                </p>
-                                <p className="text-white/70 text-[10px]">Hold still · face the camera · good lighting</p>
-                              </div>
-                            )}
-                          </div>
-                          <div className="flex gap-2">
-                            <Button variant="outline" onClick={resetScan} className="flex-1" data-testid="button-cancel-scan">
-                              <X className="w-4 h-4 mr-1" /> Cancel
-                            </Button>
-                            <Button onClick={detectAndMatch} disabled={scanStep==="detecting"} className="flex-1 bg-violet-600 hover:bg-violet-700 text-white gap-1.5" data-testid="button-detect">
-                              {scanStep==="detecting" ? <Loader2 className="w-4 h-4 animate-spin" /> : <ScanFace className="w-4 h-4" />}
-                              {scanStep==="detecting" ? (detectingAttempt === 0 ? "Preparing…" : `Scanning ${detectingAttempt}/3…`) : "Scan Face"}
-                            </Button>
-                          </div>
-                        </div>
-                      )}
-
-                      {scanStep === "no-match" && (
-                        <div className="text-center py-8 space-y-4">
-                          <div className="w-16 h-16 mx-auto rounded-2xl bg-red-100 dark:bg-red-900/30 flex items-center justify-center">
-                            <X className="w-8 h-8 text-red-500" />
-                          </div>
-                          <div>
-                            <p className="font-semibold text-red-600">Face Not Recognised</p>
-                            <p className="text-xs text-muted-foreground mt-1">No enrolled employee matched. Ask admin to enrol this face.</p>
-                          </div>
-                          <Button variant="outline" onClick={resetScan} data-testid="button-retry">
-                            <RefreshCw className="w-4 h-4 mr-1.5" /> Try Again
-                          </Button>
-                        </div>
-                      )}
-
-                      {scanStep === "matched" && matchedEmp && (
-                        <div className="space-y-4">
-                          <div className="flex items-center gap-3 p-3 bg-green-50 dark:bg-green-900/20 rounded-xl border border-green-200 dark:border-green-800">
-                            <div className="w-12 h-12 rounded-full bg-green-100 dark:bg-green-900/40 flex items-center justify-center shrink-0">
-                              <CheckCircle2 className="w-6 h-6 text-green-600" />
-                            </div>
-                            <div>
-                              <p className="font-semibold text-green-800 dark:text-green-300">{matchedEmp.name}</p>
-                              <p className="text-xs text-green-600 dark:text-green-400">{matchedEmp.employeeCode} · Score: {(100 - matchedEmp.distance * 100).toFixed(0)}%</p>
-                            </div>
-                          </div>
-
-                          {alreadyScannedIds.has(matchedEmp.id) && (
-                            <div className="flex items-center gap-2 p-2.5 bg-amber-50 dark:bg-amber-900/20 rounded-lg border border-amber-200 text-amber-700 dark:text-amber-400 text-xs">
-                              <AlertTriangle className="w-4 h-4 shrink-0" />
-                              Already marked today — will overwrite if you confirm
-                            </div>
-                          )}
-
-                          <div className="flex items-center gap-3">
-                            <Label className="text-sm w-20 shrink-0">Status</Label>
-                            <Select value={scanStatus} onValueChange={setScanStatus}>
-                              <SelectTrigger className="flex-1" data-testid="select-scan-status">
-                                <SelectValue />
-                              </SelectTrigger>
-                              <SelectContent>
-                                {STATUS_CODES.map(s => <SelectItem key={s} value={s}>{s}</SelectItem>)}
-                              </SelectContent>
-                            </Select>
-                          </div>
-
-                          <div className="flex gap-2">
-                            <Button variant="outline" onClick={resetScan} className="flex-1" data-testid="button-cancel-confirm">
-                              <X className="w-4 h-4 mr-1" /> Cancel
-                            </Button>
-                            <Button onClick={confirmAttendance} disabled={saveMutation.isPending} className="flex-1 bg-green-600 hover:bg-green-700 text-white gap-1.5" data-testid="button-confirm-attendance">
-                              {saveMutation.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <CheckCircle2 className="w-4 h-4" />}
-                              Confirm
-                            </Button>
-                          </div>
-                        </div>
-                      )}
-                    </CardContent>
-                  </Card>
-                ))}
 
                 {/* Today's Log */}
                 <Card>
