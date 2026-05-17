@@ -45,6 +45,7 @@ import BomPage from "./pages/bom";
 import PriceHistoryPage from "./pages/price-history";
 import ItemStockReportPage from "./pages/item-stock-report";
 import EmployeeDashboard from "./pages/employee-dashboard";
+import QrScannerPage from "./pages/qr-scanner";
 import Login from "./pages/login";
 import { useCurrentUser } from "./hooks/use-reports";
 import { LanguageProvider } from "./contexts/language-context";
@@ -149,6 +150,7 @@ function AuthenticatedRouter() {
       <Route path="/bom" component={BomPage} />
       <Route path="/price-history">{() => <PermRoute perm="purchase"><PriceHistoryPage /></PermRoute>}</Route>
       <Route path="/item-stock-report">{() => <PermRoute perm="purchase"><ItemStockReportPage /></PermRoute>}</Route>
+      <Route path="/qr-scanner" component={QrScannerPage} />
       <Route component={NotFound} />
     </Switch>
   );
