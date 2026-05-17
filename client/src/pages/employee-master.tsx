@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { apiRequest } from "@/lib/queryClient";
+import { apiRequest, queryClient } from "@/lib/queryClient";
 import { Layout } from "@/components/layout";
 import { useClientNames } from "@/hooks/use-reports";
 import { useToast } from "@/hooks/use-toast";
@@ -13,7 +13,8 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
-import { Plus, Loader2, Pencil, Trash2, Users, Search, UserCheck, UserX, Building2, IndianRupee, CreditCard, FileText, MapPin, Shield, Calendar, Printer } from "lucide-react";
+import { Plus, Loader2, Pencil, Trash2, Users, Search, UserCheck, UserX, Building2, IndianRupee, CreditCard, FileText, MapPin, Shield, Calendar, Printer, ScanFace, CheckCircle2 } from "lucide-react";
+import { FaceEnrollDialog } from "@/components/face-enroll-dialog";
 
 const fmtDate = (d: string | null | undefined): string => {
   if (!d) return "-";
@@ -129,6 +130,7 @@ export default function EmployeeMaster() {
   const [searchText, setSearchText] = useState("");
   const [dialogOpen, setDialogOpen] = useState(false);
   const [deleteId, setDeleteId] = useState<number | null>(null);
+  const [enrollingEmployee, setEnrollingEmployee] = useState<any>(null);
   const [editingId, setEditingId] = useState<number | null>(null);
   const [form, setForm] = useState({ ...emptyForm });
 
@@ -482,6 +484,9 @@ export default function EmployeeMaster() {
                         </div>
                       </div>
                       <div className="flex gap-1 shrink-0">
+                        <Button size="icon" variant="ghost" className="text-violet-600 hover:bg-violet-50 dark:hover:bg-violet-900/20" title="Enroll Face" onClick={() => setEnrollingEmployee(emp)} data-testid={`button-enroll-face-mobile-${emp.id}`}>
+                          {emp.faceDescriptor ? <CheckCircle2 className="w-4 h-4 text-green-600" /> : <ScanFace className="w-4 h-4" />}
+                        </Button>
                         <Button size="icon" variant="ghost" onClick={() => openEdit(emp)} data-testid={`button-edit-employee-${emp.id}`}>
                           <Pencil className="w-4 h-4" />
                         </Button>
@@ -535,6 +540,9 @@ export default function EmployeeMaster() {
                           </td>
                           <td className="px-3 py-2.5 text-right">
                             <div className="flex justify-end gap-1">
+                              <Button size="icon" variant="ghost" className="text-violet-600 hover:bg-violet-50 dark:hover:bg-violet-900/20" title={emp.faceDescriptor ? "Face enrolled — click to update" : "Enroll face"} onClick={() => setEnrollingEmployee(emp)} data-testid={`button-enroll-face-${emp.id}`}>
+                                {emp.faceDescriptor ? <CheckCircle2 className="w-4 h-4 text-green-600" /> : <ScanFace className="w-4 h-4" />}
+                              </Button>
                               <Button size="icon" variant="ghost" onClick={() => openEdit(emp)} data-testid={`button-edit-employee-${emp.id}`}>
                                 <Pencil className="w-4 h-4" />
                               </Button>
@@ -796,6 +804,16 @@ export default function EmployeeMaster() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {enrollingEmployee && (
+        <FaceEnrollDialog
+          employeeId={enrollingEmployee.id}
+          employeeName={enrollingEmployee.name}
+          hasExisting={!!enrollingEmployee.faceDescriptor}
+          onClose={() => setEnrollingEmployee(null)}
+          onSuccess={() => { setEnrollingEmployee(null); queryClient.invalidateQueries({ queryKey: ["/api/employees"] }); }}
+        />
+      )}
 
       <AlertDialog open={deleteId !== null} onOpenChange={open => { if (!open) setDeleteId(null); }}>
         <AlertDialogContent>

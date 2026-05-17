@@ -11,7 +11,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/hooks/use-toast";
 import { useClientNames } from "@/hooks/use-reports";
 import { apiRequest, queryClient } from "@/lib/queryClient";
-import { Loader2, Download, Printer, Save, ClipboardList, Calendar, Users, FileSpreadsheet, Upload } from "lucide-react";
+import { Loader2, Download, Printer, Save, ClipboardList, Calendar, Users, FileSpreadsheet, Upload, ScanFace } from "lucide-react";
 import { PrintSettingsDialog } from "@/components/print-settings-dialog";
 
 const MONTHS = [
@@ -174,6 +174,30 @@ export default function MusterRoll() {
 
     setLoaded(true);
   }, [clientName, monthNum, yearNum, refetchEmployees, refetchAttendance, toast]);
+
+  const handleLoadFromFaceAttendance = useCallback(async () => {
+    if (!clientName) { toast({ title: "Select a client first", variant: "destructive" }); return; }
+    try {
+      const res = await fetch(`/api/daily-attendance/month?clientName=${encodeURIComponent(clientName)}&month=${monthNum}&year=${yearNum}`, { credentials: "include" });
+      if (!res.ok) throw new Error("Failed");
+      const logs: any[] = await res.json();
+      if (logs.length === 0) { toast({ title: "No face attendance data found for this month" }); return; }
+      setAttendanceData(prev => {
+        const next = { ...prev };
+        for (const log of logs) {
+          const empId = log.employee_id;
+          const day = new Date(log.attendance_date).getDate();
+          const key = `day${day}`;
+          if (!next[empId]) next[empId] = {};
+          next[empId][key] = log.status as StatusCode;
+        }
+        return next;
+      });
+      toast({ title: "Loaded!", description: `${logs.length} face attendance records applied.` });
+    } catch {
+      toast({ title: "Error", description: "Could not load face attendance data.", variant: "destructive" });
+    }
+  }, [clientName, monthNum, yearNum, toast]);
 
   const handleCellClick = useCallback((employeeId: number, dayKey: string) => {
     setAttendanceData(prev => {
@@ -703,6 +727,10 @@ export default function MusterRoll() {
               <Button variant="outline" size="sm" onClick={openPrintDialog} data-testid="button-gov-print">
                 <Printer className="w-4 h-4 mr-1" />
                 Form XVI
+              </Button>
+              <Button size="sm" variant="outline" onClick={handleLoadFromFaceAttendance} data-testid="button-load-face-attendance">
+                <ScanFace className="w-4 h-4 mr-1" />
+                From Face Scan
               </Button>
               <Button size="sm" onClick={() => saveMutation.mutate()} disabled={saveMutation.isPending} data-testid="button-save-all">
                 {saveMutation.isPending ? <Loader2 className="w-4 h-4 mr-1 animate-spin" /> : <Save className="w-4 h-4 mr-1" />}

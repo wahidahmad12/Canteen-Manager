@@ -961,6 +961,65 @@ export async function registerRoutes(
     res.status(204).send();
   });
 
+  // === FACE DESCRIPTOR ===
+  app.get("/api/employees/face-descriptors", requireAuth, async (req, res) => {
+    const { clientName } = req.query;
+    if (!clientName) return res.status(400).json({ message: "clientName required" });
+    const descriptors = await storage.getEmployeeFaceDescriptors(clientName as string);
+    res.json(descriptors);
+  });
+
+  app.put("/api/employees/:id/face", requireAuth, async (req, res) => {
+    const { faceDescriptor } = req.body;
+    if (!faceDescriptor) return res.status(400).json({ message: "faceDescriptor required" });
+    await storage.updateEmployeeFace(Number(req.params.id), faceDescriptor);
+    res.json({ ok: true });
+  });
+
+  // === DAILY ATTENDANCE LOGS (Face Recognition) ===
+  app.get("/api/daily-attendance/month", requireAuth, async (req, res) => {
+    const { clientName, month, year } = req.query;
+    if (!clientName || !month || !year) return res.status(400).json({ message: "clientName, month, year required" });
+    const logs = await storage.getDailyAttendanceMonth(clientName as string, Number(month), Number(year));
+    res.json(logs);
+  });
+
+  app.get("/api/daily-attendance", requireAuth, async (req, res) => {
+    const { clientName, date } = req.query;
+    if (!clientName || !date) return res.status(400).json({ message: "clientName and date required" });
+    const logs = await storage.getDailyAttendanceLogs(clientName as string, date as string);
+    res.json(logs);
+  });
+
+  app.post("/api/daily-attendance", requireAuth, async (req, res) => {
+    try {
+      const log = await storage.saveDailyAttendanceLog({ ...req.body, scannedBy: (req as any).user?.username });
+      res.status(201).json(log);
+    } catch (e: any) {
+      if (e.message?.includes("already recorded")) return res.status(409).json({ message: e.message });
+      throw e;
+    }
+  });
+
+  app.put("/api/daily-attendance/:id", requireAuth, async (req, res) => {
+    const { status } = req.body;
+    if (!status) return res.status(400).json({ message: "status required" });
+    const log = await storage.updateDailyAttendanceLog(Number(req.params.id), status);
+    res.json(log);
+  });
+
+  app.delete("/api/daily-attendance/:id", requireAuth, async (req, res) => {
+    await storage.deleteDailyAttendanceLog(Number(req.params.id));
+    res.status(204).send();
+  });
+
+  app.post("/api/daily-attendance/push-to-muster-roll", requireAuth, async (req, res) => {
+    const { clientName, month, year } = req.body;
+    if (!clientName || !month || !year) return res.status(400).json({ message: "clientName, month, year required" });
+    const result = await storage.pushDailyAttendanceToMusterRoll(clientName, Number(month), Number(year));
+    res.json(result);
+  });
+
   // === ATTENDANCE / MUSTER ROLL ===
   app.get("/api/attendance", requireAuth, async (req, res) => {
     const { clientName, month, year } = req.query;

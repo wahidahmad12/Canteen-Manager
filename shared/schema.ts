@@ -139,6 +139,9 @@ export const clientNames = mysqlTable("client_names", {
   stateName: varchar("state_name", { length: 100 }).default(""),
   stateCode: varchar("state_code", { length: 10 }).default(""),
   agreementValidTill: date("agreement_valid_till"),
+  attendanceLat: decimal("attendance_lat", { precision: 10, scale: 7 }),
+  attendanceLng: decimal("attendance_lng", { precision: 10, scale: 7 }),
+  attendanceRadius: int("attendance_radius").default(200),
 });
 
 // Saved menus
@@ -276,6 +279,7 @@ export const employees = mysqlTable("employees", {
   weeklyOffDay: varchar("weekly_off_day", { length: 50 }).default(""),
   identificationMarks: varchar("identification_marks", { length: 500 }).default(""),
   isActive: boolean("is_active").notNull().default(true),
+  faceDescriptor: text("face_descriptor"),
   createdAt: timestamp("created_at").defaultNow(),
 });
 
@@ -674,7 +678,7 @@ export type ItemMaster = typeof itemMaster.$inferSelect;
 export const insertItemMasterSchema = createInsertSchema(itemMaster).omit({ id: true, createdAt: true });
 export const selectItemMasterSchema = createSelectSchema(itemMaster, { createdAt: z.string().or(z.date()) });
 
-export const ALL_PERMISSIONS = ['expense', 'cashseal', 'inventory', 'menu', 'purchase'] as const;
+export const ALL_PERMISSIONS = ['expense', 'cashseal', 'inventory', 'menu', 'purchase', 'attendance'] as const;
 export type Permission = typeof ALL_PERMISSIONS[number];
 
 export type User = typeof users.$inferSelect;
@@ -1121,6 +1125,21 @@ export const employeeShiftDuties = mysqlTable("employee_shift_duties", {
 });
 export type EmployeeShiftDuty = typeof employeeShiftDuties.$inferSelect;
 export const insertEmployeeShiftDutySchema = createInsertSchema(employeeShiftDuties).omit({ id: true, createdAt: true, updatedAt: true });
+
+// === DAILY ATTENDANCE LOG (Face Recognition) ===
+export const dailyAttendanceLogs = mysqlTable("daily_attendance_logs", {
+  id: int("id").autoincrement().primaryKey(),
+  employeeId: int("employee_id").notNull().references(() => employees.id, { onDelete: 'cascade' }),
+  clientName: varchar("client_name", { length: 500 }).notNull(),
+  attendanceDate: date("attendance_date").notNull(),
+  status: varchar("status", { length: 10 }).notNull().default("P"),
+  scannedAt: timestamp("scanned_at").defaultNow(),
+  scannedLat: decimal("scanned_lat", { precision: 10, scale: 7 }),
+  scannedLng: decimal("scanned_lng", { precision: 10, scale: 7 }),
+  scannedBy: varchar("scanned_by", { length: 200 }),
+});
+export type DailyAttendanceLog = typeof dailyAttendanceLogs.$inferSelect;
+export const insertDailyAttendanceLogSchema = createInsertSchema(dailyAttendanceLogs).omit({ id: true, scannedAt: true });
 
 // === FLASH MESSAGES — Admin to Employee Notifications ===
 export const flashMessages = mysqlTable("flash_messages", {

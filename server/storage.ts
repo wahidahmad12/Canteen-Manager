@@ -1,5 +1,5 @@
 
-import { db } from "./db";
+import { db, pool } from "./db";
 import { 
   dailyReports, 
   expenseItems, 
@@ -37,6 +37,7 @@ import {
   salesInvoices,
   ublDateEntries,
   ciplaDateEntries,
+  dailyAttendanceLogs,
   ublLunchEntries,
   ciplaaMachineSummary,
   unichEmSnackEntries,
@@ -141,7 +142,7 @@ export interface IStorage {
   deleteSavedMenu(id: number): Promise<void>;
   getClientNames(): Promise<ClientName[]>;
   createClientName(item: { name: string; address?: string; gstNo?: string; stateName?: string; stateCode?: string; agreementValidTill?: string | null }): Promise<ClientName>;
-  updateClientName(id: number, item: { name?: string; address?: string; gstNo?: string; stateName?: string; stateCode?: string; agreementValidTill?: string | null }): Promise<ClientName>;
+  updateClientName(id: number, item: { name?: string; address?: string; gstNo?: string; stateName?: string; stateCode?: string; agreementValidTill?: string | null; attendanceLat?: number | null; attendanceLng?: number | null; attendanceRadius?: number | null }): Promise<ClientName>;
   deleteClientName(id: number): Promise<void>;
   seedClientNames(names: string[]): Promise<void>;
   getAdminPin(): Promise<string>;
@@ -189,6 +190,14 @@ export interface IStorage {
   createEmployee(data: any): Promise<Employee>;
   updateEmployee(id: number, data: any): Promise<Employee>;
   deleteEmployee(id: number): Promise<void>;
+  updateEmployeeFace(id: number, descriptor: string): Promise<void>;
+  getEmployeeFaceDescriptors(clientName: string): Promise<{ id: number; name: string; employeeCode: string; faceDescriptor: string }[]>;
+  getDailyAttendanceLogs(clientName: string, date: string): Promise<any[]>;
+  getDailyAttendanceMonth(clientName: string, month: number, year: number): Promise<any[]>;
+  saveDailyAttendanceLog(data: any): Promise<any>;
+  updateDailyAttendanceLog(id: number, status: string): Promise<any>;
+  deleteDailyAttendanceLog(id: number): Promise<void>;
+  pushDailyAttendanceToMusterRoll(clientName: string, month: number, year: number): Promise<{ pushed: number }>;
   getAttendanceByEmployeeId(employeeId: number, month: number, year: number): Promise<Attendance | undefined>;
   getSalaryByEmployeeId(employeeId: number, month: number, year: number): Promise<SalaryRecord | undefined>;
   getAttendance(clientName: string, month: number, year: number): Promise<Attendance[]>;
@@ -820,7 +829,7 @@ export class DatabaseStorage implements IStorage {
     return newItem;
   }
 
-  async updateClientName(id: number, item: { name?: string; address?: string; gstNo?: string; stateName?: string; stateCode?: string; agreementValidTill?: string | null }): Promise<ClientName> {
+  async updateClientName(id: number, item: { name?: string; address?: string; gstNo?: string; stateName?: string; stateCode?: string; agreementValidTill?: string | null; attendanceLat?: number | null; attendanceLng?: number | null; attendanceRadius?: number | null }): Promise<ClientName> {
     await db.update(clientNames).set(item).where(eq(clientNames.id, id));
     const [updated] = await db.select().from(clientNames).where(eq(clientNames.id, id));
     if (!updated) throw new Error("Client not found");
@@ -1629,6 +1638,123 @@ export class DatabaseStorage implements IStorage {
 
   async deleteEmployee(id: number): Promise<void> {
     await db.delete(employees).where(eq(employees.id, id));
+  }
+
+  async updateEmployeeFace(id: number, descriptor: string): Promise<void> {
+    await db.update(employees).set({ faceDescriptor: descriptor } as any).where(eq(employees.id, id));
+  }
+
+  async getEmployeeFaceDescriptors(clientName: string): Promise<{ id: number; name: string; employeeCode: string; faceDescriptor: string }[]> {
+    const rows = await db.select({
+      id: employees.id,
+      name: employees.name,
+      employeeCode: employees.employeeCode,
+      faceDescriptor: employees.faceDescriptor,
+    }).from(employees).where(eq(employees.clientName, clientName));
+    return rows.filter(r => r.faceDescriptor) as any;
+  }
+
+  async getDailyAttendanceLogs(clientName: string, date: string): Promise<any[]> {
+    const [rows] = await pool.execute(
+      `SELECT d.id, d.employee_id, d.client_name, d.attendance_date, d.status, d.scanned_at, d.scanned_lat, d.scanned_lng, d.scanned_by,
+              e.name AS employee_name, e.employee_code
+       FROM daily_attendance_logs d
+       JOIN employees e ON e.id = d.employee_id
+       WHERE d.client_name = ? AND d.attendance_date = ?
+       ORDER BY d.scanned_at DESC`,
+      [clientName, date]
+    ) as any;
+    return rows;
+  }
+
+  async getDailyAttendanceMonth(clientName: string, month: number, year: number): Promise<any[]> {
+    const [rows] = await pool.execute(
+      `SELECT d.id, d.employee_id, d.client_name, d.attendance_date, d.status, d.scanned_at, d.scanned_lat, d.scanned_lng, d.scanned_by,
+              e.name AS employee_name, e.employee_code
+       FROM daily_attendance_logs d
+       JOIN employees e ON e.id = d.employee_id
+       WHERE d.client_name = ? AND MONTH(d.attendance_date) = ? AND YEAR(d.attendance_date) = ?
+       ORDER BY d.attendance_date, e.name`,
+      [clientName, month, year]
+    ) as any;
+    return rows;
+  }
+
+  async saveDailyAttendanceLog(data: any): Promise<any> {
+    const { employeeId, clientName, attendanceDate, status = 'P', scannedLat, scannedLng, scannedBy } = data;
+    const [existing] = await pool.execute(
+      `SELECT id FROM daily_attendance_logs WHERE employee_id = ? AND attendance_date = ?`,
+      [employeeId, attendanceDate]
+    ) as any;
+    if (existing.length > 0) {
+      throw new Error('Attendance already recorded for this employee today');
+    }
+    await pool.execute(
+      `INSERT INTO daily_attendance_logs (employee_id, client_name, attendance_date, status, scanned_lat, scanned_lng, scanned_by)
+       VALUES (?, ?, ?, ?, ?, ?, ?)`,
+      [employeeId, clientName, attendanceDate, status, scannedLat ?? null, scannedLng ?? null, scannedBy ?? null]
+    );
+    const [rows] = await pool.execute(
+      `SELECT d.id, d.employee_id, d.client_name, d.attendance_date, d.status, d.scanned_at,
+              e.name AS employee_name, e.employee_code
+       FROM daily_attendance_logs d JOIN employees e ON e.id = d.employee_id
+       WHERE d.employee_id = ? AND d.attendance_date = ?`,
+      [employeeId, attendanceDate]
+    ) as any;
+    return rows[0];
+  }
+
+  async updateDailyAttendanceLog(id: number, status: string): Promise<any> {
+    await pool.execute(`UPDATE daily_attendance_logs SET status = ? WHERE id = ?`, [status, id]);
+    const [rows] = await pool.execute(
+      `SELECT d.id, d.employee_id, d.client_name, d.attendance_date, d.status, d.scanned_at,
+              e.name AS employee_name, e.employee_code
+       FROM daily_attendance_logs d JOIN employees e ON e.id = d.employee_id WHERE d.id = ?`,
+      [id]
+    ) as any;
+    return rows[0];
+  }
+
+  async deleteDailyAttendanceLog(id: number): Promise<void> {
+    await pool.execute(`DELETE FROM daily_attendance_logs WHERE id = ?`, [id]);
+  }
+
+  async pushDailyAttendanceToMusterRoll(clientName: string, month: number, year: number): Promise<{ pushed: number }> {
+    const [logs] = await pool.execute(
+      `SELECT employee_id, attendance_date, status FROM daily_attendance_logs
+       WHERE client_name = ? AND MONTH(attendance_date) = ? AND YEAR(attendance_date) = ?`,
+      [clientName, month, year]
+    ) as any;
+    if (!logs.length) return { pushed: 0 };
+    const byEmp: Record<number, Record<number, string>> = {};
+    for (const log of logs) {
+      const empId = Number(log.employee_id);
+      const day = new Date(log.attendance_date).getDate();
+      if (!byEmp[empId]) byEmp[empId] = {};
+      byEmp[empId][day] = log.status;
+    }
+    let pushed = 0;
+    for (const [empIdStr, days] of Object.entries(byEmp)) {
+      const empId = Number(empIdStr);
+      const [existing] = await pool.execute(
+        `SELECT id FROM attendance WHERE employee_id = ? AND month = ? AND year = ?`,
+        [empId, month, year]
+      ) as any;
+      if (existing.length > 0) {
+        const sets = Object.keys(days).map(d => `day${d} = ?`).join(', ');
+        const vals: any[] = [...Object.values(days), existing[0].id];
+        await pool.execute(`UPDATE attendance SET ${sets} WHERE id = ?`, vals);
+      } else {
+        const [empRows] = await pool.execute(`SELECT client_name FROM employees WHERE id = ?`, [empId]) as any;
+        if (!empRows.length) continue;
+        const cols = ['employee_id', 'client_name', 'month', 'year', ...Object.keys(days).map(d => `day${d}`)];
+        const vals: any[] = [empId, empRows[0].client_name, month, year, ...Object.values(days)];
+        const placeholders = cols.map(() => '?').join(', ');
+        await pool.execute(`INSERT INTO attendance (${cols.join(', ')}) VALUES (${placeholders})`, vals);
+      }
+      pushed++;
+    }
+    return { pushed };
   }
 
   // === ATTENDANCE / MUSTER ROLL ===

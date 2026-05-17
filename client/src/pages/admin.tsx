@@ -121,6 +121,9 @@ export default function Admin() {
   const [editingClientStateName, setEditingClientStateName] = useState("");
   const [editingClientStateCode, setEditingClientStateCode] = useState("");
   const [editingClientAgreement, setEditingClientAgreement] = useState("");
+  const [editingClientLat, setEditingClientLat] = useState("");
+  const [editingClientLng, setEditingClientLng] = useState("");
+  const [editingClientRadius, setEditingClientRadius] = useState("200");
 
   const { data: vendorsList, isLoading: vendorsLoading } = useVendors();
   const createVendorMutation = useCreateVendor();
@@ -219,6 +222,7 @@ export default function Admin() {
     purchase: 'Purchase Request & Invoices',
     labour: 'Labour Works',
     salesinvoice: 'Sales Invoice Ledger',
+    attendance: 'Face Attendance',
     dateentry_ubl: 'Date Entry — UBL',
     dateentry_cipla: 'Date Entry — Cipla',
     dateentry_hul: 'Date Entry — HUL',
@@ -323,6 +327,9 @@ export default function Admin() {
         stateName: editingClientStateName,
         stateCode: editingClientStateCode.toUpperCase(),
         agreementValidTill: editingClientAgreement || null,
+        attendanceLat: editingClientLat ? Number(editingClientLat) : null,
+        attendanceLng: editingClientLng ? Number(editingClientLng) : null,
+        attendanceRadius: editingClientRadius ? Number(editingClientRadius) : 200,
       });
       setEditingClientId(null);
       toast({ title: "Success", description: "Client updated" });
@@ -339,6 +346,9 @@ export default function Admin() {
     setEditingClientStateName(client.stateName || "");
     setEditingClientStateCode(client.stateCode || "");
     setEditingClientAgreement(client.agreementValidTill || "");
+    setEditingClientLat(client.attendanceLat ? String(client.attendanceLat) : "");
+    setEditingClientLng(client.attendanceLng ? String(client.attendanceLng) : "");
+    setEditingClientRadius(client.attendanceRadius ? String(client.attendanceRadius) : "200");
   };
 
   const handleDeleteClient = async (id: number) => {
@@ -696,6 +706,25 @@ export default function Admin() {
                             <Label className="text-xs text-muted-foreground">Agreement Valid Till</Label>
                             <Input type="date" value={editingClientAgreement} onChange={(e) => setEditingClientAgreement(e.target.value)} className="border-teal-300" data-testid={`input-edit-client-agreement-${client.id}`} />
                           </div>
+                        </div>
+                        <div className="space-y-1">
+                          <Label className="text-xs font-semibold text-violet-700 dark:text-violet-400">📍 Face Attendance Location (GPS Lock)</Label>
+                          <div className="grid grid-cols-3 gap-2">
+                            <div>
+                              <Label className="text-[10px] text-muted-foreground">Latitude</Label>
+                              <Input type="number" step="any" placeholder="e.g. 22.5726" value={editingClientLat} onChange={e => setEditingClientLat(e.target.value)} className="border-teal-300 text-xs" data-testid={`input-edit-client-lat-${client.id}`} />
+                            </div>
+                            <div>
+                              <Label className="text-[10px] text-muted-foreground">Longitude</Label>
+                              <Input type="number" step="any" placeholder="e.g. 88.3639" value={editingClientLng} onChange={e => setEditingClientLng(e.target.value)} className="border-teal-300 text-xs" data-testid={`input-edit-client-lng-${client.id}`} />
+                            </div>
+                            <div>
+                              <Label className="text-[10px] text-muted-foreground">Radius (m)</Label>
+                              <Input type="number" placeholder="200" value={editingClientRadius} onChange={e => setEditingClientRadius(e.target.value)} className="border-teal-300 text-xs" data-testid={`input-edit-client-radius-${client.id}`} />
+                            </div>
+                          </div>
+                        </div>
+                        <div className="flex gap-2">
                           <Button size="sm" variant="ghost" className="text-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-900/20" onClick={() => handleUpdateClient(client.id)} data-testid={`button-save-client-${client.id}`}>
                             <Save className="w-4 h-4 mr-1" /> Save
                           </Button>

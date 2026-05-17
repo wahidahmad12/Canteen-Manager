@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { Link, useLocation } from 'wouter';
-import { LayoutDashboard, FilePlus, Settings, Calculator, ClipboardList, UtensilsCrossed, ShoppingCart, LogOut, User, Menu, X, Users, CalendarDays, Wallet, FileText, BookOpen, HardHat, ChevronDown, ChevronRight, IndianRupee, Smartphone, Download, Share, MoreHorizontal, Receipt, BarChart3, Languages, Package, History, QrCode } from 'lucide-react';
+import { LayoutDashboard, FilePlus, Settings, Calculator, ClipboardList, UtensilsCrossed, ShoppingCart, LogOut, User, Menu, X, Users, CalendarDays, Wallet, FileText, BookOpen, HardHat, ChevronDown, ChevronRight, IndianRupee, Smartphone, Download, Share, MoreHorizontal, Receipt, BarChart3, Languages, Package, History, QrCode, ScanFace } from 'lucide-react';
 import logoImg from '@assets/logo1_1771660912341.png';
 import { useCurrentUser, useLogout } from '@/hooks/use-reports';
 import { Button } from '@/components/ui/button';
@@ -89,7 +89,8 @@ export function Layout({ children }: { children: React.ReactNode }) {
     { href: '/daily-pnl', label: tr('dailyPnl'), icon: BarChart3, perm: null },
     { href: '/monthly-pnl', label: tr('monthlyPnl'), icon: IndianRupee, perm: null },
     { href: '/qr-scanner', label: 'QR Scanner', icon: QrCode, perm: null },
-  ].filter(item => item.perm === null || perms.includes(item.perm));
+    { href: '/daily-attendance', label: 'Face Attendance', icon: ScanFace, perm: 'attendance' },
+  ].filter(item => item.perm === null || perms.includes(item.perm) || user?.role === 'admin');
 
   const labourSubItems = [
     ...(user?.role === 'admin' ? [{ href: '/employee-master', label: tr('employeeMaster'), icon: Users }] : []),

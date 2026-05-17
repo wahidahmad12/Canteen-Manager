@@ -29,6 +29,29 @@ async function initPool(): Promise<void> {
   const host = tidbUrl!.split("@")[1]?.split("/")[0] ?? "unknown";
   console.log(`[db] Connected to TiDB Cloud (${host})`);
   db = drizzle(pool, { schema, mode: "default" });
+
+  const migrations = [
+    `ALTER TABLE employees ADD COLUMN IF NOT EXISTS face_descriptor LONGTEXT DEFAULT NULL`,
+    `ALTER TABLE client_names ADD COLUMN IF NOT EXISTS attendance_lat DECIMAL(10,7) DEFAULT NULL`,
+    `ALTER TABLE client_names ADD COLUMN IF NOT EXISTS attendance_lng DECIMAL(10,7) DEFAULT NULL`,
+    `ALTER TABLE client_names ADD COLUMN IF NOT EXISTS attendance_radius INT DEFAULT 200`,
+    `CREATE TABLE IF NOT EXISTS daily_attendance_logs (
+      id INT AUTO_INCREMENT PRIMARY KEY,
+      employee_id INT NOT NULL,
+      client_name VARCHAR(500) NOT NULL,
+      attendance_date DATE NOT NULL,
+      status VARCHAR(10) NOT NULL DEFAULT 'P',
+      scanned_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      scanned_lat DECIMAL(10,7) DEFAULT NULL,
+      scanned_lng DECIMAL(10,7) DEFAULT NULL,
+      scanned_by VARCHAR(200) DEFAULT NULL,
+      UNIQUE KEY uq_emp_date (employee_id, attendance_date),
+      FOREIGN KEY (employee_id) REFERENCES employees(id) ON DELETE CASCADE
+    )`,
+  ];
+  for (const sql of migrations) {
+    try { await pool.execute(sql); } catch (e: any) { console.log('[db] migration note:', e.message?.slice(0, 80)); }
+  }
 }
 
 export const dbReady = initPool();
