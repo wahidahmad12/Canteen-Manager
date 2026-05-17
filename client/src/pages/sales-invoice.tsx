@@ -1006,7 +1006,7 @@ export default function SalesInvoicePage() {
               </Card>
             ) : (
               <div className="space-y-3">
-                {purchaseOrders.map(po => {
+                {[...purchaseOrders].sort((a, b) => new Date(b.poDate).getTime() - new Date(a.poDate).getTime()).map(po => {
                   const balance = getPoBalance(po);
                   const used = getPoUsed(po);
                   const linked = getPoLinkedCount(po);
