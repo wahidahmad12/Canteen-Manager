@@ -177,12 +177,25 @@ export default function DailyAttendancePage() {
       setScanStep("idle"); return;
     }
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "user", width: 640, height: 480 } });
+      let stream: MediaStream;
+      try {
+        stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: { ideal: "user" }, width: { ideal: 640 }, height: { ideal: 480 } } });
+      } catch {
+        stream = await navigator.mediaDevices.getUserMedia({ video: true });
+      }
       streamRef.current = stream;
-      if (videoRef.current) { videoRef.current.srcObject = stream; await videoRef.current.play(); }
+      if (videoRef.current) {
+        videoRef.current.srcObject = stream;
+        videoRef.current.setAttribute("playsinline", "true");
+        await new Promise<void>((resolve, reject) => {
+          if (!videoRef.current) return reject();
+          videoRef.current.onloadedmetadata = () => videoRef.current!.play().then(resolve).catch(reject);
+        });
+      }
       setScanStep("camera");
-    } catch {
-      toast({ title: "Camera Error", description: "Could not access camera.", variant: "destructive" });
+    } catch (err: any) {
+      const msg = err?.name === "NotAllowedError" ? "Camera permission denied. Please allow camera access in your browser settings." : err?.name === "NotFoundError" ? "No camera found on this device." : "Could not access camera. Try reloading the page.";
+      toast({ title: "Camera Error", description: msg, variant: "destructive" });
       setScanStep("idle");
     }
   };
