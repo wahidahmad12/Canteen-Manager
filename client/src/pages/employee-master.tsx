@@ -13,8 +13,9 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
-import { Plus, Loader2, Pencil, Trash2, Users, Search, UserCheck, UserX, Building2, IndianRupee, CreditCard, FileText, MapPin, Shield, Calendar, Printer, ScanFace, CheckCircle2 } from "lucide-react";
+import { Plus, Loader2, Pencil, Trash2, Users, Search, UserCheck, UserX, Building2, IndianRupee, CreditCard, FileText, MapPin, Shield, Calendar, Printer, ScanFace, CheckCircle2, Fingerprint } from "lucide-react";
 import { FaceEnrollDialog } from "@/components/face-enroll-dialog";
+import { startRegistration } from "@simplewebauthn/browser";
 
 const fmtDate = (d: string | null | undefined): string => {
   if (!d) return "-";
@@ -131,6 +132,7 @@ export default function EmployeeMaster() {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [deleteId, setDeleteId] = useState<number | null>(null);
   const [enrollingEmployee, setEnrollingEmployee] = useState<any>(null);
+  const [registeringFingerprintId, setRegisteringFingerprintId] = useState<number | null>(null);
   const [editingId, setEditingId] = useState<number | null>(null);
   const [form, setForm] = useState({ ...emptyForm });
 
@@ -198,6 +200,36 @@ export default function EmployeeMaster() {
     setDialogOpen(false);
     setEditingId(null);
     setForm({ ...emptyForm });
+  };
+
+  const handleRegisterFingerprint = async (emp: any) => {
+    if (!window.PublicKeyCredential) {
+      toast({ title: "Not Supported", description: "This device or browser does not support fingerprint/biometric authentication.", variant: "destructive" }); return;
+    }
+    setRegisteringFingerprintId(emp.id);
+    try {
+      const challengeRes = await fetch("/api/webauthn/register/challenge", {
+        method: "POST", credentials: "include", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ employeeId: emp.id }),
+      });
+      if (!challengeRes.ok) { const e = await challengeRes.json(); throw new Error(e.message); }
+      const options = await challengeRes.json();
+      const registrationResponse = await startRegistration({ optionsJSON: options });
+      const verifyRes = await fetch("/api/webauthn/register/verify", {
+        method: "POST", credentials: "include", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ employeeId: emp.id, registrationResponse }),
+      });
+      if (!verifyRes.ok) { const e = await verifyRes.json(); throw new Error(e.message); }
+      toast({ title: "Fingerprint Registered!", description: `${emp.name} can now use fingerprint for attendance.` });
+    } catch (err: any) {
+      if (err?.name === "NotAllowedError") {
+        toast({ title: "Cancelled", description: "Fingerprint registration was cancelled.", variant: "destructive" });
+      } else {
+        toast({ title: "Registration Failed", description: err.message || "Could not register fingerprint.", variant: "destructive" });
+      }
+    } finally {
+      setRegisteringFingerprintId(null);
+    }
   };
 
   const openAdd = () => {
@@ -487,6 +519,9 @@ export default function EmployeeMaster() {
                         <Button size="icon" variant="ghost" className="text-violet-600 hover:bg-violet-50 dark:hover:bg-violet-900/20" title="Enroll Face" onClick={() => setEnrollingEmployee(emp)} data-testid={`button-enroll-face-mobile-${emp.id}`}>
                           {emp.faceDescriptor ? <CheckCircle2 className="w-4 h-4 text-green-600" /> : <ScanFace className="w-4 h-4" />}
                         </Button>
+                        <Button size="icon" variant="ghost" className="text-indigo-600 hover:bg-indigo-50 dark:hover:bg-indigo-900/20" title="Register Fingerprint" onClick={() => handleRegisterFingerprint(emp)} disabled={registeringFingerprintId === emp.id} data-testid={`button-fingerprint-mobile-${emp.id}`}>
+                          {registeringFingerprintId === emp.id ? <Loader2 className="w-4 h-4 animate-spin" /> : <Fingerprint className="w-4 h-4" />}
+                        </Button>
                         <Button size="icon" variant="ghost" onClick={() => openEdit(emp)} data-testid={`button-edit-employee-${emp.id}`}>
                           <Pencil className="w-4 h-4" />
                         </Button>
@@ -542,6 +577,9 @@ export default function EmployeeMaster() {
                             <div className="flex justify-end gap-1">
                               <Button size="icon" variant="ghost" className="text-violet-600 hover:bg-violet-50 dark:hover:bg-violet-900/20" title={emp.faceDescriptor ? "Face enrolled — click to update" : "Enroll face"} onClick={() => setEnrollingEmployee(emp)} data-testid={`button-enroll-face-${emp.id}`}>
                                 {emp.faceDescriptor ? <CheckCircle2 className="w-4 h-4 text-green-600" /> : <ScanFace className="w-4 h-4" />}
+                              </Button>
+                              <Button size="icon" variant="ghost" className="text-indigo-600 hover:bg-indigo-50 dark:hover:bg-indigo-900/20" title="Register Fingerprint for attendance" onClick={() => handleRegisterFingerprint(emp)} disabled={registeringFingerprintId === emp.id} data-testid={`button-fingerprint-${emp.id}`}>
+                                {registeringFingerprintId === emp.id ? <Loader2 className="w-4 h-4 animate-spin" /> : <Fingerprint className="w-4 h-4" />}
                               </Button>
                               <Button size="icon" variant="ghost" onClick={() => openEdit(emp)} data-testid={`button-edit-employee-${emp.id}`}>
                                 <Pencil className="w-4 h-4" />

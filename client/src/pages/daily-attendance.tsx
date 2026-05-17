@@ -11,10 +11,11 @@ import { useToast } from "@/hooks/use-toast";
 import { useClientNames } from "@/hooks/use-reports";
 import { apiRequest } from "@/lib/queryClient";
 import { loadFaceModels, faceapi, euclideanDistance, FACE_MATCH_THRESHOLD } from "@/lib/face-api-loader";
+import { startAuthentication } from "@simplewebauthn/browser";
 import {
   Camera, CheckCircle2, Loader2, MapPin, ScanFace, Users,
   AlertTriangle, X, CalendarDays, ClipboardList, RefreshCw,
-  Upload, Pencil, Trash2, ChevronRight, Send
+  Upload, Pencil, Trash2, ChevronRight, Send, Fingerprint
 } from "lucide-react";
 
 const MONTHS = ["January","February","March","April","May","June","July","August","September","October","November","December"];
@@ -66,9 +67,15 @@ export default function DailyAttendancePage() {
   const [userCoords, setUserCoords] = useState<{lat:number;lng:number}|null>(null);
 
   // Scan state
+  const [scanMode, setScanMode] = useState<"face" | "fingerprint">("face");
   const [scanStep, setScanStep] = useState<ScanStep>("idle");
   const [matchedEmp, setMatchedEmp] = useState<MatchedEmployee | null>(null);
   const [scanStatus, setScanStatus] = useState("P");
+
+  // Fingerprint state
+  const [fpEmployeeId, setFpEmployeeId] = useState<string>("");
+  const [fpStatus, setFpStatus] = useState<"idle" | "verifying" | "done" | "error">("idle");
+  const [fpResult, setFpResult] = useState<any>(null);
 
   // Data
   const { data: todayLogs, refetch: refetchToday } = useQuery({
@@ -97,6 +104,15 @@ export default function DailyAttendancePage() {
       const res = await fetch(`/api/clients`, { credentials:"include" });
       const all = await res.json() as any[];
       return all.find((c:any) => c.name === clientName);
+    },
+    enabled: !!clientName,
+  });
+
+  const { data: clientEmployees } = useQuery({
+    queryKey: ["/api/employees", clientName],
+    queryFn: async () => {
+      const res = await fetch(`/api/employees?clientName=${encodeURIComponent(clientName)}`, { credentials:"include" });
+      return res.json() as Promise<any[]>;
     },
     enabled: !!clientName,
   });
@@ -305,6 +321,47 @@ export default function DailyAttendancePage() {
 
   const resetScan = () => { stopCamera(); setMatchedEmp(null); setScanStep("idle"); };
 
+  const handleFingerprintVerify = async () => {
+    if (!fpEmployeeId) { toast({ title: "Select Employee", description: "Please select an employee first.", variant: "destructive" }); return; }
+    if (!window.PublicKeyCredential) { toast({ title: "Not Supported", description: "Fingerprint authentication is not supported on this device/browser.", variant: "destructive" }); return; }
+    setFpStatus("verifying"); setFpResult(null);
+    try {
+      const challengeRes = await fetch("/api/webauthn/authenticate/challenge", {
+        method: "POST", credentials: "include", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ employeeId: Number(fpEmployeeId) }),
+      });
+      if (!challengeRes.ok) { const e = await challengeRes.json(); throw new Error(e.message); }
+      const options = await challengeRes.json();
+      const authResponse = await startAuthentication({ optionsJSON: options });
+      const verifyRes = await fetch("/api/webauthn/authenticate/verify", {
+        method: "POST", credentials: "include", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          employeeId: Number(fpEmployeeId),
+          authenticationResponse: authResponse,
+          clientName,
+          attendanceDate: scanDate,
+          scannedLat: userCoords?.lat ?? null,
+          scannedLng: userCoords?.lng ?? null,
+        }),
+      });
+      const result = await verifyRes.json();
+      if (!verifyRes.ok) throw new Error(result.message);
+      setFpResult(result);
+      setFpStatus("done");
+      refetchToday();
+      qc.invalidateQueries({ queryKey: ["/api/daily-attendance"] });
+      toast({ title: "Attendance Marked!", description: `${result.log?.employee_name || "Employee"} marked present via fingerprint.` });
+    } catch (err: any) {
+      if (err?.name === "NotAllowedError") {
+        setFpStatus("idle"); toast({ title: "Cancelled", description: "Fingerprint verification was cancelled.", variant: "destructive" });
+      } else if (err.message?.includes("already recorded")) {
+        setFpStatus("done"); toast({ title: "Already Marked", description: "Attendance already recorded today.", variant: "destructive" });
+      } else {
+        setFpStatus("error"); toast({ title: "Verification Failed", description: err.message || "Could not verify fingerprint.", variant: "destructive" });
+      }
+    }
+  };
+
   const canScan = locationStatus === "ok" || locationStatus === "no-config";
 
   const alreadyScannedIds = new Set((todayLogs || []).map((l:any) => l.employee_id));
@@ -386,8 +443,91 @@ export default function DailyAttendancePage() {
                   </CardContent>
                 </Card>
 
+                {/* Scan Mode Toggle */}
+                <div className="flex gap-1 p-1 bg-muted rounded-lg">
+                  <button onClick={() => { setScanMode("face"); resetScan(); }}
+                    className={`flex-1 py-1.5 text-xs font-medium rounded-md transition-colors flex items-center justify-center gap-1.5 ${scanMode==="face" ? "bg-background shadow text-foreground" : "text-muted-foreground hover:text-foreground"}`}
+                    data-testid="tab-scan-face">
+                    <ScanFace className="w-3.5 h-3.5" /> Face Scan
+                  </button>
+                  <button onClick={() => { setScanMode("fingerprint"); setFpStatus("idle"); setFpResult(null); }}
+                    className={`flex-1 py-1.5 text-xs font-medium rounded-md transition-colors flex items-center justify-center gap-1.5 ${scanMode==="fingerprint" ? "bg-background shadow text-foreground" : "text-muted-foreground hover:text-foreground"}`}
+                    data-testid="tab-scan-fingerprint">
+                    <Fingerprint className="w-3.5 h-3.5" /> Fingerprint
+                  </button>
+                </div>
+
+                {/* Fingerprint Scanner */}
+                {scanMode === "fingerprint" && (
+                  <Card>
+                    <CardHeader className="pb-2 pt-3 px-3">
+                      <CardTitle className="text-sm flex items-center gap-2">
+                        <Fingerprint className="w-4 h-4 text-indigo-500" /> Fingerprint Attendance
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent className="p-3 space-y-3">
+                      {!canScan ? (
+                        <div className="text-center py-6 text-muted-foreground text-sm border-2 border-dashed border-amber-200 dark:border-amber-800 rounded-xl">
+                          <AlertTriangle className="w-7 h-7 mx-auto mb-2 text-amber-500 opacity-70" />
+                          Verify your GPS location before scanning
+                        </div>
+                      ) : fpStatus === "done" && fpResult ? (
+                        <div className="text-center py-4 space-y-2">
+                          <div className="w-14 h-14 mx-auto rounded-full bg-green-100 dark:bg-green-900/30 flex items-center justify-center">
+                            <CheckCircle2 className="w-8 h-8 text-green-600" />
+                          </div>
+                          <p className="font-medium text-sm">{fpResult.log?.employee_name}</p>
+                          <Badge className="bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400">✓ Attendance Marked via Fingerprint</Badge>
+                          <div className="pt-2">
+                            <Button size="sm" variant="outline" onClick={() => { setFpStatus("idle"); setFpResult(null); setFpEmployeeId(""); }} data-testid="button-fp-reset">
+                              Scan Next Employee
+                            </Button>
+                          </div>
+                        </div>
+                      ) : (
+                        <>
+                          <div className="space-y-1">
+                            <Label className="text-xs">Select Employee</Label>
+                            <Select value={fpEmployeeId} onValueChange={v => { setFpEmployeeId(v); setFpStatus("idle"); setFpResult(null); }}>
+                              <SelectTrigger data-testid="select-fp-employee">
+                                <SelectValue placeholder="Choose employee…" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                {(clientEmployees || []).filter((e:any) => e.isActive).map((e:any) => (
+                                  <SelectItem key={e.id} value={String(e.id)}>
+                                    {e.name}
+                                    {alreadyScannedIds.has(e.id) && " ✓"}
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                          </div>
+                          {fpEmployeeId && alreadyScannedIds.has(Number(fpEmployeeId)) && (
+                            <div className="flex items-center gap-2 p-2 bg-amber-50 dark:bg-amber-900/20 rounded-lg border border-amber-200 text-xs text-amber-700 dark:text-amber-400">
+                              <AlertTriangle className="w-3.5 h-3.5 shrink-0" /> Already marked today
+                            </div>
+                          )}
+                          <div className="flex flex-col items-center gap-3 py-4 border-2 border-dashed border-indigo-200 dark:border-indigo-800 rounded-xl px-4">
+                            <div className="w-14 h-14 rounded-2xl bg-indigo-100 dark:bg-indigo-900/30 flex items-center justify-center">
+                              {fpStatus === "verifying" ? <Loader2 className="w-7 h-7 text-indigo-500 animate-spin" /> : <Fingerprint className="w-7 h-7 text-indigo-500" />}
+                            </div>
+                            <div className="text-center space-y-1">
+                              <p className="text-sm font-medium">{fpStatus === "verifying" ? "Verifying…" : "Verify with Fingerprint"}</p>
+                              <p className="text-xs text-muted-foreground">Touch your fingerprint sensor when prompted</p>
+                            </div>
+                            <Button onClick={handleFingerprintVerify} disabled={fpStatus === "verifying" || !fpEmployeeId} className="w-full bg-indigo-600 hover:bg-indigo-700 text-white gap-2 h-11" data-testid="button-fp-verify">
+                              {fpStatus === "verifying" ? <Loader2 className="w-4 h-4 animate-spin" /> : <Fingerprint className="w-4 h-4" />}
+                              {fpStatus === "verifying" ? "Verifying…" : "Verify Fingerprint & Mark Attendance"}
+                            </Button>
+                          </div>
+                        </>
+                      )}
+                    </CardContent>
+                  </Card>
+                )}
+
                 {/* Face Scanner */}
-                {!canScan ? (
+                {scanMode === "face" && (!canScan ? (
                   <Card className="border-dashed">
                     <CardContent className="py-10 text-center text-sm text-muted-foreground">
                       <AlertTriangle className="w-8 h-8 mx-auto mb-2 text-amber-500 opacity-70" />
@@ -513,7 +653,7 @@ export default function DailyAttendancePage() {
                       )}
                     </CardContent>
                   </Card>
-                )}
+                ))}
 
                 {/* Today's Log */}
                 <Card>

@@ -1171,3 +1171,16 @@ export const hulSpecialOrders = mysqlTable("hul_special_orders", {
 });
 export type HulSpecialOrder = typeof hulSpecialOrders.$inferSelect;
 export const insertHulSpecialOrderSchema = createInsertSchema(hulSpecialOrders).omit({ id: true, createdAt: true, updatedAt: true });
+
+// === EMPLOYEE WEBAUTHN CREDENTIALS (Fingerprint/Biometric) ===
+export const employeeWebAuthnCredentials = mysqlTable("employee_webauthn_credentials", {
+  id: int("id").autoincrement().primaryKey(),
+  employeeId: int("employee_id").notNull(),
+  credentialId: text("credential_id").notNull(),
+  publicKey: text("public_key").notNull(),
+  counter: int("counter").notNull().default(0),
+  deviceType: varchar("device_type", { length: 50 }).default(""),
+  transports: text("transports"),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+export type EmployeeWebAuthnCredential = typeof employeeWebAuthnCredentials.$inferSelect;

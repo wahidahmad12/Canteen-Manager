@@ -192,6 +192,9 @@ export interface IStorage {
   deleteEmployee(id: number): Promise<void>;
   updateEmployeeFace(id: number, descriptor: string): Promise<void>;
   getEmployeeFaceDescriptors(clientName: string): Promise<{ id: number; name: string; employeeCode: string; faceDescriptor: string }[]>;
+  getEmployeeWebAuthnCredentials(employeeId: number): Promise<any[]>;
+  saveEmployeeWebAuthnCredential(data: { employeeId: number; credentialId: string; publicKey: string; counter: number; deviceType: string; transports: string }): Promise<void>;
+  updateWebAuthnCounter(credentialId: string, counter: number): Promise<void>;
   getDailyAttendanceLogs(clientName: string, date: string): Promise<any[]>;
   getDailyAttendanceMonth(clientName: string, month: number, year: number): Promise<any[]>;
   saveDailyAttendanceLog(data: any): Promise<any>;
@@ -1642,6 +1645,29 @@ export class DatabaseStorage implements IStorage {
 
   async updateEmployeeFace(id: number, descriptor: string): Promise<void> {
     await db.update(employees).set({ faceDescriptor: descriptor } as any).where(eq(employees.id, id));
+  }
+
+  async getEmployeeWebAuthnCredentials(employeeId: number): Promise<any[]> {
+    const [rows] = await pool.execute(
+      `SELECT * FROM employee_webauthn_credentials WHERE employee_id = ?`,
+      [employeeId]
+    ) as any;
+    return rows;
+  }
+
+  async saveEmployeeWebAuthnCredential(data: { employeeId: number; credentialId: string; publicKey: string; counter: number; deviceType: string; transports: string }): Promise<void> {
+    await pool.execute(
+      `INSERT INTO employee_webauthn_credentials (employee_id, credential_id, public_key, counter, device_type, transports)
+       VALUES (?, ?, ?, ?, ?, ?)`,
+      [data.employeeId, data.credentialId, data.publicKey, data.counter, data.deviceType, data.transports]
+    );
+  }
+
+  async updateWebAuthnCounter(credentialId: string, counter: number): Promise<void> {
+    await pool.execute(
+      `UPDATE employee_webauthn_credentials SET counter = ? WHERE credential_id = ?`,
+      [counter, credentialId]
+    );
   }
 
   async getEmployeeFaceDescriptors(clientName: string): Promise<{ id: number; name: string; employeeCode: string; faceDescriptor: string }[]> {

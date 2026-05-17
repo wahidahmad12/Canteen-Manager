@@ -6,6 +6,11 @@ import { api } from "@shared/routes";
 import { z } from "zod";
 import bcrypt from "bcryptjs";
 import { insertPankajReportSchema } from "@shared/schema";
+import { generateRegistrationOptions, verifyRegistrationResponse, generateAuthenticationOptions, verifyAuthenticationResponse } from '@simplewebauthn/server';
+import { isoBase64URL, isoUint8Array } from '@simplewebauthn/server/helpers';
+
+const webauthnRegChallenges = new Map<number, string>();
+const webauthnAuthChallenges = new Map<number, string>();
 
 function requireAuth(req: Request, res: Response, next: NextFunction) {
   if (!req.session.userId) {
@@ -988,6 +993,142 @@ export async function registerRoutes(
     if (!faceDescriptor) return res.status(400).json({ message: "faceDescriptor required" });
     await storage.updateEmployeeFace(Number(req.params.id), faceDescriptor);
     res.json({ ok: true });
+  });
+
+  // === WEBAUTHN FINGERPRINT ===
+  app.get("/api/employees/:id/webauthn/credentials", requireAuth, async (req, res) => {
+    const creds = await storage.getEmployeeWebAuthnCredentials(Number(req.params.id));
+    res.json({ count: creds.length, registered: creds.length > 0 });
+  });
+
+  app.post("/api/webauthn/register/challenge", requireAuth, async (req, res) => {
+    try {
+      const { employeeId } = req.body;
+      const employee = await storage.getEmployee(Number(employeeId));
+      if (!employee) return res.status(404).json({ message: "Employee not found" });
+      const rpID = req.hostname;
+      const existingCreds = await storage.getEmployeeWebAuthnCredentials(Number(employeeId));
+      const options = await generateRegistrationOptions({
+        rpName: "DJ Hospitality Attendance",
+        rpID,
+        userID: isoUint8Array.fromUTF8String(String(employeeId)),
+        userName: employee.name,
+        timeout: 60000,
+        attestationType: "none",
+        excludeCredentials: existingCreds.map((c: any) => ({
+          id: isoBase64URL.toBuffer(c.credential_id),
+          type: "public-key" as const,
+          transports: JSON.parse(c.transports || "[]"),
+        })),
+        authenticatorSelection: {
+          authenticatorAttachment: "platform",
+          requireResidentKey: false,
+          userVerification: "required",
+        },
+      });
+      webauthnRegChallenges.set(Number(employeeId), options.challenge);
+      res.json(options);
+    } catch (err: any) {
+      res.status(500).json({ message: err.message });
+    }
+  });
+
+  app.post("/api/webauthn/register/verify", requireAuth, async (req, res) => {
+    try {
+      const { employeeId, registrationResponse } = req.body;
+      const challenge = webauthnRegChallenges.get(Number(employeeId));
+      if (!challenge) return res.status(400).json({ message: "No challenge found. Start registration again." });
+      const rpID = req.hostname;
+      const origin = (req.headers.origin as string) || `https://${rpID}`;
+      const verification = await verifyRegistrationResponse({
+        response: registrationResponse,
+        expectedChallenge: challenge,
+        expectedOrigin: origin,
+        expectedRPID: rpID,
+        requireUserVerification: true,
+      });
+      if (!verification.verified || !verification.registrationInfo) {
+        return res.status(400).json({ message: "Verification failed" });
+      }
+      const { credential } = verification.registrationInfo;
+      await storage.saveEmployeeWebAuthnCredential({
+        employeeId: Number(employeeId),
+        credentialId: isoBase64URL.fromBuffer(credential.id),
+        publicKey: isoBase64URL.fromBuffer(credential.publicKey),
+        counter: credential.counter,
+        deviceType: (verification.registrationInfo as any).credentialDeviceType || "singleDevice",
+        transports: JSON.stringify(registrationResponse.response?.transports || []),
+      });
+      webauthnRegChallenges.delete(Number(employeeId));
+      res.json({ verified: true });
+    } catch (err: any) {
+      res.status(400).json({ message: err.message || "Verification failed" });
+    }
+  });
+
+  app.post("/api/webauthn/authenticate/challenge", requireAuth, async (req, res) => {
+    try {
+      const { employeeId } = req.body;
+      const creds = await storage.getEmployeeWebAuthnCredentials(Number(employeeId));
+      if (!creds.length) return res.status(400).json({ message: "No fingerprint registered for this employee" });
+      const rpID = req.hostname;
+      const options = await generateAuthenticationOptions({
+        rpID,
+        timeout: 60000,
+        allowCredentials: creds.map((c: any) => ({
+          id: isoBase64URL.toBuffer(c.credential_id),
+          type: "public-key" as const,
+          transports: JSON.parse(c.transports || "[]"),
+        })),
+        userVerification: "required",
+      });
+      webauthnAuthChallenges.set(Number(employeeId), options.challenge);
+      res.json(options);
+    } catch (err: any) {
+      res.status(500).json({ message: err.message });
+    }
+  });
+
+  app.post("/api/webauthn/authenticate/verify", requireAuth, async (req, res) => {
+    try {
+      const { employeeId, authenticationResponse, clientName, attendanceDate, scannedLat, scannedLng } = req.body;
+      const challenge = webauthnAuthChallenges.get(Number(employeeId));
+      if (!challenge) return res.status(400).json({ message: "No challenge found. Start authentication again." });
+      const rpID = req.hostname;
+      const origin = (req.headers.origin as string) || `https://${rpID}`;
+      const creds = await storage.getEmployeeWebAuthnCredentials(Number(employeeId));
+      const cred = creds.find((c: any) => c.credential_id === authenticationResponse.id);
+      if (!cred) return res.status(400).json({ message: "Credential not found for this device" });
+      const verification = await verifyAuthenticationResponse({
+        response: authenticationResponse,
+        expectedChallenge: challenge,
+        expectedOrigin: origin,
+        expectedRPID: rpID,
+        requireUserVerification: true,
+        authenticator: {
+          credentialID: isoBase64URL.toBuffer(cred.credential_id),
+          credentialPublicKey: isoBase64URL.toBuffer(cred.public_key),
+          counter: cred.counter,
+          transports: JSON.parse(cred.transports || "[]"),
+        },
+      });
+      if (!verification.verified) return res.status(400).json({ message: "Fingerprint verification failed" });
+      await storage.updateWebAuthnCounter(cred.credential_id, verification.authenticationInfo.newCounter);
+      webauthnAuthChallenges.delete(Number(employeeId));
+      const log = await storage.saveDailyAttendanceLog({
+        employeeId: Number(employeeId),
+        clientName,
+        attendanceDate,
+        status: "P",
+        scannedLat: scannedLat ?? null,
+        scannedLng: scannedLng ?? null,
+        scannedBy: ((req as any).user?.username || "unknown") + " (fingerprint)",
+      });
+      res.json({ verified: true, log });
+    } catch (err: any) {
+      if (err.message?.includes("already recorded")) return res.status(409).json({ message: err.message });
+      res.status(400).json({ message: err.message || "Authentication failed" });
+    }
   });
 
   // === DAILY ATTENDANCE LOGS (Face Recognition) ===

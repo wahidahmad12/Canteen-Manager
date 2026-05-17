@@ -48,6 +48,17 @@ async function initPool(): Promise<void> {
       UNIQUE KEY uq_emp_date (employee_id, attendance_date),
       FOREIGN KEY (employee_id) REFERENCES employees(id) ON DELETE CASCADE
     )`,
+    `CREATE TABLE IF NOT EXISTS employee_webauthn_credentials (
+      id INT AUTO_INCREMENT PRIMARY KEY,
+      employee_id INT NOT NULL,
+      credential_id TEXT NOT NULL,
+      public_key LONGTEXT NOT NULL,
+      counter INT NOT NULL DEFAULT 0,
+      device_type VARCHAR(50) DEFAULT '',
+      transports TEXT DEFAULT NULL,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY (employee_id) REFERENCES employees(id) ON DELETE CASCADE
+    )`,
   ];
   for (const sql of migrations) {
     try { await pool.execute(sql); } catch (e: any) { console.log('[db] migration note:', e.message?.slice(0, 80)); }
