@@ -1001,6 +1001,8 @@ export async function registerRoutes(
     res.json({ count: creds.length, registered: creds.length > 0 });
   });
 
+  const bufToStr = (v: any): string => Buffer.isBuffer(v) ? v.toString('utf8') : String(v);
+
   app.post("/api/webauthn/register/challenge", requireAuth, async (req, res) => {
     try {
       const { employeeId } = req.body;
@@ -1016,9 +1018,9 @@ export async function registerRoutes(
         timeout: 60000,
         attestationType: "none",
         excludeCredentials: existingCreds.map((c: any) => ({
-          id: isoBase64URL.toBuffer(c.credential_id),
+          id: bufToStr(c.credential_id),
           type: "public-key" as const,
-          transports: JSON.parse(c.transports || "[]"),
+          transports: JSON.parse(bufToStr(c.transports || "[]")),
         })),
         authenticatorSelection: {
           authenticatorAttachment: "platform",
@@ -1076,9 +1078,9 @@ export async function registerRoutes(
         rpID,
         timeout: 60000,
         allowCredentials: creds.map((c: any) => ({
-          id: isoBase64URL.toBuffer(c.credential_id),
+          id: bufToStr(c.credential_id),
           type: "public-key" as const,
-          transports: JSON.parse(c.transports || "[]"),
+          transports: JSON.parse(bufToStr(c.transports || "[]")),
         })),
         userVerification: "required",
       });
@@ -1097,7 +1099,7 @@ export async function registerRoutes(
       const rpID = req.hostname;
       const origin = (req.headers.origin as string) || `https://${rpID}`;
       const creds = await storage.getEmployeeWebAuthnCredentials(Number(employeeId));
-      const cred = creds.find((c: any) => c.credential_id === authenticationResponse.id);
+      const cred = creds.find((c: any) => bufToStr(c.credential_id) === authenticationResponse.id);
       if (!cred) return res.status(400).json({ message: "Credential not found for this device" });
       const verification = await verifyAuthenticationResponse({
         response: authenticationResponse,
@@ -1105,15 +1107,15 @@ export async function registerRoutes(
         expectedOrigin: origin,
         expectedRPID: rpID,
         requireUserVerification: true,
-        authenticator: {
-          credentialID: isoBase64URL.toBuffer(cred.credential_id),
-          credentialPublicKey: isoBase64URL.toBuffer(cred.public_key),
-          counter: cred.counter,
-          transports: JSON.parse(cred.transports || "[]"),
+        credential: {
+          id: bufToStr(cred.credential_id),
+          publicKey: isoBase64URL.toBuffer(bufToStr(cred.public_key)),
+          counter: Number(cred.counter),
+          transports: JSON.parse(bufToStr(cred.transports || "[]")),
         },
       });
       if (!verification.verified) return res.status(400).json({ message: "Fingerprint verification failed" });
-      await storage.updateWebAuthnCounter(cred.credential_id, verification.authenticationInfo.newCounter);
+      await storage.updateWebAuthnCounter(bufToStr(cred.credential_id), verification.authenticationInfo.newCounter);
       webauthnAuthChallenges.delete(Number(employeeId));
       const log = await storage.saveDailyAttendanceLog({
         employeeId: Number(employeeId),
