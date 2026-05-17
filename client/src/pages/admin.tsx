@@ -136,9 +136,12 @@ export default function Admin() {
       });
       const data = await res.json();
       if (!data.length) { toast({ title: "Address not found", description: "Try a more specific address.", variant: "destructive" }); return; }
-      setEditingClientLat(Number(data[0].lat).toFixed(7));
-      setEditingClientLng(Number(data[0].lon).toFixed(7));
-      toast({ title: "Coordinates found!", description: `${Number(data[0].lat).toFixed(5)}, ${Number(data[0].lon).toFixed(5)}` });
+      const lat = Number(data[0].lat).toFixed(7);
+      const lng = Number(data[0].lon).toFixed(7);
+      setEditingClientLat(lat);
+      setEditingClientLng(lng);
+      window.open(`https://www.google.com/maps?q=${lat},${lng}`, "_blank", "noopener,noreferrer");
+      toast({ title: "Coordinates found!", description: `${Number(lat).toFixed(5)}, ${Number(lng).toFixed(5)}` });
     } catch {
       toast({ title: "Geocoding failed", description: "Check internet connection.", variant: "destructive" });
     } finally {
