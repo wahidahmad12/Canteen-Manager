@@ -443,7 +443,7 @@ function InvoiceFormDialog({ invoice, onClose, clients, purchaseOrders, allInvoi
                 const balAmt = Math.round((Number(po.poAmount) - usedAmt) * 100) / 100;
                 return (
                   <SelectItem key={po.id} value={String(po.id)}>
-                    {po.poNumber} — {fmtDate(po.poDate)} &nbsp;|&nbsp; Bal: {fmtCurrency(balAmt)}
+                    {po.poNumber} — {fmtDate(po.poDate)} &nbsp;|&nbsp; Amt: {fmtCurrency(po.poAmount)} &nbsp;|&nbsp; Bal: {fmtCurrency(balAmt)}
                   </SelectItem>
                 );
               })}
