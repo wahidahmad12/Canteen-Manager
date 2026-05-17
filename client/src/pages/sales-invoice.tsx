@@ -206,7 +206,17 @@ function InvoiceFormDialog({ invoice, onClose, clients, purchaseOrders, allInvoi
   const totalBillAmount = Math.round((billAmount + gstAmount) * 100) / 100;
   const tdsAmount = Math.round(billAmount * tdsPercent / 100 * 100) / 100;
 
-  const clientPOs = purchaseOrders.filter(po => po.clientName === clientName);
+  const clientPOs = purchaseOrders.filter(po => {
+    if (po.clientName !== clientName) return false;
+    // Always keep the currently linked PO (so edit mode doesn't lose its selection)
+    if (invoice?.poId && po.id === invoice.poId) return true;
+    // Exclude POs that are fully consumed (balance ≤ 0)
+    const used = allInvoices
+      .filter(inv => inv.poId === po.id && inv.id !== invoice?.id)
+      .reduce((sum, inv) => sum + Number(inv.billAmount), 0);
+    const balance = Math.round((Number(po.poAmount) - used) * 100) / 100;
+    return balance > 0;
+  });
 
   const selectedPO = selectedPoId !== "none" ? purchaseOrders.find(po => po.id === Number(selectedPoId)) : null;
   const poUsedAmount = selectedPO
