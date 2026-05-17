@@ -231,17 +231,8 @@ export default function DailyAttendancePage() {
     setDetectingAttempt(0);
     setScanStep("detecting");
 
-    // Wait for video readyState and non-black frame (up to 3s)
-    let waited = 0;
-    while ((video.readyState < 2 || video.videoWidth === 0 || isVideoBlack(video)) && waited < 3000) {
-      await new Promise<void>(res => setTimeout(res, 300));
-      waited += 300;
-    }
-
-    if (video.videoWidth === 0) {
-      toast({ title: "Camera Not Ready", description: "Camera feed not available. Close and try again.", variant: "destructive" });
-      setScanStep("camera"); return;
-    }
+    // Give camera stream 1.5 s to fully stabilise on mobile before running inference
+    await new Promise<void>(res => setTimeout(res, 1500));
 
     // Load enrolled descriptors
     let descriptors: { id: number; name: string; employeeCode: string; faceDescriptor: string }[] = [];
