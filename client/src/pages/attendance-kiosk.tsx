@@ -1,12 +1,29 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { startAuthentication } from "@simplewebauthn/browser";
-import { Fingerprint, Loader2, CheckCircle2, X, ChevronLeft, Clock, CalendarDays, Users } from "lucide-react";
+import { Html5Qrcode } from "html5-qrcode";
+import { Fingerprint, Loader2, CheckCircle2, X, ChevronLeft, Clock, CalendarDays, Users, QrCode, Camera, ScanLine } from "lucide-react";
 import logoImg from "@assets/logo1_1771660912341.png";
 
-type KioskStep = "select-client" | "select-employee" | "verify" | "success" | "error";
+type KioskStep = "select-client" | "select-mode" | "select-employee" | "verify" | "qr-scan" | "success" | "error";
+type AttendanceMode = "fingerprint" | "qr";
+
+function parseQrData(raw: string): { code: string; name: string } | null {
+  try {
+    const lines = raw.split(/\r?\n/);
+    const get = (prefix: string) => {
+      const line = lines.find(l => l.toUpperCase().startsWith(prefix.toUpperCase() + ":"));
+      return line ? line.slice(prefix.length + 1).trim() : "";
+    };
+    const code = get("CODE");
+    const name = get("NAME");
+    if (!code) return null;
+    return { code, name };
+  } catch { return null; }
+}
 
 export default function AttendanceKiosk() {
   const [step, setStep] = useState<KioskStep>("select-client");
+  const [mode, setMode] = useState<AttendanceMode>("fingerprint");
   const [clients, setClients] = useState<any[]>([]);
   const [employees, setEmployees] = useState<any[]>([]);
   const [selectedClient, setSelectedClient] = useState<string>("");
@@ -14,9 +31,16 @@ export default function AttendanceKiosk() {
   const [verifying, setVerifying] = useState(false);
   const [errorMsg, setErrorMsg] = useState("");
   const [successName, setSuccessName] = useState("");
+  const [successMode, setSuccessMode] = useState<AttendanceMode>("fingerprint");
   const [timeStr, setTimeStr] = useState("");
   const [dateStr, setDateStr] = useState("");
   const [todayLogs, setTodayLogs] = useState<Set<number>>(new Set());
+
+  // QR scanner
+  const [qrScanning, setQrScanning] = useState(false);
+  const [qrSaving, setQrSaving] = useState(false);
+  const qrRef = useRef<Html5Qrcode | null>(null);
+  const QR_ID = "kiosk-qr-reader";
 
   const today = new Date().toISOString().slice(0, 10);
 
@@ -36,29 +60,121 @@ export default function AttendanceKiosk() {
     if (!selectedClient) return;
     fetch(`/api/kiosk/employees?clientName=${encodeURIComponent(selectedClient)}`)
       .then(r => r.json()).then(setEmployees).catch(() => {});
+    refreshLogs();
+  }, [selectedClient]);
+
+  const refreshLogs = () => {
+    if (!selectedClient) return;
     fetch(`/api/kiosk/today-logs?clientName=${encodeURIComponent(selectedClient)}&date=${today}`)
       .then(r => r.json()).then((logs: any[]) => setTodayLogs(new Set(logs.map((l: any) => l.employee_id))))
       .catch(() => {});
-  }, [selectedClient, today]);
+  };
 
   useEffect(() => {
     if (step === "success") {
       const t = setTimeout(() => {
-        setStep("select-employee");
-        setSelectedEmployee(null);
-        setSuccessName("");
-        fetch(`/api/kiosk/today-logs?clientName=${encodeURIComponent(selectedClient)}&date=${today}`)
-          .then(r => r.json()).then((logs: any[]) => setTodayLogs(new Set(logs.map((l: any) => l.employee_id))))
-          .catch(() => {});
-      }, 3500);
+        refreshLogs();
+        if (mode === "qr") {
+          setStep("qr-scan");
+          setSuccessName("");
+          // Restart QR scanner
+          setTimeout(() => startQrScanner(), 200);
+        } else {
+          setStep("select-employee");
+          setSelectedEmployee(null);
+          setSuccessName("");
+        }
+      }, 3000);
       return () => clearTimeout(t);
     }
-  }, [step, selectedClient, today]);
+  }, [step]);
+
+  // Stop QR camera
+  const stopQrScanner = useCallback(async () => {
+    try {
+      if (qrRef.current && qrRef.current.isScanning) {
+        await qrRef.current.stop();
+      }
+    } catch (_) {}
+    setQrScanning(false);
+  }, []);
+
+  useEffect(() => {
+    if (step !== "qr-scan") stopQrScanner();
+  }, [step, stopQrScanner]);
+
+  useEffect(() => { return () => { stopQrScanner(); }; }, [stopQrScanner]);
+
+  const startQrScanner = async () => {
+    setQrScanning(true);
+    setQrSaving(false);
+    setTimeout(async () => {
+      try {
+        const qr = new Html5Qrcode(QR_ID);
+        qrRef.current = qr;
+        await qr.start(
+          { facingMode: "environment" },
+          { fps: 12, qrbox: { width: 240, height: 240 } },
+          async (decodedText) => {
+            await stopQrScanner();
+            const parsed = parseQrData(decodedText);
+            if (!parsed) {
+              setErrorMsg("Not a valid employee QR card. Please scan the correct QR.");
+              setStep("error");
+              return;
+            }
+            setQrSaving(true);
+            try {
+              const res = await fetch("/api/kiosk/qr-attendance", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ employeeCode: parsed.code, clientName: selectedClient, attendanceDate: today }),
+              });
+              const data = await res.json();
+              if (!res.ok) {
+                if (res.status === 409) {
+                  setErrorMsg(`${parsed.name || parsed.code} is already marked for today.`);
+                } else {
+                  setErrorMsg(data.message || "Could not save attendance.");
+                }
+                setStep("error");
+              } else {
+                setSuccessName(data.employeeName || parsed.name);
+                setSuccessMode("qr");
+                setStep("success");
+              }
+            } catch {
+              setErrorMsg("Network error. Please try again.");
+              setStep("error");
+            } finally {
+              setQrSaving(false);
+            }
+          },
+          () => {}
+        );
+      } catch (err: any) {
+        setQrScanning(false);
+        setErrorMsg(err?.message || "Could not access camera.");
+        setStep("error");
+      }
+    }, 120);
+  };
 
   const handleClientSelect = (name: string) => {
     setSelectedClient(name);
-    setStep("select-employee");
+    setStep("select-mode");
     setSelectedEmployee(null);
+    setErrorMsg("");
+  };
+
+  const handleModeSelect = (m: AttendanceMode) => {
+    setMode(m);
+    if (m === "fingerprint") {
+      setStep("select-employee");
+    } else {
+      setStep("qr-scan");
+      setTimeout(() => startQrScanner(), 200);
+    }
   };
 
   const handleEmployeeSelect = (emp: any) => {
@@ -86,6 +202,7 @@ export default function AttendanceKiosk() {
       const result = await verifyRes.json();
       if (!verifyRes.ok) throw new Error(result.message);
       setSuccessName(selectedEmployee.name);
+      setSuccessMode("fingerprint");
       setStep("success");
     } catch (err: any) {
       if (err?.name === "NotAllowedError") {
@@ -97,6 +214,21 @@ export default function AttendanceKiosk() {
     } finally {
       setVerifying(false);
     }
+  };
+
+  const goBackToModeSelect = () => {
+    stopQrScanner();
+    setStep("select-mode");
+    setSelectedEmployee(null);
+    setErrorMsg("");
+  };
+
+  const goBackToClientSelect = () => {
+    stopQrScanner();
+    setStep("select-client");
+    setSelectedClient("");
+    setSelectedEmployee(null);
+    setErrorMsg("");
   };
 
   return (
@@ -130,8 +262,10 @@ export default function AttendanceKiosk() {
         <div className="flex items-center justify-between">
           <div>
             <h1 className="text-xl font-bold text-white flex items-center gap-2">
-              <Fingerprint className="w-5 h-5 text-indigo-400" />
-              Fingerprint Attendance
+              {mode === "qr"
+                ? <><QrCode className="w-5 h-5 text-emerald-400" /> QR Attendance</>
+                : <><Fingerprint className="w-5 h-5 text-indigo-400" /> Fingerprint Attendance</>
+              }
             </h1>
             {selectedClient && (
               <p className="text-indigo-300/80 text-xs mt-0.5 flex items-center gap-1">
@@ -140,14 +274,24 @@ export default function AttendanceKiosk() {
               </p>
             )}
           </div>
-          {step !== "select-client" && (
-            <button
-              onClick={() => { setStep("select-client"); setSelectedClient(""); setSelectedEmployee(null); setErrorMsg(""); }}
-              className="text-slate-400 hover:text-white transition-colors flex items-center gap-1 text-xs border border-white/10 rounded-lg px-2.5 py-1.5"
-            >
-              <ChevronLeft className="w-3.5 h-3.5" /> Change Client
-            </button>
-          )}
+          <div className="flex gap-2">
+            {step !== "select-client" && step !== "select-mode" && (
+              <button
+                onClick={goBackToModeSelect}
+                className="text-slate-400 hover:text-white transition-colors flex items-center gap-1 text-xs border border-white/10 rounded-lg px-2.5 py-1.5"
+              >
+                <ChevronLeft className="w-3.5 h-3.5" /> Mode
+              </button>
+            )}
+            {step !== "select-client" && (
+              <button
+                onClick={goBackToClientSelect}
+                className="text-slate-400 hover:text-white transition-colors flex items-center gap-1 text-xs border border-white/10 rounded-lg px-2.5 py-1.5"
+              >
+                <ChevronLeft className="w-3.5 h-3.5" /> Client
+              </button>
+            )}
+          </div>
         </div>
         <div className="mt-3 border-t border-white/10" />
       </div>
@@ -183,12 +327,50 @@ export default function AttendanceKiosk() {
           </div>
         )}
 
-        {/* Step 2: Select Employee */}
+        {/* Step 2: Select Mode */}
+        {step === "select-mode" && (
+          <div className="space-y-4">
+            <p className="text-slate-300 text-sm font-medium mb-2">Choose attendance method:</p>
+            <div className="grid grid-cols-2 gap-4">
+              {/* Fingerprint Card */}
+              <button
+                onClick={() => handleModeSelect("fingerprint")}
+                className="flex flex-col items-center gap-4 p-6 rounded-2xl bg-white/5 hover:bg-indigo-500/20 border border-white/10 hover:border-indigo-400/40 transition-all duration-200 active:scale-[0.97] group"
+                data-testid="button-mode-fingerprint"
+              >
+                <div className="w-16 h-16 rounded-2xl bg-indigo-500/20 group-hover:bg-indigo-500/30 flex items-center justify-center transition-colors">
+                  <Fingerprint className="w-8 h-8 text-indigo-400" />
+                </div>
+                <div className="text-center">
+                  <p className="text-white font-semibold text-sm">Fingerprint</p>
+                  <p className="text-slate-400 text-xs mt-0.5">Biometric scan</p>
+                </div>
+              </button>
+
+              {/* QR Card */}
+              <button
+                onClick={() => handleModeSelect("qr")}
+                className="flex flex-col items-center gap-4 p-6 rounded-2xl bg-white/5 hover:bg-emerald-500/20 border border-white/10 hover:border-emerald-400/40 transition-all duration-200 active:scale-[0.97] group"
+                data-testid="button-mode-qr"
+              >
+                <div className="w-16 h-16 rounded-2xl bg-emerald-500/20 group-hover:bg-emerald-500/30 flex items-center justify-center transition-colors">
+                  <QrCode className="w-8 h-8 text-emerald-400" />
+                </div>
+                <div className="text-center">
+                  <p className="text-white font-semibold text-sm">QR Code</p>
+                  <p className="text-slate-400 text-xs mt-0.5">Scan ID card</p>
+                </div>
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* Step 3a: Select Employee (Fingerprint mode) */}
         {step === "select-employee" && (
           <div className="space-y-3">
             <div className="flex items-center justify-between mb-2">
               <p className="text-slate-300 text-sm font-medium">Select your name:</p>
-              <span className="text-xs text-slate-500 flex items-center gap-1"><Users className="w-3.5 h-3.5" /> {employees.length} employees</span>
+              <span className="text-xs text-slate-500 flex items-center gap-1"><Users className="w-3.5 h-3.5" /> {employees.length}</span>
             </div>
             {employees.length === 0 ? (
               <div className="flex justify-center py-12"><Loader2 className="w-6 h-6 animate-spin text-indigo-400" /></div>
@@ -215,9 +397,7 @@ export default function AttendanceKiosk() {
                         ${done ? "bg-green-500/20 text-green-300" : "bg-indigo-500/20 text-indigo-300"}`}>
                         {emp.name.charAt(0)}
                       </div>
-                      <p className={`font-medium text-xs leading-snug ${done ? "text-green-200" : "text-white"}`}>
-                        {emp.name}
-                      </p>
+                      <p className={`font-medium text-xs leading-snug ${done ? "text-green-200" : "text-white"}`}>{emp.name}</p>
                       <p className="text-slate-500 text-[10px] mt-0.5">{emp.employeeCode}</p>
                       {done && <p className="text-green-400/80 text-[10px] mt-0.5 font-medium">✓ Marked</p>}
                     </button>
@@ -228,7 +408,52 @@ export default function AttendanceKiosk() {
           </div>
         )}
 
-        {/* Step 3: Verify Fingerprint */}
+        {/* Step 3b: QR Scan */}
+        {step === "qr-scan" && (
+          <div className="flex flex-col items-center gap-4">
+            <div className="text-center space-y-1">
+              <p className="text-slate-300 text-sm font-medium">Point camera at employee QR card</p>
+              <p className="text-slate-500 text-xs">Attendance will be saved automatically</p>
+            </div>
+
+            {qrSaving ? (
+              <div className="flex flex-col items-center gap-3 py-10">
+                <Loader2 className="w-10 h-10 text-emerald-400 animate-spin" />
+                <p className="text-emerald-300 text-sm font-medium">Saving attendance…</p>
+              </div>
+            ) : (
+              <>
+                <div className="relative w-full rounded-2xl overflow-hidden border-2 border-emerald-500/30 bg-black/40">
+                  {/* Scanner viewfinder overlay */}
+                  {qrScanning && (
+                    <div className="absolute inset-0 pointer-events-none z-10 flex items-center justify-center">
+                      <div className="w-48 h-48 relative">
+                        <div className="absolute top-0 left-0 w-6 h-6 border-t-2 border-l-2 border-emerald-400 rounded-tl-md" />
+                        <div className="absolute top-0 right-0 w-6 h-6 border-t-2 border-r-2 border-emerald-400 rounded-tr-md" />
+                        <div className="absolute bottom-0 left-0 w-6 h-6 border-b-2 border-l-2 border-emerald-400 rounded-bl-md" />
+                        <div className="absolute bottom-0 right-0 w-6 h-6 border-b-2 border-r-2 border-emerald-400 rounded-br-md" />
+                        <div className="absolute top-1/2 left-0 right-0 h-0.5 bg-emerald-400/60 animate-pulse" />
+                      </div>
+                    </div>
+                  )}
+                  <div id={QR_ID} className="w-full min-h-[280px]" />
+                </div>
+
+                {!qrScanning && (
+                  <button
+                    onClick={startQrScanner}
+                    className="flex items-center gap-2 px-6 py-3 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-semibold text-sm transition-colors"
+                    data-testid="button-qr-start-kiosk"
+                  >
+                    <Camera className="w-4 h-4" /> Start Camera
+                  </button>
+                )}
+              </>
+            )}
+          </div>
+        )}
+
+        {/* Step 4: Verify Fingerprint */}
         {step === "verify" && selectedEmployee && (
           <div className="flex flex-col items-center justify-center py-6 gap-5">
             <div className="text-center">
@@ -241,11 +466,10 @@ export default function AttendanceKiosk() {
 
             <div className="w-full max-w-xs flex flex-col items-center gap-4 p-6 rounded-2xl bg-white/5 border border-white/10">
               <div className="w-20 h-20 rounded-3xl bg-indigo-900/60 flex items-center justify-center">
-                {verifying ? (
-                  <Loader2 className="w-10 h-10 text-indigo-400 animate-spin" />
-                ) : (
-                  <Fingerprint className="w-10 h-10 text-indigo-400" />
-                )}
+                {verifying
+                  ? <Loader2 className="w-10 h-10 text-indigo-400 animate-spin" />
+                  : <Fingerprint className="w-10 h-10 text-indigo-400" />
+                }
               </div>
               <div className="text-center space-y-1">
                 <p className="text-white font-semibold text-sm">{verifying ? "Verifying…" : "Touch your fingerprint sensor"}</p>
@@ -271,7 +495,7 @@ export default function AttendanceKiosk() {
           </div>
         )}
 
-        {/* Step 4: Success */}
+        {/* Step: Success */}
         {step === "success" && (
           <div className="flex flex-col items-center justify-center py-8 gap-4">
             <div className="w-20 h-20 rounded-full bg-green-500/20 flex items-center justify-center">
@@ -283,10 +507,14 @@ export default function AttendanceKiosk() {
               <p className="text-slate-400 text-xs mt-1">Have a great day at work</p>
             </div>
             <div className="flex items-center gap-2 mt-2 bg-white/5 border border-white/10 rounded-xl px-4 py-2">
-              <Fingerprint className="w-4 h-4 text-green-400" />
-              <span className="text-green-200 text-sm font-medium">Verified via Fingerprint</span>
+              {successMode === "qr"
+                ? <><QrCode className="w-4 h-4 text-emerald-400" /><span className="text-emerald-200 text-sm font-medium">Verified via QR Code</span></>
+                : <><Fingerprint className="w-4 h-4 text-green-400" /><span className="text-green-200 text-sm font-medium">Verified via Fingerprint</span></>
+              }
             </div>
-            <p className="text-slate-600 text-xs mt-4">Returning to employee list…</p>
+            <p className="text-slate-600 text-xs mt-4">
+              {mode === "qr" ? "Camera restarting…" : "Returning to employee list…"}
+            </p>
           </div>
         )}
 
@@ -297,20 +525,37 @@ export default function AttendanceKiosk() {
               <X className="w-8 h-8 text-red-400" />
             </div>
             <div className="text-center space-y-1">
-              <p className="text-white font-bold text-base">Verification Failed</p>
-              <p className="text-red-300 text-sm">{errorMsg}</p>
+              <p className="text-white font-bold text-base">Failed</p>
+              <p className="text-red-300 text-sm px-4 text-center">{errorMsg}</p>
             </div>
+            {mode === "fingerprint" ? (
+              <>
+                <button
+                  onClick={() => { setStep("verify"); setErrorMsg(""); }}
+                  className="px-5 py-2.5 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-white text-sm font-medium transition-colors"
+                >
+                  Try Again
+                </button>
+                <button
+                  onClick={() => { setStep("select-employee"); setSelectedEmployee(null); setErrorMsg(""); }}
+                  className="text-slate-500 hover:text-slate-300 text-xs"
+                >
+                  Back to employee list
+                </button>
+              </>
+            ) : (
+              <button
+                onClick={() => { setStep("qr-scan"); setErrorMsg(""); setTimeout(() => startQrScanner(), 200); }}
+                className="px-5 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 border border-emerald-500/30 text-white text-sm font-medium transition-colors flex items-center gap-2"
+              >
+                <Camera className="w-4 h-4" /> Scan Again
+              </button>
+            )}
             <button
-              onClick={() => { setStep("verify"); setErrorMsg(""); }}
-              className="px-5 py-2.5 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-white text-sm font-medium transition-colors"
-            >
-              Try Again
-            </button>
-            <button
-              onClick={() => { setStep("select-employee"); setSelectedEmployee(null); setErrorMsg(""); }}
+              onClick={goBackToModeSelect}
               className="text-slate-500 hover:text-slate-300 text-xs"
             >
-              Back to employee list
+              Change method
             </button>
           </div>
         )}

@@ -1230,6 +1230,35 @@ export async function registerRoutes(
     }
   });
 
+  // QR-based kiosk attendance (no auth required)
+  app.post("/api/kiosk/qr-attendance", async (req, res) => {
+    try {
+      const { employeeCode, clientName, attendanceDate } = req.body;
+      if (!employeeCode || !clientName || !attendanceDate) {
+        return res.status(400).json({ message: "employeeCode, clientName and attendanceDate are required" });
+      }
+      const employees = await storage.getEmployees(clientName);
+      const emp = employees.find((e: any) => {
+        const code = Buffer.isBuffer(e.employeeCode) ? e.employeeCode.toString("utf8") : String(e.employeeCode || "");
+        return code.toLowerCase().trim() === String(employeeCode).toLowerCase().trim();
+      });
+      if (!emp) return res.status(404).json({ message: `Employee code "${employeeCode}" not found for ${clientName}` });
+      const log = await storage.saveDailyAttendanceLog({
+        employeeId: emp.id,
+        clientName,
+        attendanceDate,
+        status: "P",
+        scannedLat: null,
+        scannedLng: null,
+        scannedBy: "kiosk (QR)",
+      });
+      res.json({ success: true, log, employeeName: emp.name, employeeCode: emp.employeeCode });
+    } catch (err: any) {
+      if (err.message?.includes("already recorded")) return res.status(409).json({ message: "Attendance already recorded today for this employee." });
+      res.status(400).json({ message: err.message || "Failed to save attendance" });
+    }
+  });
+
   // === DAILY ATTENDANCE LOGS (Face Recognition) ===
   app.get("/api/daily-attendance/month", requireAuth, async (req, res) => {
     const { clientName, month, year } = req.query;
