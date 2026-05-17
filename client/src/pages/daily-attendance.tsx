@@ -211,6 +211,13 @@ export default function DailyAttendancePage() {
 
   const detectAndMatch = async () => {
     if (!videoRef.current) return;
+    const video = videoRef.current;
+
+    // Wait for video to have actual frame data
+    if (video.readyState < 2 || video.videoWidth === 0) {
+      await new Promise<void>(res => setTimeout(res, 600));
+    }
+
     setScanStep("detecting");
 
     // Load enrolled descriptors
@@ -229,10 +236,16 @@ export default function DailyAttendancePage() {
     }
 
     try {
-      const options = new faceapi.TinyFaceDetectorOptions({ inputSize: 416, scoreThreshold: 0.5 });
-      const result = await faceapi.detectSingleFace(videoRef.current, options).withFaceLandmarks(true).withFaceDescriptor();
+      // Try with relaxed threshold first, then progressively more lenient
+      let result = null;
+      for (const [inputSize, scoreThreshold] of [[416, 0.3], [320, 0.2], [224, 0.15]] as [number, number][]) {
+        const options = new faceapi.TinyFaceDetectorOptions({ inputSize, scoreThreshold });
+        result = await faceapi.detectSingleFace(video, options).withFaceLandmarks(true).withFaceDescriptor();
+        if (result) break;
+        await new Promise<void>(res => setTimeout(res, 200));
+      }
       if (!result) {
-        toast({ title: "No Face Detected", description: "Position your face clearly and try again.", variant: "destructive" });
+        toast({ title: "No Face Detected", description: "Make sure your face is well-lit and centred in the frame, then try again.", variant: "destructive" });
         setScanStep("camera"); return;
       }
 

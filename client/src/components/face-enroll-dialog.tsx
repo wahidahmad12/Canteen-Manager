@@ -78,22 +78,35 @@ export function FaceEnrollDialog({ employeeId, employeeName, hasExisting, onClos
 
   const captureAndDetect = async () => {
     if (!videoRef.current) return;
+    const video = videoRef.current;
+
+    // Wait for video to have actual frame data
+    if (video.readyState < 2 || video.videoWidth === 0) {
+      await new Promise<void>(res => setTimeout(res, 600));
+    }
+
     setStep("detecting");
     try {
-      const options = new faceapi.TinyFaceDetectorOptions({ inputSize: 416, scoreThreshold: 0.5 });
-      const result = await faceapi
-        .detectSingleFace(videoRef.current, options)
-        .withFaceLandmarks(true)
-        .withFaceDescriptor();
+      // Try with relaxed threshold first, then more lenient if needed
+      let result = null;
+      for (const [inputSize, scoreThreshold] of [[416, 0.3], [320, 0.2], [224, 0.15]] as [number, number][]) {
+        const options = new faceapi.TinyFaceDetectorOptions({ inputSize, scoreThreshold });
+        result = await faceapi
+          .detectSingleFace(video, options)
+          .withFaceLandmarks(true)
+          .withFaceDescriptor();
+        if (result) break;
+        await new Promise<void>(res => setTimeout(res, 200));
+      }
 
       if (!result) {
-        toast({ title: "No Face Detected", description: "Please position your face clearly in the frame.", variant: "destructive" });
+        toast({ title: "No Face Detected", description: "Make sure your face is well-lit and centred in the frame, then try again.", variant: "destructive" });
         setStep("camera"); return;
       }
 
       const { x, y, width, height } = result.detection.box;
-      const vw = videoRef.current.videoWidth || 640;
-      const vh = videoRef.current.videoHeight || 480;
+      const vw = video.videoWidth || 640;
+      const vh = video.videoHeight || 480;
       setFaceBox({ x: x / vw * 100, y: y / vh * 100, w: width / vw * 100, h: height / vh * 100 });
       setDescriptor(Array.from(result.descriptor));
       stopCamera();
