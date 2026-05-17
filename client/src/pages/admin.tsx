@@ -692,7 +692,10 @@ export default function Admin() {
                 <Input placeholder="State Name (e.g. West Bengal)" value={newClientStateName} onChange={(e) => setNewClientStateName(e.target.value)} className="border-teal-200 dark:border-teal-800" data-testid="input-new-client-state" />
                 <Input placeholder="State Code (e.g. KOL, GOA, SKI)" value={newClientStateCode} onChange={(e) => setNewClientStateCode(e.target.value.toUpperCase())} className="border-teal-200 dark:border-teal-800 uppercase font-mono" maxLength={5} data-testid="input-new-client-state-code" />
               </div>
-              <Input placeholder="Address" value={newClientAddress} onChange={(e) => setNewClientAddress(e.target.value)} className="border-teal-200 dark:border-teal-800" data-testid="input-new-client-address" />
+              <div className="space-y-0.5">
+                <Label className="text-[10px] text-muted-foreground">Full Address <span className="text-violet-500">(Plot No., Street, Area, City, State — PIN)</span></Label>
+                <textarea value={newClientAddress} onChange={(e) => setNewClientAddress(e.target.value)} placeholder="e.g. Plot No.18, Block-D, Kalyani, Dist: Nadia, West Bengal — 741235" rows={2} className="w-full rounded-md border border-teal-200 dark:border-teal-800 bg-background px-3 py-1.5 text-sm shadow-sm placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-teal-400 resize-none" data-testid="input-new-client-address" />
+              </div>
               <div className="flex gap-2 items-end">
                 <div className="flex-1">
                   <Label className="text-xs text-muted-foreground">Agreement Valid Till</Label>
@@ -723,7 +726,10 @@ export default function Admin() {
                           <Input value={editingClientStateName} onChange={(e) => setEditingClientStateName(e.target.value)} placeholder="State Name" className="border-teal-300" data-testid={`input-edit-client-state-${client.id}`} />
                           <Input value={editingClientStateCode} onChange={(e) => setEditingClientStateCode(e.target.value.toUpperCase())} placeholder="State Code (e.g. KOL)" className="border-teal-300 uppercase font-mono" maxLength={5} data-testid={`input-edit-client-state-code-${client.id}`} />
                         </div>
-                        <Input value={editingClientAddress} onChange={(e) => setEditingClientAddress(e.target.value)} placeholder="Address" className="border-teal-300" data-testid={`input-edit-client-address-${client.id}`} />
+                        <div className="space-y-0.5">
+                          <Label className="text-[10px] text-muted-foreground">Full Address <span className="text-violet-500">(Plot No., Street, Area, City, State — PIN)</span></Label>
+                          <textarea value={editingClientAddress} onChange={(e) => setEditingClientAddress(e.target.value)} placeholder="e.g. Plot No.18, Block-D, Kalyani, Dist: Nadia, West Bengal — 741235" rows={2} className="w-full rounded-md border border-teal-300 bg-background px-3 py-1.5 text-sm shadow-sm placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-teal-400 resize-none" data-testid={`input-edit-client-address-${client.id}`} />
+                        </div>
                         <div className="flex gap-2 items-end">
                           <div className="flex-1">
                             <Label className="text-xs text-muted-foreground">Agreement Valid Till</Label>
@@ -772,7 +778,14 @@ export default function Admin() {
                         <span className="w-6 h-6 rounded-full bg-gradient-to-br from-teal-400 to-emerald-500 text-white text-[10px] inline-flex items-center justify-center font-bold shrink-0 mt-0.5">{idx + 1}</span>
                         <div className="flex-1 min-w-0">
                           <div className="font-semibold">{client.name}</div>
-                          {client.address && <div className="text-xs text-muted-foreground mt-0.5">{client.address}</div>}
+                          {client.address && (
+                            <div className="text-xs text-muted-foreground mt-0.5 flex items-start gap-1.5">
+                              <span className="flex-1">{client.address}</span>
+                              <a href={`https://www.google.com/maps/search/${encodeURIComponent(client.address)}`} target="_blank" rel="noopener noreferrer" title="Open in Google Maps" className="shrink-0 text-teal-600 hover:text-teal-800 dark:hover:text-teal-300">
+                                <MapPin className="w-3.5 h-3.5 mt-0.5" />
+                              </a>
+                            </div>
+                          )}
                           <div className="flex flex-wrap gap-3 mt-1">
                             {client.stateName && <span className="text-xs text-muted-foreground">State: {client.stateName} {client.stateCode && <span className="font-mono font-bold text-teal-600">({client.stateCode})</span>}</span>}
                             {client.gstNo && <span className="text-xs text-muted-foreground">GST: <span className="font-mono">{client.gstNo}</span></span>}
