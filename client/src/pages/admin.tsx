@@ -748,6 +748,13 @@ export default function Admin() {
                                 {new Date(client.agreementValidTill) < new Date() && ' (Expired)'}
                               </span>
                             )}
+                            {(client.attendanceLat || client.attendanceLng) && (
+                              <span className="text-xs text-muted-foreground flex items-center gap-1">
+                                <MapPin className="w-3 h-3 text-teal-500" />
+                                GPS: <span className="font-mono text-teal-700 dark:text-teal-400">{Number(client.attendanceLat).toFixed(5)}, {Number(client.attendanceLng).toFixed(5)}</span>
+                                <span className="text-muted-foreground">({client.attendanceRadius ?? 200}m)</span>
+                              </span>
+                            )}
                           </div>
                         </div>
                         <div className="flex gap-1 shrink-0">
