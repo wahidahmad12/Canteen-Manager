@@ -336,6 +336,7 @@ export default function DailyPnlPage() {
   const [repYear,   setRepYear]   = useState(new Date().getFullYear());
   const [repClient, setRepClient] = useState("");
   const [mobileView, setMobileView] = useState(false);
+  const [bomHeadcount, setBomHeadcount] = useState(100);
 
   // Expense states
   const [breakfast, setBreakfast] = useState<ExpenseItem[]>([makeExpItem(1), makeExpItem(2)]);
@@ -497,9 +498,9 @@ export default function DailyPnlPage() {
   const bomEveningNames   = useMemo(() => [...new Set(bomEvening.map((i: any)   => i.dishName))].filter(Boolean) as string[], [bomEvening]);
   const bomNightNames     = useMemo(() => [...new Set(bomNight.map((i: any)     => i.dishName))].filter(Boolean) as string[], [bomNight]);
 
-  const makeBomRows = (names: string[], costMap?: Map<string, number>, fallbackCount = 2): ExpenseItem[] =>
+  const makeBomRows = (names: string[], costMap?: Map<string, number>, headcount = 1, fallbackCount = 2): ExpenseItem[] =>
     names.length
-      ? names.map((n, i) => makeExpItem(i + 1, n, parseFloat(((costMap?.get(n) ?? 0)).toFixed(2))))
+      ? names.map((n, i) => makeExpItem(i + 1, n, parseFloat(((costMap?.get(n) ?? 0) * headcount).toFixed(2))))
       : Array.from({ length: fallbackCount }, (_, i) => makeExpItem(i + 1));
 
   const loadCashSeal = useCallback(async () => {
@@ -542,10 +543,10 @@ export default function DailyPnlPage() {
     if (data) {
       setEntryId(data.id);
       const parse = (s: any) => { try { return JSON.parse(s || "[]"); } catch { return []; } };
-      const bf = parse(data.breakfastItems); setBreakfast(bf.length ? bf : makeBomRows(bomBreakfastNames, bomBreakfastCost));
+      const bf = parse(data.breakfastItems); setBreakfast(bf.length ? bf : makeBomRows(bomBreakfastNames, bomBreakfastCost, bomHeadcount));
       const lu = parse(data.lunchItems);     setLunch(lu.length ? lu : LUNCH_FIXED.map((n, i) => makeExpItem(i + 1, n)));
-      const ev = parse(data.eveningItems);   setEvening(ev.length ? ev : makeBomRows(bomEveningNames, bomEveningCost));
-      const nt = parse(data.nightItems);     setNight(nt.length ? nt : makeBomRows(bomNightNames, bomNightCost));
+      const ev = parse(data.eveningItems);   setEvening(ev.length ? ev : makeBomRows(bomEveningNames, bomEveningCost, bomHeadcount));
+      const nt = parse(data.nightItems);     setNight(nt.length ? nt : makeBomRows(bomNightNames, bomNightCost, bomHeadcount));
       const mp = parse(data.manpowerItems);  setManpower(mp.length ? mp.map((r: any) => ({ leaveBalance: 30, ...r })) : buildManpowerFromEmployees());
       const ps = parse(data.psSaleItems);
       setPsSale(ps.length ? ps.map((r: any, i: number) => ({ ...r, cashRate: PS_ROWS[i]?.cashRate ?? 5, onlineRate: PS_ROWS[i]?.onlineRate ?? 5, billRate: PS_ROWS[i]?.billRate ?? 30 })) : PS_ROWS.map(makePsRow));
@@ -554,10 +555,10 @@ export default function DailyPnlPage() {
       setOpeningBalance(Number(data.openingBalance) || 0);
     } else {
       setEntryId(undefined);
-      setBreakfast(makeBomRows(bomBreakfastNames, bomBreakfastCost));
+      setBreakfast(makeBomRows(bomBreakfastNames, bomBreakfastCost, bomHeadcount));
       setLunch(LUNCH_FIXED.map((n, i) => makeExpItem(i + 1, n)));
-      setEvening(makeBomRows(bomEveningNames, bomEveningCost));
-      setNight(makeBomRows(bomNightNames, bomNightCost));
+      setEvening(makeBomRows(bomEveningNames, bomEveningCost, bomHeadcount));
+      setNight(makeBomRows(bomNightNames, bomNightCost, bomHeadcount));
       setManpower(buildManpowerFromEmployees());
       setOtherExpense(0);
       setPsSale(PS_ROWS.map(makePsRow));
@@ -574,31 +575,31 @@ export default function DailyPnlPage() {
         setOpeningBalance(0);
       }
     }
-  }, [entryDate, clientName, loadCashSeal, buildManpowerFromEmployees, bomBreakfastNames, bomEveningNames, bomNightNames, bomBreakfastCost, bomEveningCost, bomNightCost]);
+  }, [entryDate, clientName, loadCashSeal, buildManpowerFromEmployees, bomBreakfastNames, bomEveningNames, bomNightNames, bomBreakfastCost, bomEveningCost, bomNightCost, bomHeadcount]);
 
   useEffect(() => { loadEntry(); }, [loadEntry]);
 
-  // ── Auto-fill Amount from BOM cost when prices load (only for rows still at 0) ──
+  // ── Auto-fill Amount from BOM cost × headcount when prices load (only for rows still at 0) ──
   useEffect(() => {
     if (!bomBreakfastCost.size) return;
     setBreakfast(rows => rows.map(r => r.total === 0 && r.itemName && bomBreakfastCost.has(r.itemName)
-      ? { ...r, total: parseFloat((bomBreakfastCost.get(r.itemName)!).toFixed(2)) } : r));
-  }, [bomBreakfastCost]);
+      ? { ...r, total: parseFloat((bomBreakfastCost.get(r.itemName)! * bomHeadcount).toFixed(2)) } : r));
+  }, [bomBreakfastCost, bomHeadcount]);
   useEffect(() => {
     if (!bomLunchCost.size) return;
     setLunch(rows => rows.map(r => r.total === 0 && r.itemName && bomLunchCost.has(r.itemName)
-      ? { ...r, total: parseFloat((bomLunchCost.get(r.itemName)!).toFixed(2)) } : r));
-  }, [bomLunchCost]);
+      ? { ...r, total: parseFloat((bomLunchCost.get(r.itemName)! * bomHeadcount).toFixed(2)) } : r));
+  }, [bomLunchCost, bomHeadcount]);
   useEffect(() => {
     if (!bomEveningCost.size) return;
     setEvening(rows => rows.map(r => r.total === 0 && r.itemName && bomEveningCost.has(r.itemName)
-      ? { ...r, total: parseFloat((bomEveningCost.get(r.itemName)!).toFixed(2)) } : r));
-  }, [bomEveningCost]);
+      ? { ...r, total: parseFloat((bomEveningCost.get(r.itemName)! * bomHeadcount).toFixed(2)) } : r));
+  }, [bomEveningCost, bomHeadcount]);
   useEffect(() => {
     if (!bomNightCost.size) return;
     setNight(rows => rows.map(r => r.total === 0 && r.itemName && bomNightCost.has(r.itemName)
-      ? { ...r, total: parseFloat((bomNightCost.get(r.itemName)!).toFixed(2)) } : r));
-  }, [bomNightCost]);
+      ? { ...r, total: parseFloat((bomNightCost.get(r.itemName)! * bomHeadcount).toFixed(2)) } : r));
+  }, [bomNightCost, bomHeadcount]);
 
   const fetchLastPrice = async (items: ExpenseItem[], i: number, setter: (r: ExpenseItem[]) => void, bomCostMap?: Map<string, number>) => {
     const name = items[i]?.itemName?.trim();
@@ -742,6 +743,15 @@ export default function DailyPnlPage() {
                   <option key={c.id} value={c.name}>{c.name}</option>
                 ))}
               </select>
+            </div>
+            {/* BOM Headcount (packs) */}
+            <div className="flex items-center gap-1 bg-amber-50 border border-amber-200 rounded-lg px-2 py-1">
+              <Users className="w-3.5 h-3.5 text-amber-600 flex-shrink-0" />
+              <span className="text-[10px] font-semibold text-amber-700">Packs:</span>
+              <input type="number" min={1} value={bomHeadcount}
+                onChange={e => setBomHeadcount(Math.max(1, parseInt(e.target.value) || 1))}
+                className="border-0 bg-transparent text-xs font-bold text-amber-800 outline-none w-12 text-center"
+                data-testid="input-pnl-headcount" />
             </div>
             <button onClick={loadEntry} className="px-3 py-1.5 bg-gray-100 hover:bg-gray-200 border border-gray-200 rounded-lg text-xs font-semibold text-gray-700 flex items-center gap-1.5 transition-colors" data-testid="btn-pnl-load">
               <RefreshCw className="w-3 h-3" /> Load
