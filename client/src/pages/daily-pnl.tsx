@@ -541,7 +541,11 @@ export default function DailyPnlPage() {
 
   const makeBomRows = (names: string[], costMap?: Map<string, number>, headcount = 1, fallbackCount = 2): ExpenseItem[] =>
     names.length
-      ? names.map((n, i) => makeExpItem(i + 1, n, parseFloat(((costMap?.get(n) ?? 0) * headcount).toFixed(2))))
+      ? names.map((n, i) => {
+          const rate = parseFloat((costMap?.get(n) ?? 0).toFixed(2));
+          const total = parseFloat((rate * headcount).toFixed(2));
+          return { ...makeExpItem(i + 1, n), qty: headcount, rate, total };
+        })
       : Array.from({ length: fallbackCount }, (_, i) => makeExpItem(i + 1));
 
   const loadCashSeal = useCallback(async () => {
@@ -620,26 +624,30 @@ export default function DailyPnlPage() {
 
   useEffect(() => { loadEntry(); }, [loadEntry]);
 
-  // ── Auto-fill Amount from BOM cost × headcount when prices load (only for rows still at 0) ──
+  // ── Auto-fill Qty/Rate/Amount from BOM cost × headcount (only for rows still at 0) ──
+  const applyBomCost = (costMap: Map<string, number>, headcount: number) =>
+    (r: ExpenseItem): ExpenseItem => {
+      if (!(r.total === 0 && r.qty === 0 && r.itemName && costMap.has(r.itemName))) return r;
+      const rate  = parseFloat((costMap.get(r.itemName)!).toFixed(2));
+      const total = parseFloat((rate * headcount).toFixed(2));
+      return { ...r, qty: headcount, rate, total };
+    };
+
   useEffect(() => {
     if (!bomBreakfastCost.size) return;
-    setBreakfast(rows => rows.map(r => r.total === 0 && r.itemName && bomBreakfastCost.has(r.itemName)
-      ? { ...r, total: parseFloat((bomBreakfastCost.get(r.itemName)! * bomHeadcount).toFixed(2)) } : r));
+    setBreakfast(rows => rows.map(applyBomCost(bomBreakfastCost, bomHeadcount)));
   }, [bomBreakfastCost, bomHeadcount]);
   useEffect(() => {
     if (!bomLunchCost.size) return;
-    setLunch(rows => rows.map(r => r.total === 0 && r.itemName && bomLunchCost.has(r.itemName)
-      ? { ...r, total: parseFloat((bomLunchCost.get(r.itemName)! * bomHeadcount).toFixed(2)) } : r));
+    setLunch(rows => rows.map(applyBomCost(bomLunchCost, bomHeadcount)));
   }, [bomLunchCost, bomHeadcount]);
   useEffect(() => {
     if (!bomEveningCost.size) return;
-    setEvening(rows => rows.map(r => r.total === 0 && r.itemName && bomEveningCost.has(r.itemName)
-      ? { ...r, total: parseFloat((bomEveningCost.get(r.itemName)! * bomHeadcount).toFixed(2)) } : r));
+    setEvening(rows => rows.map(applyBomCost(bomEveningCost, bomHeadcount)));
   }, [bomEveningCost, bomHeadcount]);
   useEffect(() => {
     if (!bomNightCost.size) return;
-    setNight(rows => rows.map(r => r.total === 0 && r.itemName && bomNightCost.has(r.itemName)
-      ? { ...r, total: parseFloat((bomNightCost.get(r.itemName)! * bomHeadcount).toFixed(2)) } : r));
+    setNight(rows => rows.map(applyBomCost(bomNightCost, bomHeadcount)));
   }, [bomNightCost, bomHeadcount]);
 
   const fetchLastPrice = async (items: ExpenseItem[], i: number, setter: (r: ExpenseItem[]) => void, bomCostMap?: Map<string, number>) => {
@@ -647,11 +655,15 @@ export default function DailyPnlPage() {
     if (!name) return;
     const updates: Partial<ExpenseItem> = {};
 
-    // 1. Try BOM dish cost (cost per person for that dish) — set total directly
+    // 1. Try BOM dish cost — set qty=headcount, rate=perPerson, total=rate×qty
     if (items[i].total === 0 && bomCostMap) {
       const bomCost = bomCostMap.get(name);
       if (bomCost && bomCost > 0) {
-        updates.total = parseFloat(bomCost.toFixed(2));
+        const rate  = parseFloat(bomCost.toFixed(2));
+        const total = parseFloat((rate * bomHeadcount).toFixed(2));
+        updates.qty   = bomHeadcount;
+        updates.rate  = rate;
+        updates.total = total;
         return setter(items.map((x, xi) => xi === i ? { ...x, ...updates } : x));
       }
     }
