@@ -347,7 +347,7 @@ export default function WeeklyBomPage() {
     </table>
     <div style="margin-top:6px;display:flex;justify-content:space-between;font-size:7.5pt;color:#555;border-top:1px solid #ccc;padding-top:3px;">
       <span><b>TIMINGS:</b> Breakfast 7:30–8:30am &nbsp;|&nbsp; Lunch 11:30am–1:30pm &nbsp;|&nbsp; Evening 4:30–6:30pm</span>
-      <span><b>SUBSIDISED PRICES:</b> Breakfast ₹5 &nbsp;|&nbsp; Lunch ₹20 &nbsp;|&nbsp; Evening ₹10 &nbsp;|&nbsp; Night ₹15</span>
+      <span><b>SUBSIDISED PRICES:</b> Breakfast ₹5 &nbsp;|&nbsp; Lunch ₹20 &nbsp;|&nbsp; Evening ₹10 &nbsp;|&nbsp; Night ₹10</span>
       <span>Printed: ${today}</span>
     </div>
     <script>window.onload=()=>window.print();</script></body></html>`;
@@ -496,7 +496,7 @@ export default function WeeklyBomPage() {
                   <span>Lunch 11:30 am–1:30 pm</span><span>|</span>
                   <span>Evening 4:30–6:30 pm</span>
                   <span className="ml-4 font-semibold text-slate-600">Prices:</span>
-                  <span>Breakfast ₹5</span><span>Lunch ₹20</span><span>Evening ₹10</span><span>Night ₹15</span>
+                  <span>Breakfast ₹5</span><span>Lunch ₹20</span><span>Evening ₹10</span><span>Night ₹10</span>
                 </div>
               </>
             )}
