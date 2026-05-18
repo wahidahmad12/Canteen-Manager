@@ -571,6 +571,28 @@ export default function DailyPnlPage() {
 
   useEffect(() => { loadEntry(); }, [loadEntry]);
 
+  // ── Auto-fill Amount from BOM cost when prices load (only for rows still at 0) ──
+  useEffect(() => {
+    if (!bomBreakfastCost.size) return;
+    setBreakfast(rows => rows.map(r => r.total === 0 && r.itemName && bomBreakfastCost.has(r.itemName)
+      ? { ...r, total: parseFloat((bomBreakfastCost.get(r.itemName)!).toFixed(2)) } : r));
+  }, [bomBreakfastCost]);
+  useEffect(() => {
+    if (!bomLunchCost.size) return;
+    setLunch(rows => rows.map(r => r.total === 0 && r.itemName && bomLunchCost.has(r.itemName)
+      ? { ...r, total: parseFloat((bomLunchCost.get(r.itemName)!).toFixed(2)) } : r));
+  }, [bomLunchCost]);
+  useEffect(() => {
+    if (!bomEveningCost.size) return;
+    setEvening(rows => rows.map(r => r.total === 0 && r.itemName && bomEveningCost.has(r.itemName)
+      ? { ...r, total: parseFloat((bomEveningCost.get(r.itemName)!).toFixed(2)) } : r));
+  }, [bomEveningCost]);
+  useEffect(() => {
+    if (!bomNightCost.size) return;
+    setNight(rows => rows.map(r => r.total === 0 && r.itemName && bomNightCost.has(r.itemName)
+      ? { ...r, total: parseFloat((bomNightCost.get(r.itemName)!).toFixed(2)) } : r));
+  }, [bomNightCost]);
+
   const fetchLastPrice = async (items: ExpenseItem[], i: number, setter: (r: ExpenseItem[]) => void, bomCostMap?: Map<string, number>) => {
     const name = items[i]?.itemName?.trim();
     if (!name) return;
