@@ -38,6 +38,7 @@ export function useLogout() {
       return res.json();
     },
     onSuccess: () => {
+      localStorage.removeItem("dj_fp_username");
       queryClient.setQueryData([api.auth.me.path], null);
       queryClient.clear();
     },
