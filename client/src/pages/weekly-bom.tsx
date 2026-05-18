@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { Layout } from "@/components/layout";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -26,13 +26,6 @@ const MEAL_SECTIONS = [
   { key: "night",     label: "NIGHT SNACKS",   color: "#3b82f6", hasVegNonVeg: false },
 ];
 
-const CLIENTS = [
-  "Hindustan Unilever Limited",
-  "Unichem Laboratories Ltd",
-  "United Breweries Limited",
-  "Cipla Limited",
-  "PEC VENTURES PRIVATE LIMITED",
-];
 
 // ── HUL Kidderpore Factory Standard Menu Template ───────────────────────────
 const HUL_TEMPLATE: Array<{ weekDay: string; mealType: string; category: string; dishName: string; quantity: string; sortOrder: number }> = [
@@ -214,7 +207,12 @@ export default function WeeklyBomPage() {
   const { toast } = useToast();
   const qc = useQueryClient();
 
-  const [client, setClient] = useState(CLIENTS[0]);
+  const { data: apiClients = [] } = useQuery<{ id: number; name: string }[]>({ queryKey: ["/api/clients"] });
+  const clientList = (apiClients as { id: number; name: string }[]).map(c => c.name);
+  const [client, setClient] = useState("");
+  useEffect(() => {
+    if (clientList.length > 0 && !client) setClient(clientList[0]);
+  }, [clientList]);
   const [editCell, setEditCell] = useState<{ day: string; meal: string; cat: string } | null>(null);
   const [addForm, setAddForm] = useState({ dishName: "", quantity: "" });
   const [editId, setEditId] = useState<number | null>(null);
@@ -446,7 +444,7 @@ export default function WeeklyBomPage() {
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                {CLIENTS.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}
+                {clientList.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}
               </SelectContent>
             </Select>
             <Button
