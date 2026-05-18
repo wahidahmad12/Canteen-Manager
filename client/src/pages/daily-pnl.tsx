@@ -35,7 +35,7 @@ type ManpowerItem = { slNo: number; employeeName: string; basicWagesPerDay: numb
 type PsSaleRow  = { slNo: number; itemName: string; cashQty: number; onlineQty: number; billQty: number; cashRate: number; onlineRate: number; billRate: number };
 type TpSaleRow  = { slNo: number; itemName: string; rate: number; cashQty: number; onlineQty: number };
 
-const makeExpItem    = (slNo: number, itemName = ""): ExpenseItem => ({ slNo, itemName, uom: "", qty: 0, rate: 0, total: 0 });
+const makeExpItem    = (slNo: number, itemName = "", total = 0): ExpenseItem => ({ slNo, itemName, uom: "", qty: 0, rate: 0, total });
 const makePsRow      = (r: typeof PS_ROWS[number], i: number): PsSaleRow  => ({ slNo: i + 1, itemName: r.itemName, cashQty: 0, onlineQty: 0, billQty: 0, cashRate: r.cashRate, onlineRate: r.onlineRate, billRate: r.billRate });
 const makeTpRow      = (r: typeof TP_ROWS[number], i: number): TpSaleRow  => ({ slNo: i + 1, itemName: r.itemName, rate: r.rate, cashQty: 0, onlineQty: 0 });
 
@@ -490,9 +490,9 @@ export default function DailyPnlPage() {
   const bomEveningNames   = useMemo(() => [...new Set(bomEvening.map((i: any)   => i.dishName))].filter(Boolean) as string[], [bomEvening]);
   const bomNightNames     = useMemo(() => [...new Set(bomNight.map((i: any)     => i.dishName))].filter(Boolean) as string[], [bomNight]);
 
-  const makeBomRows = (names: string[], fallbackCount = 2): ExpenseItem[] =>
+  const makeBomRows = (names: string[], costMap?: Map<string, number>, fallbackCount = 2): ExpenseItem[] =>
     names.length
-      ? names.map((n, i) => makeExpItem(i + 1, n))
+      ? names.map((n, i) => makeExpItem(i + 1, n, parseFloat(((costMap?.get(n) ?? 0)).toFixed(2))))
       : Array.from({ length: fallbackCount }, (_, i) => makeExpItem(i + 1));
 
   const loadCashSeal = useCallback(async () => {
@@ -535,10 +535,10 @@ export default function DailyPnlPage() {
     if (data) {
       setEntryId(data.id);
       const parse = (s: any) => { try { return JSON.parse(s || "[]"); } catch { return []; } };
-      const bf = parse(data.breakfastItems); setBreakfast(bf.length ? bf : makeBomRows(bomBreakfastNames));
+      const bf = parse(data.breakfastItems); setBreakfast(bf.length ? bf : makeBomRows(bomBreakfastNames, bomBreakfastCost));
       const lu = parse(data.lunchItems);     setLunch(lu.length ? lu : LUNCH_FIXED.map((n, i) => makeExpItem(i + 1, n)));
-      const ev = parse(data.eveningItems);   setEvening(ev.length ? ev : makeBomRows(bomEveningNames));
-      const nt = parse(data.nightItems);     setNight(nt.length ? nt : makeBomRows(bomNightNames));
+      const ev = parse(data.eveningItems);   setEvening(ev.length ? ev : makeBomRows(bomEveningNames, bomEveningCost));
+      const nt = parse(data.nightItems);     setNight(nt.length ? nt : makeBomRows(bomNightNames, bomNightCost));
       const mp = parse(data.manpowerItems);  setManpower(mp.length ? mp.map((r: any) => ({ leaveBalance: 30, ...r })) : buildManpowerFromEmployees());
       const ps = parse(data.psSaleItems);
       setPsSale(ps.length ? ps.map((r: any, i: number) => ({ ...r, cashRate: PS_ROWS[i]?.cashRate ?? 5, onlineRate: PS_ROWS[i]?.onlineRate ?? 5, billRate: PS_ROWS[i]?.billRate ?? 30 })) : PS_ROWS.map(makePsRow));
@@ -547,10 +547,10 @@ export default function DailyPnlPage() {
       setOpeningBalance(Number(data.openingBalance) || 0);
     } else {
       setEntryId(undefined);
-      setBreakfast(makeBomRows(bomBreakfastNames));
+      setBreakfast(makeBomRows(bomBreakfastNames, bomBreakfastCost));
       setLunch(LUNCH_FIXED.map((n, i) => makeExpItem(i + 1, n)));
-      setEvening(makeBomRows(bomEveningNames));
-      setNight(makeBomRows(bomNightNames));
+      setEvening(makeBomRows(bomEveningNames, bomEveningCost));
+      setNight(makeBomRows(bomNightNames, bomNightCost));
       setManpower(buildManpowerFromEmployees());
       setOtherExpense(0);
       setPsSale(PS_ROWS.map(makePsRow));
@@ -567,7 +567,7 @@ export default function DailyPnlPage() {
         setOpeningBalance(0);
       }
     }
-  }, [entryDate, clientName, loadCashSeal, buildManpowerFromEmployees, bomBreakfastNames, bomEveningNames, bomNightNames]);
+  }, [entryDate, clientName, loadCashSeal, buildManpowerFromEmployees, bomBreakfastNames, bomEveningNames, bomNightNames, bomBreakfastCost, bomEveningCost, bomNightCost]);
 
   useEffect(() => { loadEntry(); }, [loadEntry]);
 
