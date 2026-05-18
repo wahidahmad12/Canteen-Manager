@@ -215,6 +215,18 @@ export default function WeeklyBomPage() {
   // Headcount state: { day_meal_cat: number }
   const [headcount, setHeadcount] = useState<Record<string, number>>({});
 
+  // Rates state: { "dishName|unit": rate } — persisted to localStorage
+  const [rates, setRates] = useState<Record<string, number>>(() => {
+    try { return JSON.parse(localStorage.getItem("wbom_rates") || "{}"); } catch { return {}; }
+  });
+  const setRate = (key: string, val: number) => {
+    setRates(prev => {
+      const next = { ...prev, [key]: val };
+      localStorage.setItem("wbom_rates", JSON.stringify(next));
+      return next;
+    });
+  };
+
   const qKey = ["/api/weekly-menu", client];
 
   const { data: items = [], isLoading } = useQuery<MenuItem[]>({
@@ -288,7 +300,6 @@ export default function WeeklyBomPage() {
 
   // ── BOM Calculation ───────────────────────────────────────────────────────
   const bomRows = useMemo(() => {
-    // Map: "dishName|unit" → { dishName, unit, days: { day: totalQty } }
     const map: Record<string, { dishName: string; unit: string; byDay: Record<string, number>; total: number }> = {};
 
     items.forEach(item => {
@@ -297,15 +308,22 @@ export default function WeeklyBomPage() {
       const key = `${item.dish_name.toLowerCase()}|${unit}`;
       if (!map[key]) map[key] = { dishName: item.dish_name, unit, byDay: {}, total: 0 };
 
-      const hcKey = `${item.week_day}_${item.meal_type}_${item.category}`;
-      const hc = headcount[hcKey] ?? 0;
-      const total = qty * hc;
-      map[key].byDay[item.week_day] = (map[key].byDay[item.week_day] ?? 0) + total;
-      map[key].total += total;
+      const hk = `${item.week_day}_${item.meal_type}_${item.category}`;
+      const hc = headcount[hk] ?? 0;
+      const dayTotal = qty * hc;
+      map[key].byDay[item.week_day] = (map[key].byDay[item.week_day] ?? 0) + dayTotal;
+      map[key].total += dayTotal;
     });
 
-    return Object.values(map).sort((a, b) => a.dishName.localeCompare(b.dishName));
-  }, [items, headcount]);
+    return Object.values(map)
+      .sort((a, b) => a.dishName.localeCompare(b.dishName))
+      .map(row => {
+        const rateKey = `${row.dishName.toLowerCase()}|${row.unit}`;
+        const rate = rates[rateKey] ?? 0;
+        const cost = rate > 0 ? row.total * rate : 0;
+        return { ...row, rateKey, rate, cost };
+      });
+  }, [items, headcount, rates]);
 
   const hcKey = (day: string, meal: string, cat: string) => `${day}_${meal}_${cat}`;
 
@@ -586,12 +604,16 @@ export default function WeeklyBomPage() {
               <div className="flex items-center justify-between mb-2">
                 <h2 className="text-sm font-bold text-slate-700">Step 2 — Raw Material Requirements (BOM)</h2>
                 <Button size="sm" variant="outline" onClick={() => {
-                  const rows = [["Ingredient","Unit","Mon","Tue","Wed","Thu","Fri","Sat","TOTAL"]];
+                  const rows = [["Ingredient","Unit","Mon","Tue","Wed","Thu","Fri","Sat","Total (pax)","Rate (₹)","Cost (₹)"]];
                   bomRows.forEach(r => rows.push([
                     r.dishName, r.unit,
                     ...DAYS.map(d => String(r.byDay[d.key] ?? 0)),
-                    String(r.total)
+                    String(r.total),
+                    String(r.rate),
+                    String(r.cost.toFixed(2)),
                   ]));
+                  const totalCost = bomRows.reduce((s, r) => s + r.cost, 0);
+                  rows.push(["","","","","","","","","GRAND TOTAL","", totalCost.toFixed(2)]);
                   const csv = rows.map(r => r.join(",")).join("\n");
                   const blob = new Blob([csv], { type: "text/csv" });
                   const url = URL.createObjectURL(blob);
@@ -607,31 +629,56 @@ export default function WeeklyBomPage() {
                 </div>
               ) : (
                 <div className="overflow-x-auto rounded-lg border">
-                  <table className="border-collapse w-full text-xs" style={{ minWidth: 580 }}>
+                  <table className="border-collapse w-full text-xs" style={{ minWidth: 780 }}>
                     <thead>
                       <tr className="bg-slate-800 text-white">
                         <th className="border border-slate-600 px-3 py-2 text-left">Ingredient</th>
                         <th className="border border-slate-600 px-2 py-2 text-center">Unit</th>
                         {DAYS.map(d => <th key={d.key} className="border border-slate-600 px-2 py-2 text-center">{d.short}</th>)}
-                        <th className="border border-slate-600 px-3 py-2 text-center bg-orange-600">TOTAL</th>
+                        <th className="border border-slate-600 px-3 py-2 text-center bg-orange-600">Total (pax)</th>
+                        <th className="border border-slate-600 px-3 py-2 text-center bg-blue-700">Rate (₹)</th>
+                        <th className="border border-slate-600 px-3 py-2 text-center bg-green-700">Cost (₹)</th>
                       </tr>
                     </thead>
                     <tbody>
                       {bomRows.map((row, i) => (
                         <tr key={row.dishName + row.unit} className={i % 2 === 0 ? "bg-white" : "bg-slate-50"}>
-                          <td className="border border-slate-200 px-3 py-1.5 font-semibold">{row.dishName}</td>
-                          <td className="border border-slate-200 px-2 py-1.5 text-center text-slate-500">{row.unit}</td>
+                          <td className="border border-slate-200 px-3 py-1 font-semibold">{row.dishName}</td>
+                          <td className="border border-slate-200 px-2 py-1 text-center text-slate-500">{row.unit}</td>
                           {DAYS.map(d => (
-                            <td key={d.key} className="border border-slate-200 px-2 py-1.5 text-center">
+                            <td key={d.key} className="border border-slate-200 px-2 py-1 text-center">
                               {row.byDay[d.key] ? row.byDay[d.key].toLocaleString("en-IN") : <span className="text-slate-300">—</span>}
                             </td>
                           ))}
-                          <td className="border border-slate-200 px-3 py-1.5 text-center font-bold text-orange-700 bg-orange-50">
+                          <td className="border border-slate-200 px-3 py-1 text-center font-bold text-orange-700 bg-orange-50">
                             {row.total.toLocaleString("en-IN")}
+                          </td>
+                          <td className="border border-slate-200 p-0.5 bg-blue-50">
+                            <Input
+                              type="number" min="0" step="0.01"
+                              className="h-6 text-xs text-center w-full border-0 bg-transparent focus-visible:ring-0 font-semibold text-blue-800"
+                              placeholder="0.00"
+                              value={row.rate || ""}
+                              onChange={e => setRate(row.rateKey, parseFloat(e.target.value) || 0)}
+                              data-testid={`rate-${row.rateKey}`}
+                            />
+                          </td>
+                          <td className="border border-slate-200 px-3 py-1 text-center font-bold text-green-700 bg-green-50">
+                            {row.cost > 0 ? `₹${row.cost.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : <span className="text-slate-300">—</span>}
                           </td>
                         </tr>
                       ))}
                     </tbody>
+                    {bomRows.some(r => r.cost > 0) && (
+                      <tfoot>
+                        <tr className="bg-green-800 text-white font-bold">
+                          <td colSpan={8} className="border border-green-700 px-3 py-2 text-right text-xs tracking-wide">GRAND TOTAL COST</td>
+                          <td className="border border-green-700 px-3 py-2 text-center text-sm">
+                            ₹{bomRows.reduce((s, r) => s + r.cost, 0).toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                          </td>
+                        </tr>
+                      </tfoot>
+                    )}
                   </table>
                 </div>
               )}
