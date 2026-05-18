@@ -9,9 +9,6 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Loader2, Plus, Pencil, Trash2, Save, X, Printer, Download, Calculator, Package, ChefHat, Layers } from "lucide-react";
 import { apiRequest } from "@/lib/queryClient";
 
-const CLIENTS = [
-  "HUL - KPF", "HUL - TEC", "UBL", "Unichem", "Cipla", "PEC Ventures",
-];
 
 const MEAL_TYPES = [
   { key: "breakfast", label: "Breakfast",     color: "#b45309", bg: "#fffbeb", border: "#fcd34d" },
@@ -121,7 +118,9 @@ export default function BomPage() {
   const { toast } = useToast();
   const qc = useQueryClient();
 
-  const [client, setClient] = useState(CLIENTS[0]);
+  const { data: apiClients = [] } = useQuery<{ id: number; name: string }[]>({ queryKey: ["/api/clients"] });
+  const clientList = (apiClients as { id: number; name: string }[]).map(c => c.name);
+  const [client, setClient] = useState("");
   const [mealType, setMealType] = useState("lunch");
   const [headcount, setHeadcount] = useState("100");
   const [activeDish, setActiveDish] = useState<string | null>(null);
@@ -135,6 +134,10 @@ export default function BomPage() {
   const [ingredientSearch, setIngredientSearch] = useState("");
   const [showIngDropdown, setShowIngDropdown] = useState(false);
   const ingRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (clientList.length > 0 && !client) setClient(clientList[0]);
+  }, [clientList]);
 
   useEffect(() => {
     function handleClick(e: MouseEvent) {
@@ -503,7 +506,7 @@ export default function BomPage() {
           </div>
           <Select value={client} onValueChange={v => { setClient(v); setActiveDish(null); }}>
             <SelectTrigger className="w-44 sm:w-52 font-semibold" data-testid="select-bom-client"><SelectValue /></SelectTrigger>
-            <SelectContent>{CLIENTS.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}</SelectContent>
+            <SelectContent>{clientList.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}</SelectContent>
           </Select>
         </div>
 
