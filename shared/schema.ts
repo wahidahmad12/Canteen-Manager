@@ -1184,3 +1184,20 @@ export const employeeWebAuthnCredentials = mysqlTable("employee_webauthn_credent
   createdAt: timestamp("created_at").defaultNow(),
 });
 export type EmployeeWebAuthnCredential = typeof employeeWebAuthnCredentials.$inferSelect;
+
+// === WEEKLY MENU PLAN ===
+export const weeklyMenuItems = mysqlTable("weekly_menu_items", {
+  id: int("id").autoincrement().primaryKey(),
+  clientName: varchar("client_name", { length: 100 }).notNull(),
+  weekDay: varchar("week_day", { length: 20 }).notNull(),
+  mealType: varchar("meal_type", { length: 50 }).notNull(),
+  category: varchar("category", { length: 20 }).notNull().default("veg"),
+  dishName: varchar("dish_name", { length: 255 }).notNull(),
+  quantity: varchar("quantity", { length: 100 }).notNull().default(""),
+  notes: text("notes"),
+  sortOrder: int("sort_order").default(0),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+export type WeeklyMenuItem = typeof weeklyMenuItems.$inferSelect;
+export const insertWeeklyMenuItemSchema = createInsertSchema(weeklyMenuItems).omit({ id: true, createdAt: true });
+export type InsertWeeklyMenuItem = z.infer<typeof insertWeeklyMenuItemSchema>;

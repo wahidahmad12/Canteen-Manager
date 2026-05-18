@@ -315,6 +315,12 @@ export interface IStorage {
   getPecVenturesYearlySummary(year: number): Promise<any[]>;
   getPecVenturesLunchYearlySummary(year: number): Promise<{ month: number; lunchOrder: number; lunchBill: number; lunchTotal: number; dinnerOrder: number; dinnerBill: number; dinnerTotal: number }[]>;
   getMonthlyPnl(month: number, year: number, clients?: string[]): Promise<any>;
+  // Weekly Menu
+  getWeeklyMenu(clientName: string): Promise<any[]>;
+  saveWeeklyMenuItem(data: any): Promise<any>;
+  updateWeeklyMenuItem(id: number, data: any): Promise<any>;
+  deleteWeeklyMenuItem(id: number): Promise<void>;
+  ensureWeeklyMenuTable(): Promise<void>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -3012,6 +3018,39 @@ export class DatabaseStorage implements IStorage {
     const { bomItems } = await import('../shared/schema');
     const { eq } = await import('drizzle-orm');
     await db.delete(bomItems).where(eq(bomItems.id, id));
+  }
+
+  async ensureWeeklyMenuTable(): Promise<void> {
+    await db.execute(sql`CREATE TABLE IF NOT EXISTS weekly_menu_items (
+      id INT AUTO_INCREMENT PRIMARY KEY,
+      client_name VARCHAR(100) NOT NULL,
+      week_day VARCHAR(20) NOT NULL,
+      meal_type VARCHAR(50) NOT NULL,
+      category VARCHAR(20) NOT NULL DEFAULT 'veg',
+      dish_name VARCHAR(255) NOT NULL,
+      quantity VARCHAR(100) NOT NULL DEFAULT '',
+      notes TEXT,
+      sort_order INT DEFAULT 0,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    )`);
+  }
+  async getWeeklyMenu(clientName: string): Promise<any[]> {
+    const [rows] = await db.execute(sql`SELECT * FROM weekly_menu_items WHERE client_name = ${clientName} ORDER BY FIELD(week_day,'monday','tuesday','wednesday','thursday','friday','saturday'), FIELD(meal_type,'breakfast','lunch','evening','night'), category, sort_order, id`);
+    return rows as any[];
+  }
+  async saveWeeklyMenuItem(data: any): Promise<any> {
+    const [result] = await db.execute(sql`INSERT INTO weekly_menu_items (client_name, week_day, meal_type, category, dish_name, quantity, notes, sort_order) VALUES (${data.clientName}, ${data.weekDay}, ${data.mealType}, ${data.category ?? 'veg'}, ${data.dishName}, ${data.quantity ?? ''}, ${data.notes ?? null}, ${data.sortOrder ?? 0})`);
+    const insertId = (result as any).insertId;
+    const [rows] = await db.execute(sql`SELECT * FROM weekly_menu_items WHERE id = ${insertId}`);
+    return (rows as any[])[0];
+  }
+  async updateWeeklyMenuItem(id: number, data: any): Promise<any> {
+    await db.execute(sql`UPDATE weekly_menu_items SET dish_name = ${data.dishName}, quantity = ${data.quantity ?? ''}, category = ${data.category ?? 'veg'}, notes = ${data.notes ?? null}, sort_order = ${data.sortOrder ?? 0} WHERE id = ${id}`);
+    const [rows] = await db.execute(sql`SELECT * FROM weekly_menu_items WHERE id = ${id}`);
+    return (rows as any[])[0];
+  }
+  async deleteWeeklyMenuItem(id: number): Promise<void> {
+    await db.execute(sql`DELETE FROM weekly_menu_items WHERE id = ${id}`);
   }
 
   async getMonthlyPnl(month: number, year: number, clients?: string[]): Promise<any> {

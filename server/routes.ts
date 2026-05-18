@@ -2624,6 +2624,30 @@ export async function registerRoutes(
     catch (err: any) { res.status(500).json({ message: err.message }); }
   });
 
+  // === WEEKLY MENU ===
+  app.get('/api/weekly-menu', requireAuth, async (req, res) => {
+    try {
+      await storage.ensureWeeklyMenuTable();
+      const clientName = String(req.query.clientName || '');
+      if (!clientName) return res.status(400).json({ message: 'clientName required' });
+      res.json(await storage.getWeeklyMenu(clientName));
+    } catch (err: any) { res.status(500).json({ message: err.message }); }
+  });
+  app.post('/api/weekly-menu', requireAuth, async (req, res) => {
+    try {
+      await storage.ensureWeeklyMenuTable();
+      res.status(201).json(await storage.saveWeeklyMenuItem(req.body));
+    } catch (err: any) { res.status(500).json({ message: err.message }); }
+  });
+  app.put('/api/weekly-menu/:id', requireAuth, async (req, res) => {
+    try { res.json(await storage.updateWeeklyMenuItem(Number(req.params.id), req.body)); }
+    catch (err: any) { res.status(500).json({ message: err.message }); }
+  });
+  app.delete('/api/weekly-menu/:id', requireAuth, async (req, res) => {
+    try { await storage.deleteWeeklyMenuItem(Number(req.params.id)); res.status(204).send(); }
+    catch (err: any) { res.status(500).json({ message: err.message }); }
+  });
+
   // === MONTHLY P&L ===
   app.get('/api/monthly-pnl', requireAuth, async (req, res) => {
     try {

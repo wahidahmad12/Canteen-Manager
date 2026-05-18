@@ -42,6 +42,7 @@ import SalesDashboard from "./pages/sales-dashboard";
 import DailyPnlPage from "./pages/daily-pnl";
 import MonthlyPnlPage from "./pages/monthly-pnl";
 import BomPage from "./pages/bom";
+import WeeklyBomPage from "./pages/weekly-bom";
 import PriceHistoryPage from "./pages/price-history";
 import ItemStockReportPage from "./pages/item-stock-report";
 import EmployeeDashboard from "./pages/employee-dashboard";
@@ -151,6 +152,7 @@ function AuthenticatedRouter() {
       <Route path="/daily-pnl" component={DailyPnlPage} />
       <Route path="/monthly-pnl" component={MonthlyPnlPage} />
       <Route path="/bom" component={BomPage} />
+      <Route path="/weekly-bom" component={WeeklyBomPage} />
       <Route path="/price-history">{() => <PermRoute perm="purchase"><PriceHistoryPage /></PermRoute>}</Route>
       <Route path="/item-stock-report">{() => <PermRoute perm="purchase"><ItemStockReportPage /></PermRoute>}</Route>
       <Route path="/qr-scanner" component={QrScannerPage} />
