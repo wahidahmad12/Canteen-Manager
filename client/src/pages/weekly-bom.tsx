@@ -623,9 +623,9 @@ export default function WeeklyBomPage() {
                   Export CSV
                 </Button>
               </div>
-              {bomRows.length === 0 ? (
+              {items.length === 0 ? (
                 <div className="text-center text-sm text-muted-foreground py-8 border rounded-lg bg-muted/10">
-                  Enter headcount above to calculate raw material quantities
+                  No menu items found — add items in the Menu Grid tab or load the HUL Template
                 </div>
               ) : (
                 <div className="overflow-x-auto rounded-lg border">
