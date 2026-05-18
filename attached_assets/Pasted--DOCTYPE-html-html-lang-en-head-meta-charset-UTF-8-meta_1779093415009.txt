@@ -1,0 +1,182 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Puri & Aloo Charchari Bill of Materials</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            line-height: 1.6;
+            margin: 20px;
+            color: #333;
+        }
+        h1 {
+            color: #2c3e50;
+            border-bottom: 2px solid #34495e;
+            padding-bottom: 10px;
+        }
+        h2 {
+            color: #2980b9;
+            margin-top: 30px;
+        }
+        hr {
+            border: 0;
+            height: 1px;
+            background: #ccc;
+            margin: 20px 0;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 20px;
+        }
+        th, td {
+            border: 1px solid #ddd;
+            padding: 12px;
+            text-align: left;
+        }
+        th {
+            background-color: #f2f2f2;
+            color: #333;
+            font-weight: bold;
+        }
+        tr:nth-child(even) {
+            background-color: #f9f9f9;
+        }
+        ul {
+            padding-left: 20px;
+        }
+        .blockquote {
+            background-color: #f9f9f9;
+            border-left: 5px solid #2980b9;
+            margin: 20px 0;
+            padding: 15px;
+            font-style: italic;
+        }
+    </style>
+</head>
+<body>
+
+    <h1>Bill of Materials (BOM) — Puri & Aloo Charchari</h1>
+    <p>Estimated requirements to prepare Puri and Aloo Charchari (Bengali style simple potato stir-fry/gravy) for <strong>100 people</strong>, calculated at <strong>4 pieces of puri per person</strong> (Total: 400 puris).</p>
+    
+    <hr>
+
+    <h2>1. Main Ingredients (Bulk)</h2>
+    <table>
+        <thead>
+            <tr>
+                <th>Ingredient</th>
+                <th>Purpose</th>
+                <th>Quantity Required</th>
+                <th>Notes / Specifications</th>
+            </tr>
+        </thead>
+        <tbody>
+            <tr>
+                <td><strong>Atta / Maida</strong></td>
+                <td>For 400 Puris</td>
+                <td><strong>10 kg to 11 kg</strong></td>
+                <td>Standard ratio is ~25g dough per puri. Use Whole Wheat Flour (Atta) or a 50:50 blend with Maida.</td>
+            </tr>
+            <tr>
+                <td><strong>Potatoes (Aloo)</strong></td>
+                <td>For Charchari</td>
+                <td><strong>15 kg to 18 kg</strong></td>
+                <td>Calculated at roughly 150g–180g of raw potato per portion.</td>
+            </tr>
+        </tbody>
+    </table>
+
+    <h2>2. Cooking Medium & Fats</h2>
+    <table>
+        <thead>
+            <tr>
+                <th>Ingredient</th>
+                <th>Purpose</th>
+                <th>Quantity Required</th>
+                <th>Notes</th>
+            </tr>
+        </thead>
+        <tbody>
+            <tr>
+                <td><strong>Refined Vegetable Oil</strong></td>
+                <td>Deep Frying Puris</td>
+                <td><strong>5 Liters to 6 Liters</strong></td>
+                <td>Includes oil absorbed by puris + minimum deep-frying pool depth.</td>
+            </tr>
+            <tr>
+                <td><strong>Mustard Oil</strong></td>
+                <td>Cooking Charchari</td>
+                <td><strong>750 ml to 1 Liter</strong></td>
+                <td>Gives the authentic Bengali flavor to the aloo dish.</td>
+            </tr>
+        </tbody>
+    </table>
+
+    <h2>3. Spices & Aromatics</h2>
+    <table>
+        <thead>
+            <tr>
+                <th>Ingredient</th>
+                <th>Purpose</th>
+                <th>Quantity Required</th>
+            </tr>
+        </thead>
+        <tbody>
+            <tr>
+                <td><strong>Panch Phoron / Kalonji</strong></td>
+                <td>Tempering (Tadka)</td>
+                <td><strong>150 grams</strong></td>
+            </tr>
+            <tr>
+                <td><strong>Green Chillies</strong></td>
+                <td>Spice & Flavor</td>
+                <td><strong>400 grams to 500 grams</strong></td>
+            </tr>
+            <tr>
+                <td><strong>Turmeric Powder (Haldi)</strong></td>
+                <td>Color (Optional)</td>
+                <td><strong>100 grams</strong></td>
+            </tr>
+            <tr>
+                <td><strong>Asafoetida (Hing)</strong></td>
+                <td>Flavor</td>
+                <td><strong>25 grams to 30 grams</strong></td>
+            </tr>
+            <tr>
+                <td><strong>Ginger Paste</strong></td>
+                <td>Flavor</td>
+                <td><strong>250 grams</strong></td>
+            </tr>
+            <tr>
+                <td><strong>Salt</strong></td>
+                <td>Seasoning</td>
+                <td><strong>500 grams</strong></td>
+            </tr>
+            <tr>
+                <td><strong>Sugar</strong></td>
+                <td>Taste Balance</td>
+                <td><strong>100 grams</strong></td>
+            </tr>
+            <tr>
+                <td><strong>Fresh Coriander Leaves</strong></td>
+                <td>Garnish</td>
+                <td><strong>2 to 3 Bunches</strong></td>
+            </tr>
+        </tbody>
+    </table>
+
+    <h2>4. Packing & Operations (If Catering/Sourcing)</h2>
+    <ul>
+        <li><strong>Water:</strong> Approximately 5 to 6 liters for kneading dough; 6 to 8 liters for cooking the potatoes.</li>
+        <li><strong>Dry Atta for Dusting:</strong> ~500 grams (if rolling out using dry flour instead of oil).</li>
+    </ul>
+
+    <div class="blockquote">
+        <p><strong>💡 Catering Tip:</strong> It is always safe to keep a <strong>10% buffer</strong> when catering for exactly 100 guests. Bumping the flour to 12 kg and potatoes to 20 kg will safely cover any extra demand or heavy eaters.</p>
+    </div>
+
+</body>
+</html>

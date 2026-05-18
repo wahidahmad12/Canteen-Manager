@@ -322,42 +322,94 @@ export default function BomPage() {
 
   const handlePrint = () => {
     const mtLabel = activeMt.label;
+    const printDate = new Date().toLocaleDateString('en-IN', { day: '2-digit', month: 'long', year: 'numeric' });
     const dishesToPrint = currentDish ? { [currentDish]: grouped[currentDish] } : grouped;
-    let bodyHtml = '';
-    Object.entries(dishesToPrint).forEach(([dish, sections]) => {
-      const allItems = Object.values(sections).flat();
-      const dishTotalKg = allItems.filter(i => i.uom === 'kg').reduce((s, i) => s + parseFloat(i.qtyPerPerson) * hc, 0);
-      bodyHtml += `<tr style="background:#1e3a5f;"><td colspan="8" style="padding:6px 10px;font-size:13px;font-weight:bold;color:#fff;">🍽 ${dish}</td></tr>`;
+
+    let dishesHtml = '';
+    Object.entries(dishesToPrint).forEach(([dish, sections], dIdx) => {
+      let sectionsHtml = '';
+      let sectionIndex = 1;
       Object.entries(sections).forEach(([section, secItems]) => {
-        const sc = SECTION_COLORS[section] ?? SECTION_COLORS["Other"];
-        bodyHtml += `<tr style="background:${sc.bg};"><td colspan="8" style="padding:4px 12px;font-size:11px;font-weight:700;color:${sc.color};border-bottom:1px solid ${sc.border};">▸ ${section}</td></tr>`;
-        secItems.forEach((item, idx) => {
+        const hasCost = secItems.some(i => getItemRate(i).source !== null);
+        const rows = secItems.map((item, idx) => {
           const ft = fmtTotal(item.qtyPerPerson, item.uom, hc);
+          const totalQtyStr = `<strong>${ft.value} ${ft.unit}</strong>`;
           const rp = getItemRate(item);
-          const rate = rp.source ? `₹${rp.unitPrice.toFixed(2)}/${rp.uom || item.uom}${rp.source === 'manual' ? ' (M)' : ''}` : '—';
-          const cost = rp.source ? `₹${(rp.unitPrice * qtyInInvoiceUom(parseFloat(item.qtyPerPerson), item.uom, rp.uom) * hc).toFixed(2)}` : '—';
-          bodyHtml += `<tr style="background:${idx%2===0?'#fff':'#f9fafb'};">
-            <td style="border:1px solid #e2e8f0;padding:4px 8px;font-size:11px;color:#64748b;">${section}</td>
-            <td style="border:1px solid #e2e8f0;padding:4px 8px;font-size:11px;font-weight:600;">${item.ingredientName}</td>
-            <td style="border:1px solid #e2e8f0;padding:4px 8px;font-size:11px;text-align:center;">${parseFloat(item.qtyPerPerson).toFixed(4)}</td>
-            <td style="border:1px solid #e2e8f0;padding:4px 8px;font-size:11px;text-align:center;">${item.uom}</td>
-            <td style="border:1px solid #e2e8f0;padding:4px 8px;font-size:11px;text-align:center;font-weight:700;color:#16a34a;">${ft.value}</td>
-            <td style="border:1px solid #e2e8f0;padding:4px 8px;font-size:11px;text-align:center;">${ft.unit}</td>
-            <td style="border:1px solid #e2e8f0;padding:4px 8px;font-size:11px;text-align:center;color:#1d4ed8;">${rate}</td>
-            <td style="border:1px solid #e2e8f0;padding:4px 8px;font-size:11px;text-align:center;font-weight:700;color:#7e22ce;">${cost}</td>
+          const rateCell = rp.source ? `₹${rp.unitPrice.toFixed(2)}/${rp.uom || item.uom}` : '';
+          const costCell = rp.source ? `₹${(rp.unitPrice * qtyInInvoiceUom(parseFloat(item.qtyPerPerson), item.uom, rp.uom) * hc).toFixed(2)}` : '';
+          return `<tr style="background:${idx % 2 === 0 ? '#fff' : '#f9f9f9'};">
+            <td style="border:1px solid #ddd;padding:10px 12px;"><strong>${item.ingredientName}</strong></td>
+            <td style="border:1px solid #ddd;padding:10px 12px;color:#555;">${item.notes || '—'}</td>
+            <td style="border:1px solid #ddd;padding:10px 12px;text-align:center;">${totalQtyStr}</td>
+            ${hasCost ? `<td style="border:1px solid #ddd;padding:10px 12px;text-align:center;color:#1d4ed8;font-size:11px;">${rateCell}</td>
+            <td style="border:1px solid #ddd;padding:10px 12px;text-align:center;font-weight:700;color:#7e22ce;font-size:11px;">${costCell}</td>` : ''}
           </tr>`;
-        });
+        }).join('');
+        const totalCost = hasCost ? secItems.reduce((s, i) => {
+          const rp = getItemRate(i); return rp.source ? s + rp.unitPrice * qtyInInvoiceUom(parseFloat(i.qtyPerPerson), i.uom, rp.uom) * hc : s;
+        }, 0) : 0;
+        const colSpanBase = hasCost ? 5 : 3;
+        sectionsHtml += `
+          <h2 style="color:#2980b9;margin-top:28px;margin-bottom:8px;font-size:14pt;border-bottom:1px solid #ccc;padding-bottom:6px;">
+            ${sectionIndex++}. ${section}
+          </h2>
+          <table style="width:100%;border-collapse:collapse;margin-bottom:16px;">
+            <thead><tr style="background:#f2f2f2;">
+              <th style="border:1px solid #ddd;padding:10px 12px;text-align:left;font-weight:bold;font-size:10pt;">Ingredient / Material</th>
+              <th style="border:1px solid #ddd;padding:10px 12px;text-align:left;font-weight:bold;font-size:10pt;">Purpose / Notes</th>
+              <th style="border:1px solid #ddd;padding:10px 12px;text-align:center;font-weight:bold;font-size:10pt;">Qty Required (${hc} pax)</th>
+              ${hasCost ? `<th style="border:1px solid #ddd;padding:10px 12px;text-align:center;font-weight:bold;font-size:10pt;">Rate (₹)</th>
+              <th style="border:1px solid #ddd;padding:10px 12px;text-align:center;font-weight:bold;font-size:10pt;">Cost (₹)</th>` : ''}
+            </tr></thead>
+            <tbody>${rows}</tbody>
+            ${hasCost ? `<tfoot><tr style="background:#f0fdf4;">
+              <td colspan="3" style="border:1px solid #ddd;padding:8px 12px;font-weight:bold;text-align:right;color:#555;font-size:10pt;">Section Total:</td>
+              <td style="border:1px solid #ddd;"></td>
+              <td style="border:1px solid #ddd;padding:8px 12px;text-align:center;font-weight:bold;color:#7e22ce;font-size:10pt;">₹${totalCost.toFixed(2)}</td>
+            </tr></tfoot>` : ''}
+          </table>`;
       });
-      bodyHtml += `<tr><td colspan="8" style="padding:2px;background:#f1f5f9;"></td></tr>`;
+
+      const allDishItems = Object.values(sections).flat();
+      const totalCostAll = allDishItems.reduce((s, i) => {
+        const rp = getItemRate(i); return rp.source ? s + rp.unitPrice * qtyInInvoiceUom(parseFloat(i.qtyPerPerson), i.uom, rp.uom) * hc : s;
+      }, 0);
+      const hasDishCost = allDishItems.some(i => getItemRate(i).source !== null);
+
+      dishesHtml += `
+        ${dIdx > 0 ? '<div style="page-break-before:always;margin-top:0;"></div>' : ''}
+        <h1 style="color:#2c3e50;border-bottom:2px solid #34495e;padding-bottom:10px;font-size:16pt;margin-top:0;">
+          Bill of Materials (BOM) — ${dish}
+        </h1>
+        <p style="color:#555;margin:4px 0;">
+          Prepared for <strong>${hc} persons</strong> &nbsp;|&nbsp; Meal: <strong>${mtLabel}</strong> &nbsp;|&nbsp;
+          Client: <strong>${client}</strong>
+        </p>
+        <p style="color:#555;margin:4px 0 12px;">Date: ${printDate}</p>
+        ${hasDishCost ? `<p style="color:#7e22ce;font-weight:bold;font-size:12pt;margin:4px 0 12px;">Estimated Total Cost: ₹${totalCostAll.toFixed(2)}</p>` : ''}
+        <hr style="border:0;height:1px;background:#ccc;margin:16px 0 20px;">
+        ${sectionsHtml}
+        <div style="background:#f9f9f9;border-left:5px solid #2980b9;margin:24px 0 0;padding:14px;font-style:italic;font-size:11pt;line-height:1.6;">
+          <strong>💡 Catering Tip:</strong> Always keep a <strong>10% buffer</strong> when catering for large groups.
+          Bumping quantities by 10% will safely cover extra demand or heavy eaters.
+        </div>`;
     });
+
     const html = `<!DOCTYPE html><html><head><title>BOM — ${client} — ${mtLabel}</title>
-    <style>body{font-family:Arial,sans-serif;margin:16px;}h2{color:#1e3a5f;margin:0;}p{margin:2px 0;font-size:12px;}table{border-collapse:collapse;width:100%;margin-top:10px;}th{background:#1e3a5f;color:#fff;padding:5px 8px;font-size:11px;}@media print{button{display:none}}</style></head><body>
-    <h2>DJ Hospitality & Facility Management Pvt. Ltd.</h2>
-    <p><strong>Bill of Material — ${mtLabel}</strong></p>
-    <p>Client: <strong>${client}</strong> &nbsp;|&nbsp; Headcount: <strong>${hc}</strong> &nbsp;|&nbsp; Date: ${new Date().toLocaleDateString('en-IN')}</p>
-    <table><thead><tr><th>Section</th><th>Ingredient / Material</th><th>Qty/Person</th><th>UOM</th><th>Total Qty</th><th>UOM</th><th>Rate (₹)</th><th>Cost (₹)</th></tr></thead>
-    <tbody>${bodyHtml}</tbody></table>
-    <script>window.onload=()=>{window.print();}</script></body></html>`;
+    <style>
+      @page { size: A4 portrait; margin: 15mm; }
+      * { box-sizing: border-box; }
+      body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; margin: 0; font-size: 10pt; }
+      table { border-collapse: collapse; width: 100%; margin-bottom: 8px; }
+      @media print { button { display: none; } }
+    </style></head><body>
+    <div style="text-align:center;margin-bottom:16px;padding-bottom:10px;border-bottom:2.5px solid #1e3a5f;">
+      <div style="font-size:15pt;font-weight:bold;color:#1e3a5f;">DJ Hospitality &amp; Facility Management Pvt. Ltd.</div>
+      <div style="font-size:9pt;color:#777;margin-top:3px;">Bill of Material Report &nbsp;&mdash;&nbsp; Printed: ${printDate}</div>
+    </div>
+    ${dishesHtml}
+    <script>window.onload=()=>{ window.print(); }</script>
+    </body></html>`;
     const w = window.open('', '_blank');
     if (w) { w.document.write(html); w.document.close(); }
   };
