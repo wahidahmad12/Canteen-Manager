@@ -2,7 +2,7 @@ import { useState, useRef, useEffect, useCallback, useMemo } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
 import { useClientNames } from "@/hooks/use-reports";
-import { RefreshCw, Save, Printer, TrendingUp, TrendingDown, Plus, Trash2, BarChart3, ClipboardEdit, LayoutList, Table2 } from "lucide-react";
+import { RefreshCw, Save, Printer, TrendingUp, TrendingDown, Plus, Trash2, BarChart3, ClipboardEdit, LayoutList, Table2, UtensilsCrossed, Users, ShoppingCart, Wallet, ChefHat, CalendarDays, Building2, IndianRupee, ArrowUpDown } from "lucide-react";
 import { format } from "date-fns";
 import { Layout } from "@/components/layout";
 
@@ -45,10 +45,13 @@ const fmtINR  = (n: number) => `₹${n.toLocaleString("en-IN", { minimumFraction
 const fmtDate = (s: string) => { try { return format(new Date(s + "T00:00:00"), "dd-MM-yyyy"); } catch { return s; } };
 
 // ─── Sub-components ───────────────────────────────────────────────────────────
-function Section({ title, color, children }: { title: string; color: string; children: React.ReactNode }) {
+function Section({ title, color, icon: Icon, children }: { title: string; color: string; icon?: React.ElementType; children: React.ReactNode }) {
   return (
-    <div className="mb-4 border rounded-lg overflow-hidden">
-      <div className="px-3 py-1.5 font-bold text-sm text-white text-center" style={{ background: color }}>{title}</div>
+    <div className="mb-3 rounded-lg overflow-hidden" style={{ border: `1px solid ${color}33` }}>
+      <div className="px-3 py-2 font-semibold text-xs flex items-center gap-2" style={{ background: `${color}14`, borderLeft: `3px solid ${color}`, color }}>
+        {Icon && <Icon className="w-3.5 h-3.5 flex-shrink-0" />}
+        <span>{title}</span>
+      </div>
       <div className="p-2">{children}</div>
     </div>
   );
@@ -710,62 +713,75 @@ export default function DailyPnlPage() {
   return (
     <Layout>
       {/* Page Header */}
-      <div className="bg-gradient-to-r from-amber-700 to-orange-600 text-white px-4 py-3 flex flex-wrap items-center gap-3 rounded-t-lg -mx-3 sm:-mx-4 md:-mx-8 -mt-3 sm:-mt-4 md:-mt-8 mb-0">
-        <h1 className="text-lg font-bold flex items-center gap-2"><BarChart3 className="w-5 h-5" /> Daily P&amp;L</h1>
-        <div className="flex gap-2 ml-auto">
-          <button onClick={() => setTab("entry")} className={`px-3 py-1.5 rounded text-xs font-medium flex items-center gap-1 ${tab === "entry" ? "bg-white text-amber-700" : "bg-amber-800/50 text-white hover:bg-amber-800"}`} data-testid="btn-pnl-entry-tab">
+      <div className="bg-gradient-to-r from-amber-800 via-amber-700 to-orange-600 text-white px-4 py-3 flex flex-wrap items-center gap-3 rounded-t-lg -mx-3 sm:-mx-4 md:-mx-8 -mt-3 sm:-mt-4 md:-mt-8 mb-0 shadow-md">
+        <div className="flex items-center gap-2.5">
+          <div className="w-8 h-8 rounded-lg bg-white/20 flex items-center justify-center">
+            <BarChart3 className="w-4.5 h-4.5" />
+          </div>
+          <div>
+            <h1 className="text-base font-bold leading-tight">Daily P&amp;L</h1>
+            <p className="text-[10px] text-amber-200 leading-tight">Profit &amp; Loss Entry</p>
+          </div>
+        </div>
+        <div className="flex gap-1.5 ml-auto">
+          <button onClick={() => setTab("entry")} className={`px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-all ${tab === "entry" ? "bg-white text-amber-800 shadow-sm" : "bg-white/15 text-white hover:bg-white/25"}`} data-testid="btn-pnl-entry-tab">
             <ClipboardEdit className="w-3.5 h-3.5" /> Entry
           </button>
-          <button onClick={() => setTab("dashboard")} className={`px-3 py-1.5 rounded text-xs font-medium flex items-center gap-1 ${tab === "dashboard" ? "bg-white text-amber-700" : "bg-amber-800/50 text-white hover:bg-amber-800"}`} data-testid="btn-pnl-dashboard-tab">
-            <BarChart3 className="w-3.5 h-3.5" /> Dashboard
+          <button onClick={() => setTab("dashboard")} className={`px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-all ${tab === "dashboard" ? "bg-white text-amber-800 shadow-sm" : "bg-white/15 text-white hover:bg-white/25"}`} data-testid="btn-pnl-dashboard-tab">
+            <BarChart3 className="w-3.5 h-3.5" /> Reports
           </button>
         </div>
       </div>
 
       {/* ── Sticky Active Panel ── */}
       {tab === "entry" && (
-        <div className="sticky top-[52px] md:top-0 z-10 bg-white border-b border-amber-200 shadow-md px-3 py-2 -mx-3 sm:-mx-4 md:-mx-8">
-          {/* Row 1: Date + Client + Load */}
-          <div className="flex flex-wrap items-center gap-2 mb-2 sm:mb-0 sm:inline-flex sm:w-auto">
-            <div className="flex items-center gap-1.5">
-              <span className="text-xs font-semibold text-gray-500">Date:</span>
+        <div className="sticky top-[52px] md:top-0 z-10 bg-white/95 backdrop-blur border-b border-amber-200 shadow-sm px-3 py-2 -mx-3 sm:-mx-4 md:-mx-8">
+          <div className="flex flex-wrap items-center gap-2">
+            {/* Date */}
+            <div className="flex items-center gap-1.5 bg-gray-50 border border-gray-200 rounded-lg px-2 py-1">
+              <CalendarDays className="w-3.5 h-3.5 text-amber-600 flex-shrink-0" />
               <input type="date" value={entryDate} onChange={e => setEntryDate(e.target.value)}
-                className="border border-gray-300 rounded px-2 py-1 text-sm w-36" data-testid="input-pnl-date" />
+                className="border-0 bg-transparent text-xs font-medium text-gray-700 outline-none w-32" data-testid="input-pnl-date" />
             </div>
-            <div className="flex items-center gap-1.5">
-              <span className="text-xs font-semibold text-gray-500">Client:</span>
+            {/* Client */}
+            <div className="flex items-center gap-1.5 bg-gray-50 border border-gray-200 rounded-lg px-2 py-1">
+              <Building2 className="w-3.5 h-3.5 text-amber-600 flex-shrink-0" />
               <select value={clientName} onChange={e => setClientName(e.target.value)}
-                className="border border-gray-300 rounded px-2 py-1 text-sm max-w-[160px]" data-testid="input-pnl-client">
-                <option value="">— Select —</option>
+                className="border-0 bg-transparent text-xs font-medium text-gray-700 outline-none max-w-[150px]" data-testid="input-pnl-client">
+                <option value="">— Select Client —</option>
                 {(dbClients as any[]).map((c: any) => (
                   <option key={c.id} value={c.name}>{c.name}</option>
                 ))}
               </select>
             </div>
-            <button onClick={loadEntry} className="px-3 py-1.5 border border-gray-300 rounded text-xs font-medium flex items-center gap-1 hover:bg-gray-50 bg-white" data-testid="btn-pnl-load">
-              <RefreshCw className="w-3.5 h-3.5" /> Load
+            <button onClick={loadEntry} className="px-3 py-1.5 bg-gray-100 hover:bg-gray-200 border border-gray-200 rounded-lg text-xs font-semibold text-gray-700 flex items-center gap-1.5 transition-colors" data-testid="btn-pnl-load">
+              <RefreshCw className="w-3 h-3" /> Load
             </button>
+            {/* Status badge */}
+            {clientName && (
+              <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full ${entryId ? "bg-green-100 text-green-700" : "bg-amber-100 text-amber-700"}`}>
+                {entryId ? "✓ Loaded" : "New Entry"}
+              </span>
+            )}
+            {/* Action buttons — right side */}
+            <div className="flex items-center gap-1.5 ml-auto">
+              <button onClick={() => setMobileView(v => !v)}
+                className={`px-2.5 py-1.5 border rounded-lg text-xs font-medium flex items-center gap-1 transition-colors ${mobileView ? "bg-amber-100 border-amber-300 text-amber-800" : "border-gray-200 bg-white text-gray-600 hover:bg-gray-50"}`}
+                data-testid="btn-pnl-mobile-view" title={mobileView ? "Switch to table view" : "Switch to card view"}>
+                {mobileView ? <Table2 className="w-3.5 h-3.5" /> : <LayoutList className="w-3.5 h-3.5" />}
+                <span className="hidden sm:inline text-[11px]">{mobileView ? "Table" : "Cards"}</span>
+              </button>
+              <button onClick={handlePrint} className="px-2.5 py-1.5 border border-gray-200 rounded-lg text-xs font-medium flex items-center gap-1 hover:bg-gray-50 bg-white transition-colors" data-testid="btn-pnl-print">
+                <Printer className="w-3.5 h-3.5" />
+                <span className="hidden sm:inline text-[11px]">Print</span>
+              </button>
+              <button onClick={() => saveMut.mutate()} disabled={saveMut.isPending}
+                className="px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1.5 bg-amber-700 text-white hover:bg-amber-800 disabled:opacity-50 shadow-sm transition-colors" data-testid="btn-pnl-save">
+                {saveMut.isPending ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : <Save className="w-3.5 h-3.5" />}
+                <span className="hidden sm:inline">Save</span>
+              </button>
+            </div>
           </div>
-          {/* Row 1 (desktop) / Row 2 (mobile): action buttons */}
-          <div className="flex items-center gap-2 sm:float-right sm:mt-[-30px]">
-            <button onClick={() => setMobileView(v => !v)}
-              className={`flex-1 sm:flex-none px-3 py-1.5 border rounded text-xs font-medium flex items-center justify-center gap-1 ${mobileView ? "bg-amber-100 border-amber-400 text-amber-800" : "border-gray-300 bg-white text-gray-600 hover:bg-gray-50"}`}
-              data-testid="btn-pnl-mobile-view" title={mobileView ? "Switch to table view" : "Switch to card view"}>
-              {mobileView ? <Table2 className="w-3.5 h-3.5" /> : <LayoutList className="w-3.5 h-3.5" />}
-              <span className="hidden sm:inline">{mobileView ? "Table" : "Cards"}</span>
-            </button>
-            <button onClick={handlePrint} className="flex-1 sm:flex-none px-3 py-1.5 border border-gray-300 rounded text-xs font-medium flex items-center justify-center gap-1 hover:bg-gray-50 bg-white" data-testid="btn-pnl-print">
-              <Printer className="w-3.5 h-3.5" /> Print
-            </button>
-            <button onClick={() => saveMut.mutate()} disabled={saveMut.isPending}
-              className="flex-1 sm:flex-none px-4 py-1.5 rounded text-xs font-bold flex items-center justify-center gap-1 bg-amber-700 text-white hover:bg-amber-800 disabled:opacity-50" data-testid="btn-pnl-save">
-              {saveMut.isPending ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : <Save className="w-3.5 h-3.5" />} Save
-            </button>
-          </div>
-          <div className="clear-both" />
-          {clientName && (
-            <div className="text-xs text-amber-700 font-medium mt-0.5">{clientName} — {fmtDate(entryDate)}{entryId ? " ✓ Loaded" : " · New Entry"}</div>
-          )}
         </div>
       )}
 
@@ -782,12 +798,24 @@ export default function DailyPnlPage() {
               </div>
 
               {/* ─── EXPENSE ─── */}
-              <div className="bg-white rounded-lg shadow-sm p-3 mb-4">
-                <div className="text-center font-bold py-1 mb-3 text-white text-sm rounded" style={{ background: "#78350f" }}>EXPENSE</div>
+              <div className="bg-white rounded-xl border border-amber-100 shadow-sm p-3 mb-4">
+                <div className="flex items-center gap-3 mb-4 pb-3 border-b border-amber-100">
+                  <div className="w-9 h-9 rounded-xl bg-amber-700 flex items-center justify-center shadow-sm flex-shrink-0">
+                    <UtensilsCrossed className="w-4.5 h-4.5 text-white" />
+                  </div>
+                  <div>
+                    <h3 className="font-bold text-sm text-amber-800 leading-tight">EXPENSE</h3>
+                    <p className="text-[11px] text-gray-500 leading-tight">Food, Ingredients &amp; Manpower Costs</p>
+                  </div>
+                  <div className="ml-auto text-right">
+                    <div className="text-[10px] text-gray-400 uppercase tracking-wide">Total Expense</div>
+                    <div className="text-base font-bold text-red-700">{fmtINR(totalExpense)}</div>
+                  </div>
+                </div>
 
-                <Section title="Breakfast" color="#92400e">
+                <Section title="Breakfast" color="#b45309" icon={ChefHat}>
                   {mobileView
-                    ? <ExpenseCards rows={breakfast} onChange={setBreakfast} itemNames={bomBreakfastNames.length ? bomBreakfastNames : itemNames} color="#92400e"
+                    ? <ExpenseCards rows={breakfast} onChange={setBreakfast} itemNames={bomBreakfastNames.length ? bomBreakfastNames : itemNames} color="#b45309"
                         onAdd={() => setBreakfast(r => [...r, makeExpItem(r.length + 1)])}
                         onDelete={i => setBreakfast(r => r.filter((_, xi) => xi !== i).map((x, xi) => ({ ...x, slNo: xi + 1 })))}
                         onBlurItem={i => fetchLastPrice(breakfast, i, setBreakfast, bomBreakfastCost)} />
@@ -796,7 +824,7 @@ export default function DailyPnlPage() {
                         onDelete={i => setBreakfast(r => r.filter((_, xi) => xi !== i).map((x, xi) => ({ ...x, slNo: xi + 1 })))}
                         onBlurItem={i => fetchLastPrice(breakfast, i, setBreakfast, bomBreakfastCost)} />}
                 </Section>
-                <Section title="Lunch" color="#92400e">
+                <Section title="Lunch" color="#92400e" icon={ChefHat}>
                   {mobileView
                     ? <ExpenseCards rows={lunch} onChange={setLunch} itemNames={bomLunchNames.length ? bomLunchNames : itemNames} color="#92400e"
                         onAdd={() => setLunch(r => [...r, makeExpItem(r.length + 1)])}
@@ -807,9 +835,9 @@ export default function DailyPnlPage() {
                         onDelete={i => setLunch(r => r.filter((_, xi) => xi !== i).map((x, xi) => ({ ...x, slNo: xi + 1 })))}
                         onBlurItem={i => fetchLastPrice(lunch, i, setLunch, bomLunchCost)} />}
                 </Section>
-                <Section title="Evening Snacks" color="#92400e">
+                <Section title="Evening Snacks" color="#78350f" icon={ChefHat}>
                   {mobileView
-                    ? <ExpenseCards rows={evening} onChange={setEvening} itemNames={bomEveningNames.length ? bomEveningNames : itemNames} color="#92400e"
+                    ? <ExpenseCards rows={evening} onChange={setEvening} itemNames={bomEveningNames.length ? bomEveningNames : itemNames} color="#78350f"
                         onAdd={() => setEvening(r => [...r, makeExpItem(r.length + 1)])}
                         onDelete={i => setEvening(r => r.filter((_, xi) => xi !== i).map((x, xi) => ({ ...x, slNo: xi + 1 })))}
                         onBlurItem={i => fetchLastPrice(evening, i, setEvening, bomEveningCost)} />
@@ -818,9 +846,9 @@ export default function DailyPnlPage() {
                         onDelete={i => setEvening(r => r.filter((_, xi) => xi !== i).map((x, xi) => ({ ...x, slNo: xi + 1 })))}
                         onBlurItem={i => fetchLastPrice(evening, i, setEvening, bomEveningCost)} />}
                 </Section>
-                <Section title="Night Snacks" color="#92400e">
+                <Section title="Night Snacks" color="#451a03" icon={ChefHat}>
                   {mobileView
-                    ? <ExpenseCards rows={night} onChange={setNight} itemNames={bomNightNames.length ? bomNightNames : itemNames} color="#92400e"
+                    ? <ExpenseCards rows={night} onChange={setNight} itemNames={bomNightNames.length ? bomNightNames : itemNames} color="#451a03"
                         onAdd={() => setNight(r => [...r, makeExpItem(r.length + 1)])}
                         onDelete={i => setNight(r => r.filter((_, xi) => xi !== i).map((x, xi) => ({ ...x, slNo: xi + 1 })))}
                         onBlurItem={i => fetchLastPrice(night, i, setNight, bomNightCost)} />
@@ -831,7 +859,7 @@ export default function DailyPnlPage() {
                 </Section>
 
                 {/* Manpower */}
-                <Section title="Daily Manpower" color="#1e3a8a">
+                <Section title="Daily Manpower" color="#1e3a8a" icon={Users}>
                   {mobileView ? (
                     <ManpowerCards manpower={manpower} setManpower={setManpower} mpCalc={mpCalc} totalMp={totalMp} employees={employees as any[]} skillRates={skillRates as any[]} />
                   ) : (
@@ -902,24 +930,30 @@ export default function DailyPnlPage() {
                 </Section>
 
                 {/* Other expense */}
-                <div className="flex flex-wrap items-center gap-4 mt-2 px-2">
-                  <div className="flex items-center gap-2">
-                    <span className="text-sm font-medium">Other Expense (₹):</span>
+                <div className="flex flex-wrap items-center gap-3 mt-3 pt-3 border-t border-dashed border-amber-200 px-1">
+                  <div className="flex items-center gap-2 bg-orange-50 border border-orange-200 rounded-lg px-3 py-1.5">
+                    <Wallet className="w-3.5 h-3.5 text-orange-600 flex-shrink-0" />
+                    <span className="text-xs font-semibold text-orange-800">Other Expense (₹):</span>
                     <input type="number" value={otherExpense||""} onChange={e => setOtherExpense(parseFloat(e.target.value)||0)}
-                      className="border border-gray-300 rounded px-2 py-1 text-sm w-28" data-testid="input-pnl-other-expense" />
-                  </div>
-                  <div className="ml-auto">
-                    <span className="font-bold text-sm">Total Expense: </span>
-                    <span className="font-bold text-base text-red-700">{fmtINR(totalExpense)}</span>
+                      className="border-0 bg-transparent text-xs font-bold text-orange-900 outline-none w-24" data-testid="input-pnl-other-expense" placeholder="0.00" />
                   </div>
                 </div>
               </div>
 
               {/* ─── SALE PERMANENT STAFF ─── */}
-              <div className="bg-white rounded-lg shadow-sm p-3 mb-4">
-                <div className="text-center font-bold py-1 mb-2 text-white text-sm rounded" style={{ background: "#166534" }}>SALE PERMANENT STAFF</div>
-                <div className="text-xs text-gray-500 mb-2 italic">
-                  Cash &amp; Online Qty auto-loaded from Daily Cash Seal (PS). Breakfast ×₹5 · Lunch ×₹20 · Evening ×₹10 · Night ×₹10 | Bill: Breakfast ×₹30 · Lunch ×₹50 · Evening ×₹30 · Night ×₹17
+              <div className="bg-white rounded-xl border border-emerald-100 shadow-sm p-3 mb-4">
+                <div className="flex items-center gap-3 mb-3 pb-3 border-b border-emerald-100">
+                  <div className="w-9 h-9 rounded-xl bg-emerald-700 flex items-center justify-center shadow-sm flex-shrink-0">
+                    <Users className="w-4.5 h-4.5 text-white" />
+                  </div>
+                  <div>
+                    <h3 className="font-bold text-sm text-emerald-800 leading-tight">SALE — PERMANENT STAFF</h3>
+                    <p className="text-[10px] text-gray-400 leading-tight">Cash ×₹5/₹20/₹10/₹10 · Online ×₹5/₹20/₹10/₹10 · Bill ×₹30/₹50/₹30/₹17</p>
+                  </div>
+                  <div className="ml-auto text-right">
+                    <div className="text-[10px] text-gray-400 uppercase tracking-wide">Total PS Sale</div>
+                    <div className="text-base font-bold text-emerald-700">{fmtINR(totalPsSale)}</div>
+                  </div>
                 </div>
                 {mobileView
                   ? <PsSaleCards rows={psSale} onChange={setPsSale} psCalc={psCalc} totalPsSale={totalPsSale} />
@@ -975,10 +1009,19 @@ export default function DailyPnlPage() {
               </div>
 
               {/* ─── SALE THIRD PARTY ─── */}
-              <div className="bg-white rounded-lg shadow-sm p-3 mb-4">
-                <div className="text-center font-bold py-1 mb-2 text-white text-sm rounded" style={{ background: "#1e3a8a" }}>SALE THIRD PARTY</div>
-                <div className="text-xs text-gray-500 mb-2 italic">
-                  Rates: Breakfast ₹20 · Lunch Veg ₹35 · Egg ₹45 · Chicken ₹65 · Fish ₹55 · Evening ₹20 · Night ₹30
+              <div className="bg-white rounded-xl border border-blue-100 shadow-sm p-3 mb-4">
+                <div className="flex items-center gap-3 mb-3 pb-3 border-b border-blue-100">
+                  <div className="w-9 h-9 rounded-xl bg-blue-800 flex items-center justify-center shadow-sm flex-shrink-0">
+                    <ShoppingCart className="w-4.5 h-4.5 text-white" />
+                  </div>
+                  <div>
+                    <h3 className="font-bold text-sm text-blue-900 leading-tight">SALE — THIRD PARTY</h3>
+                    <p className="text-[10px] text-gray-400 leading-tight">Breakfast ₹20 · Veg ₹35 · Egg ₹45 · Chicken ₹65 · Fish ₹55 · Evening ₹20 · Night ₹30</p>
+                  </div>
+                  <div className="ml-auto text-right">
+                    <div className="text-[10px] text-gray-400 uppercase tracking-wide">Total TP Sale</div>
+                    <div className="text-base font-bold text-blue-800">{fmtINR(totalTpSale)}</div>
+                  </div>
                 </div>
                 {mobileView
                   ? <TpSaleCards rows={tpSale} onChange={setTpSale} tpCalc={tpCalc} totalTpSale={totalTpSale} />
@@ -1028,67 +1071,99 @@ export default function DailyPnlPage() {
               </div>
 
               {/* ─── P&L SUMMARY ─── */}
-              <div className="bg-white rounded-lg shadow-sm p-4">
-                <div className="grid grid-cols-2 gap-2 mb-3 text-center text-xs">
-                  <div className="bg-green-50 border border-green-200 rounded p-2">
-                    <div className="text-green-700 font-medium">PS Sale Total</div>
-                    <div className="font-bold text-green-800">{fmtINR(totalPsSale)}</div>
+              <div className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden">
+                {/* Header */}
+                <div className="flex items-center gap-3 px-4 py-3 border-b border-gray-100 bg-gray-50">
+                  <div className="w-8 h-8 rounded-lg bg-slate-700 flex items-center justify-center flex-shrink-0">
+                    <ArrowUpDown className="w-4 h-4 text-white" />
                   </div>
-                  <div className="bg-blue-50 border border-blue-200 rounded p-2">
-                    <div className="text-blue-700 font-medium">TP Sale Total</div>
-                    <div className="font-bold text-blue-800">{fmtINR(totalTpSale)}</div>
-                  </div>
-                </div>
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-center mb-3">
-                  <div className="bg-red-50 border border-red-200 rounded-lg p-3">
-                    <div className="text-xs text-red-500 font-medium mb-1">Total Expense</div>
-                    <div className="text-lg font-bold text-red-700">{fmtINR(totalExpense)}</div>
-                  </div>
-                  <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
-                    <div className="text-xs text-blue-500 font-medium mb-1">Total Sale (PS + TP)</div>
-                    <div className="text-lg font-bold text-blue-700">{fmtINR(totalSale)}</div>
-                  </div>
-                  <div className={`border rounded-lg p-3 ${profitLoss >= 0 ? "bg-green-50 border-green-200" : "bg-red-50 border-red-200"}`}>
-                    <div className="flex items-center justify-center gap-1 text-xs font-medium mb-1" style={{ color: profitLoss >= 0 ? "#15803d" : "#b91c1c" }}>
-                      {profitLoss >= 0 ? <TrendingUp className="w-3.5 h-3.5" /> : <TrendingDown className="w-3.5 h-3.5" />}
-                      Profit / Loss
-                    </div>
-                    <div className="text-lg font-bold" style={{ color: profitLoss >= 0 ? "#15803d" : "#b91c1c" }}>{fmtINR(Math.abs(profitLoss))}</div>
-                    <div className="text-xs mt-0.5" style={{ color: profitLoss >= 0 ? "#15803d" : "#b91c1c" }}>{profitLoss >= 0 ? "Profit" : "Loss"}</div>
+                  <div>
+                    <h3 className="font-bold text-sm text-slate-800 leading-tight">P&amp;L SUMMARY</h3>
+                    <p className="text-[10px] text-gray-400 leading-tight">Profit &amp; Loss for {clientName || "—"} · {fmtDate(entryDate)}</p>
                   </div>
                 </div>
 
-                {/* ── Cash in Hand section ── */}
-                <div className="border-t border-amber-200 pt-3">
-                  <div className="text-xs font-semibold text-amber-800 mb-2 text-center">CASH IN HAND STATEMENT</div>
-                  <div className="grid grid-cols-1 sm:grid-cols-4 gap-2 text-center text-xs">
-                    <div className="bg-amber-50 border border-amber-200 rounded-lg p-2">
-                      <div className="text-amber-700 font-medium mb-1">Opening Balance</div>
+                {/* Top sales breakdown */}
+                <div className="grid grid-cols-3 divide-x divide-gray-100 border-b border-gray-100">
+                  <div className="px-4 py-3 text-center">
+                    <div className="text-[10px] text-gray-400 uppercase tracking-wide mb-0.5">PS Sale</div>
+                    <div className="text-sm font-bold text-emerald-700">{fmtINR(totalPsSale)}</div>
+                  </div>
+                  <div className="px-4 py-3 text-center">
+                    <div className="text-[10px] text-gray-400 uppercase tracking-wide mb-0.5">TP Sale</div>
+                    <div className="text-sm font-bold text-blue-700">{fmtINR(totalTpSale)}</div>
+                  </div>
+                  <div className="px-4 py-3 text-center">
+                    <div className="text-[10px] text-gray-400 uppercase tracking-wide mb-0.5">Total Sale</div>
+                    <div className="text-sm font-bold text-indigo-700">{fmtINR(totalSale)}</div>
+                  </div>
+                </div>
+
+                {/* Main P&L cards */}
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-0 divide-y sm:divide-y-0 sm:divide-x divide-gray-100">
+                  <div className="px-4 py-4 text-center bg-red-50/50">
+                    <div className="flex items-center justify-center gap-1.5 mb-1">
+                      <IndianRupee className="w-3.5 h-3.5 text-red-500" />
+                      <span className="text-xs text-red-500 font-semibold uppercase tracking-wide">Total Expense</span>
+                    </div>
+                    <div className="text-2xl font-bold text-red-700">{fmtINR(totalExpense)}</div>
+                  </div>
+                  <div className="px-4 py-4 text-center bg-blue-50/50">
+                    <div className="flex items-center justify-center gap-1.5 mb-1">
+                      <IndianRupee className="w-3.5 h-3.5 text-blue-500" />
+                      <span className="text-xs text-blue-500 font-semibold uppercase tracking-wide">Total Sale</span>
+                    </div>
+                    <div className="text-2xl font-bold text-blue-700">{fmtINR(totalSale)}</div>
+                  </div>
+                  <div className={`px-4 py-4 text-center ${profitLoss >= 0 ? "bg-green-50/70" : "bg-red-50/70"}`}>
+                    <div className="flex items-center justify-center gap-1.5 mb-1">
+                      {profitLoss >= 0
+                        ? <TrendingUp className="w-3.5 h-3.5 text-green-600" />
+                        : <TrendingDown className="w-3.5 h-3.5 text-red-600" />}
+                      <span className={`text-xs font-semibold uppercase tracking-wide ${profitLoss >= 0 ? "text-green-600" : "text-red-600"}`}>
+                        {profitLoss >= 0 ? "Profit" : "Loss"}
+                      </span>
+                    </div>
+                    <div className={`text-2xl font-bold ${profitLoss >= 0 ? "text-green-700" : "text-red-700"}`}>
+                      {profitLoss >= 0 ? "+" : "−"}{fmtINR(Math.abs(profitLoss))}
+                    </div>
+                  </div>
+                </div>
+
+                {/* Cash in Hand */}
+                <div className="border-t border-dashed border-amber-200 bg-amber-50/30 px-4 py-3">
+                  <div className="flex items-center gap-2 mb-3">
+                    <Wallet className="w-3.5 h-3.5 text-amber-700" />
+                    <span className="text-xs font-bold text-amber-800 uppercase tracking-wide">Cash in Hand Statement</span>
+                  </div>
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-center text-xs">
+                    <div className="bg-white border border-amber-200 rounded-lg p-2 shadow-sm">
+                      <div className="text-amber-600 font-semibold mb-1 text-[11px]">Opening Balance</div>
                       <input
                         type="number"
                         value={openingBalance || ""}
                         onChange={e => setOpeningBalance(parseFloat(e.target.value) || 0)}
-                        className="w-full text-center text-sm font-bold text-amber-800 border border-amber-300 rounded px-1 py-0.5 bg-white"
+                        className="w-full text-center text-sm font-bold text-amber-900 border border-amber-300 rounded px-1 py-0.5 bg-amber-50 outline-none focus:ring-1 focus:ring-amber-400"
                         placeholder="0.00"
                         data-testid="input-opening-balance"
                       />
-                      <div className="text-amber-500 text-[10px] mt-0.5">Auto from prev. day</div>
+                      <div className="text-amber-400 text-[9px] mt-0.5">Auto from prev. day</div>
                     </div>
-                    <div className="bg-green-50 border border-green-200 rounded-lg p-2">
-                      <div className="text-green-700 font-medium mb-1">Cash Received (PS)</div>
+                    <div className="bg-white border border-green-200 rounded-lg p-2 shadow-sm">
+                      <div className="text-green-600 font-semibold mb-1 text-[11px]">Cash from PS</div>
                       <div className="text-sm font-bold text-green-800">{fmtINR(cashFromPs)}</div>
-                      <div className="text-green-500 text-[10px] mt-0.5">PS cash sales</div>
+                      <div className="text-green-400 text-[9px] mt-0.5">PS cash sales</div>
                     </div>
-                    <div className="bg-teal-50 border border-teal-200 rounded-lg p-2">
-                      <div className="text-teal-700 font-medium mb-1">Cash Received (TP)</div>
+                    <div className="bg-white border border-teal-200 rounded-lg p-2 shadow-sm">
+                      <div className="text-teal-600 font-semibold mb-1 text-[11px]">Cash from TP</div>
                       <div className="text-sm font-bold text-teal-800">{fmtINR(cashFromTp)}</div>
-                      <div className="text-teal-500 text-[10px] mt-0.5">TP cash sales</div>
+                      <div className="text-teal-400 text-[9px] mt-0.5">TP cash sales</div>
                     </div>
-                    <div className={`border rounded-lg p-2 ${balanceInHand >= 0 ? "bg-emerald-50 border-emerald-300" : "bg-red-50 border-red-300"}`}>
-                      <div className={`font-semibold mb-1 ${balanceInHand >= 0 ? "text-emerald-700" : "text-red-700"}`}>Balance in Hand</div>
+                    <div className={`bg-white rounded-lg p-2 shadow-sm ${balanceInHand >= 0 ? "border border-emerald-300" : "border border-red-300"}`}>
+                      <div className={`font-semibold mb-1 text-[11px] ${balanceInHand >= 0 ? "text-emerald-700" : "text-red-700"}`}>Balance in Hand</div>
                       <div className={`text-sm font-bold ${balanceInHand >= 0 ? "text-emerald-800" : "text-red-800"}`}>{fmtINR(Math.abs(balanceInHand))}</div>
-                      <div className={`text-[10px] mt-0.5 ${balanceInHand >= 0 ? "text-emerald-600" : "text-red-600"}`}>
-                        {balanceInHand >= 0 ? "Opening + Cash In − Expenses" : "Deficit"}
+                      <div className={`text-[9px] mt-0.5 ${balanceInHand >= 0 ? "text-emerald-500" : "text-red-500"}`}>
+                        {balanceInHand >= 0 ? "Cash surplus" : "Deficit"}
                       </div>
                     </div>
                   </div>
@@ -1100,15 +1175,15 @@ export default function DailyPnlPage() {
 
         {/* ═══ DASHBOARD / REPORTS TAB ═══ */}
         {tab === "dashboard" && (
-          <div className="bg-white rounded-lg shadow-sm p-3">
+          <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-4">
 
             {/* Sub-tab bar */}
-            <div className="flex gap-1 mb-4 border-b border-gray-200 pb-2">
+            <div className="flex gap-2 mb-5">
               {(["daily","monthly","yearly"] as const).map(v => (
                 <button key={v} onClick={() => setDashView(v)}
-                  className={`px-4 py-1.5 rounded-t text-xs font-semibold capitalize transition-colors ${dashView === v ? "bg-amber-700 text-white" : "bg-gray-100 text-gray-600 hover:bg-gray-200"}`}
+                  className={`px-4 py-2 rounded-lg text-xs font-semibold transition-all ${dashView === v ? "bg-amber-700 text-white shadow-sm" : "bg-gray-100 text-gray-600 hover:bg-gray-200"}`}
                   data-testid={`btn-dash-${v}`}>
-                  {v === "daily" ? "Daily" : v === "monthly" ? "Monthly Report" : "Yearly Report"}
+                  {v === "daily" ? "Daily View" : v === "monthly" ? "Monthly Report" : "Yearly Report"}
                 </button>
               ))}
             </div>
