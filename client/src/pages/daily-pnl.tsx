@@ -65,7 +65,6 @@ function ExpenseTable({ rows, onChange, onAdd, onDelete, onBlurItem, itemNames }
 }) {
   const th = { border: "1px solid #ddd", padding: "3px 5px", textAlign: "center" as const, background: "#f5f5f5", fontSize: 11, fontWeight: "bold" };
   const td = { border: "1px solid #ddd", padding: "2px 4px", fontSize: 11 };
-  // unique id per table instance
   const lid = `iml-${rows[0]?.slNo ?? 0}`;
   return (
     <div className="overflow-x-auto">
@@ -73,8 +72,10 @@ function ExpenseTable({ rows, onChange, onAdd, onDelete, onBlurItem, itemNames }
       <table className="w-full border-collapse" style={{ fontSize: 11 }}>
         <thead><tr>
           <th style={{ ...th, width: 35 }}>Sl.No</th>
-          <th style={{ ...th, minWidth: 200 }}>Item Name</th>
-          <th style={{ ...th, width: 110 }}>Amount (₹)</th>
+          <th style={{ ...th, minWidth: 160 }}>Item Name</th>
+          <th style={{ ...th, width: 60 }}>Qty</th>
+          <th style={{ ...th, width: 80 }}>Rate (₹)</th>
+          <th style={{ ...th, width: 100 }}>Amount (₹)</th>
           <th style={{ ...th, width: 28 }}></th>
         </tr></thead>
         <tbody>
@@ -86,19 +87,37 @@ function ExpenseTable({ rows, onChange, onAdd, onDelete, onBlurItem, itemNames }
                   onChange={e => onChange(rows.map((x, xi) => xi === i ? { ...x, itemName: e.target.value } : x))}
                   onBlur={() => onBlurItem?.(i)} placeholder="Type or select…" />
               </td>
+              <td style={{ ...td, background: "#fffbeb" }}>
+                <input type="number" className="w-full border-0 outline-none bg-transparent text-xs text-right" value={r.qty || ""}
+                  onChange={e => {
+                    const qty = parseFloat(e.target.value) || 0;
+                    const total = qty > 0 && r.rate > 0 ? parseFloat((qty * r.rate).toFixed(2)) : r.total;
+                    onChange(rows.map((x, xi) => xi === i ? { ...x, qty, total } : x));
+                  }}
+                  placeholder="0" />
+              </td>
+              <td style={{ ...td, background: "#fff7ed" }}>
+                <input type="number" className="w-full border-0 outline-none bg-transparent text-xs text-right" value={r.rate || ""}
+                  onChange={e => {
+                    const rate = parseFloat(e.target.value) || 0;
+                    const total = r.qty > 0 && rate > 0 ? parseFloat((r.qty * rate).toFixed(2)) : r.total;
+                    onChange(rows.map((x, xi) => xi === i ? { ...x, rate, total } : x));
+                  }}
+                  placeholder="0.00" />
+              </td>
               <td style={{ ...td, background: "#f0fdf4" }}>
-                <input type="number" className="w-full border-0 outline-none bg-transparent text-xs text-right font-bold" value={r.total||""}
+                <input type="number" className="w-full border-0 outline-none bg-transparent text-xs text-right font-bold" value={r.total || ""}
                   onChange={e => onChange(rows.map((x, xi) => xi === i ? { ...x, total: parseFloat(e.target.value) || 0 } : x))}
                   placeholder="0.00" />
               </td>
               <td style={{ ...td, textAlign: "center" }}><button onClick={() => onDelete(i)} className="text-red-400 hover:text-red-600 p-0.5"><Trash2 className="w-3 h-3" /></button></td>
             </tr>
           ))}
-          <tr><td colSpan={4} style={{ ...td, textAlign: "center", padding: 4 }}>
+          <tr><td colSpan={6} style={{ ...td, textAlign: "center", padding: 4 }}>
             <button onClick={onAdd} className="flex items-center gap-1 mx-auto text-blue-600 hover:text-blue-800 text-xs"><Plus className="w-3 h-3" /> Add Row</button>
           </td></tr>
           <tr>
-            <td colSpan={2} style={{ ...th, textAlign: "right" }}>Total</td>
+            <td colSpan={4} style={{ ...th, textAlign: "right" }}>Total</td>
             <td style={{ ...td, textAlign: "right", fontWeight: "bold", background: "#e8f0fe" }}>{rows.reduce((s, r) => s + r.total, 0).toLocaleString("en-IN", { minimumFractionDigits: 2 })}</td>
             <td style={td} />
           </tr>
@@ -131,11 +150,33 @@ function ExpenseCards({ rows, onChange, onAdd, onDelete, onBlurItem, itemNames, 
                 onBlur={() => onBlurItem?.(i)} />
               <button onClick={() => onDelete(i)} className="text-red-400 hover:text-red-600 p-0.5 ml-1"><Trash2 className="w-4 h-4" /></button>
             </div>
-            <div className="flex flex-col gap-0.5">
-              <label className="text-[10px] text-gray-500 font-medium uppercase tracking-wide">Amount (₹)</label>
-              <input type="number" inputMode="decimal" className="border border-green-200 rounded px-2 py-1 text-sm text-right font-bold outline-none bg-green-50"
-                value={r.total || ""} placeholder="0.00"
-                onChange={e => onChange(rows.map((x, xi) => xi === i ? { ...x, total: parseFloat(e.target.value) || 0 } : x))} />
+            <div className="grid grid-cols-3 gap-1.5">
+              <div className="flex flex-col gap-0.5">
+                <label className="text-[10px] text-gray-500 font-medium uppercase tracking-wide">Qty</label>
+                <input type="number" inputMode="decimal" className="border border-amber-200 rounded px-2 py-1 text-sm text-right outline-none bg-amber-50"
+                  value={r.qty || ""} placeholder="0"
+                  onChange={e => {
+                    const qty = parseFloat(e.target.value) || 0;
+                    const newTotal = qty > 0 && r.rate > 0 ? parseFloat((qty * r.rate).toFixed(2)) : r.total;
+                    onChange(rows.map((x, xi) => xi === i ? { ...x, qty, total: newTotal } : x));
+                  }} />
+              </div>
+              <div className="flex flex-col gap-0.5">
+                <label className="text-[10px] text-gray-500 font-medium uppercase tracking-wide">Rate (₹)</label>
+                <input type="number" inputMode="decimal" className="border border-orange-200 rounded px-2 py-1 text-sm text-right outline-none bg-orange-50"
+                  value={r.rate || ""} placeholder="0.00"
+                  onChange={e => {
+                    const rate = parseFloat(e.target.value) || 0;
+                    const newTotal = r.qty > 0 && rate > 0 ? parseFloat((r.qty * rate).toFixed(2)) : r.total;
+                    onChange(rows.map((x, xi) => xi === i ? { ...x, rate, total: newTotal } : x));
+                  }} />
+              </div>
+              <div className="flex flex-col gap-0.5">
+                <label className="text-[10px] text-gray-500 font-medium uppercase tracking-wide">Amount (₹)</label>
+                <input type="number" inputMode="decimal" className="border border-green-200 rounded px-2 py-1 text-sm text-right font-bold outline-none bg-green-50"
+                  value={r.total || ""} placeholder="0.00"
+                  onChange={e => onChange(rows.map((x, xi) => xi === i ? { ...x, total: parseFloat(e.target.value) || 0 } : x))} />
+              </div>
             </div>
           </div>
         ))}
