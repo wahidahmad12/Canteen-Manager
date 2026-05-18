@@ -81,7 +81,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
     { href: '/inventory', label: tr('dailyInventory'), icon: ClipboardList, perm: 'inventory' },
     { href: '/menu', label: tr('menuManager'), icon: UtensilsCrossed, perm: 'menu' },
     { href: '/bom', label: 'Bill of Material', icon: Package, perm: 'menu' },
-    { href: '/weekly-bom', label: 'Weekly Menu Plan', icon: CalendarDays, perm: 'menu' },
+    { href: '/weekly-bom', label: 'Weekly Menu BOM', icon: CalendarDays, perm: 'menu' },
     { href: '/purchase-request', label: tr('purchaseRequest'), icon: ShoppingCart, perm: 'purchase' },
     { href: '/purchase-invoice', label: tr('purchaseInvoices'), icon: Receipt, perm: 'purchase' },
     { href: '/price-history', label: 'Price History', icon: History, perm: 'purchase' },
