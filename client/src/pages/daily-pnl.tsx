@@ -505,19 +505,28 @@ export default function DailyPnlPage() {
     return null;
   }
 
-  function buildDishCost(items: any[]): Map<string, number> {
+  // Replicates fmtTotal from bom.tsx: gm→kg, ml→L when total >= 1000.
+  // The BOM rate input always shows "per [display unit]", so we must apply
+  // the same conversion before multiplying rate × qty.
+  // hc=100 matches the default BOM headcount under which rates are typically entered.
+  function buildDishCost(items: any[], hc = 100): Map<string, number> {
     const m = new Map<string, number>();
     items.forEach((item: any) => {
       const dish = (item.dishName || "").trim();
       if (!dish) return;
-      const qty = parseFloat(item.qtyPerPerson || "0");
-      if (!qty) return;
-      // Only use manualRate — matches exactly what BOM page shows.
-      // Ingredients without manualRate contribute 0 (no purchase-invoice fallback).
+      const rawQty = parseFloat(item.qtyPerPerson || "0");
+      if (!rawQty) return;
       const manualRate = parseFloat(item.manualRate || "0");
-      if (manualRate > 0) {
-        m.set(dish, (m.get(dish) || 0) + manualRate * qty);
-      }
+      if (!(manualRate > 0)) return;
+      const uom = (item.uom || "").toLowerCase();
+      const totalRaw = rawQty * hc;
+      // Convert to display unit (same rule as fmtTotal in bom.tsx)
+      const displayTotal = (uom === "gm" || uom === "ml") && totalRaw >= 1000
+        ? totalRaw / 1000
+        : totalRaw;
+      // Per-person cost in display units
+      const perPerson = manualRate * displayTotal / hc;
+      m.set(dish, (m.get(dish) || 0) + perPerson);
     });
     return m;
   }

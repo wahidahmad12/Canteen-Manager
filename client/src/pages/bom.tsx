@@ -947,12 +947,14 @@ export default function BomPage() {
                     </div>
                     <div className="flex items-center gap-3">
                       {(() => {
+                        // Use same hc to determine display unit (gm→kg when total≥1000),
+                        // then divide by hc for per-plate — matches sidebar Est. Cost logic.
                         const perPlateCost = dishItems.reduce((s, i) => {
                           const manualRate = parseFloat(i.manualRate || "0");
                           if (!manualRate) return s;
-                          const ft1 = fmtTotal(i.qtyPerPerson, i.uom, 1);
-                          return s + manualRate * parseFloat(ft1.value);
-                        }, 0);
+                          const ft = fmtTotal(i.qtyPerPerson, i.uom, hc);
+                          return s + manualRate * parseFloat(ft.value);
+                        }, 0) / hc;
                         return perPlateCost > 0 ? (
                           <div className="text-right bg-orange-500/20 border border-orange-400/40 rounded-lg px-3 py-1.5">
                             <p className="text-[10px] text-orange-200">Cost / Plate</p>
