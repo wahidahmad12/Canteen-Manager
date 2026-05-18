@@ -44,3 +44,7 @@ waitForPort = 5000
 
 [userenv.shared]
 TIDB_DATABASE_URL = "mysql://2Ro6q6fVJwNZr3P.root:Vte7ggDzFrOeFYAc@gateway01.ap-southeast-1.prod.aws.tidbcloud.com:4000/test"
+
+[postMerge]
+path = "scripts/post-merge.sh"
+timeoutMs = 20000
