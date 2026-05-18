@@ -1070,6 +1070,33 @@ export class DatabaseStorage implements IStorage {
   }
 
   async seedAdminUser(): Promise<void> {
+    const isDev = process.env.NODE_ENV === "development" || process.env.NODE_ENV === "test";
+
+    if (!isDev) {
+      const bootstrapPassword = process.env.ADMIN_BOOTSTRAP_PASSWORD;
+      if (!bootstrapPassword) {
+        console.warn(
+          "[security] seedAdminUser: default admin credentials are disabled outside development/test. " +
+          "Set ADMIN_BOOTSTRAP_PASSWORD to provision the initial admin account on first startup."
+        );
+        return;
+      }
+      const existing = await db.select().from(users).where(eq(users.username, "admin"));
+      if (existing.length === 0) {
+        const passwordHash = await bcrypt.hash(bootstrapPassword, 10);
+        await db.insert(users).values({
+          username: "admin",
+          passwordHash,
+          displayName: "Administrator",
+          role: "admin",
+          clientName: null,
+          permissions: ['expense','cashseal','inventory','menu','purchase','labour'],
+        });
+        console.info("[security] seedAdminUser: initial admin account created from ADMIN_BOOTSTRAP_PASSWORD.");
+      }
+      return;
+    }
+
     const existing = await db.select().from(users).where(eq(users.username, "admin"));
     if (existing.length === 0) {
       const passwordHash = await bcrypt.hash("admin123", 10);
