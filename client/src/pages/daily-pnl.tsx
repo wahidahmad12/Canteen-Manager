@@ -512,27 +512,20 @@ export default function DailyPnlPage() {
       if (!dish) return;
       const qty = parseFloat(item.qtyPerPerson || "0");
       if (!qty) return;
-
-      // Priority 1: manualRate stored on the BOM item — this is what the BOM page shows
+      // Only use manualRate — matches exactly what BOM page shows.
+      // Ingredients without manualRate contribute 0 (no purchase-invoice fallback).
       const manualRate = parseFloat(item.manualRate || "0");
       if (manualRate > 0) {
         m.set(dish, (m.get(dish) || 0) + manualRate * qty);
-        return;
       }
-
-      // Priority 2: purchase invoice / item master price (with UOM conversion)
-      const priceEntry = resolveBomPrice(item.ingredientName || "");
-      if (!priceEntry) return;
-      const converted = qtyConverted(qty, item.uom || '', priceEntry.uom);
-      m.set(dish, (m.get(dish) || 0) + priceEntry.unitPrice * converted);
     });
     return m;
   }
 
-  const bomBreakfastCost = useMemo(() => buildDishCost(bomBreakfast), [bomBreakfast, bomPriceMap, itemMasterBomMap]);
-  const bomLunchCost     = useMemo(() => buildDishCost(bomLunch),     [bomLunch,     bomPriceMap, itemMasterBomMap]);
-  const bomEveningCost   = useMemo(() => buildDishCost(bomEvening),   [bomEvening,   bomPriceMap, itemMasterBomMap]);
-  const bomNightCost     = useMemo(() => buildDishCost(bomNight),     [bomNight,     bomPriceMap, itemMasterBomMap]);
+  const bomBreakfastCost = useMemo(() => buildDishCost(bomBreakfast), [bomBreakfast]);
+  const bomLunchCost     = useMemo(() => buildDishCost(bomLunch),     [bomLunch]);
+  const bomEveningCost   = useMemo(() => buildDishCost(bomEvening),   [bomEvening]);
+  const bomNightCost     = useMemo(() => buildDishCost(bomNight),     [bomNight]);
 
   const bomBreakfastNames = useMemo(() => [...new Set(bomBreakfast.map((i: any) => i.dishName))].filter(Boolean) as string[], [bomBreakfast]);
   const bomLunchNames     = useMemo(() => [...new Set(bomLunch.map((i: any)     => i.dishName))].filter(Boolean) as string[], [bomLunch]);
