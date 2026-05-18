@@ -3030,10 +3030,14 @@ export class DatabaseStorage implements IStorage {
   }
 
   // === BILL OF MATERIAL ===
-  async getBomItems(clientName: string, mealType: string): Promise<any[]> {
+  async getBomItems(clientNames: string | string[], mealType: string): Promise<any[]> {
     const { bomItems } = await import('../shared/schema');
-    const { eq, and } = await import('drizzle-orm');
-    return db.select().from(bomItems).where(and(eq(bomItems.clientName, clientName), eq(bomItems.mealType, mealType))).orderBy(bomItems.dishName, bomItems.categoryName, bomItems.sortOrder, bomItems.ingredientName);
+    const { eq, and, inArray } = await import('drizzle-orm');
+    const names = Array.isArray(clientNames) ? clientNames : [clientNames];
+    const clientFilter = names.length === 1
+      ? eq(bomItems.clientName, names[0])
+      : inArray(bomItems.clientName, names);
+    return db.select().from(bomItems).where(and(clientFilter, eq(bomItems.mealType, mealType))).orderBy(bomItems.dishName, bomItems.categoryName, bomItems.sortOrder, bomItems.ingredientName);
   }
   async createBomItem(data: any): Promise<any> {
     const { bomItems } = await import('../shared/schema');

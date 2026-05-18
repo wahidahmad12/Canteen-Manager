@@ -2625,12 +2625,22 @@ export async function registerRoutes(
   });
 
   // === BILL OF MATERIAL ===
+  // Known aliases: DB full names ↔ legacy BOM short codes
+  const BOM_ALIASES: Record<string, string[]> = {
+    "Hindustan Unilever Limited": ["Hindustan Unilever Limited", "HUL - KPF", "HUL - TEC"],
+    "HUL - KPF":  ["HUL - KPF",  "Hindustan Unilever Limited"],
+    "HUL - TEC":  ["HUL - TEC",  "Hindustan Unilever Limited"],
+    "United Breweries Limited": ["United Breweries Limited", "UBL"],
+    "UBL": ["UBL", "United Breweries Limited"],
+  };
+
   app.get('/api/bom-items', requireAuth, async (req, res) => {
     try {
       const clientName = String(req.query.clientName || '');
       const mealType = String(req.query.mealType || '');
       if (!clientName || !mealType) return res.status(400).json({ message: 'clientName and mealType are required' });
-      res.json(await storage.getBomItems(clientName, mealType));
+      const clientNames = BOM_ALIASES[clientName] ?? [clientName];
+      res.json(await storage.getBomItems(clientNames, mealType));
     } catch (err: any) { res.status(500).json({ message: err.message }); }
   });
   app.post('/api/bom-items', requireAuth, async (req, res) => {
