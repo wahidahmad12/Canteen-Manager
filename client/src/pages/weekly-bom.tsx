@@ -653,11 +653,11 @@ export default function WeeklyBomPage() {
                           <td className="border border-slate-200 px-3 py-1 text-center font-bold text-orange-700 bg-orange-50">
                             {row.total.toLocaleString("en-IN")}
                           </td>
-                          <td className="border border-slate-200 p-0.5 bg-blue-50">
+                          <td className="border border-slate-200 p-1 bg-blue-50">
                             <Input
                               type="number" min="0" step="0.01"
-                              className="h-6 text-xs text-center w-full border-0 bg-transparent focus-visible:ring-0 font-semibold text-blue-800"
-                              placeholder="0.00"
+                              className="h-7 text-xs text-center w-full font-semibold text-blue-900 border border-blue-300 bg-white rounded focus-visible:ring-1 focus-visible:ring-blue-500"
+                              placeholder="Enter rate"
                               value={row.rate || ""}
                               onChange={e => setRate(row.rateKey, parseFloat(e.target.value) || 0)}
                               data-testid={`rate-${row.rateKey}`}
