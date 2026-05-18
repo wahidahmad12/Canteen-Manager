@@ -201,6 +201,15 @@ function parseQty(q: string): { qty: number; unit: string } {
   return { qty: parseFloat(m[1]), unit: m[2].trim().toLowerCase() };
 }
 
+// Convert raw unit to a practical display unit
+// gm → kg (÷1000),  ml → L (÷1000),  others unchanged
+function getDisplayUnit(unit: string): { displayUnit: string; divisor: number } {
+  const u = unit.toLowerCase().trim();
+  if (["gm", "g", "gram", "grams"].includes(u)) return { displayUnit: "kg", divisor: 1000 };
+  if (["ml", "milliliter", "millilitre"].includes(u)) return { displayUnit: "L", divisor: 1000 };
+  return { displayUnit: unit, divisor: 1 };
+}
+
 export default function WeeklyBomPage() {
   const { toast } = useToast();
   const qc = useQueryClient();
@@ -337,8 +346,13 @@ export default function WeeklyBomPage() {
       .map(row => {
         const rateKey = `${row.dishName.toLowerCase()}|${row.unit}`;
         const rate = rates[rateKey] ?? 0;
-        const cost = rate > 0 ? row.total * rate : 0;
-        return { ...row, rateKey, rate, cost };
+        const { displayUnit, divisor } = getDisplayUnit(row.unit);
+        const displayTotal = row.total / divisor;
+        // Day totals also converted for display
+        const displayByDay: Record<string, number> = {};
+        Object.entries(row.byDay).forEach(([d, v]) => { displayByDay[d] = v / divisor; });
+        const cost = rate > 0 ? displayTotal * rate : 0;
+        return { ...row, rateKey, rate, cost, displayUnit, displayTotal, displayByDay };
       });
   }, [items, headcount, rates]);
 
@@ -621,11 +635,11 @@ export default function WeeklyBomPage() {
               <div className="flex items-center justify-between mb-2">
                 <h2 className="text-sm font-bold text-slate-700">Step 2 — Raw Material Requirements (BOM)</h2>
                 <Button size="sm" variant="outline" onClick={() => {
-                  const rows = [["Ingredient","Unit","Mon","Tue","Wed","Thu","Fri","Sat","Total (pax)","Rate (₹)","Cost (₹)"]];
+                  const rows = [["Ingredient","Unit","Mon","Tue","Wed","Thu","Fri","Sat","Total (pax)","Rate (₹/unit)","Cost (₹)"]];
                   bomRows.forEach(r => rows.push([
-                    r.dishName, r.unit,
-                    ...DAYS.map(d => String(r.byDay[d.key] ?? 0)),
-                    String(r.total),
+                    r.dishName, r.displayUnit,
+                    ...DAYS.map(d => r.displayByDay[d.key] ? r.displayByDay[d.key].toFixed(3) : "0"),
+                    r.displayTotal.toFixed(3),
                     String(r.rate),
                     String(r.cost.toFixed(2)),
                   ]));
@@ -653,7 +667,7 @@ export default function WeeklyBomPage() {
                         <th className="border border-slate-600 px-2 py-2 text-center">Unit</th>
                         {DAYS.map(d => <th key={d.key} className="border border-slate-600 px-2 py-2 text-center">{d.short}</th>)}
                         <th className="border border-slate-600 px-3 py-2 text-center bg-orange-600">Total (pax)</th>
-                        <th className="border border-slate-600 px-3 py-2 text-center bg-blue-700">Rate (₹)</th>
+                        <th className="border border-slate-600 px-3 py-2 text-center bg-blue-700">Rate (₹/unit)</th>
                         <th className="border border-slate-600 px-3 py-2 text-center bg-green-700">Cost (₹)</th>
                       </tr>
                     </thead>
@@ -661,27 +675,36 @@ export default function WeeklyBomPage() {
                       {bomRows.map((row, i) => (
                         <tr key={row.dishName + row.unit} className={i % 2 === 0 ? "bg-white" : "bg-slate-50"}>
                           <td className="border border-slate-200 px-3 py-1 font-semibold">{row.dishName}</td>
-                          <td className="border border-slate-200 px-2 py-1 text-center text-slate-500">{row.unit}</td>
+                          <td className="border border-slate-200 px-2 py-1 text-center text-slate-500 font-medium">{row.displayUnit}</td>
                           {DAYS.map(d => (
                             <td key={d.key} className="border border-slate-200 px-2 py-1 text-center">
-                              {row.byDay[d.key] ? row.byDay[d.key].toLocaleString("en-IN") : <span className="text-slate-300">—</span>}
+                              {row.displayByDay[d.key]
+                                ? <span>{row.displayByDay[d.key].toFixed(3)}</span>
+                                : <span className="text-slate-300">—</span>}
                             </td>
                           ))}
                           <td className="border border-slate-200 px-3 py-1 text-center font-bold text-orange-700 bg-orange-50">
-                            {row.total.toLocaleString("en-IN")}
+                            {row.displayTotal > 0
+                              ? <span>{row.displayTotal.toFixed(3)} <span className="text-xs font-normal text-orange-500">{row.displayUnit}</span></span>
+                              : <span className="text-slate-300">—</span>}
                           </td>
                           <td className="border border-slate-200 p-1 bg-blue-50">
                             <Input
                               type="number" min="0" step="0.01"
                               className="h-7 text-xs text-center w-full font-semibold text-blue-900 border border-blue-300 bg-white rounded focus-visible:ring-1 focus-visible:ring-blue-500"
-                              placeholder="Enter rate"
+                              placeholder={`₹ per ${row.displayUnit}`}
                               value={row.rate || ""}
                               onChange={e => setRate(row.rateKey, row.dishName, row.unit, parseFloat(e.target.value) || 0)}
                               data-testid={`rate-${row.rateKey}`}
                             />
                           </td>
-                          <td className="border border-slate-200 px-3 py-1 text-center font-bold text-green-700 bg-green-50">
-                            {row.cost > 0 ? `₹${row.cost.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : <span className="text-slate-300">—</span>}
+                          <td className="border border-slate-200 px-3 py-1 bg-green-50">
+                            {row.cost > 0 ? (
+                              <div className="text-center">
+                                <div className="font-bold text-green-700">₹{row.cost.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div>
+                                <div className="text-[9px] text-slate-400">{row.displayTotal.toFixed(3)} × ₹{row.rate}</div>
+                              </div>
+                            ) : <span className="text-slate-300 block text-center">—</span>}
                           </td>
                         </tr>
                       ))}
@@ -690,7 +713,7 @@ export default function WeeklyBomPage() {
                       <tfoot>
                         <tr className="bg-green-800 text-white font-bold">
                           <td colSpan={8} className="border border-green-700 px-3 py-2 text-right text-xs tracking-wide">GRAND TOTAL COST</td>
-                          <td className="border border-green-700 px-3 py-2 text-center text-sm">
+                          <td colSpan={2} className="border border-green-700 px-3 py-2 text-center text-sm">
                             ₹{bomRows.reduce((s, r) => s + r.cost, 0).toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                           </td>
                         </tr>
