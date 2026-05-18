@@ -87,6 +87,76 @@ export async function registerRoutes(
     }
   });
 
+  const loginChallenges = new Map<string, string>();
+
+  app.post("/api/auth/webauthn/login/challenge", async (req, res) => {
+    try {
+      const { username } = req.body;
+      if (!username) return res.status(400).json({ message: "Username is required" });
+      const user = await storage.getUserByUsername(username);
+      if (!user || !user.isActive) return res.status(400).json({ message: "User not found or disabled" });
+      if (!user.employeeId) return res.status(400).json({ message: "No fingerprint linked to this account" });
+      const creds = await storage.getEmployeeWebAuthnCredentials(Number(user.employeeId));
+      if (!creds.length) return res.status(400).json({ message: "No fingerprint registered. Ask admin to enrol your fingerprint first." });
+      const rpID = req.hostname;
+      const options = await generateAuthenticationOptions({
+        rpID,
+        timeout: 60000,
+        allowCredentials: creds.map((c: any) => ({
+          id: bufToStr(c.credential_id),
+          type: "public-key" as const,
+          transports: JSON.parse(bufToStr(c.transports || "[]")),
+        })),
+        userVerification: "required",
+      });
+      loginChallenges.set(username, options.challenge);
+      res.json(options);
+    } catch (err: any) { res.status(500).json({ message: err.message }); }
+  });
+
+  app.post("/api/auth/webauthn/login/verify", async (req, res) => {
+    try {
+      const { username, authenticationResponse } = req.body;
+      const challenge = loginChallenges.get(username);
+      if (!challenge) return res.status(400).json({ message: "No challenge found. Please try again." });
+      const user = await storage.getUserByUsername(username);
+      if (!user || !user.isActive) return res.status(400).json({ message: "User not found or disabled" });
+      if (!user.employeeId) return res.status(400).json({ message: "No fingerprint linked to this account" });
+      const rpID = req.hostname;
+      const origin = (req.headers.origin as string) || `https://${rpID}`;
+      const creds = await storage.getEmployeeWebAuthnCredentials(Number(user.employeeId));
+      const cred = creds.find((c: any) => bufToStr(c.credential_id) === authenticationResponse.id);
+      if (!cred) return res.status(400).json({ message: "Credential not found for this device" });
+      const verification = await verifyAuthenticationResponse({
+        response: authenticationResponse,
+        expectedChallenge: challenge,
+        expectedOrigin: origin,
+        expectedRPID: rpID,
+        requireUserVerification: true,
+        credential: {
+          id: bufToStr(cred.credential_id),
+          publicKey: isoBase64URL.toBuffer(bufToStr(cred.public_key)),
+          counter: Number(cred.counter),
+          transports: JSON.parse(bufToStr(cred.transports || "[]")),
+        },
+      });
+      if (!verification.verified) return res.status(400).json({ message: "Fingerprint verification failed" });
+      await storage.updateWebAuthnCounter(bufToStr(cred.credential_id), verification.authenticationInfo.newCounter);
+      loginChallenges.delete(username);
+      req.session.userId = user.id;
+      req.session.username = user.username;
+      req.session.role = user.role;
+      req.session.clientName = user.clientName;
+      req.session.displayName = user.displayName;
+      req.session.permissions = user.permissions;
+      req.session.employeeId = user.employeeId;
+      req.session.save((err) => {
+        if (err) return res.status(500).json({ message: "Session save failed" });
+        res.json({ id: user.id, username: user.username, displayName: user.displayName, role: user.role, clientName: user.clientName, permissions: user.permissions, employeeId: user.employeeId });
+      });
+    } catch (err: any) { res.status(400).json({ message: err.message || "Authentication failed" }); }
+  });
+
   app.post(api.auth.logout.path, (req, res) => {
     req.session.destroy((err) => {
       if (err) return res.status(500).json({ message: "Failed to logout" });

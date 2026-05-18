@@ -8,12 +8,14 @@ import { useToast } from "@/hooks/use-toast";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { api } from "@shared/routes";
 import logoImg from "@assets/logo1_1771660912341.png";
+import { startAuthentication } from "@simplewebauthn/browser";
 
 export default function Login() {
   const [, setLocation] = useLocation();
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [showPwd, setShowPwd] = useState(false);
+  const [fpLoading, setFpLoading] = useState(false);
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
@@ -43,6 +45,47 @@ export default function Login() {
     e.preventDefault();
     if (!username.trim() || !password.trim()) return;
     loginMutation.mutate({ username, password });
+  };
+
+  const handleFingerprint = async () => {
+    if (!username.trim()) {
+      toast({ title: "Username required", description: "Please enter your username first, then tap the fingerprint button.", variant: "destructive" });
+      return;
+    }
+    setFpLoading(true);
+    try {
+      const challengeRes = await fetch("/api/auth/webauthn/login/challenge", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ username: username.trim() }),
+        credentials: "include",
+      });
+      if (!challengeRes.ok) {
+        const err = await challengeRes.json();
+        throw new Error(err.message || "Could not start fingerprint login");
+      }
+      const options = await challengeRes.json();
+      const authResponse = await startAuthentication({ optionsJSON: options });
+      const verifyRes = await fetch("/api/auth/webauthn/login/verify", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ username: username.trim(), authenticationResponse: authResponse }),
+        credentials: "include",
+      });
+      if (!verifyRes.ok) {
+        const err = await verifyRes.json();
+        throw new Error(err.message || "Fingerprint verification failed");
+      }
+      queryClient.invalidateQueries({ queryKey: [api.auth.me.path] });
+    } catch (err: any) {
+      if (err?.name === "NotAllowedError") {
+        toast({ title: "Cancelled", description: "Fingerprint scan was cancelled.", variant: "destructive" });
+      } else {
+        toast({ title: "Fingerprint Login Failed", description: err.message || "Could not verify fingerprint", variant: "destructive" });
+      }
+    } finally {
+      setFpLoading(false);
+    }
   };
 
   return (
@@ -104,19 +147,42 @@ export default function Login() {
                 </button>
               </div>
             </div>
-            <Button
-              type="submit"
-              className="w-full h-11 bg-gradient-to-r from-teal-600 to-teal-500 hover:from-teal-500 hover:to-teal-400 text-white font-semibold shadow-lg shadow-teal-900/40 border-0 mt-2"
-              disabled={loginMutation.isPending || !username.trim() || !password.trim()}
-              data-testid="button-login"
-            >
-              {loginMutation.isPending ? (
-                <Loader2 className="w-4 h-4 animate-spin mr-2" />
-              ) : (
-                <LogIn className="w-4 h-4 mr-2" />
-              )}
-              {loginMutation.isPending ? "Signing in..." : "Sign In"}
-            </Button>
+
+            {/* Sign In + Fingerprint row */}
+            <div className="flex gap-2 mt-2">
+              <Button
+                type="submit"
+                className="flex-1 h-11 bg-gradient-to-r from-teal-600 to-teal-500 hover:from-teal-500 hover:to-teal-400 text-white font-semibold shadow-lg shadow-teal-900/40 border-0"
+                disabled={loginMutation.isPending || !username.trim() || !password.trim()}
+                data-testid="button-login"
+              >
+                {loginMutation.isPending ? (
+                  <Loader2 className="w-4 h-4 animate-spin mr-2" />
+                ) : (
+                  <LogIn className="w-4 h-4 mr-2" />
+                )}
+                {loginMutation.isPending ? "Signing in..." : "Sign In"}
+              </Button>
+
+              <button
+                type="button"
+                onClick={handleFingerprint}
+                disabled={fpLoading}
+                data-testid="button-fingerprint-login"
+                title="Sign in with fingerprint"
+                className="h-11 w-14 flex items-center justify-center rounded-xl border border-teal-400/30 bg-teal-500/10 hover:bg-teal-500/25 active:scale-95 transition-all disabled:opacity-50 disabled:cursor-not-allowed group"
+              >
+                {fpLoading ? (
+                  <Loader2 className="w-5 h-5 text-teal-300 animate-spin" />
+                ) : (
+                  <Fingerprint className="w-6 h-6 text-teal-300 group-hover:text-teal-200 transition-colors" />
+                )}
+              </button>
+            </div>
+
+            <p className="text-center text-xs text-slate-500 pt-1">
+              Enter username then tap <Fingerprint className="inline w-3 h-3 mb-0.5" /> to sign in with fingerprint
+            </p>
           </form>
         </div>
 
