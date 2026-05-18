@@ -797,15 +797,6 @@ export default function DailyPnlPage() {
                 ))}
               </select>
             </div>
-            {/* BOM Headcount (packs) */}
-            <div className="flex items-center gap-1 bg-amber-50 border border-amber-200 rounded-lg px-2 py-1">
-              <Users className="w-3.5 h-3.5 text-amber-600 flex-shrink-0" />
-              <span className="text-[10px] font-semibold text-amber-700">Packs:</span>
-              <input type="number" min={1} value={bomHeadcount}
-                onChange={e => setBomHeadcount(Math.max(1, parseInt(e.target.value) || 1))}
-                className="border-0 bg-transparent text-xs font-bold text-amber-800 outline-none w-12 text-center"
-                data-testid="input-pnl-headcount" />
-            </div>
             <button onClick={loadEntry} className="px-3 py-1.5 bg-gray-100 hover:bg-gray-200 border border-gray-200 rounded-lg text-xs font-semibold text-gray-700 flex items-center gap-1.5 transition-colors" data-testid="btn-pnl-load">
               <RefreshCw className="w-3 h-3" /> Load
             </button>
