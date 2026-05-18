@@ -45,6 +45,17 @@ function requirePermission(perm: string) {
   };
 }
 
+// Returns the effective clientName for a request.
+// - Admin:                          returns caller-supplied value (undefined = no filter / all records)
+// - Non-admin with session client:  returns session clientName (ignores supplied value)
+// - Non-admin without session client: returns false (fail-closed — caller must reject the request)
+function effectiveClientName(req: Request, supplied: string | undefined): string | undefined | false {
+  if (req.session.role === "admin") return supplied;
+  const sessionClient = req.session.clientName;
+  if (!sessionClient) return false;
+  return sessionClient;
+}
+
 export async function registerRoutes(
   httpServer: Server,
   app: Express
@@ -1034,13 +1045,14 @@ export async function registerRoutes(
   });
 
   // === EMPLOYEE MASTER ===
-  app.get("/api/employees", requireAuth, async (req, res) => {
-    const clientName = req.query.clientName as string | undefined;
+  app.get("/api/employees", requirePermission('labour'), async (req, res) => {
+    const clientName = effectiveClientName(req, req.query.clientName as string | undefined);
+    if (clientName === false) return res.status(403).json({ message: "Client scope required" });
     const employees = await storage.getEmployees(clientName);
     res.json(employees);
   });
 
-  app.get("/api/employees/:id", requireAuth, async (req, res) => {
+  app.get("/api/employees/:id", requireAdmin, async (req, res) => {
     const emp = await storage.getEmployee(Number(req.params.id));
     if (!emp) return res.status(404).json({ message: "Employee not found" });
     res.json(emp);
@@ -1352,21 +1364,23 @@ export async function registerRoutes(
   });
 
   // === DAILY ATTENDANCE LOGS (Face Recognition) ===
-  app.get("/api/daily-attendance/month", requireAuth, async (req, res) => {
-    const { clientName, month, year } = req.query;
+  app.get("/api/daily-attendance/month", requirePermission('labour'), async (req, res) => {
+    const { month, year } = req.query;
+    const clientName = effectiveClientName(req, req.query.clientName as string | undefined);
     if (!clientName || !month || !year) return res.status(400).json({ message: "clientName, month, year required" });
     const logs = await storage.getDailyAttendanceMonth(clientName as string, Number(month), Number(year));
     res.json(logs);
   });
 
-  app.get("/api/daily-attendance", requireAuth, async (req, res) => {
-    const { clientName, date } = req.query;
+  app.get("/api/daily-attendance", requirePermission('labour'), async (req, res) => {
+    const { date } = req.query;
+    const clientName = effectiveClientName(req, req.query.clientName as string | undefined);
     if (!clientName || !date) return res.status(400).json({ message: "clientName and date required" });
     const logs = await storage.getDailyAttendanceLogs(clientName as string, date as string);
     res.json(logs);
   });
 
-  app.post("/api/daily-attendance", requireAuth, async (req, res) => {
+  app.post("/api/daily-attendance", requireAdmin, async (req, res) => {
     try {
       const log = await storage.saveDailyAttendanceLog({ ...req.body, scannedBy: (req as any).user?.username });
       res.status(201).json(log);
@@ -1376,19 +1390,19 @@ export async function registerRoutes(
     }
   });
 
-  app.put("/api/daily-attendance/:id", requireAuth, async (req, res) => {
+  app.put("/api/daily-attendance/:id", requireAdmin, async (req, res) => {
     const { status } = req.body;
     if (!status) return res.status(400).json({ message: "status required" });
     const log = await storage.updateDailyAttendanceLog(Number(req.params.id), status);
     res.json(log);
   });
 
-  app.delete("/api/daily-attendance/:id", requireAuth, async (req, res) => {
+  app.delete("/api/daily-attendance/:id", requireAdmin, async (req, res) => {
     await storage.deleteDailyAttendanceLog(Number(req.params.id));
     res.status(204).send();
   });
 
-  app.post("/api/daily-attendance/push-to-muster-roll", requireAuth, async (req, res) => {
+  app.post("/api/daily-attendance/push-to-muster-roll", requireAdmin, async (req, res) => {
     const { clientName, month, year } = req.body;
     if (!clientName || !month || !year) return res.status(400).json({ message: "clientName, month, year required" });
     const result = await storage.pushDailyAttendanceToMusterRoll(clientName, Number(month), Number(year));
@@ -1396,29 +1410,32 @@ export async function registerRoutes(
   });
 
   // === ATTENDANCE / MUSTER ROLL ===
-  app.get("/api/attendance", requireAuth, async (req, res) => {
-    const { clientName, month, year } = req.query;
+  app.get("/api/attendance", requirePermission('labour'), async (req, res) => {
+    const { month, year } = req.query;
+    const clientName = effectiveClientName(req, req.query.clientName as string | undefined);
     if (!clientName || !month || !year) return res.status(400).json({ message: "clientName, month, year required" });
     const records = await storage.getAttendance(clientName as string, Number(month), Number(year));
     res.json(records);
   });
 
-  app.post("/api/attendance", requireAuth, async (req, res) => {
+  app.post("/api/attendance", requireAdmin, async (req, res) => {
     const record = await storage.saveAttendance(req.body);
     res.json(record);
   });
 
   // === SALARY RECORDS ===
-  app.get("/api/salary/annual", requireAuth, async (req, res) => {
-    const { clientName, fyStart } = req.query;
+  app.get("/api/salary/annual", requirePermission('labour'), async (req, res) => {
+    const { fyStart } = req.query;
+    const clientName = effectiveClientName(req, req.query.clientName as string | undefined);
     if (!clientName || !fyStart) return res.status(400).json({ message: "clientName and fyStart required" });
     const startYear = Number(fyStart);
     const records = await storage.getAnnualSalary(clientName as string, startYear);
     res.json(records);
   });
 
-  app.get("/api/salary", requireAuth, async (req, res) => {
-    const { clientName, month, year, months: monthsParam } = req.query;
+  app.get("/api/salary", requirePermission('labour'), async (req, res) => {
+    const { month, year, months: monthsParam } = req.query;
+    const clientName = effectiveClientName(req, req.query.clientName as string | undefined);
     if (!clientName || !year) return res.status(400).json({ message: "clientName, year required" });
 
     // Helper: merge OT register amounts into salary records and cascade-recalculate dependent fields
@@ -1480,7 +1497,7 @@ export async function registerRoutes(
     res.json(await mergeOt(records, Number(month), Number(year)));
   });
 
-  app.get("/api/salary/:id", requireAuth, async (req, res) => {
+  app.get("/api/salary/:id", requireAdmin, async (req, res) => {
     const record = await storage.getSalaryRecord(Number(req.params.id));
     if (!record) return res.status(404).json({ message: "Salary record not found" });
     res.json(record);
@@ -1511,8 +1528,10 @@ export async function registerRoutes(
   });
 
   // === FINES ===
-  app.get("/api/fines", requireAuth, async (req, res) => {
-    const records = await storage.getFines(req.query.clientName as string | undefined);
+  app.get("/api/fines", requirePermission('labour'), async (req, res) => {
+    const clientName = effectiveClientName(req, req.query.clientName as string | undefined);
+    if (clientName === false) return res.status(403).json({ message: "Client scope required" });
+    const records = await storage.getFines(clientName);
     res.json(records);
   });
 
@@ -1532,8 +1551,10 @@ export async function registerRoutes(
   });
 
   // === ADVANCES ===
-  app.get("/api/advances", requireAuth, async (req, res) => {
-    const records = await storage.getAdvances(req.query.clientName as string | undefined);
+  app.get("/api/advances", requirePermission('labour'), async (req, res) => {
+    const clientName = effectiveClientName(req, req.query.clientName as string | undefined);
+    if (clientName === false) return res.status(403).json({ message: "Client scope required" });
+    const records = await storage.getAdvances(clientName);
     res.json(records);
   });
 
@@ -1553,8 +1574,10 @@ export async function registerRoutes(
   });
 
   // === OVERTIME REGISTER ===
-  app.get("/api/overtime", requireAuth, async (req, res) => {
-    const records = await storage.getOvertimeRecords(req.query.clientName as string | undefined);
+  app.get("/api/overtime", requirePermission('labour'), async (req, res) => {
+    const clientName = effectiveClientName(req, req.query.clientName as string | undefined);
+    if (clientName === false) return res.status(403).json({ message: "Client scope required" });
+    const records = await storage.getOvertimeRecords(clientName);
     res.json(records);
   });
 
@@ -1607,8 +1630,10 @@ export async function registerRoutes(
   });
 
   // === DAMAGE DEDUCTIONS ===
-  app.get("/api/damage-deductions", requireAuth, async (req, res) => {
-    const records = await storage.getDamageDeductions(req.query.clientName as string | undefined);
+  app.get("/api/damage-deductions", requirePermission('labour'), async (req, res) => {
+    const clientName = effectiveClientName(req, req.query.clientName as string | undefined);
+    if (clientName === false) return res.status(403).json({ message: "Client scope required" });
+    const records = await storage.getDamageDeductions(clientName);
     res.json(records);
   });
 
@@ -1628,10 +1653,18 @@ export async function registerRoutes(
   });
 
   // === LEAVE WITH WAGES (Form 15) ===
-  app.get("/api/leave-with-wages", requireAuth, async (req, res) => {
+  app.get("/api/leave-with-wages", requirePermission('labour'), async (req, res) => {
     const employeeId = req.query.employeeId ? Number(req.query.employeeId) : undefined;
-    const clientName = req.query.clientName as string | undefined;
+    const clientName = effectiveClientName(req, req.query.clientName as string | undefined);
+    if (clientName === false) return res.status(403).json({ message: "Client scope required" });
     if (employeeId) {
+      // Non-admins must verify the requested employee belongs to their client
+      if (req.session.role !== "admin") {
+        const emp = await storage.getEmployee(employeeId);
+        if (!emp || emp.clientName !== req.session.clientName) {
+          return res.status(403).json({ message: "Access denied" });
+        }
+      }
       const records = await storage.getLeaveWithWages(employeeId);
       res.json(records);
     } else if (clientName) {
@@ -1642,10 +1675,17 @@ export async function registerRoutes(
     }
   });
 
-  app.get("/api/leave-with-wages/yearly-present", requireAuth, async (req, res) => {
+  app.get("/api/leave-with-wages/yearly-present", requirePermission('labour'), async (req, res) => {
     const employeeId = Number(req.query.employeeId);
     const year = Number(req.query.year);
     if (!employeeId || !year) return res.status(400).json({ error: "employeeId and year required" });
+    // Non-admins must verify the requested employee belongs to their client
+    if (req.session.role !== "admin") {
+      const emp = await storage.getEmployee(employeeId);
+      if (!emp || emp.clientName !== req.session.clientName) {
+        return res.status(403).json({ message: "Access denied" });
+      }
+    }
     const { attendance } = await import("@shared/schema");
     const { eq, and } = await import("drizzle-orm");
     const { db } = await import("./db");
