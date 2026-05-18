@@ -215,19 +215,11 @@ export default function WeeklyBomPage() {
   // Headcount state: { day_meal_cat: number }
   const [headcount, setHeadcount] = useState<Record<string, number>>({});
 
-  // Rates state: { "dishName|unit": rate } — persisted to localStorage
-  const [rates, setRates] = useState<Record<string, number>>(() => {
-    try { return JSON.parse(localStorage.getItem("wbom_rates") || "{}"); } catch { return {}; }
-  });
-  const setRate = (key: string, val: number) => {
-    setRates(prev => {
-      const next = { ...prev, [key]: val };
-      localStorage.setItem("wbom_rates", JSON.stringify(next));
-      return next;
-    });
-  };
+  // Rates state loaded from DB: { "ingredientName|unit": rate }
+  const [rates, setRates] = useState<Record<string, number>>({});
 
-  const qKey = ["/api/weekly-menu", client];
+  const qKey      = ["/api/weekly-menu", client];
+  const ratesQKey = ["/api/weekly-menu-rates", client];
 
   const { data: items = [], isLoading } = useQuery<MenuItem[]>({
     queryKey: qKey,
@@ -255,6 +247,31 @@ export default function WeeklyBomPage() {
     onSuccess: () => qc.invalidateQueries({ queryKey: qKey }),
     onError: (e: any) => toast({ title: "Error", description: e.message, variant: "destructive" }),
   });
+
+  // Load rates from DB
+  useQuery({
+    queryKey: ratesQKey,
+    queryFn: async () => {
+      const r = await fetch(`/api/weekly-menu-rates?clientName=${encodeURIComponent(client)}`, { credentials: "include" });
+      if (!r.ok) throw new Error("Failed to load rates");
+      const rows: any[] = await r.json();
+      const map: Record<string, number> = {};
+      rows.forEach(row => { map[`${row.ingredient_name.toLowerCase()}|${(row.unit || "").toLowerCase()}`] = parseFloat(row.rate) || 0; });
+      setRates(map);
+      return rows;
+    },
+  });
+
+  // Save rate to DB (called on blur / change)
+  const saveRateMut = useMutation({
+    mutationFn: (data: { ingredientName: string; unit: string; rate: number }) =>
+      apiRequest("POST", "/api/weekly-menu-rates", { clientName: client, ...data }),
+  });
+
+  const setRate = (key: string, ingredientName: string, unit: string, val: number) => {
+    setRates(prev => ({ ...prev, [key]: val }));
+    saveRateMut.mutate({ ingredientName, unit, rate: val });
+  };
 
   // Group items for fast lookup
   const grouped = useMemo(() => {
@@ -659,7 +676,7 @@ export default function WeeklyBomPage() {
                               className="h-7 text-xs text-center w-full font-semibold text-blue-900 border border-blue-300 bg-white rounded focus-visible:ring-1 focus-visible:ring-blue-500"
                               placeholder="Enter rate"
                               value={row.rate || ""}
-                              onChange={e => setRate(row.rateKey, parseFloat(e.target.value) || 0)}
+                              onChange={e => setRate(row.rateKey, row.dishName, row.unit, parseFloat(e.target.value) || 0)}
                               data-testid={`rate-${row.rateKey}`}
                             />
                           </td>

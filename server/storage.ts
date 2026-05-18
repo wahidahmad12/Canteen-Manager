@@ -321,6 +321,9 @@ export interface IStorage {
   updateWeeklyMenuItem(id: number, data: any): Promise<any>;
   deleteWeeklyMenuItem(id: number): Promise<void>;
   ensureWeeklyMenuTable(): Promise<void>;
+  // Weekly Menu Rates
+  getWeeklyMenuRates(clientName: string): Promise<any[]>;
+  upsertWeeklyMenuRate(clientName: string, ingredientName: string, unit: string, rate: number): Promise<void>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -3051,6 +3054,25 @@ export class DatabaseStorage implements IStorage {
   }
   async deleteWeeklyMenuItem(id: number): Promise<void> {
     await db.execute(sql`DELETE FROM weekly_menu_items WHERE id = ${id}`);
+  }
+
+  async getWeeklyMenuRates(clientName: string): Promise<any[]> {
+    await db.execute(sql`CREATE TABLE IF NOT EXISTS weekly_menu_rates (
+      id INT AUTO_INCREMENT PRIMARY KEY,
+      client_name VARCHAR(100) NOT NULL,
+      ingredient_name VARCHAR(255) NOT NULL,
+      unit VARCHAR(50) NOT NULL DEFAULT '',
+      rate DECIMAL(12,4) NOT NULL DEFAULT 0,
+      updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+      UNIQUE KEY uq_rate (client_name, ingredient_name, unit)
+    )`);
+    const [rows] = await db.execute(sql`SELECT * FROM weekly_menu_rates WHERE client_name = ${clientName} ORDER BY ingredient_name`);
+    return rows as any[];
+  }
+  async upsertWeeklyMenuRate(clientName: string, ingredientName: string, unit: string, rate: number): Promise<void> {
+    await db.execute(sql`INSERT INTO weekly_menu_rates (client_name, ingredient_name, unit, rate)
+      VALUES (${clientName}, ${ingredientName}, ${unit}, ${rate})
+      ON DUPLICATE KEY UPDATE rate = ${rate}`);
   }
 
   async getMonthlyPnl(month: number, year: number, clients?: string[]): Promise<any> {

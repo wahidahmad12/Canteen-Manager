@@ -2647,6 +2647,20 @@ export async function registerRoutes(
     try { await storage.deleteWeeklyMenuItem(Number(req.params.id)); res.status(204).send(); }
     catch (err: any) { res.status(500).json({ message: err.message }); }
   });
+  app.get('/api/weekly-menu-rates', requireAuth, async (req, res) => {
+    try {
+      const clientName = String(req.query.clientName || '');
+      if (!clientName) return res.status(400).json({ message: 'clientName required' });
+      res.json(await storage.getWeeklyMenuRates(clientName));
+    } catch (err: any) { res.status(500).json({ message: err.message }); }
+  });
+  app.post('/api/weekly-menu-rates', requireAuth, async (req, res) => {
+    try {
+      const { clientName, ingredientName, unit, rate } = req.body;
+      await storage.upsertWeeklyMenuRate(clientName, ingredientName, unit, parseFloat(rate) || 0);
+      res.status(200).json({ ok: true });
+    } catch (err: any) { res.status(500).json({ message: err.message }); }
+  });
 
   // === MONTHLY P&L ===
   app.get('/api/monthly-pnl', requireAuth, async (req, res) => {
