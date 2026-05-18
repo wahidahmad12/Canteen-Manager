@@ -918,11 +918,18 @@ export default function BomPage() {
                     return i.manualRate ? parseFloat(i.manualRate) > 0 : (rp.source !== null && rp.unitPrice > 0);
                   });
                   if (!hasCost) return null;
+                  const perPlate = totalCost / hc;
                   return (
-                    <div className="flex justify-between text-xs mt-2 pt-2 border-t border-green-300">
-                      <span className="font-bold text-purple-700">Est. Cost</span>
-                      <span className="font-bold text-purple-700">₹{totalCost.toFixed(2)}</span>
-                    </div>
+                    <>
+                      <div className="flex justify-between text-xs mt-2 pt-2 border-t border-green-300">
+                        <span className="font-bold text-purple-700">Est. Cost</span>
+                        <span className="font-bold text-purple-700">₹{totalCost.toFixed(2)}</span>
+                      </div>
+                      <div className="flex justify-between text-xs mt-1">
+                        <span className="font-bold text-orange-600">Per Plate</span>
+                        <span className="font-bold text-orange-600">₹{perPlate.toFixed(2)}</span>
+                      </div>
+                    </>
                   );
                 })()}
               </div>
@@ -939,6 +946,20 @@ export default function BomPage() {
                       <span className="font-bold text-base">{currentDish}</span>
                     </div>
                     <div className="flex items-center gap-3">
+                      {(() => {
+                        const perPlateCost = dishItems.reduce((s, i) => {
+                          const manualRate = parseFloat(i.manualRate || "0");
+                          if (!manualRate) return s;
+                          const ft1 = fmtTotal(i.qtyPerPerson, i.uom, 1);
+                          return s + manualRate * parseFloat(ft1.value);
+                        }, 0);
+                        return perPlateCost > 0 ? (
+                          <div className="text-right bg-orange-500/20 border border-orange-400/40 rounded-lg px-3 py-1.5">
+                            <p className="text-[10px] text-orange-200">Cost / Plate</p>
+                            <p className="text-sm font-bold text-orange-300">₹{perPlateCost.toFixed(2)}</p>
+                          </div>
+                        ) : null;
+                      })()}
                       <div className="text-right">
                         <p className="text-xs text-slate-400">Total Ingredients</p>
                         <p className="text-sm font-bold text-amber-300">{dishItems.length}</p>
@@ -1004,6 +1025,7 @@ export default function BomPage() {
                                   <th className="px-3 py-2 text-center font-semibold text-green-700 w-28">Total ({hc} pax)</th>
                                   <th className="px-3 py-2 text-center font-semibold text-blue-700 w-24">Rate (₹)</th>
                                   <th className="px-3 py-2 text-center font-semibold text-purple-700 w-28">Cost ({hc} pax)</th>
+                                  <th className="px-3 py-2 text-center font-semibold text-orange-600 w-24">Cost/Plate</th>
                                   <th className="px-3 py-2 text-left font-semibold text-slate-600">Specification / Notes</th>
                                   <th className="px-3 py-2 text-center font-semibold text-slate-600 w-16">Act.</th>
                                 </tr>
@@ -1094,6 +1116,12 @@ export default function BomPage() {
                                             <div className="text-[9px] text-slate-400">{ft.value} × ₹{effectiveRate}</div>
                                           </div>
                                         ) : <span className="text-xs text-slate-300">—</span>}
+                                      </td>
+                                      {/* Cost per Plate = total cost ÷ headcount */}
+                                      <td className="border-b border-slate-100 px-3 py-1.5 text-center">
+                                        {totalCost !== null
+                                          ? <span className="text-xs font-bold text-orange-600">₹{(totalCost / hc).toFixed(4)}</span>
+                                          : <span className="text-xs text-slate-300">—</span>}
                                       </td>
                                       {/* Notes */}
                                       <td className="border-b border-slate-100 px-3 py-1.5 text-xs text-slate-500 italic">
