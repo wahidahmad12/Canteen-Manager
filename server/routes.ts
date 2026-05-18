@@ -790,6 +790,11 @@ export async function registerRoutes(
 
   app.put(api.purchaseInvoices.update.path, requirePermission('purchase'), async (req, res) => {
     try {
+      const existing = await storage.getPurchaseInvoice(Number(req.params.id));
+      if (!existing) return res.status(404).json({ message: "Purchase invoice not found" });
+      if (req.session.role !== 'admin' && existing.createdBy !== req.session.displayName && existing.createdBy !== req.session.username) {
+        return res.status(403).json({ message: "Access denied" });
+      }
       const input = api.purchaseInvoices.update.input.parse(req.body);
       const invoice = await storage.updatePurchaseInvoice(Number(req.params.id), input);
       res.json(invoice);
@@ -822,12 +827,22 @@ export async function registerRoutes(
   });
 
   app.get(api.purchaseInvoices.getPayments.path, requirePermission('purchase'), async (req, res) => {
+    const invoice = await storage.getPurchaseInvoice(Number(req.params.id));
+    if (!invoice) return res.status(404).json({ message: "Invoice not found" });
+    if (req.session.role !== 'admin' && invoice.createdBy !== req.session.displayName && invoice.createdBy !== req.session.username) {
+      return res.status(403).json({ message: "Access denied" });
+    }
     const payments = await storage.getPurchaseInvoicePayments(Number(req.params.id));
     res.json(payments);
   });
 
   app.post(api.purchaseInvoices.addPayment.path, requirePermission('purchase'), async (req, res) => {
     try {
+      const invoice = await storage.getPurchaseInvoice(Number(req.params.id));
+      if (!invoice) return res.status(404).json({ message: "Invoice not found" });
+      if (req.session.role !== 'admin' && invoice.createdBy !== req.session.displayName && invoice.createdBy !== req.session.username) {
+        return res.status(403).json({ message: "Access denied" });
+      }
       const input = api.purchaseInvoices.addPayment.input.parse(req.body);
       const payment = await storage.addPurchaseInvoicePayment({ ...input, invoiceId: Number(req.params.id) });
       res.status(201).json(payment);
@@ -841,9 +856,16 @@ export async function registerRoutes(
 
   app.patch(api.purchaseInvoices.updatePayment.path, requirePermission('purchase'), async (req, res) => {
     try {
+      const payment = await storage.getPurchaseInvoicePaymentById(Number(req.params.id));
+      if (!payment) return res.status(404).json({ message: "Payment not found" });
+      const invoice = await storage.getPurchaseInvoice(payment.invoiceId);
+      if (!invoice) return res.status(404).json({ message: "Invoice not found" });
+      if (req.session.role !== 'admin' && invoice.createdBy !== req.session.displayName && invoice.createdBy !== req.session.username) {
+        return res.status(403).json({ message: "Access denied" });
+      }
       const input = api.purchaseInvoices.updatePayment.input.parse(req.body);
-      const payment = await storage.updatePurchaseInvoicePayment(Number(req.params.id), input);
-      res.json(payment);
+      const updated = await storage.updatePurchaseInvoicePayment(Number(req.params.id), input);
+      res.json(updated);
     } catch (e: any) {
       res.status(400).json({ message: e.message });
     }
@@ -1938,7 +1960,7 @@ export async function registerRoutes(
     res.json(record || null);
   });
 
-  app.post("/api/half-yearly-returns", requireAuth, async (req, res) => {
+  app.post("/api/half-yearly-returns", requireAdmin, async (req, res) => {
     const record = await storage.saveHalfYearlyReturn(req.body);
     res.json(record);
   });
@@ -1955,7 +1977,7 @@ export async function registerRoutes(
     res.json(record || null);
   });
 
-  app.post("/api/bonus-returns", requireAuth, async (req, res) => {
+  app.post("/api/bonus-returns", requireAdmin, async (req, res) => {
     const record = await storage.saveBonusReturn(req.body);
     res.json(record);
   });
@@ -1981,14 +2003,14 @@ export async function registerRoutes(
     res.json(letter);
   });
 
-  app.post("/api/letters", requireAuth, async (req, res) => {
+  app.post("/api/letters", requireAdmin, async (req, res) => {
     const { refNumber, letterDate, toName, toAddress, toGstin, subject, body, regards, clientName } = req.body;
     if (!refNumber || !letterDate) return res.status(400).json({ message: "refNumber and letterDate are required" });
     const letter = await storage.createLetter({ refNumber, letterDate, toName, toAddress, toGstin, subject, body, regards, clientName, createdBy: req.session.displayName || req.session.username || '' });
     res.status(201).json(letter);
   });
 
-  app.put("/api/letters/:id", requireAuth, async (req, res) => {
+  app.put("/api/letters/:id", requireAdmin, async (req, res) => {
     const existing = await storage.getLetter(Number(req.params.id));
     if (!existing) return res.status(404).json({ message: "Letter not found" });
     const { refNumber, letterDate, toName, toAddress, toGstin, subject, body, regards, clientName } = req.body;
@@ -2030,7 +2052,7 @@ export async function registerRoutes(
     }
   });
 
-  app.post("/api/purchase-orders", requireAuth, async (req, res) => {
+  app.post("/api/purchase-orders", requireAdmin, async (req, res) => {
     try {
       const { poNumber, poDate, poAmount, clientName } = req.body;
       if (!poNumber || !poDate || !clientName) {
@@ -2051,7 +2073,7 @@ export async function registerRoutes(
     }
   });
 
-  app.put("/api/purchase-orders/:id", requireAuth, async (req, res) => {
+  app.put("/api/purchase-orders/:id", requireAdmin, async (req, res) => {
     try {
       const existing = await storage.getPurchaseOrder(Number(req.params.id));
       if (!existing) return res.status(404).json({ message: "Purchase order not found" });
@@ -2489,7 +2511,7 @@ export async function registerRoutes(
     const entry = await storage.getDailyPnlEntry(date, clientName);
     res.json(entry ?? null);
   });
-  app.post('/api/daily-pnl/entry', requireAuth, async (req, res) => {
+  app.post('/api/daily-pnl/entry', requireAdmin, async (req, res) => {
     const id = await storage.saveDailyPnlEntry(req.body);
     res.json({ id });
   });

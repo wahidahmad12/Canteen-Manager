@@ -1270,6 +1270,11 @@ export class DatabaseStorage implements IStorage {
     return await db.select().from(purchaseInvoicePayments).where(eq(purchaseInvoicePayments.invoiceId, invoiceId)).orderBy(purchaseInvoicePayments.paymentDate);
   }
 
+  async getPurchaseInvoicePaymentById(paymentId: number): Promise<PurchaseInvoicePayment | null> {
+    const [payment] = await db.select().from(purchaseInvoicePayments).where(eq(purchaseInvoicePayments.id, paymentId));
+    return payment ?? null;
+  }
+
   async addPurchaseInvoicePayment(data: { invoiceId: number; paymentDate: string; amount: number; notes?: string }): Promise<PurchaseInvoicePayment> {
     await db.insert(purchaseInvoicePayments).values({
       invoiceId: data.invoiceId,
