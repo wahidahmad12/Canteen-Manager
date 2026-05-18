@@ -39,6 +39,14 @@ const makeExpItem    = (slNo: number, itemName = ""): ExpenseItem => ({ slNo, it
 const makePsRow      = (r: typeof PS_ROWS[number], i: number): PsSaleRow  => ({ slNo: i + 1, itemName: r.itemName, cashQty: 0, onlineQty: 0, billQty: 0, cashRate: r.cashRate, onlineRate: r.onlineRate, billRate: r.billRate });
 const makeTpRow      = (r: typeof TP_ROWS[number], i: number): TpSaleRow  => ({ slNo: i + 1, itemName: r.itemName, rate: r.rate, cashQty: 0, onlineQty: 0 });
 
+// BOM uses short client codes; DB uses full names — map them here
+const BOM_CLIENT_MAP: Record<string, string[]> = {
+  "Hindustan Unilever Limited": ["HUL - KPF", "HUL - TEC"],
+  "HUL": ["HUL - KPF", "HUL - TEC"],
+  "United Breweries Limited": ["UBL"],
+};
+const getBomClients = (name: string): string[] => BOM_CLIENT_MAP[name] ?? [name];
+
 const today   = () => format(new Date(), "yyyy-MM-dd");
 const fmtINR  = (n: number) => `₹${n.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 const fmtDate = (s: string) => { try { return format(new Date(s + "T00:00:00"), "dd-MM-yyyy"); } catch { return s; } };
@@ -439,10 +447,17 @@ export default function DailyPnlPage() {
   );
 
   // ── BOM dish names + cost per person ──────────────────────────────────────
-  const fetchBomItems = (mt: string) =>
-    clientName
-      ? fetch(`/api/bom-items?clientName=${encodeURIComponent(clientName)}&mealType=${mt}`, { credentials: "include" }).then(r => r.ok ? r.json() : [])
-      : Promise.resolve([]);
+
+  const fetchBomItems = (mt: string) => {
+    if (!clientName) return Promise.resolve([]);
+    const bomClients = getBomClients(clientName);
+    return Promise.all(
+      bomClients.map(c =>
+        fetch(`/api/bom-items?clientName=${encodeURIComponent(c)}&mealType=${mt}`, { credentials: "include" })
+          .then(r => r.ok ? r.json() : [])
+      )
+    ).then(results => (results as any[][]).flat());
+  };
 
   const { data: bomBreakfast = [] } = useQuery<any[]>({ queryKey: ["/api/bom-items", clientName, "breakfast"], queryFn: () => fetchBomItems("breakfast"), enabled: !!clientName });
   const { data: bomLunch     = [] } = useQuery<any[]>({ queryKey: ["/api/bom-items", clientName, "lunch"],     queryFn: () => fetchBomItems("lunch"),     enabled: !!clientName });
