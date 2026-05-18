@@ -2683,6 +2683,15 @@ export async function registerRoutes(
       res.json(await storage.getBomItems(clientNames, mealType));
     } catch (err: any) { res.status(500).json({ message: err.message }); }
   });
+  app.post('/api/bom-items/copy', requireAdmin, async (req, res) => {
+    try {
+      const { fromClient, fromMealType, toClient, toMealType } = req.body;
+      if (!fromClient || !fromMealType || !toClient || !toMealType)
+        return res.status(400).json({ message: 'fromClient, fromMealType, toClient and toMealType are required' });
+      const count = await storage.copyBomItems(fromClient, fromMealType, toClient, toMealType);
+      res.json({ count });
+    } catch (err: any) { res.status(500).json({ message: err.message }); }
+  });
   app.post('/api/bom-items', requireAuth, async (req, res) => {
     try { res.status(201).json(await storage.createBomItem(req.body)); }
     catch (err: any) { res.status(500).json({ message: err.message }); }

@@ -6,7 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { Loader2, Plus, Pencil, Trash2, Save, X, Printer, Download, Calculator, Package, ChefHat, Layers } from "lucide-react";
+import { Loader2, Plus, Pencil, Trash2, Save, X, Printer, Download, Calculator, Package, ChefHat, Layers, Copy, ArrowRight } from "lucide-react";
 import { apiRequest } from "@/lib/queryClient";
 
 
@@ -135,6 +135,13 @@ export default function BomPage() {
   const [showIngDropdown, setShowIngDropdown] = useState(false);
   const ingRef = useRef<HTMLDivElement>(null);
 
+  // ── Copy BOM state ──
+  const [showCopy, setShowCopy] = useState(false);
+  const [copyFromClient, setCopyFromClient] = useState("");
+  const [copyFromMeal, setCopyFromMeal] = useState("breakfast");
+  const [copyToClient, setCopyToClient] = useState("");
+  const [copyToMeal, setCopyToMeal] = useState("breakfast");
+
   useEffect(() => {
     if (clientList.length > 0 && !client) setClient(clientList[0]);
   }, [clientList]);
@@ -191,6 +198,23 @@ export default function BomPage() {
     mutationFn: (id: number) => apiRequest('DELETE', `/api/bom-items/${id}`),
     onSuccess: () => { qc.invalidateQueries({ queryKey: qKey }); toast({ title: "Deleted" }); },
     onError: (e: any) => toast({ title: "Error", description: e.message, variant: "destructive" }),
+  });
+
+  const copyMut = useMutation({
+    mutationFn: () => apiRequest('POST', '/api/bom-items/copy', {
+      fromClient: copyFromClient,
+      fromMealType: copyFromMeal,
+      toClient: copyToClient,
+      toMealType: copyToMeal,
+    }),
+    onSuccess: (data: any) => {
+      qc.invalidateQueries({ queryKey: ['/api/bom-items'] });
+      setShowCopy(false);
+      const fromMtLabel = MEAL_TYPES.find(m => m.key === copyFromMeal)?.label ?? copyFromMeal;
+      const toMtLabel   = MEAL_TYPES.find(m => m.key === copyToMeal)?.label   ?? copyToMeal;
+      toast({ title: `${data.count} ingredients copied`, description: `${copyFromClient} · ${fromMtLabel} → ${copyToClient} · ${toMtLabel}` });
+    },
+    onError: (e: any) => toast({ title: "Copy failed", description: e.message, variant: "destructive" }),
   });
 
   const { data: itemMasterList = [] } = useQuery<{ id: number; itemName: string; uom: string; rate?: string }[]>({
@@ -538,12 +562,125 @@ export default function BomPage() {
             <Button variant="outline" size="sm" onClick={handleExcelExport} className="text-green-700 border-green-300 hover:bg-green-50" data-testid="button-bom-excel">
               <Download className="w-3.5 h-3.5 mr-1" /> Excel
             </Button>
+            <Button variant="outline" size="sm"
+              onClick={() => {
+                setCopyFromClient(client);
+                setCopyFromMeal(mealType);
+                setCopyToClient(clientList.find(c => c !== client) ?? client);
+                setCopyToMeal(mealType);
+                setShowCopy(v => !v);
+              }}
+              className="text-violet-700 border-violet-300 hover:bg-violet-50" data-testid="button-bom-copy">
+              <Copy className="w-3.5 h-3.5 mr-1" /> Copy BOM
+            </Button>
             <Button size="sm" onClick={() => { setShowAdd(true); setNewDishMode(true); setAddForm(emptyAdd); setIngredientSearch(""); }}
               className="bg-indigo-600 hover:bg-indigo-700 text-white" data-testid="button-add-dish">
               <Plus className="w-3.5 h-3.5 mr-1" /> Add Ingredient
             </Button>
           </div>
         </div>
+
+        {/* ── Copy BOM Panel ── */}
+        {showCopy && (
+          <Card className="border-violet-300 bg-violet-50 dark:bg-violet-950/30">
+            <CardContent className="p-4">
+              <div className="flex items-center justify-between mb-4">
+                <div className="flex items-center gap-2">
+                  <Copy className="w-4 h-4 text-violet-600" />
+                  <p className="text-sm font-bold text-violet-800 dark:text-violet-300">Copy BOM Data</p>
+                </div>
+                <button onClick={() => setShowCopy(false)} className="text-gray-400 hover:text-gray-600">
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-[1fr_auto_1fr] gap-4 items-start">
+                {/* FROM */}
+                <div className="space-y-2">
+                  <p className="text-xs font-bold text-violet-700 uppercase tracking-wide">From (Source)</p>
+                  <div>
+                    <label className="text-xs font-semibold text-slate-600 mb-1 block">Client</label>
+                    <Select value={copyFromClient} onValueChange={setCopyFromClient}>
+                      <SelectTrigger className="h-8 text-sm" data-testid="select-copy-from-client">
+                        <SelectValue placeholder="Select client" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {clientList.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div>
+                    <label className="text-xs font-semibold text-slate-600 mb-1 block">Meal Type</label>
+                    <Select value={copyFromMeal} onValueChange={setCopyFromMeal}>
+                      <SelectTrigger className="h-8 text-sm" data-testid="select-copy-from-meal">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {MEAL_TYPES.map(m => <SelectItem key={m.key} value={m.key}>{m.label}</SelectItem>)}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+
+                {/* Arrow */}
+                <div className="flex items-center justify-center pt-6">
+                  <div className="w-9 h-9 rounded-full bg-violet-600 flex items-center justify-center shadow-sm">
+                    <ArrowRight className="w-5 h-5 text-white" />
+                  </div>
+                </div>
+
+                {/* TO */}
+                <div className="space-y-2">
+                  <p className="text-xs font-bold text-indigo-700 uppercase tracking-wide">To (Destination)</p>
+                  <div>
+                    <label className="text-xs font-semibold text-slate-600 mb-1 block">Client</label>
+                    <Select value={copyToClient} onValueChange={setCopyToClient}>
+                      <SelectTrigger className="h-8 text-sm" data-testid="select-copy-to-client">
+                        <SelectValue placeholder="Select client" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {clientList.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div>
+                    <label className="text-xs font-semibold text-slate-600 mb-1 block">Meal Type</label>
+                    <Select value={copyToMeal} onValueChange={setCopyToMeal}>
+                      <SelectTrigger className="h-8 text-sm" data-testid="select-copy-to-meal">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {MEAL_TYPES.map(m => <SelectItem key={m.key} value={m.key}>{m.label}</SelectItem>)}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+              </div>
+
+              {/* Summary hint */}
+              <div className="mt-4 p-2.5 rounded-lg bg-violet-100 border border-violet-200 text-xs text-violet-800">
+                <span className="font-semibold">Will copy:</span> all dish &amp; ingredient rows from{" "}
+                <span className="font-bold">{copyFromClient || "—"}</span> /{" "}
+                <span className="font-bold">{MEAL_TYPES.find(m => m.key === copyFromMeal)?.label}</span>{" "}
+                → <span className="font-bold">{copyToClient || "—"}</span> /{" "}
+                <span className="font-bold">{MEAL_TYPES.find(m => m.key === copyToMeal)?.label}</span>.{" "}
+                Existing data at the destination is <span className="font-bold">kept</span> (rows are appended, not replaced).
+              </div>
+
+              <div className="flex justify-end gap-2 mt-4">
+                <Button variant="outline" size="sm" onClick={() => setShowCopy(false)}>Cancel</Button>
+                <Button size="sm"
+                  disabled={!copyFromClient || !copyToClient || copyMut.isPending}
+                  onClick={() => copyMut.mutate()}
+                  className="bg-violet-600 hover:bg-violet-700 text-white"
+                  data-testid="button-copy-bom-confirm">
+                  {copyMut.isPending ? <Loader2 className="w-3.5 h-3.5 mr-1 animate-spin" /> : <Copy className="w-3.5 h-3.5 mr-1" />}
+                  Copy BOM Data
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        )}
 
         {/* ── Add Ingredient Form ── */}
         {showAdd && (

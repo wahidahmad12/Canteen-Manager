@@ -3058,6 +3058,26 @@ export class DatabaseStorage implements IStorage {
     const { eq } = await import('drizzle-orm');
     await db.delete(bomItems).where(eq(bomItems.id, id));
   }
+  async copyBomItems(fromClient: string, fromMealType: string, toClient: string, toMealType: string): Promise<number> {
+    const { bomItems } = await import('../shared/schema');
+    const { eq, and } = await import('drizzle-orm');
+    const sourceItems = await db.select().from(bomItems).where(and(eq(bomItems.clientName, fromClient), eq(bomItems.mealType, fromMealType)));
+    if (sourceItems.length === 0) return 0;
+    const newItems = sourceItems.map((item: any) => ({
+      clientName: toClient,
+      mealType: toMealType,
+      dishName: item.dishName,
+      categoryName: item.categoryName,
+      ingredientName: item.ingredientName,
+      qtyPerPerson: item.qtyPerPerson,
+      uom: item.uom,
+      manualRate: item.manualRate,
+      notes: item.notes,
+      sortOrder: item.sortOrder,
+    }));
+    await db.insert(bomItems).values(newItems);
+    return newItems.length;
+  }
 
   async ensureWeeklyMenuTable(): Promise<void> {
     await db.execute(sql`CREATE TABLE IF NOT EXISTS weekly_menu_items (
