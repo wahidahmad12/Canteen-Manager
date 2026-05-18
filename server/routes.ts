@@ -1947,13 +1947,13 @@ export async function registerRoutes(
     res.status(204).send();
   });
 
-  app.get("/api/half-yearly-returns", requireAuth, async (req, res) => {
+  app.get("/api/half-yearly-returns", requireAdmin, async (req, res) => {
     const clientName = req.query.clientName as string | undefined;
     const records = await storage.getHalfYearlyReturns(clientName);
     res.json(records);
   });
 
-  app.get("/api/half-yearly-returns/lookup", requireAuth, async (req, res) => {
+  app.get("/api/half-yearly-returns/lookup", requireAdmin, async (req, res) => {
     const { clientName, halfYear, year } = req.query;
     if (!clientName || !halfYear || !year) return res.status(400).json({ message: "clientName, halfYear, year required" });
     const record = await storage.getHalfYearlyReturn(clientName as string, halfYear as string, Number(year));
@@ -1970,7 +1970,7 @@ export async function registerRoutes(
     res.status(204).send();
   });
 
-  app.get("/api/bonus-returns/lookup", requireAuth, async (req, res) => {
+  app.get("/api/bonus-returns/lookup", requireAdmin, async (req, res) => {
     const { clientName, fyStartYear } = req.query;
     if (!clientName || !fyStartYear) return res.status(400).json({ message: "clientName and fyStartYear required" });
     const record = await storage.getBonusReturn(clientName as string, Number(fyStartYear));
@@ -1987,17 +1987,17 @@ export async function registerRoutes(
     res.status(204).send();
   });
 
-  app.get("/api/letters", requireAuth, async (req, res) => {
+  app.get("/api/letters", requireAdmin, async (req, res) => {
     const allLetters = await storage.getLetters();
     res.json(allLetters);
   });
 
-  app.get("/api/letters/next-serial", requireAuth, async (req, res) => {
+  app.get("/api/letters/next-serial", requireAdmin, async (req, res) => {
     const nextSerial = await storage.getNextLetterSerialNumber();
     res.json({ nextSerial });
   });
 
-  app.get("/api/letters/:id", requireAuth, async (req, res) => {
+  app.get("/api/letters/:id", requireAdmin, async (req, res) => {
     const letter = await storage.getLetter(Number(req.params.id));
     if (!letter) return res.status(404).json({ message: "Letter not found" });
     res.json(letter);
@@ -2023,7 +2023,7 @@ export async function registerRoutes(
     res.status(204).send();
   });
 
-  app.get("/api/purchase-orders", requireAuth, async (req, res) => {
+  app.get("/api/purchase-orders", requireAdmin, async (req, res) => {
     try {
       const pos = await storage.getPurchaseOrders();
       res.json(pos);
@@ -2032,13 +2032,13 @@ export async function registerRoutes(
     }
   });
 
-  app.get("/api/purchase-orders/:id", requireAuth, async (req, res) => {
+  app.get("/api/purchase-orders/:id", requireAdmin, async (req, res) => {
     const po = await storage.getPurchaseOrder(Number(req.params.id));
     if (!po) return res.status(404).json({ message: "Purchase order not found" });
     res.json(po);
   });
 
-  app.get("/api/purchase-orders/:id/balance", requireAuth, async (req, res) => {
+  app.get("/api/purchase-orders/:id/balance", requireAdmin, async (req, res) => {
     try {
       const po = await storage.getPurchaseOrder(Number(req.params.id));
       if (!po) return res.status(404).json({ message: "Purchase order not found" });
@@ -2504,7 +2504,7 @@ export async function registerRoutes(
   });
 
   // === DAILY P&L ROUTES ===
-  app.get('/api/daily-pnl/entry', requireAuth, async (req, res) => {
+  app.get('/api/daily-pnl/entry', requireAdmin, async (req, res) => {
     const date = String(req.query.date || '');
     const clientName = String(req.query.client || 'KPF');
     if (!date) return res.status(400).json({ error: 'date required' });
@@ -2515,34 +2515,34 @@ export async function registerRoutes(
     const id = await storage.saveDailyPnlEntry(req.body);
     res.json({ id });
   });
-  app.get('/api/daily-pnl/month-summary', requireAuth, async (req, res) => {
+  app.get('/api/daily-pnl/month-summary', requireAdmin, async (req, res) => {
     const month = Number(req.query.month) || new Date().getMonth() + 1;
     const year = Number(req.query.year) || new Date().getFullYear();
     res.json(await storage.getDailyPnlMonthSummary(month, year));
   });
-  app.get('/api/daily-pnl/monthly-report', requireAuth, async (req, res) => {
+  app.get('/api/daily-pnl/monthly-report', requireAdmin, async (req, res) => {
     const year = Number(req.query.year) || new Date().getFullYear();
     const clientName = req.query.client ? String(req.query.client) : undefined;
     res.json(await storage.getDailyPnlMonthlySummary(year, clientName));
   });
-  app.get('/api/daily-pnl/yearly-report', requireAuth, async (req, res) => {
+  app.get('/api/daily-pnl/yearly-report', requireAdmin, async (req, res) => {
     const clientName = req.query.client ? String(req.query.client) : undefined;
     res.json(await storage.getDailyPnlYearlySummary(clientName));
   });
-  app.get('/api/daily-pnl/prev-balance', requireAuth, async (req, res) => {
+  app.get('/api/daily-pnl/prev-balance', requireAdmin, async (req, res) => {
     const date = String(req.query.date || '');
     const clientName = String(req.query.client || 'KPF');
     if (!date) return res.json({ balance: 0 });
     const balance = await storage.getPrevDailyPnlBalance(date, clientName);
     res.json({ balance });
   });
-  app.get('/api/daily-pnl/cash-seal', requireAuth, async (req, res) => {
+  app.get('/api/daily-pnl/cash-seal', requireAdmin, async (req, res) => {
     const date = String(req.query.date || '');
     if (!date) return res.json(null);
     const cs = await storage.getCashSealForDate(date);
     res.json(cs ?? null);
   });
-  app.get('/api/daily-pnl/last-price', requireAuth, async (req, res) => {
+  app.get('/api/daily-pnl/last-price', requireAdmin, async (req, res) => {
     const item = String(req.query.item || '');
     if (!item) return res.json({ price: 0 });
     const price = await storage.getLastPurchasePrice(item);
