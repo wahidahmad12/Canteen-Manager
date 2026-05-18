@@ -722,6 +722,17 @@ export default function BomPage() {
               {dishNames.map(dish => {
                 const dishItemsForDish = Object.values(grouped[dish]).flat();
                 const isActive = dish === currentDish;
+                const dishTotalCost = dishItemsForDish.reduce((s, i) => {
+                  const rp = getItemRate(i);
+                  const ft = fmtTotal(i.qtyPerPerson, i.uom, hc);
+                  const displayQty = parseFloat(ft.value);
+                  const rate = i.manualRate ? parseFloat(i.manualRate) : (rp.source && rp.source !== 'manual' ? rp.unitPrice : 0);
+                  return rate > 0 ? s + rate * displayQty : s;
+                }, 0);
+                const dishHasCost = dishItemsForDish.some(i => {
+                  const rp = getItemRate(i);
+                  return i.manualRate ? parseFloat(i.manualRate) > 0 : (rp.source !== null && rp.unitPrice > 0);
+                });
                 return (
                   <button key={dish} onClick={() => setActiveDish(dish)}
                     className={`w-full text-left px-3 py-2 rounded-lg border transition-all text-sm ${isActive ? 'bg-indigo-600 text-white border-indigo-600 shadow-md' : 'bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 hover:border-indigo-300 hover:bg-indigo-50 dark:hover:bg-indigo-950/30'}`}
@@ -729,8 +740,12 @@ export default function BomPage() {
                     <div className="font-semibold truncate">{dish}</div>
                     <div className={`text-xs mt-0.5 ${isActive ? 'text-indigo-200' : 'text-muted-foreground'}`}>
                       {dishItemsForDish.length} ingredient{dishItemsForDish.length !== 1 ? 's' : ''}
-                      {` · ${(dishItemsForDish.reduce((s, i) => s + parseFloat(i.qtyPerPerson) * hc, 0)).toFixed(2)} ${dishItemsForDish[0]?.uom ?? ''}`}
                     </div>
+                    {dishHasCost && (
+                      <div className={`text-xs font-bold mt-1 ${isActive ? 'text-yellow-300' : 'text-purple-700 dark:text-purple-400'}`}>
+                        Total: ₹{dishTotalCost.toFixed(2)}
+                      </div>
+                    )}
                   </button>
                 );
               })}
@@ -750,6 +765,26 @@ export default function BomPage() {
                     <span className="font-bold text-green-700">{qty.toFixed(3)}</span>
                   </div>
                 ))}
+                {(() => {
+                  const totalCost = allMealItems.reduce((s, i) => {
+                    const rp = getItemRate(i);
+                    const ft = fmtTotal(i.qtyPerPerson, i.uom, hc);
+                    const displayQty = parseFloat(ft.value);
+                    const rate = i.manualRate ? parseFloat(i.manualRate) : (rp.source && rp.source !== 'manual' ? rp.unitPrice : 0);
+                    return rate > 0 ? s + rate * displayQty : s;
+                  }, 0);
+                  const hasCost = allMealItems.some(i => {
+                    const rp = getItemRate(i);
+                    return i.manualRate ? parseFloat(i.manualRate) > 0 : (rp.source !== null && rp.unitPrice > 0);
+                  });
+                  if (!hasCost) return null;
+                  return (
+                    <div className="flex justify-between text-xs mt-2 pt-2 border-t border-green-300">
+                      <span className="font-bold text-purple-700">Est. Cost</span>
+                      <span className="font-bold text-purple-700">₹{totalCost.toFixed(2)}</span>
+                    </div>
+                  );
+                })()}
               </div>
             </div>
 
