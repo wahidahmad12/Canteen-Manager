@@ -48,3 +48,6 @@ TIDB_DATABASE_URL = "mysql://2Ro6q6fVJwNZr3P.root:Vte7ggDzFrOeFYAc@gateway01.ap-
 [postMerge]
 path = "scripts/post-merge.sh"
 timeoutMs = 20000
+
+[objectStorage]
+defaultBucketID = "replit-objstore-b880c5d5-3a5e-484f-aca8-5af077dd46b4"
