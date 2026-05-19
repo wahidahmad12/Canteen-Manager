@@ -1,8 +1,33 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { startAuthentication } from "@simplewebauthn/browser";
 import { Html5Qrcode } from "html5-qrcode";
-import { Fingerprint, Loader2, CheckCircle2, X, ChevronLeft, Clock, CalendarDays, Users, QrCode, Camera, ScanLine } from "lucide-react";
+import { Fingerprint, Loader2, CheckCircle2, X, ChevronLeft, Clock, CalendarDays, Users, QrCode, Camera, ShieldAlert } from "lucide-react";
 import logoImg from "@assets/logo1_1771660912341.png";
+
+const KIOSK_TOKEN_KEY = "kiosk_token";
+
+function getKioskToken(): string | null {
+  const urlParams = new URLSearchParams(window.location.search);
+  const fromUrl = urlParams.get("token");
+  if (fromUrl) {
+    sessionStorage.setItem(KIOSK_TOKEN_KEY, fromUrl);
+    // Remove the token from the URL to avoid leakage via browser history or referrer headers
+    urlParams.delete("token");
+    const newSearch = urlParams.toString();
+    history.replaceState(null, "", window.location.pathname + (newSearch ? "?" + newSearch : ""));
+    return fromUrl;
+  }
+  return sessionStorage.getItem(KIOSK_TOKEN_KEY);
+}
+
+function kioskFetch(url: string, init: RequestInit = {}): Promise<Response> {
+  const token = getKioskToken();
+  const headers: Record<string, string> = {
+    ...(init.headers as Record<string, string> | undefined),
+  };
+  if (token) headers["x-kiosk-token"] = token;
+  return fetch(url, { ...init, headers });
+}
 
 type KioskStep = "select-client" | "select-mode" | "select-employee" | "verify" | "qr-scan" | "success" | "error";
 type AttendanceMode = "fingerprint" | "qr";
@@ -35,6 +60,7 @@ export default function AttendanceKiosk() {
   const [timeStr, setTimeStr] = useState("");
   const [dateStr, setDateStr] = useState("");
   const [todayLogs, setTodayLogs] = useState<Set<number>>(new Set());
+  const [hasToken] = useState<boolean>(() => !!getKioskToken());
 
   // QR scanner
   const [qrScanning, setQrScanning] = useState(false);
@@ -45,7 +71,8 @@ export default function AttendanceKiosk() {
   const today = new Date().toISOString().slice(0, 10);
 
   useEffect(() => {
-    fetch("/api/kiosk/clients").then(r => r.json()).then(setClients).catch(() => {});
+    if (!hasToken) return;
+    kioskFetch("/api/kiosk/clients").then(r => r.json()).then(setClients).catch(() => {});
     const tick = () => {
       const now = new Date();
       setTimeStr(now.toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit", second: "2-digit" }));
@@ -58,14 +85,14 @@ export default function AttendanceKiosk() {
 
   useEffect(() => {
     if (!selectedClient) return;
-    fetch(`/api/kiosk/employees?clientName=${encodeURIComponent(selectedClient)}`)
+    kioskFetch(`/api/kiosk/employees?clientName=${encodeURIComponent(selectedClient)}`)
       .then(r => r.json()).then(setEmployees).catch(() => {});
     refreshLogs();
   }, [selectedClient]);
 
   const refreshLogs = () => {
     if (!selectedClient) return;
-    fetch(`/api/kiosk/today-logs?clientName=${encodeURIComponent(selectedClient)}&date=${today}`)
+    kioskFetch(`/api/kiosk/today-logs?clientName=${encodeURIComponent(selectedClient)}`)
       .then(r => r.json()).then((logs: any[]) => setTodayLogs(new Set(logs.map((l: any) => l.employee_id))))
       .catch(() => {});
   };
@@ -125,7 +152,7 @@ export default function AttendanceKiosk() {
             }
             setQrSaving(true);
             try {
-              const res = await fetch("/api/kiosk/qr-attendance", {
+              const res = await kioskFetch("/api/kiosk/qr-attendance", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({ employeeCode: parsed.code, clientName: selectedClient, attendanceDate: today }),
@@ -188,14 +215,14 @@ export default function AttendanceKiosk() {
     setVerifying(true);
     setErrorMsg("");
     try {
-      const challengeRes = await fetch("/api/kiosk/webauthn/challenge", {
+      const challengeRes = await kioskFetch("/api/kiosk/webauthn/challenge", {
         method: "POST", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ employeeId: selectedEmployee.id }),
       });
       if (!challengeRes.ok) { const e = await challengeRes.json(); throw new Error(e.message); }
       const options = await challengeRes.json();
       const authResponse = await startAuthentication({ optionsJSON: options });
-      const verifyRes = await fetch("/api/kiosk/webauthn/verify", {
+      const verifyRes = await kioskFetch("/api/kiosk/webauthn/verify", {
         method: "POST", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ employeeId: selectedEmployee.id, authenticationResponse: authResponse, clientName: selectedClient, attendanceDate: today }),
       });
@@ -230,6 +257,25 @@ export default function AttendanceKiosk() {
     setSelectedEmployee(null);
     setErrorMsg("");
   };
+
+  if (!hasToken) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-slate-900 via-indigo-950 to-slate-900 flex flex-col items-center justify-center gap-6 px-6">
+        <div className="w-16 h-16 rounded-2xl bg-red-500/20 flex items-center justify-center">
+          <ShieldAlert className="w-8 h-8 text-red-400" />
+        </div>
+        <div className="text-center space-y-2 max-w-sm">
+          <h1 className="text-white font-bold text-xl">Kiosk Not Configured</h1>
+          <p className="text-slate-400 text-sm">
+            This kiosk terminal requires a valid access token. Please ask your administrator to provide the kiosk URL with the correct token parameter.
+          </p>
+          <p className="text-slate-600 text-xs font-mono mt-3">
+            Example: /kiosk?token=&lt;secret&gt;
+          </p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-900 via-indigo-950 to-slate-900 flex flex-col relative overflow-hidden">
@@ -398,7 +444,6 @@ export default function AttendanceKiosk() {
                         {emp.name.charAt(0)}
                       </div>
                       <p className={`font-medium text-xs leading-snug ${done ? "text-green-200" : "text-white"}`}>{emp.name}</p>
-                      <p className="text-slate-500 text-[10px] mt-0.5">{emp.employeeCode}</p>
                       {done && <p className="text-green-400/80 text-[10px] mt-0.5 font-medium">✓ Marked</p>}
                     </button>
                   );
@@ -461,7 +506,6 @@ export default function AttendanceKiosk() {
                 {selectedEmployee.name.charAt(0)}
               </div>
               <p className="text-white font-semibold text-base">{selectedEmployee.name}</p>
-              <p className="text-slate-400 text-xs mt-0.5">{selectedEmployee.employeeCode} · {selectedEmployee.designation}</p>
             </div>
 
             <div className="w-full max-w-xs flex flex-col items-center gap-4 p-6 rounded-2xl bg-white/5 border border-white/10">

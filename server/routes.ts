@@ -1237,41 +1237,57 @@ export async function registerRoutes(
     }
   });
 
-  // === ATTENDANCE KIOSK (public endpoints — no auth) ===
+  // === ATTENDANCE KIOSK ===
+  // All kiosk endpoints require a shared secret token set via KIOSK_SECRET env var.
+  // Physical kiosk devices are configured with /kiosk?token=<secret> so the
+  // frontend includes the token in every API call via x-kiosk-token header.
+  const requireKioskToken = (req: any, res: any, next: any) => {
+    const secret = process.env.KIOSK_SECRET;
+    if (!secret) {
+      return res.status(503).json({ message: "Kiosk is not configured on this server. Set KIOSK_SECRET environment variable." });
+    }
+    const provided = req.headers["x-kiosk-token"];
+    if (!provided || provided !== secret) {
+      return res.status(401).json({ message: "Unauthorized: invalid or missing kiosk token" });
+    }
+    next();
+  };
+
   const kioskChallenges = new Map<number, string>();
 
-  app.get("/api/kiosk/clients", async (req, res) => {
+  app.get("/api/kiosk/clients", requireKioskToken, async (req, res) => {
     try {
       const [rows] = await pool.execute(`SELECT id, name FROM clients ORDER BY name ASC`) as any;
       res.json(rows);
     } catch (err: any) { res.status(500).json({ message: err.message }); }
   });
 
-  app.get("/api/kiosk/employees", async (req, res) => {
+  app.get("/api/kiosk/employees", requireKioskToken, async (req, res) => {
     try {
       const { clientName } = req.query;
       if (!clientName) return res.status(400).json({ message: "clientName required" });
       const [rows] = await pool.execute(
-        `SELECT id, name, employee_code AS employeeCode, designation FROM employees WHERE client_name = ? AND is_active = 1 ORDER BY name ASC`,
+        `SELECT id, name FROM employees WHERE client_name = ? AND is_active = 1 ORDER BY name ASC`,
         [clientName]
       ) as any;
       res.json(rows);
     } catch (err: any) { res.status(500).json({ message: err.message }); }
   });
 
-  app.get("/api/kiosk/today-logs", async (req, res) => {
+  app.get("/api/kiosk/today-logs", requireKioskToken, async (req, res) => {
     try {
-      const { clientName, date } = req.query;
-      if (!clientName || !date) return res.status(400).json({ message: "clientName and date required" });
+      const { clientName } = req.query;
+      if (!clientName) return res.status(400).json({ message: "clientName required" });
+      const todayDate = new Date().toISOString().slice(0, 10);
       const [rows] = await pool.execute(
         `SELECT employee_id FROM daily_attendance_logs WHERE client_name = ? AND attendance_date = ?`,
-        [clientName, date]
+        [clientName, todayDate]
       ) as any;
       res.json(rows);
     } catch (err: any) { res.status(500).json({ message: err.message }); }
   });
 
-  app.post("/api/kiosk/webauthn/challenge", async (req, res) => {
+  app.post("/api/kiosk/webauthn/challenge", requireKioskToken, async (req, res) => {
     try {
       const { employeeId } = req.body;
       const creds = await storage.getEmployeeWebAuthnCredentials(Number(employeeId));
@@ -1292,7 +1308,7 @@ export async function registerRoutes(
     } catch (err: any) { res.status(500).json({ message: err.message }); }
   });
 
-  app.post("/api/kiosk/webauthn/verify", async (req, res) => {
+  app.post("/api/kiosk/webauthn/verify", requireKioskToken, async (req, res) => {
     try {
       const { employeeId, authenticationResponse, clientName, attendanceDate } = req.body;
       const challenge = kioskChallenges.get(Number(employeeId));
@@ -1318,10 +1334,11 @@ export async function registerRoutes(
       if (!verification.verified) return res.status(400).json({ message: "Fingerprint verification failed" });
       await storage.updateWebAuthnCounter(bufToStr(cred.credential_id), verification.authenticationInfo.newCounter);
       kioskChallenges.delete(Number(employeeId));
+      const todayDate = new Date().toISOString().slice(0, 10);
       const log = await storage.saveDailyAttendanceLog({
         employeeId: Number(employeeId),
         clientName,
-        attendanceDate,
+        attendanceDate: todayDate,
         status: "P",
         scannedLat: null,
         scannedLng: null,
@@ -1334,12 +1351,16 @@ export async function registerRoutes(
     }
   });
 
-  // QR-based kiosk attendance (no auth required)
-  app.post("/api/kiosk/qr-attendance", async (req, res) => {
+  // QR-based kiosk attendance — token-gated via requireKioskToken
+  app.post("/api/kiosk/qr-attendance", requireKioskToken, async (req, res) => {
     try {
       const { employeeCode, clientName, attendanceDate } = req.body;
       if (!employeeCode || !clientName || !attendanceDate) {
         return res.status(400).json({ message: "employeeCode, clientName and attendanceDate are required" });
+      }
+      const todayDate = new Date().toISOString().slice(0, 10);
+      if (attendanceDate !== todayDate) {
+        return res.status(400).json({ message: "Attendance can only be recorded for today" });
       }
       const employees = await storage.getEmployees(clientName);
       const emp = employees.find((e: any) => {
