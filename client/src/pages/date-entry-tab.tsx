@@ -5598,6 +5598,14 @@ function HulSummaryTab({ month, year }: { month: number; year: number }) {
       return d.map((r: ExecSnackRow) => ({ ...r, entryDate: normDate(r.entryDate) }));
     },
   });
+  const { data: specialOrderRows = [], isLoading: specialLoading } = useQuery<SpecialOrderRow[]>({
+    queryKey: ['/api/hul-special-orders', month, year],
+    enabled: viewMode === 'monthly',
+    queryFn: async () => {
+      const res = await fetch(`/api/hul-special-orders?month=${month}&year=${year}`, { credentials: 'include' });
+      return res.json();
+    },
+  });
 
   // Yearly data
   const { data: yrKpf = [], isLoading: yrKpfLoading } = useQuery<YearlyMealRow[]>({
@@ -5626,13 +5634,14 @@ function HulSummaryTab({ month, year }: { month: number; year: number }) {
   });
 
   const isLoading = viewMode === 'monthly'
-    ? (kpfLoading || tecLoading || execLoading)
+    ? (kpfLoading || tecLoading || execLoading || specialLoading)
     : (yrKpfLoading || yrTecLoading || yrExecLoading);
 
   const sum = (arr: any[], field: string) => arr.reduce((s, r) => s + (r[field] || 0), 0);
   const kpfT = { breakfast: sum(kpfRows,'breakfast'), lunch: sum(kpfRows,'lunch'), eveningSnacks: sum(kpfRows,'eveningSnacks'), nightSnacks: sum(kpfRows,'nightSnacks'), guestBreakfast: sum(kpfRows,'guestBreakfast'), guestLunch: sum(kpfRows,'guestLunch'), guestEveningSnacks: sum(kpfRows,'guestEveningSnacks'), guestNightSnacks: sum(kpfRows,'guestNightSnacks') };
   const tecT = { breakfast: sum(tecRows,'breakfast'), lunch: sum(tecRows,'lunch'), eveningSnacks: sum(tecRows,'eveningSnacks'), nightSnacks: sum(tecRows,'nightSnacks'), guestBreakfast: sum(tecRows,'guestBreakfast'), guestLunch: sum(tecRows,'guestLunch'), guestEveningSnacks: sum(tecRows,'guestEveningSnacks'), guestNightSnacks: sum(tecRows,'guestNightSnacks') };
   const exT = { snacks: sum(execRows,'snacks'), biscuit: sum(execRows,'biscuit'), chips: sum(execRows,'chips'), coldDrinkWater: sum(execRows,'coldDrinkWater'), shiftOfficerBreakfast: sum(execRows,'shiftOfficerBreakfast') };
+  const specialTotal = specialOrderRows.reduce((s, r) => s + Number(r.total || 0), 0);
 
   const thG: React.CSSProperties = { background:'#1a6b2e', color:'#fff', border:'1px solid #333', padding:'4px 6px', textAlign:'center', fontWeight:'bold', fontSize:11 };
   const thB: React.CSSProperties = { background:'#1a3a8a', color:'#fff', border:'1px solid #333', padding:'4px 6px', textAlign:'center', fontWeight:'bold', fontSize:11 };
@@ -6537,6 +6546,51 @@ function HulSummaryTab({ month, year }: { month: number; year: number }) {
                 <td colSpan={3} style={{ border:'1px solid #333', padding:'3px 8px', fontWeight:'bold', textAlign:'right', fontSize:11, color:'#fff' }}>Grand Total</td>
                 <td style={{ border:'1px solid #333', padding:'3px 6px', textAlign:'right', fontWeight:'bold', fontSize:11, color:'#fff' }}>
                   {fmtINR(EXEC_RATES.reduce((s, r) => s + ((exT as any)[r.key] || 0) * r.rate, 0))}
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      {/* Special Order Section */}
+      <div className="border rounded-lg overflow-hidden mb-4">
+        <div className="px-3 py-2 text-sm font-bold text-center text-white" style={{ background:'#7c3aed' }}>
+          Special Order — {monthLabel}
+        </div>
+        <div className="overflow-x-auto">
+          <table className="w-full border-collapse" style={{ fontSize:11 }}>
+            <thead>
+              <tr>
+                <th style={{ background:'#7c3aed', color:'#fff', border:'1px solid #333', padding:'4px 6px', textAlign:'center', fontWeight:'bold', fontSize:10, width:36 }}>Sl.</th>
+                <th style={{ background:'#7c3aed', color:'#fff', border:'1px solid #333', padding:'4px 6px', textAlign:'center', fontWeight:'bold', fontSize:10, width:90 }}>Date</th>
+                <th style={{ background:'#7c3aed', color:'#fff', border:'1px solid #333', padding:'4px 8px', textAlign:'left', fontWeight:'bold', fontSize:10 }}>Particulars</th>
+                <th style={{ background:'#7c3aed', color:'#fff', border:'1px solid #333', padding:'4px 6px', textAlign:'center', fontWeight:'bold', fontSize:10, width:54 }}>Qty</th>
+                <th style={{ background:'#7c3aed', color:'#fff', border:'1px solid #333', padding:'4px 6px', textAlign:'center', fontWeight:'bold', fontSize:10, width:90 }}>Rate/Plate</th>
+                <th style={{ background:'#7c3aed', color:'#fff', border:'1px solid #333', padding:'4px 6px', textAlign:'right', fontWeight:'bold', fontSize:10, width:90 }}>Total (₹)</th>
+              </tr>
+            </thead>
+            <tbody>
+              {specialOrderRows.length === 0 ? (
+                <tr>
+                  <td colSpan={6} style={{ border:'1px solid #ddd', padding:'8px', textAlign:'center', color:'#888', fontSize:10 }}>
+                    No special orders for {monthLabel}
+                  </td>
+                </tr>
+              ) : specialOrderRows.map((r, i) => (
+                <tr key={i} style={{ background: i % 2 === 0 ? '#f5f3ff' : '#fff' }}>
+                  <td style={{ border:'1px solid #ddd', padding:'2px 5px', textAlign:'center', fontSize:10 }}>{r.slNo}</td>
+                  <td style={{ border:'1px solid #ddd', padding:'2px 5px', textAlign:'center', fontSize:10 }}>{safeFormat(r.dateOfSupply)}</td>
+                  <td style={{ border:'1px solid #ddd', padding:'2px 8px', textAlign:'left', fontSize:10 }}>{r.particulars}</td>
+                  <td style={{ border:'1px solid #ddd', padding:'2px 5px', textAlign:'center', fontSize:10 }}>{r.qty || ''}</td>
+                  <td style={{ border:'1px solid #ddd', padding:'2px 5px', textAlign:'center', fontSize:10 }}>{r.ratePerPlate ? `₹${r.ratePerPlate}` : ''}</td>
+                  <td style={{ border:'1px solid #ddd', padding:'2px 6px', textAlign:'right', fontSize:10 }}>{r.total ? fmtINR(Number(r.total)) : ''}</td>
+                </tr>
+              ))}
+              <tr style={{ background:'#7c3aed' }}>
+                <td colSpan={5} style={{ border:'1px solid #4c1d95', padding:'4px 8px', fontWeight:'bold', textAlign:'right', fontSize:11, color:'#fff' }}>Grand Total</td>
+                <td style={{ border:'1px solid #4c1d95', padding:'4px 8px', textAlign:'right', fontWeight:'bold', fontSize:11, color:'#fff' }}>
+                  {specialTotal > 0 ? fmtINR(specialTotal) : '—'}
                 </td>
               </tr>
             </tbody>
