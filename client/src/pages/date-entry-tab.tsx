@@ -6298,7 +6298,7 @@ function HulSummaryTab({ month, year }: { month: number; year: number }) {
             {(() => {
               const monthlySpecial = Array.from({length:12},(_,i)=>i+1).map(m => ({
                 month: m,
-                amount: yrSpecialOrders.filter(r=>r.month===m).reduce((s,r)=>s+Number(r.total||0),0),
+                amount: yrSpecialOrders.filter(r=>Number(r.month)===m).reduce((s,r)=>s+Number(r.total||0),0),
               })).filter(r => selectedMonths.has(r.month));
               const yrSpecialGrand = monthlySpecial.reduce((s,r)=>s+r.amount,0);
               return (
