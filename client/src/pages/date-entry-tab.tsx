@@ -5681,13 +5681,13 @@ function HulSummaryTab({ month, year }: { month: number; year: number }) {
       <div className="text-center font-bold text-sm py-1.5" style={{ background: hStyle.background as string, color: '#fff' }}>
         {locName} — Meal Charges &amp; Guest Meal Charges — {monthLabel}
       </div>
-      <div className="hidden md:block overflow-x-auto">
-        <table className="w-full border-collapse" style={{ fontSize: 11 }}>
+      <div className="overflow-x-auto">
+        <table className="w-full border-collapse" style={{ fontSize: 11, minWidth: 700 }}>
           <thead>
             <tr>
               <th rowSpan={2} style={{ ...hStyle, width: 28 }}>Sl.</th>
-              <th rowSpan={2} style={{ ...hStyle, width: 80 }}>Date</th>
-              <th rowSpan={2} style={{ ...hStyle, width: 34 }}>Days</th>
+              <th rowSpan={2} style={{ ...hStyle, width: 90 }}>Date</th>
+              <th rowSpan={2} style={{ ...hStyle, width: 40 }}>Days</th>
               <th colSpan={4} style={hStyle}>Meal Charges</th>
               <th colSpan={4} style={thB}>Guest Meal Charges</th>
             </tr>
@@ -5700,7 +5700,7 @@ function HulSummaryTab({ month, year }: { month: number; year: number }) {
             {rows.map((row, i) => {
               const sun = isSunday(row.entryDate);
               return (
-                <tr key={i} style={{ background: sun ? '#ffb380' : undefined }}>
+                <tr key={i} style={{ background: sun ? '#ffb380' : i%2===0 ? '#fff' : '#f9fafb' }}>
                   <td style={td(sun)}>{i+1}</td>
                   <td style={td(sun)}>{safeFormat(row.entryDate)}</td>
                   <td style={td(sun)}>{row.weekDay}</td>
@@ -5718,19 +5718,6 @@ function HulSummaryTab({ month, year }: { month: number; year: number }) {
             </tr>
           </tbody>
         </table>
-      </div>
-      <div className="block md:hidden space-y-1 mt-1">
-        {rows.map((row, i) => (
-          <div key={i} className="border rounded p-2 text-xs" style={{ background: isSunday(row.entryDate) ? '#ffb380' : '#f9fafb' }}>
-            <div className="font-semibold">{safeFormat(row.entryDate)} ({row.weekDay})</div>
-            <div className="grid grid-cols-2 gap-x-3 mt-0.5">
-              <span>Breakfast: <b>{row.breakfast||0}</b></span><span>Lunch: <b>{row.lunch||0}</b></span>
-              <span>Evng: <b>{row.eveningSnacks||0}</b></span><span>Night: <b>{row.nightSnacks||0}</b></span>
-              <span>G.Breakfast: <b>{row.guestBreakfast||0}</b></span><span>G.Lunch: <b>{row.guestLunch||0}</b></span>
-              <span>G.Evng: <b>{row.guestEveningSnacks||0}</b></span><span>G.Night: <b>{row.guestNightSnacks||0}</b></span>
-            </div>
-          </div>
-        ))}
       </div>
     </div>
   );
