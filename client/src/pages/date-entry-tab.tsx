@@ -6295,51 +6295,52 @@ function HulSummaryTab({ month, year }: { month: number; year: number }) {
             </div>
 
             {/* Special Order Yearly Summary */}
-            <div className="border rounded-lg overflow-hidden mb-4">
-              <div className="px-3 py-1.5 text-sm font-bold text-center text-white" style={{ background:'#7c3aed' }}>
-                Special Order — Rate Summary — {yearLabel}
-              </div>
-              <div className="overflow-x-auto">
-                <table className="w-full border-collapse" style={{ fontSize:10 }}>
-                  <thead>
-                    <tr>
-                      <th style={{ ...thPurple, textAlign:'center', width:28, fontSize:10 }}>Sl.</th>
-                      <th style={{ ...thPurple, textAlign:'center', width:50, fontSize:10 }}>Month</th>
-                      <th style={{ ...thPurple, textAlign:'center', width:80, fontSize:10 }}>Date</th>
-                      <th style={{ ...thPurple, textAlign:'left', paddingLeft:8, fontSize:10 }}>Particulars</th>
-                      <th style={{ ...thPurple, fontSize:10 }}>Qty</th>
-                      <th style={{ ...thPurple, fontSize:10 }}>Rate/Plate (₹)</th>
-                      <th style={{ ...thPurple, fontSize:10 }}>Amount (₹)</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {yrSpecialOrders.length === 0 ? (
-                      <tr>
-                        <td colSpan={7} style={{ border:'1px solid #ddd', padding:'6px', textAlign:'center', color:'#888', fontSize:10 }}>
-                          No special orders for {yearLabel}
-                        </td>
-                      </tr>
-                    ) : yrSpecialOrders.map((r, i) => (
-                      <tr key={i} style={{ background: i % 2 === 0 ? '#f5f3ff' : '#fff' }}>
-                        <td style={tdC}>{r.slNo}</td>
-                        <td style={tdC}>{MONTHS[(r.month||1)-1]}</td>
-                        <td style={tdC}>{r.dateOfSupply || ''}</td>
-                        <td style={tdL}>{r.particulars}</td>
-                        <td style={tdC}>{r.qty || ''}</td>
-                        <td style={tdC}>{r.ratePerPlate ? `₹${r.ratePerPlate}` : ''}</td>
-                        <td style={tdR}>{r.total ? fmtINR(Number(r.total)) : ''}</td>
-                      </tr>
-                    ))}
-                    <tr style={{ background:'#7c3aed' }}>
-                      <td colSpan={6} style={{ border:'1px solid #4c1d95', padding:'3px 8px', fontWeight:'bold', textAlign:'right', fontSize:11, color:'#fff' }}>Grand Total</td>
-                      <td style={{ border:'1px solid #4c1d95', padding:'3px 6px', textAlign:'right', fontWeight:'bold', fontSize:11, color:'#fff' }}>
-                        {yrSpecialOrders.reduce((s,r)=>s+Number(r.total||0),0) > 0 ? fmtINR(yrSpecialOrders.reduce((s,r)=>s+Number(r.total||0),0)) : '—'}
-                      </td>
-                    </tr>
-                  </tbody>
-                </table>
-              </div>
-            </div>
+            {(() => {
+              const monthlySpecial = Array.from({length:12},(_,i)=>i+1).map(m => ({
+                month: m,
+                amount: yrSpecialOrders.filter(r=>r.month===m).reduce((s,r)=>s+Number(r.total||0),0),
+              })).filter(r => selectedMonths.has(r.month));
+              const yrSpecialGrand = monthlySpecial.reduce((s,r)=>s+r.amount,0);
+              return (
+                <div className="border rounded-lg overflow-hidden mb-4">
+                  <div className="px-3 py-1.5 text-sm font-bold text-center text-white" style={{ background:'#7c3aed' }}>
+                    Special Order — Rate Summary — {yearLabel}
+                  </div>
+                  <div className="overflow-x-auto">
+                    <table className="w-full border-collapse" style={{ fontSize:10 }}>
+                      <thead>
+                        <tr>
+                          <th style={{ ...thPurple, textAlign:'center', width:40, fontSize:10 }}>Sl.</th>
+                          <th style={{ ...thPurple, textAlign:'left', paddingLeft:8, fontSize:10 }}>Month</th>
+                          <th style={{ ...thPurple, textAlign:'right', paddingRight:8, fontSize:10 }}>Amount (₹)</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {monthlySpecial.length === 0 ? (
+                          <tr>
+                            <td colSpan={3} style={{ border:'1px solid #ddd', padding:'6px', textAlign:'center', color:'#888', fontSize:10 }}>
+                              No special orders for {yearLabel}
+                            </td>
+                          </tr>
+                        ) : monthlySpecial.map((r, i) => (
+                          <tr key={r.month} style={{ background: i%2===0 ? '#f5f3ff' : '#fff' }}>
+                            <td style={tdC}>{i+1}</td>
+                            <td style={{ ...tdL }}>{MONTHS[r.month-1]}</td>
+                            <td style={tdR}>{r.amount > 0 ? fmtINR(r.amount) : '—'}</td>
+                          </tr>
+                        ))}
+                        <tr style={{ background:'#7c3aed' }}>
+                          <td colSpan={2} style={{ border:'1px solid #4c1d95', padding:'3px 8px', fontWeight:'bold', textAlign:'right', fontSize:11, color:'#fff' }}>Grand Total</td>
+                          <td style={{ border:'1px solid #4c1d95', padding:'3px 8px', textAlign:'right', fontWeight:'bold', fontSize:11, color:'#fff' }}>
+                            {yrSpecialGrand > 0 ? fmtINR(yrSpecialGrand) : '—'}
+                          </td>
+                        </tr>
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              );
+            })()}
           </>
         );
       })()}
