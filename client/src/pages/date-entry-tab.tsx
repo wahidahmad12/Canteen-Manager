@@ -6551,45 +6551,43 @@ function HulSummaryTab({ month, year }: { month: number; year: number }) {
             </tbody>
           </table>
         </div>
-      </div>
 
-      {/* Special Order Section */}
-      <div className="border rounded-lg overflow-hidden mb-4">
-        <div className="px-3 py-2 text-sm font-bold text-center text-white" style={{ background:'#7c3aed' }}>
-          Special Order — {monthLabel}
-        </div>
-        <div className="overflow-x-auto">
-          <table className="w-full border-collapse" style={{ fontSize:11 }}>
+        {/* Special Order Rate Summary */}
+        <div className="overflow-x-auto border-t">
+          <div className="px-3 py-1 font-bold text-white text-xs" style={{ background:'#7c3aed' }}>
+            Special Order — Rate Summary — {monthLabel}
+          </div>
+          <table className="w-full border-collapse" style={{ fontSize:10 }}>
             <thead>
               <tr>
-                <th style={{ background:'#7c3aed', color:'#fff', border:'1px solid #333', padding:'4px 6px', textAlign:'center', fontWeight:'bold', fontSize:10, width:36 }}>Sl.</th>
-                <th style={{ background:'#7c3aed', color:'#fff', border:'1px solid #333', padding:'4px 6px', textAlign:'center', fontWeight:'bold', fontSize:10, width:90 }}>Date</th>
-                <th style={{ background:'#7c3aed', color:'#fff', border:'1px solid #333', padding:'4px 8px', textAlign:'left', fontWeight:'bold', fontSize:10 }}>Particulars</th>
-                <th style={{ background:'#7c3aed', color:'#fff', border:'1px solid #333', padding:'4px 6px', textAlign:'center', fontWeight:'bold', fontSize:10, width:54 }}>Qty</th>
-                <th style={{ background:'#7c3aed', color:'#fff', border:'1px solid #333', padding:'4px 6px', textAlign:'center', fontWeight:'bold', fontSize:10, width:90 }}>Rate/Plate</th>
-                <th style={{ background:'#7c3aed', color:'#fff', border:'1px solid #333', padding:'4px 6px', textAlign:'right', fontWeight:'bold', fontSize:10, width:90 }}>Total (₹)</th>
+                <th style={{ ...thPurple, textAlign:'center', width:36, fontSize:10 }}>Sl.</th>
+                <th style={{ ...thPurple, textAlign:'center', width:90, fontSize:10 }}>Date</th>
+                <th style={{ ...thPurple, textAlign:'left', paddingLeft:8, fontSize:10 }}>Particulars</th>
+                <th style={{ ...thPurple, fontSize:10 }}>Qty</th>
+                <th style={{ ...thPurple, fontSize:10 }}>Rate/Plate (₹)</th>
+                <th style={{ ...thPurple, fontSize:10 }}>Amount (₹)</th>
               </tr>
             </thead>
             <tbody>
               {specialOrderRows.length === 0 ? (
                 <tr>
-                  <td colSpan={6} style={{ border:'1px solid #ddd', padding:'8px', textAlign:'center', color:'#888', fontSize:10 }}>
+                  <td colSpan={6} style={{ border:'1px solid #ddd', padding:'6px', textAlign:'center', color:'#888', fontSize:10 }}>
                     No special orders for {monthLabel}
                   </td>
                 </tr>
               ) : specialOrderRows.map((r, i) => (
                 <tr key={i} style={{ background: i % 2 === 0 ? '#f5f3ff' : '#fff' }}>
-                  <td style={{ border:'1px solid #ddd', padding:'2px 5px', textAlign:'center', fontSize:10 }}>{r.slNo}</td>
-                  <td style={{ border:'1px solid #ddd', padding:'2px 5px', textAlign:'center', fontSize:10 }}>{safeFormat(r.dateOfSupply)}</td>
-                  <td style={{ border:'1px solid #ddd', padding:'2px 8px', textAlign:'left', fontSize:10 }}>{r.particulars}</td>
-                  <td style={{ border:'1px solid #ddd', padding:'2px 5px', textAlign:'center', fontSize:10 }}>{r.qty || ''}</td>
-                  <td style={{ border:'1px solid #ddd', padding:'2px 5px', textAlign:'center', fontSize:10 }}>{r.ratePerPlate ? `₹${r.ratePerPlate}` : ''}</td>
-                  <td style={{ border:'1px solid #ddd', padding:'2px 6px', textAlign:'right', fontSize:10 }}>{r.total ? fmtINR(Number(r.total)) : ''}</td>
+                  <td style={tdC}>{r.slNo}</td>
+                  <td style={tdC}>{safeFormat(r.dateOfSupply)}</td>
+                  <td style={tdL}>{r.particulars}</td>
+                  <td style={tdC}>{r.qty || ''}</td>
+                  <td style={tdC}>{r.ratePerPlate ? `₹${r.ratePerPlate}` : ''}</td>
+                  <td style={tdR}>{r.total ? fmtINR(Number(r.total)) : ''}</td>
                 </tr>
               ))}
               <tr style={{ background:'#7c3aed' }}>
-                <td colSpan={5} style={{ border:'1px solid #4c1d95', padding:'4px 8px', fontWeight:'bold', textAlign:'right', fontSize:11, color:'#fff' }}>Grand Total</td>
-                <td style={{ border:'1px solid #4c1d95', padding:'4px 8px', textAlign:'right', fontWeight:'bold', fontSize:11, color:'#fff' }}>
+                <td colSpan={5} style={{ border:'1px solid #4c1d95', padding:'3px 8px', fontWeight:'bold', textAlign:'right', fontSize:11, color:'#fff' }}>Grand Total</td>
+                <td style={{ border:'1px solid #4c1d95', padding:'3px 6px', textAlign:'right', fontWeight:'bold', fontSize:11, color:'#fff' }}>
                   {specialTotal > 0 ? fmtINR(specialTotal) : '—'}
                 </td>
               </tr>
