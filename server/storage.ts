@@ -2771,9 +2771,15 @@ export class DatabaseStorage implements IStorage {
       .orderBy(hulSpecialOrders.slNo);
   }
   async getHulSpecialOrdersByYear(year: number): Promise<HulSpecialOrder[]> {
-    return await db.select().from(hulSpecialOrders)
-      .where(eq(hulSpecialOrders.year, year))
-      .orderBy(hulSpecialOrders.month, hulSpecialOrders.slNo);
+    const [rows] = await db.execute(sql`
+      SELECT id, \`month\`, \`year\`, sl_no as slNo, date_of_supply as dateOfSupply,
+             particulars, qty, rate_per_plate as ratePerPlate, total,
+             created_at as createdAt, updated_at as updatedAt
+      FROM hul_special_orders
+      WHERE \`year\` = ${year}
+      ORDER BY \`month\`, sl_no
+    `);
+    return rows as HulSpecialOrder[];
   }
   async createHulSpecialOrder(data: any): Promise<HulSpecialOrder> {
     const { month, year, slNo, dateOfSupply, particulars, qty, ratePerPlate, total } = data;

@@ -5634,8 +5634,12 @@ function HulSummaryTab({ month, year }: { month: number; year: number }) {
   });
 
   const { data: yrSpecialOrders = [], isLoading: yrSpecialLoading } = useQuery<any[]>({
-    queryKey: [`/api/hul-special-orders/yearly?year=${summaryYear}`],
+    queryKey: ['/api/hul-special-orders/yearly-summary', summaryYear],
     enabled: viewMode === 'yearly',
+    queryFn: async () => {
+      const res = await fetch(`/api/hul-special-orders?year=${summaryYear}`, { credentials: 'include' });
+      return res.json();
+    },
   });
 
   const isLoading = viewMode === 'monthly'

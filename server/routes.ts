@@ -2548,13 +2548,24 @@ export async function registerRoutes(
 
   // === HUL SPECIAL ORDERS ===
   app.get('/api/hul-special-orders', requirePermission('salesinvoice'), async (req, res) => {
-    const month = Number(req.query.month) || new Date().getMonth() + 1;
     const year = Number(req.query.year) || new Date().getFullYear();
+    if (req.query.month === undefined || req.query.month === '') {
+      const rows = await storage.getHulSpecialOrdersByYear(year);
+      return res.json(rows);
+    }
+    const month = Number(req.query.month) || new Date().getMonth() + 1;
     res.json(await storage.getHulSpecialOrders(month, year));
   });
   app.get('/api/hul-special-orders/yearly', requirePermission('salesinvoice'), async (req, res) => {
     const year = Number(req.query.year) || new Date().getFullYear();
-    res.json(await storage.getHulSpecialOrdersByYear(year));
+    try {
+      const rows = await storage.getHulSpecialOrdersByYear(year);
+      console.log('[yearly special orders] year:', year, 'count:', rows.length);
+      res.json(rows);
+    } catch (err: any) {
+      console.error('[yearly special orders] error:', err.message);
+      res.status(500).json({ message: err.message });
+    }
   });
   app.post('/api/hul-special-orders', requirePermission('salesinvoice'), async (req, res) => {
     try { res.status(201).json(await storage.createHulSpecialOrder(req.body)); }
