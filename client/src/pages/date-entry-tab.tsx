@@ -5633,9 +5633,18 @@ function HulSummaryTab({ month, year }: { month: number; year: number }) {
     },
   });
 
+  const { data: yrSpecialOrders = [], isLoading: yrSpecialLoading } = useQuery<any[]>({
+    queryKey: ['/api/hul-special-orders/yearly', summaryYear],
+    enabled: viewMode === 'yearly',
+    queryFn: async () => {
+      const res = await fetch(`/api/hul-special-orders/yearly?year=${summaryYear}`, { credentials: 'include' });
+      return res.json();
+    },
+  });
+
   const isLoading = viewMode === 'monthly'
     ? (kpfLoading || tecLoading || execLoading || specialLoading)
-    : (yrKpfLoading || yrTecLoading || yrExecLoading);
+    : (yrKpfLoading || yrTecLoading || yrExecLoading || yrSpecialLoading);
 
   const sum = (arr: any[], field: string) => arr.reduce((s, r) => s + (r[field] || 0), 0);
   const kpfT = { breakfast: sum(kpfRows,'breakfast'), lunch: sum(kpfRows,'lunch'), eveningSnacks: sum(kpfRows,'eveningSnacks'), nightSnacks: sum(kpfRows,'nightSnacks'), guestBreakfast: sum(kpfRows,'guestBreakfast'), guestLunch: sum(kpfRows,'guestLunch'), guestEveningSnacks: sum(kpfRows,'guestEveningSnacks'), guestNightSnacks: sum(kpfRows,'guestNightSnacks') };
@@ -6284,6 +6293,53 @@ function HulSummaryTab({ month, year }: { month: number; year: number }) {
                 </table>
               </div>
             </div>
+
+            {/* Special Order Yearly Summary */}
+            <div className="border rounded-lg overflow-hidden mb-4">
+              <div className="px-3 py-1.5 text-sm font-bold text-center text-white" style={{ background:'#7c3aed' }}>
+                Special Order — Rate Summary — {yearLabel}
+              </div>
+              <div className="overflow-x-auto">
+                <table className="w-full border-collapse" style={{ fontSize:10 }}>
+                  <thead>
+                    <tr>
+                      <th style={{ ...thPurple, textAlign:'center', width:28, fontSize:10 }}>Sl.</th>
+                      <th style={{ ...thPurple, textAlign:'center', width:50, fontSize:10 }}>Month</th>
+                      <th style={{ ...thPurple, textAlign:'center', width:80, fontSize:10 }}>Date</th>
+                      <th style={{ ...thPurple, textAlign:'left', paddingLeft:8, fontSize:10 }}>Particulars</th>
+                      <th style={{ ...thPurple, fontSize:10 }}>Qty</th>
+                      <th style={{ ...thPurple, fontSize:10 }}>Rate/Plate (₹)</th>
+                      <th style={{ ...thPurple, fontSize:10 }}>Amount (₹)</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {yrSpecialOrders.length === 0 ? (
+                      <tr>
+                        <td colSpan={7} style={{ border:'1px solid #ddd', padding:'6px', textAlign:'center', color:'#888', fontSize:10 }}>
+                          No special orders for {yearLabel}
+                        </td>
+                      </tr>
+                    ) : yrSpecialOrders.map((r, i) => (
+                      <tr key={i} style={{ background: i % 2 === 0 ? '#f5f3ff' : '#fff' }}>
+                        <td style={tdC}>{r.slNo}</td>
+                        <td style={tdC}>{MONTHS[(r.month||1)-1]}</td>
+                        <td style={tdC}>{r.dateOfSupply || ''}</td>
+                        <td style={tdL}>{r.particulars}</td>
+                        <td style={tdC}>{r.qty || ''}</td>
+                        <td style={tdC}>{r.ratePerPlate ? `₹${r.ratePerPlate}` : ''}</td>
+                        <td style={tdR}>{r.total ? fmtINR(Number(r.total)) : ''}</td>
+                      </tr>
+                    ))}
+                    <tr style={{ background:'#7c3aed' }}>
+                      <td colSpan={6} style={{ border:'1px solid #4c1d95', padding:'3px 8px', fontWeight:'bold', textAlign:'right', fontSize:11, color:'#fff' }}>Grand Total</td>
+                      <td style={{ border:'1px solid #4c1d95', padding:'3px 6px', textAlign:'right', fontWeight:'bold', fontSize:11, color:'#fff' }}>
+                        {yrSpecialOrders.reduce((s,r)=>s+Number(r.total||0),0) > 0 ? fmtINR(yrSpecialOrders.reduce((s,r)=>s+Number(r.total||0),0)) : '—'}
+                      </td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
           </>
         );
       })()}
@@ -6302,13 +6358,13 @@ function HulSummaryTab({ month, year }: { month: number; year: number }) {
         <div className="text-center font-bold text-sm py-1.5" style={{ background:'#b45309', color:'#fff' }}>
           KPF Exec Snacks — Number of Snacks Per Day For Executives &amp; Managers — {monthLabel}
         </div>
-        <div className="hidden md:block overflow-x-auto">
-          <table className="w-full border-collapse" style={{ fontSize:11 }}>
+        <div className="overflow-x-auto">
+          <table className="w-full border-collapse" style={{ fontSize:11, minWidth:620 }}>
             <thead>
               <tr>
                 <th style={{ ...thBr, width:28 }}>Sl.</th>
-                <th style={{ ...thBr, width:80 }}>Date</th>
-                <th style={{ ...thBr, width:34 }}>Days</th>
+                <th style={{ ...thBr, width:90 }}>Date</th>
+                <th style={{ ...thBr, width:40 }}>Days</th>
                 {['Snacks','Biscuit','Chips','Cold Drink & Water','Shift Officer Breakfast'].map(h => <th key={h} style={thBr}>{h}</th>)}
               </tr>
             </thead>
@@ -6316,7 +6372,7 @@ function HulSummaryTab({ month, year }: { month: number; year: number }) {
               {execRows.map((row, i) => {
                 const sun = isSunday(row.entryDate);
                 return (
-                  <tr key={i} style={{ background: sun ? '#ffb380' : undefined }}>
+                  <tr key={i} style={{ background: sun ? '#ffb380' : i%2===0 ? '#fff' : '#fffbeb' }}>
                     <td style={td(sun)}>{i+1}</td>
                     <td style={td(sun)}>{safeFormat(row.entryDate)}</td>
                     <td style={td(sun)}>{row.weekDay}</td>
@@ -6334,18 +6390,6 @@ function HulSummaryTab({ month, year }: { month: number; year: number }) {
               </tr>
             </tbody>
           </table>
-        </div>
-        <div className="block md:hidden space-y-1 mt-1">
-          {execRows.map((row, i) => (
-            <div key={i} className="border rounded p-2 text-xs" style={{ background: isSunday(row.entryDate) ? '#ffb380' : '#fffbeb' }}>
-              <div className="font-semibold">{safeFormat(row.entryDate)} ({row.weekDay})</div>
-              <div className="grid grid-cols-2 gap-x-3 mt-0.5">
-                <span>Snacks: <b>{row.snacks||0}</b></span><span>Biscuit: <b>{row.biscuit||0}</b></span>
-                <span>Chips: <b>{row.chips||0}</b></span><span>Cold Drink: <b>{row.coldDrinkWater||0}</b></span>
-                <span>SO Breakfast: <b>{row.shiftOfficerBreakfast||0}</b></span>
-              </div>
-            </div>
-          ))}
         </div>
       </div>
 

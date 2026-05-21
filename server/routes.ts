@@ -2552,6 +2552,10 @@ export async function registerRoutes(
     const year = Number(req.query.year) || new Date().getFullYear();
     res.json(await storage.getHulSpecialOrders(month, year));
   });
+  app.get('/api/hul-special-orders/yearly', requirePermission('salesinvoice'), async (req, res) => {
+    const year = Number(req.query.year) || new Date().getFullYear();
+    res.json(await storage.getHulSpecialOrdersByYear(year));
+  });
   app.post('/api/hul-special-orders', requirePermission('salesinvoice'), async (req, res) => {
     try { res.status(201).json(await storage.createHulSpecialOrder(req.body)); }
     catch (err: any) { res.status(500).json({ message: err.message }); }
