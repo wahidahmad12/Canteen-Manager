@@ -334,7 +334,8 @@ export default function PurchaseRequest() {
               {(() => {
                 const validItems = items.filter(it => it.itemName.trim() !== "");
                 const header = `*Purchase Request*\nClient: ${clientName || '(no client)'}\nDate: ${format(date, 'dd-MM-yyyy')}\n`;
-                const lines = validItems.map((it, i) => `${i + 1}. ${it.itemName} — ${it.requestQty} ${it.uom}`).join("\n");
+                const fmtQty = (q: any) => { const n = Number(q); return Number.isFinite(n) ? String(parseFloat(n.toFixed(3))) : String(q ?? ''); };
+                const lines = validItems.map((it, i) => `${i + 1}. ${it.itemName} — ${fmtQty(it.requestQty)} ${it.uom}`).join("\n");
                 const message = `${header}\n${lines}`;
                 const waUrl = `https://wa.me/?text=${encodeURIComponent(message)}`;
                 return (
@@ -385,7 +386,8 @@ export default function PurchaseRequest() {
           </DialogHeader>
           {(() => {
             const header = `*Purchase Request${shareDialog.code ? ` (${shareDialog.code})` : ''}*\nClient: ${shareDialog.clientName}\nDate: ${shareDialog.date}\n`;
-            const lines = shareDialog.items.map((it, i) => `${i + 1}. ${it.itemName} — ${it.requestQty} ${it.uom}`).join("\n");
+            const fmtQty = (q: any) => { const n = Number(q); return Number.isFinite(n) ? String(parseFloat(n.toFixed(3))) : String(q ?? ''); };
+            const lines = shareDialog.items.map((it, i) => `${i + 1}. ${it.itemName} — ${fmtQty(it.requestQty)} ${it.uom}`).join("\n");
             const message = `${header}\n${lines}`;
             const waUrl = `https://wa.me/?text=${encodeURIComponent(message)}`;
             return (

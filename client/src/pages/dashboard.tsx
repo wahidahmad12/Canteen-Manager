@@ -13,7 +13,8 @@ function buildPrWhatsAppUrl(pr: any): string {
   const dateStr = pr?.date ? format(new Date(pr.date), 'dd-MM-yyyy') : '';
   const header = `*Purchase Request${code ? ` (${code})` : ''}*\nClient: ${pr?.clientName || ''}\nDate: ${dateStr}\n`;
   const items = Array.isArray(pr?.items) ? pr.items : [];
-  const lines = items.map((it: any, i: number) => `${i + 1}. ${it.itemName} — ${it.requestQty} ${it.uom}`).join('\n');
+  const fmtQty = (q: any) => { const n = Number(q); return Number.isFinite(n) ? String(parseFloat(n.toFixed(3))) : String(q ?? ''); };
+  const lines = items.map((it: any, i: number) => `${i + 1}. ${it.itemName} — ${fmtQty(it.requestQty)} ${it.uom}`).join('\n');
   return `https://wa.me/?text=${encodeURIComponent(`${header}\n${lines}`)}`;
 }
 import { Layout } from "@/components/layout";
