@@ -9,7 +9,7 @@ import { format } from "date-fns";
 import { ShoppingCart, Plus, Trash2, Save, Loader2, ClipboardList, CalendarDays, Building2, Package, Ruler, Hash, Share2 } from "lucide-react";
 import { SiWhatsapp } from "react-icons/si";
 import { useToast } from "@/hooks/use-toast";
-import { useCreatePurchaseRequest, useClientNames, useItemMaster } from "@/hooks/use-reports";
+import { useCreatePurchaseRequest, useClientNames, useItemMaster, useCurrentUser } from "@/hooks/use-reports";
 import { useLocation } from "wouter";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
@@ -34,6 +34,8 @@ export default function PurchaseRequest() {
   const createMutation = useCreatePurchaseRequest();
   const { data: clients } = useClientNames();
   const { data: purchaseItems } = useItemMaster("purchase");
+  const { data: currentUser } = useCurrentUser();
+  const isAdmin = currentUser?.role === 'admin';
   const [shareDialog, setShareDialog] = useState<{ open: boolean; code: string; items: PurchaseItem[]; clientName: string; date: string }>({ open: false, code: '', items: [], clientName: '', date: '' });
   const savedItems = (purchaseItems || []).map((item: any) => ({ id: item.id, name: item.itemName }));
 
@@ -79,7 +81,11 @@ export default function PurchaseRequest() {
         onSuccess: (data: any) => {
           const code = data?.prCode || data?.serialNumber || '';
           toast({ title: "Success", description: `Purchase request ${code ? `(${code}) ` : ''}saved successfully` });
-          setShareDialog({ open: true, code: String(code), items: validItems, clientName, date: format(date, "dd-MM-yyyy") });
+          if (isAdmin) {
+            setShareDialog({ open: true, code: String(code), items: validItems, clientName, date: format(date, "dd-MM-yyyy") });
+          } else {
+            navigate("/");
+          }
         },
         onError: (err: any) => {
           toast({ title: "Error", description: err.message || "Failed to save", variant: "destructive" });
@@ -329,23 +335,25 @@ export default function PurchaseRequest() {
               >
                 Cancel
               </Button>
-              <Button
-                onClick={() => {
-                  const validItems = items.filter(it => it.itemName.trim() !== "");
-                  if (validItems.length === 0) {
-                    toast({ title: "Nothing to share", description: "Please add at least one item first", variant: "destructive" });
-                    return;
-                  }
-                  const header = `*Purchase Request*\nClient: ${clientName || '(no client)'}\nDate: ${format(date, 'dd-MM-yyyy')}\n`;
-                  const lines = validItems.map((it, i) => `${i + 1}. ${it.itemName} — ${it.requestQty} ${it.uom}`).join("\n");
-                  const message = `${header}\n${lines}`;
-                  window.open(`https://wa.me/?text=${encodeURIComponent(message)}`, "_blank");
-                }}
-                className="w-full sm:w-auto bg-[#25D366] hover:bg-[#1ebe57] text-white shadow-lg order-2 sm:order-2"
-                data-testid="button-share-whatsapp-inline"
-              >
-                <SiWhatsapp className="w-4 h-4 mr-2" /> Share on WhatsApp
-              </Button>
+              {isAdmin && (
+                <Button
+                  onClick={() => {
+                    const validItems = items.filter(it => it.itemName.trim() !== "");
+                    if (validItems.length === 0) {
+                      toast({ title: "Nothing to share", description: "Please add at least one item first", variant: "destructive" });
+                      return;
+                    }
+                    const header = `*Purchase Request*\nClient: ${clientName || '(no client)'}\nDate: ${format(date, 'dd-MM-yyyy')}\n`;
+                    const lines = validItems.map((it, i) => `${i + 1}. ${it.itemName} — ${it.requestQty} ${it.uom}`).join("\n");
+                    const message = `${header}\n${lines}`;
+                    window.open(`https://wa.me/?text=${encodeURIComponent(message)}`, "_blank");
+                  }}
+                  className="w-full sm:w-auto bg-[#25D366] hover:bg-[#1ebe57] text-white shadow-lg order-2 sm:order-2"
+                  data-testid="button-share-whatsapp-inline"
+                >
+                  <SiWhatsapp className="w-4 h-4 mr-2" /> Share on WhatsApp
+                </Button>
+              )}
               <Button
                 onClick={handleSave}
                 disabled={createMutation.isPending}
