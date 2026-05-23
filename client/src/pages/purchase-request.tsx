@@ -6,12 +6,14 @@ import { Button } from "@/components/ui/button";
 import { DatePicker } from "@/components/ui/date-picker";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { format } from "date-fns";
-import { ShoppingCart, Plus, Trash2, Save, Loader2, ClipboardList, CalendarDays, Building2, Package, Ruler, Hash } from "lucide-react";
+import { ShoppingCart, Plus, Trash2, Save, Loader2, ClipboardList, CalendarDays, Building2, Package, Ruler, Hash, Share2 } from "lucide-react";
+import { SiWhatsapp } from "react-icons/si";
 import { useToast } from "@/hooks/use-toast";
-import { useCreatePurchaseRequest, useClientNames, useItemMaster } from "@/hooks/use-reports";
+import { useCreatePurchaseRequest, useClientNames, useItemMaster, useCurrentUser } from "@/hooks/use-reports";
 import { useLocation } from "wouter";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 
 interface PurchaseItem {
   itemName: string;
@@ -32,6 +34,9 @@ export default function PurchaseRequest() {
   const createMutation = useCreatePurchaseRequest();
   const { data: clients } = useClientNames();
   const { data: purchaseItems } = useItemMaster("purchase");
+  const { data: currentUser } = useCurrentUser();
+  const isAdmin = currentUser?.role === 'admin';
+  const [shareDialog, setShareDialog] = useState<{ open: boolean; code: string; items: PurchaseItem[]; clientName: string; date: string }>({ open: false, code: '', items: [], clientName: '', date: '' });
   const savedItems = (purchaseItems || []).map((item: any) => ({ id: item.id, name: item.itemName }));
 
   const addItem = () => {
@@ -74,9 +79,13 @@ export default function PurchaseRequest() {
       },
       {
         onSuccess: (data: any) => {
-          const code = data?.prCode || data?.serialNumber;
+          const code = data?.prCode || data?.serialNumber || '';
           toast({ title: "Success", description: `Purchase request ${code ? `(${code}) ` : ''}saved successfully` });
-          navigate("/");
+          if (isAdmin) {
+            setShareDialog({ open: true, code: String(code), items: validItems, clientName, date: format(date, "dd-MM-yyyy") });
+          } else {
+            navigate("/");
+          }
         },
         onError: (err: any) => {
           toast({ title: "Error", description: err.message || "Failed to save", variant: "destructive" });
@@ -343,6 +352,60 @@ export default function PurchaseRequest() {
           </CardContent>
         </Card>
       </div>
+
+      <Dialog open={shareDialog.open} onOpenChange={(o) => { if (!o) { setShareDialog(s => ({ ...s, open: false })); navigate("/"); } }}>
+        <DialogContent className="sm:max-w-md" data-testid="dialog-share-pr">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Share2 className="w-5 h-5 text-emerald-600" /> Share Purchase Request
+            </DialogTitle>
+            <DialogDescription>
+              Send this purchase request to vendors or team members via WhatsApp.
+            </DialogDescription>
+          </DialogHeader>
+          {(() => {
+            const header = `*Purchase Request${shareDialog.code ? ` (${shareDialog.code})` : ''}*\nClient: ${shareDialog.clientName}\nDate: ${shareDialog.date}\n`;
+            const lines = shareDialog.items.map((it, i) => `${i + 1}. ${it.itemName} — ${it.requestQty} ${it.uom}`).join("\n");
+            const message = `${header}\n${lines}`;
+            const waUrl = `https://wa.me/?text=${encodeURIComponent(message)}`;
+            return (
+              <>
+                <div className="rounded-lg border border-emerald-200 dark:border-emerald-800 bg-emerald-50/50 dark:bg-emerald-950/20 p-3 max-h-64 overflow-y-auto">
+                  <pre className="text-xs font-mono whitespace-pre-wrap text-gray-800 dark:text-gray-200" data-testid="text-share-preview">{message}</pre>
+                </div>
+                <DialogFooter className="flex-col sm:flex-row gap-2">
+                  <Button
+                    variant="outline"
+                    onClick={() => {
+                      navigator.clipboard.writeText(message);
+                      toast({ title: "Copied", description: "Message copied to clipboard" });
+                    }}
+                    className="w-full sm:w-auto"
+                    data-testid="button-copy-message"
+                  >
+                    Copy
+                  </Button>
+                  <Button
+                    variant="outline"
+                    onClick={() => { setShareDialog(s => ({ ...s, open: false })); navigate("/"); }}
+                    className="w-full sm:w-auto"
+                    data-testid="button-skip-share"
+                  >
+                    Skip
+                  </Button>
+                  <Button
+                    onClick={() => { window.open(waUrl, "_blank"); }}
+                    className="w-full sm:w-auto bg-[#25D366] hover:bg-[#1ebe57] text-white"
+                    data-testid="button-share-whatsapp"
+                  >
+                    <SiWhatsapp className="w-4 h-4 mr-2" /> Share on WhatsApp
+                  </Button>
+                </DialogFooter>
+              </>
+            );
+          })()}
+        </DialogContent>
+      </Dialog>
     </Layout>
   );
 }
