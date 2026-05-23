@@ -331,23 +331,30 @@ export default function PurchaseRequest() {
               >
                 Cancel
               </Button>
-              <Button
-                onClick={() => {
-                  const validItems = items.filter(it => it.itemName.trim() !== "");
-                  if (validItems.length === 0) {
-                    toast({ title: "Nothing to share", description: "Please add at least one item first", variant: "destructive" });
-                    return;
-                  }
-                  const header = `*Purchase Request*\nClient: ${clientName || '(no client)'}\nDate: ${format(date, 'dd-MM-yyyy')}\n`;
-                  const lines = validItems.map((it, i) => `${i + 1}. ${it.itemName} — ${it.requestQty} ${it.uom}`).join("\n");
-                  const message = `${header}\n${lines}`;
-                  window.open(`https://wa.me/?text=${encodeURIComponent(message)}`, "_blank");
-                }}
-                className="w-full sm:w-auto bg-[#25D366] hover:bg-[#1ebe57] text-white shadow-lg order-2 sm:order-2"
-                data-testid="button-share-whatsapp-inline"
-              >
-                <SiWhatsapp className="w-4 h-4 mr-2" /> Share on WhatsApp
-              </Button>
+              {(() => {
+                const validItems = items.filter(it => it.itemName.trim() !== "");
+                const header = `*Purchase Request*\nClient: ${clientName || '(no client)'}\nDate: ${format(date, 'dd-MM-yyyy')}\n`;
+                const lines = validItems.map((it, i) => `${i + 1}. ${it.itemName} — ${it.requestQty} ${it.uom}`).join("\n");
+                const message = `${header}\n${lines}`;
+                const waUrl = `https://wa.me/?text=${encodeURIComponent(message)}`;
+                return (
+                  <a
+                    href={waUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    onClick={(e) => {
+                      if (validItems.length === 0) {
+                        e.preventDefault();
+                        toast({ title: "Nothing to share", description: "Please add at least one item first", variant: "destructive" });
+                      }
+                    }}
+                    className="w-full sm:w-auto inline-flex items-center justify-center gap-2 rounded-md bg-[#25D366] hover:bg-[#1ebe57] text-white shadow-lg h-10 px-4 py-2 text-sm font-medium order-2 sm:order-2"
+                    data-testid="button-share-whatsapp-inline"
+                  >
+                    <SiWhatsapp className="w-4 h-4" /> Share on WhatsApp
+                  </a>
+                );
+              })()}
               <Button
                 onClick={handleSave}
                 disabled={createMutation.isPending}
@@ -406,13 +413,15 @@ export default function PurchaseRequest() {
                   >
                     Skip
                   </Button>
-                  <Button
-                    onClick={() => { window.open(waUrl, "_blank"); }}
-                    className="w-full sm:w-auto bg-[#25D366] hover:bg-[#1ebe57] text-white"
+                  <a
+                    href={waUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="w-full sm:w-auto inline-flex items-center justify-center gap-2 rounded-md bg-[#25D366] hover:bg-[#1ebe57] text-white h-10 px-4 py-2 text-sm font-medium"
                     data-testid="button-share-whatsapp"
                   >
-                    <SiWhatsapp className="w-4 h-4 mr-2" /> Share on WhatsApp
-                  </Button>
+                    <SiWhatsapp className="w-4 h-4" /> Share on WhatsApp
+                  </a>
                 </DialogFooter>
               </>
             );
