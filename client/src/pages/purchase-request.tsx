@@ -81,11 +81,7 @@ export default function PurchaseRequest() {
         onSuccess: (data: any) => {
           const code = data?.prCode || data?.serialNumber || '';
           toast({ title: "Success", description: `Purchase request ${code ? `(${code}) ` : ''}saved successfully` });
-          if (isAdmin) {
-            setShareDialog({ open: true, code: String(code), items: validItems, clientName, date: format(date, "dd-MM-yyyy") });
-          } else {
-            navigate("/");
-          }
+          setShareDialog({ open: true, code: String(code), items: validItems, clientName, date: format(date, "dd-MM-yyyy") });
         },
         onError: (err: any) => {
           toast({ title: "Error", description: err.message || "Failed to save", variant: "destructive" });
@@ -335,25 +331,23 @@ export default function PurchaseRequest() {
               >
                 Cancel
               </Button>
-              {isAdmin && (
-                <Button
-                  onClick={() => {
-                    const validItems = items.filter(it => it.itemName.trim() !== "");
-                    if (validItems.length === 0) {
-                      toast({ title: "Nothing to share", description: "Please add at least one item first", variant: "destructive" });
-                      return;
-                    }
-                    const header = `*Purchase Request*\nClient: ${clientName || '(no client)'}\nDate: ${format(date, 'dd-MM-yyyy')}\n`;
-                    const lines = validItems.map((it, i) => `${i + 1}. ${it.itemName} — ${it.requestQty} ${it.uom}`).join("\n");
-                    const message = `${header}\n${lines}`;
-                    window.open(`https://wa.me/?text=${encodeURIComponent(message)}`, "_blank");
-                  }}
-                  className="w-full sm:w-auto bg-[#25D366] hover:bg-[#1ebe57] text-white shadow-lg order-2 sm:order-2"
-                  data-testid="button-share-whatsapp-inline"
-                >
-                  <SiWhatsapp className="w-4 h-4 mr-2" /> Share on WhatsApp
-                </Button>
-              )}
+              <Button
+                onClick={() => {
+                  const validItems = items.filter(it => it.itemName.trim() !== "");
+                  if (validItems.length === 0) {
+                    toast({ title: "Nothing to share", description: "Please add at least one item first", variant: "destructive" });
+                    return;
+                  }
+                  const header = `*Purchase Request*\nClient: ${clientName || '(no client)'}\nDate: ${format(date, 'dd-MM-yyyy')}\n`;
+                  const lines = validItems.map((it, i) => `${i + 1}. ${it.itemName} — ${it.requestQty} ${it.uom}`).join("\n");
+                  const message = `${header}\n${lines}`;
+                  window.open(`https://wa.me/?text=${encodeURIComponent(message)}`, "_blank");
+                }}
+                className="w-full sm:w-auto bg-[#25D366] hover:bg-[#1ebe57] text-white shadow-lg order-2 sm:order-2"
+                data-testid="button-share-whatsapp-inline"
+              >
+                <SiWhatsapp className="w-4 h-4 mr-2" /> Share on WhatsApp
+              </Button>
               <Button
                 onClick={handleSave}
                 disabled={createMutation.isPending}
