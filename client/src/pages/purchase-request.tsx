@@ -9,7 +9,7 @@ import { format } from "date-fns";
 import { ShoppingCart, Plus, Trash2, Save, Loader2, ClipboardList, CalendarDays, Building2, Package, Ruler, Hash, Share2 } from "lucide-react";
 import { SiWhatsapp } from "react-icons/si";
 import { useToast } from "@/hooks/use-toast";
-import { useCreatePurchaseRequest, useClientNames, useItemMaster, useCurrentUser } from "@/hooks/use-reports";
+import { useCreatePurchaseRequest, useClientNames, useItemMaster } from "@/hooks/use-reports";
 import { useLocation } from "wouter";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
@@ -34,8 +34,6 @@ export default function PurchaseRequest() {
   const createMutation = useCreatePurchaseRequest();
   const { data: clients } = useClientNames();
   const { data: purchaseItems } = useItemMaster("purchase");
-  const { data: currentUser } = useCurrentUser();
-  const isAdmin = currentUser?.role === 'admin';
   const [shareDialog, setShareDialog] = useState<{ open: boolean; code: string; items: PurchaseItem[]; clientName: string; date: string }>({ open: false, code: '', items: [], clientName: '', date: '' });
   const savedItems = (purchaseItems || []).map((item: any) => ({ id: item.id, name: item.itemName }));
 
@@ -81,11 +79,7 @@ export default function PurchaseRequest() {
         onSuccess: (data: any) => {
           const code = data?.prCode || data?.serialNumber || '';
           toast({ title: "Success", description: `Purchase request ${code ? `(${code}) ` : ''}saved successfully` });
-          if (isAdmin) {
-            setShareDialog({ open: true, code: String(code), items: validItems, clientName, date: format(date, "dd-MM-yyyy") });
-          } else {
-            navigate("/");
-          }
+          setShareDialog({ open: true, code: String(code), items: validItems, clientName, date: format(date, "dd-MM-yyyy") });
         },
         onError: (err: any) => {
           toast({ title: "Error", description: err.message || "Failed to save", variant: "destructive" });
