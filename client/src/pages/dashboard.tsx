@@ -4,8 +4,18 @@ import { useMutation } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { Plus, Loader2, FileText, ArrowRight, Calculator, ClipboardList, UtensilsCrossed, ShoppingCart, Trash2, Check, CheckCircle2, FileDown, Pencil, Receipt, BarChart3, IndianRupee, TrendingUp, TrendingDown, Wallet, CreditCard, DollarSign, Store, FileSpreadsheet, Search, X } from "lucide-react";
+import { SiWhatsapp } from "react-icons/si";
 import { useReports, useDeleteReport, useInventories, useCashSeals, useSavedMenus, useDeleteSavedMenu, usePurchaseRequests, useDeletePurchaseRequest, useUpdatePurchaseRequest, useCurrentUser, usePurchaseInvoices, useDeletePurchaseInvoice } from "@/hooks/use-reports";
 import { format } from "date-fns";
+
+function buildPrWhatsAppUrl(pr: any): string {
+  const code = pr?.prCode || (pr?.serialNumber ? `#${pr.serialNumber}` : '');
+  const dateStr = pr?.date ? format(new Date(pr.date), 'dd-MM-yyyy') : '';
+  const header = `*Purchase Request${code ? ` (${code})` : ''}*\nClient: ${pr?.clientName || ''}\nDate: ${dateStr}\n`;
+  const items = Array.isArray(pr?.items) ? pr.items : [];
+  const lines = items.map((it: any, i: number) => `${i + 1}. ${it.itemName} — ${it.requestQty} ${it.uom}`).join('\n');
+  return `https://wa.me/?text=${encodeURIComponent(`${header}\n${lines}`)}`;
+}
 import { Layout } from "@/components/layout";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -1125,7 +1135,8 @@ export default function Dashboard() {
                             {pr.status === 'approved' ? 'Approved' : pr.status === 'rejected' ? 'Rejected' : 'Pending'}
                           </span>
                         </div>
-                        <div className="flex gap-1 justify-end">
+                        <div className="flex gap-1 justify-end flex-wrap">
+                          <a href={buildPrWhatsAppUrl(pr)} target="_blank" rel="noopener noreferrer" className="inline-flex items-center justify-center gap-1 h-7 px-2 rounded-md text-xs font-medium bg-[#25D366] hover:bg-[#1ebe57] text-white" data-testid={`button-share-whatsapp-${pr.id}`}><SiWhatsapp className="w-3 h-3" />Share</a>
                           {pr.status === 'approved' && (<>
                             <Link href={`/purchase-request/${pr.id}/pdf`}><Button size="sm" variant="outline" className="h-7 text-xs gap-1" data-testid={`button-view-pdf-${pr.id}`}><FileDown className="w-3 h-3" />PDF</Button></Link>
                             {pr.invoiced ? (
@@ -1175,7 +1186,8 @@ export default function Dashboard() {
                               </span>
                             </td>
                             <td className="px-3 py-2.5 text-right">
-                              <div className="flex items-center justify-end gap-1">
+                              <div className="flex items-center justify-end gap-1 flex-wrap">
+                                <a href={buildPrWhatsAppUrl(pr)} target="_blank" rel="noopener noreferrer" className="inline-flex items-center justify-center gap-1 h-7 px-2 rounded-md text-xs font-medium text-[#25D366] hover:bg-[#25D366]/10" data-testid={`button-share-whatsapp-desktop-${pr.id}`}><SiWhatsapp className="w-3.5 h-3.5" />Share</a>
                                 {pr.status === 'approved' && (<>
                                   <Link href={`/purchase-request/${pr.id}/pdf`}><Button size="sm" variant="ghost" className="h-7 text-xs text-indigo-600" data-testid={`button-view-pdf-${pr.id}`}><FileDown className="w-3.5 h-3.5 mr-0.5" />PDF</Button></Link>
                                   {pr.invoiced ? (
