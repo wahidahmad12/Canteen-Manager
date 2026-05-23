@@ -324,15 +324,32 @@ export default function PurchaseRequest() {
               <Button
                 variant="outline"
                 onClick={() => navigate("/")}
-                className="w-full sm:w-auto order-2 sm:order-1"
+                className="w-full sm:w-auto order-3 sm:order-1"
                 data-testid="button-cancel"
               >
                 Cancel
               </Button>
               <Button
+                onClick={() => {
+                  const validItems = items.filter(it => it.itemName.trim() !== "");
+                  if (validItems.length === 0) {
+                    toast({ title: "Nothing to share", description: "Please add at least one item first", variant: "destructive" });
+                    return;
+                  }
+                  const header = `*Purchase Request*\nClient: ${clientName || '(no client)'}\nDate: ${format(date, 'dd-MM-yyyy')}\n`;
+                  const lines = validItems.map((it, i) => `${i + 1}. ${it.itemName} — ${it.requestQty} ${it.uom}`).join("\n");
+                  const message = `${header}\n${lines}`;
+                  window.open(`https://wa.me/?text=${encodeURIComponent(message)}`, "_blank");
+                }}
+                className="w-full sm:w-auto bg-[#25D366] hover:bg-[#1ebe57] text-white shadow-lg order-2 sm:order-2"
+                data-testid="button-share-whatsapp-inline"
+              >
+                <SiWhatsapp className="w-4 h-4 mr-2" /> Share on WhatsApp
+              </Button>
+              <Button
                 onClick={handleSave}
                 disabled={createMutation.isPending}
-                className="w-full sm:w-auto bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-600 hover:to-teal-600 text-white shadow-lg shadow-emerald-200 dark:shadow-emerald-900/30 order-1 sm:order-2"
+                className="w-full sm:w-auto bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-600 hover:to-teal-600 text-white shadow-lg shadow-emerald-200 dark:shadow-emerald-900/30 order-1 sm:order-3"
                 data-testid="button-save-request"
               >
                 {createMutation.isPending ? (
