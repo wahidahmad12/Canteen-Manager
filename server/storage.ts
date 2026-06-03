@@ -312,7 +312,7 @@ export interface IStorage {
   getLastPurchasePrice(itemName: string): Promise<number>;
   // PEC Ventures Entries
   getPecVenturesEntries(month: number, year: number): Promise<PecVenturesEntry[]>;
-  getPecVenturesEntryById(id: number): Promise<PecVenturesEntry | undefined>;
+  getPecVenturesEntryByDate(entryDate: string): Promise<PecVenturesEntry | undefined>;
   createPecVenturesEntry(data: any): Promise<PecVenturesEntry>;
   updatePecVenturesEntry(id: number, data: any): Promise<PecVenturesEntry>;
   deletePecVenturesEntry(id: number): Promise<void>;
@@ -2912,8 +2912,8 @@ export class DatabaseStorage implements IStorage {
       .where(and(eq(pecVenturesEntries.month, month), eq(pecVenturesEntries.year, year)))
       .orderBy(pecVenturesEntries.entryDate);
   }
-  async getPecVenturesEntryById(id: number): Promise<PecVenturesEntry | undefined> {
-    const rows = await db.select().from(pecVenturesEntries).where(eq(pecVenturesEntries.id, id));
+  async getPecVenturesEntryByDate(entryDate: string): Promise<PecVenturesEntry | undefined> {
+    const rows = await db.select().from(pecVenturesEntries).where(eq(pecVenturesEntries.entryDate, entryDate));
     return rows[0];
   }
   async createPecVenturesEntry(data: any): Promise<PecVenturesEntry> {

@@ -6874,10 +6874,13 @@ function PecVenturesTab({ month, year, loadKey = 0 }: { month: number; year: num
   const { data: currentUser } = useCurrentUser();
   const isAdmin = currentUser?.role === 'admin';
 
-  // Only admins may edit previous (past) months. Non-admins can edit the current month only.
+  // Non-admins may only fill days that haven't been saved yet, and only in the CURRENT month.
+  // Once a day is saved (the row has an id) it is locked — only an admin can change saved data.
   const _now = new Date();
   const isPastMonth = year < _now.getFullYear() || (year === _now.getFullYear() && month < _now.getMonth() + 1);
-  const canEdit = isAdmin || !isPastMonth;
+  const isCurrentMonth = year === _now.getFullYear() && month === _now.getMonth() + 1;
+  const canEditMonth = isAdmin || isCurrentMonth; // can the user save/import anything in this month?
+  const canEditRow = (row: PecRow) => isAdmin || (isCurrentMonth && !(row as any).id); // per-day editability
 
   // Effective item rates for this month. A month is "locked" once it has its own saved
   // snapshot — locked months (and previously-saved data) never change when rates are updated later.
@@ -6903,7 +6906,7 @@ function PecVenturesTab({ month, year, loadKey = 0 }: { month: number; year: num
   };
 
   const updateCell = (idx: number, field: keyof PecRow, value: number) => {
-    if (!canEdit) return;
+    if (!canEditRow(rows[idx])) return;
     setRows(prev => {
       const next = [...prev];
       next[idx] = { ...next[idx], [field]: value, _dirty: true };
@@ -6912,7 +6915,7 @@ function PecVenturesTab({ month, year, loadKey = 0 }: { month: number; year: num
   };
 
   const handleSave = async () => {
-    if (!canEdit) {
+    if (!canEditMonth) {
       toast({ title: 'Not allowed', description: 'Only an admin can edit previous months.', variant: 'destructive' });
       return;
     }
@@ -7045,7 +7048,7 @@ function PecVenturesTab({ month, year, loadKey = 0 }: { month: number; year: num
   const handleImportExcelPec = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]; if (!file) return;
     e.target.value = "";
-    if (!canEdit) {
+    if (!canEditMonth) {
       toast({ title: 'Not allowed', description: 'Only an admin can edit previous months.', variant: 'destructive' });
       return;
     }
@@ -7091,7 +7094,7 @@ function PecVenturesTab({ month, year, loadKey = 0 }: { month: number; year: num
         importedMap.set(ds, existing);
       });
       // Merge imported data into current rows
-      setRows(prev => prev.map(r => importedMap.has(r.entryDate) ? { ...importedMap.get(r.entryDate)!, id: r.id } : r));
+      setRows(prev => prev.map(r => (importedMap.has(r.entryDate) && canEditRow(r)) ? { ...importedMap.get(r.entryDate)!, id: r.id } : r));
       toast({ title:`Imported ${importedMap.size} rows`, description:'Review and click Save to persist.' });
     } catch(err:any) {
       toast({ title:'Import Failed', description:err.message, variant:'destructive' });
@@ -7298,7 +7301,7 @@ function PecVenturesTab({ month, year, loadKey = 0 }: { month: number; year: num
   return (
     <div className="space-y-3">
       <div className="flex items-center gap-2 flex-wrap">
-        <Button onClick={handleSave} disabled={isSaving || !canEdit} className="h-8 px-4 bg-blue-600 hover:bg-blue-700 text-white text-sm gap-2" data-testid="btn-pec-save">
+        <Button onClick={handleSave} disabled={isSaving || !canEditMonth} className="h-8 px-4 bg-blue-600 hover:bg-blue-700 text-white text-sm gap-2" data-testid="btn-pec-save">
           {isSaving ? <Loader2 className="w-3 h-3 animate-spin" /> : <Save className="w-3 h-3" />}
           {isSaving ? "Saving..." : "Save"}
         </Button>
@@ -7308,7 +7311,7 @@ function PecVenturesTab({ month, year, loadKey = 0 }: { month: number; year: num
         <Button onClick={handleExportExcelPec} variant="outline" className="h-8 px-4 text-sm gap-2 text-green-700 border-green-300 hover:bg-green-50" data-testid="btn-pec-export">
           <FileDown className="w-3 h-3" /> Export Excel
         </Button>
-        <Button onClick={() => importRefPec.current?.click()} disabled={!canEdit} variant="outline" className="h-8 px-4 text-sm gap-2 text-blue-700 border-blue-300 hover:bg-blue-50" data-testid="btn-pec-import">
+        <Button onClick={() => importRefPec.current?.click()} disabled={!canEditMonth} variant="outline" className="h-8 px-4 text-sm gap-2 text-blue-700 border-blue-300 hover:bg-blue-50" data-testid="btn-pec-import">
           <FileUp className="w-3 h-3" /> Import Excel
         </Button>
         <Button onClick={handleDownloadPecTemplate} variant="outline" className="h-8 px-4 text-sm gap-2 text-purple-700 border-purple-300 hover:bg-purple-50" data-testid="btn-pec-template">
@@ -7318,9 +7321,13 @@ function PecVenturesTab({ month, year, loadKey = 0 }: { month: number; year: num
         <span className="text-xs text-muted-foreground">Rates: {PEC_RATE_FIELDS.map(f => `${f.label} ₹${rates[f.key]}${f.unit}`).join(' · ')}</span>
       </div>
 
-      {!canEdit && (
+      {!isAdmin && (
         <div className="rounded-lg border border-amber-300 bg-amber-50 dark:border-amber-700 dark:bg-amber-950/30 px-3 py-2 text-sm text-amber-800 dark:text-amber-300" data-testid="banner-pec-readonly">
-          This is a previous month and is view-only. Only an admin can edit past months.
+          {isPastMonth
+            ? 'This is a previous month and is view-only. Only an admin can edit past months.'
+            : isCurrentMonth
+              ? 'Saved days are locked — only an admin can change saved entries. You can still fill in and save days that haven\u2019t been saved yet.'
+              : 'This month is view-only. Only an admin can edit other months.'}
         </div>
       )}
 
@@ -7386,48 +7393,48 @@ function PecVenturesTab({ month, year, loadKey = 0 }: { month: number; year: num
                   <td className={`${tdSx} sticky left-0 z-10 text-left font-medium whitespace-nowrap ${isSun ? 'bg-red-50 dark:bg-red-950/20' : 'bg-white dark:bg-slate-900'}`}>{safeFormat(r.entryDate)}</td>
                   <td className={`${tdSx} sticky left-[88px] z-10 ${isSun ? 'bg-red-50 dark:bg-red-950/20 text-red-600 font-semibold' : 'bg-white dark:bg-slate-900'}`}>{r.weekDay}</td>
                   {/* Red Label */}
-                  <td className={tdSx}><input type="number" min="0" step="0.001" className={inputSx} value={n(r.redLabelQty)||''} onChange={e=>updateCell(i,'redLabelQty',Number(e.target.value))} onKeyDown={handlePecEnter} data-pec-input disabled={!canEdit} data-testid={`pec-redlabel-${i}`}/></td>
+                  <td className={tdSx}><input type="number" min="0" step="0.001" className={inputSx} value={n(r.redLabelQty)||''} onChange={e=>updateCell(i,'redLabelQty',Number(e.target.value))} onKeyDown={handlePecEnter} data-pec-input disabled={!canEditRow(r)} data-testid={`pec-redlabel-${i}`}/></td>
                   <td className={tdRSx}>{n(r.redLabelQty)?rates.redLabel:''}</td>
                   <td className={`${tdRSx} font-medium`}>{fa(n(r.redLabelQty)*rates.redLabel)}</td>
                   {/* Tata Tea */}
-                  <td className={tdSx}><input type="number" min="0" step="0.001" className={inputSx} value={n(r.tataTeaQty)||''} onChange={e=>updateCell(i,'tataTeaQty',Number(e.target.value))} onKeyDown={handlePecEnter} data-pec-input disabled={!canEdit} data-testid={`pec-tata-${i}`}/></td>
+                  <td className={tdSx}><input type="number" min="0" step="0.001" className={inputSx} value={n(r.tataTeaQty)||''} onChange={e=>updateCell(i,'tataTeaQty',Number(e.target.value))} onKeyDown={handlePecEnter} data-pec-input disabled={!canEditRow(r)} data-testid={`pec-tata-${i}`}/></td>
                   <td className={tdRSx}>{n(r.tataTeaQty)?rates.tataTea:''}</td>
                   <td className={`${tdRSx} font-medium`}>{fa(n(r.tataTeaQty)*rates.tataTea)}</td>
                   {/* Coffee */}
-                  <td className={tdSx}><input type="number" min="0" step="0.001" className={inputSx} value={n(r.coffeeQty)||''} onChange={e=>updateCell(i,'coffeeQty',Number(e.target.value))} onKeyDown={handlePecEnter} data-pec-input disabled={!canEdit} data-testid={`pec-coffee-${i}`}/></td>
+                  <td className={tdSx}><input type="number" min="0" step="0.001" className={inputSx} value={n(r.coffeeQty)||''} onChange={e=>updateCell(i,'coffeeQty',Number(e.target.value))} onKeyDown={handlePecEnter} data-pec-input disabled={!canEditRow(r)} data-testid={`pec-coffee-${i}`}/></td>
                   <td className={tdRSx}>{n(r.coffeeQty)?rates.coffee:''}</td>
                   <td className={`${tdRSx} font-medium`}>{fa(n(r.coffeeQty)*rates.coffee)}</td>
                   {/* Sugar */}
-                  <td className={tdSx}><input type="number" min="0" step="0.001" className={inputSx} value={n(r.sugarQty)||''} onChange={e=>updateCell(i,'sugarQty',Number(e.target.value))} onKeyDown={handlePecEnter} data-pec-input disabled={!canEdit} data-testid={`pec-sugar-${i}`}/></td>
+                  <td className={tdSx}><input type="number" min="0" step="0.001" className={inputSx} value={n(r.sugarQty)||''} onChange={e=>updateCell(i,'sugarQty',Number(e.target.value))} onKeyDown={handlePecEnter} data-pec-input disabled={!canEditRow(r)} data-testid={`pec-sugar-${i}`}/></td>
                   <td className={tdRSx}>{n(r.sugarQty)?rates.sugar:''}</td>
                   <td className={`${tdRSx} font-medium`}>{fa(n(r.sugarQty)*rates.sugar)}</td>
                   {/* Ginger */}
-                  <td className={tdSx}><input type="number" min="0" step="0.001" className={inputSx} value={n(r.gingerQty)||''} onChange={e=>updateCell(i,'gingerQty',Number(e.target.value))} onKeyDown={handlePecEnter} data-pec-input disabled={!canEdit} data-testid={`pec-ginger-${i}`}/></td>
+                  <td className={tdSx}><input type="number" min="0" step="0.001" className={inputSx} value={n(r.gingerQty)||''} onChange={e=>updateCell(i,'gingerQty',Number(e.target.value))} onKeyDown={handlePecEnter} data-pec-input disabled={!canEditRow(r)} data-testid={`pec-ginger-${i}`}/></td>
                   <td className={tdRSx}>{n(r.gingerQty)?rates.ginger:''}</td>
                   <td className={`${tdRSx} font-medium`}>{fa(n(r.gingerQty)*rates.ginger)}</td>
                   {/* Biscuit */}
-                  <td className={tdSx}><input type="number" min="0" step="0.001" className={inputSx} value={n(r.biscuitQty)||''} onChange={e=>updateCell(i,'biscuitQty',Number(e.target.value))} onKeyDown={handlePecEnter} data-pec-input disabled={!canEdit} data-testid={`pec-biscuit-${i}`}/></td>
+                  <td className={tdSx}><input type="number" min="0" step="0.001" className={inputSx} value={n(r.biscuitQty)||''} onChange={e=>updateCell(i,'biscuitQty',Number(e.target.value))} onKeyDown={handlePecEnter} data-pec-input disabled={!canEditRow(r)} data-testid={`pec-biscuit-${i}`}/></td>
                   <td className={tdRSx}>{n(r.biscuitQty)?rates.biscuit:''}</td>
                   <td className={`${tdRSx} font-medium`}>{fa(n(r.biscuitQty)*rates.biscuit)}</td>
                   {/* Tea Cup */}
-                  <td className={tdSx}><input type="number" min="0" step="0.001" className={inputSx} value={n(r.teaCupQty)||''} onChange={e=>updateCell(i,'teaCupQty',Number(e.target.value))} onKeyDown={handlePecEnter} data-pec-input disabled={!canEdit} data-testid={`pec-teacup-${i}`}/></td>
+                  <td className={tdSx}><input type="number" min="0" step="0.001" className={inputSx} value={n(r.teaCupQty)||''} onChange={e=>updateCell(i,'teaCupQty',Number(e.target.value))} onKeyDown={handlePecEnter} data-pec-input disabled={!canEditRow(r)} data-testid={`pec-teacup-${i}`}/></td>
                   <td className={tdRSx}>{n(r.teaCupQty)?rates.teaCup:''}</td>
                   <td className={`${tdRSx} font-medium`}>{fa(n(r.teaCupQty)*rates.teaCup)}</td>
                   {/* Green Elaychi */}
-                  <td className={tdSx}><input type="number" min="0" step="0.001" className={inputSx} value={n(r.greenElaychiQty)||''} onChange={e=>updateCell(i,'greenElaychiQty',Number(e.target.value))} onKeyDown={handlePecEnter} data-pec-input disabled={!canEdit} data-testid={`pec-elaychi-${i}`}/></td>
+                  <td className={tdSx}><input type="number" min="0" step="0.001" className={inputSx} value={n(r.greenElaychiQty)||''} onChange={e=>updateCell(i,'greenElaychiQty',Number(e.target.value))} onKeyDown={handlePecEnter} data-pec-input disabled={!canEditRow(r)} data-testid={`pec-elaychi-${i}`}/></td>
                   <td className={tdRSx}>{n(r.greenElaychiQty)?rates.greenElaychi:''}</td>
                   <td className={`${tdRSx} font-medium`}>{fa(n(r.greenElaychiQty)*rates.greenElaychi)}</td>
                   {/* Green Tea */}
-                  <td className={tdSx}><input type="number" min="0" step="0.001" className={inputSx} value={n(r.greenTeaQty)||''} onChange={e=>updateCell(i,'greenTeaQty',Number(e.target.value))} onKeyDown={handlePecEnter} data-pec-input disabled={!canEdit} data-testid={`pec-greentea-${i}`}/></td>
+                  <td className={tdSx}><input type="number" min="0" step="0.001" className={inputSx} value={n(r.greenTeaQty)||''} onChange={e=>updateCell(i,'greenTeaQty',Number(e.target.value))} onKeyDown={handlePecEnter} data-pec-input disabled={!canEditRow(r)} data-testid={`pec-greentea-${i}`}/></td>
                   <td className={tdRSx}>{n(r.greenTeaQty)?rates.greenTea:''}</td>
                   <td className={`${tdRSx} font-medium`}>{fa(n(r.greenTeaQty)*rates.greenTea)}</td>
                   {/* Black Salt */}
-                  <td className={tdSx}><input type="number" min="0" step="0.001" className={inputSx} value={n(r.blackSaltQty)||''} onChange={e=>updateCell(i,'blackSaltQty',Number(e.target.value))} onKeyDown={handlePecEnter} data-pec-input disabled={!canEdit} data-testid={`pec-blacksalt-${i}`}/></td>
+                  <td className={tdSx}><input type="number" min="0" step="0.001" className={inputSx} value={n(r.blackSaltQty)||''} onChange={e=>updateCell(i,'blackSaltQty',Number(e.target.value))} onKeyDown={handlePecEnter} data-pec-input disabled={!canEditRow(r)} data-testid={`pec-blacksalt-${i}`}/></td>
                   <td className={tdRSx}>{n(r.blackSaltQty)?rates.blackSalt:''}</td>
                   <td className={`${tdRSx} font-medium`}>{fa(n(r.blackSaltQty)*rates.blackSalt)}</td>
                   {/* Milk */}
-                  <td className={tdSx}><input type="number" min="0" step="0.001" className={inputSx} value={n(r.milkMorningQty)||''} onChange={e=>updateCell(i,'milkMorningQty',Number(e.target.value))} onKeyDown={handlePecEnter} data-pec-input disabled={!canEdit} data-testid={`pec-milk-morning-${i}`}/></td>
-                  <td className={tdSx}><input type="number" min="0" step="0.001" className={inputSx} value={n(r.milkEveningQty)||''} onChange={e=>updateCell(i,'milkEveningQty',Number(e.target.value))} onKeyDown={handlePecEnter} data-pec-input disabled={!canEdit} data-testid={`pec-milk-evening-${i}`}/></td>
+                  <td className={tdSx}><input type="number" min="0" step="0.001" className={inputSx} value={n(r.milkMorningQty)||''} onChange={e=>updateCell(i,'milkMorningQty',Number(e.target.value))} onKeyDown={handlePecEnter} data-pec-input disabled={!canEditRow(r)} data-testid={`pec-milk-morning-${i}`}/></td>
+                  <td className={tdSx}><input type="number" min="0" step="0.001" className={inputSx} value={n(r.milkEveningQty)||''} onChange={e=>updateCell(i,'milkEveningQty',Number(e.target.value))} onKeyDown={handlePecEnter} data-pec-input disabled={!canEditRow(r)} data-testid={`pec-milk-evening-${i}`}/></td>
                   <td className={tdRSx}>{milkTot||''}</td>
                   <td className={tdRSx}>{milkTot?rates.milk:''}</td>
                   <td className={`${tdRSx} font-medium`}>{fa(milkTot*rates.milk)}</td>

@@ -53,6 +53,12 @@ function isPastMonth(month: number, year: number): boolean {
   return year < curY || (year === curY && month < curM);
 }
 
+// True if the given (month, year) is exactly the current calendar month.
+function isCurrentMonth(month: number, year: number): boolean {
+  const now = new Date();
+  return year === now.getFullYear() && month === now.getMonth() + 1;
+}
+
 // Extract { month, year } from an ISO-ish date string ("YYYY-MM-DD").
 // Returns NaN parts when the input is missing/malformed.
 function monthYearFromEntryDate(entryDate: unknown): { month: number; year: number } {
@@ -2681,30 +2687,38 @@ export async function registerRoutes(
     const entries = await storage.getPecVenturesEntries(month, year);
     res.json(entries);
   });
+  // PEC Ventures Form 1 (Canteen Expense): non-admins may only CREATE new current-month
+  // entries. Once a day is saved it is locked — only an admin can change/delete saved data.
   app.post('/api/pec-ventures-entries', requirePermission('salesinvoice'), async (req, res) => {
     try {
       const { month, year } = monthYearFromEntryDate(req.body?.entryDate);
-      if (pecPastMonthBlocked(req, month, year)) {
-        return res.status(403).json({ message: "Only admins can edit previous months for PEC Ventures." });
+      if (req.session.role !== "admin") {
+        if (!Number.isFinite(month) || !Number.isFinite(year) || !isCurrentMonth(month, year)) {
+          return res.status(403).json({ message: "Only admins can edit other months for PEC Ventures." });
+        }
+        const existing = await storage.getPecVenturesEntryByDate(String(req.body?.entryDate ?? ""));
+        if (existing) {
+          return res.status(403).json({ message: "This day is already saved. Only an admin can change saved entries." });
+        }
       }
-      const entry = await storage.createPecVenturesEntry(req.body); res.status(201).json(entry);
+      // Always derive month/year from entryDate so stored values can't be tampered via the payload.
+      const payload = (Number.isFinite(month) && Number.isFinite(year)) ? { ...req.body, month, year } : req.body;
+      const entry = await storage.createPecVenturesEntry(payload); res.status(201).json(entry);
     }
     catch (err: any) { res.status(500).json({ message: err.message }); }
   });
   app.put('/api/pec-ventures-entries/:id', requirePermission('salesinvoice'), async (req, res) => {
     try {
-      const existing = await storage.getPecVenturesEntryById(Number(req.params.id));
-      if (existing && pecPastMonthBlocked(req, existing.month, existing.year)) {
-        return res.status(403).json({ message: "Only admins can edit previous months for PEC Ventures." });
+      if (req.session.role !== "admin") {
+        return res.status(403).json({ message: "This entry is saved. Only an admin can change saved entries." });
       }
       const entry = await storage.updatePecVenturesEntry(Number(req.params.id), req.body); res.json(entry);
     }
     catch (err: any) { res.status(500).json({ message: err.message }); }
   });
   app.delete('/api/pec-ventures-entries/:id', requirePermission('salesinvoice'), async (req, res) => {
-    const existing = await storage.getPecVenturesEntryById(Number(req.params.id));
-    if (existing && pecPastMonthBlocked(req, existing.month, existing.year)) {
-      return res.status(403).json({ message: "Only admins can edit previous months for PEC Ventures." });
+    if (req.session.role !== "admin") {
+      return res.status(403).json({ message: "This entry is saved. Only an admin can change saved entries." });
     }
     await storage.deletePecVenturesEntry(Number(req.params.id)); res.status(204).send();
   });
