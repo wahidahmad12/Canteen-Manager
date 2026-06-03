@@ -1063,6 +1063,29 @@ export const pecVenturesEntries = mysqlTable("pec_ventures_entries", {
 export type PecVenturesEntry = typeof pecVenturesEntries.$inferSelect;
 export const insertPecVenturesEntrySchema = createInsertSchema(pecVenturesEntries).omit({ id: true, createdAt: true, updatedAt: true });
 
+// === PEC VENTURES — Canteen Item Rates (snapshot per month; month=0/year=0 = current default) ===
+export const pecVenturesRates = mysqlTable("pec_ventures_rates", {
+  id: int("id").autoincrement().primaryKey(),
+  month: int("month").notNull(),
+  year: int("year").notNull(),
+  redLabel: decimal("red_label", { precision: 10, scale: 3 }).default("0"),
+  tataTea: decimal("tata_tea", { precision: 10, scale: 3 }).default("0"),
+  coffee: decimal("coffee", { precision: 10, scale: 3 }).default("0"),
+  sugar: decimal("sugar", { precision: 10, scale: 3 }).default("0"),
+  ginger: decimal("ginger", { precision: 10, scale: 3 }).default("0"),
+  biscuit: decimal("biscuit", { precision: 10, scale: 3 }).default("0"),
+  teaCup: decimal("tea_cup", { precision: 10, scale: 3 }).default("0"),
+  greenElaychi: decimal("green_elaychi", { precision: 10, scale: 3 }).default("0"),
+  greenTea: decimal("green_tea", { precision: 10, scale: 3 }).default("0"),
+  blackSalt: decimal("black_salt", { precision: 10, scale: 3 }).default("0"),
+  milk: decimal("milk", { precision: 10, scale: 3 }).default("0"),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+export type PecVenturesRate = typeof pecVenturesRates.$inferSelect;
+export const insertPecVenturesRateSchema = createInsertSchema(pecVenturesRates).omit({ id: true, createdAt: true, updatedAt: true });
+export type InsertPecVenturesRate = z.infer<typeof insertPecVenturesRateSchema>;
+
 // === BILL OF MATERIAL ===
 export const bomItems = mysqlTable("bom_items", {
   id: int("id").autoincrement().primaryKey(),

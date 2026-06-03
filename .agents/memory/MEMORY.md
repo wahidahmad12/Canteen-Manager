@@ -1,0 +1,1 @@
+- [DB schema changes (TiDB/MySQL)](db-migrations.md) — drizzle-kit push is interactive/unusable; add idempotent migrations to the startup array in server/db.ts.

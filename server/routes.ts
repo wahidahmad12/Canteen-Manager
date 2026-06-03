@@ -2652,6 +2652,57 @@ export async function registerRoutes(
     await storage.deletePecVenturesEntry(Number(req.params.id)); res.status(204).send();
   });
 
+  // === PEC VENTURES ITEM RATES (snapshot per month; month=0/year=0 = current default) ===
+  app.get('/api/pec-ventures-rates', requirePermission('salesinvoice'), async (req, res) => {
+    try {
+      const def = await storage.getPecVenturesRate(0, 0);
+      if (req.query.month !== undefined) {
+        const month = Number(req.query.month);
+        const year = Number(req.query.year) || new Date().getFullYear();
+        const rate = await storage.getPecVenturesRate(month, year);
+        res.json({ rate, default: def });
+      } else {
+        const year = Number(req.query.year) || new Date().getFullYear();
+        const monthly = (await storage.getPecVenturesRatesByYear(year)).filter(r => r.month >= 1 && r.month <= 12 && r.year === year);
+        res.json({ monthly, default: def });
+      }
+    } catch (err: any) { res.status(500).json({ message: err.message }); }
+  });
+  // Editing rate values is admin-only. The carry-forward default (month=0,year=0) is always
+  // editable; a real month (1-12) can only be created while unlocked — once it has a snapshot it
+  // is immutable, so previously-saved months/data can never change when rates are updated later.
+  app.put('/api/pec-ventures-rates', requireAdmin, async (req, res) => {
+    try {
+      const month = Number(req.body.month);
+      const year = Number(req.body.year);
+      const isDefault = month === 0 && year === 0;
+      if (!isDefault && (!Number.isInteger(month) || month < 1 || month > 12 || !Number.isInteger(year) || year < 2000 || year > 2100)) {
+        return res.status(400).json({ message: 'Invalid month/year' });
+      }
+      const rateKeys = ['redLabel','tataTea','coffee','sugar','ginger','biscuit','teaCup','greenElaychi','greenTea','blackSalt','milk'];
+      for (const k of rateKeys) {
+        const v = Number(req.body[k]);
+        if (!Number.isFinite(v) || v < 0) return res.status(400).json({ message: `Invalid rate value for ${k}` });
+      }
+      if (!isDefault) {
+        const existing = await storage.getPecVenturesRate(month, year);
+        if (existing) return res.status(409).json({ message: 'This month is locked; its rates cannot be changed.' });
+      }
+      res.json(await storage.upsertPecVenturesRate(req.body));
+    } catch (err: any) { res.status(500).json({ message: err.message }); }
+  });
+  // Locking a month (snapshot from default) is allowed for any data-entry user; never overwrites an existing snapshot
+  app.post('/api/pec-ventures-rates/ensure', requirePermission('salesinvoice'), async (req, res) => {
+    try {
+      const month = Number(req.body.month);
+      const year = Number(req.body.year);
+      if (!Number.isInteger(month) || month < 1 || month > 12 || !Number.isInteger(year) || year < 2000 || year > 2100) {
+        return res.status(400).json({ message: 'Invalid month/year' });
+      }
+      res.json(await storage.ensurePecVenturesRateSnapshot(month, year));
+    } catch (err: any) { res.status(500).json({ message: err.message }); }
+  });
+
   // === EMPLOYEE SHIFT DUTIES ===
   app.get('/api/shift-duties', requireAuth, async (req, res) => {
     try {

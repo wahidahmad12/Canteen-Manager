@@ -6749,6 +6749,34 @@ const PEC_RATES = {
   milk:         28,
 };
 
+type PecRateMap = typeof PEC_RATES;
+
+// Order + labels/units used for the admin-editable rate panel and rate column headers
+const PEC_RATE_FIELDS: { key: keyof PecRateMap; label: string; unit: string }[] = [
+  { key: 'redLabel',     label: 'Red Label Tea', unit: '/kg'  },
+  { key: 'tataTea',      label: 'Tata Tea',      unit: '/kg'  },
+  { key: 'coffee',       label: 'Coffee',        unit: '/gm'  },
+  { key: 'sugar',        label: 'Sugar',         unit: '/kg'  },
+  { key: 'ginger',       label: 'Ginger',        unit: '/kg'  },
+  { key: 'biscuit',      label: 'Biscuit',       unit: '/pcs' },
+  { key: 'teaCup',       label: 'Tea Cup',       unit: '/pcs' },
+  { key: 'greenElaychi', label: 'Green Elaychi', unit: '/gm'  },
+  { key: 'greenTea',     label: 'Green Tea',     unit: '/pkt' },
+  { key: 'blackSalt',    label: 'Black Salt',    unit: '/kg'  },
+  { key: 'milk',         label: 'Milk',          unit: '/L'   },
+];
+
+// Convert a rate row from the API (decimal strings) into a numeric PecRateMap
+function pecRowToRateMap(row: any): PecRateMap {
+  const num = (v: any) => { const x = Number(v); return Number.isFinite(x) ? x : 0; };
+  return {
+    redLabel: num(row.redLabel), tataTea: num(row.tataTea), coffee: num(row.coffee),
+    sugar: num(row.sugar), ginger: num(row.ginger), biscuit: num(row.biscuit),
+    teaCup: num(row.teaCup), greenElaychi: num(row.greenElaychi), greenTea: num(row.greenTea),
+    blackSalt: num(row.blackSalt), milk: num(row.milk),
+  };
+}
+
 type PecRow = {
   id?: number;
   entryDate: string;
@@ -6829,9 +6857,31 @@ function PecVenturesTab({ month, year, loadKey = 0 }: { month: number; year: num
   const [isSaving, setIsSaving] = useState(false);
   const importRefPec = useRef<HTMLInputElement>(null);
 
+  const { data: currentUser } = useCurrentUser();
+  const isAdmin = currentUser?.role === 'admin';
+
+  // Effective item rates for this month. A month is "locked" once it has its own saved
+  // snapshot — locked months (and previously-saved data) never change when rates are updated later.
+  const { data: ratesData } = useQuery<{ rate: any; default: any }>({
+    queryKey: ['/api/pec-ventures-rates', month, year],
+    queryFn: () => fetch(`/api/pec-ventures-rates?month=${month}&year=${year}`, { credentials: 'include' }).then(r => r.json()),
+  });
+  const [rates, setRates] = useState<PecRateMap>({ ...PEC_RATES });
+  const ratesLocked = !!ratesData?.rate;
+
   useEffect(() => {
     if (!isLoading) setRows(generatePecMonthRows(month, year, savedRows));
   }, [isLoading, savedRows, month, year, loadKey]);
+
+  useEffect(() => {
+    if (!ratesData) return;
+    const src = ratesData.rate ?? ratesData.default;
+    setRates(src ? pecRowToRateMap(src) : { ...PEC_RATES });
+  }, [ratesData, month, year, loadKey]);
+
+  const updateRate = (key: keyof PecRateMap, value: number) => {
+    setRates(prev => ({ ...prev, [key]: Number.isFinite(value) ? value : 0 }));
+  };
 
   const updateCell = (idx: number, field: keyof PecRow, value: number) => {
     setRows(prev => {
@@ -6861,7 +6911,27 @@ function PecVenturesTab({ month, year, loadKey = 0 }: { month: number; year: num
           if (!res.ok) throw new Error('Save failed');
         }
       }
+      // Persist rates. Admin (on an unlocked month) saves the edited rates: snapshots them for
+      // this month AND updates the carry-forward default. Any user then locks the month so saved
+      // data and previous months never change when rates are updated later.
+      if (isAdmin && !ratesLocked) {
+        const ratePayload = { ...rates };
+        const putRate = (m: number, y: number) => fetch('/api/pec-ventures-rates', {
+          method: 'PUT', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ month: m, year: y, ...ratePayload }), credentials: 'include',
+        });
+        const r1 = await putRate(month, year);
+        // 409 = month got locked concurrently; keep the existing snapshot rather than failing the save.
+        if (!r1.ok && r1.status !== 409) throw new Error('Failed to save rates');
+        await putRate(0, 0); // update going-forward default (best-effort)
+      }
+      // Lock this month if not already locked (idempotent; snapshots default rates if needed)
+      await fetch('/api/pec-ventures-rates/ensure', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ month, year }), credentials: 'include',
+      });
       await qc.invalidateQueries({ queryKey: ['/api/pec-ventures-entries', month, year] });
+      await qc.invalidateQueries({ queryKey: ['/api/pec-ventures-rates', month, year] });
       toast({ title: 'Saved', description: 'PEC Ventures canteen data saved successfully.' });
     } catch (err: any) {
       toast({ title: 'Error', description: err.message, variant: 'destructive' });
@@ -7030,79 +7100,79 @@ function PecVenturesTab({ month, year, loadKey = 0 }: { month: number; year: num
       {
         show: tot.redLabel > 0, label: 'Red Label Tea Powder', colspan: 3,
         h2: `<th style="${th}">Qty in Kg</th><th style="${th}">Rate</th><th style="${th}">Total</th>`,
-        cell: (r) => `<td style="${tdr}">${fq(n(r.redLabelQty))}</td><td style="${tdr}">${n(r.redLabelQty)?PEC_RATES.redLabel:''}</td><td style="${tdr}">${fa(n(r.redLabelQty)*PEC_RATES.redLabel)}</td>`,
-        totCell: () => `<td style="${tdr}">${fq(tot.redLabel)}</td><td style="${td}"></td><td style="${tdr}">${fa(tot.redLabel*PEC_RATES.redLabel)}</td>`,
-        amount: () => tot.redLabel*PEC_RATES.redLabel,
+        cell: (r) => `<td style="${tdr}">${fq(n(r.redLabelQty))}</td><td style="${tdr}">${n(r.redLabelQty)?rates.redLabel:''}</td><td style="${tdr}">${fa(n(r.redLabelQty)*rates.redLabel)}</td>`,
+        totCell: () => `<td style="${tdr}">${fq(tot.redLabel)}</td><td style="${td}"></td><td style="${tdr}">${fa(tot.redLabel*rates.redLabel)}</td>`,
+        amount: () => tot.redLabel*rates.redLabel,
       },
       {
         show: tot.tataTea > 0, label: 'Tata Tea Powder', colspan: 3,
         h2: `<th style="${th}">Qty in Kg</th><th style="${th}">Rate</th><th style="${th}">Total</th>`,
-        cell: (r) => `<td style="${tdr}">${fq(n(r.tataTeaQty))}</td><td style="${tdr}">${n(r.tataTeaQty)?PEC_RATES.tataTea:''}</td><td style="${tdr}">${fa(n(r.tataTeaQty)*PEC_RATES.tataTea)}</td>`,
-        totCell: () => `<td style="${tdr}">${fq(tot.tataTea)}</td><td style="${td}"></td><td style="${tdr}">${fa(tot.tataTea*PEC_RATES.tataTea)}</td>`,
-        amount: () => tot.tataTea*PEC_RATES.tataTea,
+        cell: (r) => `<td style="${tdr}">${fq(n(r.tataTeaQty))}</td><td style="${tdr}">${n(r.tataTeaQty)?rates.tataTea:''}</td><td style="${tdr}">${fa(n(r.tataTeaQty)*rates.tataTea)}</td>`,
+        totCell: () => `<td style="${tdr}">${fq(tot.tataTea)}</td><td style="${td}"></td><td style="${tdr}">${fa(tot.tataTea*rates.tataTea)}</td>`,
+        amount: () => tot.tataTea*rates.tataTea,
       },
       {
         show: tot.coffee > 0, label: 'Coffee', colspan: 3,
         h2: `<th style="${th}">Qty in Gm</th><th style="${th}">Rate</th><th style="${th}">Total</th>`,
-        cell: (r) => `<td style="${tdr}">${fq(n(r.coffeeQty))}</td><td style="${tdr}">${n(r.coffeeQty)?PEC_RATES.coffee:''}</td><td style="${tdr}">${fa(n(r.coffeeQty)*PEC_RATES.coffee)}</td>`,
-        totCell: () => `<td style="${tdr}">${fq(tot.coffee)}</td><td style="${td}"></td><td style="${tdr}">${fa(tot.coffee*PEC_RATES.coffee)}</td>`,
-        amount: () => tot.coffee*PEC_RATES.coffee,
+        cell: (r) => `<td style="${tdr}">${fq(n(r.coffeeQty))}</td><td style="${tdr}">${n(r.coffeeQty)?rates.coffee:''}</td><td style="${tdr}">${fa(n(r.coffeeQty)*rates.coffee)}</td>`,
+        totCell: () => `<td style="${tdr}">${fq(tot.coffee)}</td><td style="${td}"></td><td style="${tdr}">${fa(tot.coffee*rates.coffee)}</td>`,
+        amount: () => tot.coffee*rates.coffee,
       },
       {
         show: tot.sugar > 0, label: 'Sugar', colspan: 3,
         h2: `<th style="${th}">Qty in Kg</th><th style="${th}">Rate</th><th style="${th}">Total</th>`,
-        cell: (r) => `<td style="${tdr}">${fq(n(r.sugarQty))}</td><td style="${tdr}">${n(r.sugarQty)?PEC_RATES.sugar:''}</td><td style="${tdr}">${fa(n(r.sugarQty)*PEC_RATES.sugar)}</td>`,
-        totCell: () => `<td style="${tdr}">${fq(tot.sugar)}</td><td style="${td}"></td><td style="${tdr}">${fa(tot.sugar*PEC_RATES.sugar)}</td>`,
-        amount: () => tot.sugar*PEC_RATES.sugar,
+        cell: (r) => `<td style="${tdr}">${fq(n(r.sugarQty))}</td><td style="${tdr}">${n(r.sugarQty)?rates.sugar:''}</td><td style="${tdr}">${fa(n(r.sugarQty)*rates.sugar)}</td>`,
+        totCell: () => `<td style="${tdr}">${fq(tot.sugar)}</td><td style="${td}"></td><td style="${tdr}">${fa(tot.sugar*rates.sugar)}</td>`,
+        amount: () => tot.sugar*rates.sugar,
       },
       {
         show: tot.ginger > 0, label: 'Ginger', colspan: 3,
         h2: `<th style="${th}">Qty in Kg</th><th style="${th}">Rate</th><th style="${th}">Total</th>`,
-        cell: (r) => `<td style="${tdr}">${fq(n(r.gingerQty))}</td><td style="${tdr}">${n(r.gingerQty)?PEC_RATES.ginger:''}</td><td style="${tdr}">${fa(n(r.gingerQty)*PEC_RATES.ginger)}</td>`,
-        totCell: () => `<td style="${tdr}">${fq(tot.ginger)}</td><td style="${td}"></td><td style="${tdr}">${fa(tot.ginger*PEC_RATES.ginger)}</td>`,
-        amount: () => tot.ginger*PEC_RATES.ginger,
+        cell: (r) => `<td style="${tdr}">${fq(n(r.gingerQty))}</td><td style="${tdr}">${n(r.gingerQty)?rates.ginger:''}</td><td style="${tdr}">${fa(n(r.gingerQty)*rates.ginger)}</td>`,
+        totCell: () => `<td style="${tdr}">${fq(tot.ginger)}</td><td style="${td}"></td><td style="${tdr}">${fa(tot.ginger*rates.ginger)}</td>`,
+        amount: () => tot.ginger*rates.ginger,
       },
       {
         show: tot.biscuit > 0, label: 'Biscuit', colspan: 3,
         h2: `<th style="${th}">Qty in Pcs</th><th style="${th}">Rate</th><th style="${th}">Total</th>`,
-        cell: (r) => `<td style="${tdr}">${fq(n(r.biscuitQty))}</td><td style="${tdr}">${n(r.biscuitQty)?PEC_RATES.biscuit:''}</td><td style="${tdr}">${fa(n(r.biscuitQty)*PEC_RATES.biscuit)}</td>`,
-        totCell: () => `<td style="${tdr}">${fq(tot.biscuit)}</td><td style="${td}"></td><td style="${tdr}">${fa(tot.biscuit*PEC_RATES.biscuit)}</td>`,
-        amount: () => tot.biscuit*PEC_RATES.biscuit,
+        cell: (r) => `<td style="${tdr}">${fq(n(r.biscuitQty))}</td><td style="${tdr}">${n(r.biscuitQty)?rates.biscuit:''}</td><td style="${tdr}">${fa(n(r.biscuitQty)*rates.biscuit)}</td>`,
+        totCell: () => `<td style="${tdr}">${fq(tot.biscuit)}</td><td style="${td}"></td><td style="${tdr}">${fa(tot.biscuit*rates.biscuit)}</td>`,
+        amount: () => tot.biscuit*rates.biscuit,
       },
       {
         show: tot.teaCup > 0, label: 'Tea Cup', colspan: 3,
         h2: `<th style="${th}">Qty in Pcs</th><th style="${th}">Rate</th><th style="${th}">Total</th>`,
-        cell: (r) => `<td style="${tdr}">${fq(n(r.teaCupQty))}</td><td style="${tdr}">${n(r.teaCupQty)?PEC_RATES.teaCup:''}</td><td style="${tdr}">${fa(n(r.teaCupQty)*PEC_RATES.teaCup)}</td>`,
-        totCell: () => `<td style="${tdr}">${fq(tot.teaCup)}</td><td style="${td}"></td><td style="${tdr}">${fa(tot.teaCup*PEC_RATES.teaCup)}</td>`,
-        amount: () => tot.teaCup*PEC_RATES.teaCup,
+        cell: (r) => `<td style="${tdr}">${fq(n(r.teaCupQty))}</td><td style="${tdr}">${n(r.teaCupQty)?rates.teaCup:''}</td><td style="${tdr}">${fa(n(r.teaCupQty)*rates.teaCup)}</td>`,
+        totCell: () => `<td style="${tdr}">${fq(tot.teaCup)}</td><td style="${td}"></td><td style="${tdr}">${fa(tot.teaCup*rates.teaCup)}</td>`,
+        amount: () => tot.teaCup*rates.teaCup,
       },
       {
         show: tot.greenElaychi > 0, label: 'Green Elaychi', colspan: 3,
         h2: `<th style="${th}">Qty in Gm</th><th style="${th}">Rate</th><th style="${th}">Total</th>`,
-        cell: (r) => `<td style="${tdr}">${fq(n(r.greenElaychiQty))}</td><td style="${tdr}">${n(r.greenElaychiQty)?PEC_RATES.greenElaychi:''}</td><td style="${tdr}">${fa(n(r.greenElaychiQty)*PEC_RATES.greenElaychi)}</td>`,
-        totCell: () => `<td style="${tdr}">${fq(tot.greenElaychi)}</td><td style="${td}"></td><td style="${tdr}">${fa(tot.greenElaychi*PEC_RATES.greenElaychi)}</td>`,
-        amount: () => tot.greenElaychi*PEC_RATES.greenElaychi,
+        cell: (r) => `<td style="${tdr}">${fq(n(r.greenElaychiQty))}</td><td style="${tdr}">${n(r.greenElaychiQty)?rates.greenElaychi:''}</td><td style="${tdr}">${fa(n(r.greenElaychiQty)*rates.greenElaychi)}</td>`,
+        totCell: () => `<td style="${tdr}">${fq(tot.greenElaychi)}</td><td style="${td}"></td><td style="${tdr}">${fa(tot.greenElaychi*rates.greenElaychi)}</td>`,
+        amount: () => tot.greenElaychi*rates.greenElaychi,
       },
       {
         show: tot.greenTea > 0, label: 'Green Tea', colspan: 3,
         h2: `<th style="${th}">Qty in Pkt</th><th style="${th}">Rate</th><th style="${th}">Total</th>`,
-        cell: (r) => `<td style="${tdr}">${fq(n(r.greenTeaQty))}</td><td style="${tdr}">${n(r.greenTeaQty)?PEC_RATES.greenTea:''}</td><td style="${tdr}">${fa(n(r.greenTeaQty)*PEC_RATES.greenTea)}</td>`,
-        totCell: () => `<td style="${tdr}">${fq(tot.greenTea)}</td><td style="${td}"></td><td style="${tdr}">${fa(tot.greenTea*PEC_RATES.greenTea)}</td>`,
-        amount: () => tot.greenTea*PEC_RATES.greenTea,
+        cell: (r) => `<td style="${tdr}">${fq(n(r.greenTeaQty))}</td><td style="${tdr}">${n(r.greenTeaQty)?rates.greenTea:''}</td><td style="${tdr}">${fa(n(r.greenTeaQty)*rates.greenTea)}</td>`,
+        totCell: () => `<td style="${tdr}">${fq(tot.greenTea)}</td><td style="${td}"></td><td style="${tdr}">${fa(tot.greenTea*rates.greenTea)}</td>`,
+        amount: () => tot.greenTea*rates.greenTea,
       },
       {
         show: tot.blackSalt > 0, label: 'Black Salt', colspan: 3,
         h2: `<th style="${th}">Qty in Kg</th><th style="${th}">Rate</th><th style="${th}">Total</th>`,
-        cell: (r) => `<td style="${tdr}">${fq(n(r.blackSaltQty))}</td><td style="${tdr}">${n(r.blackSaltQty)?PEC_RATES.blackSalt:''}</td><td style="${tdr}">${fa(n(r.blackSaltQty)*PEC_RATES.blackSalt)}</td>`,
-        totCell: () => `<td style="${tdr}">${fq(tot.blackSalt)}</td><td style="${td}"></td><td style="${tdr}">${fa(tot.blackSalt*PEC_RATES.blackSalt)}</td>`,
-        amount: () => tot.blackSalt*PEC_RATES.blackSalt,
+        cell: (r) => `<td style="${tdr}">${fq(n(r.blackSaltQty))}</td><td style="${tdr}">${n(r.blackSaltQty)?rates.blackSalt:''}</td><td style="${tdr}">${fa(n(r.blackSaltQty)*rates.blackSalt)}</td>`,
+        totCell: () => `<td style="${tdr}">${fq(tot.blackSalt)}</td><td style="${td}"></td><td style="${tdr}">${fa(tot.blackSalt*rates.blackSalt)}</td>`,
+        amount: () => tot.blackSalt*rates.blackSalt,
       },
       {
         show: milkTotTotal > 0, label: 'Milk', colspan: 5,
         h2: `<th style="${th}">Morning Qty</th><th style="${th}">Evning Qty</th><th style="${th}">Total</th><th style="${th}">Rate</th><th style="${th}">Total Amt</th>`,
-        cell: (r) => { const mt = n(r.milkMorningQty)+n(r.milkEveningQty); return `<td style="${tdr}">${fq(n(r.milkMorningQty))}</td><td style="${tdr}">${fq(n(r.milkEveningQty))}</td><td style="${tdr}">${mt||''}</td><td style="${tdr}">${mt?PEC_RATES.milk:''}</td><td style="${tdr}">${fa(mt*PEC_RATES.milk)}</td>`; },
-        totCell: () => `<td style="${tdr}">${fq(tot.milkMorning)}</td><td style="${tdr}">${fq(tot.milkEvening)}</td><td style="${tdr}">${milkTotTotal||''}</td><td style="${td}"></td><td style="${tdr}">${fa(milkTotTotal*PEC_RATES.milk)}</td>`,
-        amount: () => milkTotTotal*PEC_RATES.milk,
+        cell: (r) => { const mt = n(r.milkMorningQty)+n(r.milkEveningQty); return `<td style="${tdr}">${fq(n(r.milkMorningQty))}</td><td style="${tdr}">${fq(n(r.milkEveningQty))}</td><td style="${tdr}">${mt||''}</td><td style="${tdr}">${mt?rates.milk:''}</td><td style="${tdr}">${fa(mt*rates.milk)}</td>`; },
+        totCell: () => `<td style="${tdr}">${fq(tot.milkMorning)}</td><td style="${tdr}">${fq(tot.milkEvening)}</td><td style="${tdr}">${milkTotTotal||''}</td><td style="${td}"></td><td style="${tdr}">${fa(milkTotTotal*rates.milk)}</td>`,
+        amount: () => milkTotTotal*rates.milk,
       },
     ];
 
@@ -7217,8 +7287,34 @@ function PecVenturesTab({ month, year, loadKey = 0 }: { month: number; year: num
           <FileDown className="w-3 h-3" /> Template
         </Button>
         <input ref={importRefPec} type="file" accept=".xlsx,.xls" className="hidden" onChange={handleImportExcelPec} />
-        <span className="text-xs text-muted-foreground">Rates: Red Label ₹620/kg · Tata Tea ₹310/kg · Coffee ₹5.5/gm · Sugar ₹48/kg · Ginger ₹180/kg · Biscuit ₹5/pcs · Tea Cup ₹0.8/pcs · Green Elaychi ₹3.6/gm · Green Tea ₹120/pkt · Black Salt ₹115/kg · Milk ₹28/L</span>
+        <span className="text-xs text-muted-foreground">Rates: {PEC_RATE_FIELDS.map(f => `${f.label} ₹${rates[f.key]}${f.unit}`).join(' · ')}</span>
       </div>
+
+      {isAdmin && (
+        <div className="rounded-lg border border-gray-200 dark:border-gray-700 p-3 bg-muted/30" data-testid="panel-pec-rates">
+          <div className="flex items-center justify-between mb-2">
+            <span className="text-sm font-medium">Item Rates {ratesLocked && <span className="text-xs text-muted-foreground">(locked for this month)</span>}</span>
+            {ratesLocked && <span className="text-xs text-amber-600 dark:text-amber-400">Saved months keep their original rates.</span>}
+          </div>
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-2">
+            {PEC_RATE_FIELDS.map(f => (
+              <label key={f.key} className="flex flex-col gap-0.5 text-xs">
+                <span className="text-muted-foreground">{f.label} ({f.unit.replace('/', '')})</span>
+                <input
+                  type="number"
+                  step="0.001"
+                  value={rates[f.key]}
+                  disabled={ratesLocked}
+                  onChange={e => updateRate(f.key, parseFloat(e.target.value))}
+                  className="border rounded px-2 py-1 bg-background disabled:opacity-60 disabled:cursor-not-allowed"
+                  data-testid={`input-pec-rate-${f.key}`}
+                />
+              </label>
+            ))}
+          </div>
+          {!ratesLocked && <p className="text-xs text-muted-foreground mt-2">Edit rates, then click Save. Rates are locked once this month is saved.</p>}
+        </div>
+      )}
 
       <div className="rounded-lg border border-gray-200 dark:border-gray-700 overflow-x-auto">
         <table className="border-collapse min-w-max">
@@ -7226,17 +7322,17 @@ function PecVenturesTab({ month, year, loadKey = 0 }: { month: number; year: num
             <tr>
               <th className={`${thSx} sticky left-0 z-30 min-w-[88px]`} rowSpan={2}>Date</th>
               <th className={`${thSx} sticky left-[88px] z-30 min-w-[36px]`} rowSpan={2}>Day</th>
-              <th className={`${thSx} bg-red-100 dark:bg-red-900/30`} colSpan={3}>Red Label Tea<br/>620/kg</th>
-              <th className={`${thSx} bg-orange-100 dark:bg-orange-900/30`} colSpan={3}>Tata Tea<br/>310/kg</th>
-              <th className={`${thSx} bg-amber-100 dark:bg-amber-900/30`} colSpan={3}>Coffee<br/>5.5/gm</th>
-              <th className={`${thSx} bg-yellow-100 dark:bg-yellow-900/30`} colSpan={3}>Sugar<br/>48/kg</th>
-              <th className={`${thSx} bg-lime-100 dark:bg-lime-900/30`} colSpan={3}>Ginger<br/>180/kg</th>
-              <th className={`${thSx} bg-green-100 dark:bg-green-900/30`} colSpan={3}>Biscuit<br/>5/pcs</th>
-              <th className={`${thSx} bg-teal-100 dark:bg-teal-900/30`} colSpan={3}>Tea Cup<br/>0.8/pcs</th>
-              <th className={`${thSx} bg-cyan-100 dark:bg-cyan-900/30`} colSpan={3}>Grn Elaychi<br/>3.6/gm</th>
-              <th className={`${thSx} bg-sky-100 dark:bg-sky-900/30`} colSpan={3}>Green Tea<br/>120/pkt</th>
-              <th className={`${thSx} bg-indigo-100 dark:bg-indigo-900/30`} colSpan={3}>Black Salt<br/>115/kg</th>
-              <th className={`${thSx} bg-purple-100 dark:bg-purple-900/30`} colSpan={5}>Milk · 28/L</th>
+              <th className={`${thSx} bg-red-100 dark:bg-red-900/30`} colSpan={3}>Red Label Tea<br/>{rates.redLabel}/kg</th>
+              <th className={`${thSx} bg-orange-100 dark:bg-orange-900/30`} colSpan={3}>Tata Tea<br/>{rates.tataTea}/kg</th>
+              <th className={`${thSx} bg-amber-100 dark:bg-amber-900/30`} colSpan={3}>Coffee<br/>{rates.coffee}/gm</th>
+              <th className={`${thSx} bg-yellow-100 dark:bg-yellow-900/30`} colSpan={3}>Sugar<br/>{rates.sugar}/kg</th>
+              <th className={`${thSx} bg-lime-100 dark:bg-lime-900/30`} colSpan={3}>Ginger<br/>{rates.ginger}/kg</th>
+              <th className={`${thSx} bg-green-100 dark:bg-green-900/30`} colSpan={3}>Biscuit<br/>{rates.biscuit}/pcs</th>
+              <th className={`${thSx} bg-teal-100 dark:bg-teal-900/30`} colSpan={3}>Tea Cup<br/>{rates.teaCup}/pcs</th>
+              <th className={`${thSx} bg-cyan-100 dark:bg-cyan-900/30`} colSpan={3}>Grn Elaychi<br/>{rates.greenElaychi}/gm</th>
+              <th className={`${thSx} bg-sky-100 dark:bg-sky-900/30`} colSpan={3}>Green Tea<br/>{rates.greenTea}/pkt</th>
+              <th className={`${thSx} bg-indigo-100 dark:bg-indigo-900/30`} colSpan={3}>Black Salt<br/>{rates.blackSalt}/kg</th>
+              <th className={`${thSx} bg-purple-100 dark:bg-purple-900/30`} colSpan={5}>Milk · {rates.milk}/L</th>
             </tr>
             <tr>
               {[["Qty","Rate","Amt"],["Qty","Rate","Amt"],["Qty(gm)","Rate","Amt"],["Qty","Rate","Amt"],["Qty","Rate","Amt"],
@@ -7257,50 +7353,50 @@ function PecVenturesTab({ month, year, loadKey = 0 }: { month: number; year: num
                   <td className={`${tdSx} sticky left-[88px] z-10 ${isSun ? 'bg-red-50 dark:bg-red-950/20 text-red-600 font-semibold' : 'bg-white dark:bg-slate-900'}`}>{r.weekDay}</td>
                   {/* Red Label */}
                   <td className={tdSx}><input type="number" min="0" step="0.001" className={inputSx} value={n(r.redLabelQty)||''} onChange={e=>updateCell(i,'redLabelQty',Number(e.target.value))} onKeyDown={handlePecEnter} data-pec-input data-testid={`pec-redlabel-${i}`}/></td>
-                  <td className={tdRSx}>{n(r.redLabelQty)?PEC_RATES.redLabel:''}</td>
-                  <td className={`${tdRSx} font-medium`}>{fa(n(r.redLabelQty)*PEC_RATES.redLabel)}</td>
+                  <td className={tdRSx}>{n(r.redLabelQty)?rates.redLabel:''}</td>
+                  <td className={`${tdRSx} font-medium`}>{fa(n(r.redLabelQty)*rates.redLabel)}</td>
                   {/* Tata Tea */}
                   <td className={tdSx}><input type="number" min="0" step="0.001" className={inputSx} value={n(r.tataTeaQty)||''} onChange={e=>updateCell(i,'tataTeaQty',Number(e.target.value))} onKeyDown={handlePecEnter} data-pec-input data-testid={`pec-tata-${i}`}/></td>
-                  <td className={tdRSx}>{n(r.tataTeaQty)?PEC_RATES.tataTea:''}</td>
-                  <td className={`${tdRSx} font-medium`}>{fa(n(r.tataTeaQty)*PEC_RATES.tataTea)}</td>
+                  <td className={tdRSx}>{n(r.tataTeaQty)?rates.tataTea:''}</td>
+                  <td className={`${tdRSx} font-medium`}>{fa(n(r.tataTeaQty)*rates.tataTea)}</td>
                   {/* Coffee */}
                   <td className={tdSx}><input type="number" min="0" step="0.001" className={inputSx} value={n(r.coffeeQty)||''} onChange={e=>updateCell(i,'coffeeQty',Number(e.target.value))} onKeyDown={handlePecEnter} data-pec-input data-testid={`pec-coffee-${i}`}/></td>
-                  <td className={tdRSx}>{n(r.coffeeQty)?PEC_RATES.coffee:''}</td>
-                  <td className={`${tdRSx} font-medium`}>{fa(n(r.coffeeQty)*PEC_RATES.coffee)}</td>
+                  <td className={tdRSx}>{n(r.coffeeQty)?rates.coffee:''}</td>
+                  <td className={`${tdRSx} font-medium`}>{fa(n(r.coffeeQty)*rates.coffee)}</td>
                   {/* Sugar */}
                   <td className={tdSx}><input type="number" min="0" step="0.001" className={inputSx} value={n(r.sugarQty)||''} onChange={e=>updateCell(i,'sugarQty',Number(e.target.value))} onKeyDown={handlePecEnter} data-pec-input data-testid={`pec-sugar-${i}`}/></td>
-                  <td className={tdRSx}>{n(r.sugarQty)?PEC_RATES.sugar:''}</td>
-                  <td className={`${tdRSx} font-medium`}>{fa(n(r.sugarQty)*PEC_RATES.sugar)}</td>
+                  <td className={tdRSx}>{n(r.sugarQty)?rates.sugar:''}</td>
+                  <td className={`${tdRSx} font-medium`}>{fa(n(r.sugarQty)*rates.sugar)}</td>
                   {/* Ginger */}
                   <td className={tdSx}><input type="number" min="0" step="0.001" className={inputSx} value={n(r.gingerQty)||''} onChange={e=>updateCell(i,'gingerQty',Number(e.target.value))} onKeyDown={handlePecEnter} data-pec-input data-testid={`pec-ginger-${i}`}/></td>
-                  <td className={tdRSx}>{n(r.gingerQty)?PEC_RATES.ginger:''}</td>
-                  <td className={`${tdRSx} font-medium`}>{fa(n(r.gingerQty)*PEC_RATES.ginger)}</td>
+                  <td className={tdRSx}>{n(r.gingerQty)?rates.ginger:''}</td>
+                  <td className={`${tdRSx} font-medium`}>{fa(n(r.gingerQty)*rates.ginger)}</td>
                   {/* Biscuit */}
                   <td className={tdSx}><input type="number" min="0" step="0.001" className={inputSx} value={n(r.biscuitQty)||''} onChange={e=>updateCell(i,'biscuitQty',Number(e.target.value))} onKeyDown={handlePecEnter} data-pec-input data-testid={`pec-biscuit-${i}`}/></td>
-                  <td className={tdRSx}>{n(r.biscuitQty)?PEC_RATES.biscuit:''}</td>
-                  <td className={`${tdRSx} font-medium`}>{fa(n(r.biscuitQty)*PEC_RATES.biscuit)}</td>
+                  <td className={tdRSx}>{n(r.biscuitQty)?rates.biscuit:''}</td>
+                  <td className={`${tdRSx} font-medium`}>{fa(n(r.biscuitQty)*rates.biscuit)}</td>
                   {/* Tea Cup */}
                   <td className={tdSx}><input type="number" min="0" step="0.001" className={inputSx} value={n(r.teaCupQty)||''} onChange={e=>updateCell(i,'teaCupQty',Number(e.target.value))} onKeyDown={handlePecEnter} data-pec-input data-testid={`pec-teacup-${i}`}/></td>
-                  <td className={tdRSx}>{n(r.teaCupQty)?PEC_RATES.teaCup:''}</td>
-                  <td className={`${tdRSx} font-medium`}>{fa(n(r.teaCupQty)*PEC_RATES.teaCup)}</td>
+                  <td className={tdRSx}>{n(r.teaCupQty)?rates.teaCup:''}</td>
+                  <td className={`${tdRSx} font-medium`}>{fa(n(r.teaCupQty)*rates.teaCup)}</td>
                   {/* Green Elaychi */}
                   <td className={tdSx}><input type="number" min="0" step="0.001" className={inputSx} value={n(r.greenElaychiQty)||''} onChange={e=>updateCell(i,'greenElaychiQty',Number(e.target.value))} onKeyDown={handlePecEnter} data-pec-input data-testid={`pec-elaychi-${i}`}/></td>
-                  <td className={tdRSx}>{n(r.greenElaychiQty)?PEC_RATES.greenElaychi:''}</td>
-                  <td className={`${tdRSx} font-medium`}>{fa(n(r.greenElaychiQty)*PEC_RATES.greenElaychi)}</td>
+                  <td className={tdRSx}>{n(r.greenElaychiQty)?rates.greenElaychi:''}</td>
+                  <td className={`${tdRSx} font-medium`}>{fa(n(r.greenElaychiQty)*rates.greenElaychi)}</td>
                   {/* Green Tea */}
                   <td className={tdSx}><input type="number" min="0" step="0.001" className={inputSx} value={n(r.greenTeaQty)||''} onChange={e=>updateCell(i,'greenTeaQty',Number(e.target.value))} onKeyDown={handlePecEnter} data-pec-input data-testid={`pec-greentea-${i}`}/></td>
-                  <td className={tdRSx}>{n(r.greenTeaQty)?PEC_RATES.greenTea:''}</td>
-                  <td className={`${tdRSx} font-medium`}>{fa(n(r.greenTeaQty)*PEC_RATES.greenTea)}</td>
+                  <td className={tdRSx}>{n(r.greenTeaQty)?rates.greenTea:''}</td>
+                  <td className={`${tdRSx} font-medium`}>{fa(n(r.greenTeaQty)*rates.greenTea)}</td>
                   {/* Black Salt */}
                   <td className={tdSx}><input type="number" min="0" step="0.001" className={inputSx} value={n(r.blackSaltQty)||''} onChange={e=>updateCell(i,'blackSaltQty',Number(e.target.value))} onKeyDown={handlePecEnter} data-pec-input data-testid={`pec-blacksalt-${i}`}/></td>
-                  <td className={tdRSx}>{n(r.blackSaltQty)?PEC_RATES.blackSalt:''}</td>
-                  <td className={`${tdRSx} font-medium`}>{fa(n(r.blackSaltQty)*PEC_RATES.blackSalt)}</td>
+                  <td className={tdRSx}>{n(r.blackSaltQty)?rates.blackSalt:''}</td>
+                  <td className={`${tdRSx} font-medium`}>{fa(n(r.blackSaltQty)*rates.blackSalt)}</td>
                   {/* Milk */}
                   <td className={tdSx}><input type="number" min="0" step="0.001" className={inputSx} value={n(r.milkMorningQty)||''} onChange={e=>updateCell(i,'milkMorningQty',Number(e.target.value))} onKeyDown={handlePecEnter} data-pec-input data-testid={`pec-milk-morning-${i}`}/></td>
                   <td className={tdSx}><input type="number" min="0" step="0.001" className={inputSx} value={n(r.milkEveningQty)||''} onChange={e=>updateCell(i,'milkEveningQty',Number(e.target.value))} onKeyDown={handlePecEnter} data-pec-input data-testid={`pec-milk-evening-${i}`}/></td>
                   <td className={tdRSx}>{milkTot||''}</td>
-                  <td className={tdRSx}>{milkTot?PEC_RATES.milk:''}</td>
-                  <td className={`${tdRSx} font-medium`}>{fa(milkTot*PEC_RATES.milk)}</td>
+                  <td className={tdRSx}>{milkTot?rates.milk:''}</td>
+                  <td className={`${tdRSx} font-medium`}>{fa(milkTot*rates.milk)}</td>
                 </tr>
               );
             })}
@@ -7308,19 +7404,19 @@ function PecVenturesTab({ month, year, loadKey = 0 }: { month: number; year: num
           <tfoot>
             <tr>
               <td className={`${totSx} sticky left-0 z-10 text-left font-bold`} colSpan={2}>TOTAL</td>
-              <td className={totSx}>{fq(totals.redLabel)}</td><td className={totSx}></td><td className={totRSx}>{fa(totals.redLabel*PEC_RATES.redLabel)}</td>
-              <td className={totSx}>{fq(totals.tataTea)}</td><td className={totSx}></td><td className={totRSx}>{fa(totals.tataTea*PEC_RATES.tataTea)}</td>
-              <td className={totSx}>{fq(totals.coffee)}</td><td className={totSx}></td><td className={totRSx}>{fa(totals.coffee*PEC_RATES.coffee)}</td>
-              <td className={totSx}>{fq(totals.sugar)}</td><td className={totSx}></td><td className={totRSx}>{fa(totals.sugar*PEC_RATES.sugar)}</td>
-              <td className={totSx}>{fq(totals.ginger)}</td><td className={totSx}></td><td className={totRSx}>{fa(totals.ginger*PEC_RATES.ginger)}</td>
-              <td className={totSx}>{fq(totals.biscuit)}</td><td className={totSx}></td><td className={totRSx}>{fa(totals.biscuit*PEC_RATES.biscuit)}</td>
-              <td className={totSx}>{fq(totals.teaCup)}</td><td className={totSx}></td><td className={totRSx}>{fa(totals.teaCup*PEC_RATES.teaCup)}</td>
-              <td className={totSx}>{fq(totals.greenElaychi)}</td><td className={totSx}></td><td className={totRSx}>{fa(totals.greenElaychi*PEC_RATES.greenElaychi)}</td>
-              <td className={totSx}>{fq(totals.greenTea)}</td><td className={totSx}></td><td className={totRSx}>{fa(totals.greenTea*PEC_RATES.greenTea)}</td>
-              <td className={totSx}>{fq(totals.blackSalt)}</td><td className={totSx}></td><td className={totRSx}>{fa(totals.blackSalt*PEC_RATES.blackSalt)}</td>
+              <td className={totSx}>{fq(totals.redLabel)}</td><td className={totSx}></td><td className={totRSx}>{fa(totals.redLabel*rates.redLabel)}</td>
+              <td className={totSx}>{fq(totals.tataTea)}</td><td className={totSx}></td><td className={totRSx}>{fa(totals.tataTea*rates.tataTea)}</td>
+              <td className={totSx}>{fq(totals.coffee)}</td><td className={totSx}></td><td className={totRSx}>{fa(totals.coffee*rates.coffee)}</td>
+              <td className={totSx}>{fq(totals.sugar)}</td><td className={totSx}></td><td className={totRSx}>{fa(totals.sugar*rates.sugar)}</td>
+              <td className={totSx}>{fq(totals.ginger)}</td><td className={totSx}></td><td className={totRSx}>{fa(totals.ginger*rates.ginger)}</td>
+              <td className={totSx}>{fq(totals.biscuit)}</td><td className={totSx}></td><td className={totRSx}>{fa(totals.biscuit*rates.biscuit)}</td>
+              <td className={totSx}>{fq(totals.teaCup)}</td><td className={totSx}></td><td className={totRSx}>{fa(totals.teaCup*rates.teaCup)}</td>
+              <td className={totSx}>{fq(totals.greenElaychi)}</td><td className={totSx}></td><td className={totRSx}>{fa(totals.greenElaychi*rates.greenElaychi)}</td>
+              <td className={totSx}>{fq(totals.greenTea)}</td><td className={totSx}></td><td className={totRSx}>{fa(totals.greenTea*rates.greenTea)}</td>
+              <td className={totSx}>{fq(totals.blackSalt)}</td><td className={totSx}></td><td className={totRSx}>{fa(totals.blackSalt*rates.blackSalt)}</td>
               <td className={totSx}>{fq(totals.milkMorning)}</td><td className={totSx}>{fq(totals.milkEvening)}</td>
               <td className={totSx}>{fq(totals.milkMorning+totals.milkEvening)}</td><td className={totSx}></td>
-              <td className={totRSx}>{fa((totals.milkMorning+totals.milkEvening)*PEC_RATES.milk)}</td>
+              <td className={totRSx}>{fa((totals.milkMorning+totals.milkEvening)*rates.milk)}</td>
             </tr>
           </tfoot>
         </table>
@@ -7364,6 +7460,16 @@ function PecVentureSummaryTab({ currentYear }: { currentYear: number }) {
     queryFn: () => fetch(`/api/pec-ventures-entries/lunch-yearly-summary?year=${summaryYear}`,{credentials:'include'}).then(r=>r.json()),
   });
 
+  // Per-month rate snapshots for the selected year. Each month uses its own locked rate so
+  // amounts match what was saved; months without a snapshot fall back to the carry-forward default.
+  const { data: yearRates } = useQuery<{ monthly: any[]; default: any }>({
+    queryKey: ['/api/pec-ventures-rates', 'year', summaryYear],
+    queryFn: () => fetch(`/api/pec-ventures-rates?year=${summaryYear}`,{credentials:'include'}).then(r=>r.json()),
+  });
+  const rateMonthMap = new Map<number, PecRateMap>((yearRates?.monthly||[]).map((row:any)=>[row.month, pecRowToRateMap(row)]));
+  const defaultRate: PecRateMap = yearRates?.default ? pecRowToRateMap(yearRates.default) : { ...PEC_RATES };
+  const rateForMonth = (m: number): PecRateMap => rateMonthMap.get(m) ?? defaultRate;
+
   const toggleMonth = (m: number) => setSelectedMonths(prev => {
     const s = new Set(prev); s.has(m) ? s.delete(m) : s.add(m); return s;
   });
@@ -7377,13 +7483,16 @@ function PecVentureSummaryTab({ currentYear }: { currentYear: number }) {
   const fa = (v: number) => v === 0 ? '' : '₹'+v.toFixed(2);
 
   const getMilkQty = (r: PecYearRow) => (r.milkMorning||0) + (r.milkEvening||0);
-  const getMilkAmt = (r: PecYearRow) => getMilkQty(r) * PEC_RATES.milk;
+  const getMilkAmt = (r: PecYearRow) => getMilkQty(r) * rateForMonth(r.month).milk;
   const getRowTotal = (r: PecYearRow) =>
-    PEC_ITEMS.reduce((s,c)=>s+(r[c.key]||0)*c.rate, 0) + getMilkAmt(r);
+    PEC_ITEMS.reduce((s,c)=>s+(r[c.key]||0)*rateForMonth(r.month)[c.key as keyof PecRateMap], 0) + getMilkAmt(r);
 
   const grandTotQty = (key: keyof PecYearRow) =>
     filteredMonths.reduce((s,m) => s + ((rowsMap.get(m)?.[key] as number)||0), 0);
+  const grandTotAmt = (key: keyof PecYearRow) =>
+    filteredMonths.reduce((s,m) => { const r=rowsMap.get(m); return s + (r?((r[key] as number)||0)*rateForMonth(m)[key as keyof PecRateMap]:0); }, 0);
   const grandMilkQty = () => filteredMonths.reduce((s,m) => { const r=rowsMap.get(m); return s+(r?(getMilkQty(r)):0); }, 0);
+  const grandMilkAmt = () => filteredMonths.reduce((s,m) => { const r=rowsMap.get(m); return s+(r?getMilkQty(r)*rateForMonth(m).milk:0); }, 0);
   const grandTotal = () => filteredMonths.reduce((s,m) => { const r=rowsMap.get(m); return s+(r?getRowTotal(r):0); }, 0);
   const grandLunchOrder  = () => filteredMonths.reduce((s,m) => s + (lunchMap.get(m)?.lunchOrder||0), 0);
   const grandLunchBill   = () => filteredMonths.reduce((s,m) => s + (lunchMap.get(m)?.lunchBill||0), 0);
@@ -7447,7 +7556,7 @@ function PecVentureSummaryTab({ currentYear }: { currentYear: number }) {
           lBill||'', lBill ? lBill*70 : '',
           dBill||'', dBill ? dBill*70 : '',
           ...PEC_ITEMS.map(c=>(r[c.key]||0)||''), milkQ||'',
-          ...PEC_ITEMS.map(c=>((r[c.key]||0)*c.rate)||''), (milkQ*PEC_RATES.milk)||'',
+          ...PEC_ITEMS.map(c=>((r[c.key]||0)*rateForMonth(m)[c.key as keyof PecRateMap])||''), (milkQ*rateForMonth(m).milk)||'',
           getRowTotal(r)||'',
         ];
         const dr = ws.addRow(vals);
@@ -7466,7 +7575,7 @@ function PecVentureSummaryTab({ currentYear }: { currentYear: number }) {
         glb||'-', glb ? glb*70 : '-',
         gdb||'-', gdb ? gdb*70 : '-',
         ...PEC_ITEMS.map(c=>grandTotQty(c.key)||''), grandMilkQty()||'',
-        ...PEC_ITEMS.map(c=>(grandTotQty(c.key)*c.rate)||''), (grandMilkQty()*PEC_RATES.milk)||'',
+        ...PEC_ITEMS.map(c=>grandTotAmt(c.key)||''), grandMilkAmt()||'',
         grandTotal()||'',
       ];
       const totRow = ws.addRow(totVals);
@@ -7550,9 +7659,9 @@ function PecVentureSummaryTab({ currentYear }: { currentYear: number }) {
                     ])}
                     <td className={tdS}>{fq(milkQ)}</td>
                     {PEC_ITEMS.flatMap(c=>[
-                      <td key={c.key+'a'} className={tdAmt}>{fa((r[c.key] as number)*c.rate)}</td>
+                      <td key={c.key+'a'} className={tdAmt}>{fa((r[c.key] as number)*rateForMonth(m)[c.key as keyof PecRateMap])}</td>
                     ])}
-                    <td className={tdAmt}>{fa(milkQ*PEC_RATES.milk)}</td>
+                    <td className={tdAmt}>{fa(milkQ*rateForMonth(m).milk)}</td>
                     <td className={`${tdAmt} font-bold`}>{fa(getRowTotal(r))}</td>
                   </tr>
                 );
@@ -7570,9 +7679,9 @@ function PecVentureSummaryTab({ currentYear }: { currentYear: number }) {
                 ])}
                 <td className={totS}>{fq(grandMilkQty()) || '-'}</td>
                 {PEC_ITEMS.flatMap(c=>[
-                  <td key={c.key+'a'} className={totAmt}>{fa(grandTotQty(c.key)*c.rate) || '-'}</td>
+                  <td key={c.key+'a'} className={totAmt}>{fa(grandTotAmt(c.key)) || '-'}</td>
                 ])}
-                <td className={totAmt}>{fa(grandMilkQty()*PEC_RATES.milk) || '-'}</td>
+                <td className={totAmt}>{fa(grandMilkAmt()) || '-'}</td>
                 <td className={`${totAmt} text-sm font-bold`}>{fa(grandTotal()) || '-'}</td>
               </tr>
             </tfoot>

@@ -47,6 +47,8 @@ import {
   dailyPnlEntries,
   pecVenturesEntries,
   type PecVenturesEntry,
+  pecVenturesRates,
+  type PecVenturesRate,
   type DailyPnlEntry,
   type UblDateEntry,
   type CiplaDateEntry,
@@ -95,7 +97,7 @@ import {
   type PankajReport,
   pankajReports,
 } from "@shared/schema";
-import { eq, desc, lt, and, sql, gte, lte } from "drizzle-orm";
+import { eq, desc, lt, and, sql, gte, lte, or } from "drizzle-orm";
 import bcrypt from "bcryptjs";
 
 async function getInsertId(dbOrTx: any): Promise<number> {
@@ -314,6 +316,11 @@ export interface IStorage {
   deletePecVenturesEntry(id: number): Promise<void>;
   getPecVenturesYearlySummary(year: number): Promise<any[]>;
   getPecVenturesLunchYearlySummary(year: number): Promise<{ month: number; lunchOrder: number; lunchBill: number; lunchTotal: number; dinnerOrder: number; dinnerBill: number; dinnerTotal: number }[]>;
+  // PEC Ventures Rates (per-month snapshot; month=0/year=0 = current default)
+  getPecVenturesRate(month: number, year: number): Promise<PecVenturesRate | null>;
+  getPecVenturesRatesByYear(year: number): Promise<PecVenturesRate[]>;
+  upsertPecVenturesRate(data: any): Promise<PecVenturesRate>;
+  ensurePecVenturesRateSnapshot(month: number, year: number): Promise<PecVenturesRate | null>;
   getMonthlyPnl(month: number, year: number, clients?: string[]): Promise<any>;
   // Weekly Menu
   getWeeklyMenu(clientName: string): Promise<any[]>;
@@ -2968,6 +2975,50 @@ export class DatabaseStorage implements IStorage {
       teaCup: Number(r.teaCup), greenElaychi: Number(r.greenElaychi), greenTea: Number(r.greenTea),
       blackSalt: Number(r.blackSalt), milkMorning: Number(r.milkMorning), milkEvening: Number(r.milkEvening),
     }));
+  }
+
+  // PEC Ventures Rates (per-month snapshot; month=0/year=0 = current default)
+  async getPecVenturesRate(month: number, year: number): Promise<PecVenturesRate | null> {
+    const rows = await db.select().from(pecVenturesRates)
+      .where(and(eq(pecVenturesRates.month, month), eq(pecVenturesRates.year, year)));
+    return rows[0] || null;
+  }
+  async getPecVenturesRatesByYear(year: number): Promise<PecVenturesRate[]> {
+    return await db.select().from(pecVenturesRates)
+      .where(or(eq(pecVenturesRates.year, year), and(eq(pecVenturesRates.month, 0), eq(pecVenturesRates.year, 0))));
+  }
+  async upsertPecVenturesRate(data: any): Promise<PecVenturesRate> {
+    const { id, createdAt, updatedAt, ...rest } = data;
+    const month = Number(rest.month);
+    const year = Number(rest.year);
+    const existing = await this.getPecVenturesRate(month, year);
+    if (existing) {
+      await db.update(pecVenturesRates)
+        .set({ ...rest, month, year, updatedAt: new Date() })
+        .where(eq(pecVenturesRates.id, existing.id));
+      const rows = await db.select().from(pecVenturesRates).where(eq(pecVenturesRates.id, existing.id));
+      return rows[0];
+    }
+    const result = await db.insert(pecVenturesRates).values({ ...rest, month, year });
+    const insertId = (result as any).insertId ?? (result as any)[0]?.insertId;
+    const rows = await db.select().from(pecVenturesRates).where(eq(pecVenturesRates.id, Number(insertId)));
+    return rows[0];
+  }
+  async ensurePecVenturesRateSnapshot(month: number, year: number): Promise<PecVenturesRate | null> {
+    const existing = await this.getPecVenturesRate(month, year);
+    if (existing) return existing;
+    const def = await this.getPecVenturesRate(0, 0);
+    if (!def) return null; // no default configured yet; nothing to snapshot
+    const { id, createdAt, updatedAt, month: _m, year: _y, ...rates } = def as any;
+    try {
+      const result = await db.insert(pecVenturesRates).values({ ...rates, month, year });
+      const insertId = (result as any).insertId ?? (result as any)[0]?.insertId;
+      const rows = await db.select().from(pecVenturesRates).where(eq(pecVenturesRates.id, Number(insertId)));
+      return rows[0];
+    } catch {
+      // A concurrent request inserted the snapshot first (unique month/year). Return it instead of failing.
+      return await this.getPecVenturesRate(month, year);
+    }
   }
 
   // === EMPLOYEE SHIFT DUTIES ===
