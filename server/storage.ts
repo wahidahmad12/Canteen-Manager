@@ -296,6 +296,7 @@ export interface IStorage {
   deleteUnichEmSnackEntry(id: number): Promise<void>;
   // Unichem Lunch Entries (Form 2)
   getUnichEmLunchEntries(month: number, year: number, location: string, mealType?: string): Promise<UnichEmLunchEntry[]>;
+  getUnichEmLunchEntryById(id: number): Promise<UnichEmLunchEntry | undefined>;
   createUnichEmLunchEntry(data: any): Promise<UnichEmLunchEntry>;
   updateUnichEmLunchEntry(id: number, data: any): Promise<UnichEmLunchEntry>;
   deleteUnichEmLunchEntry(id: number): Promise<void>;
@@ -311,6 +312,7 @@ export interface IStorage {
   getLastPurchasePrice(itemName: string): Promise<number>;
   // PEC Ventures Entries
   getPecVenturesEntries(month: number, year: number): Promise<PecVenturesEntry[]>;
+  getPecVenturesEntryById(id: number): Promise<PecVenturesEntry | undefined>;
   createPecVenturesEntry(data: any): Promise<PecVenturesEntry>;
   updatePecVenturesEntry(id: number, data: any): Promise<PecVenturesEntry>;
   deletePecVenturesEntry(id: number): Promise<void>;
@@ -2526,6 +2528,10 @@ export class DatabaseStorage implements IStorage {
     if (mealType) conditions.push(eq(unichEmLunchEntries.mealType, mealType));
     return await db.select().from(unichEmLunchEntries).where(and(...conditions)).orderBy(unichEmLunchEntries.entryDate);
   }
+  async getUnichEmLunchEntryById(id: number): Promise<UnichEmLunchEntry | undefined> {
+    const rows = await db.select().from(unichEmLunchEntries).where(eq(unichEmLunchEntries.id, id));
+    return rows[0];
+  }
   async createUnichEmLunchEntry(data: any): Promise<UnichEmLunchEntry> {
     // Use upsert to handle the unique constraint on (location, entry_date, meal_type)
     const { location, entryDate, month, year, weekDay, mealType, orderQty, actual, total, billQty } = data;
@@ -2905,6 +2911,10 @@ export class DatabaseStorage implements IStorage {
     return await db.select().from(pecVenturesEntries)
       .where(and(eq(pecVenturesEntries.month, month), eq(pecVenturesEntries.year, year)))
       .orderBy(pecVenturesEntries.entryDate);
+  }
+  async getPecVenturesEntryById(id: number): Promise<PecVenturesEntry | undefined> {
+    const rows = await db.select().from(pecVenturesEntries).where(eq(pecVenturesEntries.id, id));
+    return rows[0];
   }
   async createPecVenturesEntry(data: any): Promise<PecVenturesEntry> {
     const { entryDate, month, year, weekDay, redLabelQty, tataTeaQty, coffeeQty, sugarQty, gingerQty, biscuitQty, teaCupQty, greenElaychiQty, greenTeaQty, blackSaltQty, milkMorningQty, milkEveningQty } = data;

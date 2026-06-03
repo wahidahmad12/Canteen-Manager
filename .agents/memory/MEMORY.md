@@ -1,1 +1,2 @@
 - [DB schema changes (TiDB/MySQL)](db-migrations.md) — drizzle-kit push is interactive/unusable; add idempotent migrations to the startup array in server/db.ts.
+- [Upsert authz on natural keys](upsert-authz-natural-key.md) — guard POST upsert writes by the natural key (e.g. entryDate), never client-supplied body fields, or authz is bypassable.

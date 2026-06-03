@@ -1930,9 +1930,10 @@ function unichEmLunchRowDefaults(dateStr: string, month: number, year: number, l
   return { location, entryDate: dateStr, month, year, weekDay: getWeekDay(dateStr), mealType, orderQty:0, actual:0, total:0, billQty:0, _dirty: true };
 }
 
-function UnichemMealSubTab({ month, year, location, mealType, loadKey = 0, plateRate = 0 }: { month: number; year: number; location: string; mealType: 'lunch'|'dinner'; loadKey?: number; plateRate?: number }) {
+function UnichemMealSubTab({ month, year, location, mealType, loadKey = 0, plateRate = 0, canEdit = true }: { month: number; year: number; location: string; mealType: 'lunch'|'dinner'; loadKey?: number; plateRate?: number; canEdit?: boolean }) {
   const qc = useQueryClient();
   const { toast } = useToast();
+  const blockedEdit = () => toast({ title: 'Not allowed', description: 'Only an admin can edit previous months.', variant: 'destructive' });
   const [localRows, setLocalRows] = useState<LunchRow[]>([]);
   const importRefMeal = useRef<HTMLInputElement>(null);
   useEffect(() => { setLocalRows([]); }, [month, year, location, mealType]);
@@ -1988,6 +1989,7 @@ function UnichemMealSubTab({ month, year, location, mealType, loadKey = 0, plate
   });
 
   const handleSaveRow = async (idx: number) => {
+    if (!canEdit) { blockedEdit(); return; }
     const row = rows[idx];
     if (!row.id && (row.orderQty||0) === 0 && (row.actual||0) === 0) {
       toast({ title: "Nothing to save", description: "Enter a quantity first." });
@@ -2007,6 +2009,7 @@ function UnichemMealSubTab({ month, year, location, mealType, loadKey = 0, plate
   };
 
   const handleDeleteRow = async (idx: number) => {
+    if (!canEdit) { blockedEdit(); return; }
     const row = rows[idx];
     if (!row.id) {
       setLocalRows(prev => { const u = [...prev]; u[idx] = { ...u[idx], orderQty:0, actual:0, total:0, billQty:0, _dirty:false }; return u; });
@@ -2024,6 +2027,7 @@ function UnichemMealSubTab({ month, year, location, mealType, loadKey = 0, plate
   };
 
   const handleAutoFill = () => {
+    if (!canEdit) { blockedEdit(); return; }
     const generated = generateMonthRows(month, year, (d, m, y) => unichEmLunchRowDefaults(d, m, y, location, mealType));
     const existing = dbRows.reduce((acc: Record<string, LunchRow>, r) => { acc[normDate(r.entryDate)] = r; return acc; }, {});
     const merged = generated.map(g => existing[g.entryDate] ? { ...existing[g.entryDate], weekDay: getWeekDay(g.entryDate), _dirty: false } : g);
@@ -2031,6 +2035,7 @@ function UnichemMealSubTab({ month, year, location, mealType, loadKey = 0, plate
   };
 
   const handleCellChange = (idx: number, field: 'orderQty' | 'actual', value: string) => {
+    if (!canEdit) return;
     const currentFullRows = fullRows;
     setLocalRows(prev => {
       const base_rows = prev.length > 0 ? prev : currentFullRows;
@@ -2064,6 +2069,7 @@ function UnichemMealSubTab({ month, year, location, mealType, loadKey = 0, plate
   };
 
   const handleSaveAll = async () => {
+    if (!canEdit) { blockedEdit(); return; }
     const dirty = rows.filter(r => r._dirty && (r.id || (r.orderQty||0) > 0 || (r.actual||0) > 0));
     if (!dirty.length) { toast({ title: "Nothing to save" }); return; }
     let saved = 0;
@@ -2115,6 +2121,7 @@ function UnichemMealSubTab({ month, year, location, mealType, loadKey = 0, plate
   const handleImportExcelMeal = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]; if (!file) return;
     e.target.value = "";
+    if (!canEdit) { blockedEdit(); return; }
     const mStart = `${year}-${String(month).padStart(2,'0')}-01`;
     const mEnd = `${year}-${String(month).padStart(2,'0')}-${String(getDaysInMonth(month, year)).padStart(2,'0')}`;
     try {
@@ -2161,6 +2168,7 @@ function UnichemMealSubTab({ month, year, location, mealType, loadKey = 0, plate
   };
 
   const handleDeleteAllMeal = async () => {
+    if (!canEdit) { blockedEdit(); return; }
     const toDelete = rows.filter(r => r.id);
     if (!toDelete.length) { toast({ title: "Nothing to delete", description: "No saved records for this month." }); return; }
     if (!window.confirm(`Delete all ${toDelete.length} saved records for this month? This cannot be undone.`)) return;
@@ -2170,6 +2178,7 @@ function UnichemMealSubTab({ month, year, location, mealType, loadKey = 0, plate
   };
 
   const handleResetMeal = () => {
+    if (!canEdit) { blockedEdit(); return; }
     if (!window.confirm("Reset all entries to blank? Unsaved changes will be lost.")) return;
     setLocalRows(generateMonthRows(month, year, (d, m, y) => unichEmLunchRowDefaults(d, m, y, location, mealType)).map(r => ({ ...r, _dirty: false })));
   };
@@ -2228,11 +2237,16 @@ function UnichemMealSubTab({ month, year, location, mealType, loadKey = 0, plate
 
   return (
     <div>
+      {!canEdit && (
+        <div className="rounded-lg border border-amber-300 bg-amber-50 dark:border-amber-700 dark:bg-amber-950/30 px-3 py-2 mb-3 text-sm text-amber-800 dark:text-amber-300" data-testid={`banner-pec-meal-readonly-${mealType}`}>
+          This is a previous month and is view-only. Only an admin can edit past months.
+        </div>
+      )}
       <div className="flex gap-2 mb-3 flex-wrap">
-        <Button size="sm" variant="outline" onClick={handleAutoFill} className="h-9 flex-1 sm:flex-none" data-testid={`btn-unichem-autofill-${mealType}`}>
+        <Button size="sm" variant="outline" onClick={handleAutoFill} disabled={!canEdit} className="h-9 flex-1 sm:flex-none" data-testid={`btn-unichem-autofill-${mealType}`}>
           <Plus className="w-3.5 h-3.5 mr-1" /> Auto-Fill Month
         </Button>
-        <Button size="sm" onClick={handleSaveAll} disabled={createMutation.isPending || updateMutation.isPending} className="h-9 flex-1 sm:flex-none" data-testid={`btn-unichem-save-${mealType}`}>
+        <Button size="sm" onClick={handleSaveAll} disabled={!canEdit || createMutation.isPending || updateMutation.isPending} className="h-9 flex-1 sm:flex-none" data-testid={`btn-unichem-save-${mealType}`}>
           <Save className="w-3.5 h-3.5 mr-1" /> Save All
         </Button>
         <Button size="sm" variant="outline" onClick={handlePrint} className="h-9 flex-1 sm:flex-none" data-testid={`btn-unichem-print-${mealType}`}>
@@ -2241,14 +2255,14 @@ function UnichemMealSubTab({ month, year, location, mealType, loadKey = 0, plate
         <Button size="sm" variant="outline" onClick={handleExportExcelMeal} className="h-9 flex-1 sm:flex-none text-green-700 border-green-300 hover:bg-green-50" data-testid={`btn-unichem-export-${mealType}`}>
           <FileDown className="w-3.5 h-3.5 mr-1" /> Export Excel
         </Button>
-        <Button size="sm" variant="outline" onClick={() => importRefMeal.current?.click()} className="h-9 flex-1 sm:flex-none text-blue-700 border-blue-300 hover:bg-blue-50" data-testid={`btn-unichem-import-${mealType}`}>
+        <Button size="sm" variant="outline" onClick={() => importRefMeal.current?.click()} disabled={!canEdit} className="h-9 flex-1 sm:flex-none text-blue-700 border-blue-300 hover:bg-blue-50" data-testid={`btn-unichem-import-${mealType}`}>
           <FileUp className="w-3.5 h-3.5 mr-1" /> Import Excel
         </Button>
         <input ref={importRefMeal} type="file" accept=".xlsx,.xls" className="hidden" onChange={handleImportExcelMeal} />
-        <Button size="sm" variant="outline" onClick={handleResetMeal} className="h-9 flex-1 sm:flex-none text-red-600 border-red-300 hover:bg-red-50" data-testid={`btn-unichem-reset-${mealType}`}>
+        <Button size="sm" variant="outline" onClick={handleResetMeal} disabled={!canEdit} className="h-9 flex-1 sm:flex-none text-red-600 border-red-300 hover:bg-red-50" data-testid={`btn-unichem-reset-${mealType}`}>
           <RefreshCw className="w-3.5 h-3.5 mr-1" /> Reset
         </Button>
-        <Button size="sm" variant="outline" onClick={handleDeleteAllMeal} className="h-9 flex-1 sm:flex-none text-red-700 border-red-500 hover:bg-red-100" disabled={deleteMutation.isPending} data-testid={`btn-unichem-delete-all-${mealType}`}>
+        <Button size="sm" variant="outline" onClick={handleDeleteAllMeal} className="h-9 flex-1 sm:flex-none text-red-700 border-red-500 hover:bg-red-100" disabled={!canEdit || deleteMutation.isPending} data-testid={`btn-unichem-delete-all-${mealType}`}>
           <Trash2 className="w-3.5 h-3.5 mr-1" /> Delete All
         </Button>
       </div>
@@ -2273,13 +2287,13 @@ function UnichemMealSubTab({ month, year, location, mealType, loadKey = 0, plate
                   <div className="grid grid-cols-2 gap-1">
                     <div className="flex flex-col items-center bg-orange-50/60 dark:bg-orange-900/20 rounded-lg p-1.5">
                       <span className="text-xs text-gray-400 mb-1">Order Qty</span>
-                      <input type="number" min={0} inputMode="numeric" value={row.orderQty||""}
+                      <input type="number" min={0} inputMode="numeric" value={row.orderQty||""} disabled={!canEdit}
                         onChange={e=>handleCellChange(idx,'orderQty',e.target.value)}
                         className="w-full text-center border border-gray-200 dark:border-gray-600 rounded-lg text-sm font-medium dark:bg-gray-900 dark:text-white" style={{minHeight:38,padding:"4px 2px"}}/>
                     </div>
                     <div className="flex flex-col items-center bg-blue-50/60 dark:bg-blue-900/20 rounded-lg p-1.5">
                       <span className="text-xs text-gray-400 mb-1">Actual</span>
-                      <input type="number" min={0} inputMode="numeric" value={row.actual||""}
+                      <input type="number" min={0} inputMode="numeric" value={row.actual||""} disabled={!canEdit}
                         onChange={e=>handleCellChange(idx,'actual',e.target.value)}
                         className="w-full text-center border border-gray-200 dark:border-gray-600 rounded-lg text-sm font-medium dark:bg-gray-900 dark:text-white" style={{minHeight:38,padding:"4px 2px"}}/>
                     </div>
@@ -2355,13 +2369,13 @@ function UnichemMealSubTab({ month, year, location, mealType, loadKey = 0, plate
                     <td className={`border px-1 py-0.5 text-center font-medium text-[11px] sticky left-0 z-10 ${isSun?"bg-red-100 dark:bg-red-950/30":idx%2===0?"bg-white dark:bg-gray-900":"bg-gray-50 dark:bg-gray-800/50"}`}>{safeFormat(row.entryDate)}</td>
                     <td className={`border px-1 py-0.5 text-center text-[11px] sticky left-[82px] z-10 ${isSun?"bg-red-100 dark:bg-red-950/30":idx%2===0?"bg-white dark:bg-gray-900":"bg-gray-50 dark:bg-gray-800/50"}`}>{row.weekDay||getWeekDay(row.entryDate)}</td>
                     <td className="border p-0 bg-orange-50/50 dark:bg-orange-950/10">
-                      <input type="number" inputMode="numeric" min="0" value={row.orderQty||""}
+                      <input type="number" inputMode="numeric" min="0" value={row.orderQty||""} disabled={!canEdit}
                         onChange={e=>handleCellChange(idx,'orderQty',e.target.value)}
                         onKeyDown={e=>handleEnterKey(e,0)}
                         className="w-full text-center bg-transparent outline-none text-xs py-2.5 sm:py-1.5 focus:bg-white dark:focus:bg-gray-800 rounded" style={{minHeight:'36px'}} data-testid={`${mealType}-order-${idx}`}/>
                     </td>
                     <td className="border p-0 bg-blue-50/50 dark:bg-blue-950/10">
-                      <input type="number" inputMode="numeric" min="0" value={row.actual||""}
+                      <input type="number" inputMode="numeric" min="0" value={row.actual||""} disabled={!canEdit}
                         onChange={e=>handleCellChange(idx,'actual',e.target.value)}
                         onKeyDown={e=>handleEnterKey(e,1)}
                         className="w-full text-center bg-transparent outline-none text-xs py-2.5 sm:py-1.5 focus:bg-white dark:focus:bg-gray-800 rounded" style={{minHeight:'36px'}} data-testid={`${mealType}-actual-${idx}`}/>
@@ -6860,6 +6874,11 @@ function PecVenturesTab({ month, year, loadKey = 0 }: { month: number; year: num
   const { data: currentUser } = useCurrentUser();
   const isAdmin = currentUser?.role === 'admin';
 
+  // Only admins may edit previous (past) months. Non-admins can edit the current month only.
+  const _now = new Date();
+  const isPastMonth = year < _now.getFullYear() || (year === _now.getFullYear() && month < _now.getMonth() + 1);
+  const canEdit = isAdmin || !isPastMonth;
+
   // Effective item rates for this month. A month is "locked" once it has its own saved
   // snapshot — locked months (and previously-saved data) never change when rates are updated later.
   const { data: ratesData } = useQuery<{ rate: any; default: any }>({
@@ -6884,6 +6903,7 @@ function PecVenturesTab({ month, year, loadKey = 0 }: { month: number; year: num
   };
 
   const updateCell = (idx: number, field: keyof PecRow, value: number) => {
+    if (!canEdit) return;
     setRows(prev => {
       const next = [...prev];
       next[idx] = { ...next[idx], [field]: value, _dirty: true };
@@ -6892,6 +6912,10 @@ function PecVenturesTab({ month, year, loadKey = 0 }: { month: number; year: num
   };
 
   const handleSave = async () => {
+    if (!canEdit) {
+      toast({ title: 'Not allowed', description: 'Only an admin can edit previous months.', variant: 'destructive' });
+      return;
+    }
     setIsSaving(true);
     try {
       const dirty = rows.filter(r => r._dirty);
@@ -7021,6 +7045,10 @@ function PecVenturesTab({ month, year, loadKey = 0 }: { month: number; year: num
   const handleImportExcelPec = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]; if (!file) return;
     e.target.value = "";
+    if (!canEdit) {
+      toast({ title: 'Not allowed', description: 'Only an admin can edit previous months.', variant: 'destructive' });
+      return;
+    }
     try {
       const ExcelJS = (await import('exceljs')).default;
       const wb = new ExcelJS.Workbook();
@@ -7270,7 +7298,7 @@ function PecVenturesTab({ month, year, loadKey = 0 }: { month: number; year: num
   return (
     <div className="space-y-3">
       <div className="flex items-center gap-2 flex-wrap">
-        <Button onClick={handleSave} disabled={isSaving} className="h-8 px-4 bg-blue-600 hover:bg-blue-700 text-white text-sm gap-2" data-testid="btn-pec-save">
+        <Button onClick={handleSave} disabled={isSaving || !canEdit} className="h-8 px-4 bg-blue-600 hover:bg-blue-700 text-white text-sm gap-2" data-testid="btn-pec-save">
           {isSaving ? <Loader2 className="w-3 h-3 animate-spin" /> : <Save className="w-3 h-3" />}
           {isSaving ? "Saving..." : "Save"}
         </Button>
@@ -7280,7 +7308,7 @@ function PecVenturesTab({ month, year, loadKey = 0 }: { month: number; year: num
         <Button onClick={handleExportExcelPec} variant="outline" className="h-8 px-4 text-sm gap-2 text-green-700 border-green-300 hover:bg-green-50" data-testid="btn-pec-export">
           <FileDown className="w-3 h-3" /> Export Excel
         </Button>
-        <Button onClick={() => importRefPec.current?.click()} variant="outline" className="h-8 px-4 text-sm gap-2 text-blue-700 border-blue-300 hover:bg-blue-50" data-testid="btn-pec-import">
+        <Button onClick={() => importRefPec.current?.click()} disabled={!canEdit} variant="outline" className="h-8 px-4 text-sm gap-2 text-blue-700 border-blue-300 hover:bg-blue-50" data-testid="btn-pec-import">
           <FileUp className="w-3 h-3" /> Import Excel
         </Button>
         <Button onClick={handleDownloadPecTemplate} variant="outline" className="h-8 px-4 text-sm gap-2 text-purple-700 border-purple-300 hover:bg-purple-50" data-testid="btn-pec-template">
@@ -7289,6 +7317,12 @@ function PecVenturesTab({ month, year, loadKey = 0 }: { month: number; year: num
         <input ref={importRefPec} type="file" accept=".xlsx,.xls" className="hidden" onChange={handleImportExcelPec} />
         <span className="text-xs text-muted-foreground">Rates: {PEC_RATE_FIELDS.map(f => `${f.label} ₹${rates[f.key]}${f.unit}`).join(' · ')}</span>
       </div>
+
+      {!canEdit && (
+        <div className="rounded-lg border border-amber-300 bg-amber-50 dark:border-amber-700 dark:bg-amber-950/30 px-3 py-2 text-sm text-amber-800 dark:text-amber-300" data-testid="banner-pec-readonly">
+          This is a previous month and is view-only. Only an admin can edit past months.
+        </div>
+      )}
 
       {isAdmin && (
         <div className="rounded-lg border border-gray-200 dark:border-gray-700 p-3 bg-muted/30" data-testid="panel-pec-rates">
@@ -7352,48 +7386,48 @@ function PecVenturesTab({ month, year, loadKey = 0 }: { month: number; year: num
                   <td className={`${tdSx} sticky left-0 z-10 text-left font-medium whitespace-nowrap ${isSun ? 'bg-red-50 dark:bg-red-950/20' : 'bg-white dark:bg-slate-900'}`}>{safeFormat(r.entryDate)}</td>
                   <td className={`${tdSx} sticky left-[88px] z-10 ${isSun ? 'bg-red-50 dark:bg-red-950/20 text-red-600 font-semibold' : 'bg-white dark:bg-slate-900'}`}>{r.weekDay}</td>
                   {/* Red Label */}
-                  <td className={tdSx}><input type="number" min="0" step="0.001" className={inputSx} value={n(r.redLabelQty)||''} onChange={e=>updateCell(i,'redLabelQty',Number(e.target.value))} onKeyDown={handlePecEnter} data-pec-input data-testid={`pec-redlabel-${i}`}/></td>
+                  <td className={tdSx}><input type="number" min="0" step="0.001" className={inputSx} value={n(r.redLabelQty)||''} onChange={e=>updateCell(i,'redLabelQty',Number(e.target.value))} onKeyDown={handlePecEnter} data-pec-input disabled={!canEdit} data-testid={`pec-redlabel-${i}`}/></td>
                   <td className={tdRSx}>{n(r.redLabelQty)?rates.redLabel:''}</td>
                   <td className={`${tdRSx} font-medium`}>{fa(n(r.redLabelQty)*rates.redLabel)}</td>
                   {/* Tata Tea */}
-                  <td className={tdSx}><input type="number" min="0" step="0.001" className={inputSx} value={n(r.tataTeaQty)||''} onChange={e=>updateCell(i,'tataTeaQty',Number(e.target.value))} onKeyDown={handlePecEnter} data-pec-input data-testid={`pec-tata-${i}`}/></td>
+                  <td className={tdSx}><input type="number" min="0" step="0.001" className={inputSx} value={n(r.tataTeaQty)||''} onChange={e=>updateCell(i,'tataTeaQty',Number(e.target.value))} onKeyDown={handlePecEnter} data-pec-input disabled={!canEdit} data-testid={`pec-tata-${i}`}/></td>
                   <td className={tdRSx}>{n(r.tataTeaQty)?rates.tataTea:''}</td>
                   <td className={`${tdRSx} font-medium`}>{fa(n(r.tataTeaQty)*rates.tataTea)}</td>
                   {/* Coffee */}
-                  <td className={tdSx}><input type="number" min="0" step="0.001" className={inputSx} value={n(r.coffeeQty)||''} onChange={e=>updateCell(i,'coffeeQty',Number(e.target.value))} onKeyDown={handlePecEnter} data-pec-input data-testid={`pec-coffee-${i}`}/></td>
+                  <td className={tdSx}><input type="number" min="0" step="0.001" className={inputSx} value={n(r.coffeeQty)||''} onChange={e=>updateCell(i,'coffeeQty',Number(e.target.value))} onKeyDown={handlePecEnter} data-pec-input disabled={!canEdit} data-testid={`pec-coffee-${i}`}/></td>
                   <td className={tdRSx}>{n(r.coffeeQty)?rates.coffee:''}</td>
                   <td className={`${tdRSx} font-medium`}>{fa(n(r.coffeeQty)*rates.coffee)}</td>
                   {/* Sugar */}
-                  <td className={tdSx}><input type="number" min="0" step="0.001" className={inputSx} value={n(r.sugarQty)||''} onChange={e=>updateCell(i,'sugarQty',Number(e.target.value))} onKeyDown={handlePecEnter} data-pec-input data-testid={`pec-sugar-${i}`}/></td>
+                  <td className={tdSx}><input type="number" min="0" step="0.001" className={inputSx} value={n(r.sugarQty)||''} onChange={e=>updateCell(i,'sugarQty',Number(e.target.value))} onKeyDown={handlePecEnter} data-pec-input disabled={!canEdit} data-testid={`pec-sugar-${i}`}/></td>
                   <td className={tdRSx}>{n(r.sugarQty)?rates.sugar:''}</td>
                   <td className={`${tdRSx} font-medium`}>{fa(n(r.sugarQty)*rates.sugar)}</td>
                   {/* Ginger */}
-                  <td className={tdSx}><input type="number" min="0" step="0.001" className={inputSx} value={n(r.gingerQty)||''} onChange={e=>updateCell(i,'gingerQty',Number(e.target.value))} onKeyDown={handlePecEnter} data-pec-input data-testid={`pec-ginger-${i}`}/></td>
+                  <td className={tdSx}><input type="number" min="0" step="0.001" className={inputSx} value={n(r.gingerQty)||''} onChange={e=>updateCell(i,'gingerQty',Number(e.target.value))} onKeyDown={handlePecEnter} data-pec-input disabled={!canEdit} data-testid={`pec-ginger-${i}`}/></td>
                   <td className={tdRSx}>{n(r.gingerQty)?rates.ginger:''}</td>
                   <td className={`${tdRSx} font-medium`}>{fa(n(r.gingerQty)*rates.ginger)}</td>
                   {/* Biscuit */}
-                  <td className={tdSx}><input type="number" min="0" step="0.001" className={inputSx} value={n(r.biscuitQty)||''} onChange={e=>updateCell(i,'biscuitQty',Number(e.target.value))} onKeyDown={handlePecEnter} data-pec-input data-testid={`pec-biscuit-${i}`}/></td>
+                  <td className={tdSx}><input type="number" min="0" step="0.001" className={inputSx} value={n(r.biscuitQty)||''} onChange={e=>updateCell(i,'biscuitQty',Number(e.target.value))} onKeyDown={handlePecEnter} data-pec-input disabled={!canEdit} data-testid={`pec-biscuit-${i}`}/></td>
                   <td className={tdRSx}>{n(r.biscuitQty)?rates.biscuit:''}</td>
                   <td className={`${tdRSx} font-medium`}>{fa(n(r.biscuitQty)*rates.biscuit)}</td>
                   {/* Tea Cup */}
-                  <td className={tdSx}><input type="number" min="0" step="0.001" className={inputSx} value={n(r.teaCupQty)||''} onChange={e=>updateCell(i,'teaCupQty',Number(e.target.value))} onKeyDown={handlePecEnter} data-pec-input data-testid={`pec-teacup-${i}`}/></td>
+                  <td className={tdSx}><input type="number" min="0" step="0.001" className={inputSx} value={n(r.teaCupQty)||''} onChange={e=>updateCell(i,'teaCupQty',Number(e.target.value))} onKeyDown={handlePecEnter} data-pec-input disabled={!canEdit} data-testid={`pec-teacup-${i}`}/></td>
                   <td className={tdRSx}>{n(r.teaCupQty)?rates.teaCup:''}</td>
                   <td className={`${tdRSx} font-medium`}>{fa(n(r.teaCupQty)*rates.teaCup)}</td>
                   {/* Green Elaychi */}
-                  <td className={tdSx}><input type="number" min="0" step="0.001" className={inputSx} value={n(r.greenElaychiQty)||''} onChange={e=>updateCell(i,'greenElaychiQty',Number(e.target.value))} onKeyDown={handlePecEnter} data-pec-input data-testid={`pec-elaychi-${i}`}/></td>
+                  <td className={tdSx}><input type="number" min="0" step="0.001" className={inputSx} value={n(r.greenElaychiQty)||''} onChange={e=>updateCell(i,'greenElaychiQty',Number(e.target.value))} onKeyDown={handlePecEnter} data-pec-input disabled={!canEdit} data-testid={`pec-elaychi-${i}`}/></td>
                   <td className={tdRSx}>{n(r.greenElaychiQty)?rates.greenElaychi:''}</td>
                   <td className={`${tdRSx} font-medium`}>{fa(n(r.greenElaychiQty)*rates.greenElaychi)}</td>
                   {/* Green Tea */}
-                  <td className={tdSx}><input type="number" min="0" step="0.001" className={inputSx} value={n(r.greenTeaQty)||''} onChange={e=>updateCell(i,'greenTeaQty',Number(e.target.value))} onKeyDown={handlePecEnter} data-pec-input data-testid={`pec-greentea-${i}`}/></td>
+                  <td className={tdSx}><input type="number" min="0" step="0.001" className={inputSx} value={n(r.greenTeaQty)||''} onChange={e=>updateCell(i,'greenTeaQty',Number(e.target.value))} onKeyDown={handlePecEnter} data-pec-input disabled={!canEdit} data-testid={`pec-greentea-${i}`}/></td>
                   <td className={tdRSx}>{n(r.greenTeaQty)?rates.greenTea:''}</td>
                   <td className={`${tdRSx} font-medium`}>{fa(n(r.greenTeaQty)*rates.greenTea)}</td>
                   {/* Black Salt */}
-                  <td className={tdSx}><input type="number" min="0" step="0.001" className={inputSx} value={n(r.blackSaltQty)||''} onChange={e=>updateCell(i,'blackSaltQty',Number(e.target.value))} onKeyDown={handlePecEnter} data-pec-input data-testid={`pec-blacksalt-${i}`}/></td>
+                  <td className={tdSx}><input type="number" min="0" step="0.001" className={inputSx} value={n(r.blackSaltQty)||''} onChange={e=>updateCell(i,'blackSaltQty',Number(e.target.value))} onKeyDown={handlePecEnter} data-pec-input disabled={!canEdit} data-testid={`pec-blacksalt-${i}`}/></td>
                   <td className={tdRSx}>{n(r.blackSaltQty)?rates.blackSalt:''}</td>
                   <td className={`${tdRSx} font-medium`}>{fa(n(r.blackSaltQty)*rates.blackSalt)}</td>
                   {/* Milk */}
-                  <td className={tdSx}><input type="number" min="0" step="0.001" className={inputSx} value={n(r.milkMorningQty)||''} onChange={e=>updateCell(i,'milkMorningQty',Number(e.target.value))} onKeyDown={handlePecEnter} data-pec-input data-testid={`pec-milk-morning-${i}`}/></td>
-                  <td className={tdSx}><input type="number" min="0" step="0.001" className={inputSx} value={n(r.milkEveningQty)||''} onChange={e=>updateCell(i,'milkEveningQty',Number(e.target.value))} onKeyDown={handlePecEnter} data-pec-input data-testid={`pec-milk-evening-${i}`}/></td>
+                  <td className={tdSx}><input type="number" min="0" step="0.001" className={inputSx} value={n(r.milkMorningQty)||''} onChange={e=>updateCell(i,'milkMorningQty',Number(e.target.value))} onKeyDown={handlePecEnter} data-pec-input disabled={!canEdit} data-testid={`pec-milk-morning-${i}`}/></td>
+                  <td className={tdSx}><input type="number" min="0" step="0.001" className={inputSx} value={n(r.milkEveningQty)||''} onChange={e=>updateCell(i,'milkEveningQty',Number(e.target.value))} onKeyDown={handlePecEnter} data-pec-input disabled={!canEdit} data-testid={`pec-milk-evening-${i}`}/></td>
                   <td className={tdRSx}>{milkTot||''}</td>
                   <td className={tdRSx}>{milkTot?rates.milk:''}</td>
                   <td className={`${tdRSx} font-medium`}>{fa(milkTot*rates.milk)}</td>
@@ -7694,6 +7728,11 @@ function PecVentureSummaryTab({ currentYear }: { currentYear: number }) {
 
 function PecVenturesForm2Tab({ month, year, loadKey = 0 }: { month: number; year: number; loadKey?: number }) {
   const [activeMeal, setActiveMeal] = useState<'lunch'|'dinner'>('lunch');
+  const { data: currentUser } = useCurrentUser();
+  const isAdmin = currentUser?.role === 'admin';
+  const _now = new Date();
+  const isPastMonth = year < _now.getFullYear() || (year === _now.getFullYear() && month < _now.getMonth() + 1);
+  const canEdit = isAdmin || !isPastMonth;
   return (
     <div className="space-y-3">
       <div className="flex rounded-lg border overflow-hidden text-sm font-medium w-fit">
@@ -7710,7 +7749,7 @@ function PecVenturesForm2Tab({ month, year, loadKey = 0 }: { month: number; year
           🍽️ Dinner
         </button>
       </div>
-      <UnichemMealSubTab key={`pec-${activeMeal}-${month}-${year}`} month={month} year={year} location="PEC Ventures" mealType={activeMeal} loadKey={loadKey} />
+      <UnichemMealSubTab key={`pec-${activeMeal}-${month}-${year}`} month={month} year={year} location="PEC Ventures" mealType={activeMeal} loadKey={loadKey} canEdit={canEdit} />
     </div>
   );
 }

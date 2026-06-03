@@ -45,6 +45,29 @@ function requirePermission(perm: string) {
   };
 }
 
+// True if the given (month, year) is strictly before the current calendar month.
+function isPastMonth(month: number, year: number): boolean {
+  const now = new Date();
+  const curY = now.getFullYear();
+  const curM = now.getMonth() + 1;
+  return year < curY || (year === curY && month < curM);
+}
+
+// Extract { month, year } from an ISO-ish date string ("YYYY-MM-DD").
+// Returns NaN parts when the input is missing/malformed.
+function monthYearFromEntryDate(entryDate: unknown): { month: number; year: number } {
+  const parts = String(entryDate ?? "").split("-");
+  return { year: Number(parts[0]), month: Number(parts[1]) };
+}
+
+// For PEC Ventures date-entry: non-admins may only edit the current month.
+// Returns true if the write should be blocked (past month + not admin).
+function pecPastMonthBlocked(req: Request, month: number, year: number): boolean {
+  if (req.session.role === "admin") return false;
+  if (!Number.isFinite(month) || !Number.isFinite(year)) return false;
+  return isPastMonth(month, year);
+}
+
 // Returns the effective clientName for a request.
 // - Admin:                          returns caller-supplied value (undefined = no filter / all records)
 // - Non-admin with session client:  returns session clientName (ignores supplied value)
@@ -2464,14 +2487,32 @@ export async function registerRoutes(
     res.json(entries);
   });
   app.post('/api/unichem-lunch-entries', requirePermission('salesinvoice'), async (req, res) => {
-    try { const entry = await storage.createUnichEmLunchEntry(req.body); res.status(201).json(entry); }
+    try {
+      if (req.body?.location === 'PEC Ventures') {
+        const { month, year } = monthYearFromEntryDate(req.body?.entryDate);
+        if (pecPastMonthBlocked(req, month, year)) {
+          return res.status(403).json({ message: "Only admins can edit previous months for PEC Ventures." });
+        }
+      }
+      const entry = await storage.createUnichEmLunchEntry(req.body); res.status(201).json(entry);
+    }
     catch (err: any) { res.status(500).json({ message: err.message }); }
   });
   app.put('/api/unichem-lunch-entries/:id', requirePermission('salesinvoice'), async (req, res) => {
-    try { const entry = await storage.updateUnichEmLunchEntry(Number(req.params.id), req.body); res.json(entry); }
+    try {
+      const existing = await storage.getUnichEmLunchEntryById(Number(req.params.id));
+      if (existing && existing.location === 'PEC Ventures' && pecPastMonthBlocked(req, existing.month, existing.year)) {
+        return res.status(403).json({ message: "Only admins can edit previous months for PEC Ventures." });
+      }
+      const entry = await storage.updateUnichEmLunchEntry(Number(req.params.id), req.body); res.json(entry);
+    }
     catch (err: any) { res.status(500).json({ message: err.message }); }
   });
   app.delete('/api/unichem-lunch-entries/:id', requirePermission('salesinvoice'), async (req, res) => {
+    const existing = await storage.getUnichEmLunchEntryById(Number(req.params.id));
+    if (existing && existing.location === 'PEC Ventures' && pecPastMonthBlocked(req, existing.month, existing.year)) {
+      return res.status(403).json({ message: "Only admins can edit previous months for PEC Ventures." });
+    }
     await storage.deleteUnichEmLunchEntry(Number(req.params.id)); res.status(204).send();
   });
 
@@ -2641,14 +2682,30 @@ export async function registerRoutes(
     res.json(entries);
   });
   app.post('/api/pec-ventures-entries', requirePermission('salesinvoice'), async (req, res) => {
-    try { const entry = await storage.createPecVenturesEntry(req.body); res.status(201).json(entry); }
+    try {
+      const { month, year } = monthYearFromEntryDate(req.body?.entryDate);
+      if (pecPastMonthBlocked(req, month, year)) {
+        return res.status(403).json({ message: "Only admins can edit previous months for PEC Ventures." });
+      }
+      const entry = await storage.createPecVenturesEntry(req.body); res.status(201).json(entry);
+    }
     catch (err: any) { res.status(500).json({ message: err.message }); }
   });
   app.put('/api/pec-ventures-entries/:id', requirePermission('salesinvoice'), async (req, res) => {
-    try { const entry = await storage.updatePecVenturesEntry(Number(req.params.id), req.body); res.json(entry); }
+    try {
+      const existing = await storage.getPecVenturesEntryById(Number(req.params.id));
+      if (existing && pecPastMonthBlocked(req, existing.month, existing.year)) {
+        return res.status(403).json({ message: "Only admins can edit previous months for PEC Ventures." });
+      }
+      const entry = await storage.updatePecVenturesEntry(Number(req.params.id), req.body); res.json(entry);
+    }
     catch (err: any) { res.status(500).json({ message: err.message }); }
   });
   app.delete('/api/pec-ventures-entries/:id', requirePermission('salesinvoice'), async (req, res) => {
+    const existing = await storage.getPecVenturesEntryById(Number(req.params.id));
+    if (existing && pecPastMonthBlocked(req, existing.month, existing.year)) {
+      return res.status(403).json({ message: "Only admins can edit previous months for PEC Ventures." });
+    }
     await storage.deletePecVenturesEntry(Number(req.params.id)); res.status(204).send();
   });
 
