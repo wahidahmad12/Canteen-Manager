@@ -8,7 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
 import { format } from "date-fns";
-import { Plus, Trash2, Printer, Loader2, Save, AlertTriangle, CheckCircle2, FileDown, FileUp, RefreshCw } from "lucide-react";
+import { Plus, Trash2, Printer, Loader2, Save, AlertTriangle, CheckCircle2, FileDown, FileUp, RefreshCw, Pencil } from "lucide-react";
 
 const MONTHS = ["January","February","March","April","May","June","July","August","September","October","November","December"];
 const WEEKDAYS = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
@@ -6890,6 +6890,9 @@ function PecVenturesTab({ month, year, loadKey = 0 }: { month: number; year: num
   });
   const [rates, setRates] = useState<PecRateMap>({ ...PEC_RATES });
   const ratesLocked = !!ratesData?.rate;
+  // Admin override: when true, the locked rate inputs become editable so an admin can correct
+  // the saved rates for this month. Reset whenever the loaded month/rates change.
+  const [editRatesUnlocked, setEditRatesUnlocked] = useState(false);
 
   useEffect(() => {
     if (!isLoading) setRows(generatePecMonthRows(month, year, savedRows));
@@ -6899,6 +6902,7 @@ function PecVenturesTab({ month, year, loadKey = 0 }: { month: number; year: num
     if (!ratesData) return;
     const src = ratesData.rate ?? ratesData.default;
     setRates(src ? pecRowToRateMap(src) : { ...PEC_RATES });
+    setEditRatesUnlocked(false);
   }, [ratesData, month, year, loadKey]);
 
   const updateRate = (key: keyof PecRateMap, value: number) => {
@@ -6951,6 +6955,14 @@ function PecVenturesTab({ month, year, loadKey = 0 }: { month: number; year: num
         // 409 = month got locked concurrently; keep the existing snapshot rather than failing the save.
         if (!r1.ok && r1.status !== 409) throw new Error('Failed to save rates');
         await putRate(0, 0); // update going-forward default (best-effort)
+      } else if (isAdmin && ratesLocked && editRatesUnlocked) {
+        // Admin is correcting the rates of an already-saved (locked) month. Force-override just
+        // this month's snapshot; the carry-forward default is left untouched.
+        const res = await fetch('/api/pec-ventures-rates', {
+          method: 'PUT', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ month, year, ...rates, force: true }), credentials: 'include',
+        });
+        if (!res.ok) throw new Error('Failed to update rates');
       }
       // Lock this month if not already locked (idempotent; snapshots default rates if needed)
       await fetch('/api/pec-ventures-rates/ensure', {
@@ -7333,9 +7345,16 @@ function PecVenturesTab({ month, year, loadKey = 0 }: { month: number; year: num
 
       {isAdmin && (
         <div className="rounded-lg border border-gray-200 dark:border-gray-700 p-3 bg-muted/30" data-testid="panel-pec-rates">
-          <div className="flex items-center justify-between mb-2">
-            <span className="text-sm font-medium">Item Rates {ratesLocked && <span className="text-xs text-muted-foreground">(locked for this month)</span>}</span>
-            {ratesLocked && <span className="text-xs text-amber-600 dark:text-amber-400">Saved months keep their original rates.</span>}
+          <div className="flex items-center justify-between gap-2 mb-2 flex-wrap">
+            <span className="text-sm font-medium">Item Rates {ratesLocked && !editRatesUnlocked && <span className="text-xs text-muted-foreground">(locked for this month)</span>}</span>
+            <div className="flex items-center gap-2">
+              {ratesLocked && !editRatesUnlocked && <span className="text-xs text-amber-600 dark:text-amber-400">Saved months keep their original rates.</span>}
+              {ratesLocked && !editRatesUnlocked && (
+                <Button size="sm" variant="outline" onClick={() => setEditRatesUnlocked(true)} className="h-7 px-3 text-xs gap-1 text-blue-700 border-blue-300 hover:bg-blue-50" data-testid="btn-pec-edit-rates">
+                  <Pencil className="w-3 h-3" /> Edit Rates
+                </Button>
+              )}
+            </div>
           </div>
           <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-2">
             {PEC_RATE_FIELDS.map(f => (
@@ -7345,7 +7364,7 @@ function PecVenturesTab({ month, year, loadKey = 0 }: { month: number; year: num
                   type="number"
                   step="0.001"
                   value={rates[f.key]}
-                  disabled={ratesLocked}
+                  disabled={ratesLocked && !editRatesUnlocked}
                   onChange={e => updateRate(f.key, parseFloat(e.target.value))}
                   className="border rounded px-2 py-1 bg-background disabled:opacity-60 disabled:cursor-not-allowed"
                   data-testid={`input-pec-rate-${f.key}`}
@@ -7354,6 +7373,7 @@ function PecVenturesTab({ month, year, loadKey = 0 }: { month: number; year: num
             ))}
           </div>
           {!ratesLocked && <p className="text-xs text-muted-foreground mt-2">Edit rates, then click Save. Rates are locked once this month is saved.</p>}
+          {ratesLocked && editRatesUnlocked && <p className="text-xs text-amber-600 dark:text-amber-400 mt-2">Editing saved rates — click Save to apply the new rates to this month.</p>}
         </div>
       )}
 

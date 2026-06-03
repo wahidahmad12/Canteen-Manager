@@ -2755,7 +2755,9 @@ export async function registerRoutes(
         const v = Number(req.body[k]);
         if (!Number.isFinite(v) || v < 0) return res.status(400).json({ message: `Invalid rate value for ${k}` });
       }
-      if (!isDefault) {
+      // A locked month is normally immutable so saved data never changes. Admins may explicitly
+      // override this (the "Edit Rates" action) by sending force=true to correct a saved month.
+      if (!isDefault && req.body.force !== true) {
         const existing = await storage.getPecVenturesRate(month, year);
         if (existing) return res.status(409).json({ message: 'This month is locked; its rates cannot be changed.' });
       }
