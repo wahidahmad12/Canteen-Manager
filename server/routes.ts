@@ -2776,6 +2776,46 @@ export async function registerRoutes(
     } catch (err: any) { res.status(500).json({ message: err.message }); }
   });
 
+  // === BANANA EXPENSE RATE SCHEDULE ===
+  // Any logged-in user may read the schedule (needed to price cash seals in the UI).
+  app.get('/api/banana-rates', requireAuth, async (_req, res) => {
+    try { res.json(await storage.getBananaRates()); }
+    catch (err: any) { res.status(500).json({ message: err.message }); }
+  });
+  const validateBananaRate = (body: any): { effectiveDate: string; rate: number } | { error: string } => {
+    const effectiveDate = String(body.effectiveDate || '').slice(0, 10);
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(effectiveDate)) return { error: 'Invalid effective date (use YYYY-MM-DD)' };
+    const rate = Number(body.rate);
+    if (!Number.isFinite(rate) || rate < 0) return { error: 'Invalid rate' };
+    return { effectiveDate, rate };
+  };
+  app.post('/api/banana-rates', requireAdmin, async (req, res) => {
+    try {
+      const v = validateBananaRate(req.body);
+      if ('error' in v) return res.status(400).json({ message: v.error });
+      res.json(await storage.createBananaRate(v));
+    } catch (err: any) {
+      if (String(err.message || '').includes('Duplicate')) return res.status(409).json({ message: 'A rate already exists for this date' });
+      res.status(500).json({ message: err.message });
+    }
+  });
+  app.put('/api/banana-rates/:id', requireAdmin, async (req, res) => {
+    try {
+      const v = validateBananaRate(req.body);
+      if ('error' in v) return res.status(400).json({ message: v.error });
+      const row = await storage.updateBananaRate(Number(req.params.id), v);
+      if (!row) return res.status(404).json({ message: 'Rate not found' });
+      res.json(row);
+    } catch (err: any) {
+      if (String(err.message || '').includes('Duplicate')) return res.status(409).json({ message: 'A rate already exists for this date' });
+      res.status(500).json({ message: err.message });
+    }
+  });
+  app.delete('/api/banana-rates/:id', requireAdmin, async (req, res) => {
+    try { await storage.deleteBananaRate(Number(req.params.id)); res.json({ success: true }); }
+    catch (err: any) { res.status(500).json({ message: err.message }); }
+  });
+
   // === EMPLOYEE SHIFT DUTIES ===
   app.get('/api/shift-duties', requireAuth, async (req, res) => {
     try {

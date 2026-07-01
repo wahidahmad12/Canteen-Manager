@@ -49,6 +49,8 @@ import {
   type PecVenturesEntry,
   pecVenturesRates,
   type PecVenturesRate,
+  bananaRates,
+  type BananaRate,
   type DailyPnlEntry,
   type UblDateEntry,
   type CiplaDateEntry,
@@ -97,7 +99,8 @@ import {
   type PankajReport,
   pankajReports,
 } from "@shared/schema";
-import { eq, desc, lt, and, sql, gte, lte, or } from "drizzle-orm";
+import { eq, desc, lt, and, sql, gte, lte, or, asc } from "drizzle-orm";
+import { bananaRateSqlCase } from "@shared/banana-rate";
 import bcrypt from "bcryptjs";
 
 async function getInsertId(dbOrTx: any): Promise<number> {
@@ -324,6 +327,11 @@ export interface IStorage {
   upsertPecVenturesRate(data: any): Promise<PecVenturesRate>;
   ensurePecVenturesRateSnapshot(month: number, year: number): Promise<PecVenturesRate | null>;
   getMonthlyPnl(month: number, year: number, clients?: string[]): Promise<any>;
+  // Banana expense rate schedule (date-effective, admin-editable)
+  getBananaRates(): Promise<BananaRate[]>;
+  createBananaRate(data: { effectiveDate: string; rate: string | number }): Promise<BananaRate>;
+  updateBananaRate(id: number, data: { effectiveDate?: string; rate?: string | number }): Promise<BananaRate | undefined>;
+  deleteBananaRate(id: number): Promise<void>;
   // Weekly Menu
   getWeeklyMenu(clientName: string): Promise<any[]>;
   saveWeeklyMenuItem(data: any): Promise<any>;
@@ -3203,9 +3211,43 @@ export class DatabaseStorage implements IStorage {
       ON DUPLICATE KEY UPDATE rate = ${rate}`);
   }
 
+  // === BANANA EXPENSE RATE SCHEDULE ===
+  async getBananaRates(): Promise<BananaRate[]> {
+    return await db.select().from(bananaRates).orderBy(asc(bananaRates.effectiveDate));
+  }
+
+  async createBananaRate(data: { effectiveDate: string; rate: string | number }): Promise<BananaRate> {
+    await db.insert(bananaRates).values({
+      effectiveDate: data.effectiveDate,
+      rate: String(data.rate),
+    });
+    const insertId = await getInsertId(db);
+    const [row] = await db.select().from(bananaRates).where(eq(bananaRates.id, insertId));
+    return row;
+  }
+
+  async updateBananaRate(id: number, data: { effectiveDate?: string; rate?: string | number }): Promise<BananaRate | undefined> {
+    const patch: any = {};
+    if (data.effectiveDate !== undefined) patch.effectiveDate = data.effectiveDate;
+    if (data.rate !== undefined) patch.rate = String(data.rate);
+    if (Object.keys(patch).length > 0) {
+      await db.update(bananaRates).set(patch).where(eq(bananaRates.id, id));
+    }
+    const [row] = await db.select().from(bananaRates).where(eq(bananaRates.id, id));
+    return row;
+  }
+
+  async deleteBananaRate(id: number): Promise<void> {
+    await db.delete(bananaRates).where(eq(bananaRates.id, id));
+  }
+
   async getMonthlyPnl(month: number, year: number, clients?: string[]): Promise<any> {
     const monthStr = String(month).padStart(2, '0');
     const likePrefix = `${year}-${monthStr}%`;
+
+    // Banana is priced by the rate in effect on each seal's (report) date.
+    const bananaRateSchedule = await this.getBananaRates();
+    const bananaRateCase = bananaRateSqlCase('dr.date', bananaRateSchedule);
 
     const hasClients = clients && clients.length > 0;
     const clientFilter = hasClients
@@ -3271,7 +3313,7 @@ export class DatabaseStorage implements IStorage {
 
     const [cashSealExpenseR] = await db.execute(sql`
       SELECT
-        COALESCE(SUM(CAST(cs.expense_banana_qty AS DECIMAL(15,2)) * 4.5), 0)                                           AS banana_expense,
+        COALESCE(SUM(CAST(cs.expense_banana_qty AS DECIMAL(15,2)) * ${sql.raw(bananaRateCase)}), 0)                     AS banana_expense,
         COALESCE(SUM(CAST(cs.expense_dahi_bhar_qty AS DECIMAL(15,2)) * CAST(COALESCE(cs.expense_dahi_bhar_rate, 0) AS DECIMAL(15,2))), 0) AS dahi_bhar_expense,
         COALESCE(SUM(CAST(cs.expense_other_amount AS DECIMAL(15,2))), 0)                                               AS other_expense
       FROM cash_seals cs

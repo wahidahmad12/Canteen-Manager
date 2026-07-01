@@ -2,14 +2,14 @@ import { useState } from "react";
 import { Layout } from "@/components/layout";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { useCashSeals } from "@/hooks/use-reports";
+import { useCashSeals, useBananaRates } from "@/hooks/use-reports";
 import { ArrowLeft, Printer, Loader2, FileBarChart } from "lucide-react";
 import { useLocation } from "wouter";
 import { format, parseISO } from "date-fns";
+import { bananaRateForDate } from "@shared/banana-rate";
 
 const PS_RATES = { bf: 5, ln: 20, ev: 10, nt: 10 };
 const TP_RATES = { bf: 20, lv: 35, ev: 20, nt: 20 };
-const BANANA_RATE = 4.5;
 const fmt = (v: number) => v.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 const n = (v: any) => Number(v) || 0;
 
@@ -95,6 +95,7 @@ export default function CashSealMonthly() {
   const [, navigate] = useLocation();
 
   const { data: allSeals = [], isLoading } = useCashSeals();
+  const { data: bananaRateSchedule = [] } = useBananaRates();
 
   // Filter records for selected month/year
   const filtered = (allSeals as any[]).filter(s => {
@@ -133,6 +134,7 @@ export default function CashSealMonthly() {
       tpNtCash: acc.tpNtCash + n(s.incomeTpNightCashQty),
       tpNtOnline: acc.tpNtOnline + n(s.incomeTpNightOnlineQty),
       expBananaQty: acc.expBananaQty + n(s.expenseBananaQty),
+      expBananaTotal: acc.expBananaTotal + n(s.expenseBananaQty) * bananaRateForDate(s.date, bananaRateSchedule),
       expDahiBharTotal: acc.expDahiBharTotal + n(s.expenseDahiBharQty) * n(s.expenseDahiBharRate),
       expOther: acc.expOther + n(s.expenseOtherAmount),
     };
@@ -143,7 +145,7 @@ export default function CashSealMonthly() {
     tpBfCash: 0, tpBfOnline: 0, tpLvCash: 0, tpLvOnline: 0,
     tpNvCash: 0, tpNvOnline: 0, tpNvCashTotal: 0, tpNvOnlineTotal: 0,
     tpEvCash: 0, tpEvOnline: 0, tpNtCash: 0, tpNtOnline: 0,
-    expBananaQty: 0, expDahiBharTotal: 0, expOther: 0,
+    expBananaQty: 0, expBananaTotal: 0, expDahiBharTotal: 0, expOther: 0,
   });
 
   const psRows: AggRow[] = [
@@ -171,7 +173,8 @@ export default function CashSealMonthly() {
   const grandCash   = psCashTotal + tpCashTotal;
   const grandOnline = psOnlineTotal + tpOnlineTotal;
   const grandIncome = psGrandTotal + tpGrandTotal;
-  const totalExpense = agg.expBananaQty * BANANA_RATE + agg.expDahiBharTotal + agg.expOther;
+  const monthBananaRate = bananaRateForDate(`${selectedYear}-${String(selectedMonth).padStart(2, "0")}-01`, bananaRateSchedule);
+  const totalExpense = agg.expBananaTotal + agg.expDahiBharTotal + agg.expOther;
   const balance = grandIncome - totalExpense;
 
   const yearOptions = [];
@@ -289,8 +292,8 @@ export default function CashSealMonthly() {
                     {agg.expBananaQty > 0 && (
                       <tr>
                         <td className="border border-gray-300 px-2 py-1">Banana</td>
-                        <td className="border border-gray-300 px-2 py-1 text-right font-mono">{agg.expBananaQty} × {fmt(BANANA_RATE)}</td>
-                        <td className="border border-gray-300 px-2 py-1 text-right font-mono font-semibold">{fmt(agg.expBananaQty * BANANA_RATE)}</td>
+                        <td className="border border-gray-300 px-2 py-1 text-right font-mono">{agg.expBananaQty} × {fmt(monthBananaRate)}</td>
+                        <td className="border border-gray-300 px-2 py-1 text-right font-mono font-semibold">{fmt(agg.expBananaTotal)}</td>
                       </tr>
                     )}
                     {agg.expDahiBharTotal > 0 && (

@@ -9,7 +9,12 @@ import {
   type InventoryWithItems,
   type CreateInventoryRequest,
   type SafeUser,
+  type BananaRate,
 } from "@shared/schema";
+
+export function useBananaRates() {
+  return useQuery<BananaRate[]>({ queryKey: ['/api/banana-rates'] });
+}
 
 // === AUTH HOOKS ===
 

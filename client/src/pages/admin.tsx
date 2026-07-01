@@ -237,6 +237,45 @@ export default function Admin() {
   };
   const flashTypeBg: Record<string, string> = { info: 'bg-blue-50 border-blue-200 dark:bg-blue-950/20 dark:border-blue-800/50', warning: 'bg-amber-50 border-amber-200 dark:bg-amber-950/20 dark:border-amber-800/50', error: 'bg-red-50 border-red-200 dark:bg-red-950/20 dark:border-red-800/50', success: 'bg-green-50 border-green-200 dark:bg-green-950/20 dark:border-green-800/50' };
 
+  // Banana Expense Rate Schedule (date-effective)
+  const { data: bananaRates = [] } = useQuery<any[]>({
+    queryKey: ['/api/banana-rates'],
+    queryFn: async () => { const r = await fetch('/api/banana-rates', { credentials: 'include' }); return r.json(); },
+  });
+  const [newBananaDate, setNewBananaDate] = useState("");
+  const [newBananaRate, setNewBananaRate] = useState("");
+  const [editingBananaId, setEditingBananaId] = useState<number | null>(null);
+  const [editBananaDate, setEditBananaDate] = useState("");
+  const [editBananaRate, setEditBananaRate] = useState("");
+  const [bananaSaving, setBananaSaving] = useState(false);
+  const createBananaRate = async () => {
+    if (!newBananaDate || newBananaRate === "") { toast({ title: "Required", description: "Enter a start date and a rate.", variant: "destructive" }); return; }
+    setBananaSaving(true);
+    try {
+      await apiRequest('POST', '/api/banana-rates', { effectiveDate: newBananaDate, rate: Number(newBananaRate) });
+      setNewBananaDate(""); setNewBananaRate("");
+      qc.invalidateQueries({ queryKey: ['/api/banana-rates'] });
+      toast({ title: "Rate added", description: "Banana rate saved." });
+    } catch (e: any) { toast({ title: "Failed", description: e.message, variant: "destructive" }); }
+    finally { setBananaSaving(false); }
+  };
+  const updateBananaRateFn = async (id: number) => {
+    if (!editBananaDate || editBananaRate === "") return;
+    try {
+      await apiRequest('PUT', `/api/banana-rates/${id}`, { effectiveDate: editBananaDate, rate: Number(editBananaRate) });
+      setEditingBananaId(null);
+      qc.invalidateQueries({ queryKey: ['/api/banana-rates'] });
+      toast({ title: "Rate updated" });
+    } catch (e: any) { toast({ title: "Failed", description: e.message, variant: "destructive" }); }
+  };
+  const deleteBananaRateFn = async (id: number) => {
+    try {
+      await apiRequest('DELETE', `/api/banana-rates/${id}`, {});
+      qc.invalidateQueries({ queryKey: ['/api/banana-rates'] });
+      toast({ title: "Rate deleted" });
+    } catch (e: any) { toast({ title: "Failed", description: e.message, variant: "destructive" }); }
+  };
+
   const permissionLabels: Record<string, string> = {
     expense: 'Daily Cash Expance',
     cashseal: 'Daily Cash Seal',
@@ -1760,6 +1799,88 @@ export default function Admin() {
                 </div>
               </div>
             )}
+          </CardContent>
+        </Card>
+
+        {/* Banana Expense Rate Schedule */}
+        <Card className="border border-amber-200 dark:border-amber-800/50" data-testid="card-banana-rates">
+          <CardHeader className="pb-3 bg-gradient-to-r from-amber-50 to-yellow-50 dark:from-amber-950/20 dark:to-yellow-950/10 border-b border-amber-200 dark:border-amber-800/50">
+            <CardTitle className="text-base font-semibold text-amber-800 dark:text-amber-200 flex items-center gap-2">
+              <Coins className="w-4 h-4" /> Banana Expense Rate
+              <Badge variant="secondary" className="ml-auto text-xs">{bananaRates.length} rates</Badge>
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="p-4 space-y-4">
+            <p className="text-xs text-slate-500 dark:text-slate-400">
+              Set the banana rate by start date. Each Cash Seal uses the rate that applies on its own date.
+            </p>
+            {/* Add new rate */}
+            <div className="p-3 rounded-xl bg-gradient-to-br from-amber-50 to-yellow-50 dark:from-amber-950/20 dark:to-yellow-950/20 border border-amber-200 dark:border-amber-800/50 space-y-3">
+              <p className="text-xs font-semibold text-amber-700 dark:text-amber-300 uppercase tracking-wide">Add New Rate</p>
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                <div className="space-y-1">
+                  <label className="text-xs text-slate-500">Effective From</label>
+                  <Input type="date" value={newBananaDate} onChange={(e) => setNewBananaDate(e.target.value)} data-testid="input-banana-date" />
+                </div>
+                <div className="space-y-1">
+                  <label className="text-xs text-slate-500">Rate (₹ per unit)</label>
+                  <Input type="number" step="0.01" min="0" placeholder="5" value={newBananaRate} onChange={(e) => setNewBananaRate(e.target.value)} data-testid="input-banana-rate" />
+                </div>
+                <div className="flex items-end">
+                  <Button className="w-full gap-1.5" onClick={createBananaRate} disabled={bananaSaving} data-testid="button-add-banana-rate">
+                    {bananaSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4" />} Add
+                  </Button>
+                </div>
+              </div>
+            </div>
+            {/* Existing rates */}
+            <div className="rounded-xl border border-amber-200 dark:border-amber-800/50 overflow-hidden">
+              <table className="w-full text-sm">
+                <thead className="bg-amber-50 dark:bg-amber-950/20 text-amber-800 dark:text-amber-200">
+                  <tr>
+                    <th className="text-left px-3 py-2 font-semibold">Effective From</th>
+                    <th className="text-right px-3 py-2 font-semibold">Rate (₹)</th>
+                    <th className="text-right px-3 py-2 font-semibold">Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {bananaRates.length === 0 && (
+                    <tr><td colSpan={3} className="px-3 py-4 text-center text-slate-400">No rates yet.</td></tr>
+                  )}
+                  {bananaRates.map((r: any) => (
+                    <tr key={r.id} className="border-t border-amber-100 dark:border-amber-900/40" data-testid={`row-banana-rate-${r.id}`}>
+                      {editingBananaId === r.id ? (
+                        <>
+                          <td className="px-3 py-2">
+                            <Input type="date" value={editBananaDate} onChange={(e) => setEditBananaDate(e.target.value)} data-testid={`input-edit-banana-date-${r.id}`} />
+                          </td>
+                          <td className="px-3 py-2">
+                            <Input type="number" step="0.01" min="0" value={editBananaRate} onChange={(e) => setEditBananaRate(e.target.value)} className="text-right" data-testid={`input-edit-banana-rate-${r.id}`} />
+                          </td>
+                          <td className="px-3 py-2">
+                            <div className="flex justify-end gap-1">
+                              <Button size="icon" variant="ghost" className="h-7 w-7 text-green-600" onClick={() => updateBananaRateFn(r.id)} data-testid={`button-save-banana-rate-${r.id}`}><Save className="w-3.5 h-3.5" /></Button>
+                              <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => setEditingBananaId(null)} data-testid={`button-cancel-banana-rate-${r.id}`}><X className="w-3.5 h-3.5" /></Button>
+                            </div>
+                          </td>
+                        </>
+                      ) : (
+                        <>
+                          <td className="px-3 py-2 font-mono" data-testid={`text-banana-date-${r.id}`}>{r.effectiveDate}</td>
+                          <td className="px-3 py-2 text-right font-mono" data-testid={`text-banana-rate-${r.id}`}>₹{Number(r.rate).toFixed(2)}</td>
+                          <td className="px-3 py-2">
+                            <div className="flex justify-end gap-1">
+                              <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => { setEditingBananaId(r.id); setEditBananaDate(r.effectiveDate); setEditBananaRate(String(Number(r.rate))); }} data-testid={`button-edit-banana-rate-${r.id}`}><Pencil className="w-3.5 h-3.5" /></Button>
+                              <Button size="icon" variant="ghost" className="h-7 w-7 text-destructive hover:text-destructive hover:bg-destructive/10" onClick={() => deleteBananaRateFn(r.id)} data-testid={`button-delete-banana-rate-${r.id}`}><Trash2 className="w-3.5 h-3.5" /></Button>
+                            </div>
+                          </td>
+                        </>
+                      )}
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           </CardContent>
         </Card>
 

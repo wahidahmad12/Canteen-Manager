@@ -12,19 +12,19 @@ import {
   IndianRupee, BarChart3, Calendar, Printer, Search, Trash2
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import { useCreateCashSeal, useUpdateCashSeal, useDeleteCashSeal, useCashSeals } from "@/hooks/use-reports";
+import { useCreateCashSeal, useUpdateCashSeal, useDeleteCashSeal, useCashSeals, useBananaRates } from "@/hooks/use-reports";
 import { queryClient } from "@/lib/queryClient";
 import { useLocation } from "wouter";
+import { bananaRateForDate } from "@shared/banana-rate";
 
 // ── Rates ─────────────────────────────────────────────────────────
 const PS_RATES = { bf: 5, ln: 20, ev: 10, nt: 10 };
 const TP_RATES = { bf: 20, lv: 35, ev: 20, nt: 20, eg: 45, fs: 55, ck: 65 };
-const BANANA_RATE = 4.5;
 const fmtN = (n: number) =>
   "₹" + n.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
 // ── Totals helper for list view ────────────────────────────────────
-function calcTotals(s: any) {
+function calcTotals(s: any, bananaSchedule: any[] = []) {
   const n = (v: any) => Number(v) || 0;
   const psIncome =
     n(s.incomePsBreakfastCashQty) * PS_RATES.bf + n(s.incomePsLunchCashQty) * PS_RATES.ln +
@@ -53,7 +53,7 @@ function calcTotals(s: any) {
     n(s.incomeOnlineBreakfastQty) * 5 + n(s.incomeOnlineLunchQty) * 20 +
     n(s.incomeOnlineEveningSnacksQty) * 10 + n(s.incomeOnlineNightQty) * 10;
   const income = psIncome + tpIncome + legacyIncome;
-  const expense = n(s.expenseBananaQty) * BANANA_RATE
+  const expense = n(s.expenseBananaQty) * bananaRateForDate(s.date, bananaSchedule)
     + n(s.expenseDahiBharQty) * n(s.expenseDahiBharRate) + n(s.expenseOtherAmount);
   return { income, expense, balance: income - expense };
 }
@@ -485,6 +485,8 @@ export default function CashSeal() {
   const updateMutation = useUpdateCashSeal();
   const deleteMutation = useDeleteCashSeal();
   const { data: records = [], isLoading: recordsLoading } = useCashSeals();
+  const { data: bananaRateSchedule = [] } = useBananaRates();
+  const bananaRate = bananaRateForDate(format(date, "yyyy-MM-dd"), bananaRateSchedule);
   const [confirmDeleteId, setConfirmDeleteId] = useState<number | null>(null);
 
   // ── PS state ───────────────────────────────────────────────────
@@ -667,7 +669,7 @@ export default function CashSeal() {
   const totalCashIncome = psTotalCash + tpTotalCash;
   const totalOnlineIncome = psTotalOnline + tpTotalOnline;
   const totalIncome = totalCashIncome + totalOnlineIncome;
-  const bananaTotal = bananaQty * BANANA_RATE;
+  const bananaTotal = bananaQty * bananaRate;
   const dahiBharTotal = dahiBharQty * dahiBharRate;
   const totalExpense = bananaTotal + dahiBharTotal + otherExpense;
   const cashBalance = totalCashIncome - totalExpense;
@@ -908,7 +910,7 @@ export default function CashSeal() {
     });
 
     const totals = filtered.reduce((acc, s) => {
-      const t = calcTotals(s);
+      const t = calcTotals(s, bananaRateSchedule);
       const _n = (v: any) => Number(v) || 0;
       const ps = (_n(s.incomePsBreakfastCashQty) + _n(s.incomePsBreakfastOnlineQty)) * PS_RATES.bf
         + (_n(s.incomePsLunchCashQty) + _n(s.incomePsLunchOnlineQty)) * PS_RATES.ln
@@ -1100,7 +1102,7 @@ export default function CashSeal() {
                           + (n(seal.incomeTpLunchChickenCashQty) + n(seal.incomeTpLunchChickenOnlineQty)) * TP_RATES.ck
                           + (n(seal.incomeTpEveningCashQty) + n(seal.incomeTpEveningOnlineQty)) * TP_RATES.ev
                           + (n(seal.incomeTpNightCashQty) + n(seal.incomeTpNightOnlineQty)) * TP_RATES.nt;
-                        const { income, expense, balance } = calcTotals(seal);
+                        const { income, expense, balance } = calcTotals(seal, bananaRateSchedule);
                         const isEven = idx % 2 === 0;
                         return (
                           <tr key={seal.id} className={`${isEven ? "bg-white dark:bg-slate-800" : "bg-slate-50 dark:bg-slate-800/60"} hover:bg-teal-50/50 dark:hover:bg-teal-900/10 transition-colors`}>
@@ -1192,7 +1194,7 @@ export default function CashSeal() {
                 {/* Mobile cards */}
                 <div className="sm:hidden divide-y divide-slate-100 dark:divide-slate-700">
                   {filtered.map((seal: any, idx: number) => {
-                    const { income, expense, balance } = calcTotals(seal);
+                    const { income, expense, balance } = calcTotals(seal, bananaRateSchedule);
                     return (
                       <div key={seal.id} className="p-3">
                         <div className="flex items-center justify-between mb-2.5">
@@ -1489,7 +1491,7 @@ export default function CashSeal() {
               <div className="flex items-center justify-between mb-2">
                 <div>
                   <div className="text-sm font-semibold text-slate-700 dark:text-slate-200">Banana</div>
-                  <div className="text-xs text-slate-400">₹{BANANA_RATE} per unit</div>
+                  <div className="text-xs text-slate-400">₹{bananaRate} per unit</div>
                 </div>
                 <span className="text-sm font-bold font-mono text-rose-600">{bananaTotal > 0 ? fmtN(bananaTotal) : "—"}</span>
               </div>

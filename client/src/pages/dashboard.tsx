@@ -5,8 +5,9 @@ import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { Plus, Loader2, FileText, ArrowRight, Calculator, ClipboardList, UtensilsCrossed, ShoppingCart, Trash2, Check, CheckCircle2, FileDown, Pencil, Receipt, BarChart3, IndianRupee, TrendingUp, TrendingDown, Wallet, CreditCard, DollarSign, Store, FileSpreadsheet, Search, X } from "lucide-react";
 import { SiWhatsapp } from "react-icons/si";
-import { useReports, useDeleteReport, useInventories, useCashSeals, useSavedMenus, useDeleteSavedMenu, usePurchaseRequests, useDeletePurchaseRequest, useUpdatePurchaseRequest, useCurrentUser, usePurchaseInvoices, useDeletePurchaseInvoice } from "@/hooks/use-reports";
+import { useReports, useDeleteReport, useInventories, useCashSeals, useSavedMenus, useDeleteSavedMenu, usePurchaseRequests, useDeletePurchaseRequest, useUpdatePurchaseRequest, useCurrentUser, usePurchaseInvoices, useDeletePurchaseInvoice, useBananaRates } from "@/hooks/use-reports";
 import { format } from "date-fns";
+import { bananaRateForDate } from "@shared/banana-rate";
 
 function buildPrWhatsAppUrl(pr: any): string {
   const code = pr?.prCode || (pr?.serialNumber ? `#${pr.serialNumber}` : '');
@@ -83,6 +84,7 @@ export default function Dashboard() {
   const { data: reports, isLoading } = useReports({ enabled: hasExpense });
   const { data: inventories, isLoading: invLoading } = useInventories({ enabled: hasInventory });
   const { data: cashSeals, isLoading: csLoading } = useCashSeals({ enabled: hasCashSeal });
+  const { data: bananaRateSchedule = [] } = useBananaRates();
   const { data: savedMenus, isLoading: menusLoading } = useSavedMenus({ enabled: hasMenu });
   const { data: purchaseRequests, isLoading: prLoading } = usePurchaseRequests({ enabled: hasPurchase });
   const { data: purchaseInvoices, isLoading: piLoading } = usePurchaseInvoices({ enabled: hasPurchase });
@@ -741,7 +743,7 @@ export default function Dashboard() {
                     const tpIncome = n(seal.incomeTpBreakfastCashQty)*20 + n(seal.incomeTpLunchVegCashQty)*35 + n(seal.incomeTpLunchNvRate)*n(seal.incomeTpLunchNvCashQty) + n(seal.incomeTpEveningCashQty)*20 + n(seal.incomeTpNightCashQty)*20 + n(seal.incomeTpBreakfastOnlineQty)*20 + n(seal.incomeTpLunchVegOnlineQty)*35 + n(seal.incomeTpLunchNvRate)*n(seal.incomeTpLunchNvOnlineQty) + n(seal.incomeTpEveningOnlineQty)*20 + n(seal.incomeTpNightOnlineQty)*20;
                     const legacyIncome = n(seal.incomeMorningQty)*5 + n(seal.incomeLunchQty)*20 + n(seal.incomeEveningQty)*10 + n(seal.incomeNightQty)*10 + n(seal.incomeNonVegRate)*n(seal.incomeNonVegQty) + n(seal.incomeVegRate)*n(seal.incomeVegQty) + n(seal.incomeMorningCashRate)*n(seal.incomeMorningCashQty) + n(seal.incomeEveningCashRate)*n(seal.incomeEveningCashQty) + n(seal.incomeOnlineBreakfastQty)*5 + n(seal.incomeOnlineLunchQty)*20 + n(seal.incomeOnlineEveningSnacksQty)*10 + n(seal.incomeOnlineNightQty)*10;
                     const income = psIncome + tpIncome + legacyIncome;
-                    const expense = (n(seal.expenseBananaQty) * 4.5) + (n(seal.expenseDahiBharQty) * n(seal.expenseDahiBharRate)) + n(seal.expenseOtherAmount);
+                    const expense = (n(seal.expenseBananaQty) * bananaRateForDate(seal.date, bananaRateSchedule)) + (n(seal.expenseDahiBharQty) * n(seal.expenseDahiBharRate)) + n(seal.expenseOtherAmount);
                     acc.income += income;
                     acc.expense += expense;
                     acc.balance += (income - expense);
@@ -781,7 +783,7 @@ export default function Dashboard() {
                       const tpIncome = n(seal.incomeTpBreakfastCashQty)*20 + n(seal.incomeTpLunchVegCashQty)*35 + n(seal.incomeTpLunchNvRate)*n(seal.incomeTpLunchNvCashQty) + n(seal.incomeTpEveningCashQty)*20 + n(seal.incomeTpNightCashQty)*20 + n(seal.incomeTpBreakfastOnlineQty)*20 + n(seal.incomeTpLunchVegOnlineQty)*35 + n(seal.incomeTpLunchNvRate)*n(seal.incomeTpLunchNvOnlineQty) + n(seal.incomeTpEveningOnlineQty)*20 + n(seal.incomeTpNightOnlineQty)*20;
                       const legacyIncome = n(seal.incomeMorningQty)*5 + n(seal.incomeLunchQty)*20 + n(seal.incomeEveningQty)*10 + n(seal.incomeNightQty)*10 + n(seal.incomeNonVegRate)*n(seal.incomeNonVegQty) + n(seal.incomeVegRate)*n(seal.incomeVegQty) + n(seal.incomeMorningCashRate)*n(seal.incomeMorningCashQty) + n(seal.incomeEveningCashRate)*n(seal.incomeEveningCashQty) + n(seal.incomeOnlineBreakfastQty)*5 + n(seal.incomeOnlineLunchQty)*20 + n(seal.incomeOnlineEveningSnacksQty)*10 + n(seal.incomeOnlineNightQty)*10;
                       const income = psIncome + tpIncome + legacyIncome;
-                      const expense = (n(seal.expenseBananaQty) * 4.5) + (n(seal.expenseDahiBharQty) * n(seal.expenseDahiBharRate)) + n(seal.expenseOtherAmount);
+                      const expense = (n(seal.expenseBananaQty) * bananaRateForDate(seal.date, bananaRateSchedule)) + (n(seal.expenseDahiBharQty) * n(seal.expenseDahiBharRate)) + n(seal.expenseOtherAmount);
                       const balance = income - expense;
                       return (
                         <div key={seal.id} className="p-3 flex flex-col gap-2" data-testid={`mobile-card-seal-${seal.id}`}>
@@ -838,13 +840,12 @@ export default function Dashboard() {
                       </thead>
                       <tbody>
                         {filteredCashSeals.map((seal: any) => {
-                          const BANANA_RATE = 4.5;
                           const n = (v: any) => Number(v) || 0;
                           const psIncome = n(seal.incomePsBreakfastCashQty)*5 + n(seal.incomePsLunchCashQty)*20 + n(seal.incomePsEveningCashQty)*10 + n(seal.incomePsNightCashQty)*10 + n(seal.incomePsRechargeRate)*n(seal.incomePsRechargeCashQty) + n(seal.incomePsBreakfastOnlineQty)*5 + n(seal.incomePsLunchOnlineQty)*20 + n(seal.incomePsEveningOnlineQty)*10 + n(seal.incomePsNightOnlineQty)*10 + n(seal.incomePsRechargeRate)*n(seal.incomePsRechargeOnlineQty);
                           const tpIncome = n(seal.incomeTpBreakfastCashQty)*20 + n(seal.incomeTpLunchVegCashQty)*35 + n(seal.incomeTpLunchNvRate)*n(seal.incomeTpLunchNvCashQty) + n(seal.incomeTpEveningCashQty)*20 + n(seal.incomeTpNightCashQty)*20 + n(seal.incomeTpBreakfastOnlineQty)*20 + n(seal.incomeTpLunchVegOnlineQty)*35 + n(seal.incomeTpLunchNvRate)*n(seal.incomeTpLunchNvOnlineQty) + n(seal.incomeTpEveningOnlineQty)*20 + n(seal.incomeTpNightOnlineQty)*20;
                           const legacyIncome = n(seal.incomeMorningQty)*5 + n(seal.incomeLunchQty)*20 + n(seal.incomeEveningQty)*10 + n(seal.incomeNightQty)*10 + n(seal.incomeNonVegRate)*n(seal.incomeNonVegQty) + n(seal.incomeVegRate)*n(seal.incomeVegQty) + n(seal.incomeMorningCashRate)*n(seal.incomeMorningCashQty) + n(seal.incomeEveningCashRate)*n(seal.incomeEveningCashQty) + n(seal.incomeOnlineBreakfastQty)*5 + n(seal.incomeOnlineLunchQty)*20 + n(seal.incomeOnlineEveningSnacksQty)*10 + n(seal.incomeOnlineNightQty)*10;
                           const income = psIncome + tpIncome + legacyIncome;
-                          const expense = (n(seal.expenseBananaQty) * BANANA_RATE) + (n(seal.expenseDahiBharQty) * n(seal.expenseDahiBharRate)) + n(seal.expenseOtherAmount);
+                          const expense = (n(seal.expenseBananaQty) * bananaRateForDate(seal.date, bananaRateSchedule)) + (n(seal.expenseDahiBharQty) * n(seal.expenseDahiBharRate)) + n(seal.expenseOtherAmount);
                           const balance = income - expense;
                           return (
                             <tr key={seal.id} className="border-b last:border-0 hover:bg-teal-50/50 dark:hover:bg-teal-950/10 transition-colors">

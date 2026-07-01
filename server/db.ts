@@ -78,6 +78,12 @@ async function initPool(): Promise<void> {
       updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
       UNIQUE KEY uq_pec_rate_month_year (month, year)
     )`,
+    `CREATE TABLE IF NOT EXISTS banana_rates (
+      id INT AUTO_INCREMENT PRIMARY KEY,
+      effective_date VARCHAR(10) NOT NULL,
+      rate DECIMAL(10,2) NOT NULL,
+      UNIQUE KEY uq_banana_effective_date (effective_date)
+    )`,
   ];
   for (const sql of migrations) {
     try { await pool.execute(sql); } catch (e: any) { console.log('[db] migration note:', e.message?.slice(0, 80)); }
@@ -112,6 +118,17 @@ async function initPool(): Promise<void> {
       }
     }
   } catch (e: any) { console.log('[db] pec rates backfill note:', e.message?.slice(0, 120)); }
+
+  // Seed the Banana expense rate schedule: ₹4.50 historically, ₹5.00 from 1 July 2026.
+  // Idempotent: only seeds when the table is empty so admin edits are never overwritten.
+  try {
+    const [rows]: any = await pool.query(`SELECT COUNT(*) AS c FROM banana_rates`);
+    if (!rows[0] || Number(rows[0].c) === 0) {
+      await pool.execute(
+        `INSERT INTO banana_rates (effective_date, rate) VALUES ('2000-01-01', 4.50), ('2026-07-01', 5.00)`,
+      );
+    }
+  } catch (e: any) { console.log('[db] banana rates seed note:', e.message?.slice(0, 120)); }
 }
 
 export const dbReady = initPool();

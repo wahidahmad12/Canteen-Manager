@@ -1,5 +1,6 @@
 import { useRoute } from "wouter";
-import { useCashSeal } from "@/hooks/use-reports";
+import { useCashSeal, useBananaRates } from "@/hooks/use-reports";
+import { bananaRateForDate } from "@shared/banana-rate";
 import { format, parseISO } from "date-fns";
 import { Layout } from "@/components/layout";
 import { Button } from "@/components/ui/button";
@@ -8,7 +9,6 @@ import { useLocation } from "wouter";
 
 const PS_RATES = { bf: 5, ln: 20, ev: 10, nt: 10 };
 const TP_RATES = { bf: 20, lv: 35, ev: 20, nt: 20 };
-const BANANA_RATE = 4.5;
 const fmt = (n: number) => n.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
 function parseDate(d: string) {
@@ -86,6 +86,7 @@ export default function CashSealPDF() {
   const [, params] = useRoute("/cash-seal/:id/pdf");
   const id = params?.id ? Number(params.id) : null;
   const { data: seal, isLoading } = useCashSeal(id);
+  const { data: bananaRateSchedule = [] } = useBananaRates();
   const [, navigate] = useLocation();
 
   const handlePrint = () => {
@@ -157,7 +158,8 @@ export default function CashSealPDF() {
   const grandCash     = psCashTotal + tpCashTotal;
   const grandOnline   = psOnlineTotal + tpOnlineTotal;
   const grandIncome   = psTotal + tpTotal;
-  const bananaTotal = n(seal.expenseBananaQty) * BANANA_RATE;
+  const bananaRate = bananaRateForDate(seal.date, bananaRateSchedule);
+  const bananaTotal = n(seal.expenseBananaQty) * bananaRate;
   const dahiBharTotal = n(seal.expenseDahiBharQty) * n(seal.expenseDahiBharRate);
   const totalExpense = bananaTotal + dahiBharTotal + n(seal.expenseOtherAmount);
   const balance = grandIncome - totalExpense;
@@ -252,7 +254,7 @@ export default function CashSealPDF() {
               {n(seal.expenseBananaQty) > 0 && (
                 <tr>
                   <td className="border border-gray-300 px-1.5 py-1">Banana</td>
-                  <td className="border border-gray-300 px-1.5 py-1 text-right font-mono">{fmt(BANANA_RATE)}</td>
+                  <td className="border border-gray-300 px-1.5 py-1 text-right font-mono">{fmt(bananaRate)}</td>
                   <td className="border border-gray-300 px-1.5 py-1 text-right font-mono">{n(seal.expenseBananaQty)}</td>
                   <td className="border border-gray-300 px-1.5 py-1 text-right font-mono font-semibold">{fmt(bananaTotal)}</td>
                 </tr>

@@ -36,6 +36,17 @@ export const expenseItems = mysqlTable("expense_items", {
   amount: decimal("amount", { precision: 10, scale: 2 }).default("0"),
 });
 
+// Stores the date-effective Banana expense rate schedule (admin-editable).
+// Each Cash Seal is priced with the rate in effect on that seal's date.
+export const bananaRates = mysqlTable("banana_rates", {
+  id: int("id").autoincrement().primaryKey(),
+  effectiveDate: varchar("effective_date", { length: 10 }).notNull().unique(), // YYYY-MM-DD
+  rate: decimal("rate", { precision: 10, scale: 2 }).notNull(),
+});
+export const insertBananaRateSchema = createInsertSchema(bananaRates).omit({ id: true });
+export type InsertBananaRate = z.infer<typeof insertBananaRateSchema>;
+export type BananaRate = typeof bananaRates.$inferSelect;
+
 // Stores cash seal (income vs expense) per day
 export const cashSeals = mysqlTable("cash_seals", {
   id: int("id").autoincrement().primaryKey(),
