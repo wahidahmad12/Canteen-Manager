@@ -449,6 +449,14 @@ export const savedItemNames = mysqlTable("saved_item_names", {
   createdAt: timestamp("created_at").defaultNow(),
 });
 
+// Custom menu items added per category in the Menu Manager (persisted, editable).
+// Keyed by category name because numeric category ids collide between client types.
+export const menuCategoryItems = mysqlTable("menu_category_items", {
+  id: int("id").autoincrement().primaryKey(),
+  categoryName: varchar("category_name", { length: 100 }).notNull(),
+  itemName: varchar("item_name", { length: 200 }).notNull(),
+});
+
 // Users table for authentication
 export const users = mysqlTable("users", {
   id: int("id").autoincrement().primaryKey(),
@@ -683,6 +691,10 @@ export const purchaseRequestWithItemsSchema = selectPurchaseRequestSchema.extend
 export type SavedItemName = typeof savedItemNames.$inferSelect;
 export const insertSavedItemNameSchema = createInsertSchema(savedItemNames).omit({ id: true, createdAt: true });
 export const selectSavedItemNameSchema = createSelectSchema(savedItemNames, { createdAt: z.string().or(z.date()) });
+
+export type MenuCategoryItem = typeof menuCategoryItems.$inferSelect;
+export const insertMenuCategoryItemSchema = createInsertSchema(menuCategoryItems).omit({ id: true });
+export type InsertMenuCategoryItem = z.infer<typeof insertMenuCategoryItemSchema>;
 
 // Item Master types and schemas
 export type ItemMaster = typeof itemMaster.$inferSelect;

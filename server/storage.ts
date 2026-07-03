@@ -51,6 +51,8 @@ import {
   type PecVenturesRate,
   bananaRates,
   type BananaRate,
+  type MenuCategoryItem,
+  menuCategoryItems,
   type DailyPnlEntry,
   type UblDateEntry,
   type CiplaDateEntry,
@@ -332,6 +334,11 @@ export interface IStorage {
   createBananaRate(data: { effectiveDate: string; rate: string | number }): Promise<BananaRate>;
   updateBananaRate(id: number, data: { effectiveDate?: string; rate?: string | number }): Promise<BananaRate | undefined>;
   deleteBananaRate(id: number): Promise<void>;
+  // Menu category custom items
+  getMenuCategoryItems(): Promise<MenuCategoryItem[]>;
+  createMenuCategoryItem(data: { categoryName: string; itemName: string }): Promise<MenuCategoryItem>;
+  updateMenuCategoryItem(id: number, data: { itemName: string }): Promise<MenuCategoryItem | undefined>;
+  deleteMenuCategoryItem(id: number): Promise<void>;
   // Weekly Menu
   getWeeklyMenu(clientName: string): Promise<any[]>;
   saveWeeklyMenuItem(data: any): Promise<any>;
@@ -3239,6 +3246,31 @@ export class DatabaseStorage implements IStorage {
 
   async deleteBananaRate(id: number): Promise<void> {
     await db.delete(bananaRates).where(eq(bananaRates.id, id));
+  }
+
+  // === MENU CATEGORY CUSTOM ITEMS ===
+  async getMenuCategoryItems(): Promise<MenuCategoryItem[]> {
+    return await db.select().from(menuCategoryItems).orderBy(asc(menuCategoryItems.categoryName), asc(menuCategoryItems.itemName));
+  }
+
+  async createMenuCategoryItem(data: { categoryName: string; itemName: string }): Promise<MenuCategoryItem> {
+    await db.insert(menuCategoryItems).values({
+      categoryName: data.categoryName,
+      itemName: data.itemName,
+    });
+    const insertId = await getInsertId(db);
+    const [row] = await db.select().from(menuCategoryItems).where(eq(menuCategoryItems.id, insertId));
+    return row;
+  }
+
+  async updateMenuCategoryItem(id: number, data: { itemName: string }): Promise<MenuCategoryItem | undefined> {
+    await db.update(menuCategoryItems).set({ itemName: data.itemName }).where(eq(menuCategoryItems.id, id));
+    const [row] = await db.select().from(menuCategoryItems).where(eq(menuCategoryItems.id, id));
+    return row;
+  }
+
+  async deleteMenuCategoryItem(id: number): Promise<void> {
+    await db.delete(menuCategoryItems).where(eq(menuCategoryItems.id, id));
   }
 
   async getMonthlyPnl(month: number, year: number, clients?: string[]): Promise<any> {

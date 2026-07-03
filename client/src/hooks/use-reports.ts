@@ -10,10 +10,15 @@ import {
   type CreateInventoryRequest,
   type SafeUser,
   type BananaRate,
+  type MenuCategoryItem,
 } from "@shared/schema";
 
 export function useBananaRates() {
   return useQuery<BananaRate[]>({ queryKey: ['/api/banana-rates'] });
+}
+
+export function useMenuCategoryItems() {
+  return useQuery<MenuCategoryItem[]>({ queryKey: ['/api/menu-category-items'] });
 }
 
 // === AUTH HOOKS ===

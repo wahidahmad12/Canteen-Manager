@@ -2776,6 +2776,12 @@ export async function registerRoutes(
     } catch (err: any) { res.status(500).json({ message: err.message }); }
   });
 
+  // Drizzle wraps MySQL errors, so the "Duplicate entry" text may live on err.cause.
+  const isDuplicateErr = (err: any): boolean =>
+    String(err?.message || '').includes('Duplicate') ||
+    String(err?.cause?.message || '').includes('Duplicate') ||
+    err?.errno === 1062 || err?.cause?.errno === 1062;
+
   // === BANANA EXPENSE RATE SCHEDULE ===
   // Any logged-in user may read the schedule (needed to price cash seals in the UI).
   app.get('/api/banana-rates', requireAuth, async (_req, res) => {
@@ -2795,7 +2801,7 @@ export async function registerRoutes(
       if ('error' in v) return res.status(400).json({ message: v.error });
       res.json(await storage.createBananaRate(v));
     } catch (err: any) {
-      if (String(err.message || '').includes('Duplicate')) return res.status(409).json({ message: 'A rate already exists for this date' });
+      if (isDuplicateErr(err)) return res.status(409).json({ message: 'A rate already exists for this date' });
       res.status(500).json({ message: err.message });
     }
   });
@@ -2807,13 +2813,52 @@ export async function registerRoutes(
       if (!row) return res.status(404).json({ message: 'Rate not found' });
       res.json(row);
     } catch (err: any) {
-      if (String(err.message || '').includes('Duplicate')) return res.status(409).json({ message: 'A rate already exists for this date' });
+      if (isDuplicateErr(err)) return res.status(409).json({ message: 'A rate already exists for this date' });
       res.status(500).json({ message: err.message });
     }
   });
   app.delete('/api/banana-rates/:id', requireAdmin, async (req, res) => {
     try { await storage.deleteBananaRate(Number(req.params.id)); res.json({ success: true }); }
     catch (err: any) { res.status(500).json({ message: err.message }); }
+  });
+
+  // === MENU CATEGORY CUSTOM ITEMS (persisted "Add Item" options in Menu Manager) ===
+  app.get('/api/menu-category-items', requirePermission('menu'), async (_req, res) => {
+    try { res.json(await storage.getMenuCategoryItems()); }
+    catch (err: any) { res.status(500).json({ message: err.message }); }
+  });
+  app.post('/api/menu-category-items', requirePermission('menu'), async (req, res) => {
+    try {
+      const categoryName = String(req.body.categoryName || '').trim().slice(0, 100);
+      const itemName = String(req.body.itemName || '').trim().slice(0, 200);
+      if (!categoryName || !itemName) return res.status(400).json({ message: 'Category and item name are required' });
+      res.json(await storage.createMenuCategoryItem({ categoryName, itemName }));
+    } catch (err: any) {
+      if (isDuplicateErr(err)) return res.status(409).json({ message: 'Item already exists in this category' });
+      res.status(500).json({ message: err.message });
+    }
+  });
+  app.put('/api/menu-category-items/:id', requirePermission('menu'), async (req, res) => {
+    try {
+      const id = Number(req.params.id);
+      if (!Number.isInteger(id) || id <= 0) return res.status(400).json({ message: 'Invalid item id' });
+      const itemName = String(req.body.itemName || '').trim().slice(0, 200);
+      if (!itemName) return res.status(400).json({ message: 'Item name is required' });
+      const row = await storage.updateMenuCategoryItem(id, { itemName });
+      if (!row) return res.status(404).json({ message: 'Item not found' });
+      res.json(row);
+    } catch (err: any) {
+      if (isDuplicateErr(err)) return res.status(409).json({ message: 'Item already exists in this category' });
+      res.status(500).json({ message: err.message });
+    }
+  });
+  app.delete('/api/menu-category-items/:id', requirePermission('menu'), async (req, res) => {
+    try {
+      const id = Number(req.params.id);
+      if (!Number.isInteger(id) || id <= 0) return res.status(400).json({ message: 'Invalid item id' });
+      await storage.deleteMenuCategoryItem(id);
+      res.json({ success: true });
+    } catch (err: any) { res.status(500).json({ message: err.message }); }
   });
 
   // === EMPLOYEE SHIFT DUTIES ===

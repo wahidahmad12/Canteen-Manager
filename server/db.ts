@@ -84,6 +84,12 @@ async function initPool(): Promise<void> {
       rate DECIMAL(10,2) NOT NULL,
       UNIQUE KEY uq_banana_effective_date (effective_date)
     )`,
+    `CREATE TABLE IF NOT EXISTS menu_category_items (
+      id INT AUTO_INCREMENT PRIMARY KEY,
+      category_name VARCHAR(100) NOT NULL,
+      item_name VARCHAR(200) NOT NULL,
+      UNIQUE KEY uq_menu_cat_item (category_name, item_name)
+    )`,
   ];
   for (const sql of migrations) {
     try { await pool.execute(sql); } catch (e: any) { console.log('[db] migration note:', e.message?.slice(0, 80)); }

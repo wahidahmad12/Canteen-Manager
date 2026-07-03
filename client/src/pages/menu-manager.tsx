@@ -6,7 +6,8 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Badge } from "@/components/ui/badge";
 import { RotateCcw, Download, Loader2, FileSpreadsheet, Save, Plus, X, Upload, Eye, Pencil, Trash2, History, RefreshCw, MessageCircle, Copy, CheckCheck, Printer } from "lucide-react";
 import { format, addDays, getDay } from "date-fns";
-import { useClientNames, useCreateSavedMenu, useSavedMenu, useSavedMenus, useUpdateSavedMenu, useDeleteSavedMenu, useSavedItemNames } from "@/hooks/use-reports";
+import { useClientNames, useCreateSavedMenu, useSavedMenu, useSavedMenus, useUpdateSavedMenu, useDeleteSavedMenu, useSavedItemNames, useMenuCategoryItems } from "@/hooks/use-reports";
+import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { useSearch } from "wouter";
 
@@ -174,16 +175,33 @@ export default function MenuManager() {
 
   const [cellValues, setCellValues] = useState<Record<string, string>>({});
   const [initialized, setInitialized] = useState(false);
-  const [customItems, setCustomItems] = useState<Record<number, string[]>>({});
   const [addItemCatId, setAddItemCatId] = useState<number | null>(null);
   const [newItemName, setNewItemName] = useState("");
+  const [savingItem, setSavingItem] = useState(false);
+  const [editItem, setEditItem] = useState<{ id: number; value: string } | null>(null);
+
+  // Custom items are saved permanently in the database, keyed by category name.
+  const { data: menuCatItems } = useMenuCategoryItems();
+  const customItemsByCat = useMemo(() => {
+    const map: Record<string, { id: number; itemName: string }[]> = {};
+    (menuCatItems || []).forEach(it => {
+      if (!map[it.categoryName]) map[it.categoryName] = [];
+      map[it.categoryName].push({ id: it.id, itemName: it.itemName });
+    });
+    return map;
+  }, [menuCatItems]);
 
   const getCatOptions = useCallback((cat: Category) => {
-    return [...cat.options, ...(customItems[cat.id] || [])];
-  }, [customItems]);
+    const custom = (customItemsByCat[cat.name] || [])
+      .map(i => i.itemName)
+      .filter(c => !cat.options.some(o => o.toLowerCase() === c.toLowerCase()));
+    return [...cat.options, ...custom];
+  }, [customItemsByCat]);
 
-  const handleAddItem = () => {
-    if (!newItemName.trim() || addItemCatId === null) return;
+  const invalidateMenuItems = () => queryClient.invalidateQueries({ queryKey: ['/api/menu-category-items'] });
+
+  const handleAddItem = async () => {
+    if (!newItemName.trim() || addItemCatId === null || savingItem) return;
     const cat = allCategoriesForDialog.find(c => c.id === addItemCatId);
     if (!cat) return;
     const allOpts = getCatOptions(cat);
@@ -191,19 +209,41 @@ export default function MenuManager() {
       toast({ title: "Item already exists in this category", variant: "destructive" });
       return;
     }
-    setCustomItems(prev => ({
-      ...prev,
-      [addItemCatId]: [...(prev[addItemCatId] || []), newItemName.trim()],
-    }));
-    toast({ title: `"${newItemName.trim()}" added to ${cat.name}` });
-    setNewItemName("");
+    try {
+      setSavingItem(true);
+      await apiRequest("POST", "/api/menu-category-items", { categoryName: cat.name, itemName: newItemName.trim() });
+      await invalidateMenuItems();
+      toast({ title: `"${newItemName.trim()}" added to ${cat.name} (saved permanently)` });
+      setNewItemName("");
+    } catch (err: any) {
+      toast({ title: "Could not save item", description: err.message, variant: "destructive" });
+    } finally {
+      setSavingItem(false);
+    }
   };
 
-  const handleRemoveCustomItem = (catId: number, item: string) => {
-    setCustomItems(prev => ({
-      ...prev,
-      [catId]: (prev[catId] || []).filter(i => i !== item),
-    }));
+  const handleRemoveCustomItem = async (itemId: number) => {
+    try {
+      await apiRequest("DELETE", `/api/menu-category-items/${itemId}`);
+      await invalidateMenuItems();
+    } catch (err: any) {
+      toast({ title: "Could not remove item", description: err.message, variant: "destructive" });
+    }
+  };
+
+  const handleSaveEditItem = async () => {
+    if (!editItem || !editItem.value.trim() || savingItem) return;
+    try {
+      setSavingItem(true);
+      await apiRequest("PUT", `/api/menu-category-items/${editItem.id}`, { itemName: editItem.value.trim() });
+      await invalidateMenuItems();
+      toast({ title: "Item updated" });
+      setEditItem(null);
+    } catch (err: any) {
+      toast({ title: "Could not update item", description: err.message, variant: "destructive" });
+    } finally {
+      setSavingItem(false);
+    }
   };
 
   useEffect(() => {
@@ -880,10 +920,7 @@ export default function MenuManager() {
 
       const cats = (activeMealType === "lunch" || activeMealType === "dinner") ? lunchDinnerCategories : snackCategories;
       const newValues: Record<string, string> = { ...cellValues };
-      const newCustomItems: Record<number, string[]> = {};
-      Object.entries(customItems).forEach(([k, v]) => {
-        newCustomItems[Number(k)] = [...v];
-      });
+      const itemsToSave: { categoryName: string; itemName: string }[] = [];
 
       let weekNum = 0;
       let readingData = false;
@@ -916,22 +953,46 @@ export default function MenuManager() {
           const key = `${mt.prefix}w${weekNum}_c${cat.id}_d${colIdx}`;
           newValues[key] = val;
 
-          const existing = [...cat.options, ...(newCustomItems[cat.id] || [])];
+          const existing = [
+            ...getCatOptions(cat),
+            ...itemsToSave.filter(t => t.categoryName === cat.name).map(t => t.itemName),
+          ];
           if (!existing.some(o => o.toLowerCase() === val.toLowerCase())) {
-            newCustomItems[cat.id] = [...(newCustomItems[cat.id] || []), val];
+            itemsToSave.push({ categoryName: cat.name, itemName: val });
             newItemsAdded++;
           }
         });
       });
 
       setCellValues(newValues);
-      setCustomItems(newCustomItems);
-      toast({
-        title: "Menu Imported",
-        description: newItemsAdded > 0
-          ? `Menu loaded successfully. ${newItemsAdded} new item(s) added to options.`
-          : "Menu loaded successfully from Excel.",
-      });
+      // Persist any new items found in the Excel file so they stay available permanently.
+      let savedCount = 0;
+      let failedCount = 0;
+      for (const t of itemsToSave) {
+        try {
+          await apiRequest("POST", "/api/menu-category-items", t);
+          savedCount++;
+        } catch (e: any) {
+          // 409 = already saved in DB, which is fine
+          if (String(e?.message || "").startsWith("409")) savedCount++;
+          else failedCount++;
+        }
+      }
+      if (itemsToSave.length > 0) await invalidateMenuItems();
+      if (failedCount > 0) {
+        toast({
+          title: "Menu Imported (with warnings)",
+          description: `Menu loaded. ${savedCount} new item(s) saved, but ${failedCount} could not be saved permanently. They are still in the grid — please re-add them via Add Item.`,
+          variant: "destructive",
+        });
+      } else {
+        toast({
+          title: "Menu Imported",
+          description: newItemsAdded > 0
+            ? `Menu loaded successfully. ${newItemsAdded} new item(s) saved to options permanently.`
+            : "Menu loaded successfully from Excel.",
+        });
+      }
     } catch (err: any) {
       toast({ title: "Import Failed", description: err.message || "Could not read the Excel file.", variant: "destructive" });
     }
@@ -1345,27 +1406,60 @@ export default function MenuManager() {
               </Button>
             </div>
 
+            {editItem && (
+              <div className="flex gap-2 items-center border rounded-md p-2 bg-blue-50 dark:bg-blue-950/30">
+                <Input
+                  value={editItem.value}
+                  onChange={e => setEditItem({ ...editItem, value: e.target.value })}
+                  onKeyDown={e => { if (e.key === "Enter") handleSaveEditItem(); }}
+                  className="flex-1 h-8"
+                  data-testid="input-edit-menu-item"
+                  autoFocus
+                />
+                <Button size="sm" className="h-8" onClick={handleSaveEditItem} disabled={!editItem.value.trim() || savingItem} data-testid="button-save-edit-item">
+                  Save
+                </Button>
+                <Button size="sm" variant="ghost" className="h-8" onClick={() => setEditItem(null)} data-testid="button-cancel-edit-item">
+                  Cancel
+                </Button>
+              </div>
+            )}
+
             {addItemCatId !== null && dialogCat && (
               <div>
-                <p className="text-xs text-muted-foreground mb-2 font-medium">Current items:</p>
+                <p className="text-xs text-muted-foreground mb-2 font-medium">
+                  Current items <span className="text-blue-600">(blue = your saved items, click ✎ to edit)</span>:
+                </p>
                 <div className="flex flex-wrap gap-1.5 max-h-48 overflow-y-auto">
                   {getCatOptions(dialogCat).map(item => {
-                    const isCustom = (customItems[addItemCatId] || []).includes(item);
+                    const customEntry = (customItemsByCat[dialogCat.name] || []).find(
+                      i => i.itemName.toLowerCase() === item.toLowerCase() &&
+                           !dialogCat.options.some(o => o.toLowerCase() === item.toLowerCase())
+                    );
                     return (
                       <Badge
                         key={item}
-                        variant={isCustom ? "default" : "secondary"}
-                        className={`text-xs ${isCustom ? "bg-blue-600 hover:bg-blue-700" : ""}`}
+                        variant={customEntry ? "default" : "secondary"}
+                        className={`text-xs ${customEntry ? "bg-blue-600 hover:bg-blue-700" : ""}`}
                       >
                         {item}
-                        {isCustom && (
-                          <button
-                            className="ml-1 hover:text-red-200"
-                            onClick={() => handleRemoveCustomItem(addItemCatId, item)}
-                            data-testid={`button-remove-item-${item}`}
-                          >
-                            <X className="w-3 h-3" />
-                          </button>
+                        {customEntry && (
+                          <>
+                            <button
+                              className="ml-1 hover:text-yellow-200"
+                              onClick={() => setEditItem({ id: customEntry.id, value: customEntry.itemName })}
+                              data-testid={`button-edit-item-${item}`}
+                            >
+                              <Pencil className="w-3 h-3" />
+                            </button>
+                            <button
+                              className="ml-1 hover:text-red-200"
+                              onClick={() => handleRemoveCustomItem(customEntry.id)}
+                              data-testid={`button-remove-item-${item}`}
+                            >
+                              <X className="w-3 h-3" />
+                            </button>
+                          </>
                         )}
                       </Badge>
                     );
