@@ -38,6 +38,11 @@ function getDaysInMonth(month: number, year: number): number {
   return new Date(year, month, 0).getDate();
 }
 
+const DAY_ABBR = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+function getDayName(day: number, month: number, year: number): string {
+  return DAY_ABBR[new Date(year, month - 1, day).getDay()];
+}
+
 function cycleStatus(current: StatusCode): StatusCode {
   const idx = STATUS_CODES.indexOf(current);
   return STATUS_CODES[(idx + 1) % STATUS_CODES.length];
@@ -368,7 +373,11 @@ export default function MusterRoll() {
             <th rowspan="2" style="width:40px">Remarks</th>
           </tr>
           <tr>
-            ${Array.from({ length: daysInMonth }, (_, i) => `<th style="min-width:18px">${i + 1}</th>`).join("")}
+            ${Array.from({ length: daysInMonth }, (_, i) => {
+              const dn = getDayName(i + 1, monthNum, yearNum);
+              const red = dn === "Sun" ? "color:#dc2626;" : "";
+              return `<th style="min-width:18px;${red}">${i + 1}<br/><span style="font-size:6px;font-weight:normal">${dn}</span></th>`;
+            }).join("")}
           </tr>
         </thead>
         <tbody>
@@ -397,6 +406,19 @@ export default function MusterRoll() {
     hr.eachCell((cell) => {
       cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFD9E1F2" } };
       cell.border = { top: { style: "thin" }, bottom: { style: "thin" }, left: { style: "thin" }, right: { style: "thin" } };
+    });
+
+    const dayNameRow = ["", ""];
+    for (let d = 1; d <= daysInMonth; d++) dayNameRow.push(getDayName(d, monthNum, yearNum));
+    const dnr = ws.addRow(dayNameRow);
+    dnr.font = { bold: true, size: 8 };
+    dnr.alignment = { horizontal: "center", vertical: "middle" };
+    dnr.eachCell((cell, colNumber) => {
+      cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFEDF2FA" } };
+      cell.border = { top: { style: "thin" }, bottom: { style: "thin" }, left: { style: "thin" }, right: { style: "thin" } };
+      if (colNumber > 2 && getDayName(colNumber - 2, monthNum, yearNum) === "Sun") {
+        cell.font = { bold: true, size: 8, color: { argb: "FFDC2626" } };
+      }
     });
 
     ws.getColumn(1).width = 8;
@@ -540,6 +562,20 @@ export default function MusterRoll() {
       cell.font = { bold: true, size: 9, color: { argb: "FFFFFFFF" } };
       cell.border = { top: { style: "thin" }, bottom: { style: "thin" }, left: { style: "thin" }, right: { style: "thin" } };
       cell.alignment = { horizontal: "center" };
+    });
+
+    const dayNames: string[] = ["", "", ""];
+    for (let d = 1; d <= daysInMonth; d++) dayNames.push(getDayName(d, monthNum, yearNum));
+    for (let i = 0; i < 8; i++) dayNames.push("");
+    const dayNameRow = ws.addRow(dayNames);
+    dayNameRow.eachCell((cell, colNumber) => {
+      cell.font = { bold: true, size: 7, color: { argb: "FF374151" } };
+      cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFD1FAE5" } };
+      cell.border = { top: { style: "thin" }, bottom: { style: "thin" }, left: { style: "thin" }, right: { style: "thin" } };
+      cell.alignment = { horizontal: "center" };
+      if (colNumber > 3 && colNumber <= 3 + daysInMonth && getDayName(colNumber - 3, monthNum, yearNum) === "Sun") {
+        cell.font = { bold: true, size: 7, color: { argb: "FFDC2626" } };
+      }
     });
 
     employees.forEach((emp: any, idx: number) => {
@@ -850,11 +886,16 @@ export default function MusterRoll() {
                         <th className="sticky left-[30px] z-10 bg-muted/90 backdrop-blur-sm px-3 py-2 text-left font-semibold min-w-[140px]">
                           Employee Name
                         </th>
-                        {Array.from({ length: daysInMonth }, (_, i) => (
-                          <th key={i} className="px-1 py-2 text-center font-semibold min-w-[36px] day-cell">
-                            {i + 1}
-                          </th>
-                        ))}
+                        {Array.from({ length: daysInMonth }, (_, i) => {
+                          const dn = getDayName(i + 1, monthNum, yearNum);
+                          const isSunday = dn === "Sun";
+                          return (
+                            <th key={i} className={`px-1 py-1 text-center font-semibold min-w-[36px] day-cell ${isSunday ? "text-red-600 dark:text-red-400" : ""}`}>
+                              <div className="leading-tight">{i + 1}</div>
+                              <div className="text-[8px] font-normal opacity-70 leading-tight">{dn}</div>
+                            </th>
+                          );
+                        })}
                         <th className="px-2 py-2 text-center font-semibold min-w-[40px] bg-emerald-50 dark:bg-emerald-950/20 summary-present">
                           P
                         </th>
