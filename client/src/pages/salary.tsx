@@ -400,6 +400,8 @@ export default function SalaryRegister() {
   const [salaryPrintSelectedIds, setSalaryPrintSelectedIds] = useState<Set<number>>(new Set());
   const [activeTab, setActiveTab] = useState("register");
   const [neftSearch, setNeftSearch] = useState("");
+  const [neftPrintDialogOpen, setNeftPrintDialogOpen] = useState(false);
+  const [neftPrintSelectedIds, setNeftPrintSelectedIds] = useState<Set<number>>(new Set());
 
   const salaryPrintEmployeeList = useMemo(() => {
     return (salaries || []).filter(s => employeeMap.has(s.employeeId)).map(s => {
@@ -918,17 +920,40 @@ export default function SalaryRegister() {
     });
   }, [rows, loaded, neftSearch]);
 
+  const openNeftPrintDialog = () => {
+    setNeftPrintSelectedIds(new Set(neftRows.map(r => r.emp?.id).filter((id): id is number => id !== undefined)));
+    setNeftPrintDialogOpen(true);
+  };
+
+  const neftPrintEmployeeList = useMemo(() => {
+    return neftRows
+      .filter(r => r.emp?.id !== undefined)
+      .map(r => ({ id: r.emp!.id, name: r.emp?.name || `Employee #${r.emp!.id}`, employeeCode: r.emp?.employeeCode }));
+  }, [neftRows]);
+
+  const formatPaymentDate = (d: string) => {
+    if (!d) return "";
+    const parts = d.split("-");
+    if (parts.length === 3) return `${parts[2]}/${parts[1]}/${parts[0]}`;
+    return d;
+  };
+
   const handleNeftPrint = useCallback(() => {
     const printWin = window.open("", "_blank", "width=1000,height=700");
     if (!printWin) return;
+    const printRows = neftRows.filter(r => neftPrintSelectedIds.size === 0 || (r.emp?.id !== undefined && neftPrintSelectedIds.has(r.emp.id)));
     const title = `${clientName} — Salary NEFT — ${MONTHS[Number(month) - 1]} ${year}`;
-    const total = neftRows.reduce((s, r) => s + r.netSalary, 0);
-    const rows2 = neftRows.map((r, i) => `<tr>
+    const total = printRows.reduce((s, r) => s + r.netSalary, 0);
+    const paymentDateLine = salaryPaidDate
+      ? `<h3 style="color:#1b5e20;font-weight:bold">Payment Date: ${formatPaymentDate(salaryPaidDate)}</h3>`
+      : "";
+    const rows2 = printRows.map((r, i) => `<tr>
       <td>${i + 1}</td>
       <td>${r.emp?.name || ""}</td>
       <td>${r.emp?.bankName || ""}</td>
       <td>${r.emp?.accountNo || ""}</td>
       <td>${r.emp?.ifscCode || ""}</td>
+      <td style="text-align:center">${salaryPaidDate ? formatPaymentDate(salaryPaidDate) : "—"}</td>
       <td style="text-align:right;font-weight:bold;color:#1b5e20">₹${fmt(r.netSalary)}</td>
     </tr>`).join("");
     printWin.document.write(`<html><head><title>${title}</title>
@@ -944,20 +969,21 @@ export default function SalaryRegister() {
     </style></head><body>
     <h2>${clientName} — Salary NEFT Transfer</h2>
     <h3>${MONTHS[Number(month) - 1]} ${year}</h3>
+    ${paymentDateLine}
     <table>
       <thead><tr>
-        <th>Sl.</th><th>Employee Name</th><th>Bank Name</th><th>Account No</th><th>IFSC Code</th><th>Net Salary</th>
+        <th>Sl.</th><th>Employee Name</th><th>Bank Name</th><th>Account No</th><th>IFSC Code</th><th>Payment Date</th><th>Net Salary</th>
       </tr></thead>
       <tbody>${rows2}</tbody>
       <tfoot><tr>
-        <td colspan="5" style="text-align:right">Total</td>
+        <td colspan="6" style="text-align:right">Total (${printRows.length} employees)</td>
         <td style="text-align:right;color:#1b5e20">₹${fmt(total)}</td>
       </tr></tfoot>
     </table>
     </body></html>`);
     printWin.document.close();
     printWin.print();
-  }, [neftRows, clientName, month, year]);
+  }, [neftRows, neftPrintSelectedIds, clientName, month, year, salaryPaidDate]);
 
   const handleNeftExcel = useCallback(async () => {
     if (neftRows.length === 0) return;
@@ -967,8 +993,12 @@ export default function SalaryRegister() {
     const title = `${clientName} — Salary NEFT — ${MONTHS[Number(month) - 1]} ${year}`;
     const t1 = ws.addRow([title]);
     t1.font = { bold: true, size: 13 };
+    if (salaryPaidDate) {
+      const pd = ws.addRow([`Payment Date: ${formatPaymentDate(salaryPaidDate)}`]);
+      pd.font = { bold: true, size: 11, color: { argb: "FF1B5E20" } };
+    }
     ws.addRow([]);
-    const hdr = ws.addRow(["Sl. No.", "Emp Name", "Bank Name", "Account No", "IFSC Code", "Net Salary"]);
+    const hdr = ws.addRow(["Sl. No.", "Emp Name", "Bank Name", "Account No", "IFSC Code", "Payment Date", "Net Salary"]);
     hdr.eachCell(c => {
       c.font = { bold: true, color: { argb: "FFFFFFFF" }, size: 10 };
       c.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FF1A237E" } };
@@ -976,31 +1006,32 @@ export default function SalaryRegister() {
       c.border = { top: { style: "thin" }, bottom: { style: "thin" }, left: { style: "thin" }, right: { style: "thin" } };
     });
     neftRows.forEach((r, i) => {
-      const row = ws.addRow([i + 1, r.emp?.name || "", r.emp?.bankName || "", r.emp?.accountNo || "", r.emp?.ifscCode || "", r.netSalary]);
+      const row = ws.addRow([i + 1, r.emp?.name || "", r.emp?.bankName || "", r.emp?.accountNo || "", r.emp?.ifscCode || "", salaryPaidDate ? formatPaymentDate(salaryPaidDate) : "—", r.netSalary]);
       row.eachCell((c, col) => {
         c.border = { top: { style: "thin" }, bottom: { style: "thin" }, left: { style: "thin" }, right: { style: "thin" } };
         c.font = { size: 10 };
-        if (col === 6) { c.numFmt = '₹#,##0'; c.alignment = { horizontal: "right" }; c.font = { bold: true, size: 10, color: { argb: "FF1B5E20" } }; }
+        if (col === 6) { c.alignment = { horizontal: "center" }; }
+        if (col === 7) { c.numFmt = '₹#,##0'; c.alignment = { horizontal: "right" }; c.font = { bold: true, size: 10, color: { argb: "FF1B5E20" } }; }
       });
       if (i % 2 === 1) row.eachCell(c => { c.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFF5F5F5" } }; });
     });
     const total = neftRows.reduce((s, r) => s + r.netSalary, 0);
-    const tot = ws.addRow(["", "", "", "", "Total", total]);
+    const tot = ws.addRow(["", "", "", "", "", "Total", total]);
     tot.eachCell((c, col) => {
-      c.font = { bold: true, size: 10, color: col === 6 ? { argb: "FF1B5E20" } : { argb: "FF000000" } };
+      c.font = { bold: true, size: 10, color: col === 7 ? { argb: "FF1B5E20" } : { argb: "FF000000" } };
       c.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFE8F5E9" } };
       c.border = { top: { style: "medium" }, bottom: { style: "thin" }, left: { style: "thin" }, right: { style: "thin" } };
-      if (col === 6) { c.numFmt = '₹#,##0'; c.alignment = { horizontal: "right" }; }
+      if (col === 7) { c.numFmt = '₹#,##0'; c.alignment = { horizontal: "right" }; }
     });
     ws.getColumn(1).width = 6; ws.getColumn(2).width = 28; ws.getColumn(3).width = 22;
-    ws.getColumn(4).width = 20; ws.getColumn(5).width = 16; ws.getColumn(6).width = 14;
+    ws.getColumn(4).width = 20; ws.getColumn(5).width = 16; ws.getColumn(6).width = 14; ws.getColumn(7).width = 14;
     const buf = await wb.xlsx.writeBuffer();
     const blob = new Blob([buf], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a"); a.href = url;
     a.download = `NEFT_${clientName}_${MONTHS[Number(month) - 1]}_${year}.xlsx`;
     a.click(); URL.revokeObjectURL(url);
-  }, [neftRows, clientName, month, year]);
+  }, [neftRows, clientName, month, year, salaryPaidDate]);
 
   const years = Array.from({ length: 5 }, (_, i) => String(now.getFullYear() - 2 + i));
 
@@ -1561,7 +1592,7 @@ export default function SalaryRegister() {
                         />
                       </div>
                       <div className="flex gap-2">
-                        <Button variant="outline" size="sm" onClick={handleNeftPrint} data-testid="button-neft-print">
+                        <Button variant="outline" size="sm" onClick={openNeftPrintDialog} data-testid="button-neft-print">
                           <Printer className="w-4 h-4 mr-1" /> Print
                         </Button>
                         <Button variant="outline" size="sm" onClick={handleNeftExcel} data-testid="button-neft-excel">
@@ -1579,6 +1610,7 @@ export default function SalaryRegister() {
                             <th className="px-3 py-2 text-left font-semibold text-xs">Bank Name</th>
                             <th className="px-3 py-2 text-left font-semibold text-xs">Account No</th>
                             <th className="px-3 py-2 text-left font-semibold text-xs">IFSC Code</th>
+                            <th className="px-3 py-2 text-center font-semibold text-xs">Payment Date</th>
                             <th className="px-3 py-2 text-right font-semibold text-xs">Net Salary</th>
                           </tr>
                         </thead>
@@ -1590,6 +1622,9 @@ export default function SalaryRegister() {
                               <td className="px-3 py-2 text-sm border-b">{r.emp?.bankName || <span className="text-muted-foreground text-xs">—</span>}</td>
                               <td className="px-3 py-2 text-sm font-mono border-b">{r.emp?.accountNo || <span className="text-muted-foreground text-xs">—</span>}</td>
                               <td className="px-3 py-2 text-sm font-mono border-b">{r.emp?.ifscCode || <span className="text-muted-foreground text-xs">—</span>}</td>
+                              <td className="px-3 py-2 text-center text-sm border-b" data-testid={`text-neft-payment-date-${i}`}>
+                                {salaryPaidDate ? formatPaymentDate(salaryPaidDate) : <span className="text-muted-foreground text-xs">—</span>}
+                              </td>
                               <td className="px-3 py-2 text-right text-sm font-bold text-green-700 dark:text-green-400 border-b">
                                 {fmtR(r.netSalary)}
                               </td>
@@ -1598,7 +1633,7 @@ export default function SalaryRegister() {
                         </tbody>
                         <tfoot>
                           <tr className="bg-green-50 dark:bg-green-900/20 border-t-2 border-green-600">
-                            <td colSpan={5} className="px-3 py-2 text-right text-sm font-bold text-green-800 dark:text-green-300">
+                            <td colSpan={6} className="px-3 py-2 text-right text-sm font-bold text-green-800 dark:text-green-300">
                               Total ({neftRows.length} employees)
                             </td>
                             <td className="px-3 py-2 text-right text-sm font-bold text-green-700 dark:text-green-400">
@@ -1623,6 +1658,15 @@ export default function SalaryRegister() {
         onSelectedEmployeeIdsChange={setSalaryPrintSelectedIds}
         onPrint={handleGovPrint}
         title="Print Form XVII - Select Employees"
+      />
+      <PrintSettingsDialog
+        open={neftPrintDialogOpen}
+        onOpenChange={setNeftPrintDialogOpen}
+        employees={neftPrintEmployeeList}
+        selectedEmployeeIds={neftPrintSelectedIds}
+        onSelectedEmployeeIdsChange={setNeftPrintSelectedIds}
+        onPrint={handleNeftPrint}
+        title="Print Salary NEFT - Select Employees"
       />
     </Layout>
   );
