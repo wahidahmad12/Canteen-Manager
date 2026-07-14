@@ -1,7 +1,7 @@
 import { useState, useMemo, useRef, useCallback, useEffect } from "react";
 import { Link } from "wouter";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { Loader2, Printer, FileText, Users, IndianRupee, TrendingDown, Wallet, ArrowRight, Download, ImageDown, FileSpreadsheet, Banknote } from "lucide-react";
+import { useQuery, useQueries, useMutation, useQueryClient } from "@tanstack/react-query";
+import { Loader2, Printer, FileText, Users, IndianRupee, TrendingDown, Wallet, ArrowRight, Download, ImageDown, FileSpreadsheet, Banknote, CalendarRange } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { PrintSettingsDialog } from "@/components/print-settings-dialog";
 import { Layout } from "@/components/layout";
@@ -11,6 +11,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
+import { Checkbox } from "@/components/ui/checkbox";
 import { useToast } from "@/hooks/use-toast";
 import { useClientNames, useCurrentUser } from "@/hooks/use-reports";
 import { apiRequest, queryClient as qc } from "@/lib/queryClient";
@@ -402,6 +403,8 @@ export default function SalaryRegister() {
   const [neftSearch, setNeftSearch] = useState("");
   const [neftPrintDialogOpen, setNeftPrintDialogOpen] = useState(false);
   const [neftPrintSelectedIds, setNeftPrintSelectedIds] = useState<Set<number>>(new Set());
+  const [annualMonths, setAnnualMonths] = useState<Set<number>>(new Set());
+  const [annualLoaded, setAnnualLoaded] = useState(false);
 
   const salaryPrintEmployeeList = useMemo(() => {
     return (salaries || []).filter(s => employeeMap.has(s.employeeId)).map(s => {
@@ -1033,6 +1036,162 @@ export default function SalaryRegister() {
     a.click(); URL.revokeObjectURL(url);
   }, [neftRows, clientName, month, year, salaryPaidDate]);
 
+  const annualMonthList = useMemo(() => Array.from(annualMonths).sort((a, b) => a - b), [annualMonths]);
+
+  const annualQueries = useQueries({
+    queries: annualMonthList.map(m => ({
+      queryKey: ["/api/salary", clientName, String(m), year],
+      queryFn: async () => {
+        const res = await fetch(`/api/salary?clientName=${encodeURIComponent(clientName)}&month=${m}&year=${year}`, { credentials: "include" });
+        if (!res.ok) throw new Error("Failed to fetch salary data");
+        return res.json() as Promise<SalaryRecord[]>;
+      },
+      enabled: annualLoaded && !!clientName,
+    })),
+  });
+
+  const annualLoading = annualLoaded && annualQueries.some(q => q.isLoading);
+  const annualError = annualLoaded && annualQueries.some(q => q.isError);
+
+  const annualReport = useMemo(() => {
+    if (!annualLoaded || annualMonthList.length === 0) return null;
+    if (annualQueries.some(q => q.isLoading || !q.data)) return null;
+    const byMonth: Record<number, SalaryRecord[]> = {};
+    annualMonthList.forEach((m, i) => { byMonth[m] = annualQueries[i].data || []; });
+    const empIds = new Set<number>();
+    annualMonthList.forEach(m => byMonth[m].forEach(s => empIds.add(s.employeeId)));
+    const reportRows = Array.from(empIds).map(id => {
+      const emp = employeeMap.get(id);
+      const perMonth = annualMonthList.map(m => {
+        const rec = byMonth[m].find(s => s.employeeId === id);
+        return rec ? Number(rec.netPay) || 0 : 0;
+      });
+      const perMonthGross = annualMonthList.map(m => {
+        const rec = byMonth[m].find(s => s.employeeId === id);
+        return rec ? Number(rec.grossWage) || 0 : 0;
+      });
+      const total = perMonth.reduce((a, b) => a + b, 0);
+      const totalGross = perMonthGross.reduce((a, b) => a + b, 0);
+      return { id, name: emp?.name || `Employee #${id}`, code: emp?.employeeCode, designation: emp?.designation, perMonth, total, totalGross };
+    }).sort((a, b) => a.name.localeCompare(b.name));
+    const monthTotals = annualMonthList.map((_, i) => reportRows.reduce((s, r) => s + r.perMonth[i], 0));
+    const grandTotal = monthTotals.reduce((a, b) => a + b, 0);
+    return { rows: reportRows, monthTotals, grandTotal };
+  }, [annualLoaded, annualMonthList, annualQueries, employeeMap]);
+
+  const toggleAnnualMonth = (m: number) => {
+    setAnnualMonths(prev => {
+      const next = new Set(prev);
+      if (next.has(m)) next.delete(m); else next.add(m);
+      return next;
+    });
+    setAnnualLoaded(false);
+  };
+
+  const handleAnnualLoad = () => {
+    if (!clientName) {
+      toast({ title: "Select Client", description: "Please select a client name first.", variant: "destructive" });
+      return;
+    }
+    if (annualMonths.size === 0) {
+      toast({ title: "Select Months", description: "Please tick at least one month.", variant: "destructive" });
+      return;
+    }
+    setAnnualLoaded(true);
+  };
+
+  const handleAnnualPrint = useCallback(() => {
+    if (!annualReport) return;
+    const printWin = window.open("", "_blank", "width=1100,height=700");
+    if (!printWin) return;
+    const monthNames = annualMonthList.map(m => MONTHS[m - 1]);
+    const title = `${clientName} — Annual Salary Report — ${monthNames.length === 12 ? year : monthNames.map(n => n.slice(0, 3)).join(", ") + " " + year}`;
+    const headCols = annualMonthList.map(m => `<th>${MONTHS[m - 1].slice(0, 3)} ${year}</th>`).join("");
+    const bodyRows = annualReport.rows.map((r, i) => `<tr>
+      <td>${i + 1}</td>
+      <td style="text-align:left">${r.name}</td>
+      <td>${r.designation || ""}</td>
+      ${r.perMonth.map(v => `<td style="text-align:right">${v ? "₹" + fmt(v) : "—"}</td>`).join("")}
+      <td style="text-align:right;font-weight:bold;color:#1b5e20">₹${fmt(r.total)}</td>
+    </tr>`).join("");
+    const footCols = annualReport.monthTotals.map(v => `<td style="text-align:right">₹${fmt(v)}</td>`).join("");
+    printWin.document.write(`<html><head><title>${clientName} — Annual Salary Report ${year}</title>
+    <style>
+      @page { size: A4 landscape; margin: 8mm; }
+      body { font-family: Arial, sans-serif; font-size: 10px; margin: 10mm; }
+      h2 { text-align: center; font-size: 14px; margin: 0 0 4px; }
+      h3 { text-align: center; font-size: 11px; color: #555; margin: 0 0 10px; }
+      table { width: 100%; border-collapse: collapse; }
+      th { background: #1a237e; color: #fff; padding: 5px 6px; text-align: center; }
+      td { border: 1px solid #ccc; padding: 4px 6px; }
+      tr:nth-child(even) td { background: #f5f5f5; }
+      tfoot td { font-weight: bold; background: #e8f5e9; border-top: 2px solid #1b5e20; }
+    </style></head><body>
+    <h2>${clientName} — Annual Salary Report</h2>
+    <h3>${monthNames.join(", ")} ${year} (Net Salary)</h3>
+    <table>
+      <thead><tr>
+        <th>Sl.</th><th>Employee Name</th><th>Designation</th>${headCols}<th>Total</th>
+      </tr></thead>
+      <tbody>${bodyRows}</tbody>
+      <tfoot><tr>
+        <td colspan="3" style="text-align:right">Total (${annualReport.rows.length} employees)</td>
+        ${footCols}
+        <td style="text-align:right;color:#1b5e20">₹${fmt(annualReport.grandTotal)}</td>
+      </tr></tfoot>
+    </table>
+    </body></html>`);
+    printWin.document.close();
+    printWin.print();
+  }, [annualReport, annualMonthList, clientName, year]);
+
+  const handleAnnualExcel = useCallback(async () => {
+    if (!annualReport) return;
+    const ExcelJS = (await import("exceljs")).default;
+    const wb = new ExcelJS.Workbook();
+    const ws = wb.addWorksheet("Annual Salary");
+    const monthNames = annualMonthList.map(m => MONTHS[m - 1]);
+    const t1 = ws.addRow([`${clientName} — Annual Salary Report — ${year}`]);
+    t1.font = { bold: true, size: 13 };
+    const t2 = ws.addRow([`Months: ${monthNames.join(", ")} (Net Salary)`]);
+    t2.font = { size: 10, color: { argb: "FF555555" } };
+    ws.addRow([]);
+    const hdr = ws.addRow(["Sl. No.", "Employee Name", "Designation", ...annualMonthList.map(m => `${MONTHS[m - 1].slice(0, 3)} ${year}`), "Total"]);
+    hdr.eachCell(c => {
+      c.font = { bold: true, color: { argb: "FFFFFFFF" }, size: 10 };
+      c.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FF1A237E" } };
+      c.alignment = { horizontal: "center", vertical: "middle" };
+      c.border = { top: { style: "thin" }, bottom: { style: "thin" }, left: { style: "thin" }, right: { style: "thin" } };
+    });
+    const totalColIdx = 4 + annualMonthList.length;
+    annualReport.rows.forEach((r, i) => {
+      const row = ws.addRow([i + 1, r.name, r.designation || "", ...r.perMonth, r.total]);
+      row.eachCell((c, col) => {
+        c.border = { top: { style: "thin" }, bottom: { style: "thin" }, left: { style: "thin" }, right: { style: "thin" } };
+        c.font = { size: 10 };
+        if (col > 3) { c.numFmt = '₹#,##0'; c.alignment = { horizontal: "right" }; }
+        if (col === totalColIdx) { c.font = { bold: true, size: 10, color: { argb: "FF1B5E20" } }; }
+      });
+      if (i % 2 === 1) row.eachCell(c => { c.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFF5F5F5" } }; });
+    });
+    const tot = ws.addRow(["", "", "Total", ...annualReport.monthTotals, annualReport.grandTotal]);
+    tot.eachCell((c, col) => {
+      c.font = { bold: true, size: 10, color: col === totalColIdx ? { argb: "FF1B5E20" } : { argb: "FF000000" } };
+      c.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFE8F5E9" } };
+      c.border = { top: { style: "medium" }, bottom: { style: "thin" }, left: { style: "thin" }, right: { style: "thin" } };
+      if (col > 3) { c.numFmt = '₹#,##0'; c.alignment = { horizontal: "right" }; }
+    });
+    ws.getColumn(1).width = 7; ws.getColumn(2).width = 28; ws.getColumn(3).width = 18;
+    for (let i = 4; i <= totalColIdx; i++) ws.getColumn(i).width = 13;
+    const buf = await wb.xlsx.writeBuffer();
+    const blob = new Blob([buf], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a"); a.href = url;
+    a.download = `Annual_Salary_${clientName.replace(/\s+/g, "_")}_${year}.xlsx`;
+    a.click(); URL.revokeObjectURL(url);
+    toast({ title: "Excel Downloaded", description: "Annual salary report exported." });
+  }, [annualReport, annualMonthList, clientName, year, toast]);
+
   const years = Array.from({ length: 5 }, (_, i) => String(now.getFullYear() - 2 + i));
 
   const clientOptions = clients?.map((c: any) => (typeof c === "string" ? c : c.name)) || [];
@@ -1166,6 +1325,10 @@ export default function SalaryRegister() {
             <TabsTrigger value="neft" data-testid="tab-salary-neft">
               <Banknote className="w-4 h-4 mr-1" />
               Salary NEFT
+            </TabsTrigger>
+            <TabsTrigger value="annual" data-testid="tab-salary-annual">
+              <CalendarRange className="w-4 h-4 mr-1" />
+              Annual Report
             </TabsTrigger>
           </TabsList>
 
@@ -1644,6 +1807,140 @@ export default function SalaryRegister() {
                       </table>
                     </div>
                   </>
+                )}
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          <TabsContent value="annual">
+            <Card data-testid="card-annual-report">
+              <CardHeader className="pb-3">
+                <CardTitle className="text-base flex items-center gap-2">
+                  <CalendarRange className="w-4 h-4" />
+                  Annual Salary Report — {year}
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <Label className="text-sm font-semibold">Select Months ({annualMonths.size}/12)</Label>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-7 text-xs"
+                      onClick={() => {
+                        setAnnualMonths(annualMonths.size === 12 ? new Set() : new Set(Array.from({ length: 12 }, (_, i) => i + 1)));
+                        setAnnualLoaded(false);
+                      }}
+                      data-testid="button-toggle-all-months"
+                    >
+                      {annualMonths.size === 12 ? "Clear All" : "Select All 12"}
+                    </Button>
+                  </div>
+                  <div className="grid grid-cols-3 sm:grid-cols-4 lg:grid-cols-6 gap-2">
+                    {MONTHS.map((m, i) => (
+                      <div key={m} className="flex items-center gap-2 border rounded-md px-2 py-1.5">
+                        <Checkbox
+                          id={`annual-month-${i + 1}`}
+                          checked={annualMonths.has(i + 1)}
+                          onCheckedChange={() => toggleAnnualMonth(i + 1)}
+                          data-testid={`checkbox-annual-month-${i + 1}`}
+                        />
+                        <Label htmlFor={`annual-month-${i + 1}`} className="text-xs cursor-pointer">{m.slice(0, 3)}</Label>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="flex flex-wrap gap-2">
+                  <Button onClick={handleAnnualLoad} size="sm" data-testid="button-load-annual">
+                    <Download className="w-4 h-4 mr-1" /> Load Report
+                  </Button>
+                  {annualReport && annualReport.rows.length > 0 && (
+                    <>
+                      <Button variant="outline" size="sm" onClick={handleAnnualPrint} data-testid="button-annual-print">
+                        <Printer className="w-4 h-4 mr-1" /> Print
+                      </Button>
+                      <Button variant="outline" size="sm" onClick={handleAnnualExcel} data-testid="button-annual-excel">
+                        <FileSpreadsheet className="w-4 h-4 mr-1" /> Export Excel
+                      </Button>
+                    </>
+                  )}
+                </div>
+
+                {annualLoading && (
+                  <div className="flex items-center justify-center py-16">
+                    <Loader2 className="w-8 h-8 animate-spin text-primary" />
+                  </div>
+                )}
+
+                {!annualLoaded && !annualLoading && (
+                  <div className="text-center py-12 text-muted-foreground">
+                    <CalendarRange className="w-10 h-10 mx-auto mb-3 opacity-40" />
+                    <p className="text-sm">Tick the months you want, then click <strong>Load Report</strong>.</p>
+                  </div>
+                )}
+
+                {annualError && !annualLoading && (
+                  <div className="text-center py-12" data-testid="text-annual-error">
+                    <p className="text-sm text-destructive font-medium">Could not load salary data for some months. Please try Load Report again.</p>
+                  </div>
+                )}
+
+                {annualLoaded && annualReport && annualReport.rows.length === 0 && (
+                  <div className="text-center py-12 text-muted-foreground">
+                    <p className="text-sm">No salary data found for the selected months. Generate salary first in the Salary Register tab.</p>
+                  </div>
+                )}
+
+                {annualReport && annualReport.rows.length > 0 && (
+                  <div className="overflow-x-auto rounded-lg border">
+                    <table className="w-full text-sm border-collapse" data-testid="table-annual-report">
+                      <thead>
+                        <tr className="bg-[#1a237e] text-white">
+                          <th className="px-3 py-2 text-center font-semibold text-xs w-10">Sl.</th>
+                          <th className="px-3 py-2 text-left font-semibold text-xs whitespace-nowrap">Employee Name</th>
+                          <th className="px-3 py-2 text-left font-semibold text-xs">Designation</th>
+                          {annualMonthList.map(m => (
+                            <th key={m} className="px-3 py-2 text-right font-semibold text-xs whitespace-nowrap">{MONTHS[m - 1].slice(0, 3)} {year}</th>
+                          ))}
+                          <th className="px-3 py-2 text-right font-semibold text-xs">Total</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {annualReport.rows.map((r, i) => (
+                          <tr key={r.id} className={i % 2 === 1 ? "bg-muted/30" : ""} data-testid={`row-annual-${i}`}>
+                            <td className="px-3 py-2 text-center text-xs text-muted-foreground border-b">{i + 1}</td>
+                            <td className="px-3 py-2 text-sm font-medium border-b whitespace-nowrap">{r.name}</td>
+                            <td className="px-3 py-2 text-xs text-muted-foreground border-b whitespace-nowrap">{r.designation || "—"}</td>
+                            {r.perMonth.map((v, j) => (
+                              <td key={j} className="px-3 py-2 text-right text-sm border-b whitespace-nowrap">
+                                {v ? fmtR(v) : <span className="text-muted-foreground text-xs">—</span>}
+                              </td>
+                            ))}
+                            <td className="px-3 py-2 text-right text-sm font-bold text-green-700 dark:text-green-400 border-b whitespace-nowrap">
+                              {fmtR(r.total)}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                      <tfoot>
+                        <tr className="bg-green-50 dark:bg-green-900/20 border-t-2 border-green-600">
+                          <td colSpan={3} className="px-3 py-2 text-right text-sm font-bold text-green-800 dark:text-green-300">
+                            Total ({annualReport.rows.length} employees)
+                          </td>
+                          {annualReport.monthTotals.map((v, j) => (
+                            <td key={j} className="px-3 py-2 text-right text-sm font-bold text-green-700 dark:text-green-400 whitespace-nowrap">
+                              {fmtR(v)}
+                            </td>
+                          ))}
+                          <td className="px-3 py-2 text-right text-sm font-bold text-green-700 dark:text-green-400 whitespace-nowrap">
+                            {fmtR(annualReport.grandTotal)}
+                          </td>
+                        </tr>
+                      </tfoot>
+                    </table>
+                  </div>
                 )}
               </CardContent>
             </Card>
