@@ -1056,27 +1056,83 @@ export default function SalaryRegister() {
   const annualReport = useMemo(() => {
     if (!annualLoaded || annualMonthList.length === 0) return null;
     if (annualQueries.some(q => q.isLoading || !q.data)) return null;
+    const nv = (v: string | undefined | null) => Number(v) || 0;
     const byMonth: Record<number, SalaryRecord[]> = {};
     annualMonthList.forEach((m, i) => { byMonth[m] = annualQueries[i].data || []; });
     const empIds = new Set<number>();
     annualMonthList.forEach(m => byMonth[m].forEach(s => empIds.add(s.employeeId)));
     const reportRows = Array.from(empIds).map(id => {
       const emp = employeeMap.get(id);
-      const perMonth = annualMonthList.map(m => {
+      const agg = {
+        paidDays: 0, otHrs: 0, monthsCount: 0,
+        basicWage: 0, hra5: 0, fixedHRA: 0, otAllow: 0, totalGross: 0,
+        pfDed: 0, esicDed: 0, pTax: 0, lwf: 0, totalDedu: 0, netSalary: 0,
+        advance: 0, payInAccount: 0,
+        pfEmployer: 0, esicEmployer: 0, bonus: 0, employerTotal: 0,
+        serviceCharge: 0, afterService: 0, gst: 0, finalTotal: 0,
+      };
+      annualMonthList.forEach(m => {
         const rec = byMonth[m].find(s => s.employeeId === id);
-        return rec ? Number(rec.netPay) || 0 : 0;
+        if (!rec) return;
+        agg.monthsCount++;
+        agg.paidDays += nv(rec.daysWorked);
+        agg.otHrs += nv(rec.overtimeHours);
+        const basicWage = nv(rec.basicWage);
+        const totalGross = nv(rec.grossWage);
+        agg.basicWage += basicWage;
+        agg.hra5 += nv(rec.otherAllowance);
+        agg.fixedHRA += nv(rec.hra);
+        agg.otAllow += nv(rec.overtimeAmount);
+        agg.totalGross += totalGross;
+        agg.pfDed += nv(rec.pfDeduction);
+        agg.esicDed += nv(rec.esicDeduction);
+        agg.pTax += nv(rec.professionalTax);
+        agg.lwf += nv(rec.lwf);
+        agg.totalDedu += nv(rec.totalDeduction);
+        const netSalary = nv(rec.netPay);
+        const advance = nv(rec.advanceDeduction);
+        agg.netSalary += netSalary;
+        agg.advance += advance;
+        agg.payInAccount += netSalary - advance;
+        const pfEmployer = Math.round(basicWage * 0.13);
+        const esicEmployer = Math.round(totalGross * 0.0325);
+        const bonus = Math.round(basicWage * 0.0833);
+        const employerTotal = pfEmployer + esicEmployer + bonus;
+        const serviceBase = totalGross + employerTotal;
+        const serviceCharge = Math.round(serviceBase * 0.12);
+        const afterService = serviceBase + serviceCharge;
+        const gst = Math.round(serviceCharge * 0.18);
+        agg.pfEmployer += pfEmployer;
+        agg.esicEmployer += esicEmployer;
+        agg.bonus += bonus;
+        agg.employerTotal += employerTotal;
+        agg.serviceCharge += serviceCharge;
+        agg.afterService += afterService;
+        agg.gst += gst;
+        agg.finalTotal += afterService + gst;
       });
-      const perMonthGross = annualMonthList.map(m => {
-        const rec = byMonth[m].find(s => s.employeeId === id);
-        return rec ? Number(rec.grossWage) || 0 : 0;
-      });
-      const total = perMonth.reduce((a, b) => a + b, 0);
-      const totalGross = perMonthGross.reduce((a, b) => a + b, 0);
-      return { id, name: emp?.name || `Employee #${id}`, code: emp?.employeeCode, designation: emp?.designation, perMonth, total, totalGross };
+      return {
+        id,
+        name: emp?.name || `Employee #${id}`,
+        code: emp?.employeeCode || "",
+        designation: emp?.designation || "",
+        skills: emp?.skills || getSkillLevel(emp?.designation),
+        ...agg,
+      };
     }).sort((a, b) => a.name.localeCompare(b.name));
-    const monthTotals = annualMonthList.map((_, i) => reportRows.reduce((s, r) => s + r.perMonth[i], 0));
-    const grandTotal = monthTotals.reduce((a, b) => a + b, 0);
-    return { rows: reportRows, monthTotals, grandTotal };
+    const sumF = (fn: (r: typeof reportRows[number]) => number) => reportRows.reduce((a, r) => a + fn(r), 0);
+    const totals = {
+      paidDays: sumF(r => r.paidDays), otHrs: sumF(r => r.otHrs),
+      basicWage: sumF(r => r.basicWage), hra5: sumF(r => r.hra5), fixedHRA: sumF(r => r.fixedHRA),
+      otAllow: sumF(r => r.otAllow), totalGross: sumF(r => r.totalGross),
+      pfDed: sumF(r => r.pfDed), esicDed: sumF(r => r.esicDed), pTax: sumF(r => r.pTax), lwf: sumF(r => r.lwf),
+      totalDedu: sumF(r => r.totalDedu), netSalary: sumF(r => r.netSalary),
+      advance: sumF(r => r.advance), payInAccount: sumF(r => r.payInAccount),
+      pfEmployer: sumF(r => r.pfEmployer), esicEmployer: sumF(r => r.esicEmployer), bonus: sumF(r => r.bonus),
+      employerTotal: sumF(r => r.employerTotal), serviceCharge: sumF(r => r.serviceCharge),
+      afterService: sumF(r => r.afterService), gst: sumF(r => r.gst), finalTotal: sumF(r => r.finalTotal),
+    };
+    return { rows: reportRows, totals };
   }, [annualLoaded, annualMonthList, annualQueries, employeeMap]);
 
   const toggleAnnualMonth = (m: number) => {
@@ -1105,39 +1161,117 @@ export default function SalaryRegister() {
     const printWin = window.open("", "_blank", "width=1100,height=700");
     if (!printWin) return;
     const monthNames = annualMonthList.map(m => MONTHS[m - 1]);
-    const title = `${clientName} — Annual Salary Report — ${monthNames.length === 12 ? year : monthNames.map(n => n.slice(0, 3)).join(", ") + " " + year}`;
-    const headCols = annualMonthList.map(m => `<th>${MONTHS[m - 1].slice(0, 3)} ${year}</th>`).join("");
+    const t = annualReport.totals;
     const bodyRows = annualReport.rows.map((r, i) => `<tr>
       <td>${i + 1}</td>
-      <td style="text-align:left">${r.name}</td>
-      <td>${r.designation || ""}</td>
-      ${r.perMonth.map(v => `<td style="text-align:right">${v ? "₹" + fmt(v) : "—"}</td>`).join("")}
-      <td style="text-align:right;font-weight:bold;color:#1b5e20">₹${fmt(r.total)}</td>
+      <td>${r.code || ""}</td>
+      <td style="text-align:left;white-space:nowrap">${r.name}</td>
+      <td style="text-align:left;white-space:nowrap">${r.skills || ""}</td>
+      <td>${fmtDec(r.paidDays)}</td>
+      <td>${r.otHrs || ""}</td>
+      <td style="text-align:right">${fmt(r.basicWage)}</td>
+      <td style="text-align:right">${fmt(r.hra5)}</td>
+      <td style="text-align:right">${fmt(r.fixedHRA)}</td>
+      <td style="text-align:right">${r.otAllow ? fmt(r.otAllow) : ""}</td>
+      <td style="text-align:right;font-weight:bold">${fmt(r.totalGross)}</td>
+      <td style="text-align:right">${fmt(r.pfDed)}</td>
+      <td style="text-align:right">${fmtDec(r.esicDed)}</td>
+      <td style="text-align:right">${r.pTax ? fmt(r.pTax) : ""}</td>
+      <td style="text-align:right">${r.lwf ? fmt(r.lwf) : ""}</td>
+      <td style="text-align:right;font-weight:bold">${fmt(r.totalDedu)}</td>
+      <td style="text-align:right;font-weight:bold;color:#0d47a1">${fmt(r.netSalary)}</td>
+      <td style="text-align:right">${r.advance ? fmt(r.advance) : ""}</td>
+      <td style="text-align:right;font-weight:bold">${fmt(r.payInAccount)}</td>
+      <td style="text-align:right">${fmt(r.pfEmployer)}</td>
+      <td style="text-align:right">${fmt(r.esicEmployer)}</td>
+      <td style="text-align:right">${fmt(r.bonus)}</td>
+      <td style="text-align:right;font-weight:bold">${fmt(r.employerTotal)}</td>
+      <td style="text-align:right">${fmt(r.serviceCharge)}</td>
+      <td style="text-align:right">${fmt(r.afterService)}</td>
+      <td style="text-align:right">${fmt(r.gst)}</td>
+      <td style="text-align:right;font-weight:bold;color:#283593">${fmt(r.finalTotal)}</td>
     </tr>`).join("");
-    const footCols = annualReport.monthTotals.map(v => `<td style="text-align:right">₹${fmt(v)}</td>`).join("");
     printWin.document.write(`<html><head><title>${clientName} — Annual Salary Report ${year}</title>
     <style>
-      @page { size: A4 landscape; margin: 8mm; }
-      body { font-family: Arial, sans-serif; font-size: 10px; margin: 10mm; }
+      @page { size: A4 landscape; margin: 6mm; }
+      body { font-family: Arial, sans-serif; font-size: 8px; margin: 6mm; }
       h2 { text-align: center; font-size: 14px; margin: 0 0 4px; }
-      h3 { text-align: center; font-size: 11px; color: #555; margin: 0 0 10px; }
+      h3 { text-align: center; font-size: 10px; color: #555; margin: 0 0 8px; }
       table { width: 100%; border-collapse: collapse; }
-      th { background: #1a237e; color: #fff; padding: 5px 6px; text-align: center; }
-      td { border: 1px solid #ccc; padding: 4px 6px; }
-      tr:nth-child(even) td { background: #f5f5f5; }
-      tfoot td { font-weight: bold; background: #e8f5e9; border-top: 2px solid #1b5e20; }
+      th { padding: 3px 3px; text-align: center; border: 1px solid #999; font-size: 7.5px; }
+      td { border: 1px solid #ccc; padding: 2px 3px; text-align: center; }
+      tr:nth-child(even) td { background: #f7f7f7; }
+      tfoot td { font-weight: bold; background: #e8eaf6; border-top: 2px solid #283593; }
     </style></head><body>
-    <h2>${clientName} — Annual Salary Report</h2>
-    <h3>${monthNames.join(", ")} ${year} (Net Salary)</h3>
+    <h2>${clientName} — Annual Salary Report (Salary Register Format)</h2>
+    <h3>${monthNames.join(", ")} ${year}</h3>
     <table>
-      <thead><tr>
-        <th>Sl.</th><th>Employee Name</th><th>Designation</th>${headCols}<th>Total</th>
-      </tr></thead>
+      <thead>
+        <tr>
+          <th colspan="4" style="background:#e8eaf6;color:#283593">Employee Details</th>
+          <th colspan="2" style="background:#e1f5fe;color:#0277bd">Attendance</th>
+          <th colspan="5" style="background:#e8f5e9;color:#2e7d32">Earnings</th>
+          <th colspan="5" style="background:#fce4ec;color:#c62828">Deductions</th>
+          <th colspan="3" style="background:#fff8e1;color:#e65100">Net Pay</th>
+          <th colspan="4" style="background:#ede7f6;color:#4527a0">Employer Contributions</th>
+          <th colspan="4" style="background:#e0f2f1;color:#00695c">Service & GST</th>
+        </tr>
+        <tr>
+          <th style="background:#c5cae9">Sl.</th>
+          <th style="background:#c5cae9">Emp ID</th>
+          <th style="background:#c5cae9">Emp Name</th>
+          <th style="background:#c5cae9">Skills</th>
+          <th style="background:#b3e5fc">Paid Days</th>
+          <th style="background:#b3e5fc">OT Hrs</th>
+          <th style="background:#c8e6c9">Basic Wages</th>
+          <th style="background:#c8e6c9">HRA 5%</th>
+          <th style="background:#c8e6c9">Fixed HRA</th>
+          <th style="background:#c8e6c9">OT Allow</th>
+          <th style="background:#c8e6c9">Total Gross</th>
+          <th style="background:#f8bbd0">PF @12%</th>
+          <th style="background:#f8bbd0">ESIC @.75%</th>
+          <th style="background:#f8bbd0">P-TAX</th>
+          <th style="background:#f8bbd0">LWF</th>
+          <th style="background:#f8bbd0">Total Dedu</th>
+          <th style="background:#ffe082">Net Salary</th>
+          <th style="background:#ffe082">Advance</th>
+          <th style="background:#ffe082">Pay In A/c</th>
+          <th style="background:#d1c4e9">PF @13%</th>
+          <th style="background:#d1c4e9">ESIC @3.25%</th>
+          <th style="background:#d1c4e9">Bonus @8.33%</th>
+          <th style="background:#d1c4e9">Total</th>
+          <th style="background:#b2dfdb">Service @12%</th>
+          <th style="background:#b2dfdb">Total</th>
+          <th style="background:#b2dfdb">GST 18%</th>
+          <th style="background:#b2dfdb">Grand Total</th>
+        </tr>
+      </thead>
       <tbody>${bodyRows}</tbody>
       <tfoot><tr>
-        <td colspan="3" style="text-align:right">Total (${annualReport.rows.length} employees)</td>
-        ${footCols}
-        <td style="text-align:right;color:#1b5e20">₹${fmt(annualReport.grandTotal)}</td>
+        <td colspan="4" style="text-align:right">Total (${annualReport.rows.length} employees)</td>
+        <td>${fmtDec(t.paidDays)}</td>
+        <td>${t.otHrs || ""}</td>
+        <td style="text-align:right">${fmt(t.basicWage)}</td>
+        <td style="text-align:right">${fmt(t.hra5)}</td>
+        <td style="text-align:right">${fmt(t.fixedHRA)}</td>
+        <td style="text-align:right">${fmt(t.otAllow)}</td>
+        <td style="text-align:right">${fmt(t.totalGross)}</td>
+        <td style="text-align:right">${fmt(t.pfDed)}</td>
+        <td style="text-align:right">${fmtDec(t.esicDed)}</td>
+        <td style="text-align:right">${fmt(t.pTax)}</td>
+        <td style="text-align:right">${fmt(t.lwf)}</td>
+        <td style="text-align:right">${fmt(t.totalDedu)}</td>
+        <td style="text-align:right;color:#0d47a1">${fmt(t.netSalary)}</td>
+        <td style="text-align:right">${fmt(t.advance)}</td>
+        <td style="text-align:right">${fmt(t.payInAccount)}</td>
+        <td style="text-align:right">${fmt(t.pfEmployer)}</td>
+        <td style="text-align:right">${fmt(t.esicEmployer)}</td>
+        <td style="text-align:right">${fmt(t.bonus)}</td>
+        <td style="text-align:right">${fmt(t.employerTotal)}</td>
+        <td style="text-align:right">${fmt(t.serviceCharge)}</td>
+        <td style="text-align:right">${fmt(t.afterService)}</td>
+        <td style="text-align:right">${fmt(t.gst)}</td>
+        <td style="text-align:right;color:#283593">${fmt(t.finalTotal)}</td>
       </tr></tfoot>
     </table>
     </body></html>`);
@@ -1153,36 +1287,61 @@ export default function SalaryRegister() {
     const monthNames = annualMonthList.map(m => MONTHS[m - 1]);
     const t1 = ws.addRow([`${clientName} — Annual Salary Report — ${year}`]);
     t1.font = { bold: true, size: 13 };
-    const t2 = ws.addRow([`Months: ${monthNames.join(", ")} (Net Salary)`]);
+    const t2 = ws.addRow([`Months: ${monthNames.join(", ")} (Salary Register Format)`]);
     t2.font = { size: 10, color: { argb: "FF555555" } };
     ws.addRow([]);
-    const hdr = ws.addRow(["Sl. No.", "Employee Name", "Designation", ...annualMonthList.map(m => `${MONTHS[m - 1].slice(0, 3)} ${year}`), "Total"]);
+    const headers = [
+      "Sl. No.", "Emp ID", "Emp Name", "Skills",
+      "Paid Days", "OT Hrs",
+      "Basic Wages", "HRA 5%", "Fixed HRA", "OT Allow", "Total Gross",
+      "PF @12%", "ESIC @.75%", "P-TAX", "LWF", "Total Dedu",
+      "Net Salary", "Advance", "Pay In A/c",
+      "PF @13%", "ESIC @3.25%", "Bonus @8.33%", "Employer Total",
+      "Service @12%", "Total", "GST 18%", "Grand Total",
+    ];
+    const hdr = ws.addRow(headers);
     hdr.eachCell(c => {
-      c.font = { bold: true, color: { argb: "FFFFFFFF" }, size: 10 };
+      c.font = { bold: true, color: { argb: "FFFFFFFF" }, size: 9 };
       c.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FF1A237E" } };
-      c.alignment = { horizontal: "center", vertical: "middle" };
+      c.alignment = { horizontal: "center", vertical: "middle", wrapText: true };
       c.border = { top: { style: "thin" }, bottom: { style: "thin" }, left: { style: "thin" }, right: { style: "thin" } };
     });
-    const totalColIdx = 4 + annualMonthList.length;
     annualReport.rows.forEach((r, i) => {
-      const row = ws.addRow([i + 1, r.name, r.designation || "", ...r.perMonth, r.total]);
+      const row = ws.addRow([
+        i + 1, r.code, r.name, r.skills,
+        r.paidDays, r.otHrs,
+        r.basicWage, r.hra5, r.fixedHRA, r.otAllow, r.totalGross,
+        r.pfDed, r.esicDed, r.pTax, r.lwf, r.totalDedu,
+        r.netSalary, r.advance, r.payInAccount,
+        r.pfEmployer, r.esicEmployer, r.bonus, r.employerTotal,
+        r.serviceCharge, r.afterService, r.gst, r.finalTotal,
+      ]);
       row.eachCell((c, col) => {
         c.border = { top: { style: "thin" }, bottom: { style: "thin" }, left: { style: "thin" }, right: { style: "thin" } };
-        c.font = { size: 10 };
-        if (col > 3) { c.numFmt = '₹#,##0'; c.alignment = { horizontal: "right" }; }
-        if (col === totalColIdx) { c.font = { bold: true, size: 10, color: { argb: "FF1B5E20" } }; }
+        c.font = { size: 9 };
+        if (col >= 7) { c.numFmt = '#,##0'; c.alignment = { horizontal: "right" }; }
+        if (col === 11 || col === 16 || col === 17 || col === 27) { c.font = { bold: true, size: 9 }; }
       });
       if (i % 2 === 1) row.eachCell(c => { c.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFF5F5F5" } }; });
     });
-    const tot = ws.addRow(["", "", "Total", ...annualReport.monthTotals, annualReport.grandTotal]);
+    const t = annualReport.totals;
+    const tot = ws.addRow([
+      "", "", "Total", "",
+      t.paidDays, t.otHrs,
+      t.basicWage, t.hra5, t.fixedHRA, t.otAllow, t.totalGross,
+      t.pfDed, t.esicDed, t.pTax, t.lwf, t.totalDedu,
+      t.netSalary, t.advance, t.payInAccount,
+      t.pfEmployer, t.esicEmployer, t.bonus, t.employerTotal,
+      t.serviceCharge, t.afterService, t.gst, t.finalTotal,
+    ]);
     tot.eachCell((c, col) => {
-      c.font = { bold: true, size: 10, color: col === totalColIdx ? { argb: "FF1B5E20" } : { argb: "FF000000" } };
-      c.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFE8F5E9" } };
+      c.font = { bold: true, size: 9 };
+      c.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFE8EAF6" } };
       c.border = { top: { style: "medium" }, bottom: { style: "thin" }, left: { style: "thin" }, right: { style: "thin" } };
-      if (col > 3) { c.numFmt = '₹#,##0'; c.alignment = { horizontal: "right" }; }
+      if (col >= 7) { c.numFmt = '#,##0'; c.alignment = { horizontal: "right" }; }
     });
-    ws.getColumn(1).width = 7; ws.getColumn(2).width = 28; ws.getColumn(3).width = 18;
-    for (let i = 4; i <= totalColIdx; i++) ws.getColumn(i).width = 13;
+    ws.getColumn(1).width = 6; ws.getColumn(2).width = 10; ws.getColumn(3).width = 26; ws.getColumn(4).width = 14;
+    for (let i = 5; i <= headers.length; i++) ws.getColumn(i).width = 11;
     const buf = await wb.xlsx.writeBuffer();
     const blob = new Blob([buf], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
     const url = URL.createObjectURL(blob);
@@ -1894,52 +2053,126 @@ export default function SalaryRegister() {
                 )}
 
                 {annualReport && annualReport.rows.length > 0 && (
-                  <div className="overflow-x-auto rounded-lg border">
-                    <table className="w-full text-sm border-collapse" data-testid="table-annual-report">
-                      <thead>
-                        <tr className="bg-[#1a237e] text-white">
-                          <th className="px-3 py-2 text-center font-semibold text-xs w-10">Sl.</th>
-                          <th className="px-3 py-2 text-left font-semibold text-xs whitespace-nowrap">Employee Name</th>
-                          <th className="px-3 py-2 text-left font-semibold text-xs">Designation</th>
-                          {annualMonthList.map(m => (
-                            <th key={m} className="px-3 py-2 text-right font-semibold text-xs whitespace-nowrap">{MONTHS[m - 1].slice(0, 3)} {year}</th>
-                          ))}
-                          <th className="px-3 py-2 text-right font-semibold text-xs">Total</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {annualReport.rows.map((r, i) => (
-                          <tr key={r.id} className={i % 2 === 1 ? "bg-muted/30" : ""} data-testid={`row-annual-${i}`}>
-                            <td className="px-3 py-2 text-center text-xs text-muted-foreground border-b">{i + 1}</td>
-                            <td className="px-3 py-2 text-sm font-medium border-b whitespace-nowrap">{r.name}</td>
-                            <td className="px-3 py-2 text-xs text-muted-foreground border-b whitespace-nowrap">{r.designation || "—"}</td>
-                            {r.perMonth.map((v, j) => (
-                              <td key={j} className="px-3 py-2 text-right text-sm border-b whitespace-nowrap">
-                                {v ? fmtR(v) : <span className="text-muted-foreground text-xs">—</span>}
-                              </td>
-                            ))}
-                            <td className="px-3 py-2 text-right text-sm font-bold text-green-700 dark:text-green-400 border-b whitespace-nowrap">
-                              {fmtR(r.total)}
-                            </td>
+                  <div className="border-2 border-indigo-200 rounded-xl overflow-hidden shadow-lg">
+                    <div className="bg-gradient-to-r from-indigo-600 via-blue-600 to-purple-600 text-white text-center py-2.5 font-bold text-sm tracking-wide">
+                      {clientName} &mdash; Annual Salary Report &mdash; {annualMonthList.map(m => MONTHS[m - 1].slice(0, 3)).join(", ")} {year}
+                    </div>
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-[11px] whitespace-nowrap border-collapse" data-testid="table-annual-report" style={{ minWidth: "2200px" }}>
+                        <thead>
+                          <tr>
+                            <th colSpan={4} className="px-2 py-1.5 text-center font-bold border border-indigo-200 bg-indigo-50 dark:bg-indigo-950 text-indigo-800 dark:text-indigo-200 text-xs sticky left-0 z-20">Employee Details</th>
+                            <th colSpan={3} className="px-2 py-1.5 text-center font-bold border border-sky-200 bg-sky-50 dark:bg-sky-950 text-sky-800 dark:text-sky-200 text-xs">Attendance & Days</th>
+                            <th colSpan={5} className="px-2 py-1.5 text-center font-bold border border-emerald-200 bg-emerald-50 dark:bg-emerald-950 text-emerald-800 dark:text-emerald-200 text-xs">Earnings</th>
+                            <th colSpan={6} className="px-2 py-1.5 text-center font-bold border border-rose-200 bg-rose-50 dark:bg-rose-950 text-rose-800 dark:text-rose-200 text-xs">Deductions</th>
+                            <th colSpan={2} className="px-2 py-1.5 text-center font-bold border border-amber-200 bg-amber-50 dark:bg-amber-950 text-amber-800 dark:text-amber-200 text-xs">Advance & Net Pay</th>
+                            <th colSpan={4} className="px-2 py-1.5 text-center font-bold border border-violet-200 bg-violet-50 dark:bg-violet-950 text-violet-800 dark:text-violet-200 text-xs">Employer Contributions</th>
+                            <th colSpan={4} className="px-2 py-1.5 text-center font-bold border border-teal-200 bg-teal-50 dark:bg-teal-950 text-teal-800 dark:text-teal-200 text-xs">Service & GST</th>
                           </tr>
-                        ))}
-                      </tbody>
-                      <tfoot>
-                        <tr className="bg-green-50 dark:bg-green-900/20 border-t-2 border-green-600">
-                          <td colSpan={3} className="px-3 py-2 text-right text-sm font-bold text-green-800 dark:text-green-300">
-                            Total ({annualReport.rows.length} employees)
-                          </td>
-                          {annualReport.monthTotals.map((v, j) => (
-                            <td key={j} className="px-3 py-2 text-right text-sm font-bold text-green-700 dark:text-green-400 whitespace-nowrap">
-                              {fmtR(v)}
-                            </td>
-                          ))}
-                          <td className="px-3 py-2 text-right text-sm font-bold text-green-700 dark:text-green-400 whitespace-nowrap">
-                            {fmtR(annualReport.grandTotal)}
-                          </td>
-                        </tr>
-                      </tfoot>
-                    </table>
+                          <tr className="bg-slate-100 dark:bg-slate-800 border-b-2 border-indigo-300">
+                            <th className="px-2 py-2 text-center font-bold border border-indigo-200 sticky left-0 bg-indigo-100 dark:bg-indigo-900 z-10 w-[36px] text-indigo-700 dark:text-indigo-300">Sl.</th>
+                            <th className="px-2 py-2 text-left font-bold border border-indigo-200 sticky left-[36px] bg-indigo-100 dark:bg-indigo-900 z-10 w-[80px] text-indigo-700 dark:text-indigo-300">Emp ID</th>
+                            <th className="px-2 py-2 text-left font-bold border border-indigo-200 sticky left-[116px] bg-indigo-100 dark:bg-indigo-900 z-10 min-w-[150px] text-indigo-700 dark:text-indigo-300">Emp Name</th>
+                            <th className="px-2 py-2 text-left font-bold border border-indigo-200 bg-indigo-100 dark:bg-indigo-900 min-w-[80px] text-indigo-700 dark:text-indigo-300">Skills</th>
+                            <th className="px-2 py-2 text-center font-bold border border-sky-200 bg-sky-100 dark:bg-sky-900 text-sky-700 dark:text-sky-300">Months</th>
+                            <th className="px-2 py-2 text-center font-bold border border-indigo-300 bg-indigo-200 dark:bg-indigo-800 text-indigo-800 dark:text-indigo-200">Paid Days</th>
+                            <th className="px-2 py-2 text-center font-bold border border-cyan-200 bg-cyan-100 dark:bg-cyan-900 text-cyan-700 dark:text-cyan-300">OT HRS</th>
+                            <th className="px-2 py-2 text-right font-bold border border-emerald-200 bg-emerald-100 dark:bg-emerald-900 text-emerald-700 dark:text-emerald-300">Basic Wages</th>
+                            <th className="px-2 py-2 text-right font-bold border border-emerald-200 bg-emerald-100 dark:bg-emerald-900 text-emerald-700 dark:text-emerald-300">HRA 5%</th>
+                            <th className="px-2 py-2 text-right font-bold border border-emerald-200 bg-emerald-100 dark:bg-emerald-900 text-emerald-700 dark:text-emerald-300">Fixed HRA</th>
+                            <th className="px-2 py-2 text-right font-bold border border-emerald-200 bg-emerald-100 dark:bg-emerald-900 text-emerald-700 dark:text-emerald-300">OT Allow</th>
+                            <th className="px-2 py-2 text-right font-bold border border-emerald-200 bg-emerald-100 dark:bg-emerald-900 text-emerald-700 dark:text-emerald-300">Total Gross</th>
+                            <th className="px-2 py-2 text-right font-bold border border-rose-200 bg-rose-100 dark:bg-rose-900 text-rose-700 dark:text-rose-300">PF @12%</th>
+                            <th className="px-2 py-2 text-right font-bold border border-rose-200 bg-rose-100 dark:bg-rose-900 text-rose-700 dark:text-rose-300">ESIC @.75%</th>
+                            <th className="px-2 py-2 text-right font-bold border border-rose-200 bg-rose-100 dark:bg-rose-900 text-rose-700 dark:text-rose-300">P-TAX</th>
+                            <th className="px-2 py-2 text-right font-bold border border-rose-200 bg-rose-100 dark:bg-rose-900 text-rose-700 dark:text-rose-300">LWF</th>
+                            <th className="px-2 py-2 text-right font-bold border border-rose-200 bg-rose-100 dark:bg-rose-900 text-rose-700 dark:text-rose-300">Total Dedu</th>
+                            <th className="px-2 py-2 text-right font-bold border border-rose-200 bg-rose-100 dark:bg-rose-900 text-rose-700 dark:text-rose-300">Net Salary</th>
+                            <th className="px-2 py-2 text-right font-bold border border-amber-200 bg-amber-100 dark:bg-amber-900 text-amber-700 dark:text-amber-300">Advance</th>
+                            <th className="px-2 py-2 text-right font-bold border border-amber-200 bg-amber-100 dark:bg-amber-900 text-amber-700 dark:text-amber-300">Pay In A/c</th>
+                            <th className="px-2 py-2 text-right font-bold border border-violet-200 bg-violet-100 dark:bg-violet-900 text-violet-700 dark:text-violet-300">PF @13%</th>
+                            <th className="px-2 py-2 text-right font-bold border border-violet-200 bg-violet-100 dark:bg-violet-900 text-violet-700 dark:text-violet-300">ESIC @3.25%</th>
+                            <th className="px-2 py-2 text-right font-bold border border-violet-200 bg-violet-100 dark:bg-violet-900 text-violet-700 dark:text-violet-300">Bonus @8.33%</th>
+                            <th className="px-2 py-2 text-right font-bold border border-violet-200 bg-violet-100 dark:bg-violet-900 text-violet-700 dark:text-violet-300">Total</th>
+                            <th className="px-2 py-2 text-right font-bold border border-teal-200 bg-teal-100 dark:bg-teal-900 text-teal-700 dark:text-teal-300">Service @12%</th>
+                            <th className="px-2 py-2 text-right font-bold border border-teal-200 bg-teal-100 dark:bg-teal-900 text-teal-700 dark:text-teal-300">Total</th>
+                            <th className="px-2 py-2 text-right font-bold border border-teal-200 bg-teal-100 dark:bg-teal-900 text-teal-700 dark:text-teal-300">GST 18%</th>
+                            <th className="px-2 py-2 text-right font-bold border border-teal-200 bg-teal-100 dark:bg-teal-900 text-teal-700 dark:text-teal-300">Grand Total</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {annualReport.rows.map((r, idx) => {
+                            const evenBg = "bg-white dark:bg-slate-900";
+                            const oddBg = "bg-blue-50/40 dark:bg-slate-800/40";
+                            const bgClass = idx % 2 === 0 ? evenBg : oddBg;
+                            return (
+                              <tr key={r.id} className={`${bgClass} hover:bg-indigo-50 dark:hover:bg-indigo-900/20 transition-colors`} data-testid={`row-annual-${idx}`}>
+                                <td className={`px-2 py-1.5 text-center border border-slate-200 sticky left-0 ${bgClass} z-10 font-semibold text-indigo-600 dark:text-indigo-400`}>{idx + 1}</td>
+                                <td className={`px-2 py-1.5 text-left border border-slate-200 sticky left-[36px] ${bgClass} z-10 font-mono text-[10px] text-slate-600 dark:text-slate-400`}>{r.code || "-"}</td>
+                                <td className={`px-2 py-1.5 text-left border border-slate-200 sticky left-[116px] ${bgClass} z-10 font-semibold text-slate-800 dark:text-slate-200`}>{r.name}</td>
+                                <td className="px-2 py-1.5 text-left border border-slate-200 text-[10px] text-slate-500 dark:text-slate-400">{r.skills}</td>
+                                <td className="px-2 py-1.5 text-center border border-slate-200 text-sky-700 dark:text-sky-300">{r.monthsCount}</td>
+                                <td className="px-2 py-1.5 text-center border border-indigo-200 bg-indigo-50/50 dark:bg-indigo-900/20 font-bold text-indigo-700 dark:text-indigo-300">{fmtDec(r.paidDays)}</td>
+                                <td className="px-2 py-1.5 text-center border border-cyan-100 text-cyan-700 dark:text-cyan-300">{r.otHrs || "-"}</td>
+                                <td className="px-2 py-1.5 text-right border border-slate-200 text-emerald-700 dark:text-emerald-400">{fmt(r.basicWage)}</td>
+                                <td className="px-2 py-1.5 text-right border border-slate-200">{fmt(r.hra5)}</td>
+                                <td className="px-2 py-1.5 text-right border border-slate-200">{fmt(r.fixedHRA)}</td>
+                                <td className="px-2 py-1.5 text-right border border-slate-200">{r.otAllow ? fmt(r.otAllow) : "-"}</td>
+                                <td className="px-2 py-1.5 text-right border border-slate-200 font-bold text-emerald-700 dark:text-emerald-400">{fmt(r.totalGross)}</td>
+                                <td className="px-2 py-1.5 text-right border border-slate-200 text-rose-600 dark:text-rose-400">{fmt(r.pfDed)}</td>
+                                <td className="px-2 py-1.5 text-right border border-slate-200 text-rose-600 dark:text-rose-400">{fmtDec(r.esicDed)}</td>
+                                <td className="px-2 py-1.5 text-right border border-slate-200 text-rose-600 dark:text-rose-400">{r.pTax ? fmt(r.pTax) : "-"}</td>
+                                <td className="px-2 py-1.5 text-right border border-slate-200 text-rose-600 dark:text-rose-400">{r.lwf ? fmt(r.lwf) : ""}</td>
+                                <td className="px-2 py-1.5 text-right border border-slate-200 font-bold text-rose-700 dark:text-rose-400">{fmt(r.totalDedu)}</td>
+                                <td className="px-2 py-1.5 text-right border border-slate-200 font-bold text-blue-700 dark:text-blue-300">{fmt(r.netSalary)}</td>
+                                <td className="px-2 py-1.5 text-right border border-slate-200">{r.advance ? fmt(r.advance) : "-"}</td>
+                                <td className="px-2 py-1.5 text-right border border-slate-200 font-semibold text-amber-700 dark:text-amber-300">{fmt(r.payInAccount)}</td>
+                                <td className="px-2 py-1.5 text-right border border-slate-200 text-violet-600 dark:text-violet-400">{fmt(r.pfEmployer)}</td>
+                                <td className="px-2 py-1.5 text-right border border-slate-200 text-violet-600 dark:text-violet-400">{fmt(r.esicEmployer)}</td>
+                                <td className="px-2 py-1.5 text-right border border-slate-200 text-violet-600 dark:text-violet-400">{fmt(r.bonus)}</td>
+                                <td className="px-2 py-1.5 text-right border border-slate-200 font-bold text-violet-700 dark:text-violet-300">{fmt(r.employerTotal)}</td>
+                                <td className="px-2 py-1.5 text-right border border-slate-200 text-teal-600 dark:text-teal-400">{fmt(r.serviceCharge)}</td>
+                                <td className="px-2 py-1.5 text-right border border-slate-200 font-semibold text-teal-700 dark:text-teal-300">{fmt(r.afterService)}</td>
+                                <td className="px-2 py-1.5 text-right border border-slate-200 text-teal-600 dark:text-teal-400">{fmt(r.gst)}</td>
+                                <td className="px-2 py-1.5 text-right border border-slate-200 font-bold text-indigo-700 dark:text-indigo-300 bg-indigo-50/50 dark:bg-indigo-900/20">{fmt(r.finalTotal)}</td>
+                              </tr>
+                            );
+                          })}
+                        </tbody>
+                        <tfoot>
+                          <tr className="bg-gradient-to-r from-slate-100 to-slate-200 dark:from-slate-700 dark:to-slate-800 font-bold border-t-2 border-indigo-400">
+                            <td className="px-2 py-2 border border-slate-300 sticky left-0 bg-slate-200 dark:bg-slate-700 z-10 text-center text-indigo-700 dark:text-indigo-300">Total</td>
+                            <td className="px-2 py-2 border border-slate-300 sticky left-[36px] bg-slate-200 dark:bg-slate-700 z-10"></td>
+                            <td className="px-2 py-2 border border-slate-300 sticky left-[116px] bg-slate-200 dark:bg-slate-700 z-10">({annualReport.rows.length} employees)</td>
+                            <td className="px-2 py-2 border border-slate-300"></td>
+                            <td className="px-2 py-2 border border-slate-300"></td>
+                            <td className="px-2 py-2 text-center border border-indigo-300 bg-indigo-100/50 dark:bg-indigo-900/30 font-bold text-indigo-700 dark:text-indigo-300">{fmtDec(annualReport.totals.paidDays)}</td>
+                            <td className="px-2 py-2 text-center border border-cyan-200 text-cyan-700 dark:text-cyan-300">{annualReport.totals.otHrs || ""}</td>
+                            <td className="px-2 py-2 text-right border border-slate-300 text-emerald-700 dark:text-emerald-400">{fmt(annualReport.totals.basicWage)}</td>
+                            <td className="px-2 py-2 text-right border border-slate-300">{fmt(annualReport.totals.hra5)}</td>
+                            <td className="px-2 py-2 text-right border border-slate-300">{fmt(annualReport.totals.fixedHRA)}</td>
+                            <td className="px-2 py-2 text-right border border-slate-300">{fmt(annualReport.totals.otAllow)}</td>
+                            <td className="px-2 py-2 text-right border border-slate-300 text-emerald-700 dark:text-emerald-400">{fmt(annualReport.totals.totalGross)}</td>
+                            <td className="px-2 py-2 text-right border border-slate-300 text-rose-700 dark:text-rose-400">{fmt(annualReport.totals.pfDed)}</td>
+                            <td className="px-2 py-2 text-right border border-slate-300 text-rose-700 dark:text-rose-400">{fmtDec(annualReport.totals.esicDed)}</td>
+                            <td className="px-2 py-2 text-right border border-slate-300 text-rose-700 dark:text-rose-400">{fmt(annualReport.totals.pTax)}</td>
+                            <td className="px-2 py-2 text-right border border-slate-300">{fmt(annualReport.totals.lwf)}</td>
+                            <td className="px-2 py-2 text-right border border-slate-300 text-rose-700 dark:text-rose-400">{fmt(annualReport.totals.totalDedu)}</td>
+                            <td className="px-2 py-2 text-right border border-slate-300 text-blue-700 dark:text-blue-300">{fmt(annualReport.totals.netSalary)}</td>
+                            <td className="px-2 py-2 text-right border border-slate-300">{fmt(annualReport.totals.advance)}</td>
+                            <td className="px-2 py-2 text-right border border-slate-300 text-amber-700 dark:text-amber-300">{fmt(annualReport.totals.payInAccount)}</td>
+                            <td className="px-2 py-2 text-right border border-slate-300 text-violet-700 dark:text-violet-300">{fmt(annualReport.totals.pfEmployer)}</td>
+                            <td className="px-2 py-2 text-right border border-slate-300 text-violet-700 dark:text-violet-300">{fmt(annualReport.totals.esicEmployer)}</td>
+                            <td className="px-2 py-2 text-right border border-slate-300 text-violet-700 dark:text-violet-300">{fmt(annualReport.totals.bonus)}</td>
+                            <td className="px-2 py-2 text-right border border-slate-300 text-violet-700 dark:text-violet-300">{fmt(annualReport.totals.employerTotal)}</td>
+                            <td className="px-2 py-2 text-right border border-slate-300 text-teal-700 dark:text-teal-300">{fmt(annualReport.totals.serviceCharge)}</td>
+                            <td className="px-2 py-2 text-right border border-slate-300 text-teal-700 dark:text-teal-300">{fmt(annualReport.totals.afterService)}</td>
+                            <td className="px-2 py-2 text-right border border-slate-300 text-teal-700 dark:text-teal-300">{fmt(annualReport.totals.gst)}</td>
+                            <td className="px-2 py-2 text-right border border-slate-300 text-indigo-700 dark:text-indigo-300 bg-indigo-100/50 dark:bg-indigo-900/30">{fmt(annualReport.totals.finalTotal)}</td>
+                          </tr>
+                        </tfoot>
+                      </table>
+                    </div>
                   </div>
                 )}
               </CardContent>
