@@ -1638,13 +1638,31 @@ function GstTdsReport({ invoices, type, clients }: { invoices: any[]; type: "gst
     printWindow.document.close();
   };
 
+  const [annualDialogOpen, setAnnualDialogOpen] = useState(false);
+  const [annualSelectedIds, setAnnualSelectedIds] = useState<Set<number>>(new Set());
+
+  const allYearRows = invoices.filter((inv) => {
+    if (!inv.billDate) return false;
+    const d = new Date(inv.billDate);
+    if (d.getFullYear() !== Number(year)) return false;
+    return matchesClient(inv);
+  }).sort((a, b) => new Date(a.billDate).getTime() - new Date(b.billDate).getTime());
+
+  const openAnnualDialog = () => {
+    setAnnualSelectedIds(new Set(allYearRows.map((i) => i.id)));
+    setAnnualDialogOpen(true);
+  };
+  const toggleAnnualSelect = (id: number) => {
+    setAnnualSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
+    });
+  };
+  const annualAllSelected = allYearRows.length > 0 && allYearRows.every((i) => annualSelectedIds.has(i.id));
+
   const handlePrintAnnual = () => {
-    const yearRows = invoices.filter((inv) => {
-      if (!inv.billDate) return false;
-      const d = new Date(inv.billDate);
-      if (d.getFullYear() !== Number(year)) return false;
-      return matchesClient(inv);
-    }).sort((a, b) => new Date(a.billDate).getTime() - new Date(b.billDate).getTime());
+    const yearRows = allYearRows.filter((i) => annualSelectedIds.has(i.id));
     if (yearRows.length === 0) return;
     const grandTotal = yearRows.reduce((s, inv) => s + Number(inv[amountKey]), 0);
     const grandBillAmt = yearRows.reduce((s, i) => s + Number(i.billAmount), 0);
@@ -1715,12 +1733,6 @@ function GstTdsReport({ invoices, type, clients }: { invoices: any[]; type: "gst
     printWindow.document.close();
   };
 
-  const annualCount = invoices.filter((inv) => {
-    if (!inv.billDate) return false;
-    const d = new Date(inv.billDate);
-    if (d.getFullYear() !== Number(year)) return false;
-    return matchesClient(inv);
-  }).length;
 
   return (
     <div>
@@ -1772,7 +1784,7 @@ function GstTdsReport({ invoices, type, clients }: { invoices: any[]; type: "gst
                 <Button variant="outline" size="sm" className="h-9 shrink-0" onClick={handlePrint} disabled={selectedRows.length === 0} data-testid={`button-print-${type}`}>
                   <BarChart3 className="w-4 h-4 sm:mr-1" /> <span className="hidden sm:inline">Print{selectedRows.length > 0 && selectedRows.length < filtered.length ? ` (${selectedRows.length})` : ""}</span>
                 </Button>
-                <Button variant="outline" size="sm" className={`h-9 shrink-0 ${isGst ? "border-emerald-300 text-emerald-700 dark:text-emerald-400" : "border-red-300 text-red-700 dark:text-red-400"}`} onClick={handlePrintAnnual} disabled={annualCount === 0} data-testid={`button-print-annual-${type}`}>
+                <Button variant="outline" size="sm" className={`h-9 shrink-0 ${isGst ? "border-emerald-300 text-emerald-700 dark:text-emerald-400" : "border-red-300 text-red-700 dark:text-red-400"}`} onClick={openAnnualDialog} disabled={allYearRows.length === 0} data-testid={`button-print-annual-${type}`}>
                   <Printer className="w-4 h-4 sm:mr-1" /> <span className="hidden sm:inline">Annual {year}</span><span className="sm:hidden text-[10px]">Year</span>
                 </Button>
               </div>
@@ -1889,6 +1901,50 @@ function GstTdsReport({ invoices, type, clients }: { invoices: any[]; type: "gst
           </div>
         </>
       )}
+
+      <Dialog open={annualDialogOpen} onOpenChange={setAnnualDialogOpen}>
+        <DialogContent className="max-w-lg max-h-[85vh] flex flex-col">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Printer className={`w-5 h-5 ${isGst ? "text-emerald-600" : "text-red-600"}`} />
+              Annual {title} {year} — Select Bills
+            </DialogTitle>
+          </DialogHeader>
+          <div className="flex items-center justify-between pb-2 border-b">
+            <label className="flex items-center gap-2 text-sm font-medium cursor-pointer">
+              <Checkbox checked={annualAllSelected} onCheckedChange={() => setAnnualSelectedIds(annualAllSelected ? new Set() : new Set(allYearRows.map((i) => i.id)))} data-testid={`checkbox-annual-${type}-select-all`} />
+              Select All ({allYearRows.length} bills)
+            </label>
+            <span className="text-xs text-muted-foreground">{annualSelectedIds.size} selected</span>
+          </div>
+          <div className="flex-1 overflow-y-auto space-y-1 py-1">
+            {months.map((m) => {
+              const rows = allYearRows.filter((inv) => new Date(inv.billDate).getMonth() + 1 === Number(m.v));
+              if (rows.length === 0) return null;
+              return (
+                <div key={m.v}>
+                  <p className={`text-xs font-bold uppercase tracking-wide mt-2 mb-1 ${isGst ? "text-emerald-600" : "text-red-600"}`}>{m.l} {year}</p>
+                  {rows.map((inv: any) => (
+                    <label key={inv.id} className="flex items-center gap-2 py-1.5 px-2 rounded hover:bg-accent cursor-pointer text-sm" data-testid={`checkbox-annual-${type}-${inv.id}`}>
+                      <Checkbox checked={annualSelectedIds.has(inv.id)} onCheckedChange={() => toggleAnnualSelect(inv.id)} />
+                      <span className="font-mono text-xs">{inv.billNumber}</span>
+                      <span className="truncate flex-1 text-xs">{inv.clientName}</span>
+                      <span className="text-xs text-muted-foreground">{fmtDate(inv.billDate)}</span>
+                      <span className={`font-mono text-xs font-bold ${isGst ? "text-emerald-600" : "text-red-600"}`}>{fmtCurrency(inv[amountKey])}</span>
+                    </label>
+                  ))}
+                </div>
+              );
+            })}
+          </div>
+          <div className="flex justify-end gap-2 pt-2 border-t">
+            <Button variant="outline" size="sm" onClick={() => setAnnualDialogOpen(false)} data-testid={`button-annual-${type}-cancel`}>Cancel</Button>
+            <Button size="sm" className={isGst ? "bg-emerald-600 hover:bg-emerald-700" : "bg-red-600 hover:bg-red-700"} onClick={() => { handlePrintAnnual(); setAnnualDialogOpen(false); }} disabled={annualSelectedIds.size === 0} data-testid={`button-annual-${type}-print`}>
+              <Printer className="w-4 h-4 mr-1" /> Print ({annualSelectedIds.size})
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
