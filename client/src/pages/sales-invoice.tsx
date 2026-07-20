@@ -1520,14 +1520,33 @@ function GstTdsReport({ invoices, type, clients }: { invoices: any[]; type: "gst
   const now = new Date();
   const [month, setMonth] = useState(String(now.getMonth() + 1));
   const [year, setYear] = useState(String(now.getFullYear()));
-  const [clientFilter, setClientFilter] = useState("all");
+  const [selectedClients, setSelectedClients] = useState<string[]>([]);
+  const [clientDropdownOpen, setClientDropdownOpen] = useState(false);
+  const clientDropdownRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      if (clientDropdownRef.current && !clientDropdownRef.current.contains(e.target as Node)) {
+        setClientDropdownOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, []);
+
+  const toggleClient = (c: string) => setSelectedClients(prev => prev.includes(c) ? prev.filter(x => x !== c) : [...prev, c]);
+  const matchesClient = (inv: any) => selectedClients.length === 0 || selectedClients.includes(inv.clientName);
+  const clientLabel = selectedClients.length === 0
+    ? "All Clients"
+    : selectedClients.length === 1
+      ? selectedClients[0]
+      : `${selectedClients.length} Clients (${selectedClients.join(", ")})`;
 
   const filtered = invoices.filter((inv) => {
     if (!inv.billDate) return false;
     const d = new Date(inv.billDate);
     if (d.getMonth() + 1 !== Number(month) || d.getFullYear() !== Number(year)) return false;
-    if (clientFilter !== "all" && inv.clientName !== clientFilter) return false;
-    return true;
+    return matchesClient(inv);
   });
 
   const isGst = type === "gst";
@@ -1538,7 +1557,7 @@ function GstTdsReport({ invoices, type, clients }: { invoices: any[]; type: "gst
   useEffect(() => {
     setSelectedIds(new Set(filtered.map((i) => i.id)));
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [month, year, clientFilter, invoices.length]);
+  }, [month, year, selectedClients, invoices.length]);
 
   const toggleSelect = (id: number) => {
     setSelectedIds((prev) => {
@@ -1567,7 +1586,6 @@ function GstTdsReport({ invoices, type, clients }: { invoices: any[]; type: "gst
 
   const handlePrint = () => {
     const monthName = months.find(m => m.v === month)?.l || "";
-    const clientLabel = clientFilter === "all" ? "All Clients" : clientFilter;
     const printRows = selectedRows;
     const printTotal = printRows.reduce((s, inv) => s + Number(inv[amountKey]), 0);
     const totalBillAmt = printRows.reduce((s, i) => s + Number(i.billAmount), 0);
@@ -1621,13 +1639,11 @@ function GstTdsReport({ invoices, type, clients }: { invoices: any[]; type: "gst
   };
 
   const handlePrintAnnual = () => {
-    const clientLabel = clientFilter === "all" ? "All Clients" : clientFilter;
     const yearRows = invoices.filter((inv) => {
       if (!inv.billDate) return false;
       const d = new Date(inv.billDate);
       if (d.getFullYear() !== Number(year)) return false;
-      if (clientFilter !== "all" && inv.clientName !== clientFilter) return false;
-      return true;
+      return matchesClient(inv);
     }).sort((a, b) => new Date(a.billDate).getTime() - new Date(b.billDate).getTime());
     if (yearRows.length === 0) return;
     const grandTotal = yearRows.reduce((s, inv) => s + Number(inv[amountKey]), 0);
@@ -1703,8 +1719,7 @@ function GstTdsReport({ invoices, type, clients }: { invoices: any[]; type: "gst
     if (!inv.billDate) return false;
     const d = new Date(inv.billDate);
     if (d.getFullYear() !== Number(year)) return false;
-    if (clientFilter !== "all" && inv.clientName !== clientFilter) return false;
-    return true;
+    return matchesClient(inv);
   }).length;
 
   return (
@@ -1717,17 +1732,25 @@ function GstTdsReport({ invoices, type, clients }: { invoices: any[]; type: "gst
               <h3 className="font-bold text-lg">{title}</h3>
             </div>
             <div className="grid grid-cols-2 sm:flex sm:flex-row gap-2 sm:gap-2 sm:items-center sm:flex-wrap">
-              <div className="col-span-2 sm:w-auto">
-                <Select value={clientFilter} onValueChange={setClientFilter}>
-                  <SelectTrigger className="w-full sm:w-[180px] h-9" data-testid={`select-${type}-client`}>
-                    <Building2 className="w-3.5 h-3.5 mr-1 text-muted-foreground" />
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">All Clients</SelectItem>
-                    {clients.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}
-                  </SelectContent>
-                </Select>
+              <div className="col-span-2 sm:w-auto relative" ref={clientDropdownRef}>
+                <Button variant="outline" size="sm" className="w-full sm:w-[200px] h-9 justify-start font-normal" onClick={() => setClientDropdownOpen(o => !o)} data-testid={`select-${type}-client`}>
+                  <Building2 className="w-3.5 h-3.5 mr-1.5 text-muted-foreground shrink-0" />
+                  <span className="truncate">{selectedClients.length === 0 ? "All Clients" : selectedClients.length === 1 ? selectedClients[0] : `${selectedClients.length} clients selected`}</span>
+                </Button>
+                {clientDropdownOpen && (
+                  <div className="absolute z-50 mt-1 w-full sm:w-[240px] rounded-md border bg-popover shadow-lg p-2 max-h-64 overflow-y-auto">
+                    <div className="flex gap-2 mb-2">
+                      <Button variant="ghost" size="sm" className="h-7 text-xs flex-1" onClick={() => setSelectedClients([])} data-testid={`button-${type}-clients-all`}>All Clients</Button>
+                      <Button variant="ghost" size="sm" className="h-7 text-xs flex-1" onClick={() => setSelectedClients([...clients])} data-testid={`button-${type}-clients-select-all`}>Select All</Button>
+                    </div>
+                    {clients.map(c => (
+                      <label key={c} className="flex items-center gap-2 py-1.5 px-2 rounded hover:bg-accent cursor-pointer text-sm" data-testid={`option-${type}-client-${c}`}>
+                        <Checkbox checked={selectedClients.includes(c)} onCheckedChange={() => toggleClient(c)} />
+                        <span className="truncate">{c}</span>
+                      </label>
+                    ))}
+                  </div>
+                )}
               </div>
               <Select value={month} onValueChange={setMonth}>
                 <SelectTrigger className="w-full sm:w-[130px] h-9" data-testid={`select-${type}-month`}>
