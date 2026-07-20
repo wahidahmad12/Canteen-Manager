@@ -2342,6 +2342,27 @@ export async function registerRoutes(
     items: z.array(insertTaxInvoiceItemSchema),
   });
 
+  app.get("/api/tax-invoices/next-invoice-number", requirePermission("salesinvoice"), async (req, res) => {
+    try {
+      const { stateCode, year } = req.query;
+      if (!stateCode || !year) return res.status(400).json({ message: "stateCode and year are required" });
+      const yy = String(year).slice(-2);
+      const prefix = `DJ-${stateCode}-${yy}-`;
+      const allInvoices = await storage.getTaxInvoices();
+      const matching = allInvoices.filter(inv => inv.invoiceNumber && inv.invoiceNumber.startsWith(prefix));
+      let maxSerial = 0;
+      matching.forEach(inv => {
+        const parts = inv.invoiceNumber.split('-');
+        const serial = parseInt(parts[parts.length - 1], 10);
+        if (!isNaN(serial) && serial > maxSerial) maxSerial = serial;
+      });
+      const nextSerial = String(maxSerial + 1).padStart(3, '0');
+      res.json({ invoiceNumber: `${prefix}${nextSerial}`, nextSerial: maxSerial + 1 });
+    } catch (err: any) {
+      res.status(500).json({ message: err.message });
+    }
+  });
+
   app.get("/api/tax-invoices", requirePermission("salesinvoice"), async (req, res) => {
     try {
       const invoices = await storage.getTaxInvoices();
