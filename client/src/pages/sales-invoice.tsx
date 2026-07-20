@@ -8,6 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Checkbox } from "@/components/ui/checkbox";
 import { format } from "date-fns";
 import { useToast } from "@/hooks/use-toast";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -1533,6 +1534,25 @@ function GstTdsReport({ invoices, type, clients }: { invoices: any[]; type: "gst
   const title = isGst ? "GST Report" : "TDS Report";
   const amountKey = isGst ? "gstAmount" : "tdsAmount";
 
+  const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
+  useEffect(() => {
+    setSelectedIds(new Set(filtered.map((i) => i.id)));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [month, year, clientFilter, invoices.length]);
+
+  const toggleSelect = (id: number) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
+    });
+  };
+  const allSelected = filtered.length > 0 && filtered.every((i) => selectedIds.has(i.id));
+  const toggleSelectAll = () => {
+    setSelectedIds(allSelected ? new Set() : new Set(filtered.map((i) => i.id)));
+  };
+  const selectedRows = filtered.filter((i) => selectedIds.has(i.id));
+
   const total = filtered.reduce((s, inv) => s + Number(inv[amountKey]), 0);
 
   const months = [
@@ -1548,7 +1568,9 @@ function GstTdsReport({ invoices, type, clients }: { invoices: any[]; type: "gst
   const handlePrint = () => {
     const monthName = months.find(m => m.v === month)?.l || "";
     const clientLabel = clientFilter === "all" ? "All Clients" : clientFilter;
-    const totalBillAmt = filtered.reduce((s, i) => s + Number(i.billAmount), 0);
+    const printRows = selectedRows;
+    const printTotal = printRows.reduce((s, inv) => s + Number(inv[amountKey]), 0);
+    const totalBillAmt = printRows.reduce((s, i) => s + Number(i.billAmount), 0);
     const printWindow = window.open("", "_blank");
     if (!printWindow) return;
     printWindow.document.write(`<!DOCTYPE html><html><head><title>${title} - ${monthName} ${year}</title>
@@ -1572,25 +1594,25 @@ function GstTdsReport({ invoices, type, clients }: { invoices: any[]; type: "gst
       <h2>${title}</h2>
       <p class="sub">${monthName} ${year} | ${clientLabel}</p>
       <div class="summary">
-        <div class="summary-card"><div class="label">Total Invoices</div><div class="value">${filtered.length}</div></div>
+        <div class="summary-card"><div class="label">Total Invoices</div><div class="value">${printRows.length}</div></div>
         <div class="summary-card"><div class="label">Total Bill Amount</div><div class="value" style="color:#7c3aed">₹${totalBillAmt.toLocaleString("en-IN", { minimumFractionDigits: 2 })}</div></div>
-        <div class="summary-card"><div class="label">Total ${isGst ? "GST" : "TDS"} Amount</div><div class="value" style="color:${isGst ? "#059669" : "#dc2626"}">₹${total.toLocaleString("en-IN", { minimumFractionDigits: 2 })}</div></div>
+        <div class="summary-card"><div class="label">Total ${isGst ? "GST" : "TDS"} Amount</div><div class="value" style="color:${isGst ? "#059669" : "#dc2626"}">₹${printTotal.toLocaleString("en-IN", { minimumFractionDigits: 2 })}</div></div>
       </div>
       <table>
         <thead><tr>
           <th>Sl#</th><th>Client</th><th>Bill Date</th><th>Bill Number</th>
           <th class="right">Bill Amount</th><th class="right">${isGst ? "GST %" : "TDS %"}</th><th class="right">${isGst ? "GST Amount" : "TDS Amount"}</th>
         </tr></thead>
-        <tbody>${filtered.map((inv: any, idx: number) => `<tr>
+        <tbody>${printRows.map((inv: any, idx: number) => `<tr>
           <td>${idx + 1}</td><td>${inv.clientName}</td><td>${fmtDate(inv.billDate)}</td><td>${inv.billNumber}</td>
           <td class="right">${fmtCurrency(inv.billAmount)}</td><td class="right">${Number(isGst ? inv.gstPercent : inv.tdsPercent)}%</td>
           <td class="right" style="font-weight:bold;color:${isGst ? "#059669" : "#dc2626"}">${fmtCurrency(inv[amountKey])}</td>
         </tr>`).join("")}</tbody>
         <tfoot><tr>
-          <td colspan="4">Total (${filtered.length} invoices)</td>
+          <td colspan="4">Total (${printRows.length} invoices)</td>
           <td class="right">₹${totalBillAmt.toLocaleString("en-IN", { minimumFractionDigits: 2 })}</td>
           <td></td>
-          <td class="right" style="color:${isGst ? "#059669" : "#dc2626"}">₹${total.toLocaleString("en-IN", { minimumFractionDigits: 2 })}</td>
+          <td class="right" style="color:${isGst ? "#059669" : "#dc2626"}">₹${printTotal.toLocaleString("en-IN", { minimumFractionDigits: 2 })}</td>
         </tr></tfoot>
       </table>
       <script>window.onload=function(){window.print();}<\/script>
@@ -1637,8 +1659,8 @@ function GstTdsReport({ invoices, type, clients }: { invoices: any[]; type: "gst
                     {years.map(y => <SelectItem key={y} value={y}>{y}</SelectItem>)}
                   </SelectContent>
                 </Select>
-                <Button variant="outline" size="sm" className="h-9 shrink-0" onClick={handlePrint} data-testid={`button-print-${type}`}>
-                  <BarChart3 className="w-4 h-4 sm:mr-1" /> <span className="hidden sm:inline">Print</span>
+                <Button variant="outline" size="sm" className="h-9 shrink-0" onClick={handlePrint} disabled={selectedRows.length === 0} data-testid={`button-print-${type}`}>
+                  <BarChart3 className="w-4 h-4 sm:mr-1" /> <span className="hidden sm:inline">Print{selectedRows.length > 0 && selectedRows.length < filtered.length ? ` (${selectedRows.length})` : ""}</span>
                 </Button>
               </div>
             </div>
@@ -1682,6 +1704,9 @@ function GstTdsReport({ invoices, type, clients }: { invoices: any[]; type: "gst
                 <table className="w-full text-sm">
                   <thead>
                     <tr className={`bg-gradient-to-r ${isGst ? "from-emerald-500 to-green-600" : "from-red-500 to-rose-600"} text-white`}>
+                      <th className="py-3 px-3 w-8">
+                        <Checkbox checked={allSelected} onCheckedChange={toggleSelectAll} className="border-white data-[state=checked]:bg-white data-[state=checked]:text-emerald-700" data-testid={`checkbox-${type}-select-all`} />
+                      </th>
                       <th className="text-left py-3 px-4 font-semibold text-xs">Sl#</th>
                       <th className="text-left py-3 px-4 font-semibold text-xs">Client</th>
                       <th className="text-left py-3 px-4 font-semibold text-xs">Bill Date</th>
@@ -1694,6 +1719,9 @@ function GstTdsReport({ invoices, type, clients }: { invoices: any[]; type: "gst
                   <tbody>
                     {filtered.map((inv, idx) => (
                       <tr key={inv.id} className={`border-b border-gray-100 dark:border-gray-800 hover:bg-gray-50 dark:hover:bg-gray-900/50 ${idx % 2 === 0 ? "bg-white dark:bg-gray-950" : "bg-gray-50/50 dark:bg-gray-900/50"}`} data-testid={`row-${type}-${inv.id}`}>
+                        <td className="py-2.5 px-3">
+                          <Checkbox checked={selectedIds.has(inv.id)} onCheckedChange={() => toggleSelect(inv.id)} data-testid={`checkbox-${type}-${inv.id}`} />
+                        </td>
                         <td className="py-2.5 px-4">
                           <span className={`inline-flex items-center justify-center w-6 h-6 rounded-full ${isGst ? "bg-emerald-100 dark:bg-emerald-900 text-emerald-700 dark:text-emerald-300" : "bg-red-100 dark:bg-red-900 text-red-700 dark:text-red-300"} text-xs font-bold`}>{idx + 1}</span>
                         </td>
@@ -1708,7 +1736,7 @@ function GstTdsReport({ invoices, type, clients }: { invoices: any[]; type: "gst
                   </tbody>
                   <tfoot>
                     <tr className={`bg-gradient-to-r ${isGst ? "from-emerald-100 to-green-100 dark:from-emerald-950/40 dark:to-green-950/40" : "from-red-100 to-rose-100 dark:from-red-950/40 dark:to-rose-950/40"} font-bold`}>
-                      <td colSpan={4} className="py-2.5 px-4 text-xs">Total ({filtered.length} invoices)</td>
+                      <td colSpan={5} className="py-2.5 px-4 text-xs">Total ({filtered.length} invoices)</td>
                       <td className="py-2.5 px-4 text-right font-mono text-xs">{fmtCurrency(filtered.reduce((s, i) => s + Number(i.billAmount), 0))}</td>
                       <td className="py-2.5 px-4"></td>
                       <td className={`py-2.5 px-4 text-right font-mono text-xs ${isGst ? "text-emerald-600" : "text-red-600"}`}>{fmtCurrency(total)}</td>
@@ -1725,6 +1753,7 @@ function GstTdsReport({ invoices, type, clients }: { invoices: any[]; type: "gst
                 <div className={`h-1 bg-gradient-to-r ${isGst ? "from-emerald-400 to-green-500" : "from-red-400 to-rose-500"}`} />
                 <CardContent className="p-3">
                   <div className="flex items-center gap-2 mb-2">
+                    <Checkbox checked={selectedIds.has(inv.id)} onCheckedChange={() => toggleSelect(inv.id)} data-testid={`checkbox-${type}-mobile-${inv.id}`} />
                     <span className={`inline-flex items-center justify-center w-7 h-7 rounded-full bg-gradient-to-br ${isGst ? "from-emerald-500 to-green-600" : "from-red-500 to-rose-600"} text-white text-xs font-bold`}>{idx + 1}</span>
                     <div>
                       <p className="font-semibold text-sm">{inv.clientName}</p>
