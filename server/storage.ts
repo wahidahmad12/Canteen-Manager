@@ -861,7 +861,7 @@ export class DatabaseStorage implements IStorage {
     return await db.select().from(clientNames).orderBy(clientNames.name);
   }
 
-  async createClientName(item: { name: string; address?: string; gstNo?: string; agreementValidTill?: string | null }): Promise<ClientName> {
+  async createClientName(item: { name: string; address?: string; gstNo?: string; stateName?: string; stateCode?: string; clientCode?: string; agreementValidTill?: string | null }): Promise<ClientName> {
     const [newItem] = await db.transaction(async (tx) => {
 
       await tx.insert(clientNames).values(item);
@@ -874,7 +874,7 @@ export class DatabaseStorage implements IStorage {
     return newItem;
   }
 
-  async updateClientName(id: number, item: { name?: string; address?: string; gstNo?: string; stateName?: string; stateCode?: string; agreementValidTill?: string | null; attendanceLat?: number | null; attendanceLng?: number | null; attendanceRadius?: number | null }): Promise<ClientName> {
+  async updateClientName(id: number, item: { name?: string; address?: string; gstNo?: string; stateName?: string; stateCode?: string; clientCode?: string; agreementValidTill?: string | null; attendanceLat?: number | null; attendanceLng?: number | null; attendanceRadius?: number | null }): Promise<ClientName> {
     await db.update(clientNames).set(item).where(eq(clientNames.id, id));
     const [updated] = await db.select().from(clientNames).where(eq(clientNames.id, id));
     if (!updated) throw new Error("Client not found");

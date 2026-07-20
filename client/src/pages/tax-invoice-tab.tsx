@@ -11,7 +11,7 @@ import { apiRequest } from "@/lib/queryClient";
 import { Plus, Save, Loader2, Pencil, Trash2, Printer, X, Receipt } from "lucide-react";
 import logoPath from "@assets/logo1_1771660912341.png";
 
-interface ClientOption { id: number; name: string; address?: string; gstNo?: string; stateCode?: string }
+interface ClientOption { id: number; name: string; address?: string; gstNo?: string; stateCode?: string; clientCode?: string }
 
 interface ItemMasterOption {
   id: number;
@@ -391,6 +391,7 @@ export function TaxInvoiceTab({ clients }: { clients: ClientOption[] }) {
     if (c) {
       setBillToAddress(c.address || "");
       setBillToGstin(c.gstNo || "");
+      setVendorCode(c.clientCode || "");
       if (!editing && c.stateCode) {
         const d = invoiceDate ? new Date(invoiceDate) : new Date();
         const fiscalYearStart = d.getMonth() >= 3 ? d.getFullYear() : d.getFullYear() - 1;

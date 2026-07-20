@@ -149,6 +149,7 @@ export const clientNames = mysqlTable("client_names", {
   gstNo: varchar("gst_no", { length: 500 }).default(""),
   stateName: varchar("state_name", { length: 100 }).default(""),
   stateCode: varchar("state_code", { length: 10 }).default(""),
+  clientCode: varchar("client_code", { length: 100 }).default(""),
   agreementValidTill: date("agreement_valid_till"),
   attendanceLat: decimal("attendance_lat", { precision: 10, scale: 7 }),
   attendanceLng: decimal("attendance_lng", { precision: 10, scale: 7 }),

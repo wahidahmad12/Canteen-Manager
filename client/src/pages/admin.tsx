@@ -113,6 +113,7 @@ export default function Admin() {
   const [newClientGst, setNewClientGst] = useState("");
   const [newClientStateName, setNewClientStateName] = useState("");
   const [newClientStateCode, setNewClientStateCode] = useState("");
+  const [newClientCode, setNewClientCode] = useState("");
   const [newClientAgreement, setNewClientAgreement] = useState("");
   const [editingClientId, setEditingClientId] = useState<number | null>(null);
   const [editingClientName, setEditingClientName] = useState("");
@@ -120,6 +121,7 @@ export default function Admin() {
   const [editingClientGst, setEditingClientGst] = useState("");
   const [editingClientStateName, setEditingClientStateName] = useState("");
   const [editingClientStateCode, setEditingClientStateCode] = useState("");
+  const [editingClientCode, setEditingClientCode] = useState("");
   const [editingClientAgreement, setEditingClientAgreement] = useState("");
   const [editingClientLat, setEditingClientLat] = useState("");
   const [editingClientLng, setEditingClientLng] = useState("");
@@ -364,6 +366,7 @@ export default function Admin() {
         gstNo: newClientGst,
         stateName: newClientStateName,
         stateCode: newClientStateCode.toUpperCase(),
+        clientCode: newClientCode.trim(),
         agreementValidTill: newClientAgreement || null,
       });
       setNewClientName("");
@@ -371,6 +374,7 @@ export default function Admin() {
       setNewClientGst("");
       setNewClientStateName("");
       setNewClientStateCode("");
+      setNewClientCode("");
       setNewClientAgreement("");
       toast({ title: "Success", description: "Client added" });
     } catch (e: any) {
@@ -388,6 +392,7 @@ export default function Admin() {
         gstNo: editingClientGst,
         stateName: editingClientStateName,
         stateCode: editingClientStateCode.toUpperCase(),
+        clientCode: editingClientCode.trim(),
         agreementValidTill: editingClientAgreement || null,
         attendanceLat: editingClientLat ? Number(editingClientLat) : null,
         attendanceLng: editingClientLng ? Number(editingClientLng) : null,
@@ -407,6 +412,7 @@ export default function Admin() {
     setEditingClientGst(client.gstNo || "");
     setEditingClientStateName(client.stateName || "");
     setEditingClientStateCode(client.stateCode || "");
+    setEditingClientCode(client.clientCode || "");
     setEditingClientAgreement(client.agreementValidTill || "");
     setEditingClientLat(client.attendanceLat ? String(client.attendanceLat) : "");
     setEditingClientLng(client.attendanceLng ? String(client.attendanceLng) : "");
@@ -731,6 +737,7 @@ export default function Admin() {
                 <Input placeholder="State Name (e.g. West Bengal)" value={newClientStateName} onChange={(e) => setNewClientStateName(e.target.value)} className="border-teal-200 dark:border-teal-800" data-testid="input-new-client-state" />
                 <Input placeholder="State Code (e.g. KOL, GOA, SKI)" value={newClientStateCode} onChange={(e) => setNewClientStateCode(e.target.value.toUpperCase())} className="border-teal-200 dark:border-teal-800 uppercase font-mono" maxLength={5} data-testid="input-new-client-state-code" />
               </div>
+              <Input placeholder="Client Code (used as Vendor Code in Tax Invoice)" value={newClientCode} onChange={(e) => setNewClientCode(e.target.value)} className="border-teal-200 dark:border-teal-800 font-mono" data-testid="input-new-client-code" />
               <div className="space-y-0.5">
                 <Label className="text-[10px] text-muted-foreground">Full Address <span className="text-violet-500">(Plot No., Street, Area, City, State — PIN)</span></Label>
                 <textarea value={newClientAddress} onChange={(e) => setNewClientAddress(e.target.value)} placeholder="e.g. Plot No.18, Block-D, Kalyani, Dist: Nadia, West Bengal — 741235" rows={2} className="w-full rounded-md border border-teal-200 dark:border-teal-800 bg-background px-3 py-1.5 text-sm shadow-sm placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-teal-400 resize-none" data-testid="input-new-client-address" />
@@ -765,6 +772,7 @@ export default function Admin() {
                           <Input value={editingClientStateName} onChange={(e) => setEditingClientStateName(e.target.value)} placeholder="State Name" className="border-teal-300" data-testid={`input-edit-client-state-${client.id}`} />
                           <Input value={editingClientStateCode} onChange={(e) => setEditingClientStateCode(e.target.value.toUpperCase())} placeholder="State Code (e.g. KOL)" className="border-teal-300 uppercase font-mono" maxLength={5} data-testid={`input-edit-client-state-code-${client.id}`} />
                         </div>
+                        <Input value={editingClientCode} onChange={(e) => setEditingClientCode(e.target.value)} placeholder="Client Code (used as Vendor Code in Tax Invoice)" className="border-teal-300 font-mono" data-testid={`input-edit-client-code-${client.id}`} />
                         <div className="space-y-0.5">
                           <Label className="text-[10px] text-muted-foreground">Full Address <span className="text-violet-500">(Plot No., Street, Area, City, State — PIN)</span></Label>
                           <textarea value={editingClientAddress} onChange={(e) => setEditingClientAddress(e.target.value)} placeholder="e.g. Plot No.18, Block-D, Kalyani, Dist: Nadia, West Bengal — 741235" rows={2} className="w-full rounded-md border border-teal-300 bg-background px-3 py-1.5 text-sm shadow-sm placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-teal-400 resize-none" data-testid={`input-edit-client-address-${client.id}`} />
@@ -827,6 +835,7 @@ export default function Admin() {
                           )}
                           <div className="flex flex-wrap gap-3 mt-1">
                             {client.stateName && <span className="text-xs text-muted-foreground">State: {client.stateName} {client.stateCode && <span className="font-mono font-bold text-teal-600">({client.stateCode})</span>}</span>}
+                            {client.clientCode && <span className="text-xs text-muted-foreground">Client Code: <span className="font-mono font-bold text-violet-600">{client.clientCode}</span></span>}
                             {client.gstNo && <span className="text-xs text-muted-foreground">GST: <span className="font-mono">{client.gstNo}</span></span>}
                             {client.agreementValidTill && (
                               <span className={`text-xs ${new Date(client.agreementValidTill) < new Date() ? 'text-red-500 font-semibold' : 'text-muted-foreground'}`}>

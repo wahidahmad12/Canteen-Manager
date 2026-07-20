@@ -35,6 +35,7 @@ async function initPool(): Promise<void> {
     `ALTER TABLE client_names ADD COLUMN IF NOT EXISTS attendance_lat DECIMAL(10,7) DEFAULT NULL`,
     `ALTER TABLE client_names ADD COLUMN IF NOT EXISTS attendance_lng DECIMAL(10,7) DEFAULT NULL`,
     `ALTER TABLE client_names ADD COLUMN IF NOT EXISTS attendance_radius INT DEFAULT 200`,
+    `ALTER TABLE client_names ADD COLUMN IF NOT EXISTS client_code VARCHAR(100) DEFAULT ''`,
     `CREATE TABLE IF NOT EXISTS daily_attendance_logs (
       id INT AUTO_INCREMENT PRIMARY KEY,
       employee_id INT NOT NULL,

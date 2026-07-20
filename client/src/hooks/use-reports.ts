@@ -668,7 +668,7 @@ export function useClientNames() {
 export function useCreateClientName() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: async (data: { name: string; address?: string; gstNo?: string; agreementValidTill?: string | null }) => {
+    mutationFn: async (data: { name: string; address?: string; gstNo?: string; stateName?: string; stateCode?: string; clientCode?: string; agreementValidTill?: string | null }) => {
       const res = await fetch(api.clients.create.path, {
         method: api.clients.create.method,
         headers: { "Content-Type": "application/json" },
@@ -690,12 +690,12 @@ export function useCreateClientName() {
 export function useUpdateClientName() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: async ({ id, name, address, gstNo, stateName, stateCode, agreementValidTill, attendanceLat, attendanceLng, attendanceRadius }: { id: number; name: string; address?: string; gstNo?: string; stateName?: string; stateCode?: string; agreementValidTill?: string | null; attendanceLat?: number | null; attendanceLng?: number | null; attendanceRadius?: number }) => {
+    mutationFn: async ({ id, name, address, gstNo, stateName, stateCode, clientCode, agreementValidTill, attendanceLat, attendanceLng, attendanceRadius }: { id: number; name: string; address?: string; gstNo?: string; stateName?: string; stateCode?: string; clientCode?: string; agreementValidTill?: string | null; attendanceLat?: number | null; attendanceLng?: number | null; attendanceRadius?: number }) => {
       const url = buildUrl(api.clients.update.path, { id });
       const res = await fetch(url, {
         method: api.clients.update.method,
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name, address, gstNo, stateName, stateCode, agreementValidTill, attendanceLat, attendanceLng, attendanceRadius }),
+        body: JSON.stringify({ name, address, gstNo, stateName, stateCode, clientCode, agreementValidTill, attendanceLat, attendanceLng, attendanceRadius }),
         credentials: "include",
       });
       if (!res.ok) throw new Error("Failed to update client");
