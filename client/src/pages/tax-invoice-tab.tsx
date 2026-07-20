@@ -13,6 +13,31 @@ import logoPath from "@assets/logo1_1771660912341.png";
 
 interface ClientOption { id: number; name: string; address?: string; gstNo?: string }
 
+interface ItemMasterOption {
+  id: number;
+  itemName: string;
+  uom: string;
+  rate: string | null;
+  hsnCode: string;
+  gstPercent: string | null;
+}
+
+function toDisplayDate(d: string): string {
+  if (/^\d{4}-\d{2}-\d{2}$/.test(d)) {
+    const [y, m, day] = d.split("-");
+    return `${day}-${m}-${y}`;
+  }
+  return d;
+}
+
+function toInputDate(d: string): string {
+  if (/^\d{2}-\d{2}-\d{4}$/.test(d)) {
+    const [day, m, y] = d.split("-");
+    return `${y}-${m}-${day}`;
+  }
+  return d;
+}
+
 interface TaxInvoiceItem {
   id?: number;
   itemName: string;
@@ -303,6 +328,7 @@ export function TaxInvoiceTab({ clients }: { clients: ClientOption[] }) {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const { data: invoices = [], isLoading } = useQuery<TaxInvoice[]>({ queryKey: ["/api/tax-invoices"] });
+  const { data: masterItems = [] } = useQuery<ItemMasterOption[]>({ queryKey: ["/api/item-master"] });
 
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editing, setEditing] = useState<TaxInvoice | null>(null);
@@ -336,9 +362,9 @@ export function TaxInvoiceTab({ clients }: { clients: ClientOption[] }) {
   function openEdit(inv: TaxInvoice) {
     setEditing(inv);
     setInvoiceNumber(inv.invoiceNumber);
-    setInvoiceDate(inv.invoiceDate);
+    setInvoiceDate(toInputDate(inv.invoiceDate));
     setPoNumber(inv.poNumber || "");
-    setPoDate(inv.poDate || "");
+    setPoDate(toInputDate(inv.poDate || ""));
     setVendorCode(inv.vendorCode || "");
     setBillToName(inv.billToName);
     setBillToAddress(inv.billToAddress || "");
@@ -360,8 +386,30 @@ export function TaxInvoiceTab({ clients }: { clients: ClientOption[] }) {
     }
   }
 
+  function applyShipClient(name: string) {
+    const c = clients.find(cl => cl.name === name);
+    setShipToName(name);
+    if (c) setShipToAddress(c.address || "");
+  }
+
   function updateItem(idx: number, field: keyof TaxInvoiceItem, value: string) {
     setItems(prev => prev.map((it, i) => i === idx ? { ...it, [field]: value } : it));
+  }
+
+  function applyMasterItem(idx: number, name: string) {
+    const m = masterItems.find(mi => mi.itemName === name);
+    setItems(prev => prev.map((it, i) => {
+      if (i !== idx) return it;
+      if (!m) return { ...it, itemName: name };
+      return {
+        ...it,
+        itemName: m.itemName,
+        hsn: m.hsnCode || it.hsn,
+        uom: m.uom || it.uom,
+        rate: m.rate && Number(m.rate) > 0 ? String(Number(m.rate)) : it.rate,
+        igstPercent: m.gstPercent && Number(m.gstPercent) > 0 ? String(Number(m.gstPercent)) : it.igstPercent,
+      };
+    }));
   }
   function addItem() { setItems(prev => [...prev, emptyItem()]); }
   function removeItem(idx: number) { setItems(prev => prev.length > 1 ? prev.filter((_, i) => i !== idx) : prev); }
@@ -370,8 +418,10 @@ export function TaxInvoiceTab({ clients }: { clients: ClientOption[] }) {
     mutationFn: async () => {
       const payload = {
         invoiceNumber: invoiceNumber.trim(),
-        invoiceDate,
-        poNumber, poDate, vendorCode,
+        invoiceDate: toDisplayDate(invoiceDate),
+        poNumber,
+        poDate: toDisplayDate(poDate),
+        vendorCode,
         billToName: billToName.trim(),
         billToAddress, placeOfSupply, billToGstin,
         shipToName, shipToAddress, notes,
@@ -508,7 +558,7 @@ export function TaxInvoiceTab({ clients }: { clients: ClientOption[] }) {
               </div>
               <div>
                 <Label>Invoice Date *</Label>
-                <Input value={invoiceDate} onChange={e => setInvoiceDate(e.target.value)} placeholder="01-07-2026" data-testid="input-tax-invoice-date" />
+                <Input type="date" value={invoiceDate} onChange={e => setInvoiceDate(e.target.value)} data-testid="input-tax-invoice-date" />
               </div>
               <div>
                 <Label>Vendor Code</Label>
@@ -520,7 +570,7 @@ export function TaxInvoiceTab({ clients }: { clients: ClientOption[] }) {
               </div>
               <div>
                 <Label>PO Date</Label>
-                <Input value={poDate} onChange={e => setPoDate(e.target.value)} placeholder="14-05-2026" data-testid="input-tax-po-date" />
+                <Input type="date" value={poDate} onChange={e => setPoDate(e.target.value)} data-testid="input-tax-po-date" />
               </div>
             </div>
 
@@ -556,6 +606,15 @@ export function TaxInvoiceTab({ clients }: { clients: ClientOption[] }) {
               <div className="space-y-2 border rounded-md p-3">
                 <div className="font-semibold text-sm">SHIP TO <span className="font-normal text-xs text-muted-foreground">(blank = same as Bill To)</span></div>
                 <div>
+                  <Label>Client</Label>
+                  <Select value={shipToName} onValueChange={applyShipClient}>
+                    <SelectTrigger data-testid="select-tax-ship-to"><SelectValue placeholder="Select client" /></SelectTrigger>
+                    <SelectContent>
+                      {clients.map(c => <SelectItem key={c.id} value={c.name}>{c.name}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div>
                   <Label>Name</Label>
                   <Input value={shipToName} onChange={e => setShipToName(e.target.value)} data-testid="input-tax-ship-name" />
                 </div>
@@ -578,6 +637,14 @@ export function TaxInvoiceTab({ clients }: { clients: ClientOption[] }) {
                       <span className="text-xs font-semibold">Item {idx + 1}</span>
                       <Button size="sm" variant="ghost" className="h-7 text-red-600" onClick={() => removeItem(idx)} data-testid={`button-remove-tax-item-${idx}`}><X className="w-4 h-4" /></Button>
                     </div>
+                    {masterItems.length > 0 && (
+                      <Select value={masterItems.some(mi => mi.itemName === it.itemName) ? it.itemName : ""} onValueChange={v => applyMasterItem(idx, v)}>
+                        <SelectTrigger data-testid={`select-tax-item-master-${idx}`}><SelectValue placeholder="Choose from Item Master" /></SelectTrigger>
+                        <SelectContent>
+                          {masterItems.map(mi => <SelectItem key={mi.id} value={mi.itemName}>{mi.itemName}</SelectItem>)}
+                        </SelectContent>
+                      </Select>
+                    )}
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                       <Input value={it.itemName} onChange={e => updateItem(idx, "itemName", e.target.value)} placeholder="Item name (e.g. Breakfast)" data-testid={`input-tax-item-name-${idx}`} />
                       <Input value={it.description} onChange={e => updateItem(idx, "description", e.target.value)} placeholder="Description / period (optional)" data-testid={`input-tax-item-desc-${idx}`} />
