@@ -22,6 +22,7 @@ import {
 } from "lucide-react";
 import { Link } from "wouter";
 import { DateEntryTab } from "./date-entry-tab";
+import { TaxInvoiceTab } from "./tax-invoice-tab";
 
 interface PurchaseOrderType {
   id: number;
@@ -977,6 +978,9 @@ export default function SalesInvoicePage() {
               <TabsTrigger value="pankaj-report" className="data-[state=active]:bg-white dark:data-[state=active]:bg-gray-800 flex items-center gap-1 text-xs sm:text-sm sm:gap-1.5 whitespace-nowrap min-h-[44px] flex-1 sm:flex-none" data-testid="tab-pankaj-report">
                 <User className="w-3.5 h-3.5 shrink-0" /> Pankaj
               </TabsTrigger>
+              <TabsTrigger value="tax-invoice" className="data-[state=active]:bg-white dark:data-[state=active]:bg-gray-800 flex items-center gap-1 text-xs sm:text-sm sm:gap-1.5 whitespace-nowrap min-h-[44px] flex-1 sm:flex-none" data-testid="tab-tax-invoice">
+                <Receipt className="w-3.5 h-3.5 shrink-0" /> <span className="hidden sm:inline">TAX&nbsp;</span>Invoice
+              </TabsTrigger>
               {canSeeDataEntry && (
               <TabsTrigger value="date-entry" className="data-[state=active]:bg-white dark:data-[state=active]:bg-gray-800 flex items-center gap-1 text-xs sm:text-sm sm:gap-1.5 whitespace-nowrap min-h-[44px] flex-1 sm:flex-none" data-testid="tab-date-entry">
                 <CalendarDays className="w-3.5 h-3.5 shrink-0" /> Date Entry
@@ -1495,6 +1499,10 @@ export default function SalesInvoicePage() {
 
           <TabsContent value="pankaj-report" className="mt-4">
             <PankajReport invoices={invoices} clients={clients.map((c: any) => c.name)} />
+          </TabsContent>
+
+          <TabsContent value="tax-invoice" className="mt-4">
+            <TaxInvoiceTab clients={clients as any} />
           </TabsContent>
 
           <TabsContent value="date-entry" className="mt-4">

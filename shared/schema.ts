@@ -243,6 +243,38 @@ export const purchaseInvoiceItems = mysqlTable("purchase_invoice_items", {
   netAmount: decimal("net_amount", { precision: 12, scale: 2 }).default("0"),
 });
 
+// Tax invoices (GST format)
+export const taxInvoices = mysqlTable("tax_invoices", {
+  id: int("id").autoincrement().primaryKey(),
+  invoiceNumber: varchar("invoice_number", { length: 50 }).notNull(),
+  invoiceDate: varchar("invoice_date", { length: 10 }).notNull(),
+  poNumber: varchar("po_number", { length: 100 }).default(""),
+  poDate: varchar("po_date", { length: 10 }).default(""),
+  vendorCode: varchar("vendor_code", { length: 50 }).default(""),
+  billToName: varchar("bill_to_name", { length: 255 }).notNull(),
+  billToAddress: text("bill_to_address"),
+  placeOfSupply: varchar("place_of_supply", { length: 100 }).default(""),
+  billToGstin: varchar("bill_to_gstin", { length: 30 }).default(""),
+  shipToName: varchar("ship_to_name", { length: 255 }).default(""),
+  shipToAddress: text("ship_to_address"),
+  notes: text("notes"),
+  createdBy: text("created_by"),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+// Tax invoice line items
+export const taxInvoiceItems = mysqlTable("tax_invoice_items", {
+  id: int("id").autoincrement().primaryKey(),
+  invoiceId: int("invoice_id").notNull().references(() => taxInvoices.id, { onDelete: 'cascade' }),
+  itemName: varchar("item_name", { length: 255 }).notNull(),
+  description: text("description"),
+  hsn: varchar("hsn", { length: 20 }).default(""),
+  quantity: decimal("quantity", { precision: 12, scale: 2 }).default("0"),
+  uom: varchar("uom", { length: 30 }).default(""),
+  rate: decimal("rate", { precision: 12, scale: 2 }).default("0"),
+  igstPercent: decimal("igst_percent", { precision: 5, scale: 2 }).default("0"),
+});
+
 // Item Master - unified item database
 export const itemMaster = mysqlTable("item_master", {
   id: int("id").autoincrement().primaryKey(),
@@ -757,6 +789,14 @@ export const purchaseInvoiceWithItemsSchema = selectPurchaseInvoiceSchema.extend
   items: z.array(selectPurchaseInvoiceItemSchema),
   payments: z.array(selectPurchaseInvoicePaymentSchema).optional(),
 });
+
+export type TaxInvoice = typeof taxInvoices.$inferSelect;
+export type TaxInvoiceItem = typeof taxInvoiceItems.$inferSelect;
+export type TaxInvoiceWithItems = TaxInvoice & { items: TaxInvoiceItem[] };
+export const insertTaxInvoiceSchema = createInsertSchema(taxInvoices).omit({ id: true, createdAt: true });
+export const insertTaxInvoiceItemSchema = createInsertSchema(taxInvoiceItems).omit({ id: true, invoiceId: true });
+export type InsertTaxInvoice = z.infer<typeof insertTaxInvoiceSchema>;
+export type InsertTaxInvoiceItem = z.infer<typeof insertTaxInvoiceItemSchema>;
 
 // === SALARY & PAYROLL TYPES ===
 

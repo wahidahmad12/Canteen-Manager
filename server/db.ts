@@ -90,6 +90,35 @@ async function initPool(): Promise<void> {
       item_name VARCHAR(200) NOT NULL,
       UNIQUE KEY uq_menu_cat_item (category_name, item_name)
     )`,
+    `CREATE TABLE IF NOT EXISTS tax_invoices (
+      id INT AUTO_INCREMENT PRIMARY KEY,
+      invoice_number VARCHAR(50) NOT NULL,
+      invoice_date VARCHAR(10) NOT NULL,
+      po_number VARCHAR(100) DEFAULT '',
+      po_date VARCHAR(10) DEFAULT '',
+      vendor_code VARCHAR(50) DEFAULT '',
+      bill_to_name VARCHAR(255) NOT NULL,
+      bill_to_address TEXT,
+      place_of_supply VARCHAR(100) DEFAULT '',
+      bill_to_gstin VARCHAR(30) DEFAULT '',
+      ship_to_name VARCHAR(255) DEFAULT '',
+      ship_to_address TEXT,
+      notes TEXT,
+      created_by TEXT,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    )`,
+    `CREATE TABLE IF NOT EXISTS tax_invoice_items (
+      id INT AUTO_INCREMENT PRIMARY KEY,
+      invoice_id INT NOT NULL,
+      item_name VARCHAR(255) NOT NULL,
+      description TEXT,
+      hsn VARCHAR(20) DEFAULT '',
+      quantity DECIMAL(12,2) DEFAULT '0',
+      uom VARCHAR(30) DEFAULT '',
+      rate DECIMAL(12,2) DEFAULT '0',
+      igst_percent DECIMAL(5,2) DEFAULT '0',
+      FOREIGN KEY (invoice_id) REFERENCES tax_invoices(id) ON DELETE CASCADE
+    )`,
   ];
   for (const sql of migrations) {
     try { await pool.execute(sql); } catch (e: any) { console.log('[db] migration note:', e.message?.slice(0, 80)); }

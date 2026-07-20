@@ -5,7 +5,7 @@ import { storage } from "./storage";
 import { api } from "@shared/routes";
 import { z } from "zod";
 import bcrypt from "bcryptjs";
-import { insertPankajReportSchema } from "@shared/schema";
+import { insertPankajReportSchema, insertTaxInvoiceSchema, insertTaxInvoiceItemSchema } from "@shared/schema";
 import { generateRegistrationOptions, verifyRegistrationResponse, generateAuthenticationOptions, verifyAuthenticationResponse } from '@simplewebauthn/server';
 import { isoBase64URL, isoUint8Array } from '@simplewebauthn/server/helpers';
 
@@ -2335,6 +2335,50 @@ export async function registerRoutes(
 
   app.delete("/api/sales-invoices/:id", requireAdmin, async (req, res) => {
     await storage.deleteSalesInvoice(Number(req.params.id));
+    res.status(204).send();
+  });
+
+  const taxInvoiceInputSchema = insertTaxInvoiceSchema.omit({ createdBy: true }).extend({
+    items: z.array(insertTaxInvoiceItemSchema),
+  });
+
+  app.get("/api/tax-invoices", requirePermission("salesinvoice"), async (req, res) => {
+    try {
+      const invoices = await storage.getTaxInvoices();
+      res.json(invoices);
+    } catch (err: any) {
+      res.status(500).json({ message: err.message });
+    }
+  });
+
+  app.post("/api/tax-invoices", requirePermission("salesinvoice"), async (req, res) => {
+    try {
+      const input = taxInvoiceInputSchema.parse(req.body);
+      const invoice = await storage.createTaxInvoice({
+        ...input,
+        createdBy: req.session.displayName || req.session.username || '',
+      });
+      res.status(201).json(invoice);
+    } catch (err: any) {
+      if (err instanceof z.ZodError) return res.status(400).json({ message: err.errors[0]?.message || "Invalid input" });
+      res.status(500).json({ message: err.message });
+    }
+  });
+
+  app.put("/api/tax-invoices/:id", requirePermission("salesinvoice"), async (req, res) => {
+    try {
+      const input = taxInvoiceInputSchema.partial().parse(req.body);
+      const invoice = await storage.updateTaxInvoice(Number(req.params.id), input);
+      res.json(invoice);
+    } catch (err: any) {
+      if (err instanceof z.ZodError) return res.status(400).json({ message: err.errors[0]?.message || "Invalid input" });
+      if (err.message === "Tax invoice not found") return res.status(404).json({ message: err.message });
+      res.status(500).json({ message: err.message });
+    }
+  });
+
+  app.delete("/api/tax-invoices/:id", requireAdmin, async (req, res) => {
+    await storage.deleteTaxInvoice(Number(req.params.id));
     res.status(204).send();
   });
 

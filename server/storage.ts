@@ -19,6 +19,11 @@ import {
   purchaseInvoices,
   purchaseInvoiceItems,
   purchaseInvoicePayments,
+  taxInvoices,
+  taxInvoiceItems,
+  type TaxInvoiceWithItems,
+  type InsertTaxInvoice,
+  type InsertTaxInvoiceItem,
   itemMaster,
   employees,
   attendance,
@@ -178,6 +183,10 @@ export interface IStorage {
   createPurchaseInvoice(data: { purchaseRequestId?: number | null; allPrIds?: number[]; clientName: string; vendorName: string; vendorInvoiceNo: string; date: string; paymentGiven?: boolean; createdBy?: string; items: { itemName: string; uom: string; qty: number; unitPrice: number; totalPrice: number; gstRate: number; gstAmount: number; netAmount: number }[] }): Promise<PurchaseInvoiceWithItems>;
   updatePurchaseInvoice(id: number, data: { purchaseRequestId?: number | null; clientName?: string; vendorName?: string; vendorInvoiceNo?: string; date?: string; paymentGiven?: boolean; items?: { id?: number; itemName: string; uom: string; qty: number; unitPrice: number; totalPrice: number; gstRate: number; gstAmount: number; netAmount: number }[] }): Promise<PurchaseInvoiceWithItems>;
   deletePurchaseInvoice(id: number): Promise<void>;
+  getTaxInvoices(): Promise<TaxInvoiceWithItems[]>;
+  createTaxInvoice(data: InsertTaxInvoice & { items: InsertTaxInvoiceItem[] }): Promise<TaxInvoiceWithItems>;
+  updateTaxInvoice(id: number, data: Partial<InsertTaxInvoice> & { items?: InsertTaxInvoiceItem[] }): Promise<TaxInvoiceWithItems>;
+  deleteTaxInvoice(id: number): Promise<void>;
   getLastPurchasePrices(): Promise<{ itemName: string; unitPrice: number; gstRate: number; uom: string }[]>;
   getLastVegetablePrices(): Promise<{ description: string; rate: number }[]>;
   getItemMasterItems(itemType?: string): Promise<ItemMaster[]>;
@@ -1186,6 +1195,52 @@ export class DatabaseStorage implements IStorage {
     const items = await db.select().from(purchaseInvoiceItems).where(eq(purchaseInvoiceItems.invoiceId, id));
     const payments = await db.select().from(purchaseInvoicePayments).where(eq(purchaseInvoicePayments.invoiceId, id)).orderBy(purchaseInvoicePayments.paymentDate);
     return { ...inv, items, payments };
+  }
+
+  async getTaxInvoices(): Promise<TaxInvoiceWithItems[]> {
+    const invoices = await db.select().from(taxInvoices).orderBy(desc(taxInvoices.createdAt));
+    return await Promise.all(invoices.map(async (inv) => {
+      const items = await db.select().from(taxInvoiceItems).where(eq(taxInvoiceItems.invoiceId, inv.id));
+      return { ...inv, items };
+    }));
+  }
+
+  async createTaxInvoice(data: InsertTaxInvoice & { items: InsertTaxInvoiceItem[] }): Promise<TaxInvoiceWithItems> {
+    const { items, ...inv } = data;
+    return await db.transaction(async (tx) => {
+      await tx.insert(taxInvoices).values(inv);
+      const [idRow] = await tx.execute(sql`SELECT LAST_INSERT_ID() AS id`) as any;
+      const newId = Number((Array.isArray(idRow) ? idRow[0] : idRow)?.id);
+      if (items.length > 0) {
+        await tx.insert(taxInvoiceItems).values(items.map(it => ({ ...it, invoiceId: newId })));
+      }
+      const [created] = await tx.select().from(taxInvoices).where(eq(taxInvoices.id, newId));
+      const createdItems = await tx.select().from(taxInvoiceItems).where(eq(taxInvoiceItems.invoiceId, newId));
+      return { ...created, items: createdItems };
+    });
+  }
+
+  async updateTaxInvoice(id: number, data: Partial<InsertTaxInvoice> & { items?: InsertTaxInvoiceItem[] }): Promise<TaxInvoiceWithItems> {
+    const { items, ...inv } = data;
+    return await db.transaction(async (tx) => {
+      if (Object.keys(inv).length > 0) {
+        await tx.update(taxInvoices).set(inv).where(eq(taxInvoices.id, id));
+      }
+      if (items) {
+        await tx.delete(taxInvoiceItems).where(eq(taxInvoiceItems.invoiceId, id));
+        if (items.length > 0) {
+          await tx.insert(taxInvoiceItems).values(items.map(it => ({ ...it, invoiceId: id })));
+        }
+      }
+      const [updated] = await tx.select().from(taxInvoices).where(eq(taxInvoices.id, id));
+      if (!updated) throw new Error("Tax invoice not found");
+      const updatedItems = await tx.select().from(taxInvoiceItems).where(eq(taxInvoiceItems.invoiceId, id));
+      return { ...updated, items: updatedItems };
+    });
+  }
+
+  async deleteTaxInvoice(id: number): Promise<void> {
+    await db.delete(taxInvoices).where(eq(taxInvoices.id, id));
   }
 
   async renumberDjInvoiceNos(): Promise<{ updated: number }> {
