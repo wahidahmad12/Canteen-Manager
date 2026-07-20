@@ -20,6 +20,7 @@ interface ItemMasterOption {
   rate: string | null;
   hsnCode: string;
   gstPercent: string | null;
+  itemType: string;
 }
 
 function toDisplayDate(d: string): string {
@@ -334,7 +335,8 @@ export function TaxInvoiceTab({ clients }: { clients: ClientOption[] }) {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const { data: invoices = [], isLoading } = useQuery<TaxInvoice[]>({ queryKey: ["/api/tax-invoices"] });
-  const { data: masterItems = [] } = useQuery<ItemMasterOption[]>({ queryKey: ["/api/item-master"] });
+  const { data: allMasterItems = [] } = useQuery<ItemMasterOption[]>({ queryKey: ["/api/item-master"] });
+  const masterItems = allMasterItems.filter(mi => mi.itemType === "sales" || mi.itemType === "both");
 
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editing, setEditing] = useState<TaxInvoice | null>(null);
