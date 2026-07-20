@@ -187,7 +187,7 @@ function buildPrintHtml(inv: {
     body { font-family: 'Times New Roman', serif; color: #000; margin: 0; padding: 0; }
     table { border-collapse: collapse; width: 100%; }
     .b { border: ${b}; }
-    td, th { font-size: 12px; }
+    td, th { font-size: 12px; word-wrap: break-word; overflow-wrap: break-word; }
     .lbl { font-weight: 700; }
   </style></head><body>
   <div style="font-weight:700;font-size:13px;margin-bottom:2px;">TAX INVOICE <span style="font-weight:400;color:#888;">ORIGINAL FOR RECIPIENT</span></div>
@@ -205,32 +205,28 @@ function buildPrintHtml(inv: {
         </tr></table>
       </td>
       <td class="b" style="padding:0;vertical-align:top;">
-        <table style="border:none;height:100%;">
+        <table style="border:none;table-layout:fixed;height:100%;">
+          <colgroup>
+            <col style="width:16.66%"><col style="width:16.66%"><col style="width:16.67%">
+            <col style="width:16.67%"><col style="width:16.67%"><col style="width:16.67%">
+          </colgroup>
           <tr>
-            <td class="b" style="text-align:center;font-weight:700;padding:4px;width:50%;">Invoice Number</td>
-            <td class="b" style="text-align:center;font-weight:700;padding:4px;">Invoice Date</td>
+            <td class="b" colspan="3" style="text-align:center;font-weight:700;padding:4px;">Invoice Number</td>
+            <td class="b" colspan="3" style="text-align:center;font-weight:700;padding:4px;">Invoice Date</td>
           </tr>
           <tr>
-            <td class="b" style="text-align:center;font-weight:700;font-size:16px;padding:6px;">${esc(inv.invoiceNumber)}</td>
-            <td class="b" style="text-align:center;font-weight:700;font-size:16px;padding:6px;">${esc(inv.invoiceDate)}</td>
+            <td class="b" colspan="3" style="text-align:center;font-weight:700;font-size:16px;padding:6px;">${esc(inv.invoiceNumber)}</td>
+            <td class="b" colspan="3" style="text-align:center;font-weight:700;font-size:16px;padding:6px;">${esc(inv.invoiceDate)}</td>
           </tr>
           <tr>
-            <td class="b" style="text-align:center;font-weight:700;padding:4px;">Po Number</td>
-            <td style="border:none;padding:0;">
-              <table style="border:none;"><tr>
-                <td class="b" style="text-align:center;font-weight:700;padding:4px;width:50%;">PO Date</td>
-                <td class="b" style="text-align:center;font-weight:700;padding:4px;">Vendor Code</td>
-              </tr></table>
-            </td>
+            <td class="b" colspan="2" style="text-align:center;font-weight:700;padding:4px;">Po Number</td>
+            <td class="b" colspan="2" style="text-align:center;font-weight:700;padding:4px;">PO Date</td>
+            <td class="b" colspan="2" style="text-align:center;font-weight:700;padding:4px;">Vendor Code</td>
           </tr>
           <tr>
-            <td class="b" style="text-align:center;font-weight:700;padding:4px;">${esc(inv.poNumber)}</td>
-            <td style="border:none;padding:0;">
-              <table style="border:none;"><tr>
-                <td class="b" style="text-align:center;font-weight:700;padding:4px;width:50%;">${esc(inv.poDate)}</td>
-                <td class="b" style="text-align:center;font-weight:700;padding:4px;">${esc(inv.vendorCode)}</td>
-              </tr></table>
-            </td>
+            <td class="b" colspan="2" style="text-align:center;font-weight:700;padding:4px;">${esc(inv.poNumber)}</td>
+            <td class="b" colspan="2" style="text-align:center;font-weight:700;padding:4px;">${esc(inv.poDate)}</td>
+            <td class="b" colspan="2" style="text-align:center;font-weight:700;padding:4px;">${esc(inv.vendorCode)}</td>
           </tr>
         </table>
       </td>
@@ -252,11 +248,16 @@ function buildPrintHtml(inv: {
       </td>
     </tr>
   </table>
-  <table class="b" style="border-top:none;">
+  <table class="b" style="border-top:none;table-layout:fixed;">
+    <colgroup>
+      <col style="width:5%"><col style="width:27%"><col style="width:8%"><col style="width:9%">
+      <col style="width:6%"><col style="width:8%"><col style="width:11%"><col style="width:6%">
+      <col style="width:9%"><col style="width:11%">
+    </colgroup>
     <thead>
       <tr style="background:${head};">
         <th class="b" style="padding:5px;">S.NO</th>
-        <th class="b" style="padding:5px;width:28%;">ITEMS</th>
+        <th class="b" style="padding:5px;">ITEMS</th>
         <th class="b" style="padding:5px;">HSN</th>
         <th class="b" style="padding:5px;">QUANTITY</th>
         <th class="b" style="padding:5px;">UoM</th>
@@ -278,7 +279,12 @@ function buildPrintHtml(inv: {
       </tr>
     </tbody>
   </table>
-  <table class="b" style="border-top:none;">
+  <table class="b" style="border-top:none;table-layout:fixed;">
+    <colgroup>
+      <col style="width:12%"><col style="width:14%"><col style="width:9%"><col style="width:12%">
+      <col style="width:9%"><col style="width:12%"><col style="width:9%"><col style="width:11%">
+      <col style="width:12%">
+    </colgroup>
     <thead>
       <tr>
         <th class="b" rowspan="2" style="padding:4px;vertical-align:middle;">HSN/SAC</th>
