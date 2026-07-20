@@ -1951,11 +1951,15 @@ function GstTdsReport({ invoices, type, clients }: { invoices: any[]; type: "gst
 
 function PankajReport({ invoices, clients }: { invoices: any[]; clients: string[] }) {
   const now = new Date();
-  const [month, setMonth] = useState(String(now.getMonth() + 1));
+  const [selectedMonths, setSelectedMonths] = useState<string[]>([String(now.getMonth() + 1)]);
   const [year, setYear] = useState(String(now.getFullYear()));
   const [selectedClients, setSelectedClients] = useState<string[]>([]);
   const [clientDropdownOpen, setClientDropdownOpen] = useState(false);
+  const [monthDropdownOpen, setMonthDropdownOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
+  const monthDropdownRef = useRef<HTMLDivElement>(null);
+  const multiMonth = selectedMonths.length > 1;
+  const month = selectedMonths[0] || String(now.getMonth() + 1);
   const [filterPankajStatus, setFilterPankajStatus] = useState("all");
   const [filterInvStatus, setFilterInvStatus] = useState("all");
   type Payment = { date: string; amount: string };
@@ -1969,11 +1973,14 @@ function PankajReport({ invoices, clients }: { invoices: any[]; clients: string[
   const queryClient = useQueryClient();
 
   const { data: savedRecords = [], isLoading: loadingSaved } = useQuery<any[]>({
-    queryKey: ["/api/pankaj-reports", month, year],
+    queryKey: ["/api/pankaj-reports", selectedMonths.join(","), year],
     queryFn: async () => {
-      const res = await fetch(`/api/pankaj-reports?month=${month}&year=${year}`, { credentials: "include" });
-      if (!res.ok) throw new Error("Failed to load");
-      return res.json();
+      const results = await Promise.all(selectedMonths.map(async (m) => {
+        const res = await fetch(`/api/pankaj-reports?month=${m}&year=${year}`, { credentials: "include" });
+        if (!res.ok) throw new Error("Failed to load");
+        return res.json();
+      }));
+      return results.flat();
     },
   });
 
@@ -1981,15 +1988,15 @@ function PankajReport({ invoices, clients }: { invoices: any[]; clients: string[
     const fa: Record<string, number> = {};
     const cp: Record<string, Payment[]> = {};
     savedRecords.forEach((r: any) => {
-      fa[r.clientName] = Number(r.fixedAmount) || 0;
+      fa[r.clientName] = (fa[r.clientName] || 0) + (Number(r.fixedAmount) || 0);
       // Parse payments JSON if present; else fall back to single givenDate/givenAmount
+      let pmts: Payment[] = [];
       if (r.payments) {
-        try { cp[r.clientName] = JSON.parse(r.payments); } catch { cp[r.clientName] = []; }
+        try { pmts = JSON.parse(r.payments); } catch { pmts = []; }
       } else if (r.givenDate && r.givenAmount) {
-        cp[r.clientName] = [{ date: r.givenDate.split("T")[0], amount: String(Number(r.givenAmount)) }];
-      } else {
-        cp[r.clientName] = [];
+        pmts = [{ date: r.givenDate.split("T")[0], amount: String(Number(r.givenAmount)) }];
       }
+      cp[r.clientName] = [...(cp[r.clientName] || []), ...pmts];
     });
     setFixedAmounts(fa);
     setClientPayments(cp);
@@ -2001,6 +2008,9 @@ function PankajReport({ invoices, clients }: { invoices: any[]; clients: string[
       if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) {
         setClientDropdownOpen(false);
       }
+      if (monthDropdownRef.current && !monthDropdownRef.current.contains(e.target as Node)) {
+        setMonthDropdownOpen(false);
+      }
     };
     document.addEventListener("mousedown", handler);
     return () => document.removeEventListener("mousedown", handler);
@@ -2009,21 +2019,28 @@ function PankajReport({ invoices, clients }: { invoices: any[]; clients: string[
   const toggleClient = (c: string) => setSelectedClients(prev => prev.includes(c) ? prev.filter(x => x !== c) : [...prev, c]);
   const selectAllClients = (pool: string[]) => setSelectedClients(pool);
   const clearAllClients = () => setSelectedClients([]);
+  useEffect(() => { setEditingRows(new Set()); }, [selectedMonths.join(","), year]);
 
-  // All clients that have invoices in the selected month/year
+  const toggleMonth = (m: string) => setSelectedMonths(prev => {
+    if (prev.includes(m)) {
+      if (prev.length === 1) return prev; // keep at least one month
+      return prev.filter(x => x !== m);
+    }
+    return [...prev, m].sort((a, b) => Number(a) - Number(b));
+  });
+
+  const inSelectedMonths = (inv: any) => {
+    if (!inv.billDate) return false;
+    const d = new Date(inv.billDate);
+    return selectedMonths.includes(String(d.getMonth() + 1)) && d.getFullYear() === Number(year);
+  };
+
+  // All clients that have invoices in the selected month(s)/year
   const allRows = clients
-    .filter(clientName => invoices.some(inv => {
-      if (!inv.billDate || inv.clientName !== clientName) return false;
-      const d = new Date(inv.billDate);
-      return d.getMonth() + 1 === Number(month) && d.getFullYear() === Number(year);
-    }))
+    .filter(clientName => invoices.some(inv => inv.clientName === clientName && inSelectedMonths(inv)))
     .map((clientName, idx) => {
-      // All invoices for this client in the selected month/year
-      const clientInvoices = invoices.filter(inv => {
-        if (!inv.billDate || inv.clientName !== clientName) return false;
-        const d = new Date(inv.billDate);
-        return d.getMonth() + 1 === Number(month) && d.getFullYear() === Number(year);
-      });
+      // All invoices for this client in the selected month(s)/year
+      const clientInvoices = invoices.filter(inv => inv.clientName === clientName && inSelectedMonths(inv));
 
       // Compute per-invoice status to find Full Paid ones
       const fullPaidInvoices = clientInvoices.filter(inv => {
@@ -2048,7 +2065,7 @@ function PankajReport({ invoices, clients }: { invoices: any[]; clients: string[
         totalReceived <= 0 ? "due" :
         totalReceived >= totalAllToReceive ? "full" : "partial";
 
-      const savedRec = savedRecords.find((r: any) => r.clientName === clientName);
+      const savedRec = multiMonth ? undefined : savedRecords.find((r: any) => r.clientName === clientName);
       const payments = clientPayments[clientName] || [];
       const givenAmt = Math.round(payments.reduce((s, p) => s + (Number(p.amount) || 0), 0) * 100) / 100;
       // Latest given date across all payments
@@ -2122,7 +2139,7 @@ function PankajReport({ invoices, clients }: { invoices: any[]; clients: string[
       for (const id of toDelete) await apiRequest("DELETE", `/api/pankaj-reports/${id}`);
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/pankaj-reports", month, year] });
+      queryClient.invalidateQueries({ queryKey: ["/api/pankaj-reports"] });
       toast({ title: "Saved", description: `Pankaj report for ${monthName} ${year} saved successfully` });
     },
     onError: () => {
@@ -2142,7 +2159,7 @@ function PankajReport({ invoices, clients }: { invoices: any[]; clients: string[
     },
     onSuccess: (_data, r) => {
       setEditingRows(prev => { const s = new Set(prev); s.delete(r.clientName); return s; });
-      queryClient.invalidateQueries({ queryKey: ["/api/pankaj-reports", month, year] });
+      queryClient.invalidateQueries({ queryKey: ["/api/pankaj-reports"] });
       toast({ title: "Saved", description: `${r.clientName} payment record updated` });
     },
     onError: () => {
@@ -2189,7 +2206,10 @@ function PankajReport({ invoices, clients }: { invoices: any[]; clients: string[
   const years: string[] = [];
   for (let y = now.getFullYear(); y >= now.getFullYear() - 5; y--) years.push(String(y));
 
-  const monthName = monthsList.find(m => m.v === month)?.l || "";
+  const monthName = selectedMonths
+    .map(mv => monthsList.find(m => m.v === mv)?.l || "")
+    .filter(Boolean)
+    .join(", ");
 
   const hasSavedData = savedRecords.length > 0;
 
@@ -2532,7 +2552,7 @@ function PankajReport({ invoices, clients }: { invoices: any[]; clients: string[
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
-    a.download = `Pankaj_Report_${monthName}_${year}.xlsx`;
+    a.download = `Pankaj_Report_${monthName.replace(/, /g, "_")}_${year}.xlsx`;
     a.click();
     URL.revokeObjectURL(url);
   };
@@ -2554,7 +2574,7 @@ function PankajReport({ invoices, clients }: { invoices: any[]; clients: string[
               </p>
             </div>
             <div className="ml-auto flex gap-2">
-              <Button size="sm" className="h-9 bg-gradient-to-r from-emerald-600 to-green-600 hover:from-emerald-700 hover:to-green-700 text-white shadow-md" onClick={() => saveMutation.mutate()} disabled={saveMutation.isPending || allRows.length === 0} data-testid="button-save-pankaj">
+              <Button size="sm" className="h-9 bg-gradient-to-r from-emerald-600 to-green-600 hover:from-emerald-700 hover:to-green-700 text-white shadow-md" onClick={() => saveMutation.mutate()} disabled={multiMonth || saveMutation.isPending || allRows.length === 0} title={multiMonth ? "Select a single month to save" : undefined} data-testid="button-save-pankaj">
                 {saveMutation.isPending ? <Loader2 className="w-4 h-4 mr-1 animate-spin" /> : <Save className="w-4 h-4 mr-1" />}
                 {hasSavedData ? "Update" : "Save"}
               </Button>
@@ -2595,14 +2615,27 @@ function PankajReport({ invoices, clients }: { invoices: any[]; clients: string[
               )}
             </div>
 
-            <Select value={month} onValueChange={setMonth}>
-              <SelectTrigger className="w-full sm:w-[140px] h-9 text-sm" data-testid="select-pankaj-month">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {monthsList.map(m => <SelectItem key={m.v} value={m.v}>{m.l}</SelectItem>)}
-              </SelectContent>
-            </Select>
+            {/* Multi-month checkbox dropdown */}
+            <div className="relative" ref={monthDropdownRef}>
+              <Button variant="outline" size="sm" className="h-9 w-full sm:w-[160px] justify-between" onClick={() => setMonthDropdownOpen(!monthDropdownOpen)} data-testid="button-pankaj-month-select">
+                <span className="text-xs truncate">
+                  {selectedMonths.length === 1 ? monthsList.find(m => m.v === selectedMonths[0])?.l : `${selectedMonths.length} months`}
+                </span>
+                <span className="ml-1 text-muted-foreground">▾</span>
+              </Button>
+              {monthDropdownOpen && (
+                <div className="absolute z-50 mt-1 w-48 bg-white dark:bg-gray-900 border border-violet-100 dark:border-violet-900 rounded-xl shadow-2xl p-2 max-h-64 overflow-y-auto" data-testid="dropdown-pankaj-months" onClick={(e) => e.stopPropagation()} onMouseDown={(e) => e.stopPropagation()}>
+                  {monthsList.map(m => (
+                    <div key={m.v} className="flex items-center gap-2.5 px-2.5 py-1.5 rounded-lg hover:bg-violet-50 dark:hover:bg-violet-950/30 cursor-pointer transition-colors" onClick={(e) => { e.stopPropagation(); toggleMonth(m.v); }} data-testid={`checkbox-month-${m.v}`}>
+                      <div className={`w-5 h-5 rounded-md border-2 flex items-center justify-center text-white text-xs transition-all ${selectedMonths.includes(m.v) ? "bg-violet-600 border-violet-600 shadow-sm shadow-violet-300" : "border-gray-300 dark:border-gray-600"}`}>
+                        {selectedMonths.includes(m.v) && <Check className="w-3.5 h-3.5" />}
+                      </div>
+                      <span className="text-sm">{m.l}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
 
             <Select value={year} onValueChange={setYear}>
               <SelectTrigger className="w-full sm:w-[100px] h-9 text-sm" data-testid="select-pankaj-year">
@@ -2759,7 +2792,7 @@ function PankajReport({ invoices, clients }: { invoices: any[]; clients: string[
                         <td className="py-3 px-4 text-right font-mono text-sm">{fmtCurrency(r.toReceive)}</td>
                         <td className="py-3 px-4 text-right font-mono text-sm text-blue-600 dark:text-blue-400">{fmtCurrency(r.gstMinusTds)}</td>
                         <td className="py-2 px-2 text-center">
-                          <Input type="number" className="w-24 h-8 text-xs text-center font-mono mx-auto" placeholder="0" disabled={!!r.savedId && !editingRows.has(r.clientName)} value={fixedAmounts[r.clientName] || ""} onChange={(e) => setFixedAmounts(prev => ({ ...prev, [r.clientName]: Number(e.target.value) || 0 }))} data-testid={`input-fixed-amt-${r.idx}`} />
+                          <Input type="number" className="w-24 h-8 text-xs text-center font-mono mx-auto" placeholder="0" disabled={multiMonth || (!!r.savedId && !editingRows.has(r.clientName))} value={fixedAmounts[r.clientName] || ""} onChange={(e) => setFixedAmounts(prev => ({ ...prev, [r.clientName]: Number(e.target.value) || 0 }))} data-testid={`input-fixed-amt-${r.idx}`} />
                         </td>
                         <td className="py-3 px-4 text-right font-mono text-sm font-bold text-emerald-600 dark:text-emerald-400">{fmtCurrency(r.total)}</td>
                         <td className="py-3 px-3 text-center text-xs text-blue-600 font-medium">
@@ -2771,15 +2804,15 @@ function PankajReport({ invoices, clients }: { invoices: any[]; clients: string[
                             {(clientPayments[r.clientName] || []).map((p, pi) => (
                               <div key={pi} className="flex items-center gap-1 justify-center">
                                 <span className="text-xs font-medium text-violet-700 dark:text-violet-300">{p.date ? fmtDate(p.date) : "—"}</span>
-                                {(editingRows.has(r.clientName) || !r.savedId) && (
+                                {(!multiMonth && (editingRows.has(r.clientName) || !r.savedId)) && (
                                   <button className="text-red-400 hover:text-red-600 text-[10px] ml-0.5" onClick={() => removePayment(r.clientName, pi)}>✕</button>
                                 )}
                               </div>
                             ))}
-                            {(editingRows.has(r.clientName) || !r.savedId) && (
+                            {(!multiMonth && (editingRows.has(r.clientName) || !r.savedId)) && (
                               <Input type="date" className="w-[120px] h-7 text-xs text-center mx-auto mt-1" value={newPayment[r.clientName]?.date || ""} onChange={(e) => setNewPayment(prev => ({ ...prev, [r.clientName]: { ...prev[r.clientName], date: e.target.value } }))} data-testid={`input-given-date-${r.idx}`} />
                             )}
-                            {(clientPayments[r.clientName] || []).length === 0 && !(editingRows.has(r.clientName) || !r.savedId) && (
+                            {(clientPayments[r.clientName] || []).length === 0 && !(!multiMonth && (editingRows.has(r.clientName) || !r.savedId)) && (
                               <span className="text-[11px] text-muted-foreground">Not set</span>
                             )}
                           </div>
@@ -2792,13 +2825,13 @@ function PankajReport({ invoices, clients }: { invoices: any[]; clients: string[
                                 {fmtCurrency(Number(p.amount))}
                               </div>
                             ))}
-                            {(editingRows.has(r.clientName) || !r.savedId) && (
+                            {(!multiMonth && (editingRows.has(r.clientName) || !r.savedId)) && (
                               <div className="flex items-center gap-1 mt-1 justify-end">
                                 <Input type="number" className="w-24 h-7 text-xs text-right font-mono" placeholder="0.00" value={newPayment[r.clientName]?.amount || ""} onChange={(e) => setNewPayment(prev => ({ ...prev, [r.clientName]: { ...prev[r.clientName], amount: e.target.value } }))} data-testid={`input-given-amt-${r.idx}`} />
                                 <button className="h-7 px-2 text-[11px] bg-violet-600 hover:bg-violet-700 text-white rounded font-semibold" onClick={() => addPayment(r.clientName)}>+Add</button>
                               </div>
                             )}
-                            {(clientPayments[r.clientName] || []).length === 0 && !(editingRows.has(r.clientName) || !r.savedId) && (
+                            {(clientPayments[r.clientName] || []).length === 0 && !(!multiMonth && (editingRows.has(r.clientName) || !r.savedId)) && (
                               <span className="text-[11px] text-muted-foreground">—</span>
                             )}
                           </div>
@@ -2831,7 +2864,7 @@ function PankajReport({ invoices, clients }: { invoices: any[]; clients: string[
                           )}
                         </td>
                         <td className="py-2 px-2 text-center">
-                          {r.savedId && !editingRows.has(r.clientName) ? (
+                          {multiMonth ? null : r.savedId && !editingRows.has(r.clientName) ? (
                             <Button size="sm" variant="outline" className="h-7 px-2 text-[11px] border-violet-300 text-violet-700 hover:bg-violet-50" onClick={() => toggleEditRow(r.clientName)} data-testid={`button-edit-row-${r.idx}`}>
                               <Pencil className="w-3 h-3 mr-1" /> Edit
                             </Button>
@@ -2908,7 +2941,7 @@ function PankajReport({ invoices, clients }: { invoices: any[]; clients: string[
                     </div>
                     <div className="bg-purple-50 dark:bg-purple-950/20 rounded-xl p-2.5 text-center">
                       <p className="text-[10px] text-purple-600 dark:text-purple-400 uppercase tracking-wider font-medium">Fixed Amount</p>
-                      <Input type="number" className="w-20 h-7 text-xs text-center font-mono mx-auto mt-0.5" placeholder="0" disabled={!!r.savedId && !editingRows.has(r.clientName)} value={fixedAmounts[r.clientName] || ""} onChange={(e) => setFixedAmounts(prev => ({ ...prev, [r.clientName]: Number(e.target.value) || 0 }))} data-testid={`input-fixed-amt-mobile-${r.idx}`} />
+                      <Input type="number" className="w-20 h-7 text-xs text-center font-mono mx-auto mt-0.5" placeholder="0" disabled={multiMonth || (!!r.savedId && !editingRows.has(r.clientName))} value={fixedAmounts[r.clientName] || ""} onChange={(e) => setFixedAmounts(prev => ({ ...prev, [r.clientName]: Number(e.target.value) || 0 }))} data-testid={`input-fixed-amt-mobile-${r.idx}`} />
                     </div>
                     <div className="bg-emerald-50 dark:bg-emerald-950/20 rounded-xl p-2.5 text-center">
                       <p className="text-[10px] text-emerald-600 dark:text-emerald-400 uppercase tracking-wider font-medium">Total</p>
@@ -2933,17 +2966,17 @@ function PankajReport({ invoices, clients }: { invoices: any[]; clients: string[
                           </div>
                           <div className="flex items-center gap-2">
                             <span className="text-xs font-mono font-bold text-emerald-600 dark:text-emerald-400">{fmtCurrency(Number(p.amount))}</span>
-                            {(editingRows.has(r.clientName) || !r.savedId) && (
+                            {(!multiMonth && (editingRows.has(r.clientName) || !r.savedId)) && (
                               <button className="text-red-400 hover:text-red-600 text-xs font-bold" onClick={() => removePayment(r.clientName, pi)}>✕</button>
                             )}
                           </div>
                         </div>
                       ))}
-                      {(clientPayments[r.clientName] || []).length === 0 && !(editingRows.has(r.clientName) || !r.savedId) && (
+                      {(clientPayments[r.clientName] || []).length === 0 && !(!multiMonth && (editingRows.has(r.clientName) || !r.savedId)) && (
                         <p className="text-xs text-muted-foreground italic text-center py-1">No payments recorded</p>
                       )}
                       {/* Add payment form */}
-                      {(editingRows.has(r.clientName) || !r.savedId) && (
+                      {(!multiMonth && (editingRows.has(r.clientName) || !r.savedId)) && (
                         <div className="flex items-center gap-1.5 pt-1 border-t border-violet-100 dark:border-violet-900 mt-1">
                           <Input type="date" className="flex-1 h-7 text-xs" value={newPayment[r.clientName]?.date || ""} onChange={(e) => setNewPayment(prev => ({ ...prev, [r.clientName]: { ...prev[r.clientName], date: e.target.value } }))} data-testid={`input-given-date-mobile-${r.idx}`} />
                           <Input type="number" className="w-24 h-7 text-xs font-mono text-right" placeholder="0.00" value={newPayment[r.clientName]?.amount || ""} onChange={(e) => setNewPayment(prev => ({ ...prev, [r.clientName]: { ...prev[r.clientName], amount: e.target.value } }))} data-testid={`input-given-amt-mobile-${r.idx}`} />
