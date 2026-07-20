@@ -1620,6 +1620,93 @@ function GstTdsReport({ invoices, type, clients }: { invoices: any[]; type: "gst
     printWindow.document.close();
   };
 
+  const handlePrintAnnual = () => {
+    const clientLabel = clientFilter === "all" ? "All Clients" : clientFilter;
+    const yearRows = invoices.filter((inv) => {
+      if (!inv.billDate) return false;
+      const d = new Date(inv.billDate);
+      if (d.getFullYear() !== Number(year)) return false;
+      if (clientFilter !== "all" && inv.clientName !== clientFilter) return false;
+      return true;
+    }).sort((a, b) => new Date(a.billDate).getTime() - new Date(b.billDate).getTime());
+    if (yearRows.length === 0) return;
+    const grandTotal = yearRows.reduce((s, inv) => s + Number(inv[amountKey]), 0);
+    const grandBillAmt = yearRows.reduce((s, i) => s + Number(i.billAmount), 0);
+    const color = isGst ? "#059669" : "#dc2626";
+    let sl = 0;
+    const monthSections = months.map((m) => {
+      const rows = yearRows.filter((inv) => new Date(inv.billDate).getMonth() + 1 === Number(m.v));
+      if (rows.length === 0) return "";
+      const mTotal = rows.reduce((s, inv) => s + Number(inv[amountKey]), 0);
+      const mBill = rows.reduce((s, inv) => s + Number(inv.billAmount), 0);
+      return `
+        <tr class="month-row"><td colspan="7">${m.l} ${year}</td></tr>
+        ${rows.map((inv: any) => `<tr>
+          <td>${++sl}</td><td>${inv.clientName}</td><td>${fmtDate(inv.billDate)}</td><td>${inv.billNumber}</td>
+          <td class="right">${fmtCurrency(inv.billAmount)}</td><td class="right">${Number(isGst ? inv.gstPercent : inv.tdsPercent)}%</td>
+          <td class="right" style="font-weight:bold;color:${color}">${fmtCurrency(inv[amountKey])}</td>
+        </tr>`).join("")}
+        <tr class="subtotal-row">
+          <td colspan="4">${m.l} Total (${rows.length} invoices)</td>
+          <td class="right">₹${mBill.toLocaleString("en-IN", { minimumFractionDigits: 2 })}</td>
+          <td></td>
+          <td class="right" style="color:${color}">₹${mTotal.toLocaleString("en-IN", { minimumFractionDigits: 2 })}</td>
+        </tr>`;
+    }).join("");
+    const printWindow = window.open("", "_blank");
+    if (!printWindow) return;
+    printWindow.document.write(`<!DOCTYPE html><html><head><title>${title} (Annual) - ${year}</title>
+      <style>
+        body { font-family: Arial, sans-serif; margin: 20px; color: #333; }
+        h2 { text-align: center; margin-bottom: 4px; }
+        .sub { text-align: center; font-size: 13px; color: #666; margin-bottom: 16px; }
+        table { width: 100%; border-collapse: collapse; font-size: 12px; }
+        th { background: ${color}; color: white; padding: 8px 10px; text-align: left; }
+        th.right { text-align: right; }
+        td { padding: 6px 10px; border-bottom: 1px solid #e5e7eb; }
+        td.right { text-align: right; font-family: monospace; }
+        .month-row td { background: ${isGst ? "#d1fae5" : "#fee2e2"}; font-weight: bold; font-size: 12px; border-top: 2px solid ${color}; }
+        .subtotal-row td { font-weight: bold; background: #f3f4f6; }
+        tfoot td { font-weight: bold; border-top: 2px solid #333; padding-top: 8px; background: #fef9c3; }
+        .summary { display: flex; justify-content: space-around; margin-bottom: 16px; }
+        .summary-card { text-align: center; padding: 10px 20px; border: 1px solid #e5e7eb; border-radius: 8px; }
+        .summary-card .label { font-size: 11px; color: #666; }
+        .summary-card .value { font-size: 18px; font-weight: bold; font-family: monospace; }
+        @media print { body { margin: 10px; } }
+      </style></head><body>
+      <h2>${title} — Annual ${year}</h2>
+      <p class="sub">January – December ${year} | ${clientLabel}</p>
+      <div class="summary">
+        <div class="summary-card"><div class="label">Total Invoices</div><div class="value">${yearRows.length}</div></div>
+        <div class="summary-card"><div class="label">Total Bill Amount</div><div class="value" style="color:#7c3aed">₹${grandBillAmt.toLocaleString("en-IN", { minimumFractionDigits: 2 })}</div></div>
+        <div class="summary-card"><div class="label">Total ${isGst ? "GST" : "TDS"} Amount</div><div class="value" style="color:${color}">₹${grandTotal.toLocaleString("en-IN", { minimumFractionDigits: 2 })}</div></div>
+      </div>
+      <table>
+        <thead><tr>
+          <th>Sl#</th><th>Client</th><th>Bill Date</th><th>Bill Number</th>
+          <th class="right">Bill Amount</th><th class="right">${isGst ? "GST %" : "TDS %"}</th><th class="right">${isGst ? "GST Amount" : "TDS Amount"}</th>
+        </tr></thead>
+        <tbody>${monthSections}</tbody>
+        <tfoot><tr>
+          <td colspan="4">Grand Total ${year} (${yearRows.length} invoices)</td>
+          <td class="right">₹${grandBillAmt.toLocaleString("en-IN", { minimumFractionDigits: 2 })}</td>
+          <td></td>
+          <td class="right" style="color:${color}">₹${grandTotal.toLocaleString("en-IN", { minimumFractionDigits: 2 })}</td>
+        </tr></tfoot>
+      </table>
+      <script>window.onload=function(){window.print();}<\/script>
+    </body></html>`);
+    printWindow.document.close();
+  };
+
+  const annualCount = invoices.filter((inv) => {
+    if (!inv.billDate) return false;
+    const d = new Date(inv.billDate);
+    if (d.getFullYear() !== Number(year)) return false;
+    if (clientFilter !== "all" && inv.clientName !== clientFilter) return false;
+    return true;
+  }).length;
+
   return (
     <div>
       <Card className="border-0 shadow-md mb-4">
@@ -1661,6 +1748,9 @@ function GstTdsReport({ invoices, type, clients }: { invoices: any[]; type: "gst
                 </Select>
                 <Button variant="outline" size="sm" className="h-9 shrink-0" onClick={handlePrint} disabled={selectedRows.length === 0} data-testid={`button-print-${type}`}>
                   <BarChart3 className="w-4 h-4 sm:mr-1" /> <span className="hidden sm:inline">Print{selectedRows.length > 0 && selectedRows.length < filtered.length ? ` (${selectedRows.length})` : ""}</span>
+                </Button>
+                <Button variant="outline" size="sm" className={`h-9 shrink-0 ${isGst ? "border-emerald-300 text-emerald-700 dark:text-emerald-400" : "border-red-300 text-red-700 dark:text-red-400"}`} onClick={handlePrintAnnual} disabled={annualCount === 0} data-testid={`button-print-annual-${type}`}>
+                  <Printer className="w-4 h-4 sm:mr-1" /> <span className="hidden sm:inline">Annual {year}</span><span className="sm:hidden text-[10px]">Year</span>
                 </Button>
               </div>
             </div>
