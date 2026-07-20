@@ -180,12 +180,12 @@ function buildPrintHtml(inv: {
       <td style="border:${b};text-align:right;padding:4px;font-weight:700;">${fmt(v.igst)}</td>
     </tr>`).join("");
 
-  const head = "#bfe0ea";
+  const head = "#cce6f4";
   return `<!DOCTYPE html><html><head><meta charset="utf-8"><title>Tax Invoice ${inv.invoiceNumber}</title>
   <style>
     @page { size: A4; margin: 10mm; }
     * { box-sizing: border-box; }
-    body { font-family: 'Times New Roman', serif; color: #000; margin: 0; padding: 0; }
+    body { font-family: 'Times New Roman', serif; color: #000; margin: 0; padding: 0; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
     table { border-collapse: collapse; width: 100%; }
     .b { border: ${b}; }
     td, th { font-size: 12px; word-wrap: break-word; overflow-wrap: break-word; }
@@ -287,13 +287,13 @@ function buildPrintHtml(inv: {
       <col style="width:12%">
     </colgroup>
     <thead>
-      <tr>
+      <tr style="background:${head};">
         <th class="b" rowspan="2" style="padding:4px;vertical-align:middle;">HSN/SAC</th>
         <th class="b" rowspan="2" style="padding:4px;vertical-align:middle;">TAXABLE VALUE</th>
         <th class="b" colspan="6" style="padding:4px;">IGST</th>
         <th class="b" rowspan="2" style="padding:4px;vertical-align:middle;">TOTAL TAX</th>
       </tr>
-      <tr>
+      <tr style="background:${head};">
         <th class="b" style="padding:4px;">CGST %</th>
         <th class="b" style="padding:4px;">CGST Amount</th>
         <th class="b" style="padding:4px;">SGST %</th>
