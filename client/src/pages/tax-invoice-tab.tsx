@@ -532,6 +532,19 @@ export function TaxInvoiceTab({ clients }: { clients: ClientOption[] }) {
     if (!invoiceDate) { toast({ title: "Missing", description: "Invoice Date is required", variant: "destructive" }); return; }
     if (!billToName.trim()) { toast({ title: "Missing", description: "Bill To name is required", variant: "destructive" }); return; }
     if (!items.some(it => it.itemName.trim())) { toast({ title: "Missing", description: "Add at least one line item", variant: "destructive" }); return; }
+    const matchedPo = poNumber.trim() ? purchaseOrders.find(p => p.poNumber === poNumber.trim()) : undefined;
+    if (matchedPo) {
+      const taxableTotal = Math.round(items.filter(it => it.itemName.trim()).reduce((s, it) => s + itemTotal(it), 0) * 100) / 100;
+      const poAmt = Number(matchedPo.poAmount) || 0;
+      if (taxableTotal > poAmt) {
+        toast({
+          title: "Amount exceeds PO",
+          description: `Invoice amount without GST (₹${taxableTotal.toLocaleString("en-IN", { minimumFractionDigits: 2 })}) is more than PO amount (₹${poAmt.toLocaleString("en-IN", { minimumFractionDigits: 2 })}). Invoice not saved.`,
+          variant: "destructive",
+        });
+        return;
+      }
+    }
     saveMutation.mutate();
   }
 
