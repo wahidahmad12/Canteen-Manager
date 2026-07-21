@@ -653,7 +653,7 @@ export function TaxInvoiceTab({ clients }: { clients: ClientOption[] }) {
                       if (sorted.length === 0) return <SelectItem value="none" disabled>No purchase orders</SelectItem>;
                       return sorted.map(p => (
                         <SelectItem key={p.id} value={String(p.id)} data-testid={`option-tax-po-${p.id}`}>
-                          {p.poNumber} — {toDisplayDate(p.poDate)} ({p.clientName})
+                          {p.poNumber} — {toDisplayDate(p.poDate)} — ₹{Number(p.poAmount).toLocaleString("en-IN", { minimumFractionDigits: 2 })} ({p.clientName})
                         </SelectItem>
                       ));
                     })()}
