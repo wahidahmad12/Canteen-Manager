@@ -336,6 +336,7 @@ export function TaxInvoiceTab({ clients }: { clients: ClientOption[] }) {
   const queryClient = useQueryClient();
   const { data: invoices = [], isLoading } = useQuery<TaxInvoice[]>({ queryKey: ["/api/tax-invoices"] });
   const { data: allMasterItems = [] } = useQuery<ItemMasterOption[]>({ queryKey: ["/api/item-master"] });
+  const { data: purchaseOrders = [] } = useQuery<{ id: number; poNumber: string; poDate: string; poAmount: string; clientName: string }[]>({ queryKey: ["/api/purchase-orders"] });
   const masterItems = allMasterItems.filter(mi => mi.itemType === "sales" || mi.itemType === "both");
 
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -580,6 +581,35 @@ export function TaxInvoiceTab({ clients }: { clients: ClientOption[] }) {
               <div>
                 <Label>Vendor Code</Label>
                 <Input value={vendorCode} onChange={e => setVendorCode(e.target.value)} data-testid="input-tax-vendor-code" />
+              </div>
+              <div>
+                <Label>Choose from PO</Label>
+                <Select
+                  value=""
+                  onValueChange={(v) => {
+                    const po = purchaseOrders.find(p => String(p.id) === v);
+                    if (po) {
+                      setPoNumber(po.poNumber);
+                      setPoDate(toInputDate(po.poDate));
+                    }
+                  }}
+                >
+                  <SelectTrigger data-testid="select-tax-po"><SelectValue placeholder="Select PO" /></SelectTrigger>
+                  <SelectContent>
+                    {(() => {
+                      const pool = billToName && purchaseOrders.some(p => p.clientName === billToName)
+                        ? purchaseOrders.filter(p => p.clientName === billToName)
+                        : purchaseOrders;
+                      const sorted = [...pool].sort((a, b) => new Date(b.poDate).getTime() - new Date(a.poDate).getTime());
+                      if (sorted.length === 0) return <SelectItem value="none" disabled>No purchase orders</SelectItem>;
+                      return sorted.map(p => (
+                        <SelectItem key={p.id} value={String(p.id)} data-testid={`option-tax-po-${p.id}`}>
+                          {p.poNumber} — {toDisplayDate(p.poDate)} ({p.clientName})
+                        </SelectItem>
+                      ));
+                    })()}
+                  </SelectContent>
+                </Select>
               </div>
               <div>
                 <Label>PO Number</Label>
