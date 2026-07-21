@@ -455,13 +455,62 @@ export function TaxInvoiceTab({ clients }: { clients: ClientOption[] }) {
       };
       if (editing) {
         await apiRequest("PUT", `/api/tax-invoices/${editing.id}`, payload);
-      } else {
-        await apiRequest("POST", "/api/tax-invoices", payload);
+        return { salesCreated: false as boolean, salesError: "" };
       }
+      await apiRequest("POST", "/api/tax-invoices", payload);
+
+      // Automatically create a Sales Invoice ledger entry from this tax invoice
+      let salesCreated = false;
+      let salesError = "";
+      try {
+        const validItems = items.filter(it => it.itemName.trim());
+        const billAmount = Math.round(validItems.reduce((s, it) => s + itemTotal(it), 0) * 100) / 100;
+        const gstAmount = Math.round(validItems.reduce((s, it) => s + itemIgst(it), 0) * 100) / 100;
+        const totalBillAmount = Math.round((billAmount + gstAmount) * 100) / 100;
+        const gstPercent = billAmount > 0 ? Math.round((gstAmount / billAmount) * 10000) / 100 : 0;
+        const matchedPo = poNumber.trim() ? purchaseOrders.find(p => p.poNumber === poNumber.trim()) : undefined;
+        const salesPayload = {
+          clientName: billToName.trim(),
+          billDate: invoiceDate,
+          billNumber: invoiceNumber.trim(),
+          billAmount,
+          gstPercent,
+          gstAmount,
+          totalBillAmount,
+          tdsPercent: 0,
+          tdsAmount: 0,
+          paymentReceivedDate: null,
+          paymentReceivedAmount: 0,
+          utrNo: null,
+          poId: matchedPo ? matchedPo.id : null,
+          bypassPO: true,
+        };
+        const res = await fetch("/api/sales-invoices", {
+          method: "POST", headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(salesPayload), credentials: "include",
+        });
+        if (res.ok) {
+          salesCreated = true;
+        } else {
+          const j = await res.json().catch(() => ({}));
+          salesError = j.message || "Failed to create sales invoice entry";
+        }
+      } catch (e: any) {
+        salesError = e?.message || "Failed to create sales invoice entry";
+      }
+      return { salesCreated, salesError };
     },
-    onSuccess: () => {
+    onSuccess: (result) => {
       queryClient.invalidateQueries({ queryKey: ["/api/tax-invoices"] });
-      toast({ title: editing ? "Updated" : "Created", description: "Tax invoice saved" });
+      if (result?.salesCreated) {
+        queryClient.invalidateQueries({ queryKey: ["/api/sales-invoices"] });
+        queryClient.invalidateQueries({ queryKey: ["/api/purchase-orders"] });
+        toast({ title: "Created", description: "Tax invoice saved & sales invoice entry created automatically" });
+      } else if (result?.salesError) {
+        toast({ title: "Tax invoice saved", description: `But sales invoice entry failed: ${result.salesError}`, variant: "destructive" });
+      } else {
+        toast({ title: editing ? "Updated" : "Created", description: "Tax invoice saved" });
+      }
       setDialogOpen(false);
       resetForm();
       setEditing(null);
