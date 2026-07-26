@@ -310,10 +310,10 @@ function buildPrintHtml(inv: {
   </table>
   <table class="b" style="border-top:none;">
     <tr><td class="b" style="padding:4px;font-weight:700;">BANK DETAILS</td></tr>
-    <tr><td class="b" style="padding:4px;"><span class="lbl">A/C Holder Name :</span> &nbsp; ${COMPANY.acHolder}</td></tr>
-    <tr><td class="b" style="padding:4px;"><span class="lbl">Account Number:</span> &nbsp; ${COMPANY.acNo}</td></tr>
-    <tr><td class="b" style="padding:4px;"><span class="lbl">IFSC code:</span> &nbsp; ${COMPANY.ifsc}</td></tr>
-    <tr><td class="b" style="padding:4px;"><span class="lbl">Bank & Branch:</span> &nbsp; ${COMPANY.bankBranch}</td></tr>
+    <tr><td class="b" style="padding:4px;"><span class="lbl">A/C Holder Name :</span> &nbsp; <span class="lbl">${COMPANY.acHolder}</span></td></tr>
+    <tr><td class="b" style="padding:4px;"><span class="lbl">Account Number:</span> &nbsp; <span class="lbl">${COMPANY.acNo}</span></td></tr>
+    <tr><td class="b" style="padding:4px;"><span class="lbl">IFSC code:</span> &nbsp; <span class="lbl">${COMPANY.ifsc}</span></td></tr>
+    <tr><td class="b" style="padding:4px;"><span class="lbl">Bank & Branch:</span> &nbsp; <span class="lbl">${COMPANY.bankBranch}</span></td></tr>
   </table>
   <table class="b" style="border-top:none;">
     <tr>
