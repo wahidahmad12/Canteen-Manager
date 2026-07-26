@@ -1521,7 +1521,7 @@ export class DatabaseStorage implements IStorage {
       LIMIT 500
     `;
     const [rows] = await db.execute(query) as any;
-    return (Array.isArray(rows) ? rows : []).map((row: any) => ({
+    const purchaseRows = (Array.isArray(rows) ? rows : []).map((row: any) => ({
       id: Number(row.id),
       date: String(row.date || ''),
       djInvoiceNo: row.dj_invoice_no ? String(row.dj_invoice_no) : null,
@@ -1534,6 +1534,43 @@ export class DatabaseStorage implements IStorage {
       gstRate: Number(row.gst_rate || 0),
       totalPrice: Number(row.total_price || 0),
     }));
+
+    // Also include items bought through Daily Cash Expense reports
+    const cashQuery = sql`
+      SELECT
+        ei.id,
+        dr.date,
+        ei.description,
+        ei.uom,
+        ei.qty,
+        ei.rate,
+        ei.amount
+      FROM expense_items ei
+      JOIN daily_reports dr ON ei.report_id = dr.id
+      WHERE ei.description LIKE ${likePattern}
+        AND (${fromVal} IS NULL OR dr.date >= ${fromVal})
+        AND (${toVal}   IS NULL OR dr.date <= ${toVal})
+      ORDER BY dr.date DESC, ei.id DESC
+      LIMIT 500
+    `;
+    const [cashRows] = await db.execute(cashQuery) as any;
+    const expenseRows = (Array.isArray(cashRows) ? cashRows : []).map((row: any) => ({
+      id: 100000000 + Number(row.id),
+      date: String(row.date || ''),
+      djInvoiceNo: null as string | null,
+      vendorName: 'Daily Cash Expense',
+      clientName: '',
+      itemName: String(row.description || ''),
+      uom: String(row.uom || ''),
+      qty: Number(row.qty || 0),
+      unitPrice: Number(row.rate || 0),
+      gstRate: 0,
+      totalPrice: Number(row.amount || 0),
+    }));
+
+    return [...purchaseRows, ...expenseRows]
+      .sort((a, b) => (a.date < b.date ? 1 : a.date > b.date ? -1 : b.id - a.id))
+      .slice(0, 500);
   }
 
   async getItemStockReport(year: number, clientName?: string): Promise<{ itemName: string; uom: string; month: number; totalQty: number; totalAmount: number }[]> {
