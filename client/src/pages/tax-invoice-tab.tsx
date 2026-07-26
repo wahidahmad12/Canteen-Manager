@@ -84,7 +84,7 @@ function numberToWords(num: number): string {
   const ones = ["", "One", "Two", "Three", "Four", "Five", "Six", "Seven", "Eight", "Nine",
     "Ten", "Eleven", "Twelve", "Thirteen", "Fourteen", "Fifteen", "Sixteen", "Seventeen", "Eighteen", "Nineteen"];
   const tens = ["", "", "Twenty", "Thirty", "Forty", "Fifty", "Sixty", "Seventy", "Eighty", "Ninety"];
-  const scales = ["", "Thousand", "Lakh", "Crore"];
+  const scales = ["", "Thousand", "Lakh(s)", "Crore"];
   function twoDigit(n: number): string { if (n < 20) return ones[n]; return tens[Math.floor(n / 10)] + (n % 10 ? " " + ones[n % 10] : ""); }
   function threeDigit(n: number): string { if (n === 0) return ""; if (n < 100) return twoDigit(n); return ones[Math.floor(n / 100)] + " Hundred" + (n % 100 ? " " + twoDigit(n % 100) : ""); }
   function inWords(n: number): string {
@@ -170,7 +170,7 @@ function buildPrintHtml(inv: {
   const hsnRows = Array.from(hsnMap.entries()).map(([hsn, v]) => `
     <tr>
       <td style="border:${b};text-align:center;padding:4px;font-weight:700;">${esc(hsn)}</td>
-      <td style="border:${b};text-align:right;padding:4px;font-weight:700;">${fmt(v.taxable)}</td>
+      <td style="border:${b};text-align:right;padding:4px;font-weight:700;">${Math.round(v.taxable).toLocaleString("en-IN")}</td>
       <td style="border:${b};text-align:center;padding:4px;"></td>
       <td style="border:${b};text-align:center;padding:4px;"></td>
       <td style="border:${b};text-align:center;padding:4px;"></td>
@@ -237,15 +237,19 @@ function buildPrintHtml(inv: {
     <tr>
       <td class="b" style="width:50%;vertical-align:top;padding:5px;">
         <div class="lbl">BILL TO</div>
-        <div><span class="lbl">Name :</span> ${esc(inv.billToName)}</div>
-        <div><span class="lbl">Address :</span> ${esc(inv.billToAddress)}</div>
-        <div><span class="lbl">Place of Supply :</span> ${esc(inv.placeOfSupply)}</div>
-        <div><span class="lbl">GSTIN:</span> ${esc(inv.billToGstin)}</div>
+        <table style="border:none;">
+          <tr><td style="border:none;width:105px;vertical-align:top;" class="lbl">Name :</td><td style="border:none;font-weight:700;">${esc(inv.billToName)}</td></tr>
+          <tr><td style="border:none;vertical-align:top;" class="lbl">Address :</td><td style="border:none;">${esc(inv.billToAddress)}</td></tr>
+          <tr><td style="border:none;vertical-align:top;" class="lbl">Place of Supply :</td><td style="border:none;">${esc(inv.placeOfSupply)}</td></tr>
+          <tr><td style="border:none;vertical-align:top;" class="lbl">GSTIN:</td><td style="border:none;">${esc(inv.billToGstin)}</td></tr>
+        </table>
       </td>
       <td class="b" style="width:50%;vertical-align:top;padding:5px;">
         <div class="lbl">SHIP TO</div>
-        <div><span class="lbl">Name :</span> ${esc(inv.shipToName || inv.billToName)}</div>
-        <div><span class="lbl">Address :</span> ${esc(inv.shipToAddress || inv.billToAddress)}</div>
+        <table style="border:none;">
+          <tr><td style="border:none;width:80px;vertical-align:top;" class="lbl">Name :</td><td style="border:none;font-weight:700;">${esc(inv.shipToName || inv.billToName)}</td></tr>
+          <tr><td style="border:none;vertical-align:top;" class="lbl">Address :</td><td style="border:none;">${esc(inv.shipToAddress || inv.billToAddress)}</td></tr>
+        </table>
       </td>
     </tr>
   </table>
