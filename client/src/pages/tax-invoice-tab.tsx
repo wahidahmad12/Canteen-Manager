@@ -340,7 +340,26 @@ function buildPrintHtml(inv: {
       </td>
     </tr>
   </table>
-  ${autoPrint ? `<script>window.onload = function(){ setTimeout(function(){ window.print(); }, 300); };</script>` : ""}
+  ${autoPrint ? `<script>
+    (function(){
+      var printed = false;
+      function doPrint(){ if (printed) return; printed = true; setTimeout(function(){ window.print(); }, 150); }
+      function ready(){
+        var imgs = document.images;
+        for (var i = 0; i < imgs.length; i++) {
+          if (!imgs[i].complete || imgs[i].naturalWidth === 0) return false;
+        }
+        return true;
+      }
+      var tries = 0;
+      var timer = setInterval(function(){
+        tries++;
+        if (ready() || tries > 40) { clearInterval(timer); doPrint(); }
+      }, 100);
+      window.onload = function(){ if (ready()) { clearInterval(timer); doPrint(); } };
+      setTimeout(function(){ clearInterval(timer); doPrint(); }, 5000);
+    })();
+  </script>` : ""}
   </body></html>`;
 }
 
