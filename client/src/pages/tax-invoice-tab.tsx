@@ -457,9 +457,55 @@ export function TaxInvoiceTab({ clients }: { clients: ClientOption[] }) {
           igstPercent: String(Number(it.igstPercent) || 0),
         })),
       };
+      const validItems = items.filter(it => it.itemName.trim());
+      const billAmount = Math.round(validItems.reduce((s, it) => s + itemTotal(it), 0) * 100) / 100;
+      const gstAmount = Math.round(validItems.reduce((s, it) => s + itemIgst(it), 0) * 100) / 100;
+      const totalBillAmount = Math.round((billAmount + gstAmount) * 100) / 100;
+      const gstPercent = billAmount > 0 ? Math.round((gstAmount / billAmount) * 10000) / 100 : 0;
+      const matchedPo = poNumber.trim() ? purchaseOrders.find(p => p.poNumber === poNumber.trim()) : undefined;
+
       if (editing) {
         await apiRequest("PUT", `/api/tax-invoices/${editing.id}`, payload);
-        return { salesCreated: false as boolean, salesError: "" };
+
+        // Automatically update the matching Sales Invoice ledger entry
+        let salesUpdated = false;
+        let salesError = "";
+        try {
+          const listRes = await fetch("/api/sales-invoices", { credentials: "include" });
+          if (listRes.ok) {
+            const salesList: { id: number; billNumber: string; tdsPercent: string }[] = await listRes.json();
+            const match = salesList.find(s => s.billNumber === editing.invoiceNumber);
+            if (match) {
+              const tdsPct = Number(match.tdsPercent) || 0;
+              const updatePayload = {
+                clientName: billToName.trim(),
+                billDate: invoiceDate,
+                billNumber: invoiceNumber.trim(),
+                billAmount,
+                gstPercent,
+                gstAmount,
+                totalBillAmount,
+                tdsPercent: tdsPct,
+                tdsAmount: Math.round(billAmount * tdsPct) / 100,
+                poId: matchedPo ? matchedPo.id : null,
+                bypassPO: true,
+              };
+              const res = await fetch(`/api/sales-invoices/${match.id}`, {
+                method: "PUT", headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(updatePayload), credentials: "include",
+              });
+              if (res.ok) {
+                salesUpdated = true;
+              } else {
+                const j = await res.json().catch(() => ({}));
+                salesError = j.message || "Failed to update sales invoice entry";
+              }
+            }
+          }
+        } catch (e: any) {
+          salesError = e?.message || "Failed to update sales invoice entry";
+        }
+        return { salesCreated: false as boolean, salesUpdated, salesError };
       }
       await apiRequest("POST", "/api/tax-invoices", payload);
 
@@ -467,12 +513,6 @@ export function TaxInvoiceTab({ clients }: { clients: ClientOption[] }) {
       let salesCreated = false;
       let salesError = "";
       try {
-        const validItems = items.filter(it => it.itemName.trim());
-        const billAmount = Math.round(validItems.reduce((s, it) => s + itemTotal(it), 0) * 100) / 100;
-        const gstAmount = Math.round(validItems.reduce((s, it) => s + itemIgst(it), 0) * 100) / 100;
-        const totalBillAmount = Math.round((billAmount + gstAmount) * 100) / 100;
-        const gstPercent = billAmount > 0 ? Math.round((gstAmount / billAmount) * 10000) / 100 : 0;
-        const matchedPo = poNumber.trim() ? purchaseOrders.find(p => p.poNumber === poNumber.trim()) : undefined;
         const salesPayload = {
           clientName: billToName.trim(),
           billDate: invoiceDate,
@@ -502,14 +542,19 @@ export function TaxInvoiceTab({ clients }: { clients: ClientOption[] }) {
       } catch (e: any) {
         salesError = e?.message || "Failed to create sales invoice entry";
       }
-      return { salesCreated, salesError };
+      return { salesCreated, salesUpdated: false as boolean, salesError };
     },
     onSuccess: (result) => {
       queryClient.invalidateQueries({ queryKey: ["/api/tax-invoices"] });
-      if (result?.salesCreated) {
+      if (result?.salesCreated || result?.salesUpdated) {
         queryClient.invalidateQueries({ queryKey: ["/api/sales-invoices"] });
         queryClient.invalidateQueries({ queryKey: ["/api/purchase-orders"] });
-        toast({ title: "Created", description: "Tax invoice saved & sales invoice entry created automatically" });
+        toast({
+          title: result.salesCreated ? "Created" : "Updated",
+          description: result.salesCreated
+            ? "Tax invoice saved & sales invoice entry created automatically"
+            : "Tax invoice saved & sales invoice entry updated automatically",
+        });
       } else if (result?.salesError) {
         toast({ title: "Tax invoice saved", description: `But sales invoice entry failed: ${result.salesError}`, variant: "destructive" });
       } else {
