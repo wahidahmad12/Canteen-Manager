@@ -10,7 +10,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 import { Plus, Save, Loader2, Pencil, Trash2, Printer, X, Receipt, Eye } from "lucide-react";
 import logoPath from "@assets/logo1_1771660912341.png";
-import signaturePath from "@assets/signature_stamp_digital.png";
+import signaturePath from "@assets/DJ_Stamp_wahid_Sig_1785080823452.png";
 
 interface ClientOption { id: number; name: string; address?: string; gstNo?: string; stateCode?: string; clientCode?: string }
 
@@ -134,7 +134,7 @@ function buildPrintHtml(inv: {
   invoiceNumber: string; invoiceDate: string; poNumber: string; poDate: string; vendorCode: string;
   billToName: string; billToAddress: string; placeOfSupply: string; billToGstin: string;
   shipToName: string; shipToAddress: string; notes: string; items: TaxInvoiceItem[];
-}, logoSrc: string, autoPrint = true, signatureSrc?: string): string {
+}, logoSrc: string, autoPrint = true, signatureMode: "blank" | "stamp" | "dsc" = "blank", signatureSrc?: string): string {
   const totalTaxable = inv.items.reduce((s, it) => s + itemTotal(it), 0);
   const totalIgst = inv.items.reduce((s, it) => s + itemIgst(it), 0);
   const grandTotal = inv.items.reduce((s, it) => s + itemAmount(it), 0);
@@ -327,7 +327,14 @@ function buildPrintHtml(inv: {
         <div style="font-size:11px;white-space:pre-line;">${esc(inv.notes)}</div>
       </td>
       <td class="b" style="vertical-align:bottom;text-align:center;padding:5px;">
-        ${signatureSrc ? `<img src="${signatureSrc}" style="width:190px;height:auto;display:block;margin:0 auto 2px;" />` : ""}
+        ${signatureMode === "stamp" && signatureSrc ? `<img src="${signatureSrc}" style="width:190px;height:auto;display:block;margin:0 auto 2px;" />` : ""}
+        ${signatureMode === "dsc" ? `
+        <div style="border:1px dashed #444;margin:0 auto 4px;max-width:230px;padding:5px 8px;text-align:left;">
+          <div style="font-size:10px;font-weight:700;">Digitally signed by</div>
+          <div style="font-size:11px;font-weight:700;">WAHID AHMED</div>
+          <div style="font-size:9px;">for ${esc(COMPANY.name)}</div>
+          <div style="font-size:9px;">Signed using DSC (Digital Signature Certificate)</div>
+        </div>` : ""}
         <div style="font-size:11px;">Authorised Signature for</div>
         <div style="font-weight:700;font-size:11px;">DJ Hospitality & Facility Management Private Limited</div>
       </td>
@@ -599,9 +606,9 @@ export function TaxInvoiceTab({ clients }: { clients: ClientOption[] }) {
     saveMutation.mutate();
   }
 
-  function invoiceHtml(inv: TaxInvoice, autoPrint = true, withSignature = false) {
+  function invoiceHtml(inv: TaxInvoice, autoPrint = true, signatureMode: "blank" | "stamp" | "dsc" = "blank") {
     const logoSrc = new URL(logoPath, window.location.origin).href;
-    const signatureSrc = withSignature ? new URL(signaturePath, window.location.origin).href : undefined;
+    const signatureSrc = signatureMode === "stamp" ? new URL(signaturePath, window.location.origin).href : undefined;
     return buildPrintHtml({
       invoiceNumber: inv.invoiceNumber,
       invoiceDate: inv.invoiceDate,
@@ -616,11 +623,11 @@ export function TaxInvoiceTab({ clients }: { clients: ClientOption[] }) {
       shipToAddress: inv.shipToAddress || "",
       notes: inv.notes || "",
       items: inv.items,
-    }, logoSrc, autoPrint, signatureSrc);
+    }, logoSrc, autoPrint, signatureMode, signatureSrc);
   }
 
-  function printInvoice(inv: TaxInvoice, withSignature = false) {
-    const html = invoiceHtml(inv, true, withSignature);
+  function printInvoice(inv: TaxInvoice, signatureMode: "blank" | "stamp" | "dsc" = "blank") {
+    const html = invoiceHtml(inv, true, signatureMode);
     const w = window.open("", "_blank");
     if (w) { w.document.write(html); w.document.close(); }
     setPrintChoiceInv(null);
@@ -900,20 +907,31 @@ export function TaxInvoiceTab({ clients }: { clients: ClientOption[] }) {
           </DialogHeader>
           <div className="space-y-3 pt-2">
             <Button
-              className="w-full bg-gradient-to-r from-violet-500 to-purple-500 hover:from-violet-600 hover:to-purple-600 text-white"
-              onClick={() => printChoiceInv && printInvoice(printChoiceInv, true)}
-              data-testid="button-print-with-signature"
+              variant="outline"
+              className="w-full"
+              onClick={() => printChoiceInv && printInvoice(printChoiceInv, "blank")}
+              data-testid="button-print-blank"
             >
-              <Printer className="w-4 h-4 mr-2" /> With Digital Signature &amp; Stamp
+              <Printer className="w-4 h-4 mr-2" /> 1. Blank (sign by hand)
+            </Button>
+            <Button
+              className="w-full bg-gradient-to-r from-violet-500 to-purple-500 hover:from-violet-600 hover:to-purple-600 text-white"
+              onClick={() => printChoiceInv && printInvoice(printChoiceInv, "stamp")}
+              data-testid="button-print-with-stamp"
+            >
+              <Printer className="w-4 h-4 mr-2" /> 2. Stamp &amp; Signature
             </Button>
             <Button
               variant="outline"
               className="w-full"
-              onClick={() => printChoiceInv && printInvoice(printChoiceInv, false)}
-              data-testid="button-print-without-signature"
+              onClick={() => printChoiceInv && printInvoice(printChoiceInv, "dsc")}
+              data-testid="button-print-dsc"
             >
-              <Printer className="w-4 h-4 mr-2" /> Without Signature
+              <Printer className="w-4 h-4 mr-2" /> 3. Thru DSC (digital signature)
             </Button>
+            <p className="text-xs text-muted-foreground">
+              For DSC: choose option 3, save as PDF from the print window, then sign the PDF with your DSC pendrive token utility.
+            </p>
           </div>
         </DialogContent>
       </Dialog>
