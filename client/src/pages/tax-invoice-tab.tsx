@@ -8,7 +8,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { useToast } from "@/hooks/use-toast";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
-import { Plus, Save, Loader2, Pencil, Trash2, Printer, X, Receipt } from "lucide-react";
+import { Plus, Save, Loader2, Pencil, Trash2, Printer, X, Receipt, Eye } from "lucide-react";
 import logoPath from "@assets/logo1_1771660912341.png";
 
 interface ClientOption { id: number; name: string; address?: string; gstNo?: string; stateCode?: string; clientCode?: string }
@@ -133,7 +133,7 @@ function buildPrintHtml(inv: {
   invoiceNumber: string; invoiceDate: string; poNumber: string; poDate: string; vendorCode: string;
   billToName: string; billToAddress: string; placeOfSupply: string; billToGstin: string;
   shipToName: string; shipToAddress: string; notes: string; items: TaxInvoiceItem[];
-}, logoSrc: string): string {
+}, logoSrc: string, autoPrint = true): string {
   const totalTaxable = inv.items.reduce((s, it) => s + itemTotal(it), 0);
   const totalIgst = inv.items.reduce((s, it) => s + itemIgst(it), 0);
   const grandTotal = inv.items.reduce((s, it) => s + itemAmount(it), 0);
@@ -181,7 +181,7 @@ function buildPrintHtml(inv: {
     </tr>`).join("");
 
   const head = "#cce6f4";
-  return `<!DOCTYPE html><html><head><meta charset="utf-8"><title>Tax Invoice ${inv.invoiceNumber}</title>
+  return `<!DOCTYPE html><html><head><meta charset="utf-8"><title>Tax Invoice ${esc(inv.invoiceNumber)}</title>
   <style>
     @page { size: A4; margin: 10mm; }
     * { box-sizing: border-box; }
@@ -327,7 +327,7 @@ function buildPrintHtml(inv: {
       </td>
     </tr>
   </table>
-  <script>window.onload = function(){ setTimeout(function(){ window.print(); }, 300); };</script>
+  ${autoPrint ? `<script>window.onload = function(){ setTimeout(function(){ window.print(); }, 300); };</script>` : ""}
   </body></html>`;
 }
 
@@ -548,9 +548,9 @@ export function TaxInvoiceTab({ clients }: { clients: ClientOption[] }) {
     saveMutation.mutate();
   }
 
-  function printInvoice(inv: TaxInvoice) {
+  function invoiceHtml(inv: TaxInvoice, autoPrint = true) {
     const logoSrc = new URL(logoPath, window.location.origin).href;
-    const html = buildPrintHtml({
+    return buildPrintHtml({
       invoiceNumber: inv.invoiceNumber,
       invoiceDate: inv.invoiceDate,
       poNumber: inv.poNumber || "",
@@ -564,10 +564,16 @@ export function TaxInvoiceTab({ clients }: { clients: ClientOption[] }) {
       shipToAddress: inv.shipToAddress || "",
       notes: inv.notes || "",
       items: inv.items,
-    }, logoSrc);
+    }, logoSrc, autoPrint);
+  }
+
+  function printInvoice(inv: TaxInvoice) {
+    const html = invoiceHtml(inv);
     const w = window.open("", "_blank");
     if (w) { w.document.write(html); w.document.close(); }
   }
+
+  const [previewInv, setPreviewInv] = useState<TaxInvoice | null>(null);
 
   const formGrand = items.reduce((s, it) => s + itemAmount(it), 0);
 
@@ -607,6 +613,9 @@ export function TaxInvoiceTab({ clients }: { clients: ClientOption[] }) {
                     <div className="text-sm font-semibold text-violet-600 dark:text-violet-400">₹{fmt(grand)}</div>
                   </div>
                   <div className="flex items-center gap-2">
+                    <Button size="sm" variant="outline" onClick={() => setPreviewInv(inv)} data-testid={`button-view-tax-invoice-${inv.id}`}>
+                      <Eye className="w-4 h-4" />
+                    </Button>
                     <Button size="sm" variant="outline" onClick={() => printInvoice(inv)} data-testid={`button-print-tax-invoice-${inv.id}`}>
                       <Printer className="w-4 h-4" />
                     </Button>
@@ -806,6 +815,27 @@ export function TaxInvoiceTab({ clients }: { clients: ClientOption[] }) {
               </Button>
             </div>
           </div>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={!!previewInv} onOpenChange={(o) => { if (!o) setPreviewInv(null); }}>
+        <DialogContent className="max-w-5xl w-full max-h-[92vh] p-0 overflow-hidden">
+          <DialogHeader className="px-4 pt-4 pb-2 flex-row items-center justify-between space-y-0">
+            <DialogTitle>Invoice {previewInv?.invoiceNumber}</DialogTitle>
+            <Button size="sm" variant="outline" className="mr-8" onClick={() => previewInv && printInvoice(previewInv)} data-testid="button-print-from-preview">
+              <Printer className="w-4 h-4 mr-2" /> Print
+            </Button>
+          </DialogHeader>
+          {previewInv && (
+            <iframe
+              title="Invoice preview"
+              className="w-full bg-white"
+              style={{ height: "calc(92vh - 70px)", border: "none" }}
+              sandbox=""
+              srcDoc={invoiceHtml(previewInv, false)}
+              data-testid="iframe-invoice-preview"
+            />
+          )}
         </DialogContent>
       </Dialog>
     </div>
