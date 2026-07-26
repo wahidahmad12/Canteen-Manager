@@ -10,6 +10,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 import { Plus, Save, Loader2, Pencil, Trash2, Printer, X, Receipt, Eye } from "lucide-react";
 import logoPath from "@assets/logo1_1771660912341.png";
+import signaturePath from "@assets/signature_stamp_digital.png";
 
 interface ClientOption { id: number; name: string; address?: string; gstNo?: string; stateCode?: string; clientCode?: string }
 
@@ -133,7 +134,7 @@ function buildPrintHtml(inv: {
   invoiceNumber: string; invoiceDate: string; poNumber: string; poDate: string; vendorCode: string;
   billToName: string; billToAddress: string; placeOfSupply: string; billToGstin: string;
   shipToName: string; shipToAddress: string; notes: string; items: TaxInvoiceItem[];
-}, logoSrc: string, autoPrint = true): string {
+}, logoSrc: string, autoPrint = true, signatureSrc?: string): string {
   const totalTaxable = inv.items.reduce((s, it) => s + itemTotal(it), 0);
   const totalIgst = inv.items.reduce((s, it) => s + itemIgst(it), 0);
   const grandTotal = inv.items.reduce((s, it) => s + itemAmount(it), 0);
@@ -326,6 +327,7 @@ function buildPrintHtml(inv: {
         <div style="font-size:11px;white-space:pre-line;">${esc(inv.notes)}</div>
       </td>
       <td class="b" style="vertical-align:bottom;text-align:center;padding:5px;">
+        ${signatureSrc ? `<img src="${signatureSrc}" style="width:190px;height:auto;display:block;margin:0 auto 2px;" />` : ""}
         <div style="font-size:11px;">Authorised Signature for</div>
         <div style="font-weight:700;font-size:11px;">DJ Hospitality & Facility Management Private Limited</div>
       </td>
@@ -597,8 +599,9 @@ export function TaxInvoiceTab({ clients }: { clients: ClientOption[] }) {
     saveMutation.mutate();
   }
 
-  function invoiceHtml(inv: TaxInvoice, autoPrint = true) {
+  function invoiceHtml(inv: TaxInvoice, autoPrint = true, withSignature = false) {
     const logoSrc = new URL(logoPath, window.location.origin).href;
+    const signatureSrc = withSignature ? new URL(signaturePath, window.location.origin).href : undefined;
     return buildPrintHtml({
       invoiceNumber: inv.invoiceNumber,
       invoiceDate: inv.invoiceDate,
@@ -613,16 +616,18 @@ export function TaxInvoiceTab({ clients }: { clients: ClientOption[] }) {
       shipToAddress: inv.shipToAddress || "",
       notes: inv.notes || "",
       items: inv.items,
-    }, logoSrc, autoPrint);
+    }, logoSrc, autoPrint, signatureSrc);
   }
 
-  function printInvoice(inv: TaxInvoice) {
-    const html = invoiceHtml(inv);
+  function printInvoice(inv: TaxInvoice, withSignature = false) {
+    const html = invoiceHtml(inv, true, withSignature);
     const w = window.open("", "_blank");
     if (w) { w.document.write(html); w.document.close(); }
+    setPrintChoiceInv(null);
   }
 
   const [previewInv, setPreviewInv] = useState<TaxInvoice | null>(null);
+  const [printChoiceInv, setPrintChoiceInv] = useState<TaxInvoice | null>(null);
 
   const formGrand = items.reduce((s, it) => s + itemAmount(it), 0);
 
@@ -665,7 +670,7 @@ export function TaxInvoiceTab({ clients }: { clients: ClientOption[] }) {
                     <Button size="sm" variant="outline" onClick={() => setPreviewInv(inv)} data-testid={`button-view-tax-invoice-${inv.id}`}>
                       <Eye className="w-4 h-4" />
                     </Button>
-                    <Button size="sm" variant="outline" onClick={() => printInvoice(inv)} data-testid={`button-print-tax-invoice-${inv.id}`}>
+                    <Button size="sm" variant="outline" onClick={() => setPrintChoiceInv(inv)} data-testid={`button-print-tax-invoice-${inv.id}`}>
                       <Printer className="w-4 h-4" />
                     </Button>
                     <Button size="sm" variant="outline" onClick={() => openEdit(inv)} data-testid={`button-edit-tax-invoice-${inv.id}`}>
@@ -871,7 +876,7 @@ export function TaxInvoiceTab({ clients }: { clients: ClientOption[] }) {
         <DialogContent className="max-w-5xl w-full max-h-[92vh] p-0 overflow-hidden">
           <DialogHeader className="px-4 pt-4 pb-2 flex-row items-center justify-between space-y-0">
             <DialogTitle>Invoice {previewInv?.invoiceNumber}</DialogTitle>
-            <Button size="sm" variant="outline" className="mr-8" onClick={() => previewInv && printInvoice(previewInv)} data-testid="button-print-from-preview">
+            <Button size="sm" variant="outline" className="mr-8" onClick={() => previewInv && setPrintChoiceInv(previewInv)} data-testid="button-print-from-preview">
               <Printer className="w-4 h-4 mr-2" /> Print
             </Button>
           </DialogHeader>
@@ -885,6 +890,31 @@ export function TaxInvoiceTab({ clients }: { clients: ClientOption[] }) {
               data-testid="iframe-invoice-preview"
             />
           )}
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={!!printChoiceInv} onOpenChange={(o) => { if (!o) setPrintChoiceInv(null); }}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle>Print Invoice {printChoiceInv?.invoiceNumber}</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3 pt-2">
+            <Button
+              className="w-full bg-gradient-to-r from-violet-500 to-purple-500 hover:from-violet-600 hover:to-purple-600 text-white"
+              onClick={() => printChoiceInv && printInvoice(printChoiceInv, true)}
+              data-testid="button-print-with-signature"
+            >
+              <Printer className="w-4 h-4 mr-2" /> With Digital Signature &amp; Stamp
+            </Button>
+            <Button
+              variant="outline"
+              className="w-full"
+              onClick={() => printChoiceInv && printInvoice(printChoiceInv, false)}
+              data-testid="button-print-without-signature"
+            >
+              <Printer className="w-4 h-4 mr-2" /> Without Signature
+            </Button>
+          </div>
         </DialogContent>
       </Dialog>
     </div>
