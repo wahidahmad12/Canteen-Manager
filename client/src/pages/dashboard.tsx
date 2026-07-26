@@ -201,6 +201,26 @@ export default function Dashboard() {
     new Date(b.date).getTime() - new Date(a.date).getTime()
   ) : [];
 
+  const sealIncomeOf = (seal: any) => {
+    const n = (v: any) => Number(v) || 0;
+    const psIncome = n(seal.incomePsBreakfastCashQty)*5 + n(seal.incomePsLunchCashQty)*20 + n(seal.incomePsEveningCashQty)*10 + n(seal.incomePsNightCashQty)*10 + n(seal.incomePsRechargeRate)*n(seal.incomePsRechargeCashQty) + n(seal.incomePsBreakfastOnlineQty)*5 + n(seal.incomePsLunchOnlineQty)*20 + n(seal.incomePsEveningOnlineQty)*10 + n(seal.incomePsNightOnlineQty)*10 + n(seal.incomePsRechargeRate)*n(seal.incomePsRechargeOnlineQty);
+    const tpIncome = n(seal.incomeTpBreakfastCashQty)*20 + n(seal.incomeTpLunchVegCashQty)*35 + n(seal.incomeTpLunchNvRate)*n(seal.incomeTpLunchNvCashQty) + n(seal.incomeTpEveningCashQty)*20 + n(seal.incomeTpNightCashQty)*20 + n(seal.incomeTpBreakfastOnlineQty)*20 + n(seal.incomeTpLunchVegOnlineQty)*35 + n(seal.incomeTpLunchNvRate)*n(seal.incomeTpLunchNvOnlineQty) + n(seal.incomeTpEveningOnlineQty)*20 + n(seal.incomeTpNightOnlineQty)*20;
+    const legacyIncome = n(seal.incomeMorningQty)*5 + n(seal.incomeLunchQty)*20 + n(seal.incomeEveningQty)*10 + n(seal.incomeNightQty)*10 + n(seal.incomeNonVegRate)*n(seal.incomeNonVegQty) + n(seal.incomeVegRate)*n(seal.incomeVegQty) + n(seal.incomeMorningCashRate)*n(seal.incomeMorningCashQty) + n(seal.incomeEveningCashRate)*n(seal.incomeEveningCashQty) + n(seal.incomeOnlineBreakfastQty)*5 + n(seal.incomeOnlineLunchQty)*20 + n(seal.incomeOnlineEveningSnacksQty)*10 + n(seal.incomeOnlineNightQty)*10;
+    return psIncome + tpIncome + legacyIncome;
+  };
+
+  const sealMonthlyIncome = (() => {
+    const months = Array.from({ length: 12 }, () => ({ income: 0, count: 0 }));
+    (cashSeals || []).forEach((s: any) => {
+      const d = new Date(s.date);
+      if (d.getFullYear() !== Number(sealYear)) return;
+      const m = d.getMonth();
+      months[m].income += sealIncomeOf(s);
+      months[m].count += 1;
+    });
+    return months;
+  })();
+
   const filteredCashSeals = cashSeals ? [...cashSeals]
     .filter((s: any) => {
       const d = new Date(s.date);
@@ -712,6 +732,59 @@ export default function Dashboard() {
                 </CardContent>
               </Card>
             ) : (
+              <>
+              {/* Month-wise KPF Total Income highlight */}
+              <Card className="border-0 shadow-lg overflow-hidden mb-4" data-testid="card-kpf-monthly-income">
+                <CardHeader className="bg-gradient-to-r from-emerald-600 to-teal-500 text-white pb-3 pt-4">
+                  <CardTitle className="flex items-center gap-2 text-base">
+                    <TrendingUp className="w-5 h-5" />
+                    Daily Cash Seal KPF — Month-wise Total Income ({sealYear})
+                    <span className="ml-auto text-sm font-mono font-bold bg-white/20 px-2.5 py-0.5 rounded-full">
+                      {fmt(sealMonthlyIncome.reduce((s, m) => s + m.income, 0))}
+                    </span>
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="p-3">
+                  {(() => {
+                    const maxIncome = Math.max(...sealMonthlyIncome.map(m => m.income));
+                    const monthNames = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+                    return (
+                      <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 gap-2">
+                        {sealMonthlyIncome.map((m, i) => {
+                          const isBest = m.income > 0 && m.income === maxIncome;
+                          const isSelected = sealMonth === String(i + 1);
+                          const hasData = m.count > 0;
+                          return (
+                            <button
+                              key={i}
+                              onClick={() => setSealMonth(isSelected ? "all" : String(i + 1))}
+                              className={`rounded-xl px-2 py-2.5 text-center transition-all border shadow-sm ${
+                                isBest
+                                  ? "bg-gradient-to-br from-emerald-500 to-teal-600 text-white border-emerald-400 ring-2 ring-emerald-300 dark:ring-emerald-700"
+                                  : hasData
+                                    ? "bg-gradient-to-br from-teal-50 to-cyan-50 dark:from-teal-950/40 dark:to-cyan-950/40 border-teal-200 dark:border-teal-800 hover:from-teal-100 hover:to-cyan-100"
+                                    : "bg-slate-50 dark:bg-slate-900/40 border-slate-200 dark:border-slate-800 opacity-60"
+                              } ${isSelected ? "ring-2 ring-offset-1 ring-cyan-500" : ""}`}
+                              data-testid={`tile-kpf-month-${i + 1}`}
+                            >
+                              <div className={`text-[10px] font-bold uppercase tracking-wide mb-0.5 ${isBest ? "text-white/90" : "text-teal-700 dark:text-teal-300"}`}>
+                                {monthNames[i]}{isBest ? " ★" : ""}
+                              </div>
+                              <div className={`font-mono text-[11px] font-bold ${isBest ? "text-white" : hasData ? "text-emerald-700 dark:text-emerald-400" : "text-slate-400"}`}>
+                                {hasData ? fmt(m.income) : "—"}
+                              </div>
+                              {hasData && (
+                                <div className={`text-[9px] mt-0.5 ${isBest ? "text-white/80" : "text-muted-foreground"}`}>{m.count} days</div>
+                              )}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    );
+                  })()}
+                </CardContent>
+              </Card>
+
               <Card className="border-0 shadow-lg overflow-hidden" data-testid="card-cashseal-table">
                 <CardHeader className="bg-gradient-to-r from-teal-500 to-cyan-500 text-white pb-3 pt-4">
                   <CardTitle className="flex items-center gap-2 text-base">
@@ -874,6 +947,7 @@ export default function Dashboard() {
                   </div>
                 </CardContent>
               </Card>
+              </>
             )}
           </TabsContent>
 
