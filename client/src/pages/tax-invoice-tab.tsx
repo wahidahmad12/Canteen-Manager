@@ -9,6 +9,8 @@ import { useToast } from "@/hooks/use-toast";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 import { Plus, Save, Loader2, Pencil, Trash2, Printer, X, Receipt, Eye, Search, Calendar as CalendarIcon } from "lucide-react";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Checkbox } from "@/components/ui/checkbox";
 import logoPath from "@assets/logo1_1771660912341.png";
 import signaturePath from "@assets/DJ_Stamp_wahid_Sig_1785080823452.png";
 
@@ -677,7 +679,8 @@ export function TaxInvoiceTab({ clients }: { clients: ClientOption[] }) {
 
   const [searchTerm, setSearchTerm] = useState("");
   const [filterClient, setFilterClient] = useState("all");
-  const [filterMonth, setFilterMonth] = useState("all");
+  const [filterMonths, setFilterMonths] = useState<Set<string>>(new Set());
+  const [monthMenuOpen, setMonthMenuOpen] = useState(false);
   const [filterYear, setFilterYear] = useState("all");
 
   // invoiceDate is stored as dd-mm-yyyy
@@ -695,7 +698,7 @@ export function TaxInvoiceTab({ clients }: { clients: ClientOption[] }) {
       || (inv.billToName || "").toLowerCase().includes(q)
       || (inv.poNumber || "").toLowerCase().includes(q);
     const cMatch = filterClient === "all" || inv.billToName === filterClient;
-    const mMatch = filterMonth === "all" || invMonth(inv.invoiceDate) === filterMonth;
+    const mMatch = filterMonths.size === 0 || filterMonths.has(invMonth(inv.invoiceDate));
     const yMatch = filterYear === "all" || invYear(inv.invoiceDate) === filterYear;
     return qMatch && cMatch && mMatch && yMatch;
   });
@@ -748,10 +751,46 @@ export function TaxInvoiceTab({ clients }: { clients: ClientOption[] }) {
                 <CalendarIcon className="w-3.5 h-3.5 text-muted-foreground" />
                 <span className="text-xs font-semibold">Month</span>
               </div>
-              <select value={filterMonth} onChange={e => setFilterMonth(e.target.value)} className="w-full h-10 rounded-md border bg-background text-sm px-2" data-testid="select-tax-filter-month">
-                <option value="all">All Months</option>
-                {MONTH_NAMES.map((m, i) => <option key={i + 1} value={String(i + 1)}>{m}</option>)}
-              </select>
+              <Popover open={monthMenuOpen} onOpenChange={setMonthMenuOpen}>
+                <PopoverTrigger asChild>
+                  <button className="w-full h-10 rounded-md border bg-background text-sm px-2 flex items-center justify-between" data-testid="button-tax-filter-month">
+                    <span className="truncate">
+                      {filterMonths.size === 0
+                        ? "All Months"
+                        : Array.from(filterMonths).sort((a, b) => Number(a) - Number(b)).map(m => MONTH_NAMES[Number(m) - 1].slice(0, 3)).join(", ")}
+                    </span>
+                    <span className="text-muted-foreground text-xs ml-1">▾</span>
+                  </button>
+                </PopoverTrigger>
+                <PopoverContent className="w-48 p-2" align="start">
+                  <button
+                    className="w-full text-left text-xs font-semibold px-2 py-1.5 rounded hover:bg-muted"
+                    onClick={() => setFilterMonths(new Set())}
+                    data-testid="button-tax-months-all"
+                  >
+                    All Months {filterMonths.size === 0 ? "✓" : ""}
+                  </button>
+                  <div className="border-t my-1" />
+                  {MONTH_NAMES.map((m, i) => {
+                    const val = String(i + 1);
+                    const checked = filterMonths.has(val);
+                    return (
+                      <label key={val} className="flex items-center gap-2 px-2 py-1.5 rounded hover:bg-muted cursor-pointer">
+                        <Checkbox
+                          checked={checked}
+                          onCheckedChange={() => setFilterMonths(prev => {
+                            const next = new Set(prev);
+                            checked ? next.delete(val) : next.add(val);
+                            return next;
+                          })}
+                          data-testid={`checkbox-tax-month-${val}`}
+                        />
+                        <span className="text-sm">{m}</span>
+                      </label>
+                    );
+                  })}
+                </PopoverContent>
+              </Popover>
             </div>
             <div>
               <div className="flex items-center gap-1.5 mb-1.5">
