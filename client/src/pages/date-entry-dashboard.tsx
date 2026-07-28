@@ -705,6 +705,29 @@ export function DateEntryDashboard({ year }: { year: number }) {
         </ResponsiveContainer>
       </ChartCard>
 
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mt-4">
+        {[
+          { name: "UBL", cur: ublMonthly, prev: pUblMonthly, color: CLIENT_COLORS.UBL },
+          { name: "Cipla", cur: ciplaMonthly, prev: pCiplaMonthly, color: CLIENT_COLORS.Cipla },
+          { name: "Unichem", cur: unichMonthly, prev: pUnichMonthly, color: CLIENT_COLORS.Unichem },
+          { name: "HUL", cur: hulMonthly, prev: pHulMonthly, color: CLIENT_COLORS.HUL },
+        ].map(c => (
+          <ChartCard key={c.name} title={`${c.name} — ${year} vs ${prevYear} Monthly Totals`}>
+            <ResponsiveContainer width="100%" height={CHART_H}>
+              <BarChart data={MONTHS_SHORT.map((name, i) => ({ name, [String(year)]: c.cur[i], [String(prevYear)]: c.prev[i] }))} margin={{ top: 5, right: 10, left: -10, bottom: 5 }}>
+                <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
+                <XAxis dataKey="name" tick={{ fontSize: 10 }} />
+                <YAxis tick={{ fontSize: 10 }} />
+                <Tooltip formatter={(v: any) => Number(v).toLocaleString()} />
+                <Legend wrapperStyle={{ fontSize: 11 }} />
+                <Bar dataKey={String(prevYear)} fill="#94a3b8" radius={[2,2,0,0]} />
+                <Bar dataKey={String(year)} fill={c.color} radius={[2,2,0,0]} />
+              </BarChart>
+            </ResponsiveContainer>
+          </ChartCard>
+        ))}
+      </div>
+
       {/* All Clients Comparison */}
       <SectionHeader title="All Clients — Monthly Comparison" subtitle="Total meal/snack count per month across all clients" color="#374151" />
       <ChartCard title="Combined Monthly Volume — UBL vs Cipla vs Unichem vs HUL">
