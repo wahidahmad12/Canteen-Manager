@@ -730,6 +730,10 @@ export default function SalesInvoicePage() {
   const [filterClient, setFilterClient] = useState("all");
   const [filterMonths, setFilterMonths] = useState<Set<string>>(new Set());
   const [monthMenuOpen, setMonthMenuOpen] = useState(false);
+  const [poSearch, setPoSearch] = useState("");
+  const [poFilterClient, setPoFilterClient] = useState("all");
+  const [poFilterStatus, setPoFilterStatus] = useState("all");
+  const [poFilterYear, setPoFilterYear] = useState("all");
   const [filterYear, setFilterYear] = useState(String(new Date().getFullYear()));
   const [filterStatus, setFilterStatus] = useState("all");
   const [filterUtrNo, setFilterUtrNo] = useState("");
@@ -816,6 +820,71 @@ export default function SalesInvoicePage() {
 
   const getPoLinkedCount = (po: PurchaseOrderType) => {
     return invoices.filter(inv => inv.poId === po.id).length;
+  };
+
+  const filteredPOs = [...purchaseOrders]
+    .filter(po => {
+      if (poSearch.trim() && !po.poNumber.toLowerCase().includes(poSearch.trim().toLowerCase())) return false;
+      if (poFilterClient !== "all" && po.clientName !== poFilterClient) return false;
+      if (poFilterYear !== "all") {
+        try { if (new Date(po.poDate).getFullYear() !== Number(poFilterYear)) return false; } catch { return false; }
+      }
+      if (poFilterStatus !== "all") {
+        const bal = getPoBalance(po);
+        if (poFilterStatus === "open" && bal <= 0) return false;
+        if (poFilterStatus === "exhausted" && bal > 0) return false;
+      }
+      return true;
+    })
+    .sort((a, b) => new Date(b.poDate).getTime() - new Date(a.poDate).getTime());
+
+  const printPoLedger = () => {
+    const rows = filteredPOs;
+    if (rows.length === 0) return;
+    const totAmt = rows.reduce((s, p) => s + Number(p.poAmount), 0);
+    const totUsed = rows.reduce((s, p) => s + getPoUsed(p), 0);
+    const totBal = rows.reduce((s, p) => s + getPoBalance(p), 0);
+    const esc = (v: string) => String(v ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+    const body = rows.map((po, i) => {
+      const used = getPoUsed(po);
+      const bal = getPoBalance(po);
+      const pct = Number(po.poAmount) > 0 ? Math.round((used / Number(po.poAmount)) * 100) : 0;
+      return `<tr>
+        <td style="text-align:center">${i + 1}</td>
+        <td>${esc(po.poNumber)}</td>
+        <td>${esc(po.clientName)}</td>
+        <td style="text-align:center">${esc(fmtDate(po.poDate))}</td>
+        <td class="num">${fmtCurrency(po.poAmount)}</td>
+        <td class="num">${fmtCurrency(used)} (${pct}%)</td>
+        <td class="num">${fmtCurrency(bal)}</td>
+        <td style="text-align:center">${getPoLinkedCount(po)}</td>
+        <td style="text-align:center">${bal > 0 ? "Balance Left" : "Fully Used"}</td>
+      </tr>`;
+    }).join("");
+    const pw = window.open("", "_blank");
+    if (!pw) return;
+    pw.document.write(`<!DOCTYPE html><html><head><title>Purchase Order Ledger</title>
+      <style>
+        body{font-family:Arial,sans-serif;font-size:11px;margin:24px;color:#111}
+        h2{margin:0 0 2px}
+        .sub{color:#555;margin-bottom:12px;font-size:11px}
+        table{width:100%;border-collapse:collapse}
+        th,td{border:1px solid #999;padding:4px 6px}
+        th{background:#e0f2f1;text-align:center}
+        .num{text-align:right;font-family:monospace}
+        tfoot td{font-weight:bold;background:#f5f5f5}
+        @media print{body{margin:8px}}
+      </style></head><body>
+      <h2>Purchase Order Ledger</h2>
+      <div class="sub">${poFilterClient !== "all" ? esc(poFilterClient) + " &nbsp;|&nbsp; " : ""}${poFilterYear !== "all" ? "Year: " + esc(poFilterYear) + " &nbsp;|&nbsp; " : ""}${rows.length} purchase orders &nbsp;|&nbsp; Printed: ${new Date().toLocaleDateString("en-IN")}</div>
+      <table>
+        <thead><tr><th>#</th><th>PO Number</th><th>Client</th><th>PO Date</th><th>PO Amount</th><th>Used</th><th>Balance</th><th>Invoices</th><th>Status</th></tr></thead>
+        <tbody>${body}</tbody>
+        <tfoot><tr><td colspan="4" style="text-align:right">Total</td><td class="num">${fmtCurrency(totAmt)}</td><td class="num">${fmtCurrency(totUsed)}</td><td class="num">${fmtCurrency(totBal)}</td><td colspan="2"></td></tr></tfoot>
+      </table>
+      <script>window.onload=function(){window.print();}<\/script>
+      </body></html>`);
+    pw.document.close();
   };
 
   const getPoName = (poId: number | null) => {
@@ -995,19 +1064,76 @@ export default function SalesInvoicePage() {
           </div>
 
           <TabsContent value="purchase-orders" className="mt-4">
-            <div className="flex justify-end mb-4">
+            <div className="flex justify-end gap-2 mb-4">
+              <Button variant="outline" onClick={printPoLedger} disabled={filteredPOs.length === 0} data-testid="button-print-po">
+                <Printer className="w-4 h-4 mr-2" /> Print
+              </Button>
               <Button className="bg-gradient-to-r from-cyan-500 to-teal-500 hover:from-cyan-600 hover:to-teal-600 text-white shadow-lg" onClick={openNewPO} data-testid="button-new-po">
                 <Plus className="w-4 h-4 mr-2" /> New Purchase Order
               </Button>
             </div>
 
+            <Card className="border-0 shadow-md mb-4">
+              <CardContent className="p-4">
+                <div className="flex flex-col sm:flex-row gap-3 sm:items-end flex-wrap">
+                  <div className="flex-1 min-w-[160px]">
+                    <Label className="text-xs font-semibold text-muted-foreground flex items-center gap-1 mb-1">
+                      <Search className="w-3 h-3" /> Search PO No.
+                    </Label>
+                    <Input placeholder="Search PO number..." value={poSearch} onChange={e => setPoSearch(e.target.value)} className="h-9" data-testid="input-po-search" />
+                  </div>
+                  <div className="sm:w-44">
+                    <Label className="text-xs font-semibold text-muted-foreground mb-1 block">Client</Label>
+                    <Select value={poFilterClient} onValueChange={setPoFilterClient}>
+                      <SelectTrigger className="h-9" data-testid="select-po-filter-client"><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">All Clients</SelectItem>
+                        {Array.from(new Set(purchaseOrders.map(p => p.clientName))).sort().map(c => (
+                          <SelectItem key={c} value={c}>{c}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="sm:w-28">
+                    <Label className="text-xs font-semibold text-muted-foreground mb-1 block">Year</Label>
+                    <Select value={poFilterYear} onValueChange={setPoFilterYear}>
+                      <SelectTrigger className="h-9" data-testid="select-po-filter-year"><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">All</SelectItem>
+                        {Array.from(new Set(purchaseOrders.map(p => { try { return new Date(p.poDate).getFullYear(); } catch { return 0; } }).filter(y => y > 0))).sort((a, b) => b - a).map(y => (
+                          <SelectItem key={y} value={String(y)}>{y}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="sm:w-36">
+                    <Label className="text-xs font-semibold text-muted-foreground mb-1 block">Status</Label>
+                    <Select value={poFilterStatus} onValueChange={setPoFilterStatus}>
+                      <SelectTrigger className="h-9" data-testid="select-po-filter-status"><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">All</SelectItem>
+                        <SelectItem value="open">Balance Left</SelectItem>
+                        <SelectItem value="exhausted">Fully Used</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  {(poSearch || poFilterClient !== "all" || poFilterStatus !== "all" || poFilterYear !== "all") && (
+                    <Button variant="ghost" size="sm" className="text-muted-foreground h-9" onClick={() => { setPoSearch(""); setPoFilterClient("all"); setPoFilterStatus("all"); setPoFilterYear("all"); }} data-testid="button-po-clear-filters">
+                      <X className="w-3.5 h-3.5 mr-1" /> Clear
+                    </Button>
+                  )}
+                </div>
+                <p className="text-xs text-muted-foreground mt-2">{filteredPOs.length} of {purchaseOrders.length} purchase orders</p>
+              </CardContent>
+            </Card>
+
             {posLoading ? (
               <div className="flex justify-center py-20"><Loader2 className="w-8 h-8 animate-spin text-cyan-500" /></div>
-            ) : purchaseOrders.length === 0 ? (
+            ) : filteredPOs.length === 0 ? (
               <Card className="border-0 shadow-md">
                 <CardContent className="flex flex-col items-center justify-center py-16">
                   <ClipboardList className="w-12 h-12 text-muted-foreground/30 mb-3" />
-                  <p className="text-muted-foreground text-sm">No purchase orders yet</p>
+                  <p className="text-muted-foreground text-sm">{purchaseOrders.length === 0 ? "No purchase orders yet" : "No purchase orders match the filters"}</p>
                   <Button className="mt-4" onClick={openNewPO} data-testid="button-new-po-empty">
                     <Plus className="w-4 h-4 mr-2" /> Create First PO
                   </Button>
@@ -1015,7 +1141,7 @@ export default function SalesInvoicePage() {
               </Card>
             ) : (
               <div className="space-y-3">
-                {[...purchaseOrders].sort((a, b) => new Date(b.poDate).getTime() - new Date(a.poDate).getTime()).map(po => {
+                {filteredPOs.map(po => {
                   const balance = getPoBalance(po);
                   const used = getPoUsed(po);
                   const linked = getPoLinkedCount(po);
