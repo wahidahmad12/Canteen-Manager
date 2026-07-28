@@ -167,6 +167,33 @@ export function DateEntryDashboard({ year }: { year: number }) {
     queryFn: () => fetch(`/api/hul-kpf-exec-snacks/yearly-summary?year=${year}`, { credentials: 'include' }).then(r => r.json()),
   });
 
+  // Previous year (for comparison)
+  const prevYear = year - 1;
+  const { data: pUblDate = [] } = useQuery<any[]>({
+    queryKey: ['/api/ubl-date-entries/yearly-summary', prevYear],
+    queryFn: () => fetch(`/api/ubl-date-entries/yearly-summary?year=${prevYear}`, { credentials: 'include' }).then(r => r.json()),
+  });
+  const { data: pCiplaData = [] } = useQuery<any[]>({
+    queryKey: ['/api/cipla-date-entries/yearly-summary', prevYear],
+    queryFn: () => fetch(`/api/cipla-date-entries/yearly-summary?year=${prevYear}`, { credentials: 'include' }).then(r => r.json()),
+  });
+  const { data: pUnichSnacks = [] } = useQuery<any[]>({
+    queryKey: ['/api/unichem-snack-entries/yearly-summary', prevYear],
+    queryFn: () => fetch(`/api/unichem-snack-entries/yearly-summary?year=${prevYear}`, { credentials: 'include' }).then(r => r.json()),
+  });
+  const { data: pUnichLunch = [] } = useQuery<any[]>({
+    queryKey: ['/api/unichem-lunch-entries/yearly-summary', prevYear],
+    queryFn: () => fetch(`/api/unichem-lunch-entries/yearly-summary?year=${prevYear}`, { credentials: 'include' }).then(r => r.json()),
+  });
+  const { data: pHulKpf = [] } = useQuery<any[]>({
+    queryKey: ['/api/hul-date-entries/yearly-summary', prevYear, 'KPF'],
+    queryFn: () => fetch(`/api/hul-date-entries/yearly-summary?year=${prevYear}&location=KPF`, { credentials: 'include' }).then(r => r.json()),
+  });
+  const { data: pHulTec = [] } = useQuery<any[]>({
+    queryKey: ['/api/hul-date-entries/yearly-summary', prevYear, 'TEC'],
+    queryFn: () => fetch(`/api/hul-date-entries/yearly-summary?year=${prevYear}&location=TEC`, { credentials: 'include' }).then(r => r.json()),
+  });
+
   // Helpers
   const sum = (arr: any[], f: string) => arr.reduce((s, r) => s + (r[f] || 0), 0);
   const monthVal = (arr: any[], m: number, fields: string[]) => {
@@ -245,6 +272,22 @@ export function DateEntryDashboard({ year }: { year: number }) {
     monthVal(hulKpf, i + 1, ['breakfast','lunch','eveningSnacks','nightSnacks']) + monthVal(hulTec, i + 1, ['breakfast','lunch','eveningSnacks','nightSnacks']));
   const allMonthly = MONTHS_SHORT.map((_, i) => ublMonthly[i] + ciplaMonthly[i] + unichMonthly[i] + hulMonthly[i]);
 
+  // Previous year monthly totals
+  const pUblMonthly = MONTHS_SHORT.map((_, i) => monthVal(pUblDate, i + 1, ['breakfast','lunch','dinner']));
+  const pCiplaMonthly = MONTHS_SHORT.map((_, i) => monthVal(pCiplaData, i + 1, ['breakfast','lunch','dinner']));
+  const pUnichMonthly = MONTHS_SHORT.map((_, i) =>
+    monthVal(pUnichSnacks, i + 1, ['breakfast','eveningSnacks','nightSnacks']) + monthVal(pUnichLunch, i + 1, ['lunch','dinner']));
+  const pHulMonthly = MONTHS_SHORT.map((_, i) =>
+    monthVal(pHulKpf, i + 1, ['breakfast','lunch','eveningSnacks','nightSnacks']) + monthVal(pHulTec, i + 1, ['breakfast','lunch','eveningSnacks','nightSnacks']));
+  const pAllMonthly = MONTHS_SHORT.map((_, i) => pUblMonthly[i] + pCiplaMonthly[i] + pUnichMonthly[i] + pHulMonthly[i]);
+  const pGrandUbl = pUblMonthly.reduce((a, b) => a + b, 0);
+  const pGrandCipla = pCiplaMonthly.reduce((a, b) => a + b, 0);
+  const pGrandUnichem = pUnichMonthly.reduce((a, b) => a + b, 0);
+  const pGrandHul = pHulMonthly.reduce((a, b) => a + b, 0);
+  const pGrandAll = pAllMonthly.reduce((a, b) => a + b, 0);
+  const yoyPct = (cur: number, prev: number) => prev > 0 ? Math.round(((cur - prev) / prev) * 100) : null;
+  const yoyAll = yoyPct(grandAll, pGrandAll);
+
   // Client share pie
   const shareData = [
     { name: "UBL", value: grandUbl },
@@ -301,6 +344,12 @@ export function DateEntryDashboard({ year }: { year: number }) {
               <div className="text-[10px] text-slate-300 uppercase tracking-wide">Active Months</div>
               <div className="text-lg font-bold">{activeAll.length} / 12</div>
             </div>
+            {yoyAll !== null && (
+              <div className={`rounded-xl px-4 py-2 text-center backdrop-blur ${yoyAll >= 0 ? "bg-green-500/25" : "bg-red-500/25"}`}>
+                <div className="text-[10px] text-slate-300 uppercase tracking-wide">vs {prevYear}</div>
+                <div className="text-lg font-bold">{yoyAll >= 0 ? "+" : ""}{yoyAll}%</div>
+              </div>
+            )}
           </div>
         </div>
       </div>
@@ -610,6 +659,48 @@ export function DateEntryDashboard({ year }: { year: number }) {
             <Bar dataKey="chips" name="Chips" fill={COLORS.chips} radius={[2,2,0,0]} />
             <Bar dataKey="coldDrinkWater" name="Cold Drink & Water" fill={COLORS.coldDrinkWater} radius={[2,2,0,0]} />
             <Bar dataKey="shiftOfficerBreakfast" name="SO Breakfast" fill="#ea580c" radius={[2,2,0,0]} />
+          </BarChart>
+        </ResponsiveContainer>
+      </ChartCard>
+
+      {/* ========== YEAR VS YEAR ========== */}
+      <SectionHeader title={`${year} vs ${prevYear} — Year Comparison`} subtitle="This year compared with last year" color="#0ea5e9" />
+      <div className="grid grid-cols-2 md:grid-cols-5 gap-3 mb-4">
+        {[
+          { name: "All Clients", cur: grandAll, prev: pGrandAll, color: "#0ea5e9" },
+          { name: "UBL", cur: grandUbl, prev: pGrandUbl, color: CLIENT_COLORS.UBL },
+          { name: "Cipla", cur: grandCipla, prev: pGrandCipla, color: CLIENT_COLORS.Cipla },
+          { name: "Unichem", cur: grandUnichem, prev: pGrandUnichem, color: CLIENT_COLORS.Unichem },
+          { name: "HUL", cur: grandHul, prev: pGrandHul, color: CLIENT_COLORS.HUL },
+        ].map(c => {
+          const chg = yoyPct(c.cur, c.prev);
+          return (
+            <div key={c.name} className="rounded-xl border p-3 bg-white dark:bg-gray-900 shadow-sm" style={{ borderTopWidth: 3, borderTopColor: c.color }}>
+              <div className="text-xs font-semibold" style={{ color: c.color }}>{c.name}</div>
+              <div className="text-lg font-bold">{c.cur.toLocaleString()}</div>
+              <div className="text-[11px] text-muted-foreground">Last year: {c.prev.toLocaleString()}</div>
+              {chg !== null ? (
+                <div className={`text-xs font-bold mt-0.5 inline-flex items-center gap-1 ${chg >= 0 ? "text-green-600" : "text-red-600"}`}>
+                  {chg >= 0 ? <TrendingUp className="w-3 h-3" /> : <TrendingDown className="w-3 h-3" />}
+                  {chg >= 0 ? "+" : ""}{chg}% vs {prevYear}
+                </div>
+              ) : (
+                <div className="text-xs text-muted-foreground mt-0.5">No data for {prevYear}</div>
+              )}
+            </div>
+          );
+        })}
+      </div>
+      <ChartCard title={`Monthly Totals — ${year} vs ${prevYear} (All Clients Combined)`}>
+        <ResponsiveContainer width="100%" height={CHART_H + 20}>
+          <BarChart data={MONTHS_SHORT.map((name, i) => ({ name, [String(year)]: allMonthly[i], [String(prevYear)]: pAllMonthly[i] }))} margin={{ top: 5, right: 10, left: -10, bottom: 5 }}>
+            <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
+            <XAxis dataKey="name" tick={{ fontSize: 10 }} />
+            <YAxis tick={{ fontSize: 10 }} />
+            <Tooltip formatter={(v: any) => Number(v).toLocaleString()} />
+            <Legend wrapperStyle={{ fontSize: 11 }} />
+            <Bar dataKey={String(prevYear)} fill="#94a3b8" radius={[2,2,0,0]} />
+            <Bar dataKey={String(year)} fill="#0ea5e9" radius={[2,2,0,0]} />
           </BarChart>
         </ResponsiveContainer>
       </ChartCard>
