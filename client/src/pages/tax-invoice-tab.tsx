@@ -8,7 +8,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { useToast } from "@/hooks/use-toast";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
-import { Plus, Save, Loader2, Pencil, Trash2, Printer, X, Receipt, Eye } from "lucide-react";
+import { Plus, Save, Loader2, Pencil, Trash2, Printer, X, Receipt, Eye, Search } from "lucide-react";
 import logoPath from "@assets/logo1_1771660912341.png";
 import signaturePath from "@assets/DJ_Stamp_wahid_Sig_1785080823452.png";
 
@@ -675,14 +675,61 @@ export function TaxInvoiceTab({ clients }: { clients: ClientOption[] }) {
   const [previewInv, setPreviewInv] = useState<TaxInvoice | null>(null);
   const [printChoiceInv, setPrintChoiceInv] = useState<TaxInvoice | null>(null);
 
+  const [searchTerm, setSearchTerm] = useState("");
+  const [filterMonth, setFilterMonth] = useState("all");
+  const [filterYear, setFilterYear] = useState("all");
+
+  // invoiceDate is stored as dd-mm-yyyy
+  const invYear = (d: string) => (d || "").split("-")[2] || "";
+  const invMonth = (d: string) => String(Number((d || "").split("-")[1] || 0));
+
+  const yearOptions = Array.from(new Set(invoices.map(i => invYear(i.invoiceDate)).filter(Boolean))).sort().reverse();
+  const MONTH_NAMES = ["January","February","March","April","May","June","July","August","September","October","November","December"];
+
+  const filteredInvoices = invoices.filter(inv => {
+    const q = searchTerm.trim().toLowerCase();
+    const qMatch = !q
+      || inv.invoiceNumber.toLowerCase().includes(q)
+      || (inv.billToName || "").toLowerCase().includes(q)
+      || (inv.poNumber || "").toLowerCase().includes(q);
+    const mMatch = filterMonth === "all" || invMonth(inv.invoiceDate) === filterMonth;
+    const yMatch = filterYear === "all" || invYear(inv.invoiceDate) === filterYear;
+    return qMatch && mMatch && yMatch;
+  });
+
   const formGrand = items.reduce((s, it) => s + itemAmount(it), 0);
 
   return (
     <div className="mt-4">
-      <div className="flex justify-end mb-4">
-        <Button className="bg-gradient-to-r from-violet-500 to-purple-500 hover:from-violet-600 hover:to-purple-600 text-white shadow-lg" onClick={openNew} data-testid="button-new-tax-invoice">
-          <Plus className="w-4 h-4 mr-2" /> New Tax Invoice
-        </Button>
+      <div className="flex flex-col sm:flex-row gap-2 mb-4">
+        <div className="relative flex-1">
+          <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+          <Input
+            value={searchTerm}
+            onChange={e => setSearchTerm(e.target.value)}
+            placeholder="Search invoice no, client or PO no..."
+            className="pl-8 h-9"
+            data-testid="input-tax-invoice-search"
+          />
+          {searchTerm && (
+            <button className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground" onClick={() => setSearchTerm("")} data-testid="button-clear-tax-search">
+              <X className="w-4 h-4" />
+            </button>
+          )}
+        </div>
+        <div className="flex gap-2">
+          <select value={filterMonth} onChange={e => setFilterMonth(e.target.value)} className="h-9 rounded-md border bg-background text-sm px-2" data-testid="select-tax-filter-month">
+            <option value="all">All Months</option>
+            {MONTH_NAMES.map((m, i) => <option key={i + 1} value={String(i + 1)}>{m}</option>)}
+          </select>
+          <select value={filterYear} onChange={e => setFilterYear(e.target.value)} className="h-9 rounded-md border bg-background text-sm px-2" data-testid="select-tax-filter-year">
+            <option value="all">All Years</option>
+            {yearOptions.map(y => <option key={y} value={y}>{y}</option>)}
+          </select>
+          <Button className="bg-gradient-to-r from-violet-500 to-purple-500 hover:from-violet-600 hover:to-purple-600 text-white shadow-lg shrink-0" onClick={openNew} data-testid="button-new-tax-invoice">
+            <Plus className="w-4 h-4 mr-2" /> New Tax Invoice
+          </Button>
+        </div>
       </div>
 
       {isLoading ? (
@@ -697,9 +744,17 @@ export function TaxInvoiceTab({ clients }: { clients: ClientOption[] }) {
             </Button>
           </CardContent>
         </Card>
+      ) : filteredInvoices.length === 0 ? (
+        <Card className="border-0 shadow-md">
+          <CardContent className="flex flex-col items-center justify-center py-12">
+            <Search className="w-10 h-10 text-muted-foreground/30 mb-3" />
+            <p className="text-muted-foreground text-sm">No invoices match your search / filter</p>
+          </CardContent>
+        </Card>
       ) : (
         <div className="space-y-3">
-          {invoices.map(inv => {
+          <p className="text-xs text-muted-foreground">{filteredInvoices.length} of {invoices.length} invoices</p>
+          {filteredInvoices.map(inv => {
             const grand = inv.items.reduce((s, it) => s + itemAmount(it), 0);
             return (
               <Card key={inv.id} className="border-0 shadow-md" data-testid={`card-tax-invoice-${inv.id}`}>
