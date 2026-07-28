@@ -732,6 +732,7 @@ export default function SalesInvoicePage() {
   const [filterStatus, setFilterStatus] = useState("all");
   const [filterUtrNo, setFilterUtrNo] = useState("");
   const [printChoiceOpen, setPrintChoiceOpen] = useState(false);
+  const [printSelIds, setPrintSelIds] = useState<Set<number>>(new Set());
 
   const deleteMutation = useMutation({
     mutationFn: async (id: number) => {
@@ -1081,11 +1082,14 @@ export default function SalesInvoicePage() {
             <div className="flex justify-end gap-2 mb-4 flex-wrap">
               <Button variant="outline" size="sm" className="h-9" onClick={() => {
                 if (filteredInvoices.length === 0) return;
+                setPrintSelIds(new Set(filteredInvoices.map(i => i.id)));
                 setPrintChoiceOpen(true);
               }} data-testid="button-print-invoices">
                 <Printer className="w-4 h-4 mr-1.5" /> Print
               </Button>
-              {(() => { const printLedger = (mode: "full" | "gst" | "tds") => {
+              {(() => { const printRows = filteredInvoices.filter(i => printSelIds.has(i.id));
+              const printLedger = (mode: "full" | "gst" | "tds") => {
+                if (printRows.length === 0) return;
                 setPrintChoiceOpen(false);
                 const pw = window.open("", "_blank");
                 if (!pw) return;
@@ -1094,12 +1098,12 @@ export default function SalesInvoicePage() {
                 const clientLabel = filterClient === "all" ? "All Clients" : filterClient;
                 const monthLabel = filterMonth === "all" ? "All Months" : MONTHS[Number(filterMonth)];
                 const yearLabel = filterYear === "all" ? "All Years" : filterYear;
-                const totalBill = filteredInvoices.reduce((s, i) => s + Number(i.billAmount), 0);
-                const totalGst = filteredInvoices.reduce((s, i) => s + Number(i.gstAmount), 0);
-                const totalTotalBill = filteredInvoices.reduce((s, i) => s + Number(i.totalBillAmount), 0);
-                const totalTds = filteredInvoices.reduce((s, i) => s + Number(i.tdsAmount), 0);
-                const totalToReceive = filteredInvoices.reduce((s, i) => s + (Number(i.totalBillAmount) - Number(i.tdsAmount)), 0);
-                const uniqueClients = [...new Set(filteredInvoices.map(i => i.clientName))];
+                const totalBill = printRows.reduce((s, i) => s + Number(i.billAmount), 0);
+                const totalGst = printRows.reduce((s, i) => s + Number(i.gstAmount), 0);
+                const totalTotalBill = printRows.reduce((s, i) => s + Number(i.totalBillAmount), 0);
+                const totalTds = printRows.reduce((s, i) => s + Number(i.tdsAmount), 0);
+                const totalToReceive = printRows.reduce((s, i) => s + (Number(i.totalBillAmount) - Number(i.tdsAmount)), 0);
+                const uniqueClients = [...new Set(printRows.map(i => i.clientName))];
                 const isSingleClient = uniqueClients.length === 1;
                 const footColspan = isSingleClient ? 5 : 6;
                 const modeTitle = mode === "gst" ? "Sales Invoice Ledger — As per GST" : mode === "tds" ? "Sales Invoice Ledger — As per TDS" : "Sales Invoice Ledger";
@@ -1133,7 +1137,7 @@ export default function SalesInvoicePage() {
                       ${mode !== "tds" ? "<th>GST Amount</th><th>Total Bill</th>" : ""}
                       ${mode !== "gst" ? "<th>TDS</th><th>To Receive</th>" : ""}
                     </tr></thead>
-                    <tbody>${filteredInvoices.map((inv, idx) => {
+                    <tbody>${printRows.map((inv, idx) => {
                       const po = inv.poId ? purchaseOrders.find(p => p.id === inv.poId) : null;
                       const toRec = Number(inv.totalBillAmount) - Number(inv.tdsAmount);
                       return `<tr>
@@ -1151,7 +1155,7 @@ export default function SalesInvoicePage() {
                       </tr>`;
                     }).join("")}</tbody>
                     <tfoot><tr>
-                      <td colspan="${footColspan}" style="text-align:center"><b>Grand Total (${filteredInvoices.length} invoices)</b></td>
+                      <td colspan="${footColspan}" style="text-align:center"><b>Grand Total (${printRows.length} invoices)</b></td>
                       <td class="right">${totalBill.toLocaleString("en-IN", {minimumFractionDigits:2})}</td>
                       ${mode !== "tds" ? `<td class="right">${totalGst.toLocaleString("en-IN", {minimumFractionDigits:2})}</td>
                       <td class="right">${totalTotalBill.toLocaleString("en-IN", {minimumFractionDigits:2})}</td>` : ""}
@@ -1167,18 +1171,48 @@ export default function SalesInvoicePage() {
                 <Dialog open={printChoiceOpen} onOpenChange={setPrintChoiceOpen}>
                   <DialogContent className="max-w-sm">
                     <DialogHeader>
-                      <DialogTitle className="flex items-center gap-2"><Printer className="w-5 h-5" /> Print Ledger — Select Format</DialogTitle>
+                      <DialogTitle className="flex items-center gap-2"><Printer className="w-5 h-5" /> Print Ledger — Select Bills & Format</DialogTitle>
                     </DialogHeader>
+                    <div className="border rounded-lg overflow-hidden">
+                      <div className="flex items-center gap-2 px-3 py-2 bg-muted/60 border-b">
+                        <Checkbox
+                          checked={printRows.length === filteredInvoices.length && filteredInvoices.length > 0}
+                          onCheckedChange={(v) => setPrintSelIds(v ? new Set(filteredInvoices.map(i => i.id)) : new Set())}
+                          data-testid="checkbox-print-select-all"
+                        />
+                        <span className="text-xs font-semibold">Select All Bills</span>
+                        <span className="ml-auto text-[11px] text-muted-foreground">{printRows.length} / {filteredInvoices.length} selected</span>
+                      </div>
+                      <div className="max-h-52 overflow-y-auto divide-y">
+                        {filteredInvoices.map(inv => (
+                          <label key={inv.id} className="flex items-center gap-2 px-3 py-1.5 cursor-pointer hover:bg-muted/40">
+                            <Checkbox
+                              checked={printSelIds.has(inv.id)}
+                              onCheckedChange={() => setPrintSelIds(prev => {
+                                const next = new Set(prev);
+                                next.has(inv.id) ? next.delete(inv.id) : next.add(inv.id);
+                                return next;
+                              })}
+                              data-testid={`checkbox-print-bill-${inv.id}`}
+                            />
+                            <span className="text-xs font-medium">{inv.billNumber}</span>
+                            <span className="text-[10px] text-muted-foreground truncate">{fmtDate(inv.billDate)}</span>
+                            <span className="ml-auto text-[11px] font-mono">{fmtCurrency(inv.billAmount)}</span>
+                          </label>
+                        ))}
+                      </div>
+                    </div>
+                    {printRows.length === 0 && <p className="text-[11px] text-red-500 -mt-1">Select at least one bill to print.</p>}
                     <div className="flex flex-col gap-2 pt-1">
-                      <Button variant="outline" className="justify-start h-12" onClick={() => printLedger("full")} data-testid="button-print-full">
+                      <Button variant="outline" className="justify-start h-12" disabled={printRows.length === 0} onClick={() => printLedger("full")} data-testid="button-print-full">
                         <span className="w-7 h-7 rounded-md bg-violet-100 text-violet-700 flex items-center justify-center text-xs font-bold mr-2.5">1</span>
                         <span className="text-left"><span className="font-semibold block text-sm">Full Ledger</span><span className="text-[11px] text-muted-foreground">Bill + GST + TDS columns</span></span>
                       </Button>
-                      <Button variant="outline" className="justify-start h-12" onClick={() => printLedger("gst")} data-testid="button-print-gst">
+                      <Button variant="outline" className="justify-start h-12" disabled={printRows.length === 0} onClick={() => printLedger("gst")} data-testid="button-print-gst">
                         <span className="w-7 h-7 rounded-md bg-emerald-100 text-emerald-700 flex items-center justify-center text-xs font-bold mr-2.5">2</span>
                         <span className="text-left"><span className="font-semibold block text-sm">As per GST</span><span className="text-[11px] text-muted-foreground">Bill Amount, GST Amount, Total Bill</span></span>
                       </Button>
-                      <Button variant="outline" className="justify-start h-12" onClick={() => printLedger("tds")} data-testid="button-print-tds">
+                      <Button variant="outline" className="justify-start h-12" disabled={printRows.length === 0} onClick={() => printLedger("tds")} data-testid="button-print-tds">
                         <span className="w-7 h-7 rounded-md bg-red-100 text-red-700 flex items-center justify-center text-xs font-bold mr-2.5">3</span>
                         <span className="text-left"><span className="font-semibold block text-sm">As per TDS</span><span className="text-[11px] text-muted-foreground">Bill Amount, TDS, To Receive</span></span>
                       </Button>
