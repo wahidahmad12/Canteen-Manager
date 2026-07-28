@@ -604,25 +604,45 @@ export function TaxInvoiceTab({ clients }: { clients: ClientOption[] }) {
     onError: (e: any) => toast({ title: "Error", description: e.message || "Failed to delete", variant: "destructive" }),
   });
 
-  function handleSave() {
+  const [poChecking, setPoChecking] = useState(false);
+
+  async function handleSave() {
+    if (poChecking || saveMutation.isPending) return;
     if (!invoiceNumber.trim()) { toast({ title: "Missing", description: "Invoice Number is required", variant: "destructive" }); return; }
     if (!invoiceDate) { toast({ title: "Missing", description: "Invoice Date is required", variant: "destructive" }); return; }
     if (!billToName.trim()) { toast({ title: "Missing", description: "Bill To name is required", variant: "destructive" }); return; }
     if (!items.some(it => it.itemName.trim())) { toast({ title: "Missing", description: "Add at least one line item", variant: "destructive" }); return; }
     const matchedPo = poNumber.trim() ? purchaseOrders.find(p => p.poNumber === poNumber.trim()) : undefined;
-    if (matchedPo) {
-      const taxableTotal = Math.round(items.filter(it => it.itemName.trim()).reduce((s, it) => s + itemTotal(it), 0) * 100) / 100;
-      const poAmt = Number(matchedPo.poAmount) || 0;
-      if (taxableTotal > poAmt) {
-        toast({
-          title: "Amount exceeds PO",
-          description: `Invoice amount without GST (₹${taxableTotal.toLocaleString("en-IN", { minimumFractionDigits: 2 })}) is more than PO amount (₹${poAmt.toLocaleString("en-IN", { minimumFractionDigits: 2 })}). Invoice not saved.`,
-          variant: "destructive",
-        });
-        return;
+    setPoChecking(true);
+    try {
+      if (matchedPo) {
+        const taxableTotal = Math.round(items.filter(it => it.itemName.trim()).reduce((s, it) => s + itemTotal(it), 0) * 100) / 100;
+        const poAmt = Number(matchedPo.poAmount) || 0;
+        // Cumulative check: one PO can hold multiple invoices, but all invoices together must not exceed the PO amount
+        let usedAmount = 0;
+        try {
+          const res = await fetch("/api/sales-invoices", { credentials: "include" });
+          if (res.ok) {
+            const salesList: { id: number; billNumber: string; billAmount: string; poId: number | null }[] = await res.json();
+            usedAmount = salesList
+              .filter(s => s.poId === matchedPo.id && (!editing || s.billNumber !== editing.invoiceNumber))
+              .reduce((sum, s) => sum + (Number(s.billAmount) || 0), 0);
+          }
+        } catch { /* if fetch fails, fall back to single-invoice check */ }
+        const fmtInr = (v: number) => `₹${v.toLocaleString("en-IN", { minimumFractionDigits: 2 })}`;
+        if (Math.round((usedAmount + taxableTotal) * 100) / 100 > poAmt) {
+          toast({
+            title: "Exceeds Total PO amount",
+            description: `Exceeds Total PO amount ${fmtInr(poAmt)}. Already billed on this PO: ${fmtInr(usedAmount)}. This invoice (without GST): ${fmtInr(taxableTotal)}. Balance left: ${fmtInr(Math.max(poAmt - usedAmount, 0))}. Invoice not saved.`,
+            variant: "destructive",
+          });
+          return;
+        }
       }
+      saveMutation.mutate();
+    } finally {
+      setPoChecking(false);
     }
-    saveMutation.mutate();
   }
 
   function invoiceHtml(inv: TaxInvoice, autoPrint = true, signatureMode: "blank" | "stamp" | "dsc" = "blank") {
@@ -889,8 +909,8 @@ export function TaxInvoiceTab({ clients }: { clients: ClientOption[] }) {
 
             <div className="flex justify-end gap-2 pt-2">
               <Button variant="outline" onClick={() => setDialogOpen(false)} data-testid="button-cancel-tax-invoice">Cancel</Button>
-              <Button onClick={handleSave} disabled={saveMutation.isPending} className="bg-gradient-to-r from-violet-500 to-purple-500 text-white" data-testid="button-save-tax-invoice">
-                {saveMutation.isPending ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Save className="w-4 h-4 mr-2" />}
+              <Button onClick={handleSave} disabled={saveMutation.isPending || poChecking} className="bg-gradient-to-r from-violet-500 to-purple-500 text-white" data-testid="button-save-tax-invoice">
+                {(saveMutation.isPending || poChecking) ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Save className="w-4 h-4 mr-2" />}
                 {editing ? "Update" : "Save"}
               </Button>
             </div>

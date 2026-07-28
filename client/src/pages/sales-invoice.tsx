@@ -731,6 +731,7 @@ export default function SalesInvoicePage() {
   const [filterYear, setFilterYear] = useState(String(new Date().getFullYear()));
   const [filterStatus, setFilterStatus] = useState("all");
   const [filterUtrNo, setFilterUtrNo] = useState("");
+  const [printChoiceOpen, setPrintChoiceOpen] = useState(false);
 
   const deleteMutation = useMutation({
     mutationFn: async (id: number) => {
@@ -1080,6 +1081,12 @@ export default function SalesInvoicePage() {
             <div className="flex justify-end gap-2 mb-4 flex-wrap">
               <Button variant="outline" size="sm" className="h-9" onClick={() => {
                 if (filteredInvoices.length === 0) return;
+                setPrintChoiceOpen(true);
+              }} data-testid="button-print-invoices">
+                <Printer className="w-4 h-4 mr-1.5" /> Print
+              </Button>
+              {(() => { const printLedger = (mode: "full" | "gst" | "tds") => {
+                setPrintChoiceOpen(false);
                 const pw = window.open("", "_blank");
                 if (!pw) return;
                 const today = new Date();
@@ -1095,7 +1102,8 @@ export default function SalesInvoicePage() {
                 const uniqueClients = [...new Set(filteredInvoices.map(i => i.clientName))];
                 const isSingleClient = uniqueClients.length === 1;
                 const footColspan = isSingleClient ? 5 : 6;
-                pw.document.write(`<!DOCTYPE html><html><head><title>Sales Invoice Ledger</title>
+                const modeTitle = mode === "gst" ? "Sales Invoice Ledger — As per GST" : mode === "tds" ? "Sales Invoice Ledger — As per TDS" : "Sales Invoice Ledger";
+                pw.document.write(`<!DOCTYPE html><html><head><title>${modeTitle}</title>
                   <style>
                     body { font-family: Arial, sans-serif; margin: 20px 30px; color: #000; }
                     .company { text-align: center; font-size: 16px; font-weight: bold; border-bottom: 2px solid #000; padding-bottom: 6px; margin-bottom: 2px; }
@@ -1111,7 +1119,7 @@ export default function SalesInvoicePage() {
                     @media print { body { margin: 10px 15px; } }
                   </style></head><body>
                   <div class="company">DJ Hospitality & Facility Management Private Limited</div>
-                  <div class="title">Sales Invoice Ledger</div>
+                  <div class="title">${modeTitle}</div>
                   <div class="meta-row">
                     <span><b>Date:</b> ${dateStr}</span>
                     ${isSingleClient ? `<span><b>Client:</b> ${uniqueClients[0]}</span>` : ""}
@@ -1121,8 +1129,9 @@ export default function SalesInvoicePage() {
                     <thead><tr>
                       <th>Sl No</th>${isSingleClient ? "" : "<th>Client Name</th>"}<th>PO No</th><th>PO Date</th>
                       <th>Bill No</th><th>Bill Date</th>
-                      <th>Bill Amount</th><th>GST Amount</th><th>Total Bill</th>
-                      <th>TDS</th><th>To Receive</th>
+                      <th>Bill Amount</th>
+                      ${mode !== "tds" ? "<th>GST Amount</th><th>Total Bill</th>" : ""}
+                      ${mode !== "gst" ? "<th>TDS</th><th>To Receive</th>" : ""}
                     </tr></thead>
                     <tbody>${filteredInvoices.map((inv, idx) => {
                       const po = inv.poId ? purchaseOrders.find(p => p.id === inv.poId) : null;
@@ -1135,27 +1144,48 @@ export default function SalesInvoicePage() {
                         <td>${inv.billNumber}</td>
                         <td class="center">${fmtDate(inv.billDate)}</td>
                         <td class="right">${Number(inv.billAmount).toLocaleString("en-IN", {minimumFractionDigits:2})}</td>
-                        <td class="right">${Number(inv.gstAmount).toLocaleString("en-IN", {minimumFractionDigits:2})}</td>
-                        <td class="right">${Number(inv.totalBillAmount).toLocaleString("en-IN", {minimumFractionDigits:2})}</td>
-                        <td class="right">${Number(inv.tdsAmount).toLocaleString("en-IN", {minimumFractionDigits:2})}</td>
-                        <td class="right" style="font-weight:bold">${toRec.toLocaleString("en-IN", {minimumFractionDigits:2})}</td>
+                        ${mode !== "tds" ? `<td class="right">${Number(inv.gstAmount).toLocaleString("en-IN", {minimumFractionDigits:2})}</td>
+                        <td class="right">${Number(inv.totalBillAmount).toLocaleString("en-IN", {minimumFractionDigits:2})}</td>` : ""}
+                        ${mode !== "gst" ? `<td class="right">${Number(inv.tdsAmount).toLocaleString("en-IN", {minimumFractionDigits:2})}</td>
+                        <td class="right" style="font-weight:bold">${toRec.toLocaleString("en-IN", {minimumFractionDigits:2})}</td>` : ""}
                       </tr>`;
                     }).join("")}</tbody>
                     <tfoot><tr>
                       <td colspan="${footColspan}" style="text-align:center"><b>Grand Total (${filteredInvoices.length} invoices)</b></td>
                       <td class="right">${totalBill.toLocaleString("en-IN", {minimumFractionDigits:2})}</td>
-                      <td class="right">${totalGst.toLocaleString("en-IN", {minimumFractionDigits:2})}</td>
-                      <td class="right">${totalTotalBill.toLocaleString("en-IN", {minimumFractionDigits:2})}</td>
-                      <td class="right">${totalTds.toLocaleString("en-IN", {minimumFractionDigits:2})}</td>
-                      <td class="right" style="font-weight:bold">${totalToReceive.toLocaleString("en-IN", {minimumFractionDigits:2})}</td>
+                      ${mode !== "tds" ? `<td class="right">${totalGst.toLocaleString("en-IN", {minimumFractionDigits:2})}</td>
+                      <td class="right">${totalTotalBill.toLocaleString("en-IN", {minimumFractionDigits:2})}</td>` : ""}
+                      ${mode !== "gst" ? `<td class="right">${totalTds.toLocaleString("en-IN", {minimumFractionDigits:2})}</td>
+                      <td class="right" style="font-weight:bold">${totalToReceive.toLocaleString("en-IN", {minimumFractionDigits:2})}</td>` : ""}
                     </tr></tfoot>
                   </table>
                   <script>window.onload=function(){window.print();}<\/script>
                 </body></html>`);
                 pw.document.close();
-              }} data-testid="button-print-invoices">
-                <Printer className="w-4 h-4 mr-1.5" /> Print
-              </Button>
+              };
+              return (
+                <Dialog open={printChoiceOpen} onOpenChange={setPrintChoiceOpen}>
+                  <DialogContent className="max-w-sm">
+                    <DialogHeader>
+                      <DialogTitle className="flex items-center gap-2"><Printer className="w-5 h-5" /> Print Ledger — Select Format</DialogTitle>
+                    </DialogHeader>
+                    <div className="flex flex-col gap-2 pt-1">
+                      <Button variant="outline" className="justify-start h-12" onClick={() => printLedger("full")} data-testid="button-print-full">
+                        <span className="w-7 h-7 rounded-md bg-violet-100 text-violet-700 flex items-center justify-center text-xs font-bold mr-2.5">1</span>
+                        <span className="text-left"><span className="font-semibold block text-sm">Full Ledger</span><span className="text-[11px] text-muted-foreground">Bill + GST + TDS columns</span></span>
+                      </Button>
+                      <Button variant="outline" className="justify-start h-12" onClick={() => printLedger("gst")} data-testid="button-print-gst">
+                        <span className="w-7 h-7 rounded-md bg-emerald-100 text-emerald-700 flex items-center justify-center text-xs font-bold mr-2.5">2</span>
+                        <span className="text-left"><span className="font-semibold block text-sm">As per GST</span><span className="text-[11px] text-muted-foreground">Bill Amount, GST Amount, Total Bill</span></span>
+                      </Button>
+                      <Button variant="outline" className="justify-start h-12" onClick={() => printLedger("tds")} data-testid="button-print-tds">
+                        <span className="w-7 h-7 rounded-md bg-red-100 text-red-700 flex items-center justify-center text-xs font-bold mr-2.5">3</span>
+                        <span className="text-left"><span className="font-semibold block text-sm">As per TDS</span><span className="text-[11px] text-muted-foreground">Bill Amount, TDS, To Receive</span></span>
+                      </Button>
+                    </div>
+                  </DialogContent>
+                </Dialog>
+              ); })()}
               <Button className="bg-gradient-to-r from-violet-500 to-purple-600 hover:from-violet-600 hover:to-purple-700 text-white shadow-lg" onClick={openNew} data-testid="button-new-invoice">
                 <Plus className="w-4 h-4 mr-2" /> New Invoice
               </Button>
