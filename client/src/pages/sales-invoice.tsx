@@ -9,6 +9,7 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { format } from "date-fns";
 import { useToast } from "@/hooks/use-toast";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -727,7 +728,8 @@ export default function SalesInvoicePage() {
   const [viewingPo, setViewingPo] = useState<PurchaseOrderType | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
   const [filterClient, setFilterClient] = useState("all");
-  const [filterMonth, setFilterMonth] = useState("all");
+  const [filterMonths, setFilterMonths] = useState<Set<string>>(new Set());
+  const [monthMenuOpen, setMonthMenuOpen] = useState(false);
   const [filterYear, setFilterYear] = useState(String(new Date().getFullYear()));
   const [filterStatus, setFilterStatus] = useState("all");
   const [filterUtrNo, setFilterUtrNo] = useState("");
@@ -764,11 +766,11 @@ export default function SalesInvoicePage() {
 
   const filteredInvoices = invoices.filter(inv => {
     if (filterClient !== "all" && inv.clientName !== filterClient) return false;
-    if (filterMonth !== "all" || filterYear !== "all") {
+    if (filterMonths.size > 0 || filterYear !== "all") {
       try {
         const d = new Date(inv.billDate);
         if (filterYear !== "all" && d.getFullYear() !== Number(filterYear)) return false;
-        if (filterMonth !== "all" && d.getMonth() !== Number(filterMonth)) return false;
+        if (filterMonths.size > 0 && !filterMonths.has(String(d.getMonth()))) return false;
       } catch { return false; }
     }
     if (filterStatus !== "all") {
@@ -1096,7 +1098,7 @@ export default function SalesInvoicePage() {
                 const today = new Date();
                 const dateStr = `${String(today.getDate()).padStart(2,"0")}/${String(today.getMonth()+1).padStart(2,"0")}/${today.getFullYear()}`;
                 const clientLabel = filterClient === "all" ? "All Clients" : filterClient;
-                const monthLabel = filterMonth === "all" ? "All Months" : MONTHS[Number(filterMonth)];
+                const monthLabel = filterMonths.size === 0 ? "All Months" : Array.from(filterMonths).sort((a, b) => Number(a) - Number(b)).map(m => MONTHS[Number(m)]).join(", ");
                 const yearLabel = filterYear === "all" ? "All Years" : filterYear;
                 const totalBill = printRows.reduce((s, i) => s + Number(i.billAmount), 0);
                 const totalGst = printRows.reduce((s, i) => s + Number(i.gstAmount), 0);
@@ -1300,17 +1302,46 @@ export default function SalesInvoicePage() {
                   <Label className="text-xs font-semibold text-muted-foreground flex items-center gap-1 mb-1">
                     <CalendarDays className="w-3 h-3" /> Month
                   </Label>
-                  <Select value={filterMonth} onValueChange={setFilterMonth}>
-                    <SelectTrigger className="h-9" data-testid="select-filter-month">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="all">All Months</SelectItem>
-                      {MONTHS.map((m, i) => (
-                        <SelectItem key={i} value={String(i)}>{m}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                  <Popover open={monthMenuOpen} onOpenChange={setMonthMenuOpen}>
+                    <PopoverTrigger asChild>
+                      <button className="w-full h-9 rounded-md border bg-background text-sm px-2 flex items-center justify-between" data-testid="button-filter-month">
+                        <span className="truncate">
+                          {filterMonths.size === 0
+                            ? "All Months"
+                            : Array.from(filterMonths).sort((a, b) => Number(a) - Number(b)).map(m => MONTHS[Number(m)].slice(0, 3)).join(", ")}
+                        </span>
+                        <span className="text-muted-foreground text-xs ml-1">▾</span>
+                      </button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-48 p-2" align="start">
+                      <button
+                        className="w-full text-left text-xs font-semibold px-2 py-1.5 rounded hover:bg-muted"
+                        onClick={() => setFilterMonths(new Set())}
+                        data-testid="button-filter-months-all"
+                      >
+                        All Months {filterMonths.size === 0 ? "✓" : ""}
+                      </button>
+                      <div className="border-t my-1" />
+                      {MONTHS.map((m, i) => {
+                        const val = String(i);
+                        const checked = filterMonths.has(val);
+                        return (
+                          <label key={val} className="flex items-center gap-2 px-2 py-1.5 rounded hover:bg-muted cursor-pointer">
+                            <Checkbox
+                              checked={checked}
+                              onCheckedChange={() => setFilterMonths(prev => {
+                                const next = new Set(prev);
+                                checked ? next.delete(val) : next.add(val);
+                                return next;
+                              })}
+                              data-testid={`checkbox-filter-month-${val}`}
+                            />
+                            <span className="text-sm">{m}</span>
+                          </label>
+                        );
+                      })}
+                    </PopoverContent>
+                  </Popover>
                 </div>
                 <div className="sm:w-28">
                   <Label className="text-xs font-semibold text-muted-foreground mb-1 block">Year</Label>
@@ -1354,8 +1385,8 @@ export default function SalesInvoicePage() {
                     data-testid="input-filter-utr"
                   />
                 </div>
-                {(filterClient !== "all" || filterMonth !== "all" || filterYear !== String(new Date().getFullYear()) || filterStatus !== "all" || searchTerm || filterUtrNo) && (
-                  <Button variant="ghost" size="sm" className="text-muted-foreground h-9 self-end" onClick={() => { setFilterClient("all"); setFilterMonth("all"); setFilterYear(String(new Date().getFullYear())); setFilterStatus("all"); setSearchTerm(""); setFilterUtrNo(""); }} data-testid="button-clear-filters">
+                {(filterClient !== "all" || filterMonths.size > 0 || filterYear !== String(new Date().getFullYear()) || filterStatus !== "all" || searchTerm || filterUtrNo) && (
+                  <Button variant="ghost" size="sm" className="text-muted-foreground h-9 self-end" onClick={() => { setFilterClient("all"); setFilterMonths(new Set()); setFilterYear(String(new Date().getFullYear())); setFilterStatus("all"); setSearchTerm(""); setFilterUtrNo(""); }} data-testid="button-clear-filters">
                     <X className="w-3.5 h-3.5 mr-1" /> Clear
                   </Button>
                 )}
