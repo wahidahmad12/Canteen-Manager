@@ -1,8 +1,9 @@
-import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import {
-  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, LineChart, Line
+  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, LineChart, Line,
+  PieChart, Pie, Cell, AreaChart, Area
 } from "recharts";
+import { TrendingUp, TrendingDown, Award, CalendarDays, Utensils, Coffee } from "lucide-react";
 
 const MONTHS_SHORT = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
 
@@ -29,6 +30,13 @@ const COLORS = {
   tecTotal: "#1d4ed8",
 };
 
+const CLIENT_COLORS: Record<string, string> = {
+  UBL: "#f59e0b",
+  Cipla: "#6366f1",
+  Unichem: "#14b8a6",
+  HUL: "#16a34a",
+};
+
 function buildMonthChart(data: { month: number }[], fields: string[]): any[] {
   return MONTHS_SHORT.map((name, i) => {
     const row = (data as any[]).find((r: any) => r.month === i + 1) || {};
@@ -38,9 +46,9 @@ function buildMonthChart(data: { month: number }[], fields: string[]): any[] {
   });
 }
 
-function StatCard({ label, value, color, icon }: { label: string; value: number; color: string; icon?: any }) {
+function StatCard({ label, value, color }: { label: string; value: number; color: string }) {
   return (
-    <div className={`rounded-lg border p-3 flex flex-col gap-0.5`} style={{ borderLeftWidth: 4, borderLeftColor: color }}>
+    <div className="rounded-lg border p-3 flex flex-col gap-0.5 bg-white dark:bg-gray-900 shadow-sm" style={{ borderLeftWidth: 4, borderLeftColor: color }}>
       <span className="text-xs text-muted-foreground font-medium">{label}</span>
       <span className="text-xl font-bold" style={{ color }}>{value.toLocaleString()}</span>
     </div>
@@ -49,10 +57,10 @@ function StatCard({ label, value, color, icon }: { label: string; value: number;
 
 function SectionHeader({ title, subtitle, color }: { title: string; subtitle?: string; color: string }) {
   return (
-    <div className="flex items-center gap-3 mb-4 mt-6">
-      <div className="w-1 rounded-full h-8" style={{ background: color }} />
+    <div className="flex items-center gap-3 mb-4 mt-8">
+      <div className="w-1.5 rounded-full h-10" style={{ background: color }} />
       <div>
-        <div className="text-base font-bold" style={{ color }}>{title}</div>
+        <div className="text-lg font-bold" style={{ color }}>{title}</div>
         {subtitle && <div className="text-xs text-muted-foreground">{subtitle}</div>}
       </div>
     </div>
@@ -61,9 +69,57 @@ function SectionHeader({ title, subtitle, color }: { title: string; subtitle?: s
 
 function ChartCard({ title, children }: { title: string; children: React.ReactNode }) {
   return (
-    <div className="border rounded-xl p-4 bg-white dark:bg-gray-900">
+    <div className="border rounded-xl p-4 bg-white dark:bg-gray-900 shadow-sm">
       <div className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-3">{title}</div>
       {children}
+    </div>
+  );
+}
+
+// Mini insight strip shown under each client section header
+function InsightStrip({ monthlyTotals, color }: { monthlyTotals: number[]; color: string }) {
+  const activeMonths = monthlyTotals.filter(v => v > 0).length;
+  const total = monthlyTotals.reduce((s, v) => s + v, 0);
+  const avg = activeMonths > 0 ? Math.round(total / activeMonths) : 0;
+  let bestIdx = -1, bestVal = 0;
+  monthlyTotals.forEach((v, i) => { if (v > bestVal) { bestVal = v; bestIdx = i; } });
+  // trend: compare last two active months
+  const activeIdx = monthlyTotals.map((v, i) => ({ v, i })).filter(x => x.v > 0);
+  let trend: "up" | "down" | null = null;
+  let trendPct = 0;
+  if (activeIdx.length >= 2) {
+    const prev = activeIdx[activeIdx.length - 2].v;
+    const last = activeIdx[activeIdx.length - 1].v;
+    if (prev > 0) {
+      trendPct = Math.round(((last - prev) / prev) * 100);
+      trend = trendPct >= 0 ? "up" : "down";
+    }
+  }
+  return (
+    <div className="flex flex-wrap gap-2 mb-4 text-xs">
+      <span className="inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 bg-white dark:bg-gray-900 shadow-sm">
+        <CalendarDays className="w-3.5 h-3.5" style={{ color }} />
+        <span className="text-muted-foreground">Active Months:</span>
+        <b>{activeMonths}</b>
+      </span>
+      <span className="inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 bg-white dark:bg-gray-900 shadow-sm">
+        <Utensils className="w-3.5 h-3.5" style={{ color }} />
+        <span className="text-muted-foreground">Monthly Average:</span>
+        <b>{avg.toLocaleString()}</b>
+      </span>
+      {bestIdx >= 0 && (
+        <span className="inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 bg-white dark:bg-gray-900 shadow-sm">
+          <Award className="w-3.5 h-3.5 text-yellow-500" />
+          <span className="text-muted-foreground">Best Month:</span>
+          <b>{MONTHS_SHORT[bestIdx]} ({bestVal.toLocaleString()})</b>
+        </span>
+      )}
+      {trend && (
+        <span className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 shadow-sm ${trend === "up" ? "bg-green-50 dark:bg-green-950/30 border-green-200 text-green-700" : "bg-red-50 dark:bg-red-950/30 border-red-200 text-red-700"}`}>
+          {trend === "up" ? <TrendingUp className="w-3.5 h-3.5" /> : <TrendingDown className="w-3.5 h-3.5" />}
+          <span>Last month {trend === "up" ? "+" : ""}{trendPct}%</span>
+        </span>
+      )}
     </div>
   );
 }
@@ -113,6 +169,10 @@ export function DateEntryDashboard({ year }: { year: number }) {
 
   // Helpers
   const sum = (arr: any[], f: string) => arr.reduce((s, r) => s + (r[f] || 0), 0);
+  const monthVal = (arr: any[], m: number, fields: string[]) => {
+    const row = (arr as any[]).find((r: any) => r.month === m) || {};
+    return fields.reduce((s, f) => s + (row[f] || 0), 0);
+  };
 
   // UBL totals
   const ublBreakfast = sum(ublDate, 'breakfast');
@@ -174,35 +234,164 @@ export function DateEntryDashboard({ year }: { year: number }) {
   const grandCipla = ciplaBreakfast + ciplaLunch + ciplaDinner;
   const grandUnichem = unichBreakfast + unichEvening + unichNight + unichLunch + unichDinner;
   const grandHul = hulKpfBreakfast + hulKpfLunch + hulKpfEvng + hulKpfNight + hulTecBreakfast + hulTecLunch + hulTecEvng + hulTecNight;
+  const grandAll = grandUbl + grandCipla + grandUnichem + grandHul;
+
+  // Per-client monthly totals (for insights + comparison charts)
+  const ublMonthly = MONTHS_SHORT.map((_, i) => monthVal(ublDate, i + 1, ['breakfast','lunch','dinner']));
+  const ciplaMonthly = MONTHS_SHORT.map((_, i) => monthVal(ciplaData, i + 1, ['breakfast','lunch','dinner']));
+  const unichMonthly = MONTHS_SHORT.map((_, i) =>
+    monthVal(unichEmSnacks, i + 1, ['breakfast','eveningSnacks','nightSnacks']) + monthVal(unichEmLunch, i + 1, ['lunch','dinner']));
+  const hulMonthly = MONTHS_SHORT.map((_, i) =>
+    monthVal(hulKpf, i + 1, ['breakfast','lunch','eveningSnacks','nightSnacks']) + monthVal(hulTec, i + 1, ['breakfast','lunch','eveningSnacks','nightSnacks']));
+  const allMonthly = MONTHS_SHORT.map((_, i) => ublMonthly[i] + ciplaMonthly[i] + unichMonthly[i] + hulMonthly[i]);
+
+  // Client share pie
+  const shareData = [
+    { name: "UBL", value: grandUbl },
+    { name: "Cipla", value: grandCipla },
+    { name: "Unichem", value: grandUnichem },
+    { name: "HUL", value: grandHul },
+  ].filter(d => d.value > 0);
+
+  // Meal type mix pie (all clients)
+  const mealMix = [
+    { name: "Breakfast", value: ublBreakfast + ciplaBreakfast + unichBreakfast + hulKpfBreakfast + hulTecBreakfast, color: COLORS.breakfast },
+    { name: "Lunch", value: ublLunchT + ciplaLunch + unichLunch + hulKpfLunch + hulTecLunch, color: COLORS.lunch },
+    { name: "Dinner", value: ublDinner + ciplaDinner + unichDinner, color: COLORS.dinner },
+    { name: "Evening Snacks", value: unichEvening + hulKpfEvng + hulTecEvng, color: COLORS.eveningSnacks },
+    { name: "Night Snacks", value: unichNight + hulKpfNight + hulTecNight, color: COLORS.nightSnacks },
+  ].filter(d => d.value > 0);
+
+  // Cumulative area chart
+  let running = 0;
+  const cumulativeChart = MONTHS_SHORT.map((name, i) => {
+    running += allMonthly[i];
+    return { name, Cumulative: running, Monthly: allMonthly[i] };
+  });
+
+  // Overall best month & monthly avg
+  const activeAll = allMonthly.filter(v => v > 0);
+  const avgAll = activeAll.length > 0 ? Math.round(grandAll / activeAll.length) : 0;
+  let bestAllIdx = -1, bestAllVal = 0;
+  allMonthly.forEach((v, i) => { if (v > bestAllVal) { bestAllVal = v; bestAllIdx = i; } });
+
+  const pct = (v: number) => grandAll > 0 ? Math.round((v / grandAll) * 100) : 0;
 
   return (
     <div className="space-y-2">
-      {/* Top KPI Row */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
-        <div className="rounded-xl border bg-amber-50 dark:bg-amber-900/20 p-4 flex flex-col gap-1">
-          <div className="text-xs font-semibold text-amber-700 dark:text-amber-300">UBL — Yearly Meals</div>
-          <div className="text-2xl font-bold text-amber-800 dark:text-amber-200">{grandUbl.toLocaleString()}</div>
-          <div className="text-xs text-amber-600">Breakfast + Lunch + Dinner</div>
-        </div>
-        <div className="rounded-xl border bg-indigo-50 dark:bg-indigo-900/20 p-4 flex flex-col gap-1">
-          <div className="text-xs font-semibold text-indigo-700 dark:text-indigo-300">Cipla — Yearly Meals</div>
-          <div className="text-2xl font-bold text-indigo-800 dark:text-indigo-200">{grandCipla.toLocaleString()}</div>
-          <div className="text-xs text-indigo-600">Breakfast + Lunch + Dinner</div>
-        </div>
-        <div className="rounded-xl border bg-teal-50 dark:bg-teal-900/20 p-4 flex flex-col gap-1">
-          <div className="text-xs font-semibold text-teal-700 dark:text-teal-300">Unichem — Yearly Items</div>
-          <div className="text-2xl font-bold text-teal-800 dark:text-teal-200">{grandUnichem.toLocaleString()}</div>
-          <div className="text-xs text-teal-600">Snacks + Lunch + Dinner</div>
-        </div>
-        <div className="rounded-xl border bg-green-50 dark:bg-green-900/20 p-4 flex flex-col gap-1">
-          <div className="text-xs font-semibold text-green-700 dark:text-green-300">HUL — Yearly Meals</div>
-          <div className="text-2xl font-bold text-green-800 dark:text-green-200">{grandHul.toLocaleString()}</div>
-          <div className="text-xs text-green-600">KPF + TEC (all meals)</div>
+      {/* Hero header */}
+      <div className="rounded-2xl bg-gradient-to-r from-slate-800 via-slate-700 to-slate-800 text-white p-5 mb-4 shadow-lg">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div>
+            <div className="flex items-center gap-2 text-slate-300 text-xs font-semibold uppercase tracking-wider mb-1">
+              <Coffee className="w-4 h-4" /> All Clients — Data Entry Dashboard
+            </div>
+            <div className="text-3xl font-extrabold">{grandAll.toLocaleString()} <span className="text-base font-medium text-slate-300">total meals & snacks in {year}</span></div>
+          </div>
+          <div className="flex gap-3 flex-wrap">
+            <div className="rounded-xl bg-white/10 px-4 py-2 text-center backdrop-blur">
+              <div className="text-[10px] text-slate-300 uppercase tracking-wide">Monthly Avg</div>
+              <div className="text-lg font-bold">{avgAll.toLocaleString()}</div>
+            </div>
+            <div className="rounded-xl bg-white/10 px-4 py-2 text-center backdrop-blur">
+              <div className="text-[10px] text-slate-300 uppercase tracking-wide">Best Month</div>
+              <div className="text-lg font-bold">{bestAllIdx >= 0 ? `${MONTHS_SHORT[bestAllIdx]} ★` : "—"}</div>
+            </div>
+            <div className="rounded-xl bg-white/10 px-4 py-2 text-center backdrop-blur">
+              <div className="text-[10px] text-slate-300 uppercase tracking-wide">Active Months</div>
+              <div className="text-lg font-bold">{activeAll.length} / 12</div>
+            </div>
+          </div>
         </div>
       </div>
 
+      {/* Top KPI Row */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
+        <div className="rounded-xl border bg-amber-50 dark:bg-amber-900/20 p-4 flex flex-col gap-1 shadow-sm">
+          <div className="text-xs font-semibold text-amber-700 dark:text-amber-300">UBL — Yearly Meals</div>
+          <div className="text-2xl font-bold text-amber-800 dark:text-amber-200">{grandUbl.toLocaleString()}</div>
+          <div className="text-xs text-amber-600">Breakfast + Lunch + Dinner • {pct(grandUbl)}% of total</div>
+        </div>
+        <div className="rounded-xl border bg-indigo-50 dark:bg-indigo-900/20 p-4 flex flex-col gap-1 shadow-sm">
+          <div className="text-xs font-semibold text-indigo-700 dark:text-indigo-300">Cipla — Yearly Meals</div>
+          <div className="text-2xl font-bold text-indigo-800 dark:text-indigo-200">{grandCipla.toLocaleString()}</div>
+          <div className="text-xs text-indigo-600">Breakfast + Lunch + Dinner • {pct(grandCipla)}% of total</div>
+        </div>
+        <div className="rounded-xl border bg-teal-50 dark:bg-teal-900/20 p-4 flex flex-col gap-1 shadow-sm">
+          <div className="text-xs font-semibold text-teal-700 dark:text-teal-300">Unichem — Yearly Items</div>
+          <div className="text-2xl font-bold text-teal-800 dark:text-teal-200">{grandUnichem.toLocaleString()}</div>
+          <div className="text-xs text-teal-600">Snacks + Lunch + Dinner • {pct(grandUnichem)}% of total</div>
+        </div>
+        <div className="rounded-xl border bg-green-50 dark:bg-green-900/20 p-4 flex flex-col gap-1 shadow-sm">
+          <div className="text-xs font-semibold text-green-700 dark:text-green-300">HUL — Yearly Meals</div>
+          <div className="text-2xl font-bold text-green-800 dark:text-green-200">{grandHul.toLocaleString()}</div>
+          <div className="text-xs text-green-600">KPF + TEC (all meals) • {pct(grandHul)}% of total</div>
+        </div>
+      </div>
+
+      {/* Overview charts: share pie, meal mix pie, cumulative area */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-2">
+        <ChartCard title="Client Share — Who Serves the Most?">
+          <ResponsiveContainer width="100%" height={CHART_H}>
+            <PieChart>
+              <Pie data={shareData} dataKey="value" nameKey="name" cx="50%" cy="50%" innerRadius={50} outerRadius={80} paddingAngle={3}
+                label={(p: any) => `${p.name} ${grandAll > 0 ? Math.round((p.value / grandAll) * 100) : 0}%`} labelLine={false} fontSize={11}>
+                {shareData.map(d => <Cell key={d.name} fill={CLIENT_COLORS[d.name]} />)}
+              </Pie>
+              <Tooltip formatter={(v: any) => Number(v).toLocaleString()} />
+            </PieChart>
+          </ResponsiveContainer>
+        </ChartCard>
+        <ChartCard title="Meal Type Mix — All Clients Combined">
+          <ResponsiveContainer width="100%" height={CHART_H}>
+            <PieChart>
+              <Pie data={mealMix} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={80}
+                label={(p: any) => `${p.name}`} labelLine fontSize={10}>
+                {mealMix.map(d => <Cell key={d.name} fill={d.color} />)}
+              </Pie>
+              <Tooltip formatter={(v: any) => Number(v).toLocaleString()} />
+            </PieChart>
+          </ResponsiveContainer>
+        </ChartCard>
+        <ChartCard title={`Running Total Through ${year}`}>
+          <ResponsiveContainer width="100%" height={CHART_H}>
+            <AreaChart data={cumulativeChart} margin={{ top: 5, right: 10, left: -10, bottom: 5 }}>
+              <defs>
+                <linearGradient id="cumGrad" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="5%" stopColor="#6366f1" stopOpacity={0.5} />
+                  <stop offset="95%" stopColor="#6366f1" stopOpacity={0.05} />
+                </linearGradient>
+              </defs>
+              <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
+              <XAxis dataKey="name" tick={{ fontSize: 10 }} />
+              <YAxis tick={{ fontSize: 10 }} />
+              <Tooltip formatter={(v: any) => Number(v).toLocaleString()} />
+              <Area type="monotone" dataKey="Cumulative" stroke="#6366f1" strokeWidth={2} fill="url(#cumGrad)" />
+            </AreaChart>
+          </ResponsiveContainer>
+        </ChartCard>
+      </div>
+
+      {/* Stacked monthly volume by client */}
+      <ChartCard title="Monthly Volume by Client (Stacked)">
+        <ResponsiveContainer width="100%" height={CHART_H + 20}>
+          <BarChart data={MONTHS_SHORT.map((name, i) => ({ name, UBL: ublMonthly[i], Cipla: ciplaMonthly[i], Unichem: unichMonthly[i], HUL: hulMonthly[i] }))} margin={{ top: 5, right: 10, left: -10, bottom: 5 }}>
+            <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
+            <XAxis dataKey="name" tick={{ fontSize: 10 }} />
+            <YAxis tick={{ fontSize: 10 }} />
+            <Tooltip formatter={(v: any) => Number(v).toLocaleString()} />
+            <Legend wrapperStyle={{ fontSize: 11 }} />
+            <Bar dataKey="UBL" stackId="a" fill={CLIENT_COLORS.UBL} />
+            <Bar dataKey="Cipla" stackId="a" fill={CLIENT_COLORS.Cipla} />
+            <Bar dataKey="Unichem" stackId="a" fill={CLIENT_COLORS.Unichem} />
+            <Bar dataKey="HUL" stackId="a" fill={CLIENT_COLORS.HUL} radius={[2,2,0,0]} />
+          </BarChart>
+        </ResponsiveContainer>
+      </ChartCard>
+
       {/* ========== UBL SECTION ========== */}
       <SectionHeader title="United Breweries Ltd (UBL)" subtitle="Meal & Snack Data — Bill Data Sheet + Lunch Per Day" color="#f59e0b" />
+      <InsightStrip monthlyTotals={ublMonthly} color="#f59e0b" />
       <div className="grid grid-cols-3 sm:grid-cols-5 gap-2 mb-4">
         <StatCard label="Breakfast" value={ublBreakfast} color={COLORS.breakfast} />
         <StatCard label="Lunch" value={ublLunchT} color={COLORS.lunch} />
@@ -249,28 +438,49 @@ export function DateEntryDashboard({ year }: { year: number }) {
 
       {/* ========== CIPLA SECTION ========== */}
       <SectionHeader title="Cipla Limited" subtitle="Daily Breakfast / Lunch / Dinner (Coupon + Coin + Sign + Machine)" color="#6366f1" />
+      <InsightStrip monthlyTotals={ciplaMonthly} color="#6366f1" />
       <div className="grid grid-cols-3 gap-2 mb-4">
         <StatCard label="Breakfast (Total)" value={ciplaBreakfast} color={COLORS.breakfast} />
         <StatCard label="Lunch (Total)" value={ciplaLunch} color={COLORS.lunch} />
         <StatCard label="Dinner (Total)" value={ciplaDinner} color={COLORS.dinner} />
       </div>
-      <ChartCard title="Cipla — Monthly Meals (Breakfast / Lunch / Dinner — All Methods Combined)">
-        <ResponsiveContainer width="100%" height={CHART_H}>
-          <BarChart data={ciplaChart} margin={{ top: 5, right: 10, left: -10, bottom: 5 }}>
-            <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
-            <XAxis dataKey="name" tick={{ fontSize: 10 }} />
-            <YAxis tick={{ fontSize: 10 }} />
-            <Tooltip />
-            <Legend wrapperStyle={{ fontSize: 11 }} />
-            <Bar dataKey="breakfast" name="Breakfast" fill={COLORS.breakfast} radius={[2,2,0,0]} />
-            <Bar dataKey="lunch" name="Lunch" fill={COLORS.lunch} radius={[2,2,0,0]} />
-            <Bar dataKey="dinner" name="Dinner" fill={COLORS.dinner} radius={[2,2,0,0]} />
-          </BarChart>
-        </ResponsiveContainer>
-      </ChartCard>
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-2">
+        <ChartCard title="Cipla — Monthly Meals (Breakfast / Lunch / Dinner — All Methods Combined)">
+          <ResponsiveContainer width="100%" height={CHART_H}>
+            <BarChart data={ciplaChart} margin={{ top: 5, right: 10, left: -10, bottom: 5 }}>
+              <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
+              <XAxis dataKey="name" tick={{ fontSize: 10 }} />
+              <YAxis tick={{ fontSize: 10 }} />
+              <Tooltip />
+              <Legend wrapperStyle={{ fontSize: 11 }} />
+              <Bar dataKey="breakfast" name="Breakfast" fill={COLORS.breakfast} radius={[2,2,0,0]} />
+              <Bar dataKey="lunch" name="Lunch" fill={COLORS.lunch} radius={[2,2,0,0]} />
+              <Bar dataKey="dinner" name="Dinner" fill={COLORS.dinner} radius={[2,2,0,0]} />
+            </BarChart>
+          </ResponsiveContainer>
+        </ChartCard>
+        <ChartCard title="Cipla — Monthly Total Trend">
+          <ResponsiveContainer width="100%" height={CHART_H}>
+            <AreaChart data={MONTHS_SHORT.map((name, i) => ({ name, Total: ciplaMonthly[i] }))} margin={{ top: 5, right: 10, left: -10, bottom: 5 }}>
+              <defs>
+                <linearGradient id="ciplaGrad" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="5%" stopColor="#6366f1" stopOpacity={0.45} />
+                  <stop offset="95%" stopColor="#6366f1" stopOpacity={0.05} />
+                </linearGradient>
+              </defs>
+              <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
+              <XAxis dataKey="name" tick={{ fontSize: 10 }} />
+              <YAxis tick={{ fontSize: 10 }} />
+              <Tooltip formatter={(v: any) => Number(v).toLocaleString()} />
+              <Area type="monotone" dataKey="Total" stroke="#6366f1" strokeWidth={2} fill="url(#ciplaGrad)" />
+            </AreaChart>
+          </ResponsiveContainer>
+        </ChartCard>
+      </div>
 
       {/* ========== UNICHEM SECTION ========== */}
       <SectionHeader title="Unichem Laboratories Ltd" subtitle="Form 1 (Snacks) + Form 2 (Lunch & Dinner) — All Locations Combined" color="#14b8a6" />
+      <InsightStrip monthlyTotals={unichMonthly} color="#14b8a6" />
       <div className="grid grid-cols-2 sm:grid-cols-5 gap-2 mb-4">
         <StatCard label="Breakfast" value={unichBreakfast} color={COLORS.breakfast} />
         <StatCard label="Evening Snacks" value={unichEvening} color={COLORS.eveningSnacks} />
@@ -310,28 +520,29 @@ export function DateEntryDashboard({ year }: { year: number }) {
 
       {/* ========== HUL SECTION ========== */}
       <SectionHeader title="Hindustan Unilever Limited (HUL)" subtitle="KPF Location + TEC Location + KPF Exec Snacks" color="#16a34a" />
+      <InsightStrip monthlyTotals={hulMonthly} color="#16a34a" />
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mb-2">
-        <div className="border rounded-lg p-3 bg-green-50 dark:bg-green-900/20">
+        <div className="border rounded-lg p-3 bg-green-50 dark:bg-green-900/20 shadow-sm">
           <div className="text-xs font-semibold text-green-700 mb-1">KPF — Total Meals</div>
           <div className="text-lg font-bold text-green-800">{(hulKpfBreakfast+hulKpfLunch+hulKpfEvng+hulKpfNight).toLocaleString()}</div>
           <div className="text-xs text-green-600 mt-0.5">BF:{hulKpfBreakfast} L:{hulKpfLunch} E:{hulKpfEvng} N:{hulKpfNight}</div>
         </div>
-        <div className="border rounded-lg p-3 bg-blue-50 dark:bg-blue-900/20">
+        <div className="border rounded-lg p-3 bg-blue-50 dark:bg-blue-900/20 shadow-sm">
           <div className="text-xs font-semibold text-blue-700 mb-1">TEC — Total Meals</div>
           <div className="text-lg font-bold text-blue-800">{(hulTecBreakfast+hulTecLunch+hulTecEvng+hulTecNight).toLocaleString()}</div>
           <div className="text-xs text-blue-600 mt-0.5">BF:{hulTecBreakfast} L:{hulTecLunch} E:{hulTecEvng} N:{hulTecNight}</div>
         </div>
-        <div className="border rounded-lg p-3 bg-amber-50 dark:bg-amber-900/20">
+        <div className="border rounded-lg p-3 bg-amber-50 dark:bg-amber-900/20 shadow-sm">
           <div className="text-xs font-semibold text-amber-700 mb-1">Exec Snacks</div>
           <div className="text-lg font-bold text-amber-800">{hulExecSnacks.toLocaleString()}</div>
           <div className="text-xs text-amber-600 mt-0.5">Snacks</div>
         </div>
-        <div className="border rounded-lg p-3 bg-amber-50 dark:bg-amber-900/20">
+        <div className="border rounded-lg p-3 bg-amber-50 dark:bg-amber-900/20 shadow-sm">
           <div className="text-xs font-semibold text-amber-700 mb-1">Exec Biscuits</div>
           <div className="text-lg font-bold text-amber-800">{hulExecBiscuit.toLocaleString()}</div>
           <div className="text-xs text-amber-600 mt-0.5">Biscuit packs</div>
         </div>
-        <div className="border rounded-lg p-3 bg-orange-50 dark:bg-orange-900/20">
+        <div className="border rounded-lg p-3 bg-orange-50 dark:bg-orange-900/20 shadow-sm">
           <div className="text-xs font-semibold text-orange-700 mb-1">SO Breakfast</div>
           <div className="text-lg font-bold text-orange-800">{hulExecSOB.toLocaleString()}</div>
           <div className="text-xs text-orange-600 mt-0.5">Shift Officer Bfast</div>
@@ -403,37 +614,64 @@ export function DateEntryDashboard({ year }: { year: number }) {
         </ResponsiveContainer>
       </ChartCard>
 
-      {/* All Clients Comparison Line Chart */}
+      {/* All Clients Comparison */}
       <SectionHeader title="All Clients — Monthly Comparison" subtitle="Total meal/snack count per month across all clients" color="#374151" />
       <ChartCard title="Combined Monthly Volume — UBL vs Cipla vs Unichem vs HUL">
         <ResponsiveContainer width="100%" height={CHART_H + 30}>
           <LineChart margin={{ top: 5, right: 10, left: -10, bottom: 5 }}
-            data={MONTHS_SHORT.map((name, i) => {
-              const ud = (ublDate as any[]).find(r => r.month === i+1) || {};
-              const cd = (ciplaData as any[]).find(r => r.month === i+1) || {};
-              const us = (unichEmSnacks as any[]).find(r => r.month === i+1) || {};
-              const ul = (unichEmLunch as any[]).find(r => r.month === i+1) || {};
-              const kpf = (hulKpf as any[]).find(r => r.month === i+1) || {};
-              const tec = (hulTec as any[]).find(r => r.month === i+1) || {};
-              return {
-                name,
-                UBL: (ud.breakfast||0)+(ud.lunch||0)+(ud.dinner||0),
-                Cipla: (cd.breakfast||0)+(cd.lunch||0)+(cd.dinner||0),
-                Unichem: (us.breakfast||0)+(us.eveningSnacks||0)+(us.nightSnacks||0)+(ul.lunch||0)+(ul.dinner||0),
-                HUL: (kpf.breakfast||0)+(kpf.lunch||0)+(kpf.eveningSnacks||0)+(kpf.nightSnacks||0)+(tec.breakfast||0)+(tec.lunch||0)+(tec.eveningSnacks||0)+(tec.nightSnacks||0),
-              };
-            })}>
+            data={MONTHS_SHORT.map((name, i) => ({ name, UBL: ublMonthly[i], Cipla: ciplaMonthly[i], Unichem: unichMonthly[i], HUL: hulMonthly[i] }))}>
             <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
             <XAxis dataKey="name" tick={{ fontSize: 10 }} />
             <YAxis tick={{ fontSize: 10 }} />
-            <Tooltip />
+            <Tooltip formatter={(v: any) => Number(v).toLocaleString()} />
             <Legend wrapperStyle={{ fontSize: 11 }} />
-            <Line type="monotone" dataKey="UBL" stroke={COLORS.tea} strokeWidth={2} dot={{ r: 3 }} />
-            <Line type="monotone" dataKey="Cipla" stroke={COLORS.dinner} strokeWidth={2} dot={{ r: 3 }} />
-            <Line type="monotone" dataKey="Unichem" stroke={COLORS.eveningSnacks} strokeWidth={2} dot={{ r: 3 }} />
-            <Line type="monotone" dataKey="HUL" stroke={COLORS.kpfTotal} strokeWidth={2} dot={{ r: 3 }} />
+            <Line type="monotone" dataKey="UBL" stroke={CLIENT_COLORS.UBL} strokeWidth={2} dot={{ r: 3 }} />
+            <Line type="monotone" dataKey="Cipla" stroke={CLIENT_COLORS.Cipla} strokeWidth={2} dot={{ r: 3 }} />
+            <Line type="monotone" dataKey="Unichem" stroke={CLIENT_COLORS.Unichem} strokeWidth={2} dot={{ r: 3 }} />
+            <Line type="monotone" dataKey="HUL" stroke={CLIENT_COLORS.HUL} strokeWidth={2} dot={{ r: 3 }} />
           </LineChart>
         </ResponsiveContainer>
+      </ChartCard>
+
+      {/* Month-by-month summary table */}
+      <ChartCard title="Month-by-Month Summary Table (All Clients)">
+        <div className="overflow-x-auto">
+          <table className="w-full text-xs">
+            <thead>
+              <tr className="border-b bg-muted/50">
+                <th className="text-left p-2 font-semibold">Month</th>
+                <th className="text-right p-2 font-semibold" style={{ color: CLIENT_COLORS.UBL }}>UBL</th>
+                <th className="text-right p-2 font-semibold" style={{ color: CLIENT_COLORS.Cipla }}>Cipla</th>
+                <th className="text-right p-2 font-semibold" style={{ color: CLIENT_COLORS.Unichem }}>Unichem</th>
+                <th className="text-right p-2 font-semibold" style={{ color: CLIENT_COLORS.HUL }}>HUL</th>
+                <th className="text-right p-2 font-semibold">Total</th>
+                <th className="text-right p-2 font-semibold">% of Year</th>
+              </tr>
+            </thead>
+            <tbody>
+              {MONTHS_SHORT.map((name, i) => (
+                <tr key={name} className={`border-b hover:bg-muted/30 ${i === bestAllIdx && allMonthly[i] > 0 ? "bg-yellow-50 dark:bg-yellow-950/20" : ""}`}>
+                  <td className="p-2 font-medium">{name}{i === bestAllIdx && allMonthly[i] > 0 ? " ★" : ""}</td>
+                  <td className="p-2 text-right font-mono">{ublMonthly[i].toLocaleString()}</td>
+                  <td className="p-2 text-right font-mono">{ciplaMonthly[i].toLocaleString()}</td>
+                  <td className="p-2 text-right font-mono">{unichMonthly[i].toLocaleString()}</td>
+                  <td className="p-2 text-right font-mono">{hulMonthly[i].toLocaleString()}</td>
+                  <td className="p-2 text-right font-mono font-bold">{allMonthly[i].toLocaleString()}</td>
+                  <td className="p-2 text-right font-mono text-muted-foreground">{grandAll > 0 ? Math.round((allMonthly[i] / grandAll) * 100) : 0}%</td>
+                </tr>
+              ))}
+              <tr className="font-bold bg-muted/50">
+                <td className="p-2">Total</td>
+                <td className="p-2 text-right font-mono">{grandUbl.toLocaleString()}</td>
+                <td className="p-2 text-right font-mono">{grandCipla.toLocaleString()}</td>
+                <td className="p-2 text-right font-mono">{grandUnichem.toLocaleString()}</td>
+                <td className="p-2 text-right font-mono">{grandHul.toLocaleString()}</td>
+                <td className="p-2 text-right font-mono">{grandAll.toLocaleString()}</td>
+                <td className="p-2 text-right font-mono">100%</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
       </ChartCard>
     </div>
   );
