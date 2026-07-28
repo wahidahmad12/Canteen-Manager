@@ -35,6 +35,7 @@ const CLIENT_COLORS: Record<string, string> = {
   Cipla: "#6366f1",
   Unichem: "#14b8a6",
   HUL: "#16a34a",
+  PEC: "#db2777",
 };
 
 function buildMonthChart(data: { month: number }[], fields: string[]): any[] {
@@ -167,6 +168,16 @@ export function DateEntryDashboard({ year }: { year: number }) {
     queryFn: () => fetch(`/api/hul-kpf-exec-snacks/yearly-summary?year=${year}`, { credentials: 'include' }).then(r => r.json()),
   });
 
+  // PEC Ventures
+  const { data: pecCanteen = [] } = useQuery<any[]>({
+    queryKey: ['/api/pec-ventures-entries/yearly-summary', year],
+    queryFn: () => fetch(`/api/pec-ventures-entries/yearly-summary?year=${year}`, { credentials: 'include' }).then(r => r.json()),
+  });
+  const { data: pecLunch = [] } = useQuery<any[]>({
+    queryKey: ['/api/pec-ventures-entries/lunch-yearly-summary', year],
+    queryFn: () => fetch(`/api/pec-ventures-entries/lunch-yearly-summary?year=${year}`, { credentials: 'include' }).then(r => r.json()),
+  });
+
   // Previous year (for comparison)
   const prevYear = year - 1;
   const { data: pUblDate = [] } = useQuery<any[]>({
@@ -192,6 +203,10 @@ export function DateEntryDashboard({ year }: { year: number }) {
   const { data: pHulTec = [] } = useQuery<any[]>({
     queryKey: ['/api/hul-date-entries/yearly-summary', prevYear, 'TEC'],
     queryFn: () => fetch(`/api/hul-date-entries/yearly-summary?year=${prevYear}&location=TEC`, { credentials: 'include' }).then(r => r.json()),
+  });
+  const { data: pPecLunch = [] } = useQuery<any[]>({
+    queryKey: ['/api/pec-ventures-entries/lunch-yearly-summary', prevYear],
+    queryFn: () => fetch(`/api/pec-ventures-entries/lunch-yearly-summary?year=${prevYear}`, { credentials: 'include' }).then(r => r.json()),
   });
 
   // Helpers
@@ -236,6 +251,14 @@ export function DateEntryDashboard({ year }: { year: number }) {
   const hulExecBiscuit = sum(hulExec, 'biscuit');
   const hulExecSOB = sum(hulExec, 'shiftOfficerBreakfast');
 
+  // PEC totals
+  const pecLunchBill = sum(pecLunch, 'lunchBill');
+  const pecDinnerBill = sum(pecLunch, 'dinnerBill');
+  const pecTea = sum(pecCanteen, 'redLabel') + sum(pecCanteen, 'tataTea') + sum(pecCanteen, 'greenTea');
+  const pecCoffee = sum(pecCanteen, 'coffee');
+  const pecBiscuit = sum(pecCanteen, 'biscuit');
+  const pecMilk = sum(pecCanteen, 'milkMorning') + sum(pecCanteen, 'milkEvening');
+
   // Chart data
   const ublDateChart = buildMonthChart(ublDate, ['breakfast','lunch','dinner','tea']);
   const ublLunchChart = buildMonthChart(ublLunch, ['perment','casual','contractual','canteen']);
@@ -261,7 +284,8 @@ export function DateEntryDashboard({ year }: { year: number }) {
   const grandCipla = ciplaBreakfast + ciplaLunch + ciplaDinner;
   const grandUnichem = unichBreakfast + unichEvening + unichNight + unichLunch + unichDinner;
   const grandHul = hulKpfBreakfast + hulKpfLunch + hulKpfEvng + hulKpfNight + hulTecBreakfast + hulTecLunch + hulTecEvng + hulTecNight;
-  const grandAll = grandUbl + grandCipla + grandUnichem + grandHul;
+  const grandPec = pecLunchBill + pecDinnerBill;
+  const grandAll = grandUbl + grandCipla + grandUnichem + grandHul + grandPec;
 
   // Per-client monthly totals (for insights + comparison charts)
   const ublMonthly = MONTHS_SHORT.map((_, i) => monthVal(ublDate, i + 1, ['breakfast','lunch','dinner']));
@@ -270,7 +294,8 @@ export function DateEntryDashboard({ year }: { year: number }) {
     monthVal(unichEmSnacks, i + 1, ['breakfast','eveningSnacks','nightSnacks']) + monthVal(unichEmLunch, i + 1, ['lunch','dinner']));
   const hulMonthly = MONTHS_SHORT.map((_, i) =>
     monthVal(hulKpf, i + 1, ['breakfast','lunch','eveningSnacks','nightSnacks']) + monthVal(hulTec, i + 1, ['breakfast','lunch','eveningSnacks','nightSnacks']));
-  const allMonthly = MONTHS_SHORT.map((_, i) => ublMonthly[i] + ciplaMonthly[i] + unichMonthly[i] + hulMonthly[i]);
+  const pecMonthly = MONTHS_SHORT.map((_, i) => monthVal(pecLunch, i + 1, ['lunchBill','dinnerBill']));
+  const allMonthly = MONTHS_SHORT.map((_, i) => ublMonthly[i] + ciplaMonthly[i] + unichMonthly[i] + hulMonthly[i] + pecMonthly[i]);
 
   // Previous year monthly totals
   const pUblMonthly = MONTHS_SHORT.map((_, i) => monthVal(pUblDate, i + 1, ['breakfast','lunch','dinner']));
@@ -279,11 +304,13 @@ export function DateEntryDashboard({ year }: { year: number }) {
     monthVal(pUnichSnacks, i + 1, ['breakfast','eveningSnacks','nightSnacks']) + monthVal(pUnichLunch, i + 1, ['lunch','dinner']));
   const pHulMonthly = MONTHS_SHORT.map((_, i) =>
     monthVal(pHulKpf, i + 1, ['breakfast','lunch','eveningSnacks','nightSnacks']) + monthVal(pHulTec, i + 1, ['breakfast','lunch','eveningSnacks','nightSnacks']));
-  const pAllMonthly = MONTHS_SHORT.map((_, i) => pUblMonthly[i] + pCiplaMonthly[i] + pUnichMonthly[i] + pHulMonthly[i]);
+  const pPecMonthly = MONTHS_SHORT.map((_, i) => monthVal(pPecLunch, i + 1, ['lunchBill','dinnerBill']));
+  const pAllMonthly = MONTHS_SHORT.map((_, i) => pUblMonthly[i] + pCiplaMonthly[i] + pUnichMonthly[i] + pHulMonthly[i] + pPecMonthly[i]);
   const pGrandUbl = pUblMonthly.reduce((a, b) => a + b, 0);
   const pGrandCipla = pCiplaMonthly.reduce((a, b) => a + b, 0);
   const pGrandUnichem = pUnichMonthly.reduce((a, b) => a + b, 0);
   const pGrandHul = pHulMonthly.reduce((a, b) => a + b, 0);
+  const pGrandPec = pPecMonthly.reduce((a, b) => a + b, 0);
   const pGrandAll = pAllMonthly.reduce((a, b) => a + b, 0);
   const yoyPct = (cur: number, prev: number) => prev > 0 ? Math.round(((cur - prev) / prev) * 100) : null;
   const yoyAll = yoyPct(grandAll, pGrandAll);
@@ -294,13 +321,14 @@ export function DateEntryDashboard({ year }: { year: number }) {
     { name: "Cipla", value: grandCipla },
     { name: "Unichem", value: grandUnichem },
     { name: "HUL", value: grandHul },
+    { name: "PEC", value: grandPec },
   ].filter(d => d.value > 0);
 
   // Meal type mix pie (all clients)
   const mealMix = [
     { name: "Breakfast", value: ublBreakfast + ciplaBreakfast + unichBreakfast + hulKpfBreakfast + hulTecBreakfast, color: COLORS.breakfast },
-    { name: "Lunch", value: ublLunchT + ciplaLunch + unichLunch + hulKpfLunch + hulTecLunch, color: COLORS.lunch },
-    { name: "Dinner", value: ublDinner + ciplaDinner + unichDinner, color: COLORS.dinner },
+    { name: "Lunch", value: ublLunchT + ciplaLunch + unichLunch + hulKpfLunch + hulTecLunch + pecLunchBill, color: COLORS.lunch },
+    { name: "Dinner", value: ublDinner + ciplaDinner + unichDinner + pecDinnerBill, color: COLORS.dinner },
     { name: "Evening Snacks", value: unichEvening + hulKpfEvng + hulTecEvng, color: COLORS.eveningSnacks },
     { name: "Night Snacks", value: unichNight + hulKpfNight + hulTecNight, color: COLORS.nightSnacks },
   ].filter(d => d.value > 0);
@@ -355,7 +383,7 @@ export function DateEntryDashboard({ year }: { year: number }) {
       </div>
 
       {/* Top KPI Row */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
+      <div className="grid grid-cols-2 md:grid-cols-5 gap-3 mb-4">
         <div className="rounded-xl border bg-amber-50 dark:bg-amber-900/20 p-4 flex flex-col gap-1 shadow-sm">
           <div className="text-xs font-semibold text-amber-700 dark:text-amber-300">UBL — Yearly Meals</div>
           <div className="text-2xl font-bold text-amber-800 dark:text-amber-200">{grandUbl.toLocaleString()}</div>
@@ -375,6 +403,11 @@ export function DateEntryDashboard({ year }: { year: number }) {
           <div className="text-xs font-semibold text-green-700 dark:text-green-300">HUL — Yearly Meals</div>
           <div className="text-2xl font-bold text-green-800 dark:text-green-200">{grandHul.toLocaleString()}</div>
           <div className="text-xs text-green-600">KPF + TEC (all meals) • {pct(grandHul)}% of total</div>
+        </div>
+        <div className="rounded-xl border bg-pink-50 dark:bg-pink-900/20 p-4 flex flex-col gap-1 shadow-sm">
+          <div className="text-xs font-semibold text-pink-700 dark:text-pink-300">PEC Ventures — Yearly Meals</div>
+          <div className="text-2xl font-bold text-pink-800 dark:text-pink-200">{grandPec.toLocaleString()}</div>
+          <div className="text-xs text-pink-600">Lunch + Dinner (Bill Qty) • {pct(grandPec)}% of total</div>
         </div>
       </div>
 
@@ -424,7 +457,7 @@ export function DateEntryDashboard({ year }: { year: number }) {
       {/* Stacked monthly volume by client */}
       <ChartCard title="Monthly Volume by Client (Stacked)">
         <ResponsiveContainer width="100%" height={CHART_H + 20}>
-          <BarChart data={MONTHS_SHORT.map((name, i) => ({ name, UBL: ublMonthly[i], Cipla: ciplaMonthly[i], Unichem: unichMonthly[i], HUL: hulMonthly[i] }))} margin={{ top: 5, right: 10, left: -10, bottom: 5 }}>
+          <BarChart data={MONTHS_SHORT.map((name, i) => ({ name, UBL: ublMonthly[i], Cipla: ciplaMonthly[i], Unichem: unichMonthly[i], HUL: hulMonthly[i], PEC: pecMonthly[i] }))} margin={{ top: 5, right: 10, left: -10, bottom: 5 }}>
             <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
             <XAxis dataKey="name" tick={{ fontSize: 10 }} />
             <YAxis tick={{ fontSize: 10 }} />
@@ -433,7 +466,8 @@ export function DateEntryDashboard({ year }: { year: number }) {
             <Bar dataKey="UBL" stackId="a" fill={CLIENT_COLORS.UBL} />
             <Bar dataKey="Cipla" stackId="a" fill={CLIENT_COLORS.Cipla} />
             <Bar dataKey="Unichem" stackId="a" fill={CLIENT_COLORS.Unichem} />
-            <Bar dataKey="HUL" stackId="a" fill={CLIENT_COLORS.HUL} radius={[2,2,0,0]} />
+            <Bar dataKey="HUL" stackId="a" fill={CLIENT_COLORS.HUL} />
+            <Bar dataKey="PEC" stackId="a" fill={CLIENT_COLORS.PEC} radius={[2,2,0,0]} />
           </BarChart>
         </ResponsiveContainer>
       </ChartCard>
@@ -663,15 +697,69 @@ export function DateEntryDashboard({ year }: { year: number }) {
         </ResponsiveContainer>
       </ChartCard>
 
+      {/* ========== PEC VENTURES SECTION ========== */}
+      <SectionHeader title="PEC Ventures Private Limited" subtitle="Lunch & Dinner (Bill Qty) + Canteen Expense Items" color="#db2777" />
+      <InsightStrip monthlyTotals={pecMonthly} color="#db2777" />
+      <div className="grid grid-cols-3 sm:grid-cols-6 gap-2 mb-4">
+        <StatCard label="Lunch (Bill)" value={pecLunchBill} color={COLORS.lunch} />
+        <StatCard label="Dinner (Bill)" value={pecDinnerBill} color={COLORS.dinner} />
+        <StatCard label="Tea (All Types)" value={pecTea} color={COLORS.tea} />
+        <StatCard label="Coffee" value={pecCoffee} color="#92400e" />
+        <StatCard label="Biscuit" value={pecBiscuit} color={COLORS.biscuit} />
+        <StatCard label="Milk (Mor+Evn)" value={pecMilk} color="#3b82f6" />
+      </div>
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-2">
+        <ChartCard title="PEC Ventures — Monthly Lunch & Dinner (Bill Qty)">
+          <ResponsiveContainer width="100%" height={CHART_H}>
+            <BarChart data={buildMonthChart(pecLunch, ['lunchBill','dinnerBill'])} margin={{ top: 5, right: 10, left: -10, bottom: 5 }}>
+              <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
+              <XAxis dataKey="name" tick={{ fontSize: 10 }} />
+              <YAxis tick={{ fontSize: 10 }} />
+              <Tooltip />
+              <Legend wrapperStyle={{ fontSize: 11 }} />
+              <Bar dataKey="lunchBill" name="Lunch" fill={COLORS.lunch} radius={[2,2,0,0]} />
+              <Bar dataKey="dinnerBill" name="Dinner" fill={COLORS.dinner} radius={[2,2,0,0]} />
+            </BarChart>
+          </ResponsiveContainer>
+        </ChartCard>
+        <ChartCard title="PEC Ventures — Monthly Canteen Items (Tea / Coffee / Sugar / Biscuit / Milk)">
+          <ResponsiveContainer width="100%" height={CHART_H}>
+            <BarChart data={MONTHS_SHORT.map((name, i) => {
+              const row = (pecCanteen as any[]).find((r: any) => r.month === i + 1) || {};
+              return {
+                name,
+                Tea: (row.redLabel||0)+(row.tataTea||0)+(row.greenTea||0),
+                Coffee: row.coffee||0,
+                Sugar: row.sugar||0,
+                Biscuit: row.biscuit||0,
+                Milk: (row.milkMorning||0)+(row.milkEvening||0),
+              };
+            })} margin={{ top: 5, right: 10, left: -10, bottom: 5 }}>
+              <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
+              <XAxis dataKey="name" tick={{ fontSize: 10 }} />
+              <YAxis tick={{ fontSize: 10 }} />
+              <Tooltip />
+              <Legend wrapperStyle={{ fontSize: 11 }} />
+              <Bar dataKey="Tea" fill={COLORS.tea} radius={[2,2,0,0]} />
+              <Bar dataKey="Coffee" fill="#92400e" radius={[2,2,0,0]} />
+              <Bar dataKey="Sugar" fill="#94a3b8" radius={[2,2,0,0]} />
+              <Bar dataKey="Biscuit" fill={COLORS.biscuit} radius={[2,2,0,0]} />
+              <Bar dataKey="Milk" fill="#3b82f6" radius={[2,2,0,0]} />
+            </BarChart>
+          </ResponsiveContainer>
+        </ChartCard>
+      </div>
+
       {/* ========== YEAR VS YEAR ========== */}
       <SectionHeader title={`${year} vs ${prevYear} — Year Comparison`} subtitle="This year compared with last year" color="#0ea5e9" />
-      <div className="grid grid-cols-2 md:grid-cols-5 gap-3 mb-4">
+      <div className="grid grid-cols-2 md:grid-cols-6 gap-3 mb-4">
         {[
           { name: "All Clients", cur: grandAll, prev: pGrandAll, color: "#0ea5e9" },
           { name: "UBL", cur: grandUbl, prev: pGrandUbl, color: CLIENT_COLORS.UBL },
           { name: "Cipla", cur: grandCipla, prev: pGrandCipla, color: CLIENT_COLORS.Cipla },
           { name: "Unichem", cur: grandUnichem, prev: pGrandUnichem, color: CLIENT_COLORS.Unichem },
           { name: "HUL", cur: grandHul, prev: pGrandHul, color: CLIENT_COLORS.HUL },
+          { name: "PEC", cur: grandPec, prev: pGrandPec, color: CLIENT_COLORS.PEC },
         ].map(c => {
           const chg = yoyPct(c.cur, c.prev);
           return (
@@ -711,6 +799,7 @@ export function DateEntryDashboard({ year }: { year: number }) {
           { name: "Cipla", cur: ciplaMonthly, prev: pCiplaMonthly, color: CLIENT_COLORS.Cipla },
           { name: "Unichem", cur: unichMonthly, prev: pUnichMonthly, color: CLIENT_COLORS.Unichem },
           { name: "HUL", cur: hulMonthly, prev: pHulMonthly, color: CLIENT_COLORS.HUL },
+          { name: "PEC Ventures", cur: pecMonthly, prev: pPecMonthly, color: CLIENT_COLORS.PEC },
         ].map(c => (
           <ChartCard key={c.name} title={`${c.name} — ${year} vs ${prevYear} Monthly Totals`}>
             <ResponsiveContainer width="100%" height={CHART_H}>
@@ -733,7 +822,7 @@ export function DateEntryDashboard({ year }: { year: number }) {
       <ChartCard title="Combined Monthly Volume — UBL vs Cipla vs Unichem vs HUL">
         <ResponsiveContainer width="100%" height={CHART_H + 30}>
           <LineChart margin={{ top: 5, right: 10, left: -10, bottom: 5 }}
-            data={MONTHS_SHORT.map((name, i) => ({ name, UBL: ublMonthly[i], Cipla: ciplaMonthly[i], Unichem: unichMonthly[i], HUL: hulMonthly[i] }))}>
+            data={MONTHS_SHORT.map((name, i) => ({ name, UBL: ublMonthly[i], Cipla: ciplaMonthly[i], Unichem: unichMonthly[i], HUL: hulMonthly[i], PEC: pecMonthly[i] }))}>
             <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
             <XAxis dataKey="name" tick={{ fontSize: 10 }} />
             <YAxis tick={{ fontSize: 10 }} />
@@ -743,6 +832,7 @@ export function DateEntryDashboard({ year }: { year: number }) {
             <Line type="monotone" dataKey="Cipla" stroke={CLIENT_COLORS.Cipla} strokeWidth={2} dot={{ r: 3 }} />
             <Line type="monotone" dataKey="Unichem" stroke={CLIENT_COLORS.Unichem} strokeWidth={2} dot={{ r: 3 }} />
             <Line type="monotone" dataKey="HUL" stroke={CLIENT_COLORS.HUL} strokeWidth={2} dot={{ r: 3 }} />
+            <Line type="monotone" dataKey="PEC" stroke={CLIENT_COLORS.PEC} strokeWidth={2} dot={{ r: 3 }} />
           </LineChart>
         </ResponsiveContainer>
       </ChartCard>
@@ -758,6 +848,7 @@ export function DateEntryDashboard({ year }: { year: number }) {
                 <th className="text-right p-2 font-semibold" style={{ color: CLIENT_COLORS.Cipla }}>Cipla</th>
                 <th className="text-right p-2 font-semibold" style={{ color: CLIENT_COLORS.Unichem }}>Unichem</th>
                 <th className="text-right p-2 font-semibold" style={{ color: CLIENT_COLORS.HUL }}>HUL</th>
+                <th className="text-right p-2 font-semibold" style={{ color: CLIENT_COLORS.PEC }}>PEC</th>
                 <th className="text-right p-2 font-semibold">Total</th>
                 <th className="text-right p-2 font-semibold">% of Year</th>
               </tr>
@@ -770,6 +861,7 @@ export function DateEntryDashboard({ year }: { year: number }) {
                   <td className="p-2 text-right font-mono">{ciplaMonthly[i].toLocaleString()}</td>
                   <td className="p-2 text-right font-mono">{unichMonthly[i].toLocaleString()}</td>
                   <td className="p-2 text-right font-mono">{hulMonthly[i].toLocaleString()}</td>
+                  <td className="p-2 text-right font-mono">{pecMonthly[i].toLocaleString()}</td>
                   <td className="p-2 text-right font-mono font-bold">{allMonthly[i].toLocaleString()}</td>
                   <td className="p-2 text-right font-mono text-muted-foreground">{grandAll > 0 ? Math.round((allMonthly[i] / grandAll) * 100) : 0}%</td>
                 </tr>
@@ -780,6 +872,7 @@ export function DateEntryDashboard({ year }: { year: number }) {
                 <td className="p-2 text-right font-mono">{grandCipla.toLocaleString()}</td>
                 <td className="p-2 text-right font-mono">{grandUnichem.toLocaleString()}</td>
                 <td className="p-2 text-right font-mono">{grandHul.toLocaleString()}</td>
+                <td className="p-2 text-right font-mono">{grandPec.toLocaleString()}</td>
                 <td className="p-2 text-right font-mono">{grandAll.toLocaleString()}</td>
                 <td className="p-2 text-right font-mono">100%</td>
               </tr>
