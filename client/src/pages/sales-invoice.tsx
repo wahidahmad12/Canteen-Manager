@@ -20,7 +20,7 @@ import {
   FileText, Plus, Save, Loader2, Pencil, Trash2, Search,
   CalendarDays, Building2, Receipt, IndianRupee, Percent,
   CheckCircle2, XCircle, X, BarChart3, ClipboardList, AlertTriangle,
-  Printer, User, Check, TrendingUp, FileDown
+  Printer, User, Check, TrendingUp, FileDown, MessageCircle
 } from "lucide-react";
 import { Link } from "wouter";
 import { DateEntryTab } from "./date-entry-tab";
@@ -739,6 +739,8 @@ export default function SalesInvoicePage() {
   const [filterUtrNo, setFilterUtrNo] = useState("");
   const [printChoiceOpen, setPrintChoiceOpen] = useState(false);
   const [printSelIds, setPrintSelIds] = useState<Set<number>>(new Set());
+  const [waOpen, setWaOpen] = useState(false);
+  const [waSelIds, setWaSelIds] = useState<Set<number>>(new Set());
 
   const deleteMutation = useMutation({
     mutationFn: async (id: number) => {
@@ -1215,6 +1217,70 @@ export default function SalesInvoicePage() {
               }} data-testid="button-print-invoices">
                 <Printer className="w-4 h-4 mr-1.5" /> Print
               </Button>
+              <Button variant="outline" size="sm" className="h-9 border-green-300 text-green-700 hover:bg-green-50" onClick={() => {
+                if (filteredInvoices.length === 0) return;
+                setWaSelIds(new Set(filteredInvoices.map(i => i.id)));
+                setWaOpen(true);
+              }} data-testid="button-whatsapp-invoices">
+                <MessageCircle className="w-4 h-4 mr-1.5" /> WhatsApp
+              </Button>
+              {(() => { const waRows = filteredInvoices.filter(i => waSelIds.has(i.id));
+              const sendWhatsApp = () => {
+                if (waRows.length === 0) return;
+                const fmtAmt = (v: any) => "\u20B9" + Number(v).toLocaleString("en-IN", { minimumFractionDigits: 2 });
+                const lines = waRows.map((inv, idx) => {
+                  const po = inv.poId ? purchaseOrders.find(p => p.id === inv.poId) : null;
+                  return `${idx + 1}. Bill No: ${inv.billNumber}\n   Bill Date: ${fmtDate(inv.billDate)}\n   PO No: ${po ? po.poNumber : "-"}\n   With GST Amount: ${fmtAmt(inv.totalBillAmount)}`;
+                });
+                const total = waRows.reduce((sum, i) => sum + Number(i.totalBillAmount), 0);
+                const uniqueClients = Array.from(new Set(waRows.map(i => i.clientName)));
+                const msg = `*DJ Hospitality & Facility Management*\n*Sales Invoice Details*${uniqueClients.length === 1 ? `\nClient: ${uniqueClients[0]}` : ""}\n\n${lines.join("\n\n")}\n\n*Total (${waRows.length} bills): ${fmtAmt(total)}*`;
+                window.open(`https://wa.me/?text=${encodeURIComponent(msg)}`, "_blank");
+                setWaOpen(false);
+              };
+              return (
+                <Dialog open={waOpen} onOpenChange={setWaOpen}>
+                  <DialogContent className="max-w-sm">
+                    <DialogHeader>
+                      <DialogTitle className="flex items-center gap-2"><MessageCircle className="w-5 h-5 text-green-600" /> WhatsApp — Select Bills</DialogTitle>
+                    </DialogHeader>
+                    <div className="border rounded-lg overflow-hidden">
+                      <div className="flex items-center gap-2 px-3 py-2 bg-muted/60 border-b">
+                        <Checkbox
+                          checked={waRows.length === filteredInvoices.length && filteredInvoices.length > 0}
+                          onCheckedChange={(v) => setWaSelIds(v ? new Set(filteredInvoices.map(i => i.id)) : new Set())}
+                          data-testid="checkbox-wa-select-all"
+                        />
+                        <span className="text-xs font-semibold">Select All Bills</span>
+                        <span className="ml-auto text-[11px] text-muted-foreground">{waRows.length} / {filteredInvoices.length} selected</span>
+                      </div>
+                      <div className="max-h-52 overflow-y-auto divide-y">
+                        {filteredInvoices.map(inv => (
+                          <label key={inv.id} className="flex items-center gap-2 px-3 py-1.5 cursor-pointer hover:bg-muted/40">
+                            <Checkbox
+                              checked={waSelIds.has(inv.id)}
+                              onCheckedChange={() => setWaSelIds(prev => {
+                                const next = new Set(prev);
+                                next.has(inv.id) ? next.delete(inv.id) : next.add(inv.id);
+                                return next;
+                              })}
+                              data-testid={`checkbox-wa-bill-${inv.id}`}
+                            />
+                            <span className="text-xs font-medium">{inv.billNumber}</span>
+                            <span className="text-[10px] text-muted-foreground truncate">{fmtDate(inv.billDate)}</span>
+                            <span className="ml-auto text-[11px] font-mono">{fmtCurrency(inv.totalBillAmount)}</span>
+                          </label>
+                        ))}
+                      </div>
+                    </div>
+                    {waRows.length === 0 && <p className="text-[11px] text-red-500 -mt-1">Select at least one bill to send.</p>}
+                    <p className="text-[11px] text-muted-foreground">Message format: Sl No, Bill No, Bill Date, PO No, With GST Amount + Total</p>
+                    <Button className="bg-green-600 hover:bg-green-700 text-white h-11" disabled={waRows.length === 0} onClick={sendWhatsApp} data-testid="button-wa-send">
+                      <MessageCircle className="w-4 h-4 mr-2" /> Send on WhatsApp ({waRows.length} bills)
+                    </Button>
+                  </DialogContent>
+                </Dialog>
+              ); })()}
               {(() => { const printRows = filteredInvoices.filter(i => printSelIds.has(i.id));
               const printLedger = (mode: "full" | "gst" | "tds") => {
                 if (printRows.length === 0) return;
