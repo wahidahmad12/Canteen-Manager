@@ -1,0 +1,8 @@
+uploads = []
+generated = []
+
+[[outputs]]
+id = "BFUErG6ispAgWNn8XvpmE"
+uri = "file://.agents/outputs/Half_Yearly_Return_Cover_Letter.pdf"
+type = "pdf"
+title = "Half-Yearly Return Cover Letter (on your letterhead)"
