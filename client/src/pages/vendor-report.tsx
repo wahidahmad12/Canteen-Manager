@@ -9,6 +9,7 @@ import { format, startOfMonth, endOfMonth, subMonths, startOfYear } from "date-f
 import { Loader2, FileDown, ArrowLeft, BarChart3, Filter, Receipt, IndianRupee, Check, CreditCard, TrendingUp, TrendingDown, Wallet, Store, Building2, FileSpreadsheet } from "lucide-react";
 import { useLocation } from "wouter";
 import { Label } from "@/components/ui/label";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 
 type DatePreset = "custom" | "current-month" | "previous-month" | "current-year" | "financial-year" | "all";
 
@@ -51,6 +52,7 @@ export default function VendorReport() {
   const [vendorFilter, setVendorFilter] = useState<string>("all");
   const [clientFilter, setClientFilter] = useState<string>("all");
   const [groupBy, setGroupBy] = useState<"vendor" | "client">("vendor");
+  const [paymentReportFor, setPaymentReportFor] = useState<string | null>(null);
 
   const handlePresetChange = (preset: DatePreset) => {
     setDatePreset(preset);
@@ -101,6 +103,44 @@ export default function VendorReport() {
 
   const getInvPaid = (inv: any) => (inv.payments || []).reduce((s: number, p: any) => s + Number(p.amount), 0);
 
+  // Payment history for the vendor/client clicked in the summary table,
+  // grouped by year then month (newest first)
+  const paymentReport = useMemo(() => {
+    if (!paymentReportFor) return null;
+    const payments: { date: string; display: string; yearKey: string; monthKey: string; amount: number; notes: string; invoiceNo: string }[] = [];
+    filteredInvoices.forEach((inv: any) => {
+      const key = groupBy === "vendor" ? inv.vendorName : inv.clientName;
+      if (key !== paymentReportFor) return;
+      (inv.payments || []).forEach((p: any) => {
+        const raw = p.paymentDate || "";
+        const d = new Date(raw + "T00:00:00");
+        const valid = !isNaN(d.getTime());
+        payments.push({
+          date: raw,
+          display: valid ? format(d, "dd-MM-yyyy") : "Unknown",
+          yearKey: valid ? String(d.getFullYear()) : "Unknown",
+          monthKey: valid ? format(d, "MMMM yyyy") : "Unknown",
+          amount: Number(p.amount) || 0,
+          notes: p.notes || "",
+          invoiceNo: inv.invoiceNumber || inv.billNumber || "",
+        });
+      });
+    });
+    payments.sort((a, b) => b.date.localeCompare(a.date));
+    const years = new Map<string, { months: Map<string, { payments: typeof payments; total: number }>; total: number }>();
+    payments.forEach((p) => {
+      const y = years.get(p.yearKey) || { months: new Map(), total: 0 };
+      const m = y.months.get(p.monthKey) || { payments: [] as typeof payments, total: 0 };
+      m.payments.push(p);
+      m.total += p.amount;
+      y.months.set(p.monthKey, m);
+      y.total += p.amount;
+      years.set(p.yearKey, y);
+    });
+    const grand = payments.reduce((s, p) => s + p.amount, 0);
+    return { years, grand, count: payments.length };
+  }, [paymentReportFor, filteredInvoices, groupBy]);
+
   const summaryData = useMemo(() => {
     // Group invoices per vendor/client (filteredInvoices is already sorted by date asc)
     const groups = new Map<string, any[]>();
@@ -137,15 +177,24 @@ export default function VendorReport() {
         row.totalPaid += getInvPaid(inv);
         row.invoiceCount++;
       });
-      // Allocate the pooled payments to bills oldest-first
-      let pool = row.totalPaid;
+      // Allocate pooled payments oldest-first, always per vendor (payments are
+      // made to a vendor, so one vendor's excess never settles another vendor's bill)
+      const byVendor = new Map<string, any[]>();
       invs.forEach((inv: any) => {
-        const grand = Number(inv.grandTotal) || 0;
-        const alloc = Math.min(grand, pool);
-        pool -= alloc;
-        if (alloc >= grand && grand > 0) row.paidCount++;
-        else if (alloc > 0) row.partialCount++;
-        else row.unpaidCount++;
+        const vlist = byVendor.get(inv.vendorName) || [];
+        vlist.push(inv);
+        byVendor.set(inv.vendorName, vlist);
+      });
+      byVendor.forEach((vinvs) => {
+        let pool = vinvs.reduce((s: number, inv: any) => s + getInvPaid(inv), 0);
+        vinvs.forEach((inv: any) => {
+          const grand = Number(inv.grandTotal) || 0;
+          const alloc = Math.min(grand, pool);
+          pool -= alloc;
+          if (alloc >= grand && grand > 0) row.paidCount++;
+          else if (alloc > 0) row.partialCount++;
+          else row.unpaidCount++;
+        });
       });
       row.totalBalance = Math.max(0, row.grandTotal - row.totalPaid);
       row.extraPaid = Math.max(0, row.totalPaid - row.grandTotal);
@@ -570,7 +619,14 @@ export default function VendorReport() {
                             <span className={`w-6 h-6 rounded-full bg-gradient-to-br ${ROW_COLORS[i % ROW_COLORS.length]} text-white text-[10px] inline-flex items-center justify-center font-bold print:bg-gray-200 print:text-black`}>{i + 1}</span>
                           </td>
                           <td className="py-2.5 px-3 font-semibold" data-testid={`text-primary-name-${i}`}>
-                            {groupBy === "vendor" ? row.vendorName : row.clientName}
+                            <button
+                              type="button"
+                              className="text-left hover:text-violet-700 hover:underline print:no-underline print:text-black"
+                              onClick={() => setPaymentReportFor(groupBy === "vendor" ? row.vendorName : row.clientName)}
+                              data-testid={`button-payment-report-${i}`}
+                            >
+                              {groupBy === "vendor" ? row.vendorName : row.clientName}
+                            </button>
                           </td>
                           <td className="py-2.5 px-3 text-right">
                             <span className="bg-violet-100 dark:bg-violet-900/30 text-violet-700 dark:text-violet-400 px-2 py-0.5 rounded-full text-xs font-semibold print:bg-transparent print:text-black">{row.invoiceCount}</span>
@@ -632,10 +688,15 @@ export default function VendorReport() {
                       <div className={`h-1.5 bg-gradient-to-r ${ROW_COLORS[i % ROW_COLORS.length]}`} />
                       <CardContent className="p-3 space-y-2">
                         <div className="flex items-center justify-between">
-                          <span className="font-semibold text-sm flex items-center gap-2" data-testid={`text-mobile-name-${i}`}>
+                          <button
+                            type="button"
+                            className="font-semibold text-sm flex items-center gap-2 text-left"
+                            data-testid={`text-mobile-name-${i}`}
+                            onClick={() => setPaymentReportFor(groupBy === "vendor" ? row.vendorName : row.clientName)}
+                          >
                             <span className={`w-6 h-6 rounded-full bg-gradient-to-br ${ROW_COLORS[i % ROW_COLORS.length]} text-white text-[10px] flex items-center justify-center font-bold shrink-0`}>{i + 1}</span>
                             {groupBy === "vendor" ? row.vendorName : row.clientName}
-                          </span>
+                          </button>
                           <span className="bg-violet-100 dark:bg-violet-900/30 text-violet-700 dark:text-violet-400 px-2 py-0.5 rounded-full text-[10px] font-semibold">
                             {row.invoiceCount} invoice{row.invoiceCount !== 1 ? "s" : ""}
                           </span>
@@ -670,6 +731,62 @@ export default function VendorReport() {
             </div>
           </CardContent>
         </Card>
+
+        <Dialog open={!!paymentReportFor} onOpenChange={(o) => { if (!o) setPaymentReportFor(null); }}>
+          <DialogContent className="max-w-lg max-h-[85vh] overflow-y-auto" data-testid="dialog-payment-report">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2">
+                <CreditCard className="w-5 h-5 text-violet-600" />
+                {paymentReportFor} — Payment Report
+              </DialogTitle>
+            </DialogHeader>
+            {paymentReport && paymentReport.count === 0 && (
+              <p className="text-center py-6 text-muted-foreground text-sm">No payments recorded for the selected filters</p>
+            )}
+            {paymentReport && paymentReport.count > 0 && (
+              <div className="space-y-4">
+                <div className="flex items-center justify-between bg-violet-50 dark:bg-violet-950/20 rounded-lg px-3 py-2">
+                  <span className="text-sm font-semibold text-violet-700 dark:text-violet-400">{paymentReport.count} payment{paymentReport.count !== 1 ? "s" : ""}</span>
+                  <span className="text-sm font-bold font-mono text-violet-700 dark:text-violet-400">Total: ₹{fmt(paymentReport.grand)}</span>
+                </div>
+                {Array.from(paymentReport.years.entries()).map(([year, ydata]) => (
+                  <div key={year} className="space-y-2">
+                    <div className="flex items-center justify-between border-b-2 border-violet-200 dark:border-violet-800 pb-1">
+                      <span className="font-bold text-violet-700 dark:text-violet-400">{year}</span>
+                      <span className="font-mono font-bold text-sm">₹{fmt(ydata.total)}</span>
+                    </div>
+                    {Array.from(ydata.months.entries()).map(([month, mdata]) => (
+                      <div key={month} className="space-y-1">
+                        <div className="flex items-center justify-between text-xs font-semibold text-muted-foreground px-1">
+                          <span>{month}</span>
+                          <span className="font-mono">₹{fmt(mdata.total)}</span>
+                        </div>
+                        <table className="w-full text-sm border rounded overflow-hidden">
+                          <thead>
+                            <tr className="bg-muted/50 text-xs">
+                              <th className="text-left py-1.5 px-2 font-semibold">Payment Date</th>
+                              <th className="text-right py-1.5 px-2 font-semibold">Amount</th>
+                              <th className="text-left py-1.5 px-2 font-semibold">Notes</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {mdata.payments.map((p, pi) => (
+                              <tr key={pi} className="border-t">
+                                <td className="py-1.5 px-2 whitespace-nowrap">{p.display}</td>
+                                <td className="py-1.5 px-2 text-right font-mono font-semibold text-emerald-600 dark:text-emerald-400">₹{fmt(p.amount)}</td>
+                                <td className="py-1.5 px-2 text-xs text-muted-foreground">{p.notes || "—"}</td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    ))}
+                  </div>
+                ))}
+              </div>
+            )}
+          </DialogContent>
+        </Dialog>
 
         <Card className="border-0 shadow-lg overflow-hidden print:border print:shadow-none" data-testid="card-invoice-details">
           <CardHeader className="bg-gradient-to-r from-blue-500 to-cyan-500 text-white pb-3 pt-4 print:bg-gray-100 print:text-black">
