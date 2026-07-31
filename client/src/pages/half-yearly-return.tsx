@@ -282,21 +282,23 @@ export default function HalfYearlyReturn() {
     if (!pw) return;
     pw.document.write(`<!DOCTYPE html><html><head><title>Form XXIV - ${selectedClient} - ${halfLabel}</title>
       <style>
-        @page { size: A4 portrait; margin: 12mm 15mm; }
-        body { margin: 0; padding: 0; font-family: 'Times New Roman', Georgia, serif; font-size: 11px; line-height: 1.3; color: #000; }
-        .form-title { text-align: center; margin-bottom: 4px; }
-        .form-title h3 { font-size: 13px; font-weight: bold; margin: 2px 0; }
-        .form-title p { font-size: 10px; margin: 1px 0; }
-        .licence { text-align: center; font-size: 9px; margin-bottom: 4px; }
-        table.fields { width: 100%; border-collapse: collapse; font-size: 10.5px; }
-        table.fields td { padding: 1.5px 4px; vertical-align: top; }
+        @page { size: A4 portrait; margin: 8mm 12mm; }
+        html, body { height: auto; }
+        body { margin: 0; padding: 0; font-family: 'Times New Roman', Georgia, serif; font-size: 10px; line-height: 1.2; color: #000; }
+        .form-title { text-align: center; margin-bottom: 3px; }
+        .form-title h3 { font-size: 12px; font-weight: bold; margin: 1px 0; }
+        .form-title p { font-size: 9px; margin: 1px 0; }
+        .licence { text-align: center; font-size: 9px; margin-bottom: 3px; }
+        table.fields { width: 100%; border-collapse: collapse; font-size: 9.5px; }
+        table.fields td { padding: 1px 4px; vertical-align: top; }
         table.fields td.label { width: 45%; }
         table.fields td.value { width: 55%; }
-        .sub-table { border-collapse: collapse; font-size: 10.5px; }
-        .sub-table td, .sub-table th { padding: 1px 5px; text-align: left; }
-        .signature { display: flex; justify-content: space-between; margin-top: 20px; font-size: 10.5px; }
+        table.fields tr, .sub-table tr { page-break-inside: avoid; }
+        .sub-table { border-collapse: collapse; font-size: 9.5px; }
+        .sub-table td, .sub-table th { padding: 0.5px 5px; text-align: left; }
+        .signature { display: flex; justify-content: space-between; margin-top: 12px; font-size: 9.5px; page-break-inside: avoid; }
         p { margin: 1px 0; }
-        .spacer td { height: 2px !important; }
+        .spacer td { height: 1px !important; }
       </style>
     </head><body>${el.innerHTML}</body></html>`);
     pw.document.close();
