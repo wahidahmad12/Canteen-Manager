@@ -5,9 +5,18 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 import { Html5Qrcode, Html5QrcodeScanner } from "html5-qrcode";
-import { QrCode, Camera, Upload, X, Copy, Check, RefreshCw, ScanLine } from "lucide-react";
+import { QrCode, Camera, Upload, X, Copy, Check, RefreshCw, ScanLine, Package, MapPin, Tag, Calendar, IndianRupee, AlertTriangle } from "lucide-react";
+import { useQuery } from "@tanstack/react-query";
+import type { FixedAsset } from "@shared/schema";
 
 type ScanMode = "camera" | "file";
+
+// Extracts a Fixed Asset tag from scanned QR text (printed tags contain "Asset ID: <tag>")
+function extractAssetTag(raw: string): string | null {
+  const m = raw.match(/asset\s*id\s*[:=]\s*(.+)/i);
+  if (m) return m[1].trim();
+  return null;
+}
 
 function parseQrData(raw: string): { label: string; value: string }[] {
   const lines = raw.split(/\r?\n/).filter(l => l.trim());
@@ -113,6 +122,24 @@ export default function QrScannerPage() {
   };
 
   const parsedData = result ? parseQrData(result) : [];
+  const assetTag = result ? extractAssetTag(result) : null;
+
+  const { data: assets = [], isLoading: assetsLoading } = useQuery<FixedAsset[]>({
+    queryKey: ["/api/fixed-assets"],
+    enabled: !!assetTag,
+  });
+
+  const matchedAsset = assetTag
+    ? assets.find(a => a.assetTag.trim().toLowerCase() === assetTag.toLowerCase())
+    : undefined;
+
+  const statusColor = (status: string | null) => {
+    const s = (status || "").toLowerCase();
+    if (s === "active") return "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400";
+    if (s === "under repair") return "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400";
+    if (s === "disposed" || s === "scrapped" || s === "sold") return "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400";
+    return "bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300";
+  };
 
   return (
     <Layout>
@@ -226,6 +253,87 @@ export default function QrScannerPage() {
                 </Button>
               </div>
             </div>
+
+            {assetTag && assetsLoading && (
+              <Card className="border-violet-200 dark:border-violet-800">
+                <CardContent className="p-4 flex items-center gap-2 text-sm text-muted-foreground">
+                  <RefreshCw className="w-4 h-4 animate-spin" /> Looking up asset {assetTag}…
+                </CardContent>
+              </Card>
+            )}
+
+            {assetTag && !assetsLoading && matchedAsset && (
+              <Card className="border-violet-300 dark:border-violet-700 shadow-md" data-testid="card-asset-details">
+                <CardHeader className="pb-2 pt-4 px-4">
+                  <CardTitle className="text-sm font-semibold flex items-center gap-2">
+                    <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-violet-500 to-purple-600 flex items-center justify-center">
+                      <Package className="w-4 h-4 text-white" />
+                    </div>
+                    Fixed Asset Found
+                    <Badge className={`ml-auto ${statusColor(matchedAsset.status)}`} data-testid="badge-asset-status">
+                      {matchedAsset.status || "Unknown"}
+                    </Badge>
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="px-4 pb-4 space-y-3">
+                  <div>
+                    <p className="text-lg font-bold leading-tight" data-testid="text-asset-name">{matchedAsset.name}</p>
+                    <p className="text-xs text-muted-foreground font-mono" data-testid="text-asset-tag">{matchedAsset.assetTag}</p>
+                  </div>
+                  <div className="grid grid-cols-2 gap-3 text-sm">
+                    <div className="flex items-start gap-2">
+                      <MapPin className="w-4 h-4 text-violet-500 mt-0.5 shrink-0" />
+                      <div>
+                        <p className="text-[11px] text-muted-foreground font-medium">Location</p>
+                        <p className="font-medium" data-testid="text-asset-location">{matchedAsset.location || "—"}</p>
+                      </div>
+                    </div>
+                    <div className="flex items-start gap-2">
+                      <Tag className="w-4 h-4 text-violet-500 mt-0.5 shrink-0" />
+                      <div>
+                        <p className="text-[11px] text-muted-foreground font-medium">Category</p>
+                        <p className="font-medium" data-testid="text-asset-category">{matchedAsset.category || "—"}</p>
+                      </div>
+                    </div>
+                    <div className="flex items-start gap-2">
+                      <Calendar className="w-4 h-4 text-violet-500 mt-0.5 shrink-0" />
+                      <div>
+                        <p className="text-[11px] text-muted-foreground font-medium">Purchase Date</p>
+                        <p className="font-medium" data-testid="text-asset-purchase-date">{matchedAsset.purchaseDate || "—"}</p>
+                      </div>
+                    </div>
+                    <div className="flex items-start gap-2">
+                      <IndianRupee className="w-4 h-4 text-violet-500 mt-0.5 shrink-0" />
+                      <div>
+                        <p className="text-[11px] text-muted-foreground font-medium">Cost</p>
+                        <p className="font-medium" data-testid="text-asset-cost">
+                          {matchedAsset.cost && Number(matchedAsset.cost) > 0
+                            ? `₹${Number(matchedAsset.cost).toLocaleString("en-IN")}`
+                            : "—"}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                  {matchedAsset.vendor && (
+                    <p className="text-xs text-muted-foreground">Vendor: <span className="font-medium text-foreground">{matchedAsset.vendor}</span></p>
+                  )}
+                </CardContent>
+              </Card>
+            )}
+
+            {assetTag && !assetsLoading && !matchedAsset && (
+              <Card className="border-amber-300 dark:border-amber-700" data-testid="card-asset-not-found">
+                <CardContent className="p-4 flex items-start gap-3">
+                  <AlertTriangle className="w-5 h-5 text-amber-500 mt-0.5 shrink-0" />
+                  <div>
+                    <p className="text-sm font-semibold">Asset not found in registry</p>
+                    <p className="text-xs text-muted-foreground mt-0.5">
+                      Tag <span className="font-mono font-medium">{assetTag}</span> was scanned but no matching Fixed Asset exists. It may have been deleted or re-tagged.
+                    </p>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
 
             {parsedData.length > 1 ? (
               <Card className="border-green-200 dark:border-green-800">
