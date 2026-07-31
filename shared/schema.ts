@@ -65,6 +65,14 @@ export const insertFixedAssetSchema = createInsertSchema(fixedAssets).omit({ id:
 export type InsertFixedAsset = z.infer<typeof insertFixedAssetSchema>;
 export type FixedAsset = typeof fixedAssets.$inferSelect;
 
+// Editable dropdown options (categories & locations) for Fixed Asset Management
+export const fixedAssetOptions = mysqlTable("fixed_asset_options", {
+  id: int("id").autoincrement().primaryKey(),
+  optionType: varchar("option_type", { length: 20 }).notNull(), // 'category' | 'location'
+  name: varchar("name", { length: 200 }).notNull(),
+});
+export type FixedAssetOption = typeof fixedAssetOptions.$inferSelect;
+
 // Stores cash seal (income vs expense) per day
 export const cashSeals = mysqlTable("cash_seals", {
   id: int("id").autoincrement().primaryKey(),

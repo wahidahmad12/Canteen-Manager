@@ -59,6 +59,8 @@ import {
   fixedAssets,
   type FixedAsset,
   type InsertFixedAsset,
+  fixedAssetOptions,
+  type FixedAssetOption,
   type MenuCategoryItem,
   menuCategoryItems,
   type DailyPnlEntry,
@@ -344,6 +346,10 @@ export interface IStorage {
   // Banana expense rate schedule (date-effective, admin-editable)
   getBananaRates(): Promise<BananaRate[]>;
   getFixedAssets(): Promise<FixedAsset[]>;
+  getFixedAssetOptions(): Promise<FixedAssetOption[]>;
+  createFixedAssetOption(optionType: string, name: string): Promise<FixedAssetOption>;
+  renameFixedAssetOption(id: number, newName: string): Promise<FixedAssetOption | undefined>;
+  deleteFixedAssetOption(id: number): Promise<void>;
   createFixedAsset(data: InsertFixedAsset): Promise<FixedAsset>;
   updateFixedAsset(id: number, data: Partial<InsertFixedAsset>): Promise<FixedAsset | undefined>;
   deleteFixedAsset(id: number): Promise<void>;
@@ -3370,6 +3376,36 @@ export class DatabaseStorage implements IStorage {
 
   async deleteFixedAsset(id: number): Promise<void> {
     await db.delete(fixedAssets).where(eq(fixedAssets.id, id));
+  }
+
+  async getFixedAssetOptions(): Promise<FixedAssetOption[]> {
+    return await db.select().from(fixedAssetOptions)
+      .orderBy(asc(fixedAssetOptions.optionType), asc(fixedAssetOptions.name));
+  }
+
+  async createFixedAssetOption(optionType: string, name: string): Promise<FixedAssetOption> {
+    await db.insert(fixedAssetOptions).values({ optionType, name });
+    const [row] = await db.select().from(fixedAssetOptions)
+      .where(and(eq(fixedAssetOptions.optionType, optionType), eq(fixedAssetOptions.name, name)));
+    return row;
+  }
+
+  async renameFixedAssetOption(id: number, newName: string): Promise<FixedAssetOption | undefined> {
+    const [opt] = await db.select().from(fixedAssetOptions).where(eq(fixedAssetOptions.id, id));
+    if (!opt) return undefined;
+    await db.update(fixedAssetOptions).set({ name: newName }).where(eq(fixedAssetOptions.id, id));
+    // Propagate the rename to assets already using the old value
+    if (opt.optionType === 'category') {
+      await db.update(fixedAssets).set({ category: newName }).where(eq(fixedAssets.category, opt.name));
+    } else if (opt.optionType === 'location') {
+      await db.update(fixedAssets).set({ location: newName }).where(eq(fixedAssets.location, opt.name));
+    }
+    const [row] = await db.select().from(fixedAssetOptions).where(eq(fixedAssetOptions.id, id));
+    return row;
+  }
+
+  async deleteFixedAssetOption(id: number): Promise<void> {
+    await db.delete(fixedAssetOptions).where(eq(fixedAssetOptions.id, id));
   }
 
   // === MENU CATEGORY CUSTOM ITEMS ===

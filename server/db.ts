@@ -105,6 +105,15 @@ async function initPool(): Promise<void> {
       created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
       UNIQUE KEY uq_fixed_asset_tag (asset_tag)
     )`,
+    `CREATE TABLE IF NOT EXISTS fixed_asset_options (
+      id INT AUTO_INCREMENT PRIMARY KEY,
+      option_type VARCHAR(20) NOT NULL,
+      name VARCHAR(200) NOT NULL,
+      UNIQUE KEY uq_fa_option (option_type, name)
+    )`,
+    `INSERT IGNORE INTO fixed_asset_options (option_type, name) VALUES
+      ('category','Kitchen Equipment'),('category','Refrigeration'),('category','Dining Furniture'),('category','POS & Electronics'),('category','Other'),
+      ('location','Main Kitchen'),('location','Dining Hall A'),('location','Dining Hall B'),('location','Cold Storage Unit'),('location','Counter POS')`,
     `CREATE TABLE IF NOT EXISTS tax_invoices (
       id INT AUTO_INCREMENT PRIMARY KEY,
       invoice_number VARCHAR(50) NOT NULL,

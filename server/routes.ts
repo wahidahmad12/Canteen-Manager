@@ -2953,6 +2953,40 @@ export async function registerRoutes(
     catch (err: any) { res.status(500).json({ message: err.message }); }
   });
 
+  // Fixed asset dropdown options (categories & locations)
+  app.get('/api/fixed-asset-options', requireAuth, async (_req, res) => {
+    try { res.json(await storage.getFixedAssetOptions()); }
+    catch (err: any) { res.status(500).json({ message: err.message }); }
+  });
+  app.post('/api/fixed-asset-options', requireAdmin, async (req, res) => {
+    try {
+      const optionType = String(req.body.optionType || '').trim();
+      const name = String(req.body.name || '').trim().slice(0, 200);
+      if (!['category', 'location'].includes(optionType)) return res.status(400).json({ message: 'Invalid option type' });
+      if (!name) return res.status(400).json({ message: 'Name is required' });
+      res.json(await storage.createFixedAssetOption(optionType, name));
+    } catch (err: any) {
+      if (isDuplicateErr(err)) return res.status(409).json({ message: 'This name already exists' });
+      res.status(500).json({ message: err.message });
+    }
+  });
+  app.put('/api/fixed-asset-options/:id', requireAdmin, async (req, res) => {
+    try {
+      const name = String(req.body.name || '').trim().slice(0, 200);
+      if (!name) return res.status(400).json({ message: 'Name is required' });
+      const row = await storage.renameFixedAssetOption(Number(req.params.id), name);
+      if (!row) return res.status(404).json({ message: 'Option not found' });
+      res.json(row);
+    } catch (err: any) {
+      if (isDuplicateErr(err)) return res.status(409).json({ message: 'This name already exists' });
+      res.status(500).json({ message: err.message });
+    }
+  });
+  app.delete('/api/fixed-asset-options/:id', requireAdmin, async (req, res) => {
+    try { await storage.deleteFixedAssetOption(Number(req.params.id)); res.json({ success: true }); }
+    catch (err: any) { res.status(500).json({ message: err.message }); }
+  });
+
   // === MENU CATEGORY CUSTOM ITEMS (persisted "Add Item" options in Menu Manager) ===
   app.get('/api/menu-category-items', requirePermission('menu'), async (_req, res) => {
     try { res.json(await storage.getMenuCategoryItems()); }

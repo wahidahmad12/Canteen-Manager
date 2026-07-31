@@ -16,8 +16,8 @@ import {
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
 } from "@/components/ui/dialog";
-import { Package, Printer, ArrowRightLeft, Plus, Trash2, QrCode } from "lucide-react";
-import type { FixedAsset } from "@shared/schema";
+import { Package, Printer, ArrowRightLeft, Plus, Trash2, QrCode, Settings2, Pencil } from "lucide-react";
+import type { FixedAsset, FixedAssetOption } from "@shared/schema";
 
 const DEFAULT_CATEGORIES = ["Kitchen Equipment", "Refrigeration", "Dining Furniture", "POS & Electronics", "Other"];
 const DEFAULT_LOCATIONS = ["Main Kitchen", "Dining Hall A", "Dining Hall B", "Cold Storage Unit", "Counter POS"];
@@ -44,20 +44,55 @@ export default function FixedAssetsPage() {
   const isAdmin = user?.role === "admin";
 
   const { data: assets = [], isLoading } = useQuery<FixedAsset[]>({ queryKey: ["/api/fixed-assets"] });
+  const { data: options = [] } = useQuery<FixedAssetOption[]>({ queryKey: ["/api/fixed-asset-options"] });
 
   const [form, setForm] = useState({ ...emptyForm });
-  const [extraLocations, setExtraLocations] = useState<string[]>([]);
   const [selIds, setSelIds] = useState<Set<number>>(new Set());
   const [transferAsset, setTransferAsset] = useState<FixedAsset | null>(null);
   const [transferLoc, setTransferLoc] = useState("");
   const [printItems, setPrintItems] = useState<FixedAsset[]>([]);
+  const [manageType, setManageType] = useState<"category" | "location" | null>(null);
+  const [newOptionName, setNewOptionName] = useState("");
 
+  const categoryOptions = useMemo(() => options.filter((o) => o.optionType === "category"), [options]);
+  const categories = useMemo(() => {
+    const s = new Set<string>(categoryOptions.map((o) => o.name));
+    if (categoryOptions.length === 0) DEFAULT_CATEGORIES.forEach((c) => s.add(c));
+    assets.forEach((a) => a.category && s.add(a.category));
+    return Array.from(s);
+  }, [categoryOptions, assets]);
+
+  const locationOptions = useMemo(() => options.filter((o) => o.optionType === "location"), [options]);
   const locations = useMemo(() => {
-    const s = new Set<string>(DEFAULT_LOCATIONS);
-    extraLocations.forEach((l) => s.add(l));
+    const s = new Set<string>(locationOptions.map((o) => o.name));
+    if (locationOptions.length === 0) DEFAULT_LOCATIONS.forEach((l) => s.add(l));
     assets.forEach((a) => a.location && s.add(a.location));
     return Array.from(s);
-  }, [assets, extraLocations]);
+  }, [locationOptions, assets]);
+
+  const invalidateAll = () => {
+    queryClient.invalidateQueries({ queryKey: ["/api/fixed-asset-options"] });
+    queryClient.invalidateQueries({ queryKey: ["/api/fixed-assets"] });
+  };
+
+  const optionErr = (e: any) => toast({ title: "Could not save", description: String(e.message || e), variant: "destructive" });
+  const addOptionMut = useMutation({
+    mutationFn: async (body: { optionType: string; name: string }) =>
+      (await apiRequest("POST", "/api/fixed-asset-options", body)).json(),
+    onSuccess: invalidateAll,
+    onError: optionErr,
+  });
+  const renameOptionMut = useMutation({
+    mutationFn: async ({ id, name }: { id: number; name: string }) =>
+      (await apiRequest("PUT", `/api/fixed-asset-options/${id}`, { name })).json(),
+    onSuccess: invalidateAll,
+    onError: optionErr,
+  });
+  const deleteOptionMut = useMutation({
+    mutationFn: async (id: number) => (await apiRequest("DELETE", `/api/fixed-asset-options/${id}`)).json(),
+    onSuccess: invalidateAll,
+    onError: optionErr,
+  });
 
   // metrics
   const totalValue = assets.reduce((s, a) => s + (Number(a.cost) || 0), 0);
@@ -105,9 +140,12 @@ export default function FixedAssetsPage() {
     const loc = window.prompt("Enter new location name:");
     if (loc && loc.trim()) {
       const t = loc.trim();
-      setExtraLocations((prev) => (prev.includes(t) ? prev : [...prev, t]));
-      setForm((f) => ({ ...f, location: t }));
-      if (transferAsset) setTransferLoc(t);
+      addOptionMut.mutate({ optionType: "location", name: t }, {
+        onSuccess: () => {
+          setForm((f) => ({ ...f, location: t }));
+          if (transferAsset) setTransferLoc(t);
+        },
+      });
     }
   };
 
@@ -214,12 +252,17 @@ export default function FixedAssetsPage() {
               </div>
               <div>
                 <Label className="text-xs">Category</Label>
-                <Select value={form.category} onValueChange={(v) => setForm({ ...form, category: v })}>
-                  <SelectTrigger><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    {DEFAULT_CATEGORIES.map((c) => <SelectItem key={c} value={c}>{c}</SelectItem>)}
-                  </SelectContent>
-                </Select>
+                <div className="flex gap-2">
+                  <Select value={form.category} onValueChange={(v) => setForm({ ...form, category: v })}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      {categories.map((c) => <SelectItem key={c} value={c}>{c}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
+                  <Button type="button" variant="outline" size="icon" onClick={() => setManageType("category")} title="Manage Categories">
+                    <Settings2 className="w-4 h-4" />
+                  </Button>
+                </div>
               </div>
               <div>
                 <Label className="text-xs">Current Location</Label>
@@ -230,8 +273,8 @@ export default function FixedAssetsPage() {
                       {locations.map((l) => <SelectItem key={l} value={l}>{l}</SelectItem>)}
                     </SelectContent>
                   </Select>
-                  <Button type="button" variant="outline" size="icon" onClick={addNewLocation} title="Add New Location">
-                    <Plus className="w-4 h-4" />
+                  <Button type="button" variant="outline" size="icon" onClick={() => setManageType("location")} title="Manage Locations">
+                    <Settings2 className="w-4 h-4" />
                   </Button>
                 </div>
               </div>
@@ -396,6 +439,61 @@ export default function FixedAssetsPage() {
               Confirm Transfer
             </Button>
           </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Manage categories / locations dialog */}
+      <Dialog open={!!manageType} onOpenChange={(o) => { if (!o) { setManageType(null); setNewOptionName(""); } }}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle>{manageType === "category" ? "Manage Categories" : "Manage Locations"}</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-2 max-h-[300px] overflow-y-auto">
+            {(manageType === "category" ? categoryOptions : locationOptions).map((o) => (
+              <div key={o.id} className="flex items-center justify-between gap-2 border rounded-md px-3 py-1.5">
+                <span className="text-sm truncate">{o.name}</span>
+                <div className="flex gap-1 shrink-0">
+                  <Button size="sm" variant="outline" className="h-7 px-2"
+                    onClick={() => {
+                      const n = window.prompt(`Rename "${o.name}" to:`, o.name);
+                      if (n && n.trim() && n.trim() !== o.name) renameOptionMut.mutate({ id: o.id, name: n.trim() });
+                    }}>
+                    <Pencil className="w-3 h-3" />
+                  </Button>
+                  <Button size="sm" variant="outline" className="h-7 px-2 text-red-600"
+                    onClick={() => {
+                      if (window.confirm(`Delete "${o.name}"? Assets already using it will keep their current value.`))
+                        deleteOptionMut.mutate(o.id);
+                    }}>
+                    <Trash2 className="w-3 h-3" />
+                  </Button>
+                </div>
+              </div>
+            ))}
+            {(manageType === "category" ? categoryOptions : locationOptions).length === 0 && (
+              <p className="text-sm text-muted-foreground">No entries yet. Add one below.</p>
+            )}
+          </div>
+          <div className="flex gap-2">
+            <Input
+              value={newOptionName}
+              onChange={(e) => setNewOptionName(e.target.value)}
+              placeholder={manageType === "category" ? "New category name" : "New location name"}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" && newOptionName.trim() && manageType) {
+                  e.preventDefault();
+                  addOptionMut.mutate({ optionType: manageType, name: newOptionName.trim() }, { onSuccess: () => setNewOptionName("") });
+                }
+              }}
+            />
+            <Button
+              disabled={!newOptionName.trim() || addOptionMut.isPending}
+              onClick={() => {
+                if (manageType) addOptionMut.mutate({ optionType: manageType, name: newOptionName.trim() }, { onSuccess: () => setNewOptionName("") });
+              }}>
+              <Plus className="w-4 h-4 mr-1" /> Add
+            </Button>
+          </div>
         </DialogContent>
       </Dialog>
 
