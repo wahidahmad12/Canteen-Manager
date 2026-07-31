@@ -452,10 +452,11 @@ export default function PurchaseInvoice() {
   };
 
   const totals = items.reduce((acc, item) => ({
+    qty: acc.qty + (Number(item.qty) || 0),
     totalPrice: acc.totalPrice + item.totalPrice,
     gstAmount: acc.gstAmount + item.gstAmount,
     netAmount: acc.netAmount + item.netAmount,
-  }), { totalPrice: 0, gstAmount: 0, netAmount: 0 });
+  }), { qty: 0, totalPrice: 0, gstAmount: 0, netAmount: 0 });
 
   const payments = (existingInvoice as any)?.payments || [];
   const totalPaid = payments.reduce((sum: number, p: any) => sum + Number(p.amount), 0);
@@ -757,7 +758,9 @@ export default function PurchaseInvoice() {
                 </tbody>
                 <tfoot>
                   <tr className="bg-rose-50 dark:bg-rose-950/20 border-t-2 border-rose-200 dark:border-rose-800/50 font-semibold">
-                    <td colSpan={5} className="py-3 px-3 text-right text-sm">Totals:</td>
+                    <td colSpan={3} className="py-3 px-3 text-right text-sm">Totals:</td>
+                    <td className="py-3 px-2 text-right font-mono text-sm" data-testid="text-total-qty">{totals.qty.toFixed(2)}</td>
+                    <td></td>
                     <td className="py-3 px-2 text-right font-mono text-sm">{totals.totalPrice.toFixed(2)}</td>
                     <td></td>
                     <td className="py-3 px-2 text-right font-mono text-sm">{totals.gstAmount.toFixed(2)}</td>
@@ -829,6 +832,7 @@ export default function PurchaseInvoice() {
                 </div>
               ))}
               <div className="p-3 bg-rose-50 dark:bg-rose-950/20 space-y-1.5">
+                <div className="flex justify-between text-sm text-muted-foreground"><span>Total Qty</span><span className="font-mono" data-testid="text-total-qty-mobile">{totals.qty.toFixed(2)}</span></div>
                 <div className="flex justify-between text-sm text-muted-foreground"><span>Total Price</span><span className="font-mono">₹{totals.totalPrice.toFixed(2)}</span></div>
                 <div className="flex justify-between text-sm text-muted-foreground"><span>Total GST</span><span className="font-mono">₹{totals.gstAmount.toFixed(2)}</span></div>
                 <div className="flex justify-between text-base font-bold text-rose-600 dark:text-rose-400 border-t border-rose-200 dark:border-rose-800/50 pt-1.5"><span>Grand Total</span><span className="font-mono">₹{totals.netAmount.toFixed(2)}</span></div>
