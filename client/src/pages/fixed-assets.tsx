@@ -16,7 +16,8 @@ import {
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
 } from "@/components/ui/dialog";
-import { Package, Printer, ArrowRightLeft, Plus, Trash2, QrCode, Settings2, Pencil } from "lucide-react";
+import { Package, Printer, ArrowRightLeft, Plus, Trash2, QrCode, Settings2, Pencil, TrendingDown } from "lucide-react";
+import { Link } from "wouter";
 import type { FixedAsset, FixedAssetOption } from "@shared/schema";
 
 const DEFAULT_CATEGORIES = ["Kitchen Equipment", "Refrigeration", "Dining Furniture", "POS & Electronics", "Other"];
@@ -309,9 +310,16 @@ export default function FixedAssetsPage() {
         <Card>
           <CardHeader className="pb-3 flex flex-row items-center justify-between space-y-0">
             <CardTitle className="text-base">Fixed Asset Master Registry</CardTitle>
-            <Button size="sm" className="bg-green-600 hover:bg-green-700" onClick={printSelected}>
-              <QrCode className="w-4 h-4 mr-1" /> Print Selected Tags
-            </Button>
+            <div className="flex gap-2">
+              <Link href="/depreciation-report">
+                <Button size="sm" variant="outline">
+                  <TrendingDown className="w-4 h-4 mr-1" /> Depreciation Report
+                </Button>
+              </Link>
+              <Button size="sm" className="bg-green-600 hover:bg-green-700" onClick={printSelected}>
+                <QrCode className="w-4 h-4 mr-1" /> Print Selected Tags
+              </Button>
+            </div>
           </CardHeader>
           <CardContent>
             <div className="overflow-x-auto">
