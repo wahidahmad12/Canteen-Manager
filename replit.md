@@ -8,6 +8,8 @@ DJ KPF Daily Cash Expance is a comprehensive web application designed for managi
 
 Preferred communication style: Simple, everyday language.
 
+Letterhead: Whenever printing or generating any letter/document that needs a letterhead, always use the official company letterhead from `attached_assets/Letter_Hade_1785480466712.pdf` (DJ Hospitality & Facility Management Pvt Ltd — header with logo, contact details, orange rule, faded "dj" watermark). Overlay letter content onto this PDF page so the format stays exactly the same.
+
 ## System Architecture
 
 ### Frontend
