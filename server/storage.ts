@@ -1326,7 +1326,74 @@ export class DatabaseStorage implements IStorage {
     if (prIds.length > 0) {
       await db.update(purchaseRequests).set({ invoiced: 1 }).where(sql`${purchaseRequests.id} IN (${sql.join(prIds.map(id => sql`${id}`), sql`, `)})`);
     }
-    return result;
+    // Auto-adjust vendor advance (excess payments on older bills) against this new bill
+    try {
+      await this.applyVendorAdvanceToInvoice(result.id);
+    } catch (e) {
+      console.error("Vendor advance auto-adjust failed:", e);
+    }
+    const payments = await db.select().from(purchaseInvoicePayments).where(eq(purchaseInvoicePayments.invoiceId, result.id)).orderBy(purchaseInvoicePayments.paymentDate);
+    return { ...result, payments };
+  }
+
+  // If this vendor overpaid earlier bills, move that extra money onto the new bill
+  // (adds a positive "adjusted from advance" payment on the new bill and a matching
+  // negative "advance transferred" entry on the old bill so totals stay correct everywhere).
+  async applyVendorAdvanceToInvoice(invoiceId: number): Promise<void> {
+    // All money math is done in paise (integer) to avoid floating-point drift.
+    const toPaise = (v: unknown) => Math.round((Number(v) || 0) * 100);
+    const fromPaise = (p: number) => (p / 100).toFixed(2);
+
+    await db.transaction(async (tx) => {
+      // Lock the new invoice row so concurrent adjustments for this vendor serialize
+      const [newRows] = await tx.execute(sql`SELECT * FROM purchase_invoices WHERE id = ${invoiceId} FOR UPDATE`) as any;
+      const newInv = (Array.isArray(newRows) ? newRows[0] : newRows) as any;
+      if (!newInv) return;
+      const billTotal = toPaise(newInv.grand_total);
+      if (billTotal <= 0) return;
+
+      const existingPayments = await tx.select().from(purchaseInvoicePayments).where(eq(purchaseInvoicePayments.invoiceId, invoiceId));
+      const alreadyPaid = existingPayments.reduce((s, p) => s + toPaise(p.amount), 0);
+      let need = billTotal - alreadyPaid;
+      if (need <= 0) return;
+
+      // Only bills strictly earlier than this one (by date, then id), oldest first,
+      // locked so two simultaneous new bills can't consume the same advance twice.
+      const [oldRows] = await tx.execute(sql`
+        SELECT * FROM purchase_invoices
+        WHERE vendor_name = ${newInv.vendor_name}
+          AND (date < ${newInv.date} OR (date = ${newInv.date} AND id < ${invoiceId}))
+        ORDER BY date ASC, id ASC
+        FOR UPDATE`) as any;
+      const vendorInvoices: any[] = Array.isArray(oldRows) ? oldRows : [];
+      if (vendorInvoices.length === 0) return;
+
+      const today = new Date().toISOString().slice(0, 10);
+      const newRef = newInv.dj_invoice_no || newInv.vendor_invoice_no || `#${newInv.id}`;
+
+      for (const oldInv of vendorInvoices) {
+        if (need <= 0) break;
+        const oldPayments = await tx.select().from(purchaseInvoicePayments).where(eq(purchaseInvoicePayments.invoiceId, oldInv.id));
+        const oldPaid = oldPayments.reduce((s, p) => s + toPaise(p.amount), 0);
+        const excess = oldPaid - toPaise(oldInv.grand_total);
+        if (excess <= 0) continue;
+        const transfer = Math.min(excess, need);
+        const oldRef = oldInv.dj_invoice_no || oldInv.vendor_invoice_no || `#${oldInv.id}`;
+        await tx.insert(purchaseInvoicePayments).values({
+          invoiceId: oldInv.id,
+          paymentDate: today,
+          amount: fromPaise(-transfer),
+          notes: `Advance transferred to bill ${newRef}`,
+        });
+        await tx.insert(purchaseInvoicePayments).values({
+          invoiceId: invoiceId,
+          paymentDate: today,
+          amount: fromPaise(transfer),
+          notes: `Auto adjusted from advance of bill ${oldRef}`,
+        });
+        need -= transfer;
+      }
+    });
   }
 
   async updatePurchaseInvoice(id: number, data: { purchaseRequestId?: number | null; clientName?: string; vendorName?: string; vendorInvoiceNo?: string; date?: string; paymentGiven?: boolean; djInvoiceNo?: string; items?: { id?: number; itemName: string; uom: string; qty: number; unitPrice: number; totalPrice: number; gstRate: number; gstAmount: number; netAmount: number }[] }): Promise<PurchaseInvoiceWithItems> {
