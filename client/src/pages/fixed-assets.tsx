@@ -16,7 +16,7 @@ import {
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
 } from "@/components/ui/dialog";
-import { Package, Printer, ArrowRightLeft, Plus, Trash2, QrCode, Settings2, Pencil, TrendingDown } from "lucide-react";
+import { Package, Printer, ArrowRightLeft, Plus, Trash2, QrCode, Settings2, Pencil, TrendingDown, ArrowLeft, IndianRupee, Activity, Boxes } from "lucide-react";
 import { Link } from "wouter";
 import type { FixedAsset, FixedAssetOption } from "@shared/schema";
 
@@ -201,36 +201,90 @@ export default function FixedAssetsPage() {
         }
       `}</style>
 
-      <div className="flex items-center gap-2">
-        <Package className="w-6 h-6 text-blue-600" />
-        <h1 className="text-xl md:text-2xl font-bold">Fixed Asset Management</h1>
+      {/* Header banner */}
+      <div className="rounded-xl bg-gradient-to-r from-blue-600 via-indigo-600 to-violet-600 text-white p-4 md:p-5 shadow-lg no-print">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div className="flex items-center gap-3 min-w-0">
+            <Link href="/">
+              <Button size="icon" variant="secondary" className="bg-white/15 hover:bg-white/25 text-white border-0 shrink-0" data-testid="button-back-dashboard" title="Back to Dashboard">
+                <ArrowLeft className="w-5 h-5" />
+              </Button>
+            </Link>
+            <div className="w-10 h-10 rounded-lg bg-white/15 flex items-center justify-center shrink-0">
+              <Package className="w-6 h-6" />
+            </div>
+            <div className="min-w-0">
+              <h1 className="text-lg md:text-2xl font-bold truncate">Fixed Asset Management</h1>
+              <p className="text-xs md:text-sm text-white/80 truncate">Asset registry, QR tags, transfers & depreciation</p>
+            </div>
+          </div>
+          <Link href="/">
+            <Button variant="secondary" className="bg-white/15 hover:bg-white/25 text-white border-0 hidden sm:inline-flex" data-testid="button-back-dashboard-text">
+              <ArrowLeft className="w-4 h-4 mr-1.5" /> Main Dashboard
+            </Button>
+          </Link>
+        </div>
       </div>
 
       {/* Metrics */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-        <Card><CardContent className="p-4">
-          <div className="text-xs uppercase text-muted-foreground font-semibold">Total Assets</div>
-          <div className="text-2xl font-bold mt-1">{assets.length}</div>
-        </CardContent></Card>
-        <Card><CardContent className="p-4">
-          <div className="text-xs uppercase text-muted-foreground font-semibold">Total Asset Value</div>
-          <div className="text-2xl font-bold mt-1">{fmtINR(totalValue)}</div>
-        </CardContent></Card>
-        <Card><CardContent className="p-4">
-          <div className="text-xs uppercase text-muted-foreground font-semibold">Avg Depreciation</div>
-          <div className="text-2xl font-bold mt-1">{avgDep.toFixed(1)}%</div>
-        </CardContent></Card>
-        <Card><CardContent className="p-4">
-          <div className="text-xs uppercase text-muted-foreground font-semibold">Active Assets</div>
-          <div className="text-2xl font-bold mt-1">{activeCount}</div>
-        </CardContent></Card>
+        <Card className="border-0 shadow-md overflow-hidden">
+          <div className="h-1 bg-gradient-to-r from-blue-500 to-cyan-500" />
+          <CardContent className="p-4 flex items-center gap-3">
+            <div className="w-9 h-9 rounded-lg bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center shrink-0">
+              <Boxes className="w-5 h-5 text-blue-600 dark:text-blue-400" />
+            </div>
+            <div className="min-w-0">
+              <div className="text-[11px] uppercase text-muted-foreground font-semibold tracking-wide">Total Assets</div>
+              <div className="text-xl md:text-2xl font-bold">{assets.length}</div>
+            </div>
+          </CardContent>
+        </Card>
+        <Card className="border-0 shadow-md overflow-hidden">
+          <div className="h-1 bg-gradient-to-r from-emerald-500 to-teal-500" />
+          <CardContent className="p-4 flex items-center gap-3">
+            <div className="w-9 h-9 rounded-lg bg-emerald-100 dark:bg-emerald-900/30 flex items-center justify-center shrink-0">
+              <IndianRupee className="w-5 h-5 text-emerald-600 dark:text-emerald-400" />
+            </div>
+            <div className="min-w-0">
+              <div className="text-[11px] uppercase text-muted-foreground font-semibold tracking-wide">Total Value</div>
+              <div className="text-lg md:text-xl font-bold truncate">{fmtINR(totalValue)}</div>
+            </div>
+          </CardContent>
+        </Card>
+        <Card className="border-0 shadow-md overflow-hidden">
+          <div className="h-1 bg-gradient-to-r from-amber-500 to-orange-500" />
+          <CardContent className="p-4 flex items-center gap-3">
+            <div className="w-9 h-9 rounded-lg bg-amber-100 dark:bg-amber-900/30 flex items-center justify-center shrink-0">
+              <TrendingDown className="w-5 h-5 text-amber-600 dark:text-amber-400" />
+            </div>
+            <div className="min-w-0">
+              <div className="text-[11px] uppercase text-muted-foreground font-semibold tracking-wide">Avg Depreciation</div>
+              <div className="text-xl md:text-2xl font-bold">{avgDep.toFixed(1)}%</div>
+            </div>
+          </CardContent>
+        </Card>
+        <Card className="border-0 shadow-md overflow-hidden">
+          <div className="h-1 bg-gradient-to-r from-violet-500 to-purple-500" />
+          <CardContent className="p-4 flex items-center gap-3">
+            <div className="w-9 h-9 rounded-lg bg-violet-100 dark:bg-violet-900/30 flex items-center justify-center shrink-0">
+              <Activity className="w-5 h-5 text-violet-600 dark:text-violet-400" />
+            </div>
+            <div className="min-w-0">
+              <div className="text-[11px] uppercase text-muted-foreground font-semibold tracking-wide">Active Assets</div>
+              <div className="text-xl md:text-2xl font-bold">{activeCount}</div>
+            </div>
+          </CardContent>
+        </Card>
       </div>
 
       <div className={isAdmin ? "grid grid-cols-1 xl:grid-cols-[380px_1fr] gap-4 items-start" : "grid grid-cols-1 gap-4 items-start"}>
         {/* Register form (admin only) */}
         {isAdmin && (
-        <Card>
-          <CardHeader className="pb-3"><CardTitle className="text-base">Register Fixed Asset</CardTitle></CardHeader>
+        <Card className="border-0 shadow-lg overflow-hidden">
+          <CardHeader className="pb-3 bg-gradient-to-r from-blue-500 to-indigo-500 text-white pt-4">
+            <CardTitle className="text-base flex items-center gap-2"><Plus className="w-4 h-4" /> Register Fixed Asset</CardTitle>
+          </CardHeader>
           <CardContent>
             <form onSubmit={submit} className="space-y-3">
               <div className="grid grid-cols-2 gap-3">
@@ -307,25 +361,25 @@ export default function FixedAssetsPage() {
         )}
 
         {/* Registry table */}
-        <Card>
-          <CardHeader className="pb-3 flex flex-row items-center justify-between space-y-0">
-            <CardTitle className="text-base">Fixed Asset Master Registry</CardTitle>
-            <div className="flex gap-2">
+        <Card className="border-0 shadow-lg overflow-hidden">
+          <CardHeader className="pb-3 pt-4 bg-gradient-to-r from-violet-500 to-purple-500 text-white flex flex-row items-center justify-between space-y-0 flex-wrap gap-2">
+            <CardTitle className="text-base flex items-center gap-2"><Package className="w-4 h-4" /> Fixed Asset Master Registry</CardTitle>
+            <div className="flex gap-2 flex-wrap">
               <Link href="/depreciation-report">
-                <Button size="sm" variant="outline">
+                <Button size="sm" variant="secondary" className="bg-white/15 hover:bg-white/25 text-white border-0">
                   <TrendingDown className="w-4 h-4 mr-1" /> Depreciation Report
                 </Button>
               </Link>
-              <Button size="sm" className="bg-green-600 hover:bg-green-700" onClick={printSelected}>
+              <Button size="sm" variant="secondary" className="bg-white/15 hover:bg-white/25 text-white border-0" onClick={printSelected}>
                 <QrCode className="w-4 h-4 mr-1" /> Print Selected Tags
               </Button>
             </div>
           </CardHeader>
-          <CardContent>
+          <CardContent className="pt-4">
             <div className="overflow-x-auto">
               <table className="w-full text-sm whitespace-nowrap">
                 <thead>
-                  <tr className="border-b bg-muted/50 text-muted-foreground">
+                  <tr className="border-b bg-violet-50 dark:bg-violet-950/20 text-violet-700 dark:text-violet-400">
                     <th className="p-2 text-left w-8">
                       <Checkbox
                         checked={allSelected}
