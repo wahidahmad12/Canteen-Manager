@@ -282,25 +282,27 @@ export default function HalfYearlyReturn() {
     if (!pw) return;
     pw.document.write(`<!DOCTYPE html><html><head><title>Form XXIV - ${selectedClient} - ${halfLabel}</title>
       <style>
-        @page { size: A4 portrait; margin: 8mm 12mm; }
+        @page { size: A4 portrait; margin: 12mm 14mm; }
         html, body { height: auto; }
-        body { margin: 0; padding: 0; font-family: 'Times New Roman', Georgia, serif; font-size: 10px; line-height: 1.2; color: #000; }
-        .form-title { text-align: center; margin-bottom: 3px; }
-        .form-title h3 { font-size: 12px; font-weight: bold; margin: 1px 0; }
-        .form-title p { font-size: 9px; margin: 1px 0; }
-        .licence { text-align: center; font-size: 9px; margin-bottom: 3px; }
-        table.fields { width: 100%; border-collapse: collapse; font-size: 9.5px; }
-        table.fields td { padding: 1px 4px; vertical-align: top; }
+        body { margin: 0; padding: 0; font-family: 'Bookman Old Style', 'Times New Roman', Georgia, serif; font-size: 12px; line-height: 1.35; color: #000; }
+        .form-wrap { display: flex; flex-direction: column; min-height: 265mm; }
+        .form-title { text-align: center; margin-bottom: 4px; }
+        .form-title h3 { font-size: 14px; font-weight: bold; margin: 2px 0; }
+        .form-title p { font-size: 12px; margin: 1px 0; }
+        .form-title p:nth-of-type(2) { font-weight: bold; }
+        .licence { text-align: center; font-size: 12px; font-weight: bold; margin-bottom: 2px; }
+        table.fields { width: 100%; border-collapse: collapse; font-size: 12px; }
+        table.fields td { padding: 2px 4px; vertical-align: top; }
         table.fields td.label { width: 45%; }
         table.fields td.value { width: 55%; }
         table.fields tr, .sub-table tr { page-break-inside: avoid; }
-        .sub-table { border-collapse: collapse; font-size: 9.5px; }
-        .sub-table td, .sub-table th { padding: 0.5px 5px; text-align: left; }
-        .signature { display: flex; justify-content: space-between; margin-top: 12px; font-size: 9.5px; page-break-inside: avoid; }
+        .sub-table { border-collapse: collapse; font-size: 12px; }
+        .sub-table td, .sub-table th { padding: 1px 10px 1px 0; text-align: left; }
+        .signature { display: flex; justify-content: space-between; margin-top: auto; padding-top: 24px; font-size: 12px; page-break-inside: avoid; }
         p { margin: 1px 0; }
-        .spacer td { height: 1px !important; }
+        .spacer td { height: 6px !important; }
       </style>
-    </head><body>${el.innerHTML}</body></html>`);
+    </head><body><div class="form-wrap">${el.innerHTML}</div></body></html>`);
     pw.document.close();
     pw.onload = () => { pw.print(); pw.onafterprint = () => pw.close(); };
   };
@@ -588,7 +590,7 @@ export default function HalfYearlyReturn() {
                 <h3>FORM XXIV</h3>
                 <p>[See Rule 82(1)]</p>
                 <p>Return to be sent by the Contractor to the Licencing Officer</p>
-                <p style={{ textAlign: 'right', fontSize: '12px', fontWeight: 'bold' }}>Half-yearly ending {halfLabel}</p>
+                <p style={{ textAlign: 'right', fontSize: '13px', fontWeight: 'bold' }}>Half-yearly ending {halfLabel}</p>
               </div>
               <table className="fields">
                 <tbody>
