@@ -2887,6 +2887,72 @@ export async function registerRoutes(
     catch (err: any) { res.status(500).json({ message: err.message }); }
   });
 
+  // === FIXED ASSET MANAGEMENT ===
+  const validateFixedAsset = (body: any, partial = false): any => {
+    const out: any = {};
+    const str = (v: any, max: number) => String(v ?? '').trim().slice(0, max);
+    if (!partial || body.assetTag !== undefined) {
+      out.assetTag = str(body.assetTag, 100);
+      if (!out.assetTag) return { error: 'Asset Tag / ID is required' };
+    }
+    if (!partial || body.name !== undefined) {
+      out.name = str(body.name, 255);
+      if (!out.name) return { error: 'Asset name is required' };
+    }
+    if (!partial || body.purchaseDate !== undefined) {
+      out.purchaseDate = str(body.purchaseDate, 10);
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(out.purchaseDate)) return { error: 'Invalid purchase date (use YYYY-MM-DD)' };
+    }
+    if (!partial || body.vendor !== undefined) out.vendor = str(body.vendor, 255);
+    if (!partial || body.category !== undefined) out.category = str(body.category, 100);
+    if (!partial || body.location !== undefined) out.location = str(body.location, 200);
+    if (!partial || body.cost !== undefined) {
+      const cost = Number(body.cost);
+      if (!Number.isFinite(cost) || cost < 0) return { error: 'Invalid cost' };
+      out.cost = String(cost);
+    }
+    if (!partial || body.depreciationPercent !== undefined) {
+      const dep = Number(body.depreciationPercent ?? 0);
+      if (!Number.isFinite(dep) || dep < 0 || dep > 100) return { error: 'Depreciation must be 0-100%' };
+      out.depreciationPercent = String(dep);
+    }
+    if (!partial || body.status !== undefined) {
+      out.status = str(body.status, 30) || 'Active';
+      if (!['Active', 'Under Maintenance', 'Retired'].includes(out.status)) return { error: 'Invalid status' };
+    }
+    return out;
+  };
+  app.get('/api/fixed-assets', requireAuth, async (_req, res) => {
+    try { res.json(await storage.getFixedAssets()); }
+    catch (err: any) { res.status(500).json({ message: err.message }); }
+  });
+  app.post('/api/fixed-assets', requireAdmin, async (req, res) => {
+    try {
+      const v = validateFixedAsset(req.body);
+      if (v.error) return res.status(400).json({ message: v.error });
+      res.json(await storage.createFixedAsset(v));
+    } catch (err: any) {
+      if (isDuplicateErr(err)) return res.status(409).json({ message: 'An asset with this Asset Tag / ID already exists' });
+      res.status(500).json({ message: err.message });
+    }
+  });
+  app.put('/api/fixed-assets/:id', requireAdmin, async (req, res) => {
+    try {
+      const v = validateFixedAsset(req.body, true);
+      if (v.error) return res.status(400).json({ message: v.error });
+      const row = await storage.updateFixedAsset(Number(req.params.id), v);
+      if (!row) return res.status(404).json({ message: 'Asset not found' });
+      res.json(row);
+    } catch (err: any) {
+      if (isDuplicateErr(err)) return res.status(409).json({ message: 'An asset with this Asset Tag / ID already exists' });
+      res.status(500).json({ message: err.message });
+    }
+  });
+  app.delete('/api/fixed-assets/:id', requireAdmin, async (req, res) => {
+    try { await storage.deleteFixedAsset(Number(req.params.id)); res.json({ success: true }); }
+    catch (err: any) { res.status(500).json({ message: err.message }); }
+  });
+
   // === MENU CATEGORY CUSTOM ITEMS (persisted "Add Item" options in Menu Manager) ===
   app.get('/api/menu-category-items', requirePermission('menu'), async (_req, res) => {
     try { res.json(await storage.getMenuCategoryItems()); }

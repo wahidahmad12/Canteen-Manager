@@ -1,0 +1,883 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DJ Hospitality — Canteen Fixed Asset Dashboard & Bulk QR Tag Print</title>
+    
+    <!-- QRCode.js Library for dynamic QR Generation -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+
+    <style>
+        :root {
+            --primary: #0f172a;
+            --accent: #2563eb;
+            --accent-hover: #1d4ed8;
+            --bg: #f1f5f9;
+            --card: #ffffff;
+            --text-main: #1e293b;
+            --text-sub: #64748b;
+            --border: #e2e8f0;
+            --success: #16a34a;
+            --warning: #ca8a04;
+            --danger: #dc2626;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+        }
+
+        body {
+            background-color: var(--bg);
+            color: var(--text-main);
+            display: flex;
+            min-height: 100vh;
+        }
+
+        aside {
+            width: 250px;
+            background: var(--primary);
+            color: white;
+            padding: 20px 0;
+            display: flex;
+            flex-direction: column;
+        }
+
+        aside .brand {
+            padding: 0 20px 20px 20px;
+            font-size: 1.05rem;
+            font-weight: 700;
+            border-bottom: 1px solid #334155;
+            line-height: 1.35;
+        }
+
+        aside nav {
+            margin-top: 20px;
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+        }
+
+        aside nav button {
+            background: none;
+            border: none;
+            color: #94a3b8;
+            padding: 12px 20px;
+            text-align: left;
+            font-size: 0.95rem;
+            font-weight: 600;
+            cursor: pointer;
+            width: 100%;
+            transition: all 0.2s;
+        }
+
+        aside nav button:hover, aside nav button.active {
+            color: white;
+            background: #1e293b;
+            border-left: 4px solid var(--accent);
+        }
+
+        main {
+            flex: 1;
+            padding: 24px;
+            overflow-y: auto;
+        }
+
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 24px;
+        }
+
+        .header h1 {
+            font-size: 1.4rem;
+            color: var(--primary);
+        }
+
+        .metrics-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+            gap: 16px;
+            margin-bottom: 24px;
+        }
+
+        .metric-card {
+            background: var(--card);
+            padding: 20px;
+            border-radius: 8px;
+            border: 1px solid var(--border);
+            box-shadow: 0 1px 2px rgba(0,0,0,0.05);
+        }
+
+        .metric-card .title {
+            font-size: 0.85rem;
+            color: var(--text-sub);
+            text-transform: uppercase;
+            font-weight: 600;
+        }
+
+        .metric-card .value {
+            font-size: 1.75rem;
+            font-weight: 700;
+            color: var(--primary);
+            margin-top: 8px;
+        }
+
+        .grid-layout {
+            display: grid;
+            grid-template-columns: 380px 1fr;
+            gap: 20px;
+        }
+
+        @media (max-width: 1100px) {
+            .grid-layout {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        .card {
+            background: var(--card);
+            padding: 20px;
+            border-radius: 8px;
+            border: 1px solid var(--border);
+            box-shadow: 0 1px 2px rgba(0,0,0,0.05);
+        }
+
+        .card-header-flex {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 16px;
+            border-bottom: 1px solid var(--border);
+            padding-bottom: 8px;
+        }
+
+        .card h2 {
+            font-size: 1.1rem;
+            color: var(--primary);
+        }
+
+        .form-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+        }
+
+        .form-group {
+            margin-bottom: 12px;
+        }
+
+        .form-group.full {
+            grid-column: span 2;
+        }
+
+        .form-group label {
+            display: block;
+            font-size: 0.8rem;
+            font-weight: 600;
+            margin-bottom: 4px;
+            color: var(--text-main);
+        }
+
+        .form-group input, .form-group select {
+            width: 100%;
+            padding: 8px 10px;
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            font-size: 0.85rem;
+            background: #f8fafc;
+        }
+
+        .select-with-btn {
+            display: flex;
+            gap: 6px;
+        }
+
+        .btn-add-loc {
+            background: #e2e8f0;
+            color: var(--primary);
+            border: 1px solid var(--border);
+            padding: 0 10px;
+            border-radius: 6px;
+            font-size: 1.1rem;
+            font-weight: bold;
+            cursor: pointer;
+            transition: background 0.2s;
+            white-space: nowrap;
+        }
+
+        .btn-add-loc:hover {
+            background: #cbd5e1;
+        }
+
+        .btn {
+            background: var(--accent);
+            color: white;
+            border: none;
+            padding: 10px 16px;
+            border-radius: 6px;
+            font-weight: 600;
+            cursor: pointer;
+            width: 100%;
+            transition: background 0.2s;
+            font-size: 0.9rem;
+        }
+
+        .btn:hover {
+            background: var(--accent-hover);
+        }
+
+        .btn-bulk-print {
+            background: #16a34a;
+            color: white;
+            border: none;
+            padding: 6px 12px;
+            border-radius: 6px;
+            font-size: 0.8rem;
+            font-weight: 700;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .btn-bulk-print:hover {
+            background: #15803d;
+        }
+
+        .action-btns {
+            display: flex;
+            gap: 6px;
+        }
+
+        .btn-transfer {
+            background: #0284c7;
+            color: white;
+            border: none;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 0.75rem;
+            cursor: pointer;
+            font-weight: 600;
+        }
+
+        .btn-transfer:hover {
+            background: #0369a1;
+        }
+
+        .btn-print {
+            background: #16a34a;
+            color: white;
+            border: none;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 0.75rem;
+            cursor: pointer;
+            font-weight: 600;
+        }
+
+        .btn-print:hover {
+            background: #15803d;
+        }
+
+        .table-responsive {
+            overflow-x: auto;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.85rem;
+            white-space: nowrap;
+        }
+
+        th, td {
+            padding: 10px 12px;
+            text-align: left;
+            border-bottom: 1px solid var(--border);
+        }
+
+        th {
+            background: #f8fafc;
+            color: var(--text-sub);
+            font-weight: 600;
+        }
+
+        .badge {
+            padding: 3px 6px;
+            border-radius: 4px;
+            font-size: 0.75rem;
+            font-weight: 700;
+        }
+
+        .badge-active { background: #dcfce7; color: var(--success); }
+        .badge-maintenance { background: #fef3c7; color: var(--warning); }
+        .badge-retired { background: #fee2e2; color: var(--danger); }
+
+        /* Modal Popup */
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.5);
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+        }
+
+        .modal-content {
+            background: white;
+            padding: 24px;
+            border-radius: 8px;
+            width: 400px;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.15);
+        }
+
+        .modal-content h3 {
+            margin-bottom: 12px;
+            color: var(--primary);
+        }
+
+        .modal-actions {
+            display: flex;
+            gap: 10px;
+            margin-top: 16px;
+        }
+
+        .btn-secondary {
+            background: #94a3b8;
+            color: white;
+            border: none;
+            padding: 8px 12px;
+            border-radius: 6px;
+            cursor: pointer;
+            width: 100%;
+        }
+
+        /* --- 4 INCH BY 2 INCH PRINT STYLES --- */
+        #printable-batch-container {
+            display: none;
+        }
+
+        @media print {
+            body * {
+                visibility: hidden;
+            }
+
+            @page {
+                size: 4in 2in;
+                margin: 0;
+            }
+
+            #printable-batch-container, #printable-batch-container * {
+                visibility: visible;
+            }
+
+            #printable-batch-container {
+                display: block !important;
+                position: absolute;
+                left: 0;
+                top: 0;
+                width: 4in;
+            }
+
+            .single-tag {
+                width: 4in;
+                height: 2in;
+                padding: 0.08in;
+                background: #ffffff;
+                color: #000000;
+                box-sizing: border-box;
+                font-family: Arial, Helvetica, sans-serif;
+                page-break-after: always;
+                break-after: page;
+            }
+
+            .single-tag:last-child {
+                page-break-after: avoid;
+                break-after: avoid;
+            }
+
+            .tag-border {
+                border: 2px solid #000;
+                width: 100%;
+                height: 100%;
+                padding: 5px 8px;
+                box-sizing: border-box;
+                display: flex;
+                flex-direction: column;
+                justify-content: space-between;
+            }
+
+            .tag-header {
+                text-align: center;
+                border-bottom: 1.5px solid #000;
+                padding-bottom: 3px;
+            }
+
+            .company-name {
+                font-size: 8.5pt;
+                font-weight: bold;
+                text-transform: uppercase;
+                letter-spacing: 0.1px;
+                line-height: 1.1;
+            }
+
+            .tag-title-sub {
+                font-size: 7.5pt;
+                font-weight: 800;
+                text-transform: uppercase;
+                margin-top: 2px;
+                letter-spacing: 0.8px;
+            }
+
+            .tag-body {
+                display: flex;
+                gap: 8px;
+                margin-top: 3px;
+                align-items: center;
+                flex: 1;
+            }
+
+            .tag-info {
+                flex: 1;
+                font-size: 8pt;
+                line-height: 1.3;
+            }
+
+            .tag-info-row {
+                margin-bottom: 2px;
+            }
+
+            .tag-label {
+                font-weight: bold;
+                color: #000;
+            }
+
+            .tag-qr-container {
+                width: 1.1in;
+                display: flex;
+                flex-direction: column;
+                align-items: center;
+                justify-content: center;
+            }
+
+            .qr-holder img, .qr-holder canvas {
+                width: 1in !important;
+                height: 1in !important;
+            }
+
+            .qr-subtext {
+                font-size: 6.5pt;
+                font-weight: bold;
+                margin-top: 2px;
+            }
+        }
+    </style>
+</head>
+<body>
+
+    <aside>
+        <div class="brand">DJ Hospitality & Facility Management</div>
+        <nav>
+            <button class="active">Fixed Assets Registry</button>
+        </nav>
+    </aside>
+
+    <main>
+        <div class="header">
+            <h1>DJ Hospitality — Canteen Fixed Asset Management</h1>
+        </div>
+
+        <div class="metrics-grid">
+            <div class="metric-card">
+                <div class="title">Total Registered Assets</div>
+                <div class="value" id="asset-total-count">3</div>
+            </div>
+            <div class="metric-card">
+                <div class="title">Total Asset Value</div>
+                <div class="value">$9,500.00</div>
+            </div>
+            <div class="metric-card">
+                <div class="title">Avg Depreciation Rate</div>
+                <div class="value">11.6%</div>
+            </div>
+        </div>
+
+        <div class="grid-layout">
+            <!-- Asset Entry Form -->
+            <div class="card">
+                <div class="card-header-flex">
+                    <h2>Register Fixed Asset</h2>
+                </div>
+                <form id="assetForm" onsubmit="addAssetEntry(event)">
+                    <div class="form-grid">
+                        <div class="form-group">
+                            <label>Asset Tag / ID</label>
+                            <input type="text" id="a-id" placeholder="CNT-EQ-01" required>
+                        </div>
+                        <div class="form-group">
+                            <label>Purchase Date</label>
+                            <input type="date" id="a-date" required>
+                        </div>
+                        <div class="form-group full">
+                            <label>Asset Name</label>
+                            <input type="text" id="a-name" placeholder="Commercial Oven" required>
+                        </div>
+                        <div class="form-group full">
+                            <label>Purchased From (Vendor)</label>
+                            <input type="text" id="a-vendor" placeholder="KitchenTech Corp" required>
+                        </div>
+                        <div class="form-group full">
+                            <label>Category</label>
+                            <select id="a-cat">
+                                <option>Kitchen Equipment</option>
+                                <option>Refrigeration</option>
+                                <option>Dining Furniture</option>
+                                <option>POS & Electronics</option>
+                            </select>
+                        </div>
+                        
+                        <!-- Location Field -->
+                        <div class="form-group full">
+                            <label>Current Location</label>
+                            <div class="select-with-btn">
+                                <select id="a-loc" class="location-dropdown">
+                                    <option>Main Kitchen</option>
+                                    <option>Dining Hall A</option>
+                                    <option>Dining Hall B</option>
+                                    <option>Cold Storage Unit</option>
+                                    <option>Counter POS</option>
+                                </select>
+                                <button type="button" class="btn-add-loc" onclick="promptAddNewLocation()" title="Add New Location">+</button>
+                            </div>
+                        </div>
+
+                        <div class="form-group">
+                            <label>Cost ($)</label>
+                            <input type="number" id="a-cost" placeholder="3500" required>
+                        </div>
+                        <div class="form-group">
+                            <label>Depreciation (%)</label>
+                            <input type="number" id="a-dep" placeholder="10" min="0" max="100" step="0.1" required>
+                        </div>
+                        <div class="form-group full">
+                            <label>Status</label>
+                            <select id="a-status">
+                                <option value="Active">Active</option>
+                                <option value="Under Maintenance">Under Maintenance</option>
+                                <option value="Retired">Retired</option>
+                            </select>
+                        </div>
+                    </div>
+                    <button type="submit" class="btn" style="margin-top: 10px;">Save Asset Record</button>
+                </form>
+            </div>
+
+            <!-- Fixed Asset Registry Table -->
+            <div class="card">
+                <div class="card-header-flex">
+                    <h2>Fixed Asset Master Registry</h2>
+                    <button class="btn-bulk-print" onclick="printSelectedTags()">
+                        🖨️ Print Selected Tags
+                    </button>
+                </div>
+                <div class="table-responsive">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th style="width: 30px;"><input type="checkbox" id="select-all-cb" onclick="toggleSelectAll(this)"></th>
+                                <th>Asset ID</th>
+                                <th>Name</th>
+                                <th>Purchase Date</th>
+                                <th>Purchased From</th>
+                                <th>Location</th>
+                                <th>Cost</th>
+                                <th>Depr %</th>
+                                <th>Status</th>
+                                <th>Action</th>
+                            </tr>
+                        </thead>
+                        <tbody id="asset-table-body">
+                            <tr>
+                                <td><input type="checkbox" class="asset-cb"></td>
+                                <td class="asset-id-cell">CNT-EQ-001</td>
+                                <td class="asset-name-cell">Commercial Oven 4-Burner</td>
+                                <td class="asset-date-cell">2024-03-15</td>
+                                <td>Apex Kitchen Solutions</td>
+                                <td><strong class="loc-text">Main Kitchen</strong></td>
+                                <td>$3,800</td>
+                                <td>10%</td>
+                                <td><span class="badge badge-active">Active</span></td>
+                                <td>
+                                    <div class="action-btns">
+                                        <button class="btn-transfer" onclick="openTransferModal(this)">Transfer</button>
+                                        <button class="btn-print" onclick="printSingleTag(this)">Print Tag</button>
+                                    </div>
+                                </td>
+                            </tr>
+                            <tr>
+                                <td><input type="checkbox" class="asset-cb"></td>
+                                <td class="asset-id-cell">CNT-RF-004</td>
+                                <td class="asset-name-cell">Deep Freezer Unit B</td>
+                                <td class="asset-date-cell">2023-11-20</td>
+                                <td>CoolZone Systems</td>
+                                <td><strong class="loc-text">Cold Storage Unit</strong></td>
+                                <td>$1,500</td>
+                                <td>15%</td>
+                                <td><span class="badge badge-maintenance">Maintenance</span></td>
+                                <td>
+                                    <div class="action-btns">
+                                        <button class="btn-transfer" onclick="openTransferModal(this)">Transfer</button>
+                                        <button class="btn-print" onclick="printSingleTag(this)">Print Tag</button>
+                                    </div>
+                                </td>
+                            </tr>
+                            <tr>
+                                <td><input type="checkbox" class="asset-cb"></td>
+                                <td class="asset-id-cell">CNT-FN-102</td>
+                                <td class="asset-name-cell">Stainless Steel Dining Set</td>
+                                <td class="asset-date-cell">2025-01-10</td>
+                                <td>Metro Steel Crafts</td>
+                                <td><strong class="loc-text">Dining Hall A</strong></td>
+                                <td>$4,200</td>
+                                <td>10%</td>
+                                <td><span class="badge badge-active">Active</span></td>
+                                <td>
+                                    <div class="action-btns">
+                                        <button class="btn-transfer" onclick="openTransferModal(this)">Transfer</button>
+                                        <button class="btn-print" onclick="printSingleTag(this)">Print Tag</button>
+                                    </div>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <!-- Location Transfer Modal Dialog -->
+    <div class="modal" id="transferModal">
+        <div class="modal-content">
+            <h3>Transfer Asset Location</h3>
+            <p style="font-size: 0.85rem; color: var(--text-sub); margin-bottom: 12px;" id="modal-asset-info">Asset: CNT-EQ-001</p>
+            
+            <div class="form-group">
+                <label>Select New Location</label>
+                <div class="select-with-btn">
+                    <select id="new-location-select" class="location-dropdown">
+                        <option>Main Kitchen</option>
+                        <option>Dining Hall A</option>
+                        <option>Dining Hall B</option>
+                        <option>Cold Storage Unit</option>
+                        <option>Counter POS</option>
+                    </select>
+                    <button type="button" class="btn-add-loc" onclick="promptAddNewLocation()" title="Add New Location">+</button>
+                </div>
+            </div>
+
+            <div class="modal-actions">
+                <button class="btn" onclick="confirmTransfer()">Confirm Transfer</button>
+                <button class="btn-secondary" onclick="closeModal()">Cancel</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- DYNAMIC PRINTABLE BATCH CONTAINER -->
+    <div id="printable-batch-container"></div>
+
+    <script>
+        let selectedRowForTransfer = null;
+
+        document.getElementById('a-date').valueAsDate = new Date();
+
+        function toggleSelectAll(masterCb) {
+            const checkboxes = document.querySelectorAll('.asset-cb');
+            checkboxes.forEach(cb => cb.checked = masterCb.checked);
+        }
+
+        function promptAddNewLocation() {
+            const newLoc = prompt("Enter new Canteen Location name:");
+            if (newLoc && newLoc.trim() !== "") {
+                const trimmedLoc = newLoc.trim();
+                const dropdowns = document.querySelectorAll('.location-dropdown');
+                dropdowns.forEach(select => {
+                    let exists = Array.from(select.options).some(opt => opt.value.toLowerCase() === trimmedLoc.toLowerCase());
+                    if (!exists) {
+                        const opt = document.createElement('option');
+                        opt.value = trimmedLoc;
+                        opt.textContent = trimmedLoc;
+                        select.appendChild(opt);
+                    }
+                    select.value = trimmedLoc;
+                });
+                alert(`Location "${trimmedLoc}" added!`);
+            }
+        }
+
+        function addAssetEntry(e) {
+            e.preventDefault();
+            const id = document.getElementById('a-id').value;
+            const date = document.getElementById('a-date').value;
+            const name = document.getElementById('a-name').value;
+            const vendor = document.getElementById('a-vendor').value;
+            const loc = document.getElementById('a-loc').value;
+            const cost = document.getElementById('a-cost').value;
+            const dep = document.getElementById('a-dep').value;
+            const status = document.getElementById('a-status').value;
+
+            let badgeClass = 'badge-active';
+            if(status === 'Under Maintenance') badgeClass = 'badge-maintenance';
+            if(status === 'Retired') badgeClass = 'badge-retired';
+
+            const tbody = document.getElementById('asset-table-body');
+            const row = document.createElement('tr');
+            row.innerHTML = `
+                <td><input type="checkbox" class="asset-cb"></td>
+                <td class="asset-id-cell">${id}</td>
+                <td class="asset-name-cell">${name}</td>
+                <td class="asset-date-cell">${date}</td>
+                <td>${vendor}</td>
+                <td><strong class="loc-text">${loc}</strong></td>
+                <td>$${parseFloat(cost).toLocaleString()}</td>
+                <td>${dep}%</td>
+                <td><span class="badge ${badgeClass}">${status}</span></td>
+                <td>
+                    <div class="action-btns">
+                        <button class="btn-transfer" onclick="openTransferModal(this)">Transfer</button>
+                        <button class="btn-print" onclick="printSingleTag(this)">Print Tag</button>
+                    </div>
+                </td>
+            `;
+            tbody.insertBefore(row, tbody.firstChild);
+
+            const countElem = document.getElementById('asset-total-count');
+            countElem.innerText = parseInt(countElem.innerText) + 1;
+
+            document.getElementById('assetForm').reset();
+            document.getElementById('a-date').valueAsDate = new Date();
+        }
+
+        function openTransferModal(btn) {
+            selectedRowForTransfer = btn.closest('tr');
+            const assetId = selectedRowForTransfer.querySelector('.asset-id-cell').innerText;
+            const assetName = selectedRowForTransfer.querySelector('.asset-name-cell').innerText;
+            const currentLoc = selectedRowForTransfer.querySelector('.loc-text').innerText;
+
+            document.getElementById('modal-asset-info').innerText = `Asset: ${assetId} - ${assetName} (Current: ${currentLoc})`;
+            document.getElementById('transferModal').style.display = 'flex';
+        }
+
+        function closeModal() {
+            document.getElementById('transferModal').style.display = 'none';
+            selectedRowForTransfer = null;
+        }
+
+        function confirmTransfer() {
+            if (selectedRowForTransfer) {
+                const newLoc = document.getElementById('new-location-select').value;
+                selectedRowForTransfer.querySelector('.loc-text').innerText = newLoc;
+                closeModal();
+            }
+        }
+
+        // Helper to construct tag HTML
+        function createTagElement(assetId, assetName, purchaseDate, location, index) {
+            const tagDiv = document.createElement('div');
+            tagDiv.className = 'single-tag';
+            const qrId = `qr-target-${index}`;
+
+            tagDiv.innerHTML = `
+                <div class="tag-border">
+                    <div class="tag-header">
+                        <div class="company-name">DJ Hospitality & Facility Management Private Limited</div>
+                        <div class="tag-title-sub">CANTEEN FIXED ASSET</div>
+                    </div>
+                    <div class="tag-body">
+                        <div class="tag-info">
+                            <div class="tag-info-row">
+                                <span class="tag-label">ASSET ID:</span>
+                                <strong>${assetId}</strong>
+                            </div>
+                            <div class="tag-info-row">
+                                <span class="tag-label">NAME:</span>
+                                <span>${assetName}</span>
+                            </div>
+                            <div class="tag-info-row">
+                                <span class="tag-label">PURCHASED:</span>
+                                <span>${purchaseDate}</span>
+                            </div>
+                            <div class="tag-info-row">
+                                <span class="tag-label">LOCATION:</span>
+                                <span>${location}</span>
+                            </div>
+                        </div>
+                        <div class="tag-qr-container">
+                            <div id="${qrId}" class="qr-holder"></div>
+                            <div class="qr-subtext">${assetId}</div>
+                        </div>
+                    </div>
+                </div>
+            `;
+            return { tagDiv, qrId };
+        }
+
+        // PRINT SINGLE TAG (EXACTLY 1 PAGE)
+        function printSingleTag(btn) {
+            const row = btn.closest('tr');
+            const items = [extractRowData(row)];
+            renderAndPrintTags(items);
+        }
+
+        // PRINT BULK / MULTI-SELECTED TAGS
+        function printSelectedTags() {
+            const selectedRows = document.querySelectorAll('.asset-cb:checked');
+            if (selectedRows.length === 0) {
+                alert("Please select at least one asset using the checkboxes.");
+                return;
+            }
+
+            const items = Array.from(selectedRows).map(cb => extractRowData(cb.closest('tr')));
+            renderAndPrintTags(items);
+        }
+
+        function extractRowData(row) {
+            return {
+                id: row.querySelector('.asset-id-cell').innerText,
+                name: row.querySelector('.asset-name-cell').innerText,
+                date: row.querySelector('.asset-date-cell').innerText,
+                loc: row.querySelector('.loc-text').innerText
+            };
+        }
+
+        function renderAndPrintTags(items) {
+            const container = document.getElementById('printable-batch-container');
+            container.innerHTML = '';
+
+            items.forEach((item, idx) => {
+                const { tagDiv, qrId } = createTagElement(item.id, item.name, item.date, item.loc, idx);
+                container.appendChild(tagDiv);
+
+                const qrData = `Asset ID: ${item.id}\nName: ${item.name}\nDate: ${item.date}\nLoc: ${item.loc}\nOwner: DJ Hospitality`;
+                new QRCode(document.getElementById(qrId), {
+                    text: qrData,
+                    width: 96,
+                    height: 96,
+                    colorDark: "#000000",
+                    colorLight: "#ffffff",
+                    correctLevel: QRCode.CorrectLevel.H
+                });
+            });
+
+            setTimeout(() => {
+                window.print();
+            }, 150);
+        }
+    </script>
+</body>
+</html>

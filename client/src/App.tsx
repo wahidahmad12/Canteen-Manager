@@ -38,6 +38,7 @@ import EpfoEsic from "./pages/epfo-esic";
 import LetterheadPage from "./pages/letterhead";
 import PtaxReport from "./pages/ptax-report";
 import SalesInvoicePage from "./pages/sales-invoice";
+import FixedAssetsPage from "./pages/fixed-assets";
 import SalesDashboard from "./pages/sales-dashboard";
 import DailyPnlPage from "./pages/daily-pnl";
 import MonthlyPnlPage from "./pages/monthly-pnl";
@@ -155,6 +156,7 @@ function AuthenticatedRouter() {
       <Route path="/weekly-bom" component={WeeklyBomPage} />
       <Route path="/price-history">{() => <PermRoute perm="purchase"><PriceHistoryPage /></PermRoute>}</Route>
       <Route path="/item-stock-report">{() => <PermRoute perm="purchase"><ItemStockReportPage /></PermRoute>}</Route>
+      <Route path="/fixed-assets" component={FixedAssetsPage} />
       <Route path="/qr-scanner" component={QrScannerPage} />
       <Route path="/daily-attendance">{() => <PermRoute perm="attendance"><DailyAttendancePage /></PermRoute>}</Route>
       <Route path="/attendance-report">{() => <PermRoute perm="attendance"><AttendanceReportPage /></PermRoute>}</Route>

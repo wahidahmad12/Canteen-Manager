@@ -89,6 +89,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
     { href: '/sales-invoice', label: tr('salesInvoiceLedger'), icon: FileText, perm: 'salesinvoice' },
     { href: '/daily-pnl', label: tr('dailyPnl'), icon: BarChart3, perm: null },
     { href: '/monthly-pnl', label: tr('monthlyPnl'), icon: IndianRupee, perm: null },
+    { href: '/fixed-assets', label: 'Fixed Assets', icon: Package, perm: null },
     { href: '/qr-scanner', label: 'QR Scanner', icon: QrCode, perm: null },
     { href: '/daily-attendance', label: 'Fingerprint Entry', icon: Fingerprint, perm: 'attendance' },
     { href: '/attendance-report', label: 'Attendance Report', icon: CalendarDays, perm: 'attendance' },

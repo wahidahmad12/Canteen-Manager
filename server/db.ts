@@ -91,6 +91,20 @@ async function initPool(): Promise<void> {
       item_name VARCHAR(200) NOT NULL,
       UNIQUE KEY uq_menu_cat_item (category_name, item_name)
     )`,
+    `CREATE TABLE IF NOT EXISTS fixed_assets (
+      id INT AUTO_INCREMENT PRIMARY KEY,
+      asset_tag VARCHAR(100) NOT NULL,
+      name VARCHAR(255) NOT NULL,
+      purchase_date VARCHAR(10) NOT NULL,
+      vendor VARCHAR(255) DEFAULT '',
+      category VARCHAR(100) DEFAULT '',
+      location VARCHAR(200) DEFAULT '',
+      cost DECIMAL(12,2) DEFAULT '0',
+      depreciation_percent DECIMAL(5,2) DEFAULT '0',
+      status VARCHAR(30) DEFAULT 'Active',
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      UNIQUE KEY uq_fixed_asset_tag (asset_tag)
+    )`,
     `CREATE TABLE IF NOT EXISTS tax_invoices (
       id INT AUTO_INCREMENT PRIMARY KEY,
       invoice_number VARCHAR(50) NOT NULL,

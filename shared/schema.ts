@@ -47,6 +47,24 @@ export const insertBananaRateSchema = createInsertSchema(bananaRates).omit({ id:
 export type InsertBananaRate = z.infer<typeof insertBananaRateSchema>;
 export type BananaRate = typeof bananaRates.$inferSelect;
 
+// Fixed Asset Management — canteen fixed asset registry with QR tag printing
+export const fixedAssets = mysqlTable("fixed_assets", {
+  id: int("id").autoincrement().primaryKey(),
+  assetTag: varchar("asset_tag", { length: 100 }).notNull().unique(),
+  name: varchar("name", { length: 255 }).notNull(),
+  purchaseDate: varchar("purchase_date", { length: 10 }).notNull(), // YYYY-MM-DD
+  vendor: varchar("vendor", { length: 255 }).default(""),
+  category: varchar("category", { length: 100 }).default(""),
+  location: varchar("location", { length: 200 }).default(""),
+  cost: decimal("cost", { precision: 12, scale: 2 }).default("0"),
+  depreciationPercent: decimal("depreciation_percent", { precision: 5, scale: 2 }).default("0"),
+  status: varchar("status", { length: 30 }).default("Active"),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+export const insertFixedAssetSchema = createInsertSchema(fixedAssets).omit({ id: true, createdAt: true });
+export type InsertFixedAsset = z.infer<typeof insertFixedAssetSchema>;
+export type FixedAsset = typeof fixedAssets.$inferSelect;
+
 // Stores cash seal (income vs expense) per day
 export const cashSeals = mysqlTable("cash_seals", {
   id: int("id").autoincrement().primaryKey(),

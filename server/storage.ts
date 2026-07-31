@@ -56,6 +56,9 @@ import {
   type PecVenturesRate,
   bananaRates,
   type BananaRate,
+  fixedAssets,
+  type FixedAsset,
+  type InsertFixedAsset,
   type MenuCategoryItem,
   menuCategoryItems,
   type DailyPnlEntry,
@@ -340,6 +343,10 @@ export interface IStorage {
   getMonthlyPnl(month: number, year: number, clients?: string[]): Promise<any>;
   // Banana expense rate schedule (date-effective, admin-editable)
   getBananaRates(): Promise<BananaRate[]>;
+  getFixedAssets(): Promise<FixedAsset[]>;
+  createFixedAsset(data: InsertFixedAsset): Promise<FixedAsset>;
+  updateFixedAsset(id: number, data: Partial<InsertFixedAsset>): Promise<FixedAsset | undefined>;
+  deleteFixedAsset(id: number): Promise<void>;
   createBananaRate(data: { effectiveDate: string; rate: string | number }): Promise<BananaRate>;
   updateBananaRate(id: number, data: { effectiveDate?: string; rate?: string | number }): Promise<BananaRate | undefined>;
   deleteBananaRate(id: number): Promise<void>;
@@ -3338,6 +3345,31 @@ export class DatabaseStorage implements IStorage {
 
   async deleteBananaRate(id: number): Promise<void> {
     await db.delete(bananaRates).where(eq(bananaRates.id, id));
+  }
+
+  // === FIXED ASSET MANAGEMENT ===
+  async getFixedAssets(): Promise<FixedAsset[]> {
+    return await db.select().from(fixedAssets).orderBy(desc(fixedAssets.id));
+  }
+
+  async createFixedAsset(data: InsertFixedAsset): Promise<FixedAsset> {
+    await db.insert(fixedAssets).values(data);
+    // asset_tag is unique, so look the row up by its natural key (connection-safe,
+    // unlike LAST_INSERT_ID() which is connection-scoped on a shared pool).
+    const [row] = await db.select().from(fixedAssets).where(eq(fixedAssets.assetTag, data.assetTag));
+    return row;
+  }
+
+  async updateFixedAsset(id: number, data: Partial<InsertFixedAsset>): Promise<FixedAsset | undefined> {
+    if (Object.keys(data).length > 0) {
+      await db.update(fixedAssets).set(data).where(eq(fixedAssets.id, id));
+    }
+    const [row] = await db.select().from(fixedAssets).where(eq(fixedAssets.id, id));
+    return row;
+  }
+
+  async deleteFixedAsset(id: number): Promise<void> {
+    await db.delete(fixedAssets).where(eq(fixedAssets.id, id));
   }
 
   // === MENU CATEGORY CUSTOM ITEMS ===
