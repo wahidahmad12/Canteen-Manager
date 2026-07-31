@@ -1470,7 +1470,67 @@ export class DatabaseStorage implements IStorage {
     });
     const id = await getInsertId(db);
     const [payment] = await db.select().from(purchaseInvoicePayments).where(eq(purchaseInvoicePayments.id, id));
+    // If this payment overpaid the bill, auto-move the extra onto the vendor's later unpaid bills
+    try {
+      await this.applyExcessToLaterInvoices(data.invoiceId);
+    } catch (e) {
+      console.error("Vendor advance forward auto-adjust failed:", e);
+    }
     return payment;
+  }
+
+  // If this bill is now overpaid, move the extra money forward onto the vendor's
+  // later bills (oldest first) using the same paired transfer entries.
+  async applyExcessToLaterInvoices(invoiceId: number): Promise<void> {
+    const toPaise = (v: unknown) => Math.round((Number(v) || 0) * 100);
+    const fromPaise = (p: number) => (p / 100).toFixed(2);
+
+    await db.transaction(async (tx) => {
+      const [srcRows] = await tx.execute(sql`SELECT * FROM purchase_invoices WHERE id = ${invoiceId} FOR UPDATE`) as any;
+      const srcInv = (Array.isArray(srcRows) ? srcRows[0] : srcRows) as any;
+      if (!srcInv) return;
+
+      const srcPayments = await tx.select().from(purchaseInvoicePayments).where(eq(purchaseInvoicePayments.invoiceId, invoiceId));
+      const srcPaid = srcPayments.reduce((s, p) => s + toPaise(p.amount), 0);
+      let excess = srcPaid - toPaise(srcInv.grand_total);
+      if (excess <= 0) return;
+
+      // Later bills of the same vendor (by date, then id), oldest first, locked
+      const [laterRows] = await tx.execute(sql`
+        SELECT * FROM purchase_invoices
+        WHERE vendor_name = ${srcInv.vendor_name}
+          AND (date > ${srcInv.date} OR (date = ${srcInv.date} AND id > ${invoiceId}))
+        ORDER BY date ASC, id ASC
+        FOR UPDATE`) as any;
+      const laterInvoices: any[] = Array.isArray(laterRows) ? laterRows : [];
+      if (laterInvoices.length === 0) return;
+
+      const today = new Date().toISOString().slice(0, 10);
+      const srcRef = srcInv.dj_invoice_no || srcInv.vendor_invoice_no || `#${srcInv.id}`;
+
+      for (const nextInv of laterInvoices) {
+        if (excess <= 0) break;
+        const nextPayments = await tx.select().from(purchaseInvoicePayments).where(eq(purchaseInvoicePayments.invoiceId, nextInv.id));
+        const nextPaid = nextPayments.reduce((s, p) => s + toPaise(p.amount), 0);
+        const need = toPaise(nextInv.grand_total) - nextPaid;
+        if (need <= 0) continue;
+        const transfer = Math.min(excess, need);
+        const nextRef = nextInv.dj_invoice_no || nextInv.vendor_invoice_no || `#${nextInv.id}`;
+        await tx.insert(purchaseInvoicePayments).values({
+          invoiceId: invoiceId,
+          paymentDate: today,
+          amount: fromPaise(-transfer),
+          notes: `Advance transferred to bill ${nextRef}`,
+        });
+        await tx.insert(purchaseInvoicePayments).values({
+          invoiceId: nextInv.id,
+          paymentDate: today,
+          amount: fromPaise(transfer),
+          notes: `Auto adjusted from advance of bill ${srcRef}`,
+        });
+        excess -= transfer;
+      }
+    });
   }
 
   async updatePurchaseInvoicePayment(id: number, data: { paymentDate: string; amount: number; notes?: string }): Promise<PurchaseInvoicePayment> {
