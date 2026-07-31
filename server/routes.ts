@@ -866,6 +866,22 @@ export async function registerRoutes(
     }
   });
 
+  app.post(api.purchaseInvoices.applyAdvance.path, requirePermission('purchase'), async (req, res) => {
+    try {
+      const invoice = await storage.getPurchaseInvoice(Number(req.params.id));
+      if (!invoice) return res.status(404).json({ message: "Invoice not found" });
+      if (req.session.role !== 'admin' && invoice.createdBy !== req.session.displayName && invoice.createdBy !== req.session.username) {
+        return res.status(403).json({ message: "Access denied" });
+      }
+      // Pull any available advance from earlier bills, then push any excess forward
+      await storage.applyVendorAdvanceToInvoice(invoice.id);
+      await storage.applyExcessToLaterInvoices(invoice.id);
+      res.json({ message: "Advance adjustment updated" });
+    } catch (e: any) {
+      res.status(500).json({ message: e.message });
+    }
+  });
+
   app.get(api.purchaseInvoices.getPayments.path, requirePermission('purchase'), async (req, res) => {
     const invoice = await storage.getPurchaseInvoice(Number(req.params.id));
     if (!invoice) return res.status(404).json({ message: "Invoice not found" });

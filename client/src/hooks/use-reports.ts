@@ -1067,6 +1067,24 @@ export function useAddPurchaseInvoicePayment() {
   });
 }
 
+export function useApplyVendorAdvance() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (invoiceId: number) => {
+      const url = buildUrl(api.purchaseInvoices.applyAdvance.path, { id: invoiceId });
+      const res = await fetch(url, { method: "POST", credentials: "include" });
+      if (!res.ok) {
+        const error = await res.json();
+        throw new Error(error.message || "Failed to update advance adjustment");
+      }
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: [api.purchaseInvoices.list.path] });
+    },
+  });
+}
+
 export function useUpdatePurchaseInvoicePayment() {
   const queryClient = useQueryClient();
   return useMutation({

@@ -8,9 +8,9 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Checkbox } from "@/components/ui/checkbox";
 import { format, parse } from "date-fns";
-import { FileText, Plus, Trash2, Save, Loader2, ArrowLeft, Receipt, Store, ChevronDown, ChevronUp, IndianRupee, CalendarCheck, CheckCircle2, Clock, ListChecks, X, Pencil, Printer, Calculator } from "lucide-react";
+import { FileText, Plus, Trash2, Save, Loader2, ArrowLeft, Receipt, Store, ChevronDown, ChevronUp, IndianRupee, CalendarCheck, CheckCircle2, Clock, ListChecks, X, Pencil, Printer, Calculator, RefreshCw } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import { useCreatePurchaseInvoice, useClientNames, useVendors, useCreateVendor, usePurchaseRequests, usePurchaseInvoice, useUpdatePurchaseInvoice, useLastPurchasePrices, useItemMaster, useNextDjInvoiceNo, useAddPurchaseInvoicePayment, useUpdatePurchaseInvoicePayment, useDeletePurchaseInvoicePayment } from "@/hooks/use-reports";
+import { useCreatePurchaseInvoice, useClientNames, useVendors, useCreateVendor, usePurchaseRequests, usePurchaseInvoice, useUpdatePurchaseInvoice, useLastPurchasePrices, useItemMaster, useNextDjInvoiceNo, useAddPurchaseInvoicePayment, useUpdatePurchaseInvoicePayment, useDeletePurchaseInvoicePayment, useApplyVendorAdvance } from "@/hooks/use-reports";
 import { useLocation, useRoute, Link } from "wouter";
 import { Label } from "@/components/ui/label";
 import {
@@ -185,6 +185,7 @@ export default function PurchaseInvoice() {
   const { data: purchaseItemMaster } = useItemMaster("purchase");
   const { data: nextDjNo } = useNextDjInvoiceNo();
   const addPaymentMutation = useAddPurchaseInvoicePayment();
+  const applyAdvanceMutation = useApplyVendorAdvance();
   const updatePaymentMutation = useUpdatePurchaseInvoicePayment();
   const deletePaymentMutation = useDeletePurchaseInvoicePayment();
 
@@ -858,6 +859,19 @@ export default function PurchaseInvoice() {
               </div>
               {editId && (
                 <div className="flex items-center gap-3 text-xs text-white/80">
+                  <button
+                    type="button"
+                    onClick={() => applyAdvanceMutation.mutate(editId, {
+                      onSuccess: () => toast({ title: "Advance adjustment updated" }),
+                      onError: (e: any) => toast({ title: e.message || "Update failed", variant: "destructive" }),
+                    })}
+                    disabled={applyAdvanceMutation.isPending}
+                    className="flex items-center gap-1 bg-white/15 hover:bg-white/25 rounded px-2 py-1 font-semibold text-white transition-colors disabled:opacity-60"
+                    title="Re-check this vendor's bills and apply any advance automatically"
+                    data-testid="button-apply-advance"
+                  >
+                    {applyAdvanceMutation.isPending ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <RefreshCw className="w-3.5 h-3.5" />} Update
+                  </button>
                   <span>Grand Total: <span className="font-mono font-bold text-white">₹{totals.netAmount.toFixed(2)}</span></span>
                   <span>Paid: <span className="font-mono font-bold text-white">₹{totalPaid.toFixed(2)}</span></span>
                   {!isPaid && balance > 0 && <span>Balance: <span className="font-mono font-bold text-yellow-200">₹{balance.toFixed(2)}</span></span>}

@@ -602,6 +602,13 @@ export const api = {
         200: z.object({ djInvoiceNo: z.string() }),
       },
     },
+    applyAdvance: {
+      method: 'POST' as const,
+      path: '/api/purchase-invoices/:id/apply-advance' as const,
+      responses: {
+        200: z.object({ message: z.string() }),
+      },
+    },
     getPayments: {
       method: 'GET' as const,
       path: '/api/purchase-invoices/:id/payments' as const,
