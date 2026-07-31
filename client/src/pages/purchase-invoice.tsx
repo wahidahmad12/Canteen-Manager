@@ -857,6 +857,7 @@ export default function PurchaseInvoice() {
                   <span>Grand Total: <span className="font-mono font-bold text-white">₹{totals.netAmount.toFixed(2)}</span></span>
                   <span>Paid: <span className="font-mono font-bold text-white">₹{totalPaid.toFixed(2)}</span></span>
                   {!isPaid && balance > 0 && <span>Balance: <span className="font-mono font-bold text-yellow-200">₹{balance.toFixed(2)}</span></span>}
+                  {balance < 0 && <span>Extra Paid: <span className="font-mono font-bold text-emerald-200">₹{Math.abs(balance).toFixed(2)}</span></span>}
                 </div>
               )}
             </CardTitle>
@@ -876,13 +877,18 @@ export default function PurchaseInvoice() {
                   <div className="space-y-1.5">
                     <div className="flex justify-between text-xs text-muted-foreground">
                       <span>Payment Progress</span>
-                      <span className="font-semibold">{Math.min(100, Math.round((totalPaid / totals.netAmount) * 100))}%</span>
+                      <span className="font-semibold">{Math.round((totalPaid / totals.netAmount) * 100)}%</span>
                     </div>
                     <div className="h-2.5 bg-muted rounded-full overflow-hidden">
                       <div
                         className={`h-full rounded-full transition-all ${isPaid ? 'bg-emerald-500' : 'bg-violet-500'}`}
                         style={{ width: `${Math.min(100, (totalPaid / totals.netAmount) * 100)}%` }}
                       />
+                    </div>
+                    <div className="flex justify-end text-xs font-semibold">
+                      {balance > 0 && <span className="text-rose-600">Balance: ₹{balance.toFixed(2)}</span>}
+                      {balance < 0 && <span className="text-emerald-600">Extra Paid: ₹{Math.abs(balance).toFixed(2)} — will adjust against this vendor's next bill</span>}
+                      {balance === 0 && <span className="text-emerald-600">Fully settled</span>}
                     </div>
                   </div>
                 )}

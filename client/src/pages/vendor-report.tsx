@@ -32,6 +32,7 @@ interface VendorSummary {
   grandTotal: number;
   totalPaid: number;
   totalBalance: number;
+  extraPaid: number;
   invoiceCount: number;
   paidCount: number;
   partialCount: number;
@@ -101,45 +102,54 @@ export default function VendorReport() {
   const getInvPaid = (inv: any) => (inv.payments || []).reduce((s: number, p: any) => s + Number(p.amount), 0);
 
   const summaryData = useMemo(() => {
-    const map = new Map<string, VendorSummary>();
-
+    // Group invoices per vendor/client (filteredInvoices is already sorted by date asc)
+    const groups = new Map<string, any[]>();
     filteredInvoices.forEach((inv: any) => {
       const key = groupBy === "vendor" ? inv.vendorName : inv.clientName;
+      const list = groups.get(key) || [];
+      list.push(inv);
+      groups.set(key, list);
+    });
 
-      const existing = map.get(key) || {
-        vendorName: groupBy === "vendor" ? inv.vendorName : "",
-        clientName: groupBy === "client" ? inv.clientName : "",
+    // Cross-invoice payment allocation: all money paid to a vendor is pooled and
+    // applied to that vendor's bills oldest-first, so an overpayment on one bill
+    // automatically settles the next bill(s). Leftover money = advance (extra paid).
+    const result: VendorSummary[] = [];
+    groups.forEach((invs, key) => {
+      const row: VendorSummary = {
+        vendorName: groupBy === "vendor" ? key : "",
+        clientName: groupBy === "client" ? key : "",
         totalBillAmount: 0,
         totalGst: 0,
         grandTotal: 0,
         totalPaid: 0,
         totalBalance: 0,
+        extraPaid: 0,
         invoiceCount: 0,
         paidCount: 0,
         partialCount: 0,
         unpaidCount: 0,
       };
-
-      const grand = Number(inv.grandTotal) || 0;
-      const paid = getInvPaid(inv);
-      existing.totalBillAmount += Number(inv.totalAmount) || 0;
-      existing.totalGst += Number(inv.totalGst) || 0;
-      existing.grandTotal += grand;
-      existing.totalPaid += paid;
-      existing.invoiceCount++;
-      if (paid >= grand && grand > 0) existing.paidCount++;
-      else if (paid > 0) existing.partialCount++;
-      else existing.unpaidCount++;
-
-      map.set(key, existing);
-    });
-
-    // Compute balance at the vendor/group level so cross-invoice overpayments
-    // are correctly offset (e.g. paying ₹60k against a ₹48k invoice should
-    // reduce the outstanding balance of other invoices for the same vendor).
-    const result = Array.from(map.values());
-    result.forEach(row => {
+      invs.forEach((inv: any) => {
+        row.totalBillAmount += Number(inv.totalAmount) || 0;
+        row.totalGst += Number(inv.totalGst) || 0;
+        row.grandTotal += Number(inv.grandTotal) || 0;
+        row.totalPaid += getInvPaid(inv);
+        row.invoiceCount++;
+      });
+      // Allocate the pooled payments to bills oldest-first
+      let pool = row.totalPaid;
+      invs.forEach((inv: any) => {
+        const grand = Number(inv.grandTotal) || 0;
+        const alloc = Math.min(grand, pool);
+        pool -= alloc;
+        if (alloc >= grand && grand > 0) row.paidCount++;
+        else if (alloc > 0) row.partialCount++;
+        else row.unpaidCount++;
+      });
       row.totalBalance = Math.max(0, row.grandTotal - row.totalPaid);
+      row.extraPaid = Math.max(0, row.totalPaid - row.grandTotal);
+      result.push(row);
     });
 
     return result.sort((a, b) =>
@@ -157,12 +167,13 @@ export default function VendorReport() {
         grandTotal: acc.grandTotal + row.grandTotal,
         totalPaid: acc.totalPaid + row.totalPaid,
         totalBalance: acc.totalBalance + row.totalBalance,
+        extraPaid: acc.extraPaid + row.extraPaid,
         invoiceCount: acc.invoiceCount + row.invoiceCount,
         paidCount: acc.paidCount + row.paidCount,
         partialCount: acc.partialCount + row.partialCount,
         unpaidCount: acc.unpaidCount + row.unpaidCount,
       }),
-      { totalBillAmount: 0, totalGst: 0, grandTotal: 0, totalPaid: 0, totalBalance: 0, invoiceCount: 0, paidCount: 0, partialCount: 0, unpaidCount: 0 }
+      { totalBillAmount: 0, totalGst: 0, grandTotal: 0, totalPaid: 0, totalBalance: 0, extraPaid: 0, invoiceCount: 0, paidCount: 0, partialCount: 0, unpaidCount: 0 }
     );
   }, [summaryData]);
 
@@ -568,7 +579,13 @@ export default function VendorReport() {
                           <td className="py-2.5 px-3 text-right font-mono text-amber-600 dark:text-amber-400">₹{fmt(row.totalGst)}</td>
                           <td className="py-2.5 px-3 text-right font-mono font-bold text-indigo-600 dark:text-indigo-400">₹{fmt(row.grandTotal)}</td>
                           <td className="py-2.5 px-3 text-right font-mono font-semibold text-emerald-600 dark:text-emerald-400 print:text-green-700">₹{fmt(row.totalPaid)}</td>
-                          <td className="py-2.5 px-3 text-right font-mono font-bold text-rose-600 dark:text-rose-400 print:text-red-700">₹{fmt(row.totalBalance)}</td>
+                          <td className="py-2.5 px-3 text-right font-mono font-bold print:text-red-700">
+                            {row.extraPaid > 0 ? (
+                              <span className="text-emerald-600 dark:text-emerald-400">+₹{fmt(row.extraPaid)} Adv</span>
+                            ) : (
+                              <span className="text-rose-600 dark:text-rose-400">₹{fmt(row.totalBalance)}</span>
+                            )}
+                          </td>
                           <td className="py-2.5 px-3 text-center text-[10px] space-x-1">
                             {row.paidCount > 0 && <span className="inline-block bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400 px-1.5 py-0.5 rounded font-semibold">{row.paidCount}P</span>}
                             {row.partialCount > 0 && <span className="inline-block bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400 px-1.5 py-0.5 rounded font-semibold">{row.partialCount}~</span>}
@@ -587,7 +604,12 @@ export default function VendorReport() {
                         <td className="py-3 px-3 text-right font-mono font-bold text-amber-600">₹{fmt(grandTotals.totalGst)}</td>
                         <td className="py-3 px-3 text-right font-mono font-bold text-indigo-700 dark:text-indigo-400">₹{fmt(grandTotals.grandTotal)}</td>
                         <td className="py-3 px-3 text-right font-mono font-bold text-emerald-600 print:text-green-700">₹{fmt(grandTotals.totalPaid)}</td>
-                        <td className="py-3 px-3 text-right font-mono font-bold text-rose-600 print:text-red-700">₹{fmt(grandTotals.totalBalance)}</td>
+                        <td className="py-3 px-3 text-right font-mono font-bold print:text-red-700">
+                          <span className="text-rose-600">₹{fmt(grandTotals.totalBalance)}</span>
+                          {grandTotals.extraPaid > 0 && (
+                            <div className="text-[10px] font-semibold text-emerald-600">+₹{fmt(grandTotals.extraPaid)} Adv</div>
+                          )}
+                        </td>
                         <td className="py-3 px-3 text-center text-[10px] space-x-1">
                           {grandTotals.paidCount > 0 && <span className="inline-block bg-emerald-100 text-emerald-700 px-1.5 py-0.5 rounded font-semibold">{grandTotals.paidCount}P</span>}
                           {grandTotals.partialCount > 0 && <span className="inline-block bg-amber-100 text-amber-700 px-1.5 py-0.5 rounded font-semibold">{grandTotals.partialCount}~</span>}
@@ -628,10 +650,17 @@ export default function VendorReport() {
                             <p className="text-[10px] text-emerald-600 dark:text-emerald-400 font-semibold">Paid</p>
                             <p className="text-sm font-bold text-emerald-700 dark:text-emerald-300">₹{fmt(row.totalPaid)}</p>
                           </div>
-                          <div className="bg-rose-50 dark:bg-rose-900/20 rounded-lg p-2 text-center">
-                            <p className="text-[10px] text-rose-600 dark:text-rose-400 font-semibold">Balance</p>
-                            <p className="text-sm font-bold text-rose-700 dark:text-rose-300">₹{fmt(row.totalBalance)}</p>
-                          </div>
+                          {row.extraPaid > 0 ? (
+                            <div className="bg-emerald-50 dark:bg-emerald-900/20 rounded-lg p-2 text-center">
+                              <p className="text-[10px] text-emerald-600 dark:text-emerald-400 font-semibold">Advance</p>
+                              <p className="text-sm font-bold text-emerald-700 dark:text-emerald-300">+₹{fmt(row.extraPaid)}</p>
+                            </div>
+                          ) : (
+                            <div className="bg-rose-50 dark:bg-rose-900/20 rounded-lg p-2 text-center">
+                              <p className="text-[10px] text-rose-600 dark:text-rose-400 font-semibold">Balance</p>
+                              <p className="text-sm font-bold text-rose-700 dark:text-rose-300">₹{fmt(row.totalBalance)}</p>
+                            </div>
+                          )}
                         </div>
                       </CardContent>
                     </Card>
