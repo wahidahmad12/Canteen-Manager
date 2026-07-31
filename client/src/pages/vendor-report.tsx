@@ -53,6 +53,8 @@ export default function VendorReport() {
   const [clientFilter, setClientFilter] = useState<string>("all");
   const [groupBy, setGroupBy] = useState<"vendor" | "client">("vendor");
   const [paymentReportFor, setPaymentReportFor] = useState<string | null>(null);
+  const [prYear, setPrYear] = useState<string>("all");
+  const [prMonth, setPrMonth] = useState<string>("all");
 
   const handlePresetChange = (preset: DatePreset) => {
     setDatePreset(preset);
@@ -127,8 +129,19 @@ export default function VendorReport() {
       });
     });
     payments.sort((a, b) => b.date.localeCompare(a.date));
+    // Options for the dialog's own filters (from the unfiltered list)
+    const yearOptions = Array.from(new Set(payments.map((p) => p.yearKey))).sort().reverse();
+    const monthOptions = Array.from(new Set(
+      payments
+        .filter((p) => prYear === "all" || p.yearKey === prYear)
+        .map((p) => p.monthKey)
+    ));
+    const visible = payments.filter((p) =>
+      (prYear === "all" || p.yearKey === prYear) &&
+      (prMonth === "all" || p.monthKey === prMonth)
+    );
     const years = new Map<string, { months: Map<string, { payments: typeof payments; total: number }>; total: number }>();
-    payments.forEach((p) => {
+    visible.forEach((p) => {
       const y = years.get(p.yearKey) || { months: new Map(), total: 0 };
       const m = y.months.get(p.monthKey) || { payments: [] as typeof payments, total: 0 };
       m.payments.push(p);
@@ -137,9 +150,9 @@ export default function VendorReport() {
       y.total += p.amount;
       years.set(p.yearKey, y);
     });
-    const grand = payments.reduce((s, p) => s + p.amount, 0);
-    return { years, grand, count: payments.length };
-  }, [paymentReportFor, filteredInvoices, groupBy]);
+    const grand = visible.reduce((s, p) => s + p.amount, 0);
+    return { years, grand, count: visible.length, totalCount: payments.length, yearOptions, monthOptions };
+  }, [paymentReportFor, filteredInvoices, groupBy, prYear, prMonth]);
 
   const summaryData = useMemo(() => {
     // Group invoices per vendor/client (filteredInvoices is already sorted by date asc)
@@ -732,7 +745,7 @@ export default function VendorReport() {
           </CardContent>
         </Card>
 
-        <Dialog open={!!paymentReportFor} onOpenChange={(o) => { if (!o) setPaymentReportFor(null); }}>
+        <Dialog open={!!paymentReportFor} onOpenChange={(o) => { if (!o) { setPaymentReportFor(null); setPrYear("all"); setPrMonth("all"); } }}>
           <DialogContent className="max-w-lg max-h-[85vh] overflow-y-auto" data-testid="dialog-payment-report">
             <DialogHeader>
               <DialogTitle className="flex items-center gap-2">
@@ -740,8 +753,44 @@ export default function VendorReport() {
                 {paymentReportFor} — Payment Report
               </DialogTitle>
             </DialogHeader>
+            <div className="grid grid-cols-3 gap-2">
+              <div>
+                <Label className="text-[10px] text-muted-foreground">{groupBy === "vendor" ? "Vendor" : "Client"}</Label>
+                <Select value={paymentReportFor || ""} onValueChange={(v) => { setPaymentReportFor(v); setPrYear("all"); setPrMonth("all"); }}>
+                  <SelectTrigger className="h-8 text-xs" data-testid="select-pr-entity"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    {summaryData.map((r, i) => {
+                      const name = groupBy === "vendor" ? r.vendorName : r.clientName;
+                      return <SelectItem key={i} value={name}>{name}</SelectItem>;
+                    })}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <Label className="text-[10px] text-muted-foreground">Year</Label>
+                <Select value={prYear} onValueChange={(v) => { setPrYear(v); setPrMonth("all"); }}>
+                  <SelectTrigger className="h-8 text-xs" data-testid="select-pr-year"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Years</SelectItem>
+                    {(paymentReport?.yearOptions || []).map((y) => <SelectItem key={y} value={y}>{y}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <Label className="text-[10px] text-muted-foreground">Month</Label>
+                <Select value={prMonth} onValueChange={setPrMonth}>
+                  <SelectTrigger className="h-8 text-xs" data-testid="select-pr-month"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Months</SelectItem>
+                    {(paymentReport?.monthOptions || []).map((m) => <SelectItem key={m} value={m}>{m}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
             {paymentReport && paymentReport.count === 0 && (
-              <p className="text-center py-6 text-muted-foreground text-sm">No payments recorded for the selected filters</p>
+              <p className="text-center py-6 text-muted-foreground text-sm">
+                {paymentReport.totalCount === 0 ? "No payments recorded for the selected filters" : "No payments in the selected month/year"}
+              </p>
             )}
             {paymentReport && paymentReport.count > 0 && (
               <div className="space-y-4">
