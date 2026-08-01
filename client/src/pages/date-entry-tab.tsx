@@ -1208,23 +1208,6 @@ function UnichemSnackTab({ month, year, loadKey = 0 }: { month: number; year: nu
     }
   }, [loadKey]);
 
-  // Fetch Form 2 Lunch data to auto-populate Sunday Extra Snacks from Bill Qty
-  // NOTE: query key includes 'billqty_only' to avoid colliding with UnichemMealSubTab's full-row cache
-  const { data: lunchRows = [] } = useQuery<{ entryDate: string; billQty: number }[]>({
-    queryKey: ['/api/unichem-lunch-entries', month, year, location, 'lunch', 'billqty_only'],
-    queryFn: async () => {
-      const res = await fetch(`/api/unichem-lunch-entries?month=${month}&year=${year}&location=${encodeURIComponent(location)}&mealType=lunch`, { credentials: "include" });
-      const data = await res.json();
-      return data.map((r: any) => ({ entryDate: normDate(r.entryDate), billQty: r.billQty || 0 }));
-    },
-  });
-
-  // Build date → billQty lookup from Form 2
-  const lunchBillQtyMap = useMemo(() =>
-    lunchRows.reduce((acc: Record<string, number>, r) => { acc[r.entryDate] = r.billQty; return acc; }, {}),
-    [lunchRows]
-  );
-
   // Always compute the full month grid merged with DB data (auto-load, no Auto-Fill click needed)
   const fullRows = useMemo(() => {
     const generated = generateMonthRows(month, year, (d, m, y) => snackRowDefaults(d, m, y, location));
@@ -1260,12 +1243,8 @@ function UnichemSnackTab({ month, year, loadKey = 0 }: { month: number; year: nu
     if (!row.id && !row._dirty) { toast({ title: "No changes to save" }); return; }
     try {
       const { _dirty, id, ...data } = row;
-      // For Sunday rows, always latch sundayExtraSnacks from Form 2 Lunch Bill Qty
-      if (isSunday(row.entryDate)) {
-        data.sundayExtraSnacks = lunchBillQtyMap[row.entryDate] || 0;
-      }
       if (id) await updateMutation.mutateAsync({ id, data });
-      else await createMutation.mutateAsync({ ...row, sundayExtraSnacks: isSunday(row.entryDate) ? (lunchBillQtyMap[row.entryDate] || 0) : row.sundayExtraSnacks });
+      else await createMutation.mutateAsync(row);
       const result = await refetch();
       const freshRows = ((result.data || []) as SnackRow[]).map(r => ({ ...r, entryDate: normDate(r.entryDate), _dirty: false }));
       const generated = generateMonthRows(month, year, (d, m, y) => snackRowDefaults(d, m, y, location));
@@ -1422,12 +1401,8 @@ function UnichemSnackTab({ month, year, loadKey = 0 }: { month: number; year: nu
       if (!row._dirty) continue;
       try {
         const { _dirty, id, ...data } = row;
-        // For Sunday rows, override sundayExtraSnacks with Form 2 Bill Qty
-        if (isSunday(row.entryDate) && lunchBillQtyMap[row.entryDate] !== undefined) {
-          data.sundayExtraSnacks = lunchBillQtyMap[row.entryDate];
-        }
         if (id) await updateMutation.mutateAsync({ id, data });
-        else await createMutation.mutateAsync({ ...row, sundayExtraSnacks: isSunday(row.entryDate) ? (lunchBillQtyMap[row.entryDate] || 0) : row.sundayExtraSnacks });
+        else await createMutation.mutateAsync(row);
         saved++;
       } catch (e: any) { toast({ title: "Error", description: e.message, variant: "destructive" }); }
     }
@@ -1471,7 +1446,7 @@ function UnichemSnackTab({ month, year, loadKey = 0 }: { month: number; year: nu
           breakfast += r.breakfast || 0;
           eveningSnacks += r.eveningSnacks || 0;
           nightSnacks += r.nightSnacks || 0;
-          if (isSunday(d)) sundayExtra += lunchMap[d] || r.sundayExtraSnacks || 0;
+          if (isSunday(d)) sundayExtra += r.sundayExtraSnacks || 0;
         });
         const billQtyLunch = lunchData.reduce((s: number, r: any) => s + (r.billQty || 0), 0);
         const billQtyDinner = dinnerData.reduce((s: number, r: any) => s + (r.billQty || 0), 0);
@@ -1665,7 +1640,7 @@ function UnichemSnackTab({ month, year, loadKey = 0 }: { month: number; year: nu
 
     const totalBfEv = rows.reduce((s,r) => s + (r.breakfast||0) + (r.eveningSnacks||0), 0);
     const totalNightPrint = rows.reduce((s,r) => s + (r.nightSnacks||0), 0);
-    const totalSundayPrint = rows.reduce((s,r) => s + (isSunday(r.entryDate) ? (lunchBillQtyMap[r.entryDate] || r.sundayExtraSnacks || 0) : 0), 0);
+    const totalSundayPrint = rows.reduce((s,r) => s + (isSunday(r.entryDate) ? (r.sundayExtraSnacks || 0) : 0), 0);
 
     const bfEvSection = totalBfEv > 0 ? makeTable("Breakfast &amp; Evening Snacks",
       ["Breakfast","Evening<br>Snacks"],
@@ -1677,7 +1652,7 @@ function UnichemSnackTab({ month, year, loadKey = 0 }: { month: number; year: nu
 
     const sundaySection = totalSundayPrint > 0 ? makeTable("Sunday Extra Snacks",
       ["Sunday Extra<br>Snacks"],
-      r => [isSunday(r.entryDate) ? (lunchBillQtyMap[r.entryDate] || r.sundayExtraSnacks || "") : ""]) : "";
+      r => [isSunday(r.entryDate) ? (r.sundayExtraSnacks || "") : ""]) : "";
 
     const allSections = bfEvSection + nightSection + sundaySection;
     if (!allSections) {
@@ -1698,7 +1673,7 @@ function UnichemSnackTab({ month, year, loadKey = 0 }: { month: number; year: nu
   const totalBreakfast = rows.reduce((s,r)=>s+(r.breakfast||0),0);
   const totalEvening = rows.reduce((s,r)=>s+(r.eveningSnacks||0),0);
   const totalNight = rows.reduce((s,r)=>s+(r.nightSnacks||0),0);
-  const totalSunday = rows.reduce((s,r) => s + (isSunday(r.entryDate) ? (lunchBillQtyMap[r.entryDate] || r.sundayExtraSnacks || 0) : (r.sundayExtraSnacks||0)), 0);
+  const totalSunday = rows.reduce((s,r) => s + (r.sundayExtraSnacks||0), 0);
 
   return (
     <div>
@@ -1777,21 +1752,12 @@ function UnichemSnackTab({ month, year, loadKey = 0 }: { month: number; year: nu
                 <div className="mb-3">
                   <div className="text-xs font-semibold text-gray-500 mb-1 bg-red-50 dark:bg-red-900/20 rounded px-2 py-0.5">☀ Sunday Extra</div>
                   <div className="grid grid-cols-1 gap-1">
-                    {isSun ? (
-                      <div className="flex flex-col items-center bg-red-50 dark:bg-red-900/20 rounded-lg p-1.5">
-                        <span className="text-xs text-red-400 mb-1">Auto (Form 2 Bill Qty)</span>
-                        <div className="text-sm font-bold text-red-700 dark:text-red-300" style={{minHeight:38,display:"flex",alignItems:"center",justifyContent:"center"}}>
-                          {lunchBillQtyMap[row.entryDate] || "—"}
-                        </div>
-                      </div>
-                    ) : (
-                      <div className="flex flex-col items-center bg-gray-50 dark:bg-gray-800/50 rounded-lg p-1.5">
-                        <span className="text-xs text-gray-400 mb-1">Sun Extra</span>
-                        <input type="number" min={0} inputMode="numeric" value={row.sundayExtraSnacks||""}
-                          onChange={e=>handleCellChange(idx,'sundayExtraSnacks',e.target.value)}
-                          className="w-full text-center border border-gray-200 dark:border-gray-600 rounded-lg text-sm font-medium dark:bg-gray-900 dark:text-white" style={{minHeight:38,padding:"4px 2px"}}/>
-                      </div>
-                    )}
+                    <div className="flex flex-col items-center bg-gray-50 dark:bg-gray-800/50 rounded-lg p-1.5">
+                      <span className="text-xs text-gray-400 mb-1">Sun Extra</span>
+                      <input type="number" min={0} inputMode="numeric" value={row.sundayExtraSnacks||""}
+                        onChange={e=>handleCellChange(idx,'sundayExtraSnacks',e.target.value)}
+                        className="w-full text-center border border-gray-200 dark:border-gray-600 rounded-lg text-sm font-medium dark:bg-gray-900 dark:text-white" style={{minHeight:38,padding:"4px 2px"}}/>
+                    </div>
                     <div className="flex flex-col bg-gray-50 dark:bg-gray-800/50 rounded-lg p-1.5">
                       <span className="text-xs text-gray-400 mb-1">Remarks</span>
                       <input type="text" value={row.remarks||""} onChange={e=>handleCellChange(idx,'remarks',e.target.value)}
@@ -1862,14 +1828,8 @@ function UnichemSnackTab({ month, year, loadKey = 0 }: { month: number; year: nu
                         className="w-full text-center bg-transparent outline-none text-xs py-2.5 sm:py-1.5 focus:bg-white dark:focus:bg-gray-800 rounded" style={{minHeight:'36px'}} data-testid={`snack-night-${idx}`}/>
                     </td>
                     <td className="border p-0 bg-red-50/80 dark:bg-red-950/20">
-                      {isSun ? (
-                        <div className="text-center text-xs py-2.5 sm:py-1.5 font-semibold text-red-700 dark:text-red-300 select-none" style={{minHeight:'36px'}} title="Auto from Form 2 Bill Qty" data-testid={`snack-sun-${idx}`}>
-                          {lunchBillQtyMap[row.entryDate] || ""}
-                        </div>
-                      ) : (
-                        <input type="number" inputMode="numeric" min="0" value={row.sundayExtraSnacks||""} onChange={e=>handleCellChange(idx,'sundayExtraSnacks',e.target.value)} onKeyDown={e=>handleEnterKey(e,3)}
-                          className="w-full text-center bg-transparent outline-none text-xs py-2.5 sm:py-1.5 focus:bg-white dark:focus:bg-gray-800 rounded" style={{minHeight:'36px'}} data-testid={`snack-sun-${idx}`}/>
-                      )}
+                      <input type="number" inputMode="numeric" min="0" value={row.sundayExtraSnacks||""} onChange={e=>handleCellChange(idx,'sundayExtraSnacks',e.target.value)} onKeyDown={e=>handleEnterKey(e,3)}
+                        className="w-full text-center bg-transparent outline-none text-xs py-2.5 sm:py-1.5 focus:bg-white dark:focus:bg-gray-800 rounded" style={{minHeight:'36px'}} data-testid={`snack-sun-${idx}`}/>
                     </td>
                     <td className="border p-0">
                       <input type="text" value={row.remarks||""} onChange={e=>handleCellChange(idx,'remarks',e.target.value)} onKeyDown={e=>handleEnterKey(e,4)}
