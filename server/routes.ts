@@ -2558,19 +2558,30 @@ export async function registerRoutes(
     try {
       const schema = z.object({
         items: z.array(z.object({
-          entryDate: z.string().min(1),
-          itemName: z.string().min(1),
-          quantity: z.string().optional().default(''),
-          cost: z.coerce.number().min(0),
-          payer: z.string().optional().default(''),
-        })).min(1),
+          entryDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Invalid date").refine(s => !isNaN(new Date(s + "T00:00:00Z").getTime()), "Invalid date"),
+          itemName: z.string().trim().min(1).max(300),
+          quantity: z.string().max(50).optional().default(''),
+          cost: z.number().finite().min(0).max(9999999)
+            .refine(n => Math.round(n * 100) === n * 100 || Math.abs(Math.round(n * 100) - n * 100) < 1e-6, "Cost can have at most 2 decimals"),
+          payer: z.string().max(100).optional().default(''),
+        })).min(1).max(200),
       });
       const { items } = schema.parse(req.body);
-      for (const it of items) {
-        await pool.query(
-          `INSERT INTO grocery_expenses (entry_date, item_name, quantity, cost, payer) VALUES (?, ?, ?, ?, ?)`,
-          [it.entryDate, it.itemName, it.quantity || '', it.cost.toFixed(2), it.payer || ''],
-        );
+      const conn = await pool.getConnection();
+      try {
+        await conn.beginTransaction();
+        for (const it of items) {
+          await conn.query(
+            `INSERT INTO grocery_expenses (entry_date, item_name, quantity, cost, payer) VALUES (?, ?, ?, ?, ?)`,
+            [it.entryDate, it.itemName, it.quantity || '', (Math.round(it.cost * 100) / 100).toFixed(2), it.payer || ''],
+          );
+        }
+        await conn.commit();
+      } catch (txErr) {
+        await conn.rollback();
+        throw txErr;
+      } finally {
+        conn.release();
       }
       res.status(201).json({ saved: items.length });
     } catch (e: any) {
@@ -2579,8 +2590,11 @@ export async function registerRoutes(
     }
   });
 
-  app.delete('/api/grocery-expenses/:id', requirePermission('expense'), async (req, res) => {
+  app.delete('/api/grocery-expenses/:id', requirePermission('expense'), async (req: any, res) => {
     try {
+      if (req.session.role !== 'admin') {
+        return res.status(403).json({ message: "Only the admin can delete grocery expenses." });
+      }
       await pool.query(`DELETE FROM grocery_expenses WHERE id = ?`, [Number(req.params.id)]);
       res.status(204).end();
     } catch (e: any) { res.status(500).json({ message: e.message }); }
@@ -2588,7 +2602,11 @@ export async function registerRoutes(
 
   app.post('/api/grocery-expenses/scan', requirePermission('expense'), async (req, res) => {
     try {
-      const { image } = z.object({ image: z.string().min(100) }).parse(req.body); // data URL
+      const { image } = z.object({ image: z.string().min(100).max(14 * 1024 * 1024) }).parse(req.body); // data URL
+      const m = image.match(/^data:image\/(jpeg|jpg|png|webp);base64,([A-Za-z0-9+/=]+)$/);
+      if (!m) return res.status(400).json({ message: "Please upload a JPG, PNG or WEBP photo." });
+      const decodedBytes = Math.floor(m[2].length * 3 / 4);
+      if (decodedBytes > 10 * 1024 * 1024) return res.status(400).json({ message: "Photo too big (max 10 MB)." });
       if (!process.env.OPENAI_API_KEY) {
         return res.status(503).json({ message: "AI key not set up yet. Please add the OpenAI API key first." });
       }
