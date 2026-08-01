@@ -114,6 +114,27 @@ async function initPool(): Promise<void> {
     `INSERT IGNORE INTO fixed_asset_options (option_type, name) VALUES
       ('category','Kitchen Equipment'),('category','Refrigeration'),('category','Dining Furniture'),('category','POS & Electronics'),('category','Other'),
       ('location','Main Kitchen'),('location','Dining Hall A'),('location','Dining Hall B'),('location','Cold Storage Unit'),('location','Counter POS')`,
+    `CREATE TABLE IF NOT EXISTS grocery_expenses (
+      id INT AUTO_INCREMENT PRIMARY KEY,
+      entry_date DATE NOT NULL,
+      item_name VARCHAR(300) NOT NULL,
+      quantity VARCHAR(50) DEFAULT '',
+      cost DECIMAL(12,2) NOT NULL DEFAULT 0,
+      payer VARCHAR(200) DEFAULT '',
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    )`,
+    `INSERT INTO grocery_expenses (entry_date, item_name, quantity, cost, payer)
+      SELECT * FROM (
+        SELECT '2026-07-28' AS d, 'Phoolgobi' AS n, '1 pc' AS q, 50.00 AS c, 'Rahul' AS p UNION ALL
+        SELECT '2026-07-28', 'Aloo', '2 kg', 60.00, 'Rahul' UNION ALL
+        SELECT '2026-07-28', 'Doodh', '1 ltr', 56.00, 'Priya' UNION ALL
+        SELECT '2026-07-29', 'Tamatar', '1 kg', 40.00, 'Priya' UNION ALL
+        SELECT '2026-07-29', 'Pyaz', '2 kg', 70.00, 'Rahul' UNION ALL
+        SELECT '2026-07-30', 'Chawal', '5 kg', 320.00, 'Amit' UNION ALL
+        SELECT '2026-07-30', 'Dhaniya', '1 bunch', 10.00, 'Priya' UNION ALL
+        SELECT '2026-07-31', 'Anda', '12 pc', 84.00, 'Amit'
+      ) AS seed
+      WHERE NOT EXISTS (SELECT 1 FROM grocery_expenses LIMIT 1)`,
     `CREATE TABLE IF NOT EXISTS tax_invoices (
       id INT AUTO_INCREMENT PRIMARY KEY,
       invoice_number VARCHAR(50) NOT NULL,

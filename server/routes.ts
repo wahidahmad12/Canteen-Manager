@@ -2,6 +2,7 @@
 import type { Express, Request, Response, NextFunction } from "express";
 import type { Server } from "http";
 import { storage } from "./storage";
+import { pool } from "./db";
 import { api } from "@shared/routes";
 import { z } from "zod";
 import bcrypt from "bcryptjs";
@@ -2545,6 +2546,91 @@ export async function registerRoutes(
   });
 
   // === UNICHEM SNACK ENTRIES (Form 1) ===
+  // ── Grocery Expenses (handwritten receipt scanner) ──────────────────────────
+  app.get('/api/grocery-expenses', requirePermission('expense'), async (_req, res) => {
+    try {
+      const [rows] = await pool.query(`SELECT id, DATE_FORMAT(entry_date, '%Y-%m-%d') AS entryDate, item_name AS itemName, quantity, cost, payer FROM grocery_expenses ORDER BY entry_date DESC, id DESC`);
+      res.json(rows);
+    } catch (e: any) { res.status(500).json({ message: e.message }); }
+  });
+
+  app.post('/api/grocery-expenses', requirePermission('expense'), async (req, res) => {
+    try {
+      const schema = z.object({
+        items: z.array(z.object({
+          entryDate: z.string().min(1),
+          itemName: z.string().min(1),
+          quantity: z.string().optional().default(''),
+          cost: z.coerce.number().min(0),
+          payer: z.string().optional().default(''),
+        })).min(1),
+      });
+      const { items } = schema.parse(req.body);
+      for (const it of items) {
+        await pool.query(
+          `INSERT INTO grocery_expenses (entry_date, item_name, quantity, cost, payer) VALUES (?, ?, ?, ?, ?)`,
+          [it.entryDate, it.itemName, it.quantity || '', it.cost.toFixed(2), it.payer || ''],
+        );
+      }
+      res.status(201).json({ saved: items.length });
+    } catch (e: any) {
+      if (e instanceof z.ZodError) return res.status(400).json({ message: e.errors[0].message });
+      res.status(500).json({ message: e.message });
+    }
+  });
+
+  app.delete('/api/grocery-expenses/:id', requirePermission('expense'), async (req, res) => {
+    try {
+      await pool.query(`DELETE FROM grocery_expenses WHERE id = ?`, [Number(req.params.id)]);
+      res.status(204).end();
+    } catch (e: any) { res.status(500).json({ message: e.message }); }
+  });
+
+  app.post('/api/grocery-expenses/scan', requirePermission('expense'), async (req, res) => {
+    try {
+      const { image } = z.object({ image: z.string().min(100) }).parse(req.body); // data URL
+      if (!process.env.OPENAI_API_KEY) {
+        return res.status(503).json({ message: "AI key not set up yet. Please add the OpenAI API key first." });
+      }
+      const aiRes = await fetch("https://api.openai.com/v1/chat/completions", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${process.env.OPENAI_API_KEY}` },
+        body: JSON.stringify({
+          model: "gpt-4o-mini",
+          max_tokens: 1500,
+          response_format: { type: "json_object" },
+          messages: [{
+            role: "user",
+            content: [
+              { type: "text", text: `This is a photo of a handwritten grocery list/receipt (may be in Hindi, Marathi or English). Extract every item with its quantity and price. Respond ONLY with JSON: {"items":[{"itemName":string,"quantity":string,"cost":number}]}. Use the item name as written (transliterate to Latin letters if needed). quantity like "1 kg", "2 pc", or "" if not written. cost is the price number, 0 if unreadable.` },
+              { type: "image_url", image_url: { url: image } },
+            ],
+          }],
+        }),
+      });
+      if (!aiRes.ok) {
+        const errText = await aiRes.text();
+        console.error("OpenAI scan error:", errText.slice(0, 500));
+        return res.status(502).json({ message: "AI could not read the image. Please try a clearer photo." });
+      }
+      const aiJson: any = await aiRes.json();
+      const content = aiJson.choices?.[0]?.message?.content || "{}";
+      let parsed: any = {};
+      try { parsed = JSON.parse(content); } catch { return res.status(502).json({ message: "AI returned an unreadable answer. Please try again." }); }
+      const items = Array.isArray(parsed.items) ? parsed.items
+        .filter((it: any) => it && typeof it.itemName === "string" && it.itemName.trim())
+        .map((it: any) => ({
+          itemName: String(it.itemName).slice(0, 300),
+          quantity: String(it.quantity ?? "").slice(0, 50),
+          cost: Math.max(0, Number(it.cost) || 0),
+        })) : [];
+      res.json({ items });
+    } catch (e: any) {
+      if (e instanceof z.ZodError) return res.status(400).json({ message: "Please upload a valid image." });
+      res.status(500).json({ message: e.message });
+    }
+  });
+
   app.get('/api/unichem-snack-entries', requirePermission('salesinvoice'), async (req, res) => {
     const month = Number(req.query.month) || new Date().getMonth() + 1;
     const year = Number(req.query.year) || new Date().getFullYear();
