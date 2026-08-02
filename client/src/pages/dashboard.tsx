@@ -96,6 +96,9 @@ export default function Dashboard() {
   const deleteInvoiceMutation = useDeletePurchaseInvoice();
   const [vendorSearch, setVendorSearch] = useState("");
   const [invoiceClientFilter, setInvoiceClientFilter] = useState("");
+  const [invoiceVendorFilter, setInvoiceVendorFilter] = useState("");
+  const [invoiceMonthFilter, setInvoiceMonthFilter] = useState("");
+  const [invoiceYearFilter, setInvoiceYearFilter] = useState("");
   const [reportMonth, setReportMonth] = useState<string>(String(new Date().getMonth() + 1));
   const [reportYear, setReportYear] = useState<string>(String(new Date().getFullYear()));
   const [sealMonth, setSealMonth] = useState<string>(String(new Date().getMonth() + 1));
@@ -165,6 +168,25 @@ export default function Dashboard() {
     ].filter(d => d.value > 0);
     return { totalAmount, totalPaid, totalUnpaid, paidCount, unpaidCount, vendorData, paymentPieData };
   }, [purchaseInvoices]);
+
+  const filteredPurchaseInvoices = useMemo(() => {
+    const q = vendorSearch.trim().toLowerCase();
+    return (purchaseInvoices || []).filter((inv: any) => {
+      if (q) {
+        const hay = `${inv.vendorName || ""} ${inv.clientName || ""} ${inv.djInvoiceNo || ""} ${inv.vendorInvoiceNo || ""}`.toLowerCase();
+        if (!hay.includes(q)) return false;
+      }
+      if (invoiceClientFilter && inv.clientName !== invoiceClientFilter) return false;
+      if (invoiceVendorFilter && inv.vendorName !== invoiceVendorFilter) return false;
+      const dateStr = String(inv.date || "");
+      if (invoiceYearFilter && dateStr.slice(0, 4) !== invoiceYearFilter) return false;
+      if (invoiceMonthFilter && dateStr.slice(5, 7) !== invoiceMonthFilter) return false;
+      return true;
+    });
+  }, [purchaseInvoices, vendorSearch, invoiceClientFilter, invoiceVendorFilter, invoiceMonthFilter, invoiceYearFilter]);
+  const invoiceYearOptions = useMemo(() =>
+    Array.from(new Set((purchaseInvoices || []).map((inv: any) => String(inv.date || "").slice(0, 4)).filter(Boolean))).sort().reverse(),
+  [purchaseInvoices]);
 
   const purchaseStats = useMemo(() => {
     if (!purchaseRequests) return { pending: 0, approved: 0, rejected: 0 };
@@ -1376,7 +1398,7 @@ export default function Dashboard() {
                         type="text"
                         value={vendorSearch}
                         onChange={e => setVendorSearch(e.target.value)}
-                        placeholder="Search vendor…"
+                        placeholder="Search vendor, client, invoice no…"
                         className="w-full h-8 pl-8 pr-7 rounded-lg bg-white/15 border border-white/25 text-white placeholder:text-white/50 text-xs focus:outline-none focus:ring-1 focus:ring-white/50"
                         data-testid="input-vendor-search"
                       />
@@ -1398,11 +1420,46 @@ export default function Dashboard() {
                       ))}
                     </select>
                   </div>
+                  <div className="flex gap-2 mt-2">
+                    <select
+                      value={invoiceVendorFilter}
+                      onChange={e => setInvoiceVendorFilter(e.target.value)}
+                      className="h-8 px-2 rounded-lg bg-white/15 border border-white/25 text-white text-xs focus:outline-none focus:ring-1 focus:ring-white/50 flex-1 min-w-0"
+                      data-testid="select-invoice-vendor-filter"
+                    >
+                      <option value="" className="text-black bg-white">All Vendors</option>
+                      {Array.from(new Set((purchaseInvoices || []).map((inv: any) => inv.vendorName).filter(Boolean))).sort().map((name: any) => (
+                        <option key={name} value={name} className="text-black bg-white">{name}</option>
+                      ))}
+                    </select>
+                    <select
+                      value={invoiceMonthFilter}
+                      onChange={e => setInvoiceMonthFilter(e.target.value)}
+                      className="h-8 px-2 rounded-lg bg-white/15 border border-white/25 text-white text-xs focus:outline-none focus:ring-1 focus:ring-white/50"
+                      data-testid="select-invoice-month-filter"
+                    >
+                      <option value="" className="text-black bg-white">All Months</option>
+                      {["01","02","03","04","05","06","07","08","09","10","11","12"].map((m, i) => (
+                        <option key={m} value={m} className="text-black bg-white">{["January","February","March","April","May","June","July","August","September","October","November","December"][i]}</option>
+                      ))}
+                    </select>
+                    <select
+                      value={invoiceYearFilter}
+                      onChange={e => setInvoiceYearFilter(e.target.value)}
+                      className="h-8 px-2 rounded-lg bg-white/15 border border-white/25 text-white text-xs focus:outline-none focus:ring-1 focus:ring-white/50"
+                      data-testid="select-invoice-year-filter"
+                    >
+                      <option value="" className="text-black bg-white">All Years</option>
+                      {invoiceYearOptions.map((y: string) => (
+                        <option key={y} value={y} className="text-black bg-white">{y}</option>
+                      ))}
+                    </select>
+                  </div>
                 </CardHeader>
                 <CardContent className="p-0">
                   {/* Mobile cards */}
                   <div className="sm:hidden divide-y">
-                    {purchaseInvoices.filter((inv: any) => (!vendorSearch || inv.vendorName?.toLowerCase().includes(vendorSearch.toLowerCase())) && (!invoiceClientFilter || inv.clientName === invoiceClientFilter)).map((inv: any) => (
+                    {filteredPurchaseInvoices.map((inv: any) => (
                       <div key={inv.id} className="p-3 flex flex-col gap-2" data-testid={`mobile-card-invoice-${inv.id}`}>
                         <div className="flex items-center justify-between gap-2">
                           <div className="flex items-center gap-2.5 min-w-0">
@@ -1457,7 +1514,7 @@ export default function Dashboard() {
                         </tr>
                       </thead>
                       <tbody>
-                        {purchaseInvoices.filter((inv: any) => (!vendorSearch || inv.vendorName?.toLowerCase().includes(vendorSearch.toLowerCase())) && (!invoiceClientFilter || inv.clientName === invoiceClientFilter)).map((inv: any) => {
+                        {filteredPurchaseInvoices.map((inv: any) => {
                           const totalPaid = (inv.payments || []).reduce((s: number, p: any) => s + Number(p.amount), 0);
                           const grandTotal = Number(inv.grandTotal);
                           const balance = grandTotal - totalPaid;
