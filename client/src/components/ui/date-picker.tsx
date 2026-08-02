@@ -42,6 +42,7 @@ export function DatePicker({ date, setDate, className, dateFormat = "dd-MM-yyyy"
           mode="single"
           selected={date}
           onSelect={setDate}
+          defaultMonth={date}
           initialFocus
         />
       </PopoverContent>
