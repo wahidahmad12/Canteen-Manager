@@ -6,12 +6,12 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
-import { useVendors, useCurrentUser } from "@/hooks/use-reports";
+import { useVendors, useClientNames, useCurrentUser } from "@/hooks/use-reports";
 import { IndianRupee, Loader2, Save, Trash2, Wallet, ListChecks, BadgeCheck } from "lucide-react";
 import { format } from "date-fns";
 
-type UnpaidInvoice = { id: number; djInvoiceNo: string | null; vendorInvoiceNo: string | null; date: string; grandTotal: number; paid: number; balance: number };
-type PaymentOut = { id: number; vendorName: string; paymentDate: string; amount: number; utrNo: string; allocatedAmount: number; advance: number; createdBy: string };
+type UnpaidInvoice = { id: number; djInvoiceNo: string | null; vendorInvoiceNo: string | null; clientName: string; date: string; grandTotal: number; paid: number; balance: number };
+type PaymentOut = { id: number; vendorName: string; clientName: string; paymentDate: string; amount: number; utrNo: string; allocatedAmount: number; advance: number; createdBy: string };
 
 const fmt = (n: number) => n.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
@@ -20,17 +20,20 @@ export default function PaymentOutTab() {
   const qc = useQueryClient();
   const { data: user } = useCurrentUser();
   const { data: vendorsList } = useVendors();
+  const { data: clientsList } = useClientNames();
 
   const [vendorName, setVendorName] = useState("");
+  const [clientName, setClientName] = useState("");
   const [paymentDate, setPaymentDate] = useState(format(new Date(), "yyyy-MM-dd"));
   const [amount, setAmount] = useState("");
   const [utrNo, setUtrNo] = useState("");
   const [allocs, setAllocs] = useState<Record<number, string>>({});
 
   const { data: unpaidInvoices = [], isLoading: loadingUnpaid } = useQuery<UnpaidInvoice[]>({
-    queryKey: ["/api/payment-outs/unpaid-invoices", vendorName],
+    queryKey: ["/api/payment-outs/unpaid-invoices", vendorName, clientName],
     queryFn: async () => {
-      const res = await fetch(`/api/payment-outs/unpaid-invoices?vendor=${encodeURIComponent(vendorName)}`, { credentials: "include" });
+      const clientParam = clientName ? `&client=${encodeURIComponent(clientName)}` : "";
+      const res = await fetch(`/api/payment-outs/unpaid-invoices?vendor=${encodeURIComponent(vendorName)}${clientParam}`, { credentials: "include" });
       if (!res.ok) throw new Error("Failed to load pending bills");
       return res.json();
     },
@@ -75,7 +78,7 @@ export default function PaymentOutTab() {
         .filter(a => a.amount > 0);
       const res = await fetch("/api/payment-outs", {
         method: "POST", headers: { "Content-Type": "application/json" }, credentials: "include",
-        body: JSON.stringify({ vendorName, paymentDate, amount: payAmount, utrNo, allocations }),
+        body: JSON.stringify({ vendorName, clientName, paymentDate, amount: payAmount, utrNo, allocations }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.message || "Save failed");
@@ -128,13 +131,23 @@ export default function PaymentOutTab() {
           <CardTitle className="text-base flex items-center gap-2"><Wallet className="w-5 h-5" /> New Payment Out</CardTitle>
         </CardHeader>
         <CardContent className="p-4 space-y-4">
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
             <div>
               <Label className="text-xs">Vendor</Label>
               <Select value={vendorName} onValueChange={(v) => { setVendorName(v); setAllocs({}); }}>
                 <SelectTrigger data-testid="select-po-vendor"><SelectValue placeholder="Select vendor" /></SelectTrigger>
                 <SelectContent>
                   {(vendorsList || []).map((v: any) => <SelectItem key={v.id} value={v.name}>{v.name}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <Label className="text-xs">Client</Label>
+              <Select value={clientName || "__all__"} onValueChange={(v) => { setClientName(v === "__all__" ? "" : v); setAllocs({}); }}>
+                <SelectTrigger data-testid="select-po-client"><SelectValue placeholder="All clients" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="__all__">All clients</SelectItem>
+                  {(clientsList || []).map((c: any) => <SelectItem key={c.id ?? c.name ?? c} value={c.name ?? c}>{c.name ?? c}</SelectItem>)}
                 </SelectContent>
               </Select>
             </div>
@@ -176,6 +189,7 @@ export default function PaymentOutTab() {
                       <tr className="text-xs text-muted-foreground border-b">
                         <th className="text-left py-2 px-3">Date</th>
                         <th className="text-left py-2 px-2">Bill No.</th>
+                        <th className="text-left py-2 px-2">Client</th>
                         <th className="text-right py-2 px-2">Bill Amount</th>
                         <th className="text-right py-2 px-2">Balance</th>
                         <th className="text-right py-2 px-2 w-36">Tag Amount (₹)</th>
@@ -186,6 +200,7 @@ export default function PaymentOutTab() {
                         <tr key={inv.id} className="border-b last:border-0" data-testid={`row-unpaid-${inv.id}`}>
                           <td className="py-2 px-3 text-xs">{format(new Date(String(inv.date).slice(0, 10) + "T00:00:00"), "dd-MM-yyyy")}</td>
                           <td className="py-2 px-2 font-mono text-xs">{inv.djInvoiceNo || inv.vendorInvoiceNo || `#${inv.id}`}</td>
+                          <td className="py-2 px-2 text-xs">{inv.clientName || "-"}</td>
                           <td className="py-2 px-2 text-right font-mono">₹{fmt(inv.grandTotal)}</td>
                           <td className="py-2 px-2 text-right font-mono text-rose-600">₹{fmt(inv.balance)}</td>
                           <td className="py-1 px-2">
@@ -240,6 +255,7 @@ export default function PaymentOutTab() {
                   <tr className="bg-violet-50 dark:bg-violet-950/20 text-violet-700 dark:text-violet-400 text-xs">
                     <th className="text-left py-2.5 px-3">Date</th>
                     <th className="text-left py-2.5 px-2">Vendor</th>
+                    <th className="text-left py-2.5 px-2">Client</th>
                     <th className="text-right py-2.5 px-2">Amount</th>
                     <th className="text-left py-2.5 px-2">UTR No.</th>
                     <th className="text-right py-2.5 px-2">Tagged</th>
@@ -252,6 +268,7 @@ export default function PaymentOutTab() {
                     <tr key={p.id} className="border-t hover:bg-muted/30" data-testid={`row-po-${p.id}`}>
                       <td className="py-2 px-3 text-xs">{format(new Date(p.paymentDate + "T00:00:00"), "dd-MM-yyyy")}</td>
                       <td className="py-2 px-2 font-medium">{p.vendorName}</td>
+                      <td className="py-2 px-2 text-xs">{p.clientName || "-"}</td>
                       <td className="py-2 px-2 text-right font-mono">₹{fmt(p.amount)}</td>
                       <td className="py-2 px-2 font-mono text-xs">{p.utrNo || "-"}</td>
                       <td className="py-2 px-2 text-right font-mono text-emerald-600">₹{fmt(p.allocatedAmount)}</td>

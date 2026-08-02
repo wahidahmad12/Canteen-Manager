@@ -1550,22 +1550,24 @@ export class DatabaseStorage implements IStorage {
   }
 
   // ── Payment Out: vendor-level payments allocated across bills ──────────────
-  async getVendorUnpaidInvoices(vendorName: string, onlyCreatedBy?: string[]): Promise<any[]> {
+  async getVendorUnpaidInvoices(vendorName: string, onlyCreatedBy?: string[], clientName?: string): Promise<any[]> {
     const creatorFilter = onlyCreatedBy && onlyCreatedBy.length > 0
       ? sql` AND pi.created_by IN (${sql.join(onlyCreatedBy.map(n => sql`${n}`), sql`, `)})`
       : sql``;
+    const clientFilter = clientName ? sql` AND pi.client_name = ${clientName}` : sql``;
     const [rows] = await db.execute(sql`
       SELECT pi.id, pi.dj_invoice_no AS djInvoiceNo, pi.vendor_invoice_no AS vendorInvoiceNo,
-             pi.date, pi.grand_total AS grandTotal,
+             pi.date, pi.grand_total AS grandTotal, pi.client_name AS clientName,
              COALESCE((SELECT SUM(p.amount) FROM purchase_invoice_payments p WHERE p.invoice_id = pi.id), 0) AS paid
       FROM purchase_invoices pi
-      WHERE pi.vendor_name = ${vendorName}${creatorFilter}
+      WHERE pi.vendor_name = ${vendorName}${creatorFilter}${clientFilter}
       HAVING CAST(grandTotal AS DECIMAL(14,2)) - CAST(paid AS DECIMAL(14,2)) > 0.009
       ORDER BY pi.date ASC, pi.id ASC`) as any;
     return (Array.isArray(rows) ? rows : []).map((r: any) => ({
       id: r.id,
       djInvoiceNo: r.djInvoiceNo,
       vendorInvoiceNo: r.vendorInvoiceNo,
+      clientName: r.clientName || '',
       date: r.date,
       grandTotal: Number(r.grandTotal) || 0,
       paid: Number(r.paid) || 0,
@@ -1580,6 +1582,7 @@ export class DatabaseStorage implements IStorage {
     return (Array.isArray(rows) ? rows : []).map((r: any) => ({
       id: r.id,
       vendorName: r.vendor_name,
+      clientName: r.client_name || '',
       paymentDate: typeof r.payment_date === 'string' ? r.payment_date : String(r.payment_date).slice(0, 10),
       amount: Number(r.amount) || 0,
       utrNo: r.utr_no || '',
@@ -1591,7 +1594,7 @@ export class DatabaseStorage implements IStorage {
   }
 
   async createPaymentOut(data: {
-    vendorName: string; paymentDate: string; amount: number; utrNo?: string; createdBy?: string;
+    vendorName: string; clientName?: string; paymentDate: string; amount: number; utrNo?: string; createdBy?: string;
     allocations: { invoiceId: number; amount: number }[];
     allowedCreators?: string[]; // non-admin: may only tag their own invoices
   }): Promise<{ id: number; allocated: number; advance: number }> {
@@ -1613,8 +1616,8 @@ export class DatabaseStorage implements IStorage {
 
     return await db.transaction(async (tx) => {
       await tx.execute(sql`
-        INSERT INTO payment_outs (vendor_name, payment_date, amount, utr_no, allocated_amount, created_by)
-        VALUES (${data.vendorName}, ${data.paymentDate}, ${fromPaise(totalPaise)}, ${data.utrNo || ''}, 0, ${data.createdBy || ''})`);
+        INSERT INTO payment_outs (vendor_name, client_name, payment_date, amount, utr_no, allocated_amount, created_by)
+        VALUES (${data.vendorName}, ${data.clientName || ''}, ${data.paymentDate}, ${fromPaise(totalPaise)}, ${data.utrNo || ''}, 0, ${data.createdBy || ''})`);
       const [idRows] = await tx.execute(sql`SELECT LAST_INSERT_ID() AS id`) as any;
       const poId = Number((Array.isArray(idRows) ? idRows[0] : idRows).id);
       const utrTag = data.utrNo ? ` (UTR ${data.utrNo})` : '';

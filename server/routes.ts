@@ -887,7 +887,8 @@ export async function registerRoutes(
       const onlyCreatedBy = req.session.role === 'admin'
         ? undefined
         : [req.session.displayName, req.session.username].filter(Boolean);
-      res.json(await storage.getVendorUnpaidInvoices(vendor, onlyCreatedBy));
+      const client = req.query.client ? String(req.query.client) : undefined;
+      res.json(await storage.getVendorUnpaidInvoices(vendor, onlyCreatedBy, client));
     } catch (e: any) { res.status(500).json({ message: e.message }); }
   });
 
@@ -895,6 +896,7 @@ export async function registerRoutes(
     try {
       const schema = z.object({
         vendorName: z.string().trim().min(1).max(200),
+        clientName: z.string().trim().max(200).optional().default(''),
         paymentDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Invalid date"),
         amount: z.number().finite().min(0.01).max(99999999),
         utrNo: z.string().max(100).optional().default(''),
