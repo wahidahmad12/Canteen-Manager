@@ -587,6 +587,21 @@ export default function MonthlyPnlPage() {
                       <span>Total Purchases</span>
                       <span>{fmtINR(purchaseTotal)}</span>
                     </div>
+                    {Number(d.paymentOutAdvanceTotal || 0) > 0 && (
+                      <div className="mt-1 rounded-md bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-900 px-2 py-1.5">
+                        <div className="flex justify-between text-xs font-semibold text-amber-800 dark:text-amber-300">
+                          <span>Payment Out Advance (paid this month, waiting for bill)</span>
+                          <span className="font-mono">{fmtINR(d.paymentOutAdvanceTotal)}</span>
+                        </div>
+                        {(d.paymentOutAdvanceByVendor || []).map((v: any, i: number) => (
+                          <div key={i} className="flex justify-between text-xs text-amber-700 dark:text-amber-400 pl-2 pt-0.5">
+                            <span>{v.vendorName}</span>
+                            <span className="font-mono">{fmtINR(v.total)}</span>
+                          </div>
+                        ))}
+                        <div className="text-[10px] text-amber-600 dark:text-amber-500 pt-0.5">Not added to expenses — it will count when the bill is made.</div>
+                      </div>
+                    )}
                   </Accordion>
 
                   <Accordion title="Salary & Wages" total={totalSalaryCost} badge={`${(d.salaryByClient || []).length} clients`} defaultOpen>

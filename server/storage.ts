@@ -3759,6 +3759,19 @@ export class DatabaseStorage implements IStorage {
       FROM purchase_invoices WHERE date LIKE ${likePrefix}${purchaseClientFilter}
       GROUP BY client_name ORDER BY total DESC`);
 
+    // Payment Out advances paid this month but not yet tagged to any bill
+    const [poAdvanceR] = await db.execute(sql`
+      SELECT COALESCE(SUM(CAST(amount AS DECIMAL(15,2)) - CAST(allocated_amount AS DECIMAL(15,2))), 0) as total
+      FROM payment_outs
+      WHERE payment_date LIKE ${likePrefix}
+        AND CAST(amount AS DECIMAL(15,2)) > CAST(allocated_amount AS DECIMAL(15,2))${hasClients ? sql` AND client_name IN (${sql.join(clients!.map(c => sql`${c}`), sql`, `)})` : sql``}`);
+    const [poAdvanceByVendorR] = await db.execute(sql`
+      SELECT vendor_name, COALESCE(SUM(CAST(amount AS DECIMAL(15,2)) - CAST(allocated_amount AS DECIMAL(15,2))), 0) as total
+      FROM payment_outs
+      WHERE payment_date LIKE ${likePrefix}
+        AND CAST(amount AS DECIMAL(15,2)) > CAST(allocated_amount AS DECIMAL(15,2))${hasClients ? sql` AND client_name IN (${sql.join(clients!.map(c => sql`${c}`), sql`, `)})` : sql``}
+      GROUP BY vendor_name ORDER BY total DESC`);
+
     const salaryClientFilter = hasClients
       ? sql` AND client_name IN (${sql.join(clients!.map(c => sql`${c}`), sql`, `)})`
       : sql``;
@@ -3888,6 +3901,8 @@ export class DatabaseStorage implements IStorage {
       purchaseTotal: n(pr?.total),
       purchaseByVendor: (purchaseByVendorR as any[]).map(r => ({ vendorName: r.vendor_name, total: n(r.total) })),
       purchaseByClient: (purchaseByClientR as any[]).map(r => ({ clientName: r.client_name, total: n(r.total) })),
+      paymentOutAdvanceTotal: n((Array.isArray(poAdvanceR) ? (poAdvanceR as any[])[0] : poAdvanceR)?.total),
+      paymentOutAdvanceByVendor: (poAdvanceByVendorR as any[]).map(r => ({ vendorName: r.vendor_name, total: n(r.total) })),
       salaryTotal: n(salr?.total),
       salaryByClient: (salaryByClientR as any[]).map(r => ({ clientName: r.client_name, total: n(r.total) })),
       grossWage,

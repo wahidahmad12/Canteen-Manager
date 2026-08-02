@@ -134,7 +134,22 @@ export default function PaymentOutTab() {
     saveMutation.mutate();
   };
 
-  const totalAdvance = paymentOuts.reduce((s, p) => s + p.advance, 0);
+  // History filters
+  const [histClient, setHistClient] = useState("all");
+  const [histVendor, setHistVendor] = useState("all");
+  const [histMonth, setHistMonth] = useState("all");
+  const [histYear, setHistYear] = useState("all");
+
+  const histYears = Array.from(new Set(paymentOuts.map(p => p.paymentDate.slice(0, 4)))).sort().reverse();
+  const filteredHistory = paymentOuts.filter(p => {
+    if (histClient !== "all" && (p.clientName || "") !== histClient) return false;
+    if (histVendor !== "all" && p.vendorName !== histVendor) return false;
+    if (histYear !== "all" && p.paymentDate.slice(0, 4) !== histYear) return false;
+    if (histMonth !== "all" && p.paymentDate.slice(5, 7) !== histMonth) return false;
+    return true;
+  });
+
+  const totalAdvance = filteredHistory.reduce((s, p) => s + p.advance, 0);
 
   return (
     <div className="space-y-4">
@@ -272,8 +287,40 @@ export default function PaymentOutTab() {
           </CardTitle>
         </CardHeader>
         <CardContent className="p-0">
-          {paymentOuts.length === 0 ? (
-            <div className="py-8 text-center text-sm text-muted-foreground">No payment outs yet.</div>
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 p-3 border-b bg-muted/30">
+            <Select value={histClient} onValueChange={setHistClient}>
+              <SelectTrigger className="h-8 text-xs" data-testid="filter-po-client"><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Clients</SelectItem>
+                {(clientsList || []).map((c: any) => <SelectItem key={c.id} value={c.name}>{c.name}</SelectItem>)}
+              </SelectContent>
+            </Select>
+            <Select value={histVendor} onValueChange={setHistVendor}>
+              <SelectTrigger className="h-8 text-xs" data-testid="filter-po-vendor"><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Vendors</SelectItem>
+                {((vendorsList as any[]) || []).map((v: any) => <SelectItem key={v.id} value={v.name}>{v.name}</SelectItem>)}
+              </SelectContent>
+            </Select>
+            <Select value={histMonth} onValueChange={setHistMonth}>
+              <SelectTrigger className="h-8 text-xs" data-testid="filter-po-month"><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Months</SelectItem>
+                {["01","02","03","04","05","06","07","08","09","10","11","12"].map((m, i) => (
+                  <SelectItem key={m} value={m}>{["January","February","March","April","May","June","July","August","September","October","November","December"][i]}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <Select value={histYear} onValueChange={setHistYear}>
+              <SelectTrigger className="h-8 text-xs" data-testid="filter-po-year"><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Years</SelectItem>
+                {histYears.map(y => <SelectItem key={y} value={y}>{y}</SelectItem>)}
+              </SelectContent>
+            </Select>
+          </div>
+          {filteredHistory.length === 0 ? (
+            <div className="py-8 text-center text-sm text-muted-foreground">No payment outs found.</div>
           ) : (
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
@@ -290,7 +337,7 @@ export default function PaymentOutTab() {
                   </tr>
                 </thead>
                 <tbody>
-                  {paymentOuts.map(p => (
+                  {filteredHistory.map(p => (
                     <tr key={p.id} className="border-t hover:bg-muted/30" data-testid={`row-po-${p.id}`}>
                       <td className="py-2 px-3 text-xs">{format(new Date(p.paymentDate + "T00:00:00"), "dd-MM-yyyy")}</td>
                       <td className="py-2 px-2 font-medium">{p.vendorName}</td>
