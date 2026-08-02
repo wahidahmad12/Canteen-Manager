@@ -114,6 +114,17 @@ async function initPool(): Promise<void> {
     `INSERT IGNORE INTO fixed_asset_options (option_type, name) VALUES
       ('category','Kitchen Equipment'),('category','Refrigeration'),('category','Dining Furniture'),('category','POS & Electronics'),('category','Other'),
       ('location','Main Kitchen'),('location','Dining Hall A'),('location','Dining Hall B'),('location','Cold Storage Unit'),('location','Counter POS')`,
+    `CREATE TABLE IF NOT EXISTS payment_outs (
+      id INT AUTO_INCREMENT PRIMARY KEY,
+      vendor_name VARCHAR(200) NOT NULL,
+      payment_date DATE NOT NULL,
+      amount DECIMAL(12,2) NOT NULL,
+      utr_no VARCHAR(100) DEFAULT '',
+      allocated_amount DECIMAL(12,2) NOT NULL DEFAULT 0,
+      created_by VARCHAR(200) DEFAULT '',
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    )`,
+    `ALTER TABLE purchase_invoice_payments ADD COLUMN IF NOT EXISTS payment_out_id INT NULL`,
     `CREATE TABLE IF NOT EXISTS tax_invoices (
       id INT AUTO_INCREMENT PRIMARY KEY,
       invoice_number VARCHAR(50) NOT NULL,

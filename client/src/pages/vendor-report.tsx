@@ -1,4 +1,5 @@
 import { useState, useMemo } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { Layout } from "@/components/layout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -44,6 +45,15 @@ export default function VendorReport() {
   const [, navigate] = useLocation();
   const { data: invoices, isLoading } = usePurchaseInvoices();
   const { data: vendors } = useVendors();
+  // Unallocated Payment Out advances per vendor (money paid but not tagged to any bill yet)
+  const { data: paymentOuts } = useQuery<any[]>({
+    queryKey: ["/api/payment-outs"],
+    queryFn: async () => {
+      const res = await fetch("/api/payment-outs", { credentials: "include" });
+      if (!res.ok) return [];
+      return res.json();
+    },
+  });
   const { data: clients } = useClientNames();
 
   const [datePreset, setDatePreset] = useState<DatePreset>("all");
@@ -55,6 +65,22 @@ export default function VendorReport() {
   const [paymentReportFor, setPaymentReportFor] = useState<string | null>(null);
   const [prYear, setPrYear] = useState<string>("all");
   const [prMonth, setPrMonth] = useState<string>("all");
+
+  const poAdvanceByVendor = useMemo(() => {
+    const map = new Map<string, number>();
+    (paymentOuts || []).forEach((p: any) => {
+      if (p.advance <= 0) return;
+      const d = new Date(String(p.paymentDate) + "T00:00:00");
+      if (fromDate && d < fromDate) return;
+      if (toDate) {
+        const end = new Date(toDate);
+        end.setHours(23, 59, 59, 999);
+        if (d > end) return;
+      }
+      map.set(p.vendorName, (map.get(p.vendorName) || 0) + p.advance);
+    });
+    return map;
+  }, [paymentOuts, fromDate, toDate]);
 
   const handlePresetChange = (preset: DatePreset) => {
     setDatePreset(preset);
@@ -209,6 +235,13 @@ export default function VendorReport() {
           else row.unpaidCount++;
         });
       });
+      // Include untagged Payment Out advance: money already given to the vendor
+      // even though it is not tagged to any specific bill yet
+      // Only in vendor grouping — a vendor advance is not tied to a client, and
+      // adding it to multiple client rows would double-count it.
+      if (groupBy === "vendor") {
+        row.totalPaid += poAdvanceByVendor.get(key) || 0;
+      }
       row.totalBalance = Math.max(0, row.grandTotal - row.totalPaid);
       row.extraPaid = Math.max(0, row.totalPaid - row.grandTotal);
       result.push(row);
@@ -219,7 +252,7 @@ export default function VendorReport() {
         ? a.vendorName.localeCompare(b.vendorName)
         : a.clientName.localeCompare(b.clientName)
     );
-  }, [filteredInvoices, groupBy]);
+  }, [filteredInvoices, groupBy, poAdvanceByVendor]);
 
   const grandTotals = useMemo(() => {
     return summaryData.reduce(

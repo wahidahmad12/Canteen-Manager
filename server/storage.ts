@@ -1332,6 +1332,12 @@ export class DatabaseStorage implements IStorage {
     } catch (e) {
       console.error("Vendor advance auto-adjust failed:", e);
     }
+    // Also pull any unallocated Payment Out advance of this vendor onto the new bill
+    try {
+      await this.applyPaymentOutAdvancesToInvoice(result.id);
+    } catch (e) {
+      console.error("Payment Out advance auto-adjust failed:", e);
+    }
     const payments = await db.select().from(purchaseInvoicePayments).where(eq(purchaseInvoicePayments.invoiceId, result.id)).orderBy(purchaseInvoicePayments.paymentDate);
     return { ...result, payments };
   }
@@ -1449,7 +1455,17 @@ export class DatabaseStorage implements IStorage {
   }
 
   async deletePurchaseInvoice(id: number): Promise<void> {
-    await db.delete(purchaseInvoices).where(eq(purchaseInvoices.id, id));
+    await db.transaction(async (tx) => {
+      // Give back any Payment Out money tagged to this bill, so it becomes advance again
+      const [linked] = await tx.execute(sql`
+        SELECT payment_out_id, SUM(amount) AS total FROM purchase_invoice_payments
+        WHERE invoice_id = ${id} AND payment_out_id IS NOT NULL
+        GROUP BY payment_out_id`) as any;
+      for (const row of (Array.isArray(linked) ? linked : [])) {
+        await tx.execute(sql`UPDATE payment_outs SET allocated_amount = GREATEST(0, allocated_amount - ${Number(row.total) || 0}) WHERE id = ${row.payment_out_id}`);
+      }
+      await tx.delete(purchaseInvoices).where(eq(purchaseInvoices.id, id));
+    });
   }
 
   async getPurchaseInvoicePayments(invoiceId: number): Promise<PurchaseInvoicePayment[]> {
@@ -1530,6 +1546,149 @@ export class DatabaseStorage implements IStorage {
         });
         excess -= transfer;
       }
+    });
+  }
+
+  // ── Payment Out: vendor-level payments allocated across bills ──────────────
+  async getVendorUnpaidInvoices(vendorName: string, onlyCreatedBy?: string[]): Promise<any[]> {
+    const creatorFilter = onlyCreatedBy && onlyCreatedBy.length > 0
+      ? sql` AND pi.created_by IN (${sql.join(onlyCreatedBy.map(n => sql`${n}`), sql`, `)})`
+      : sql``;
+    const [rows] = await db.execute(sql`
+      SELECT pi.id, pi.dj_invoice_no AS djInvoiceNo, pi.vendor_invoice_no AS vendorInvoiceNo,
+             pi.date, pi.grand_total AS grandTotal,
+             COALESCE((SELECT SUM(p.amount) FROM purchase_invoice_payments p WHERE p.invoice_id = pi.id), 0) AS paid
+      FROM purchase_invoices pi
+      WHERE pi.vendor_name = ${vendorName}${creatorFilter}
+      HAVING CAST(grandTotal AS DECIMAL(14,2)) - CAST(paid AS DECIMAL(14,2)) > 0.009
+      ORDER BY pi.date ASC, pi.id ASC`) as any;
+    return (Array.isArray(rows) ? rows : []).map((r: any) => ({
+      id: r.id,
+      djInvoiceNo: r.djInvoiceNo,
+      vendorInvoiceNo: r.vendorInvoiceNo,
+      date: r.date,
+      grandTotal: Number(r.grandTotal) || 0,
+      paid: Number(r.paid) || 0,
+      balance: Math.round(((Number(r.grandTotal) || 0) - (Number(r.paid) || 0)) * 100) / 100,
+    }));
+  }
+
+  async getPaymentOuts(vendorName?: string): Promise<any[]> {
+    const [rows] = vendorName
+      ? await db.execute(sql`SELECT * FROM payment_outs WHERE vendor_name = ${vendorName} ORDER BY payment_date DESC, id DESC`) as any
+      : await db.execute(sql`SELECT * FROM payment_outs ORDER BY payment_date DESC, id DESC`) as any;
+    return (Array.isArray(rows) ? rows : []).map((r: any) => ({
+      id: r.id,
+      vendorName: r.vendor_name,
+      paymentDate: typeof r.payment_date === 'string' ? r.payment_date : String(r.payment_date).slice(0, 10),
+      amount: Number(r.amount) || 0,
+      utrNo: r.utr_no || '',
+      allocatedAmount: Number(r.allocated_amount) || 0,
+      advance: Math.round(((Number(r.amount) || 0) - (Number(r.allocated_amount) || 0)) * 100) / 100,
+      createdBy: r.created_by || '',
+      createdAt: r.created_at,
+    }));
+  }
+
+  async createPaymentOut(data: {
+    vendorName: string; paymentDate: string; amount: number; utrNo?: string; createdBy?: string;
+    allocations: { invoiceId: number; amount: number }[];
+    allowedCreators?: string[]; // non-admin: may only tag their own invoices
+  }): Promise<{ id: number; allocated: number; advance: number }> {
+    const toPaise = (v: unknown) => Math.round((Number(v) || 0) * 100);
+    const fromPaise = (p: number) => (p / 100).toFixed(2);
+    const totalPaise = toPaise(data.amount);
+    if (totalPaise <= 0) throw new Error("Payment amount must be greater than 0");
+    // Merge duplicate invoice ids and lock in ascending id order (avoids deadlocks)
+    const merged = new Map<number, number>();
+    for (const a of data.allocations) {
+      merged.set(a.invoiceId, (merged.get(a.invoiceId) || 0) + toPaise(a.amount));
+    }
+    const allocations = Array.from(merged.entries())
+      .map(([invoiceId, paise]) => ({ invoiceId, paise }))
+      .filter(a => a.paise > 0)
+      .sort((a, b) => a.invoiceId - b.invoiceId);
+    const allocSum = allocations.reduce((s, a) => s + a.paise, 0);
+    if (allocSum > totalPaise) throw new Error("Tagged amounts cannot be more than the payment amount");
+
+    return await db.transaction(async (tx) => {
+      await tx.execute(sql`
+        INSERT INTO payment_outs (vendor_name, payment_date, amount, utr_no, allocated_amount, created_by)
+        VALUES (${data.vendorName}, ${data.paymentDate}, ${fromPaise(totalPaise)}, ${data.utrNo || ''}, 0, ${data.createdBy || ''})`);
+      const [idRows] = await tx.execute(sql`SELECT LAST_INSERT_ID() AS id`) as any;
+      const poId = Number((Array.isArray(idRows) ? idRows[0] : idRows).id);
+      const utrTag = data.utrNo ? ` (UTR ${data.utrNo})` : '';
+
+      let allocated = 0;
+      for (const alloc of allocations) {
+        const amt = alloc.paise;
+        const [invRows] = await tx.execute(sql`SELECT * FROM purchase_invoices WHERE id = ${alloc.invoiceId} FOR UPDATE`) as any;
+        const inv = (Array.isArray(invRows) ? invRows[0] : invRows) as any;
+        if (!inv) throw new Error(`Bill #${alloc.invoiceId} not found`);
+        if (inv.vendor_name !== data.vendorName) throw new Error(`Bill #${alloc.invoiceId} belongs to a different vendor`);
+        if (data.allowedCreators && data.allowedCreators.length > 0 && !data.allowedCreators.includes(inv.created_by)) {
+          throw new Error(`You can only tag bills you created (bill #${alloc.invoiceId} was created by someone else)`);
+        }
+        const [paidRows] = await tx.execute(sql`SELECT COALESCE(SUM(amount),0) AS paid FROM purchase_invoice_payments WHERE invoice_id = ${alloc.invoiceId}`) as any;
+        const paid = toPaise((Array.isArray(paidRows) ? paidRows[0] : paidRows).paid);
+        const balance = toPaise(inv.grand_total) - paid;
+        if (amt > balance) {
+          const ref = inv.dj_invoice_no || inv.vendor_invoice_no || `#${inv.id}`;
+          throw new Error(`Tagged amount for bill ${ref} is more than its balance of ₹${fromPaise(balance)}`);
+        }
+        await tx.execute(sql`
+          INSERT INTO purchase_invoice_payments (invoice_id, payment_date, amount, notes, payment_out_id)
+          VALUES (${alloc.invoiceId}, ${data.paymentDate}, ${fromPaise(amt)}, ${`Payment Out${utrTag}`}, ${poId})`);
+        allocated += amt;
+      }
+      if (allocated > 0) {
+        await tx.execute(sql`UPDATE payment_outs SET allocated_amount = ${fromPaise(allocated)} WHERE id = ${poId}`);
+      }
+      return { id: poId, allocated: Number(fromPaise(allocated)), advance: Number(fromPaise(totalPaise - allocated)) };
+    });
+  }
+
+  // When a new bill is created, automatically pull any unallocated Payment Out
+  // advance of the same vendor onto the new bill (oldest payment out first).
+  async applyPaymentOutAdvancesToInvoice(invoiceId: number): Promise<void> {
+    const toPaise = (v: unknown) => Math.round((Number(v) || 0) * 100);
+    const fromPaise = (p: number) => (p / 100).toFixed(2);
+
+    await db.transaction(async (tx) => {
+      const [invRows] = await tx.execute(sql`SELECT * FROM purchase_invoices WHERE id = ${invoiceId} FOR UPDATE`) as any;
+      const inv = (Array.isArray(invRows) ? invRows[0] : invRows) as any;
+      if (!inv) return;
+      const [paidRows] = await tx.execute(sql`SELECT COALESCE(SUM(amount),0) AS paid FROM purchase_invoice_payments WHERE invoice_id = ${invoiceId}`) as any;
+      let need = toPaise(inv.grand_total) - toPaise((Array.isArray(paidRows) ? paidRows[0] : paidRows).paid);
+      if (need <= 0) return;
+
+      const [poRows] = await tx.execute(sql`
+        SELECT * FROM payment_outs
+        WHERE vendor_name = ${inv.vendor_name} AND amount > allocated_amount
+        ORDER BY payment_date ASC, id ASC
+        FOR UPDATE`) as any;
+      const pos: any[] = Array.isArray(poRows) ? poRows : [];
+      const today = new Date().toISOString().slice(0, 10);
+
+      for (const po of pos) {
+        if (need <= 0) break;
+        const avail = toPaise(po.amount) - toPaise(po.allocated_amount);
+        if (avail <= 0) continue;
+        const use = Math.min(avail, need);
+        const utrTag = po.utr_no ? ` (UTR ${po.utr_no})` : '';
+        await tx.execute(sql`
+          INSERT INTO purchase_invoice_payments (invoice_id, payment_date, amount, notes, payment_out_id)
+          VALUES (${invoiceId}, ${today}, ${fromPaise(use)}, ${`Auto adjusted from Payment Out advance${utrTag}`}, ${po.id})`);
+        await tx.execute(sql`UPDATE payment_outs SET allocated_amount = allocated_amount + ${fromPaise(use)} WHERE id = ${po.id}`);
+        need -= use;
+      }
+    });
+  }
+
+  async deletePaymentOut(id: number): Promise<void> {
+    await db.transaction(async (tx) => {
+      await tx.execute(sql`DELETE FROM purchase_invoice_payments WHERE payment_out_id = ${id}`);
+      await tx.execute(sql`DELETE FROM payment_outs WHERE id = ${id}`);
     });
   }
 

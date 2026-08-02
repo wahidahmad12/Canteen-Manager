@@ -19,6 +19,7 @@ import {
   AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import PaymentOutTab from "@/components/payment-out-tab";
 
 // ── Qty Calculator ─────────────────────────────────────────────────────────────
 function QtyCalculator({ itemName, uom, current, onConfirm, onClose }: {
@@ -160,6 +161,7 @@ export default function PurchaseInvoice() {
 
   const [date, setDate] = useState<Date>(new Date());
   const [clientName, setClientName] = useState("");
+  const [mainTab, setMainTab] = useState<"invoice" | "paymentout">("invoice");
   const [vendorName, setVendorName] = useState("");
   const [newVendorName, setNewVendorName] = useState("");
   const [vendorInvoiceNo, setVendorInvoiceNo] = useState("");
@@ -483,6 +485,32 @@ export default function PurchaseInvoice() {
             </Button>
           </Link>
         </div>
+
+        {/* Tab switcher: Invoice / Payment Out */}
+        {!editId && (
+          <div className="flex gap-2">
+            <Button
+              variant={mainTab === "invoice" ? "default" : "outline"}
+              size="sm"
+              className={mainTab === "invoice" ? "bg-gradient-to-r from-rose-500 to-pink-600 text-white" : ""}
+              onClick={() => setMainTab("invoice")}
+              data-testid="tab-invoice"
+            >
+              <Receipt className="w-4 h-4 mr-1.5" /> Purchase Invoice
+            </Button>
+            <Button
+              variant={mainTab === "paymentout" ? "default" : "outline"}
+              size="sm"
+              className={mainTab === "paymentout" ? "bg-gradient-to-r from-indigo-500 to-violet-600 text-white" : ""}
+              onClick={() => setMainTab("paymentout")}
+              data-testid="tab-payment-out"
+            >
+              <IndianRupee className="w-4 h-4 mr-1.5" /> Payment Out
+            </Button>
+          </div>
+        )}
+
+        {mainTab === "paymentout" && !editId ? <PaymentOutTab /> : <>
 
         {/* Hero card */}
         <Card className="border-0 shadow-lg overflow-hidden">
@@ -1037,6 +1065,7 @@ export default function PurchaseInvoice() {
             {editId ? "Update Invoice" : "Save Invoice"}
           </Button>
         </div>
+        </>}
       </div>
 
       {/* Qty Calculator Dialog */}

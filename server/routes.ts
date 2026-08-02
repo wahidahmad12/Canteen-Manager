@@ -867,6 +867,67 @@ export async function registerRoutes(
     }
   });
 
+  // ── Payment Out (vendor-level payments allocated across bills) ─────────────
+  app.get('/api/payment-outs', requirePermission('purchase'), async (req: any, res) => {
+    try {
+      const vendor = req.query.vendor ? String(req.query.vendor) : undefined;
+      let rows = await storage.getPaymentOuts(vendor);
+      if (req.session.role !== 'admin') {
+        const names = [req.session.displayName, req.session.username].filter(Boolean);
+        rows = rows.filter((r: any) => names.includes(r.createdBy));
+      }
+      res.json(rows);
+    } catch (e: any) { res.status(500).json({ message: e.message }); }
+  });
+
+  app.get('/api/payment-outs/unpaid-invoices', requirePermission('purchase'), async (req: any, res) => {
+    try {
+      const vendor = String(req.query.vendor || '');
+      if (!vendor) return res.status(400).json({ message: "vendor is required" });
+      const onlyCreatedBy = req.session.role === 'admin'
+        ? undefined
+        : [req.session.displayName, req.session.username].filter(Boolean);
+      res.json(await storage.getVendorUnpaidInvoices(vendor, onlyCreatedBy));
+    } catch (e: any) { res.status(500).json({ message: e.message }); }
+  });
+
+  app.post('/api/payment-outs', requirePermission('purchase'), async (req: any, res) => {
+    try {
+      const schema = z.object({
+        vendorName: z.string().trim().min(1).max(200),
+        paymentDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Invalid date"),
+        amount: z.number().finite().min(0.01).max(99999999),
+        utrNo: z.string().max(100).optional().default(''),
+        allocations: z.array(z.object({
+          invoiceId: z.number().int().positive(),
+          amount: z.number().finite().min(0).max(99999999),
+        })).max(200).default([]),
+      });
+      const data = schema.parse(req.body);
+      const result = await storage.createPaymentOut({
+        ...data,
+        createdBy: req.session.displayName || req.session.username || '',
+        allowedCreators: req.session.role === 'admin'
+          ? undefined
+          : [req.session.displayName, req.session.username].filter(Boolean),
+      });
+      res.status(201).json(result);
+    } catch (e: any) {
+      if (e instanceof z.ZodError) return res.status(400).json({ message: e.errors[0].message });
+      res.status(400).json({ message: e.message });
+    }
+  });
+
+  app.delete('/api/payment-outs/:id', requirePermission('purchase'), async (req: any, res) => {
+    try {
+      if (req.session.role !== 'admin') {
+        return res.status(403).json({ message: "Only the admin can delete a payment out" });
+      }
+      await storage.deletePaymentOut(Number(req.params.id));
+      res.status(204).end();
+    } catch (e: any) { res.status(500).json({ message: e.message }); }
+  });
+
   app.post(api.purchaseInvoices.applyAdvance.path, requirePermission('purchase'), async (req, res) => {
     try {
       const invoice = await storage.getPurchaseInvoice(Number(req.params.id));
@@ -920,6 +981,10 @@ export async function registerRoutes(
       if (req.session.role !== 'admin' && invoice.createdBy !== req.session.displayName && invoice.createdBy !== req.session.username) {
         return res.status(403).json({ message: "Access denied" });
       }
+      const [poRows] = await pool.query(`SELECT payment_out_id FROM purchase_invoice_payments WHERE id = ?`, [Number(req.params.id)]) as any;
+      if (Array.isArray(poRows) && poRows[0]?.payment_out_id) {
+        return res.status(400).json({ message: "This entry came from a Payment Out. Edit or delete the Payment Out instead." });
+      }
       const input = api.purchaseInvoices.updatePayment.input.parse(req.body);
       const updated = await storage.updatePurchaseInvoicePayment(Number(req.params.id), input);
       res.json(updated);
@@ -929,6 +994,10 @@ export async function registerRoutes(
   });
 
   app.delete(api.purchaseInvoices.deletePayment.path, requireAdmin, async (req, res) => {
+    const [poRows] = await pool.query(`SELECT payment_out_id FROM purchase_invoice_payments WHERE id = ?`, [Number(req.params.id)]) as any;
+    if (Array.isArray(poRows) && poRows[0]?.payment_out_id) {
+      return res.status(400).json({ message: "This entry came from a Payment Out. Delete the Payment Out instead." });
+    }
     await storage.deletePurchaseInvoicePayment(Number(req.params.id));
     res.status(204).send();
   });
