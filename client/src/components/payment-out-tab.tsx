@@ -15,6 +15,11 @@ type PaymentOut = { id: number; vendorName: string; clientName: string; paymentD
 
 const fmt = (n: number) => n.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
+function parseLinkedClients(raw: string | null | undefined): string[] {
+  if (!raw) return [];
+  try { return JSON.parse(raw); } catch { return []; }
+}
+
 export default function PaymentOutTab() {
   const { toast } = useToast();
   const qc = useQueryClient();
@@ -47,6 +52,14 @@ export default function PaymentOutTab() {
       if (!res.ok) throw new Error("Failed to load payment outs");
       return res.json();
     },
+  });
+
+  // Show only the selected client's vendors (vendors with no linked clients always show)
+  const filteredVendors = ((vendorsList as any[]) || []).filter((v: any) => {
+    const linked = parseLinkedClients(v.linkedClients);
+    if (linked.length === 0) return true;
+    if (!clientName) return true;
+    return linked.includes(clientName);
   });
 
   const payAmount = Math.round((Number(amount) || 0) * 100) / 100;
@@ -133,21 +146,34 @@ export default function PaymentOutTab() {
         <CardContent className="p-4 space-y-4">
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
             <div>
-              <Label className="text-xs">Vendor</Label>
-              <Select value={vendorName} onValueChange={(v) => { setVendorName(v); setAllocs({}); }}>
-                <SelectTrigger data-testid="select-po-vendor"><SelectValue placeholder="Select vendor" /></SelectTrigger>
+              <Label className="text-xs">Client</Label>
+              <Select value={clientName || "__all__"} onValueChange={(v) => {
+                const c = v === "__all__" ? "" : v;
+                setClientName(c);
+                setAllocs({});
+                // clear vendor if it doesn't belong to the newly selected client
+                if (vendorName && c) {
+                  const stillValid = (vendorsList || []).some((vd: any) => {
+                    if (vd.name !== vendorName) return false;
+                    const linked = parseLinkedClients(vd.linkedClients);
+                    return linked.length === 0 || linked.includes(c);
+                  });
+                  if (!stillValid) setVendorName("");
+                }
+              }}>
+                <SelectTrigger data-testid="select-po-client"><SelectValue placeholder="All clients" /></SelectTrigger>
                 <SelectContent>
-                  {(vendorsList || []).map((v: any) => <SelectItem key={v.id} value={v.name}>{v.name}</SelectItem>)}
+                  <SelectItem value="__all__">All clients</SelectItem>
+                  {(clientsList || []).map((c: any) => <SelectItem key={c.id} value={c.name}>{c.name}</SelectItem>)}
                 </SelectContent>
               </Select>
             </div>
             <div>
-              <Label className="text-xs">Client</Label>
-              <Select value={clientName || "__all__"} onValueChange={(v) => { setClientName(v === "__all__" ? "" : v); setAllocs({}); }}>
-                <SelectTrigger data-testid="select-po-client"><SelectValue placeholder="All clients" /></SelectTrigger>
+              <Label className="text-xs">Vendor</Label>
+              <Select value={vendorName} onValueChange={(v) => { setVendorName(v); setAllocs({}); }}>
+                <SelectTrigger data-testid="select-po-vendor"><SelectValue placeholder="Select vendor" /></SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="__all__">All clients</SelectItem>
-                  {(clientsList || []).map((c: any) => <SelectItem key={c.id ?? c.name ?? c} value={c.name ?? c}>{c.name ?? c}</SelectItem>)}
+                  {filteredVendors.map((v: any) => <SelectItem key={v.id} value={v.name}>{v.name}</SelectItem>)}
                 </SelectContent>
               </Select>
             </div>
