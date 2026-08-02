@@ -425,9 +425,21 @@ export default function PurchaseInvoice() {
       });
     } else {
       createMutation.mutate(payload, {
-        onSuccess: (inv: any) => {
+        onSuccess: async (inv: any) => {
           toast({ title: `Invoice ${djInvoiceNo} created successfully` });
-          navigate(`/purchase-invoice/${inv.id}/edit`);
+          // Stay on the form for quick entry: keep Date, Client and Vendor;
+          // clear items and move DJ Invoice No to the next number automatically
+          setItems([{ itemName: "", uom: "Kg", qty: 0, unitPrice: 0, totalPrice: 0, gstRate: 0, gstAmount: 0, netAmount: 0 }]);
+          setVendorInvoiceNo("");
+          setPurchaseRequestId(null);
+          setSelectedPrIds([]);
+          try {
+            const res = await fetch("/api/purchase-invoices/next-dj-no", { credentials: "include" });
+            if (res.ok) {
+              const d = await res.json();
+              if (d?.djInvoiceNo) setDjInvoiceNo(d.djInvoiceNo);
+            }
+          } catch { /* keep old number; user can edit it */ }
         },
         onError: (err) => toast({ title: "Error", description: err.message, variant: "destructive" }),
       });
