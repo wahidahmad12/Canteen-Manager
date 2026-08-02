@@ -680,6 +680,22 @@ export default function MonthlyPnlPage() {
                           {isProfit ? '+' : '-'}{fmtINR(Math.abs(netPnl))}
                         </td>
                       </tr>
+                      {Number(d.paymentOutAdvanceTotal || 0) > 0 && (
+                        <>
+                          <tr className="border-t">
+                            <td className="py-2 text-amber-700 dark:text-amber-400 font-semibold text-xs">Payment Out Advance (waiting for bill)</td>
+                            <td className="py-2 text-right font-bold text-amber-700 dark:text-amber-400 text-xs">({fmtINR(d.paymentOutAdvanceTotal)})</td>
+                          </tr>
+                          <tr>
+                            <td className={`py-2 font-bold ${(netPnl - Number(d.paymentOutAdvanceTotal || 0)) >= 0 ? 'text-emerald-700 dark:text-emerald-400' : 'text-rose-700 dark:text-rose-400'}`}>
+                              Profit After Advance
+                            </td>
+                            <td className={`py-2 text-right font-extrabold ${(netPnl - Number(d.paymentOutAdvanceTotal || 0)) >= 0 ? 'text-emerald-700 dark:text-emerald-400' : 'text-rose-700 dark:text-rose-400'}`}>
+                              {(netPnl - Number(d.paymentOutAdvanceTotal || 0)) >= 0 ? '+' : '-'}{fmtINR(Math.abs(netPnl - Number(d.paymentOutAdvanceTotal || 0)))}
+                            </td>
+                          </tr>
+                        </>
+                      )}
                     </tbody>
                   </table>
                   <div className={`mt-3 grid gap-3 pt-3 border-t text-center text-xs text-muted-foreground ${showHulSections ? 'grid-cols-3' : 'grid-cols-2'}`}>
