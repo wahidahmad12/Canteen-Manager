@@ -384,6 +384,9 @@ export default function PurchaseInvoice() {
       if (purchaseItemMaster) {
         const masterMatch = purchaseItemMaster.find((p: any) => p.itemName.toLowerCase() === nameVal);
         if (masterMatch) {
+          // Item Master rate wins — auto-fill unit price (user can still change it)
+          const masterRate = Number(masterMatch.rate) || 0;
+          if (masterRate > 0) { newItems[index].unitPrice = masterRate; newItems[index].lastEdited = "unitPrice"; }
           if (!newItems[index].gstRate || newItems[index].gstRate === 0) newItems[index].gstRate = Number(masterMatch.gstPercent) || 0;
           newItems[index].uom = masterMatch.uom || newItems[index].uom;
         }
