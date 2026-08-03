@@ -206,6 +206,12 @@ export default function PaymentOutTab() {
             </div>
           </div>
 
+          <div className="flex justify-end">
+            <Button onClick={handleSave} disabled={saveMutation.isPending} className="bg-gradient-to-r from-indigo-500 to-violet-600 hover:from-indigo-600 hover:to-violet-700 text-white gap-2" data-testid="button-save-payment-out">
+              {saveMutation.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />} Save Payment Out
+            </Button>
+          </div>
+
           {vendorName && (
             <div className="border rounded-lg overflow-hidden">
               <div className="flex items-center justify-between px-3 py-2 bg-indigo-50 dark:bg-indigo-950/20">
@@ -269,12 +275,6 @@ export default function PaymentOutTab() {
               {excess < 0 && <span className="text-rose-600"> — Tagged more than the payment amount!</span>}
             </div>
           )}
-
-          <div className="flex justify-end">
-            <Button onClick={handleSave} disabled={saveMutation.isPending} className="bg-gradient-to-r from-indigo-500 to-violet-600 hover:from-indigo-600 hover:to-violet-700 text-white gap-2" data-testid="button-save-payment-out">
-              {saveMutation.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />} Save Payment Out
-            </Button>
-          </div>
         </CardContent>
       </Card>
 
