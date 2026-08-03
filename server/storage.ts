@@ -1907,7 +1907,12 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getExpenseItemStockYears(): Promise<number[]> {
-    const [rows] = await db.execute(sql`SELECT DISTINCT YEAR(dr.date) AS yr FROM expense_items ei JOIN daily_reports dr ON ei.report_id = dr.id ORDER BY yr DESC`) as any;
+    const [rows] = await db.execute(sql`
+      SELECT DISTINCT yr FROM (
+        SELECT YEAR(dr.date) AS yr FROM expense_items ei JOIN daily_reports dr ON ei.report_id = dr.id
+        UNION
+        SELECT YEAR(dr.date) AS yr FROM cash_seals cs JOIN daily_reports dr ON cs.report_id = dr.id WHERE COALESCE(cs.expense_banana_qty, 0) > 0
+      ) t ORDER BY yr DESC`) as any;
     return (Array.isArray(rows) ? rows : []).map((r: any) => Number(r.yr)).filter(Boolean);
   }
 
@@ -1953,7 +1958,7 @@ export class DatabaseStorage implements IStorage {
       `) as any;
       rows = Array.isArray(r) ? r : [];
     }
-    return rows.map((row: any) => ({
+    const result = rows.map((row: any) => ({
       itemName: String(row.item_name || ''),
       uom: String(row.uom || ''),
       category: String(row.category || ''),
@@ -1961,6 +1966,36 @@ export class DatabaseStorage implements IStorage {
       totalQty: Number(row.total_qty || 0),
       totalAmount: Number(row.total_amount || 0),
     }));
+
+    // Banana from the Daily Cash Seal (KPF) — stored on cash_seals, not expense_items.
+    // Amount uses the date-effective banana rate for each seal's date.
+    if (!useCat || category === 'kpf') {
+      const bananaSchedule = await this.getBananaRates();
+      const rateCase = bananaRateSqlCase('dr.date', bananaSchedule);
+      const [br] = await db.execute(sql`
+        SELECT
+          MONTH(dr.date) AS month,
+          SUM(COALESCE(cs.expense_banana_qty, 0)) AS total_qty,
+          SUM(COALESCE(cs.expense_banana_qty, 0) * ${sql.raw(rateCase)}) AS total_amount
+        FROM cash_seals cs
+        JOIN daily_reports dr ON cs.report_id = dr.id
+        WHERE YEAR(dr.date) = ${year}
+        GROUP BY MONTH(dr.date)
+        ORDER BY MONTH(dr.date)
+      `) as any;
+      for (const row of (Array.isArray(br) ? br : [])) {
+        if (Number(row.total_qty || 0) === 0 && Number(row.total_amount || 0) === 0) continue;
+        result.push({
+          itemName: 'Banana (Cash Seal KPF)',
+          uom: 'Pcs',
+          category: 'kpf',
+          month: Number(row.month),
+          totalQty: Number(row.total_qty || 0),
+          totalAmount: Number(row.total_amount || 0),
+        });
+      }
+    }
+    return result;
   }
 
   async syncItemMasterRates(): Promise<{ updated: number; skipped: number; noMatch: number; details: Array<{ name: string; oldRate: string; newRate: string; source: string }> }> {

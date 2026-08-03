@@ -8,11 +8,12 @@ import * as XLSX from "exceljs";
 import { saveAs } from "file-saver";
 
 const MONTHS = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
-const CAT_LABELS: Record<string, string> = { vegetable: "Vegetable", fixed: "Fixed Item", other: "Other" };
+const CAT_LABELS: Record<string, string> = { vegetable: "Vegetable", fixed: "Fixed Item", other: "Other", kpf: "Cash Seal KPF" };
 const CAT_COLORS: Record<string, string> = {
   vegetable: "bg-green-100 text-green-800 dark:bg-green-900/40 dark:text-green-300",
   fixed:     "bg-blue-100  text-blue-800  dark:bg-blue-900/40  dark:text-blue-300",
   other:     "bg-orange-100 text-orange-800 dark:bg-orange-900/40 dark:text-orange-300",
+  kpf:       "bg-yellow-100 text-yellow-800 dark:bg-yellow-900/40 dark:text-yellow-300",
 };
 
 interface StockRow     { itemName: string; uom: string; month: number; totalQty: number; totalAmount: number; }
@@ -361,6 +362,7 @@ export default function ItemStockReportPage() {
               <option value="vegetable">Vegetable</option>
               <option value="fixed">Fixed Item</option>
               <option value="other">Other</option>
+              <option value="kpf">Cash Seal KPF (Banana)</option>
             </select>
           )}
 

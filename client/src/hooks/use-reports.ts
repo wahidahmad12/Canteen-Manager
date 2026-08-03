@@ -969,6 +969,9 @@ export function usePurchaseInvoice(id: number | null) {
       return res.json();
     },
     enabled: !!id,
+    // No auto-polling here: this query hydrates the invoice edit form,
+    // and a background refetch would silently reset unsaved edits.
+    refetchInterval: false,
   });
 }
 
