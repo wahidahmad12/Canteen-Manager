@@ -582,7 +582,7 @@ export default function PurchaseInvoice() {
 
               <div className="space-y-1.5">
                 <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Date</Label>
-                <DatePicker date={date} setDate={(d) => d && setDate(d)} />
+                <DatePicker date={date} setDate={(d) => d && setDate(d)} dateFormat="dd-MM-yyyy (EEEE)" />
               </div>
 
               <div className="space-y-1.5">
