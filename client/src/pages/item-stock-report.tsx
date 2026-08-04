@@ -186,10 +186,11 @@ export default function ItemStockReportPage() {
   const [selectedClient, setSelectedClient] = useState("all");
   const [expCategory,    setExpCategory]    = useState("all");
   const [view,           setView]           = useState<"qty"|"amount"|"both">("both");
-  const [source,         setSource]         = useState<"purchase"|"expense">("purchase");
+  const [source,         setSource]         = useState<"purchase"|"expense"|"combined">("purchase");
+  const [combinedYear,   setCombinedYear]   = useState(now.getFullYear());
 
-  const selectedYear = source === "purchase" ? purchaseYear : expenseYear;
-  const setSelectedYear = source === "purchase" ? setPurchaseYear : setExpenseYear;
+  const selectedYear = source === "purchase" ? purchaseYear : source === "expense" ? expenseYear : combinedYear;
+  const setSelectedYear = source === "purchase" ? setPurchaseYear : source === "expense" ? setExpenseYear : setCombinedYear;
 
   // ── Available years (from DB) ──────────────────────────────────────────────
   const { data: purchaseYears = [] } = useQuery<number[]>({
@@ -202,13 +203,20 @@ export default function ItemStockReportPage() {
     queryFn: () => fetch("/api/expense-items/stock-years", { credentials: "include" }).then(r => r.json()),
   });
 
+  const combinedYears = useMemo(() =>
+    Array.from(new Set([...purchaseYears, ...expenseYears])).sort((a, b) => b - a)
+  , [purchaseYears, expenseYears]);
+
   // Auto-set year to the latest year with actual data
   useEffect(() => { if (purchaseYears.length > 0) setPurchaseYear(purchaseYears[0]); }, [purchaseYears]);
   useEffect(() => { if (expenseYears.length  > 0) setExpenseYear(expenseYears[0]);   }, [expenseYears]);
+  useEffect(() => { if (combinedYears.length > 0) setCombinedYear(combinedYears[0]); }, [combinedYears]);
 
   const yearOptions = source === "purchase"
     ? (purchaseYears.length > 0 ? purchaseYears : [now.getFullYear()])
-    : (expenseYears.length  > 0 ? expenseYears  : [now.getFullYear()]);
+    : source === "expense"
+    ? (expenseYears.length  > 0 ? expenseYears  : [now.getFullYear()])
+    : (combinedYears.length > 0 ? combinedYears : [now.getFullYear()]);
 
   // ── Purchase data ──────────────────────────────────────────────────────────
   const { data: clients = [] } = useQuery<string[]>({
@@ -216,33 +224,49 @@ export default function ItemStockReportPage() {
     queryFn: () => fetch("/api/purchase-invoices/item-stock-clients", { credentials: "include" }).then(r => r.json()),
   });
 
+  const purchaseQueryYear = source === "combined" ? combinedYear : purchaseYear;
+  const purchaseQueryClient = source === "combined" ? "all" : selectedClient;
   const { data: purchaseRows = [], isLoading: purchaseLoading } = useQuery<StockRow[]>({
-    queryKey: ["/api/purchase-invoices/item-stock-report", purchaseYear, selectedClient],
-    enabled: source === "purchase",
+    queryKey: ["/api/purchase-invoices/item-stock-report", purchaseQueryYear, purchaseQueryClient],
+    enabled: source === "purchase" || source === "combined",
     queryFn: () => {
-      const params = new URLSearchParams({ year: String(purchaseYear) });
-      if (selectedClient !== "all") params.set("client", selectedClient);
+      const params = new URLSearchParams({ year: String(purchaseQueryYear) });
+      if (purchaseQueryClient !== "all") params.set("client", purchaseQueryClient);
       return fetch(`/api/purchase-invoices/item-stock-report?${params}`, { credentials: "include" }).then(r => r.json());
     },
   });
 
   // ── Expense data ───────────────────────────────────────────────────────────
+  const expenseQueryYear = source === "combined" ? combinedYear : expenseYear;
+  const expenseQueryCategory = source === "combined" ? "all" : expCategory;
   const { data: expenseRows = [], isLoading: expenseLoading } = useQuery<ExpenseRow[]>({
-    queryKey: ["/api/expense-items/stock-report", expenseYear, expCategory],
-    enabled: source === "expense",
+    queryKey: ["/api/expense-items/stock-report", expenseQueryYear, expenseQueryCategory],
+    enabled: source === "expense" || source === "combined",
     queryFn: () => {
-      const params = new URLSearchParams({ year: String(expenseYear) });
-      if (expCategory !== "all") params.set("category", expCategory);
+      const params = new URLSearchParams({ year: String(expenseQueryYear) });
+      if (expenseQueryCategory !== "all") params.set("category", expenseQueryCategory);
       return fetch(`/api/expense-items/stock-report?${params}`, { credentials: "include" }).then(r => r.json());
     },
   });
 
-  const isLoading = source === "purchase" ? purchaseLoading : expenseLoading;
+  const isLoading = source === "purchase" ? purchaseLoading : source === "expense" ? expenseLoading : (purchaseLoading || expenseLoading);
 
   // ── Pivot computations ─────────────────────────────────────────────────────
   const pivot = useMemo(() => {
     if (source === "purchase") return buildPivot(purchaseRows);
-    return buildPivot(expenseRows, r => (r as ExpenseRow).category);
+    if (source === "expense") return buildPivot(expenseRows, r => (r as ExpenseRow).category);
+    // Combined: same item name from both sources is merged into one row (totals added)
+    const rows = [
+      ...purchaseRows.map(r => ({ ...r, src: "Purchase" })),
+      ...expenseRows.map(r => ({ ...r, src: "Daily Cash" })),
+    ];
+    const map = buildPivot(rows, r => (r as any).src);
+    const pNames = new Set(purchaseRows.map(r => r.itemName));
+    const eNames = new Set(expenseRows.map(r => r.itemName));
+    for (const name of Object.keys(map)) {
+      if (pNames.has(name) && eNames.has(name)) map[name].extra = "Both";
+    }
+    return map;
   }, [source, purchaseRows, expenseRows]);
 
   const itemNames = useMemo(() => Object.keys(pivot).sort((a, b) => a.localeCompare(b)), [pivot]);
@@ -284,8 +308,8 @@ export default function ItemStockReportPage() {
     if (!itemNames.length) return;
     const wb = new XLSX.Workbook();
     const ws = wb.addWorksheet(`Stock ${selectedYear}`);
-    const hasCat = source === "expense";
-    const headers = ["#", "Item Name", ...(hasCat ? ["Category"] : []), "UOM"];
+    const hasCat = source === "expense" || source === "combined";
+    const headers = ["#", "Item Name", ...(hasCat ? [source === "combined" ? "Source" : "Category"] : []), "UOM"];
     for (const m of activeMonths) { headers.push(`${MONTHS[m-1]} Qty`, `${MONTHS[m-1]} Amt ₹`); }
     headers.push("Total Qty", "Total Amt ₹");
     ws.columns = headers.map((h, i) => ({ header: h, key: `c${i}`, width: i === 1 ? 32 : i <= 3 ? 10 : 13 }));
@@ -314,7 +338,9 @@ export default function ItemStockReportPage() {
     const buf = await wb.xlsx.writeBuffer();
     const suffix = source === "purchase"
       ? `_Purchase${selectedClient !== "all" ? "_" + selectedClient : ""}`
-      : `_DailyExpense${expCategory !== "all" ? "_" + expCategory : ""}`;
+      : source === "expense"
+      ? `_DailyExpense${expCategory !== "all" ? "_" + expCategory : ""}`
+      : `_Combined`;
     saveAs(new Blob([buf]), `ItemStockReport_${selectedYear}${suffix}.xlsx`);
     toast({ title: "Excel downloaded" });
   };
@@ -391,6 +417,7 @@ export default function ItemStockReportPage() {
         {([
           { key: "purchase", label: "Purchase Invoices", icon: ShoppingCart, color: "text-teal-600 border-teal-600" },
           { key: "expense",  label: "Daily Cash Expenses", icon: BookOpen,    color: "text-orange-600 border-orange-500" },
+          { key: "combined", label: "Combined",            icon: BarChart3,   color: "text-indigo-600 border-indigo-500" },
         ] as const).map(tab => (
           <button key={tab.key} onClick={() => setSource(tab.key)}
             className={`flex items-center gap-2 px-5 py-3 text-sm font-semibold border-b-2 transition-colors ${source === tab.key ? tab.color : "border-transparent text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200"}`}
@@ -407,7 +434,7 @@ export default function ItemStockReportPage() {
         <div className="hidden print:block text-center mb-3">
           <div className="text-base font-bold">DJ Hospitality &amp; Facility Management Pvt Ltd</div>
           <div className="text-sm font-semibold">
-            {source === "purchase" ? "Item-wise Monthly Purchase Stock Report" : "Item-wise Monthly Daily Expense Report"} — {selectedYear}
+            {source === "purchase" ? "Item-wise Monthly Purchase Stock Report" : source === "expense" ? "Item-wise Monthly Daily Expense Report" : "Item-wise Combined Report (Purchase + Daily Cash)"} — {selectedYear}
           </div>
         </div>
 
@@ -470,6 +497,13 @@ export default function ItemStockReportPage() {
                 render: (extra) => (
                   <span className={`px-1.5 py-0.5 rounded text-[10px] font-semibold ${CAT_COLORS[extra] || "bg-slate-100 text-slate-600"}`}>
                     {CAT_LABELS[extra] || extra}
+                  </span>
+                ),
+              } : source === "combined" ? {
+                header: "Source",
+                render: (extra) => (
+                  <span className={`px-1.5 py-0.5 rounded text-[10px] font-semibold ${extra === "Purchase" ? "bg-teal-100 text-teal-800 dark:bg-teal-900/40 dark:text-teal-300" : extra === "Daily Cash" ? "bg-orange-100 text-orange-800 dark:bg-orange-900/40 dark:text-orange-300" : "bg-indigo-100 text-indigo-800 dark:bg-indigo-900/40 dark:text-indigo-300"}`}>
+                    {extra}
                   </span>
                 ),
               } : undefined}
