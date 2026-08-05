@@ -217,6 +217,17 @@ export default function EmployeeDashboard() {
     enabled: !!user?.employeeId,
   });
 
+  // Current skill-based basic rate for the selected month/year (same source the Salary Register uses)
+  const { data: skillRate } = useQuery<{ dailyRate: string } | null>({
+    queryKey: ['/api/skill-wage-rates/lookup', empInfo?.skills, selectedMonth, selectedYear],
+    queryFn: async () => {
+      const res = await fetch(`/api/skill-wage-rates/lookup?skillCategory=${encodeURIComponent(empInfo!.skills || '')}&month=${selectedMonth}&year=${selectedYear}`, { credentials: 'include' });
+      if (!res.ok) return null;
+      return res.json();
+    },
+    enabled: !!empInfo?.skills,
+  });
+
   const { data: shiftDuty } = useQuery<Record<string, any>>({
     queryKey: ['/api/employee/me/shift-duty', selectedMonth, selectedYear],
     queryFn: async () => {
@@ -246,7 +257,7 @@ export default function EmployeeDashboard() {
     const html2pdf = (await import('html2pdf.js')).default;
 
     const nv = (v: string | number | null | undefined) => Number(v) || 0;
-    const basicRate = nv(empInfo.dailyRate);
+    const basicRate = skillRate?.dailyRate ? (nv(skillRate.dailyRate) || nv(empInfo.dailyRate)) : nv(empInfo.dailyRate);
     const basic = nv(salary.basicWage);
     const fixedHRA = nv(salary.hra);
     const otAllow = nv(salary.overtimeAmount);

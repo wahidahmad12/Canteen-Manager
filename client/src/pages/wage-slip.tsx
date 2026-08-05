@@ -159,6 +159,17 @@ export default function WageSlip() {
   const employee = employees?.find((e) => e.id === salary?.employeeId);
   const attendance = attendanceList?.find((a) => a.employeeId === salary?.employeeId);
 
+  // Current skill-based basic rate for this month/year (same source the Salary Register uses)
+  const { data: skillRate } = useQuery<{ dailyRate: string } | null>({
+    queryKey: ["/api/skill-wage-rates/lookup", employee?.skills, salary?.month, salary?.year],
+    queryFn: async () => {
+      const res = await fetch(`/api/skill-wage-rates/lookup?skillCategory=${encodeURIComponent(employee!.skills || "")}&month=${salary!.month}&year=${salary!.year}`, { credentials: "include" });
+      if (!res.ok) return null;
+      return res.json();
+    },
+    enabled: !!employee?.skills && !!salary?.month && !!salary?.year,
+  });
+
   if (salaryLoading) {
     return (
       <div className="flex items-center justify-center min-h-screen">
@@ -182,7 +193,9 @@ export default function WageSlip() {
   }
 
   const n = (v: string | undefined | null) => Number(v) || 0;
-  const basicRate = n(employee?.dailyRate);
+  const basicRate = skillRate?.dailyRate !== undefined && skillRate?.dailyRate !== null
+    ? Number(skillRate.dailyRate) || n(employee?.dailyRate)
+    : n(employee?.dailyRate);
   const basic = n(salary.basicWage);
   const hra5 = Math.round(basic * 0.05);
   const fixedHRA = n(salary.hra);
