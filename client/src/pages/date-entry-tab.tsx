@@ -3593,6 +3593,9 @@ function HulSpecialOrderTab({ month, year, loadKey = 0 }: { month: number; year:
       const res = await fetch(`/api/hul-special-orders?month=${month}&year=${year}`, { credentials: 'include' });
       return res.json();
     },
+    // No auto-polling: this query hydrates an editable form; a background
+    // refetch would silently reset unsaved rows.
+    refetchInterval: false,
   });
 
   useEffect(() => {
@@ -3636,10 +3639,15 @@ function HulSpecialOrderTab({ month, year, loadKey = 0 }: { month: number; year:
       for (const row of rows) {
         if (!row._dirty) continue;
         const payload = { month, year, slNo: row.slNo, dateOfSupply: row.dateOfSupply || '', particulars: row.particulars, qty: row.qty, ratePerPlate: row.ratePerPlate, total: row.total };
+        let res: Response;
         if (row.id) {
-          await fetch(`/api/hul-special-orders/${row.id}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload), credentials: 'include' });
+          res = await fetch(`/api/hul-special-orders/${row.id}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload), credentials: 'include' });
         } else {
-          await fetch('/api/hul-special-orders', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload), credentials: 'include' });
+          res = await fetch('/api/hul-special-orders', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload), credentials: 'include' });
+        }
+        if (!res.ok) {
+          const data = await res.json().catch(() => ({}));
+          throw new Error(data.message || `Could not save row ${row.slNo} (error ${res.status}) — please log in again if needed.`);
         }
       }
       await qc.invalidateQueries({ queryKey: ['/api/hul-special-orders', month, year] });
