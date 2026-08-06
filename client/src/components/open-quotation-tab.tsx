@@ -10,7 +10,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useClientNames } from "@/hooks/use-reports";
 import { FileSpreadsheet, Plus, Trash2, Loader2, Save, Pencil, X, Clock, Link2, Printer } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { LETTERHEAD_HTML, getCoverLetterPrintStyles } from "@/lib/letterhead";
+import { LETTERHEAD_HTML, LETTERHEAD_CSS } from "@/lib/letterhead";
 
 interface QuotationItem { id?: number; itemName: string; qty: number; rate: number; amount: number; }
 interface Quotation {
@@ -210,7 +210,12 @@ export function OpenQuotationTab() {
     `;
     const w = window.open("", "_blank");
     if (!w) { toast({ title: "Please allow pop-ups to print", variant: "destructive" }); return; }
-    w.document.write(`<!DOCTYPE html><html><head><title>Quotation ${esc(q.quotationNo)}</title><style>${getCoverLetterPrintStyles()}</style></head><body>${body}</body></html>`);
+    w.document.write(`<!DOCTYPE html><html><head><title>Quotation ${esc(q.quotationNo)}</title><style>
+      @page { size: A4 portrait; margin: 12mm 15mm 18mm 15mm; }
+      body { margin: 0; padding: 0; font-family: Calibri, Arial, sans-serif; font-size: 13px; color: #000; line-height: 1.5; }
+      p { margin: 4px 0; }
+      ${LETTERHEAD_CSS}
+    </style></head><body>${body}</body></html>`);
     w.document.close();
     w.onload = () => { w.print(); w.onafterprint = () => w.close(); };
   };
