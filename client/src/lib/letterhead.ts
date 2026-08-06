@@ -68,7 +68,7 @@ export const LETTERHEAD_HTML = `
   <div class="letterhead">
     <img class="lh-logo" src="${DJ_LOGO_BASE64}" alt="DJ Hospitality" />
     <h2>DJ HOSPITALITY &amp; FACILITY MANAGEMENT PRIVATE LIMITED</h2>
-    <p class="contact">Ph.: +91 6200202710 | Email: djfoods15@yahoo.in | Sales@djfoods.in | Web: www.djfoods.in</p>
+    <p class="contact">Ph.: +91 6200202710 | Email: kolkata@djfoods.in | Sales@djfoods.in | Web: www.djfoods.in</p>
     <p class="address">Regd. &amp; Head Office: 730, Tin Made, Sodiem Siolim, Mapusa Bardez, North Goa-403502, India</p>
     <p class="address">Branch Office: 7 Crematorium Street, Kolkata- 700014</p>
     <p class="cin-gstin">CIN: U74910GA2020PTC014271, GSTIN: 30AAHCD6485G1ZO</p>
