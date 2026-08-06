@@ -3,7 +3,8 @@ import { useMemo, useState } from "react";
 import { useMutation } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
-import { Plus, Loader2, FileText, ArrowRight, Calculator, ClipboardList, UtensilsCrossed, ShoppingCart, Trash2, Check, CheckCircle2, FileDown, Pencil, Receipt, BarChart3, IndianRupee, TrendingUp, TrendingDown, Wallet, CreditCard, DollarSign, Store, FileSpreadsheet, Search, X } from "lucide-react";
+import { Plus, Loader2, FileText, ArrowRight, Calculator, ClipboardList, UtensilsCrossed, ShoppingCart, Trash2, Check, CheckCircle2, FileDown, Pencil, Receipt, BarChart3, IndianRupee, TrendingUp, TrendingDown, Wallet, CreditCard, DollarSign, Store, FileSpreadsheet, Search, X, ScanLine } from "lucide-react";
+import GroceryScanTab from "@/components/grocery-scan-tab";
 import { SiWhatsapp } from "react-icons/si";
 import { useReports, useDeleteReport, useInventories, useCashSeals, useSavedMenus, useDeleteSavedMenu, usePurchaseRequests, useDeletePurchaseRequest, useUpdatePurchaseRequest, useCurrentUser, usePurchaseInvoices, useDeletePurchaseInvoice, useBananaRates } from "@/hooks/use-reports";
 import { format } from "date-fns";
@@ -117,6 +118,7 @@ export default function Dashboard() {
 
   const tabItems = [
     { value: 'reports', label: 'Reports', icon: FileText, perm: 'expense' },
+    { value: 'grocery', label: 'Grocery Scan', icon: ScanLine, perm: 'expense' },
     { value: 'cashseal', label: 'Daily Cash Seal', icon: Calculator, perm: 'cashseal' },
     { value: 'inventory', label: 'Inventory', icon: ClipboardList, perm: 'inventory' },
     { value: 'menus', label: 'Menus', icon: UtensilsCrossed, perm: 'menu' },
@@ -733,6 +735,10 @@ export default function Dashboard() {
                 </CardContent>
               </Card>
             )}
+          </TabsContent>
+
+          <TabsContent value="grocery">
+            <GroceryScanTab />
           </TabsContent>
 
           <TabsContent value="cashseal">

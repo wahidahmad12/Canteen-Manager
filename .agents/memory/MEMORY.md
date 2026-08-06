@@ -1,2 +1,3 @@
 - [DB schema changes (TiDB/MySQL)](db-migrations.md) — drizzle-kit push is interactive/unusable; add idempotent migrations to the startup array in server/db.ts.
 - [Upsert authz on natural keys](upsert-authz-natural-key.md) — guard POST upsert writes by the natural key (e.g. entryDate), never client-supplied body fields, or authz is bypassable.
+- [Grocery Scan tab restore](grocery-scan-restore.md) — rollbacks have silently deleted whole features; check `git log --all --grep` before concluding a referenced feature never existed; never re-add demo seeds.

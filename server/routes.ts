@@ -2617,6 +2617,134 @@ export async function registerRoutes(
   });
 
   // === UNICHEM SNACK ENTRIES (Form 1) ===
+  // ── Grocery Expenses (handwritten receipt scanner) ──────────────────────────
+  app.get('/api/grocery-expenses', requirePermission('expense'), async (_req, res) => {
+    try {
+      const [rows] = await pool.query(`SELECT id, DATE_FORMAT(entry_date, '%Y-%m-%d') AS entryDate, item_name AS itemName, quantity, cost, payer FROM grocery_expenses ORDER BY entry_date DESC, id DESC`);
+      res.json(rows);
+    } catch (e: any) { res.status(500).json({ message: e.message }); }
+  });
+
+  app.post('/api/grocery-expenses', requirePermission('expense'), async (req, res) => {
+    try {
+      const schema = z.object({
+        items: z.array(z.object({
+          entryDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Invalid date").refine(s => !isNaN(new Date(s + "T00:00:00Z").getTime()), "Invalid date"),
+          itemName: z.string().trim().min(1).max(300),
+          quantity: z.string().max(50).optional().default(''),
+          cost: z.number().finite().min(0).max(9999999)
+            .refine(n => Math.round(n * 100) === n * 100 || Math.abs(Math.round(n * 100) - n * 100) < 1e-6, "Cost can have at most 2 decimals"),
+          payer: z.string().max(100).optional().default(''),
+        })).min(1).max(200),
+      });
+      const { items } = schema.parse(req.body);
+      const conn = await pool.getConnection();
+      try {
+        await conn.beginTransaction();
+        for (const it of items) {
+          await conn.query(
+            `INSERT INTO grocery_expenses (entry_date, item_name, quantity, cost, payer) VALUES (?, ?, ?, ?, ?)`,
+            [it.entryDate, it.itemName, it.quantity || '', (Math.round(it.cost * 100) / 100).toFixed(2), it.payer || ''],
+          );
+        }
+        await conn.commit();
+      } catch (txErr) {
+        await conn.rollback();
+        throw txErr;
+      } finally {
+        conn.release();
+      }
+      res.status(201).json({ saved: items.length });
+    } catch (e: any) {
+      if (e instanceof z.ZodError) return res.status(400).json({ message: e.errors[0].message });
+      res.status(500).json({ message: e.message });
+    }
+  });
+
+  app.delete('/api/grocery-expenses/:id', requirePermission('expense'), async (req: any, res) => {
+    try {
+      if (req.session.role !== 'admin') {
+        return res.status(403).json({ message: "Only the admin can delete grocery expenses." });
+      }
+      await pool.query(`DELETE FROM grocery_expenses WHERE id = ?`, [Number(req.params.id)]);
+      res.status(204).end();
+    } catch (e: any) { res.status(500).json({ message: e.message }); }
+  });
+
+  app.post('/api/grocery-expenses/scan', requirePermission('expense'), async (req, res) => {
+    try {
+      const { image } = z.object({ image: z.string().min(100).max(14 * 1024 * 1024) }).parse(req.body); // data URL
+      const m = image.match(/^data:image\/(jpeg|jpg|png|webp);base64,([A-Za-z0-9+/=]+)$/);
+      if (!m) return res.status(400).json({ message: "Please upload a JPG, PNG or WEBP photo." });
+      const decodedBytes = Math.floor(m[2].length * 3 / 4);
+      if (decodedBytes > 10 * 1024 * 1024) return res.status(400).json({ message: "Photo too big (max 10 MB)." });
+      const apiKey = process.env.OPENAI_API_KEY;
+      if (!apiKey) {
+        return res.status(503).json({ message: "AI key not set up yet. Please add the AI API key first." });
+      }
+      const prompt = `This is a photo of a handwritten grocery list/receipt (may be in Hindi, Marathi or English). Extract every item with its quantity and price. Respond ONLY with JSON: {"items":[{"itemName":string,"quantity":string,"cost":number}]}. Use the item name as written (transliterate to Latin letters if needed). quantity like "1 kg", "2 pc", or "" if not written. cost is the price number, 0 if unreadable.`;
+      const isGoogleKey = apiKey.startsWith("AIza");
+      let content = "{}";
+      if (isGoogleKey) {
+        const mimeType = `image/${m[1] === "jpg" ? "jpeg" : m[1]}`;
+        const aiRes = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            contents: [{ parts: [
+              { text: prompt },
+              { inline_data: { mime_type: mimeType, data: m[2] } },
+            ]}],
+            generationConfig: { response_mime_type: "application/json", maxOutputTokens: 2000 },
+          }),
+        });
+        if (!aiRes.ok) {
+          const errText = await aiRes.text();
+          console.error("Gemini scan error:", errText.slice(0, 500));
+          return res.status(502).json({ message: "AI could not read the image. Please try a clearer photo." });
+        }
+        const aiJson: any = await aiRes.json();
+        content = aiJson.candidates?.[0]?.content?.parts?.[0]?.text || "{}";
+      } else {
+        const aiRes = await fetch("https://api.openai.com/v1/chat/completions", {
+          method: "POST",
+          headers: { "Content-Type": "application/json", Authorization: `Bearer ${apiKey}` },
+          body: JSON.stringify({
+            model: "gpt-4o-mini",
+            max_tokens: 1500,
+            response_format: { type: "json_object" },
+            messages: [{
+              role: "user",
+              content: [
+                { type: "text", text: prompt },
+                { type: "image_url", image_url: { url: image } },
+              ],
+            }],
+          }),
+        });
+        if (!aiRes.ok) {
+          const errText = await aiRes.text();
+          console.error("OpenAI scan error:", errText.slice(0, 500));
+          return res.status(502).json({ message: "AI could not read the image. Please try a clearer photo." });
+        }
+        const aiJson: any = await aiRes.json();
+        content = aiJson.choices?.[0]?.message?.content || "{}";
+      }
+      let parsed: any = {};
+      try { parsed = JSON.parse(content); } catch { return res.status(502).json({ message: "AI returned an unreadable answer. Please try again." }); }
+      const items = Array.isArray(parsed.items) ? parsed.items
+        .filter((it: any) => it && typeof it.itemName === "string" && it.itemName.trim())
+        .map((it: any) => ({
+          itemName: String(it.itemName).slice(0, 300),
+          quantity: String(it.quantity ?? "").slice(0, 50),
+          cost: Math.max(0, Number(it.cost) || 0),
+        })) : [];
+      res.json({ items });
+    } catch (e: any) {
+      if (e instanceof z.ZodError) return res.status(400).json({ message: "Please upload a valid image." });
+      res.status(500).json({ message: e.message });
+    }
+  });
 
   app.get('/api/unichem-snack-entries', requirePermission('salesinvoice'), async (req, res) => {
     const month = Number(req.query.month) || new Date().getMonth() + 1;
