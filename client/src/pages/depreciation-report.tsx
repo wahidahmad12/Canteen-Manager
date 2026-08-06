@@ -3,7 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 import { Link } from "wouter";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { Printer, ArrowLeft, TrendingDown } from "lucide-react";
+import { Printer, ArrowLeft, TrendingDown, FileSpreadsheet } from "lucide-react";
 import type { FixedAsset } from "@shared/schema";
 
 const fmtINR = (n: number) =>
@@ -70,6 +70,73 @@ export default function DepreciationReportPage() {
 
   const asOfStr = asOf.toLocaleDateString("en-IN", { day: "2-digit", month: "long", year: "numeric" });
 
+  const handleExportExcel = async () => {
+    const ExcelJS = (await import("exceljs")).default;
+    const wb = new ExcelJS.Workbook();
+
+    const headerStyle = (row: any) => {
+      row.font = { bold: true };
+      row.eachCell((cell: any) => {
+        cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFF3F4F6" } };
+        cell.border = { top: { style: "thin" }, left: { style: "thin" }, bottom: { style: "thin" }, right: { style: "thin" } };
+      });
+    };
+
+    // Sheet 1: Asset detail
+    const ws = wb.addWorksheet("Asset Detail");
+    ws.addRow(["Fixed Asset Depreciation Report"]).font = { bold: true, size: 14 };
+    ws.addRow([`As on ${asOfStr} · Straight-line method (cost × yearly % × years since purchase)`]);
+    ws.addRow([]);
+    const head = ws.addRow(["Asset ID", "Name", "Category", "Location", "Purchase Date", "Cost", "Depr %/yr", "Years", "Accum. Depr.", "Book Value"]);
+    headerStyle(head);
+    for (const r of rows) {
+      ws.addRow([
+        r.asset.assetTag,
+        r.asset.name,
+        r.asset.category,
+        r.asset.location,
+        r.asset.purchaseDate,
+        r.cost,
+        r.depPercent,
+        Number(r.years.toFixed(1)),
+        Number(r.accumulated.toFixed(2)),
+        Number(r.bookValue.toFixed(2)),
+      ]);
+    }
+    const totalRow = ws.addRow([
+      `Grand Total (${rows.length} assets)`, "", "", "", "",
+      Number(totals.cost.toFixed(2)), "", "",
+      Number(totals.accumulated.toFixed(2)), Number(totals.bookValue.toFixed(2)),
+    ]);
+    totalRow.font = { bold: true };
+    ws.columns.forEach((c, i) => { c.width = i === 1 ? 30 : 16; });
+    [6, 9, 10].forEach((n) => { ws.getColumn(n).numFmt = "#,##0.00"; });
+
+    // Summary sheets
+    const addSummarySheet = (name: string, groups: ReturnType<typeof groupTotals>) => {
+      const s = wb.addWorksheet(name);
+      const h = s.addRow(["Name", "Assets", "Total Cost", "Accum. Depreciation", "Book Value"]);
+      headerStyle(h);
+      for (const [gname, g] of groups) {
+        s.addRow([gname, g.count, Number(g.cost.toFixed(2)), Number(g.accumulated.toFixed(2)), Number(g.bookValue.toFixed(2))]);
+      }
+      const t = s.addRow(["Total", rows.length, Number(totals.cost.toFixed(2)), Number(totals.accumulated.toFixed(2)), Number(totals.bookValue.toFixed(2))]);
+      t.font = { bold: true };
+      s.columns.forEach((c, i) => { c.width = i === 0 ? 30 : 20; });
+      [3, 4, 5].forEach((n) => { s.getColumn(n).numFmt = "#,##0.00"; });
+    };
+    addSummarySheet("By Category", byCategory);
+    addSummarySheet("By Location", byLocation);
+
+    const buf = await wb.xlsx.writeBuffer();
+    const blob = new Blob([buf], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(blob);
+    a.download = `Depreciation_Report_${asOf.toISOString().slice(0, 10)}.xlsx`;
+    a.click();
+    URL.revokeObjectURL(a.href);
+  };
+
   const summaryTable = (title: string, groups: ReturnType<typeof groupTotals>) => (
     <div>
       <h2 className="text-sm font-bold uppercase tracking-wide mb-2">{title}</h2>
@@ -134,6 +201,9 @@ export default function DepreciationReportPage() {
           <Link href="/fixed-assets">
             <Button variant="outline" size="sm"><ArrowLeft className="w-4 h-4 mr-1" /> Fixed Assets</Button>
           </Link>
+          <Button variant="outline" size="sm" onClick={handleExportExcel} disabled={rows.length === 0} data-testid="button-export-excel">
+            <FileSpreadsheet className="w-4 h-4 mr-1" /> Export Excel
+          </Button>
           <Button size="sm" onClick={() => window.print()}>
             <Printer className="w-4 h-4 mr-1" /> Print Report
           </Button>
