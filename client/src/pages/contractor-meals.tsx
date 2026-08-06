@@ -9,7 +9,9 @@ import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
-import { Plus, Trash2, Pencil, Save, Users, Printer } from "lucide-react";
+import { Plus, Trash2, Pencil, Save, Users, Printer, Download, Upload, FileSpreadsheet, MessageCircle } from "lucide-react";
+import * as XLSX from "xlsx";
+import { useRef } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 
 type Contractor = { id: number; vendorCode: string; name: string; clientName: string };
@@ -144,6 +146,113 @@ export default function ContractorMealsPage() {
     return { b, l, d, all: b + l + d };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [filteredContractors, entries, edits]);
+
+  // ---- Import / Export / Template ----
+  const fileRef = useRef<HTMLInputElement>(null);
+
+  const downloadTemplate = () => {
+    const rows = filteredContractors.map((c) => {
+      const v = rowValue(c);
+      return {
+        "Vender Code": c.vendorCode,
+        "Contractor Name": c.name,
+        "Breakfast": v.breakfast === "" ? "" : Number(v.breakfast),
+        "Lunch": v.lunch === "" ? "" : Number(v.lunch),
+        "Dinner": v.dinner === "" ? "" : Number(v.dinner),
+        "Bill No": v.billNo,
+      };
+    });
+    const ws = XLSX.utils.json_to_sheet(rows);
+    ws["!cols"] = [{ wch: 12 }, { wch: 34 }, { wch: 10 }, { wch: 10 }, { wch: 10 }, { wch: 16 }];
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Meal Entry");
+    XLSX.writeFile(wb, `Contractor_Meal_Template_${monthName}_${year}.xlsx`);
+  };
+
+  const exportExcel = () => {
+    // Same layout as the user's original Excel: one row per contractor per meal type
+    const mm = String(month).padStart(2, "0");
+    const dateStr = `01-${mm}-${year}`;
+    const out: any[] = [];
+    let sl = 1;
+    for (const meal of ["Breakfast", "Lunch", "Dinner"] as const) {
+      for (const c of filteredContractors) {
+        const v = rowValue(c);
+        const qty = v[meal.toLowerCase() as "breakfast" | "lunch" | "dinner"];
+        if (qty === "") continue;
+        out.push({
+          "Sl No": sl++,
+          "Vender Code": c.vendorCode,
+          "Date": dateStr,
+          "Month": monthName.slice(0, 3),
+          "Contractor Name": c.name,
+          "Type Of Meal": meal,
+          "Qty": Number(qty) || 0,
+          "Cont & Month": `${c.name}${monthName.slice(0, 3)}${year}`,
+          "Bill No": v.billNo,
+          "Year": year,
+        });
+      }
+    }
+    if (!out.length) { toast({ title: "Koi entry nahi", description: "Pehle qty daal kar Save kijiye.", variant: "destructive" }); return; }
+    const ws = XLSX.utils.json_to_sheet(out);
+    ws["!cols"] = [{ wch: 6 }, { wch: 12 }, { wch: 11 }, { wch: 7 }, { wch: 34 }, { wch: 12 }, { wch: 7 }, { wch: 36 }, { wch: 16 }, { wch: 7 }];
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, `${monthName} ${year}`);
+    XLSX.writeFile(wb, `Contractor_Meal_${monthName}_${year}.xlsx`);
+  };
+
+  const importFile = async (file: File) => {
+    try {
+      const buf = await file.arrayBuffer();
+      const wb = XLSX.read(buf);
+      const ws = wb.Sheets[wb.SheetNames[0]];
+      const rows: any[] = XLSX.utils.sheet_to_json(ws, { defval: "" });
+      const byCode = new Map(contractors.map((c) => [c.vendorCode.trim().toUpperCase(), c]));
+      const byName = new Map(contractors.map((c) => [c.name.trim().toUpperCase(), c]));
+      const norm = (r: any, keys: string[]) => {
+        for (const k of Object.keys(r)) {
+          if (keys.some((x) => k.trim().toLowerCase().replace(/\s+/g, "") === x)) return r[k];
+        }
+        return undefined;
+      };
+      const newEdits: typeof edits = {};
+      let matched = 0, skipped = 0;
+      const applyCell = (c: Contractor, key: "breakfast" | "lunch" | "dinner" | "billNo", val: any) => {
+        if (val === undefined || val === null || String(val).trim() === "") return;
+        const base = newEdits[c.id] ?? { ...rowValue(c) };
+        base[key] = key === "billNo" ? String(val).trim() : String(Math.max(0, Math.round(Number(val) || 0)));
+        newEdits[c.id] = base;
+      };
+      for (const r of rows) {
+        const code = String(norm(r, ["vendercode", "vendorcode", "code"]) ?? "").trim().toUpperCase();
+        const name = String(norm(r, ["contractorname", "name"]) ?? "").trim().toUpperCase();
+        const c = byCode.get(code) || byName.get(name);
+        if (!c) { skipped++; continue; }
+        matched++;
+        const meal = String(norm(r, ["typeofmeal", "mealtype", "meal"]) ?? "").trim().toLowerCase();
+        const qty = norm(r, ["qty", "quantity"]);
+        if (meal === "breakfast" || meal === "lunch" || meal === "dinner") {
+          // export-style file: one row per meal
+          applyCell(c, meal as any, qty);
+        } else {
+          // template-style file: Breakfast/Lunch/Dinner columns
+          applyCell(c, "breakfast", norm(r, ["breakfast"]));
+          applyCell(c, "lunch", norm(r, ["lunch"]));
+          applyCell(c, "dinner", norm(r, ["dinner"]));
+        }
+        applyCell(c, "billNo", norm(r, ["billno", "bill"]));
+      }
+      if (!matched) { toast({ title: "Import failed", description: "Vendor code ya contractor name match nahi hua.", variant: "destructive" }); return; }
+      setEdits((prev) => ({ ...prev, ...newEdits }));
+      toast({
+        title: `${matched} rows import ho gayi`,
+        description: `${skipped ? skipped + " rows match nahi hui. " : ""}Ab "Save All" dabaiye.`,
+      });
+    } catch (e: any) {
+      toast({ title: "Import failed", description: e?.message || "File padh nahi paye.", variant: "destructive" });
+    }
+  };
 
   // ---- Invoice (without GST) state ----
   const [invContractor, setInvContractor] = useState<Contractor | null>(null);
@@ -398,6 +507,24 @@ export default function ContractorMealsPage() {
               <Button onClick={() => saveMutation.mutate()} disabled={saveMutation.isPending} data-testid="button-save-entries">
                 <Save className="h-4 w-4 mr-1" /> {saveMutation.isPending ? "Saving..." : "Save All"}
               </Button>
+              <Button variant="outline" onClick={downloadTemplate} data-testid="button-template">
+                <FileSpreadsheet className="h-4 w-4 mr-1" /> Template
+              </Button>
+              <Button variant="outline" onClick={() => fileRef.current?.click()} data-testid="button-import">
+                <Upload className="h-4 w-4 mr-1" /> Import
+              </Button>
+              <Button variant="outline" onClick={exportExcel} data-testid="button-export">
+                <Download className="h-4 w-4 mr-1" /> Export
+              </Button>
+              <input
+                ref={fileRef} type="file" accept=".xlsx,.xls,.csv" className="hidden"
+                onChange={(e) => {
+                  const f = e.target.files?.[0];
+                  if (f) importFile(f);
+                  e.target.value = "";
+                }}
+                data-testid="input-import-file"
+              />
             </CardContent>
           </Card>
 
@@ -633,9 +760,42 @@ export default function ContractorMealsPage() {
                   </tbody>
                 </table>
                 <p className="text-xs text-muted-foreground">Bina GST wala invoice — qty is month ki saved entry se aati hai. Pehle "Save All" kar lijiye agar qty change ki hai.</p>
-                <Button className="w-full" onClick={printInvoice} data-testid="button-print-invoice">
-                  <Printer className="h-4 w-4 mr-1" /> Print Invoice
-                </Button>
+                <div className="flex gap-2">
+                  <Button className="flex-1" onClick={printInvoice} data-testid="button-print-invoice">
+                    <Printer className="h-4 w-4 mr-1" /> Print Invoice
+                  </Button>
+                  <Button
+                    variant="outline" className="flex-1 text-green-600 border-green-600"
+                    onClick={() => {
+                      const c = invContractor;
+                      if (!c) return;
+                      const mm = String(month).padStart(2, "0");
+                      const lastDay = new Date(year, month, 0).getDate();
+                      const lines = [
+                        `*DJ Hospitality & Facility Management Pvt Ltd*`,
+                        `Invoice: *${invNo || "-"}*  Date: ${invDate.split("-").reverse().join("-")}`,
+                        `Bill To: ${c.vendorCode} - ${c.name}`,
+                        `Period: 01-${mm}-${year} To ${lastDay}-${mm}-${year}`,
+                        ``,
+                        ...(["Breakfast", "Lunch", "Dinner"] as const)
+                          .filter((m) => qtys[m] > 0)
+                          .map((m) => `${m}: ${qtys[m]} NOS x Rs.${Number(invRates[m]) || 0} = Rs.${(qtys[m] * (Number(invRates[m]) || 0)).toLocaleString("en-IN", { minimumFractionDigits: 2 })}`),
+                        ``,
+                        `*Total Amount: Rs.${total.toLocaleString("en-IN", { minimumFractionDigits: 2 })}*`,
+                        `(${amountInWords(Math.round(total * 100) / 100)})`,
+                        ``,
+                        `Bank: Bank of Baroda, Patri Branch Patdi`,
+                        `A/C: Sunita Devi, 03720100022770, IFSC: BARB0PATRIX`,
+                        `UPI: amardeepkumar2427-1@oksbi`,
+                      ];
+                      window.open(`https://wa.me/?text=${encodeURIComponent(lines.join("\n"))}`, "_blank");
+                    }}
+                    data-testid="button-whatsapp-invoice"
+                  >
+                    <MessageCircle className="h-4 w-4 mr-1" /> WhatsApp
+                  </Button>
+                </div>
+                <p className="text-xs text-muted-foreground">WhatsApp button bill ka message bhejta hai. PDF bhejne ke liye Print Invoice → "Save as PDF" karke WhatsApp me attach kijiye.</p>
               </div>
             );
           })()}
