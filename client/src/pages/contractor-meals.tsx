@@ -474,11 +474,16 @@ ${forPrint ? "<script>window.onload = function(){ window.print(); };</scr" + "ip
           )
         );
         await new Promise((r) => setTimeout(r, 100));
-        const { default: html2canvas } = await import("html2canvas");
-        const canvas = await html2canvas(doc.body, { scale: 2, backgroundColor: "#ffffff", width: 820, windowWidth: 820 });
-        const blob: Blob = await new Promise((res, rej) =>
-          canvas.toBlob((b) => (b ? res(b) : rej(new Error("Image ban nahi payi"))), "image/jpeg", 0.92)
-        );
+        // html-to-image renders via the browser's own engine, so text sits exactly like the print
+        const { toJpeg } = await import("html-to-image");
+        const dataUrl = await toJpeg(doc.body, {
+          quality: 0.92,
+          pixelRatio: 2,
+          backgroundColor: "#ffffff",
+          width: 820,
+          height: doc.body.scrollHeight,
+        });
+        const blob = await (await fetch(dataUrl)).blob();
         const file = new File([blob], fileName, { type: "image/jpeg" });
         // mobile: share sheet me WhatsApp choose kar ke seedha bhej sakte hain
         if (navigator.canShare && navigator.canShare({ files: [file] })) {
