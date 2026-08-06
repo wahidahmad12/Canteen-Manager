@@ -343,24 +343,24 @@ export default function ContractorMealsPage() {
     const html = `<!DOCTYPE html><html><head><meta charset="utf-8">
 <title>${esc(c.name)} - ${esc(invNo || "Invoice")} - ${dateDisp}</title>
 <style>
-  @page { size: A4; margin: 10mm; }
+  @page { size: A5; margin: 6mm; }
   * { box-sizing: border-box; }
-  body { font-family: Calibri, Arial, sans-serif; font-size: 12px; color: #000; margin: 0; }
+  body { font-family: Calibri, Arial, sans-serif; font-size: 10px; color: #000; margin: 0; }
   .frame { border: 1px solid #000; }
   table { border-collapse: collapse; width: 100%; }
   td, th { padding: 3px 6px; vertical-align: top; }
   .bordered td, .bordered th { border: 1px solid #000; }
-  .title { font-weight: bold; font-size: 14px; padding: 6px; }
-  .title span { color: #888; font-weight: normal; font-size: 11px; letter-spacing: 1px; }
-  .company { color: #7A1FA2; font-size: 22px; font-weight: bold; line-height: 1.2; }
+  .title { font-weight: bold; font-size: 12px; padding: 4px; }
+  .title span { color: #888; font-weight: normal; font-size: 9px; letter-spacing: 1px; }
+  .company { color: #7A1FA2; font-size: 16px; font-weight: bold; line-height: 1.2; }
   .c { text-align: center; } .r { text-align: right; }
   .head-blue { background: #cfe6f5; font-weight: bold; text-align: center; }
-  .item-name { font-weight: bold; font-size: 14px; }
-  .item-period { font-size: 10px; margin-top: 2px; }
+  .item-name { font-weight: bold; font-size: 11px; }
+  .item-period { font-size: 8px; margin-top: 2px; }
   .lbl { font-weight: bold; white-space: nowrap; }
   .sec-title { font-weight: bold; padding: 4px 6px; }
-  .sign { text-align: center; font-size: 11px; }
-  .sign .space { height: 60px; }
+  .sign { text-align: center; font-size: 9px; }
+  .sign .space { height: 40px; }
 </style></head><body>
 <div class="title">INVOICE <span>ORIGINAL FOR RECIPIENT</span></div>
 <div class="frame">
@@ -417,7 +417,7 @@ export default function ContractorMealsPage() {
   </table>
   <table class="bordered">
     <tr>
-      <td style="width:22%" class="c"><img src="${qrUrl}" alt="UPI QR" style="width:120px;height:120px;object-fit:contain"></td>
+      <td style="width:22%" class="c"><img src="${qrUrl}" alt="UPI QR" style="width:90px;height:90px;object-fit:contain"></td>
       <td style="width:33%"><b style="font-size:14px">Notes:-</b></td>
       <td class="sign" style="width:45%">
         <div class="space"></div>
@@ -477,8 +477,9 @@ ${forPrint ? "<script>window.onload = function(){ window.print(); };</scr" + "ip
         // html-to-image renders via the browser's own engine, so text sits exactly like the print
         const { toJpeg } = await import("html-to-image");
         const dataUrl = await toJpeg(doc.body, {
-          quality: 0.92,
-          pixelRatio: 2,
+          quality: 0.97,
+          pixelRatio: 4, // ultra HD — ~3280px wide image
+
           backgroundColor: "#ffffff",
           width: 820,
           height: doc.body.scrollHeight,
