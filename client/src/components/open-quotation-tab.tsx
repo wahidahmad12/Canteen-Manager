@@ -17,6 +17,9 @@ interface Quotation {
   id: number; quotationNo: string; quotationDate: string; quotationThru: string;
   clientName: string; totalAmount: number; status: "open" | "converted" | "closed";
   remarks: string; createdBy: string; items: QuotationItem[];
+  quotationType?: "item" | "service"; gstPercent?: number; serviceChargePercent?: number;
+  serviceChargeAmount?: number; gstAmount?: number; grandTotal?: number;
+  clientAddress?: string | null; clientGstNo?: string | null;
   poNumber?: string; poDate?: string; poId?: number | null;
   taxInvoiceNo?: string | null; taxInvoiceDate?: string | null;
 }
@@ -60,6 +63,9 @@ export function OpenQuotationTab() {
   const [remarks, setRemarks] = useState("");
   const [status, setStatus] = useState<"open" | "converted" | "closed">("open");
   const [items, setItems] = useState<QuotationItem[]>([emptyItem()]);
+  const [quotationType, setQuotationType] = useState<"item" | "service">("item");
+  const [gstPercent, setGstPercent] = useState("0");
+  const [serviceChargePercent, setServiceChargePercent] = useState("0");
 
   // list filters
   const [statusFilter, setStatusFilter] = useState("open");
@@ -79,12 +85,15 @@ export function OpenQuotationTab() {
     setEditId(null); setQuotationNo(""); setQuotationDate(todayStr());
     setQuotationThru(""); setClientName(""); setRemarks(""); setStatus("open");
     setItems([emptyItem()]); setShowForm(false);
+    setQuotationType("item"); setGstPercent("0"); setServiceChargePercent("0");
   };
 
   const startEdit = (q: Quotation) => {
     setEditId(q.id); setQuotationNo(q.quotationNo || ""); setQuotationDate(String(q.quotationDate).slice(0, 10));
     setQuotationThru(q.quotationThru || ""); setClientName(q.clientName || ""); setRemarks(q.remarks || "");
     setStatus(q.status); setItems(q.items.length > 0 ? q.items.map(i => ({ ...i })) : [emptyItem()]);
+    setQuotationType(q.quotationType === "service" ? "service" : "item");
+    setGstPercent(String(q.gstPercent || 0)); setServiceChargePercent(String(q.serviceChargePercent || 0));
     setShowForm(true);
     window.scrollTo({ top: 0, behavior: "smooth" });
   };
@@ -101,10 +110,13 @@ export function OpenQuotationTab() {
   };
 
   const totalAmount = useMemo(() => items.reduce((s, it) => s + (Number(it.amount) || 0), 0), [items]);
+  const scAmt = useMemo(() => Math.round(totalAmount * (Number(serviceChargePercent) || 0)) / 100, [totalAmount, serviceChargePercent]);
+  const gstAmt = useMemo(() => Math.round((totalAmount + scAmt) * (Number(gstPercent) || 0)) / 100, [totalAmount, scAmt, gstPercent]);
+  const grandTotal = totalAmount + scAmt + gstAmt;
 
   const saveMutation = useMutation({
     mutationFn: async () => {
-      const payload = { quotationNo, quotationDate, quotationThru, clientName, remarks, status, items: items.filter(i => i.itemName.trim()) };
+      const payload = { quotationNo, quotationDate, quotationThru, clientName, remarks, status, quotationType, gstPercent: Number(gstPercent) || 0, serviceChargePercent: Number(serviceChargePercent) || 0, items: items.filter(i => i.itemName.trim()) };
       const res = editId
         ? await fetch(`/api/quotations/${editId}`, { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload), credentials: "include" })
         : await fetch("/api/quotations", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload), credentials: "include" });
@@ -164,6 +176,13 @@ export function OpenQuotationTab() {
   const esc = (s: any) => String(s ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 
   const handlePrint = (q: Quotation) => {
+    const isService = q.quotationType === "service";
+    const scPct = Number(q.serviceChargePercent) || 0;
+    const gstPct = Number(q.gstPercent) || 0;
+    const scAmount = Number(q.serviceChargeAmount) || Math.round(q.totalAmount * scPct) / 100;
+    const gstAmount = Number(q.gstAmount) || Math.round((q.totalAmount + scAmount) * gstPct) / 100;
+    const grand = Number(q.grandTotal) || q.totalAmount + scAmount + gstAmount;
+    const hasExtras = scAmount > 0 || gstAmount > 0;
     const itemRows = q.items.map((it, i) => `
       <tr>
         <td style="border:1px solid #000;padding:6px;text-align:center;">${i + 1}</td>
@@ -172,22 +191,30 @@ export function OpenQuotationTab() {
         <td style="border:1px solid #000;padding:6px;text-align:right;">${fmt(it.rate)}</td>
         <td style="border:1px solid #000;padding:6px;text-align:right;">${fmt(it.amount)}</td>
       </tr>`).join("");
+    const totCell = (label: string, value: number, bold = false) => `
+      <tr>
+        <td colspan="4" style="border:1px solid #000;padding:6px;text-align:right;${bold ? "font-weight:bold;" : ""}">${label}</td>
+        <td style="border:1px solid #000;padding:6px;text-align:right;${bold ? "font-weight:bold;" : ""}">${fmt(value)}</td>
+      </tr>`;
     const body = `
       ${LETTERHEAD_HTML}
-      <div class="subject">QUOTATION</div>
+      <div class="subject">${isService ? "SERVICE QUOTATION" : "QUOTATION"}</div>
       <div class="ref-line">
         <span><b>Quotation No:</b> ${esc(q.quotationNo || `#${q.id}`)}</span>
         <span><b>Date:</b> ${fmtDate(q.quotationDate)}</span>
       </div>
-      <p><b>To:</b> ${esc(q.clientName || "-")}</p>
-      ${q.quotationThru ? `<p><b>Thru:</b> ${esc(q.quotationThru)}</p>` : ""}
+      <p style="margin-top:8px;"><b>To,</b></p>
+      ${q.quotationThru ? `<p>${esc(q.quotationThru)}</p>` : ""}
+      <p><b>${esc(q.clientName || "-")}</b></p>
+      ${q.clientAddress ? `<p>${esc(q.clientAddress)}</p>` : ""}
+      ${q.clientGstNo ? `<p>GSTIN. ${esc(q.clientGstNo)}</p>` : ""}
       <p style="margin-top:12px;">Dear Sir/Madam,</p>
-      <p>We are pleased to submit our quotation for the following items/services:</p>
+      <p>We are pleased to submit our quotation for the following ${isService ? "services" : "items"}:</p>
       <table style="width:100%;border-collapse:collapse;margin:12px 0;font-size:13px;">
         <thead>
           <tr style="background:#f0f0f0;">
             <th style="border:1px solid #000;padding:6px;width:40px;">Sl.</th>
-            <th style="border:1px solid #000;padding:6px;text-align:left;">Item / Description</th>
+            <th style="border:1px solid #000;padding:6px;text-align:left;">${isService ? "Service Description" : "Particulars"}</th>
             <th style="border:1px solid #000;padding:6px;width:80px;">Qty</th>
             <th style="border:1px solid #000;padding:6px;width:100px;">Rate (Rs.)</th>
             <th style="border:1px solid #000;padding:6px;width:110px;">Amount (Rs.)</th>
@@ -195,10 +222,10 @@ export function OpenQuotationTab() {
         </thead>
         <tbody>${itemRows}</tbody>
         <tfoot>
-          <tr>
-            <td colspan="4" style="border:1px solid #000;padding:6px;text-align:right;font-weight:bold;">Total</td>
-            <td style="border:1px solid #000;padding:6px;text-align:right;font-weight:bold;">Rs. ${fmt(q.totalAmount)}</td>
-          </tr>
+          ${totCell("Total", q.totalAmount, !hasExtras)}
+          ${scAmount > 0 ? totCell(`Service Charge ${scPct}%`, scAmount) : ""}
+          ${gstAmount > 0 ? totCell(`GST ${gstPct}%`, gstAmount) : ""}
+          ${hasExtras ? totCell("Grand Total", grand, true) : ""}
         </tfoot>
       </table>
       ${q.remarks ? `<p><b>Remarks:</b> ${esc(q.remarks)}</p>` : ""}
@@ -228,7 +255,7 @@ export function OpenQuotationTab() {
 
   const filtered = quotations.filter(q => statusFilter === "all" || q.status === statusFilter);
   const openCount = quotations.filter(q => q.status === "open").length;
-  const openTotal = quotations.filter(q => q.status === "open").reduce((s, q) => s + q.totalAmount, 0);
+  const openTotal = quotations.filter(q => q.status === "open").reduce((s, q) => s + (Number(q.grandTotal) || q.totalAmount), 0);
 
   return (
     <div className="space-y-4">
@@ -282,6 +309,34 @@ export function OpenQuotationTab() {
                   </SelectContent>
                 </Select>
               </div>
+              <div>
+                <Label className="text-xs">Quotation Type</Label>
+                <Select value={quotationType} onValueChange={v => setQuotationType(v as any)}>
+                  <SelectTrigger data-testid="select-q-type"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="item">Item Quotation</SelectItem>
+                    <SelectItem value="service">Service Quotation</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <Label className="text-xs">Service Charge %</Label>
+                <Select value={serviceChargePercent} onValueChange={setServiceChargePercent}>
+                  <SelectTrigger data-testid="select-q-service-charge"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    {["0", "3", "5", "7", "8", "10", "12"].map(p => <SelectItem key={p} value={p}>{p === "0" ? "No Service Charge" : `${p}%`}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <Label className="text-xs">GST %</Label>
+                <Select value={gstPercent} onValueChange={setGstPercent}>
+                  <SelectTrigger data-testid="select-q-gst"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    {["0", "5", "12", "18", "28"].map(p => <SelectItem key={p} value={p}>{p === "0" ? "No GST" : `GST ${p}%`}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </div>
               {editId && (
                 <div>
                   <Label className="text-xs">Status</Label>
@@ -331,6 +386,30 @@ export function OpenQuotationTab() {
                     <td className="py-2 px-2 text-right font-mono" data-testid="text-form-total">₹{fmt(totalAmount)}</td>
                     <td />
                   </tr>
+                  {scAmt > 0 && (
+                    <tr className="bg-muted/30 text-sm">
+                      <td className="py-1.5 px-3">Service Charge {serviceChargePercent}%</td>
+                      <td /><td />
+                      <td className="py-1.5 px-2 text-right font-mono" data-testid="text-form-sc">₹{fmt(scAmt)}</td>
+                      <td />
+                    </tr>
+                  )}
+                  {gstAmt > 0 && (
+                    <tr className="bg-muted/30 text-sm">
+                      <td className="py-1.5 px-3">GST {gstPercent}%</td>
+                      <td /><td />
+                      <td className="py-1.5 px-2 text-right font-mono" data-testid="text-form-gst">₹{fmt(gstAmt)}</td>
+                      <td />
+                    </tr>
+                  )}
+                  {(scAmt > 0 || gstAmt > 0) && (
+                    <tr className="bg-amber-50 dark:bg-amber-950/20 font-bold">
+                      <td className="py-2 px-3">Grand Total</td>
+                      <td /><td />
+                      <td className="py-2 px-2 text-right font-mono" data-testid="text-form-grand">₹{fmt(grandTotal)}</td>
+                      <td />
+                    </tr>
+                  )}
                 </tfoot>
               </table>
             </div>
@@ -400,7 +479,7 @@ export function OpenQuotationTab() {
                       <td className="py-2 px-2 text-xs max-w-[220px]">
                         {q.items.map(it => `${it.itemName} (${it.qty} × ₹${fmt(it.rate)})`).join(", ") || "-"}
                       </td>
-                      <td className="py-2 px-2 text-right font-mono font-semibold">₹{fmt(q.totalAmount)}</td>
+                      <td className="py-2 px-2 text-right font-mono font-semibold">₹{fmt(Number(q.grandTotal) || q.totalAmount)}</td>
                       <td className="py-2 px-2 text-xs whitespace-nowrap">
                         {q.poNumber ? (
                           <div>
@@ -408,7 +487,7 @@ export function OpenQuotationTab() {
                             {q.poDate && <div className="text-muted-foreground">{fmtDate(q.poDate)}</div>}
                           </div>
                         ) : (
-                          <Button size="sm" variant="outline" className="h-7 text-[11px] gap-1" onClick={() => { setPoFor(q); setPoNumber(""); setPoDate(todayStr()); setPoAmount(String(q.totalAmount || "")); }} data-testid={`button-add-po-${q.id}`}>
+                          <Button size="sm" variant="outline" className="h-7 text-[11px] gap-1" onClick={() => { setPoFor(q); setPoNumber(""); setPoDate(todayStr()); setPoAmount(String(q.grandTotal || q.totalAmount || "")); }} data-testid={`button-add-po-${q.id}`}>
                             <Link2 className="w-3 h-3" /> Add PO
                           </Button>
                         )}
