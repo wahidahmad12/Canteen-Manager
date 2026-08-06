@@ -985,7 +985,16 @@ ${tbl(`Contractor-wise (${dashYear})`, dashContractors.map((c) => ({ label: `${c
               </div>
               <div>
                 <Label>Amount (₹)</Label>
-                <Input type="number" min={0} step="0.01" className="w-32" value={payAmount} onChange={(e) => setPayAmount(e.target.value)} data-testid="input-pay-amount" />
+                <Input
+                  type="text" inputMode="decimal" placeholder="0.00" className="w-32" value={payAmount}
+                  onChange={(e) => {
+                    // allow only digits and one decimal point, so typing kabhi block na ho
+                    const v = e.target.value.replace(/[^\d.]/g, "");
+                    const parts = v.split(".");
+                    setPayAmount(parts.length > 2 ? parts[0] + "." + parts.slice(1).join("") : v);
+                  }}
+                  data-testid="input-pay-amount"
+                />
               </div>
               <div>
                 <Label>Note (optional)</Label>
