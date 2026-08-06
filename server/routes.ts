@@ -2780,6 +2780,35 @@ export async function registerRoutes(
     await storage.deleteHulSpecialOrder(Number(req.params.id)); res.status(204).send();
   });
 
+  // === QUOTATIONS (Open Quotation tracking) ===
+  app.get('/api/quotations', requirePermission('salesinvoice'), async (_req, res) => {
+    try { res.json(await storage.getQuotations()); }
+    catch (err: any) { res.status(500).json({ message: err.message }); }
+  });
+  app.post('/api/quotations', requirePermission('salesinvoice'), async (req: any, res) => {
+    try {
+      const createdBy = req.session?.displayName || req.session?.username || '';
+      const id = await storage.createQuotation({ ...req.body, createdBy });
+      res.status(201).json({ id });
+    } catch (err: any) { res.status(400).json({ message: err.message }); }
+  });
+  app.put('/api/quotations/:id', requirePermission('salesinvoice'), async (req, res) => {
+    try { await storage.updateQuotation(Number(req.params.id), req.body); res.json({ ok: true }); }
+    catch (err: any) { res.status(400).json({ message: err.message }); }
+  });
+  app.patch('/api/quotations/:id/status', requirePermission('salesinvoice'), async (req, res) => {
+    try {
+      const status = String(req.body?.status || '');
+      if (!['open', 'converted', 'closed'].includes(status)) return res.status(400).json({ message: 'Invalid status' });
+      await storage.updateQuotationStatus(Number(req.params.id), status);
+      res.json({ ok: true });
+    } catch (err: any) { res.status(400).json({ message: err.message }); }
+  });
+  app.delete('/api/quotations/:id', requirePermission('salesinvoice'), async (req, res) => {
+    try { await storage.deleteQuotation(Number(req.params.id)); res.status(204).send(); }
+    catch (err: any) { res.status(400).json({ message: err.message }); }
+  });
+
   // === DAILY P&L ROUTES ===
   app.get('/api/daily-pnl/entry', requireAdmin, async (req, res) => {
     const date = String(req.query.date || '');

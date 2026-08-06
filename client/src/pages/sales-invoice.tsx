@@ -25,6 +25,7 @@ import {
 import { Link } from "wouter";
 import { DateEntryTab } from "./date-entry-tab";
 import { TaxInvoiceTab } from "./tax-invoice-tab";
+import { OpenQuotationTab } from "@/components/open-quotation-tab";
 
 interface PurchaseOrderType {
   id: number;
@@ -1045,6 +1046,9 @@ export default function SalesInvoicePage() {
                 <ClipboardList className="w-3.5 h-3.5 shrink-0" /> <span className="hidden sm:inline">Purchase&nbsp;</span>PO
                 {purchaseOrders.length > 0 && <Badge variant="secondary" className="ml-0.5 h-5 text-[10px]">{purchaseOrders.length}</Badge>}
               </TabsTrigger>
+              <TabsTrigger value="open-quotation" className="data-[state=active]:bg-white dark:data-[state=active]:bg-gray-800 flex items-center gap-1 text-xs sm:text-sm sm:gap-1.5 whitespace-nowrap min-h-[44px] flex-1 sm:flex-none" data-testid="tab-open-quotation">
+                <FileText className="w-3.5 h-3.5 shrink-0" /> <span className="hidden sm:inline">Open&nbsp;</span>Quotation
+              </TabsTrigger>
               <TabsTrigger value="gst-report" className="data-[state=active]:bg-white dark:data-[state=active]:bg-gray-800 flex items-center gap-1 text-xs sm:text-sm sm:gap-1.5 whitespace-nowrap min-h-[44px] flex-1 sm:flex-none" data-testid="tab-gst-report">
                 <Percent className="w-3.5 h-3.5 shrink-0" /> GST
               </TabsTrigger>
@@ -1064,6 +1068,10 @@ export default function SalesInvoicePage() {
               )}
             </TabsList>
           </div>
+
+          <TabsContent value="open-quotation" className="mt-4">
+            <OpenQuotationTab />
+          </TabsContent>
 
           <TabsContent value="purchase-orders" className="mt-4">
             <div className="flex justify-end gap-2 mb-4">

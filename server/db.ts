@@ -155,6 +155,28 @@ async function initPool(): Promise<void> {
       igst_percent DECIMAL(5,2) DEFAULT '0',
       FOREIGN KEY (invoice_id) REFERENCES tax_invoices(id) ON DELETE CASCADE
     )`,
+    `CREATE TABLE IF NOT EXISTS quotations (
+      id INT AUTO_INCREMENT PRIMARY KEY,
+      quotation_no VARCHAR(100) DEFAULT '',
+      quotation_date VARCHAR(10) NOT NULL,
+      quotation_thru VARCHAR(200) DEFAULT '',
+      client_name VARCHAR(500) DEFAULT '',
+      total_amount DECIMAL(14,2) DEFAULT '0',
+      status VARCHAR(20) NOT NULL DEFAULT 'open',
+      remarks TEXT,
+      created_by VARCHAR(200) DEFAULT '',
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    )`,
+    `CREATE TABLE IF NOT EXISTS quotation_items (
+      id INT AUTO_INCREMENT PRIMARY KEY,
+      quotation_id INT NOT NULL,
+      item_name VARCHAR(500) DEFAULT '',
+      qty DECIMAL(12,2) DEFAULT '0',
+      rate DECIMAL(12,2) DEFAULT '0',
+      amount DECIMAL(14,2) DEFAULT '0',
+      FOREIGN KEY (quotation_id) REFERENCES quotations(id) ON DELETE CASCADE
+    )`,
   ];
   for (const sql of migrations) {
     try { await pool.execute(sql); } catch (e: any) { console.log('[db] migration note:', e.message?.slice(0, 80)); }

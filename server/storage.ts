@@ -3258,6 +3258,91 @@ export class DatabaseStorage implements IStorage {
     await db.delete(hulSpecialOrders).where(eq(hulSpecialOrders.id, id));
   }
 
+  // === QUOTATIONS (Open Quotation tracking) ===
+  async getQuotations(): Promise<any[]> {
+    const [qRows] = await db.execute(sql`
+      SELECT id, quotation_no AS quotationNo, quotation_date AS quotationDate, quotation_thru AS quotationThru,
+             client_name AS clientName, total_amount AS totalAmount, status, remarks,
+             created_by AS createdBy, created_at AS createdAt
+      FROM quotations ORDER BY quotation_date DESC, id DESC
+    `) as any;
+    const quotations = Array.isArray(qRows) ? qRows : [];
+    if (quotations.length === 0) return [];
+    const [iRows] = await db.execute(sql`
+      SELECT id, quotation_id AS quotationId, item_name AS itemName, qty, rate, amount
+      FROM quotation_items ORDER BY id
+    `) as any;
+    const itemsByQ = new Map<number, any[]>();
+    for (const it of (Array.isArray(iRows) ? iRows : [])) {
+      const list = itemsByQ.get(Number(it.quotationId)) || [];
+      list.push({ ...it, qty: Number(it.qty), rate: Number(it.rate), amount: Number(it.amount) });
+      itemsByQ.set(Number(it.quotationId), list);
+    }
+    return quotations.map((q: any) => ({
+      ...q,
+      totalAmount: Number(q.totalAmount),
+      items: itemsByQ.get(Number(q.id)) || [],
+    }));
+  }
+
+  async createQuotation(data: any): Promise<number> {
+    const { quotationNo, quotationDate, quotationThru, clientName, remarks, createdBy, items } = data;
+    if (!quotationDate) throw new Error('Quotation date is required');
+    const rows: any[] = Array.isArray(items) ? items : [];
+    const total = rows.reduce((s, it) => s + (Number(it.amount) || 0), 0);
+    return await db.transaction(async (tx) => {
+      const [result] = await tx.execute(sql`
+        INSERT INTO quotations (quotation_no, quotation_date, quotation_thru, client_name, total_amount, status, remarks, created_by)
+        VALUES (${quotationNo || ''}, ${quotationDate}, ${quotationThru || ''}, ${clientName || ''}, ${total}, 'open', ${remarks || ''}, ${createdBy || ''})
+      `) as any;
+      const qid = Number((result as any).insertId);
+      for (const it of rows) {
+        if (!String(it.itemName || '').trim()) continue;
+        await tx.execute(sql`
+          INSERT INTO quotation_items (quotation_id, item_name, qty, rate, amount)
+          VALUES (${qid}, ${it.itemName || ''}, ${Number(it.qty) || 0}, ${Number(it.rate) || 0}, ${Number(it.amount) || 0})
+        `);
+      }
+      return qid;
+    });
+  }
+
+  async updateQuotation(id: number, data: any): Promise<void> {
+    const { quotationNo, quotationDate, quotationThru, clientName, remarks, items, status } = data;
+    const rows: any[] = Array.isArray(items) ? items : [];
+    const total = rows.reduce((s, it) => s + (Number(it.amount) || 0), 0);
+    await db.transaction(async (tx) => {
+      await tx.execute(sql`
+        UPDATE quotations SET
+          quotation_no = ${quotationNo || ''},
+          quotation_date = ${quotationDate},
+          quotation_thru = ${quotationThru || ''},
+          client_name = ${clientName || ''},
+          total_amount = ${total},
+          status = ${status || 'open'},
+          remarks = ${remarks || ''},
+          updated_at = NOW()
+        WHERE id = ${id}
+      `);
+      await tx.execute(sql`DELETE FROM quotation_items WHERE quotation_id = ${id}`);
+      for (const it of rows) {
+        if (!String(it.itemName || '').trim()) continue;
+        await tx.execute(sql`
+          INSERT INTO quotation_items (quotation_id, item_name, qty, rate, amount)
+          VALUES (${id}, ${it.itemName || ''}, ${Number(it.qty) || 0}, ${Number(it.rate) || 0}, ${Number(it.amount) || 0})
+        `);
+      }
+    });
+  }
+
+  async updateQuotationStatus(id: number, status: string): Promise<void> {
+    await db.execute(sql`UPDATE quotations SET status = ${status}, updated_at = NOW() WHERE id = ${id}`);
+  }
+
+  async deleteQuotation(id: number): Promise<void> {
+    await db.execute(sql`DELETE FROM quotations WHERE id = ${id}`);
+  }
+
   // === DAILY P&L ===
   async getDailyPnlEntry(date: string, clientName: string): Promise<DailyPnlEntry | null> {
     const rows = await db.select().from(dailyPnlEntries)
