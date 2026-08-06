@@ -4350,7 +4350,7 @@ export class DatabaseStorage implements IStorage {
       `SELECT c.id AS contractorId, c.vendor_code AS vendorCode, c.name, c.client_name AS clientName,
               COALESCE(b.billed, 0) AS billed, COALESCE(p.received, 0) AS received
        FROM contractors c
-       LEFT JOIN (SELECT contractor_id, SUM(qty * rate) AS billed FROM contractor_meal_entries GROUP BY contractor_id) b
+       LEFT JOIN (SELECT contractor_id, SUM(qty * COALESCE(NULLIF(rate, 0), CASE meal_type WHEN 'Breakfast' THEN 4.6 ELSE 11.6 END)) AS billed FROM contractor_meal_entries GROUP BY contractor_id) b
          ON b.contractor_id = c.id
        LEFT JOIN (SELECT contractor_id, SUM(amount) AS received FROM contractor_payments GROUP BY contractor_id) p
          ON p.contractor_id = c.id
@@ -4371,7 +4371,7 @@ export class DatabaseStorage implements IStorage {
 
     // month-wise bill for the year
     const [billRows]: any = await pool.query(
-      `SELECT month, SUM(qty * rate) AS billed FROM contractor_meal_entries WHERE year = ?${cFilter} GROUP BY month`,
+      `SELECT month, SUM(qty * COALESCE(NULLIF(rate, 0), CASE meal_type WHEN 'Breakfast' THEN 4.6 ELSE 11.6 END)) AS billed FROM contractor_meal_entries WHERE year = ?${cFilter} GROUP BY month`,
       [year, ...cArgs],
     );
     // month-wise received for the year
@@ -4388,7 +4388,7 @@ export class DatabaseStorage implements IStorage {
 
     // year-wise totals (all years, for year-over-year graph)
     const [yBill]: any = await pool.query(
-      `SELECT year, SUM(qty * rate) AS billed FROM contractor_meal_entries WHERE 1=1${cFilter} GROUP BY year ORDER BY year`,
+      `SELECT year, SUM(qty * COALESCE(NULLIF(rate, 0), CASE meal_type WHEN 'Breakfast' THEN 4.6 ELSE 11.6 END)) AS billed FROM contractor_meal_entries WHERE 1=1${cFilter} GROUP BY year ORDER BY year`,
       cArgs,
     );
     const [yPay]: any = await pool.query(
@@ -4406,7 +4406,7 @@ export class DatabaseStorage implements IStorage {
     const [cRows]: any = await pool.query(
       `SELECT c.id AS contractorId, c.vendor_code AS vendorCode, c.name, COALESCE(b.billed, 0) AS billed, COALESCE(p.received, 0) AS received
        FROM contractors c
-       LEFT JOIN (SELECT contractor_id, SUM(qty * rate) AS billed FROM contractor_meal_entries WHERE year = ? GROUP BY contractor_id) b ON b.contractor_id = c.id
+       LEFT JOIN (SELECT contractor_id, SUM(qty * COALESCE(NULLIF(rate, 0), CASE meal_type WHEN 'Breakfast' THEN 4.6 ELSE 11.6 END)) AS billed FROM contractor_meal_entries WHERE year = ? GROUP BY contractor_id) b ON b.contractor_id = c.id
        LEFT JOIN (SELECT contractor_id, SUM(amount) AS received FROM contractor_payments WHERE YEAR(payment_date) = ? GROUP BY contractor_id) p ON p.contractor_id = c.id
        ${cid > 0 ? 'WHERE c.id = ?' : ''}
        ORDER BY c.vendor_code`,
