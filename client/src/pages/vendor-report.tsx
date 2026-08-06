@@ -11,6 +11,8 @@ import { Loader2, FileDown, ArrowLeft, BarChart3, Filter, Receipt, IndianRupee, 
 import { useLocation } from "wouter";
 import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { LETTERHEAD_HTML, LETTERHEAD_CSS } from "@/lib/letterhead";
+import { Printer } from "lucide-react";
 
 type DatePreset = "custom" | "current-month" | "previous-month" | "current-year" | "financial-year" | "all";
 
@@ -396,6 +398,138 @@ export default function VendorReport() {
     const blob = new Blob([buffer], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
     const link = document.createElement("a");
     link.download = `VendorReport_${dateRange.replace(/\s+/g, "_")}.xlsx`;
+    link.href = URL.createObjectURL(blob);
+    link.click();
+    URL.revokeObjectURL(link.href);
+  };
+
+  const escapeHtml = (s: string) =>
+    s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+
+  const prPeriodLabel = () => {
+    if (prMonth !== "all") return prMonth;
+    if (prYear !== "all") return `Year ${prYear}`;
+    if (fromDate && toDate) return `${format(fromDate, "dd-MM-yyyy")} to ${format(toDate, "dd-MM-yyyy")}`;
+    return "All Dates";
+  };
+
+  const handlePrintPaymentReport = () => {
+    if (!paymentReport || !paymentReportFor || paymentReport.count === 0) return;
+    const fmtN = (n: number) => n.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    let body = "";
+    Array.from(paymentReport.years.entries()).forEach(([year, ydata]) => {
+      body += `<div class="year-block">
+        <div class="year-head"><span>${escapeHtml(year)}</span><span>Rs. ${fmtN(ydata.total)}</span></div>`;
+      Array.from(ydata.months.entries()).forEach(([month, mdata]) => {
+        body += `<div class="month-head"><span>${escapeHtml(month)}</span><span>Rs. ${fmtN(mdata.total)}</span></div>
+          <table class="pay-table">
+            <thead><tr><th style="width:22%">Payment Date</th><th style="width:22%" class="num">Amount (Rs.)</th><th>Notes</th></tr></thead>
+            <tbody>`;
+        mdata.payments.forEach((p) => {
+          body += `<tr><td>${escapeHtml(p.display)}</td><td class="num">${fmtN(p.amount)}</td><td>${escapeHtml(p.notes || "—")}</td></tr>`;
+        });
+        body += `</tbody></table>`;
+      });
+      body += `</div>`;
+    });
+    const title = `Payment Report - ${paymentReportFor} - ${prPeriodLabel()}`;
+    const printWindow = window.open("", "_blank");
+    if (!printWindow) return;
+    printWindow.document.write(`<!DOCTYPE html><html><head><title>${escapeHtml(title)}</title>
+      <style>
+        @page { size: A4 portrait; margin: 12mm 15mm 18mm 15mm; }
+        body { margin: 0; padding: 0; font-family: Calibri, Arial, sans-serif; font-size: 12px; color: #000; }
+        ${LETTERHEAD_CSS}
+        .report-title { text-align: center; font-weight: bold; font-size: 15px; margin: 12px 0 2px 0; text-decoration: underline; }
+        .report-sub { text-align: center; font-size: 12px; margin: 0 0 12px 0; }
+        .year-block { margin-bottom: 14px; }
+        .year-head { display: flex; justify-content: space-between; font-weight: bold; font-size: 14px; border-bottom: 2px solid #943634; padding-bottom: 2px; margin: 10px 0 4px 0; }
+        .month-head { display: flex; justify-content: space-between; font-weight: bold; font-size: 12px; margin: 8px 0 3px 0; }
+        table.pay-table { width: 100%; border-collapse: collapse; margin-bottom: 6px; }
+        table.pay-table th, table.pay-table td { border: 1px solid #999; padding: 3px 6px; text-align: left; }
+        table.pay-table th { background: #f2f2f2; }
+        table.pay-table thead { display: table-header-group; }
+        td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
+        .grand-total { display: flex; justify-content: space-between; font-weight: bold; font-size: 14px; border-top: 2px solid #000; margin-top: 10px; padding-top: 4px; }
+      </style>
+    </head><body>
+      ${LETTERHEAD_HTML}
+      <div class="report-title">${groupBy === "vendor" ? "Vendor" : "Client"} Payment Report — ${escapeHtml(paymentReportFor)}</div>
+      <div class="report-sub">Period: ${escapeHtml(prPeriodLabel())} &nbsp;|&nbsp; ${paymentReport.count} payment${paymentReport.count !== 1 ? "s" : ""}</div>
+      ${body}
+      <div class="grand-total"><span>Grand Total</span><span>Rs. ${fmtN(paymentReport.grand)}</span></div>
+    </body></html>`);
+    printWindow.document.close();
+    printWindow.onload = () => {
+      printWindow.print();
+      printWindow.onafterprint = () => printWindow.close();
+    };
+  };
+
+  const handleExportPaymentExcel = async () => {
+    if (!paymentReport || !paymentReportFor || paymentReport.count === 0) return;
+    const ExcelJS = (await import("exceljs")).default;
+    const workbook = new ExcelJS.Workbook();
+    const ws = workbook.addWorksheet("Payment Report");
+
+    const titleRow = ws.addRow([`${groupBy === "vendor" ? "Vendor" : "Client"} Payment Report — ${paymentReportFor}`]);
+    titleRow.getCell(1).font = { bold: true, size: 14 };
+    ws.mergeCells("A1:D1");
+    titleRow.alignment = { horizontal: "center" };
+    const subRow = ws.addRow([`Period: ${prPeriodLabel()}`]);
+    ws.mergeCells("A2:D2");
+    subRow.alignment = { horizontal: "center" };
+    ws.addRow([]);
+
+    const headerRow = ws.addRow(["Payment Date", "Amount", "Notes", "Invoice No"]);
+    headerRow.eachCell((cell) => {
+      cell.font = { bold: true, size: 10, color: { argb: "FFFFFFFF" } };
+      cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FF6366F1" } };
+      cell.border = { top: { style: "thin" }, bottom: { style: "thin" }, left: { style: "thin" }, right: { style: "thin" } };
+      cell.alignment = { horizontal: "center" };
+    });
+
+    Array.from(paymentReport.years.entries()).forEach(([year, ydata]) => {
+      const yr = ws.addRow([year, ydata.total, "", ""]);
+      yr.getCell(1).font = { bold: true, size: 11 };
+      yr.getCell(2).font = { bold: true, size: 11 };
+      yr.eachCell((cell) => {
+        cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFE0E7FF" } };
+      });
+      Array.from(ydata.months.entries()).forEach(([month, mdata]) => {
+        const mr = ws.addRow([month, mdata.total, "", ""]);
+        mr.getCell(1).font = { bold: true, size: 10 };
+        mr.getCell(2).font = { bold: true, size: 10 };
+        mr.eachCell((cell) => {
+          cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFF5F3FF" } };
+        });
+        mdata.payments.forEach((p) => {
+          const r = ws.addRow([p.display, p.amount, p.notes || "", p.invoiceNo || ""]);
+          r.eachCell((cell) => {
+            cell.font = { size: 10 };
+            cell.border = { top: { style: "thin" }, bottom: { style: "thin" }, left: { style: "thin" }, right: { style: "thin" } };
+          });
+        });
+      });
+    });
+
+    const totRow = ws.addRow(["Grand Total", paymentReport.grand, "", ""]);
+    totRow.eachCell((cell) => {
+      cell.font = { bold: true, size: 11 };
+      cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFE8E8E8" } };
+      cell.border = { top: { style: "double" }, bottom: { style: "thin" } };
+    });
+
+    ws.getColumn(1).width = 20;
+    ws.getColumn(2).width = 16;
+    ws.getColumn(2).numFmt = "#,##0.00";
+    ws.getColumn(3).width = 40;
+    ws.getColumn(4).width = 18;
+
+    const buffer = await workbook.xlsx.writeBuffer();
+    const blob = new Blob([buffer], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
+    const link = document.createElement("a");
+    link.download = `PaymentReport_${paymentReportFor.replace(/[^\w\-]+/g, "_")}_${prPeriodLabel().replace(/[^\w\-]+/g, "_")}.xlsx`;
     link.href = URL.createObjectURL(blob);
     link.click();
     URL.revokeObjectURL(link.href);
@@ -827,6 +961,16 @@ export default function VendorReport() {
             )}
             {paymentReport && paymentReport.count > 0 && (
               <div className="space-y-4">
+                <div className="flex gap-2">
+                  <Button onClick={handlePrintPaymentReport} variant="outline" size="sm" className="flex-1 rounded-xl border-violet-300 text-violet-700 hover:bg-violet-50 dark:border-violet-700 dark:text-violet-400" data-testid="button-print-payment-report">
+                    <Printer className="w-4 h-4 mr-2" />
+                    Print
+                  </Button>
+                  <Button onClick={handleExportPaymentExcel} variant="outline" size="sm" className="flex-1 rounded-xl border-violet-300 text-violet-700 hover:bg-violet-50 dark:border-violet-700 dark:text-violet-400" data-testid="button-export-payment-excel">
+                    <FileSpreadsheet className="w-4 h-4 mr-2" />
+                    Excel
+                  </Button>
+                </div>
                 <div className="flex items-center justify-between bg-violet-50 dark:bg-violet-950/20 rounded-lg px-3 py-2">
                   <span className="text-sm font-semibold text-violet-700 dark:text-violet-400">{paymentReport.count} payment{paymentReport.count !== 1 ? "s" : ""}</span>
                   <span className="text-sm font-bold font-mono text-violet-700 dark:text-violet-400">Total: ₹{fmt(paymentReport.grand)}</span>
