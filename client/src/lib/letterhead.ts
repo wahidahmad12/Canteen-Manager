@@ -9,7 +9,10 @@ export const LETTERHEAD_CSS = `
     text-align: center;
     margin-bottom: 8px;
     padding: 0 0 6px 16mm;
+  }
+  .lh-rule {
     border-bottom: 3px solid #E36C0A;
+    margin: 0 -25mm 8px -25mm;
   }
   .letterhead .lh-logo {
     position: absolute;
@@ -73,6 +76,7 @@ export const LETTERHEAD_HTML = `
     <p class="address">Branch Office: 7 Crematorium Street, Kolkata- 700014</p>
     <p class="cin-gstin">CIN: U74910GA2020PTC014271, GSTIN: 30AAHCD6485G1ZO</p>
   </div>
+  <div class="lh-rule"></div>
 `;
 
 export function getCoverLetterPrintStyles() {
