@@ -14,6 +14,9 @@ import * as XLSX from "xlsx";
 import { useRef } from "react";
 import qrImg from "@assets/image_1786018663605.png";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, Legend, CartesianGrid } from "recharts";
+
+const MONTH_NAMES = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 
 type Contractor = { id: number; vendorCode: string; name: string; clientName: string; mobile?: string; address?: string };
 type MealEntry = {
@@ -130,6 +133,7 @@ export default function ContractorMealsPage() {
     onSuccess: () => {
       setEdits({});
       qc.invalidateQueries({ queryKey: ["/api/contractor-meals", month, year] });
+      qc.invalidateQueries({ queryKey: ["/api/contractor-dashboard"] });
       toast({ title: "Saved", description: `${MONTHS[month - 1]} ${year} entries saved.` });
     },
     onError: (e: any) => toast({ title: "Save failed", description: e?.message || "", variant: "destructive" }),
@@ -293,6 +297,7 @@ export default function ContractorMealsPage() {
         rates: { Breakfast: Number(invRates.Breakfast) || 0, Lunch: Number(invRates.Lunch) || 0, Dinner: Number(invRates.Dinner) || 0 },
       });
       qc.invalidateQueries({ queryKey: ["/api/contractor-meals", month, year] });
+      qc.invalidateQueries({ queryKey: ["/api/contractor-dashboard"] });
       return true;
     } catch (e: any) {
       toast({ title: "Rate save failed", description: e?.message || "Dobara try kijiye.", variant: "destructive" });
@@ -542,6 +547,7 @@ ${forPrint ? "<script>window.onload = function(){ window.print(); };</scr" + "ip
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["/api/contractor-payments"] });
       qc.invalidateQueries({ queryKey: ["/api/contractor-billing-summary"] });
+      qc.invalidateQueries({ queryKey: ["/api/contractor-dashboard"] });
       setPayAmount(""); setPayNote("");
       toast({ title: "Payment saved" });
     },
@@ -553,11 +559,94 @@ ${forPrint ? "<script>window.onload = function(){ window.print(); };</scr" + "ip
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["/api/contractor-payments"] });
       qc.invalidateQueries({ queryKey: ["/api/contractor-billing-summary"] });
+      qc.invalidateQueries({ queryKey: ["/api/contractor-dashboard"] });
       toast({ title: "Payment deleted" });
     },
   });
 
   const fmtInr = (n: number) => "₹" + (Number(n) || 0).toLocaleString("en-IN", { minimumFractionDigits: 2 });
+
+  // ---- Dashboard state ----
+  const [dashYear, setDashYear] = useState(() => new Date().getFullYear());
+  const [dashContractor, setDashContractor] = useState<string>("all");
+  type DashData = {
+    monthly: { month: number; billed: number; received: number; balance: number }[];
+    yearly: { year: number; billed: number; received: number; balance: number }[];
+    contractors: { contractorId: number; vendorCode: string; name: string; billed: number; received: number; balance: number }[];
+  };
+  const { data: dash } = useQuery<DashData>({
+    queryKey: ["/api/contractor-dashboard", dashYear, dashContractor],
+    queryFn: async () =>
+      (await apiRequest("GET", `/api/contractor-dashboard?year=${dashYear}&contractorId=${dashContractor === "all" ? 0 : dashContractor}`)).json(),
+  });
+  const dashMonthly = (dash?.monthly ?? []).map((m) => ({ ...m, name: MONTH_NAMES[m.month - 1] }));
+  const dashYearly = dash?.yearly ?? [];
+  const dashContractors = (dash?.contractors ?? []).filter((c) => c.billed > 0 || c.received > 0);
+  const dashTotals = dashMonthly.reduce(
+    (s, m) => ({ billed: s.billed + m.billed, received: s.received + m.received }),
+    { billed: 0, received: 0 },
+  );
+  const dashYearOptions = useMemo(() => {
+    const ys = new Set<number>(dashYearly.map((y) => y.year));
+    ys.add(new Date().getFullYear());
+    ys.add(dashYear);
+    return Array.from(ys).sort((a, b) => b - a);
+  }, [dashYearly, dashYear]);
+  const dashContractorName =
+    dashContractor === "all" ? "All Contractors" : contractors.find((c) => String(c.id) === dashContractor)?.name || "";
+
+  const exportDashboard = () => {
+    const wb = XLSX.utils.book_new();
+    const ws1 = XLSX.utils.json_to_sheet(
+      dashMonthly.map((m) => ({ Month: m.name, "Bill Amount": m.billed, "Payment Received": m.received, Balance: m.balance })),
+    );
+    XLSX.utils.book_append_sheet(wb, ws1, `Monthwise ${dashYear}`);
+    const ws2 = XLSX.utils.json_to_sheet(
+      dashYearly.map((y) => ({ Year: y.year, "Bill Amount": y.billed, "Payment Received": y.received, Balance: y.balance })),
+    );
+    XLSX.utils.book_append_sheet(wb, ws2, "Yearwise");
+    const ws3 = XLSX.utils.json_to_sheet(
+      dashContractors.map((c) => ({ "Vendor Code": c.vendorCode, Contractor: c.name, "Bill Amount": c.billed, "Payment Received": c.received, Balance: c.balance })),
+    );
+    XLSX.utils.book_append_sheet(wb, ws3, `Contractorwise ${dashYear}`);
+    XLSX.writeFile(wb, `Contractor-Dashboard-${dashYear}${dashContractor === "all" ? "" : "-" + dashContractorName.replace(/\s+/g, "")}.xlsx`);
+  };
+
+  const printDashboard = () => {
+    const esc = (s: string) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+    const money = (n: number) => (Number(n) || 0).toLocaleString("en-IN", { minimumFractionDigits: 2 });
+    const rows = (arr: { label: string; billed: number; received: number; balance: number }[]) =>
+      arr.map((r) => `<tr><td>${esc(r.label)}</td><td class="r">${money(r.billed)}</td><td class="r">${money(r.received)}</td><td class="r ${r.balance > 0 ? "red" : ""}">${money(r.balance)}</td></tr>`).join("");
+    const tbl = (title: string, arr: { label: string; billed: number; received: number; balance: number }[]) => {
+      const t = arr.reduce((s, r) => ({ billed: s.billed + r.billed, received: s.received + r.received, balance: s.balance + r.balance }), { billed: 0, received: 0, balance: 0 });
+      return `<h3>${esc(title)}</h3>
+      <table><tr class="head"><th></th><th class="r">Bill Amount</th><th class="r">Received</th><th class="r">Balance</th></tr>
+      ${rows(arr)}
+      <tr class="total"><td>Total</td><td class="r">${money(t.billed)}</td><td class="r">${money(t.received)}</td><td class="r">${money(t.balance)}</td></tr></table>`;
+    };
+    const html = `<!DOCTYPE html><html><head><meta charset="utf-8"><title>Contractor Dashboard ${dashYear}</title>
+<style>
+  @page { size: A4; margin: 12mm; }
+  body { font-family: Calibri, Arial, sans-serif; font-size: 12px; color: #000; }
+  h2 { margin: 0; color: #7A1FA2; } .sub { margin: 2px 0 12px; color: #444; }
+  h3 { margin: 14px 0 4px; }
+  table { border-collapse: collapse; width: 100%; }
+  td, th { border: 1px solid #999; padding: 4px 8px; text-align: left; }
+  .r { text-align: right; } .red { color: #c00; }
+  .head th { background: #cfe6f5; } .total td { font-weight: bold; background: #f2f2f2; }
+</style></head><body>
+<h2>DJ Hospitality &amp; Facility Management Pvt Ltd</h2>
+<div class="sub">Contractor Meal Dashboard — Year ${dashYear} — ${esc(dashContractorName)}</div>
+${tbl(`Month-wise (${dashYear})`, dashMonthly.map((m) => ({ label: m.name, billed: m.billed, received: m.received, balance: m.balance })))}
+${tbl("Year-wise", dashYearly.map((y) => ({ label: String(y.year), billed: y.billed, received: y.received, balance: y.balance })))}
+${tbl(`Contractor-wise (${dashYear})`, dashContractors.map((c) => ({ label: `${c.vendorCode} — ${c.name}`, billed: c.billed, received: c.received, balance: c.balance })))}
+<script>window.onload = function(){ window.print(); };</scr${""}ipt>
+</body></html>`;
+    const w = window.open("", "_blank");
+    if (!w) { toast({ title: "Popup blocked", description: "Browser me popup allow kijiye.", variant: "destructive" }); return; }
+    w.document.write(html);
+    w.document.close();
+  };
 
   // ---- Contractor master state ----
   const emptyForm = { vendorCode: "", name: "", clientName: "Cipla Limited", mobile: "", address: "" };
@@ -592,6 +681,7 @@ ${forPrint ? "<script>window.onload = function(){ window.print(); };</scr" + "ip
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["/api/contractors"] });
       qc.invalidateQueries({ queryKey: ["/api/contractor-meals", month, year] });
+      qc.invalidateQueries({ queryKey: ["/api/contractor-dashboard"] });
       toast({ title: "Contractor deleted" });
     },
     onError: (e: any) => toast({ title: "Delete failed", description: e?.message || "", variant: "destructive" }),
@@ -609,6 +699,7 @@ ${forPrint ? "<script>window.onload = function(){ window.print(); };</scr" + "ip
           <TabsTrigger value="entry" data-testid="tab-meal-entry">Meal Entry</TabsTrigger>
           <TabsTrigger value="master" data-testid="tab-contractor-list">Contractor List</TabsTrigger>
           <TabsTrigger value="payments" data-testid="tab-payments">Payments</TabsTrigger>
+          <TabsTrigger value="dashboard" data-testid="tab-dashboard">Dashboard</TabsTrigger>
         </TabsList>
 
         {/* ============ MEAL ENTRY ============ */}
@@ -990,6 +1081,133 @@ ${forPrint ? "<script>window.onload = function(){ window.print(); };</scr" + "ip
                     <tr><td colSpan={5} className="p-6 text-center text-muted-foreground">No payments yet.</td></tr>
                   )}
                 </tbody>
+              </table>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        {/* ============ DASHBOARD ============ */}
+        <TabsContent value="dashboard" className="space-y-4">
+          <Card>
+            <CardContent className="flex flex-wrap items-end gap-3 pt-4">
+              <div>
+                <Label>Year</Label>
+                <Select value={String(dashYear)} onValueChange={(v) => setDashYear(Number(v))}>
+                  <SelectTrigger className="w-28" data-testid="select-dash-year"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    {dashYearOptions.map((y) => <SelectItem key={y} value={String(y)}>{y}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <Label>Contractor</Label>
+                <Select value={dashContractor} onValueChange={setDashContractor}>
+                  <SelectTrigger className="w-64" data-testid="select-dash-contractor"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Contractors</SelectItem>
+                    {contractors.map((c) => (
+                      <SelectItem key={c.id} value={String(c.id)}>{c.vendorCode} — {c.name}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="flex-1" />
+              <Button variant="outline" onClick={exportDashboard} data-testid="button-dash-export">
+                <FileSpreadsheet className="h-4 w-4 mr-1" /> Export Excel
+              </Button>
+              <Button variant="outline" onClick={printDashboard} data-testid="button-dash-print">
+                <Printer className="h-4 w-4 mr-1" /> Print
+              </Button>
+            </CardContent>
+          </Card>
+
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <Card><CardContent className="pt-4">
+              <div className="text-sm text-muted-foreground">Total Bill ({dashYear})</div>
+              <div className="text-2xl font-bold" data-testid="text-dash-billed">{fmtInr(dashTotals.billed)}</div>
+            </CardContent></Card>
+            <Card><CardContent className="pt-4">
+              <div className="text-sm text-muted-foreground">Payment Received ({dashYear})</div>
+              <div className="text-2xl font-bold text-green-600" data-testid="text-dash-received">{fmtInr(dashTotals.received)}</div>
+            </CardContent></Card>
+            <Card><CardContent className="pt-4">
+              <div className="text-sm text-muted-foreground">Balance ({dashYear})</div>
+              <div className={`text-2xl font-bold ${dashTotals.billed - dashTotals.received > 0 ? "text-red-600" : "text-green-600"}`} data-testid="text-dash-balance">
+                {fmtInr(dashTotals.billed - dashTotals.received)}
+              </div>
+            </CardContent></Card>
+          </div>
+
+          <Card>
+            <CardHeader className="py-3"><CardTitle className="text-base">Month-wise — Bill vs Received vs Balance ({dashYear})</CardTitle></CardHeader>
+            <CardContent style={{ height: 300 }}>
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={dashMonthly}>
+                  <CartesianGrid strokeDasharray="3 3" />
+                  <XAxis dataKey="name" fontSize={12} />
+                  <YAxis fontSize={12} tickFormatter={(v) => "₹" + Number(v).toLocaleString("en-IN")} width={80} />
+                  <Tooltip formatter={(v: any) => "₹" + Number(v).toLocaleString("en-IN", { minimumFractionDigits: 2 })} />
+                  <Legend />
+                  <Bar dataKey="billed" name="Bill Amount" fill="#7A1FA2" />
+                  <Bar dataKey="received" name="Received" fill="#16a34a" />
+                  <Bar dataKey="balance" name="Balance" fill="#dc2626" />
+                </BarChart>
+              </ResponsiveContainer>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader className="py-3"><CardTitle className="text-base">Year-wise — Bill vs Received</CardTitle></CardHeader>
+            <CardContent style={{ height: 260 }}>
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={dashYearly}>
+                  <CartesianGrid strokeDasharray="3 3" />
+                  <XAxis dataKey="year" fontSize={12} />
+                  <YAxis fontSize={12} tickFormatter={(v) => "₹" + Number(v).toLocaleString("en-IN")} width={80} />
+                  <Tooltip formatter={(v: any) => "₹" + Number(v).toLocaleString("en-IN", { minimumFractionDigits: 2 })} />
+                  <Legend />
+                  <Bar dataKey="billed" name="Bill Amount" fill="#7A1FA2" />
+                  <Bar dataKey="received" name="Received" fill="#16a34a" />
+                </BarChart>
+              </ResponsiveContainer>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader className="py-3"><CardTitle className="text-base">Contractor-wise ({dashYear})</CardTitle></CardHeader>
+            <CardContent className="overflow-x-auto p-0">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b bg-muted/50 text-left">
+                    <th className="p-2">Vendor Code</th>
+                    <th className="p-2">Contractor</th>
+                    <th className="p-2 text-right">Bill Amount</th>
+                    <th className="p-2 text-right">Received</th>
+                    <th className="p-2 text-right">Balance</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {dashContractors.map((c) => (
+                    <tr key={c.contractorId} className="border-b" data-testid={`row-dash-${c.vendorCode}`}>
+                      <td className="p-2 font-mono text-xs whitespace-nowrap">{c.vendorCode}</td>
+                      <td className="p-2">{c.name}</td>
+                      <td className="p-2 text-right">{fmtInr(c.billed)}</td>
+                      <td className="p-2 text-right text-green-600">{fmtInr(c.received)}</td>
+                      <td className={`p-2 text-right font-semibold ${c.balance > 0 ? "text-red-600" : "text-green-600"}`}>{fmtInr(c.balance)}</td>
+                    </tr>
+                  ))}
+                  {dashContractors.length === 0 && (
+                    <tr><td colSpan={5} className="p-6 text-center text-muted-foreground">Is year me koi bill/payment nahi mila.</td></tr>
+                  )}
+                </tbody>
+                <tfoot>
+                  <tr className="border-t bg-muted/50 font-semibold">
+                    <td className="p-2" colSpan={2}>Total</td>
+                    <td className="p-2 text-right">{fmtInr(dashContractors.reduce((s, c) => s + c.billed, 0))}</td>
+                    <td className="p-2 text-right">{fmtInr(dashContractors.reduce((s, c) => s + c.received, 0))}</td>
+                    <td className="p-2 text-right">{fmtInr(dashContractors.reduce((s, c) => s + c.balance, 0))}</td>
+                  </tr>
+                </tfoot>
               </table>
             </CardContent>
           </Card>

@@ -1139,6 +1139,17 @@ export async function registerRoutes(
     res.json(await storage.getContractorBillingSummary());
   });
 
+  app.get('/api/contractor-dashboard', requirePermission('salesinvoice'), async (req, res) => {
+    const year = Number(req.query.year);
+    const rawCid = String(req.query.contractorId ?? '0');
+    if (!/^\d+$/.test(rawCid)) return res.status(400).json({ message: 'Valid contractorId required' });
+    const contractorId = Number(rawCid);
+    if (!Number.isInteger(year) || year < 2000 || year > 2100) {
+      return res.status(400).json({ message: 'Valid year required' });
+    }
+    res.json(await storage.getContractorDashboard(year, contractorId));
+  });
+
   app.get("/api/geocode", requireAdmin, async (req, res) => {
     const address = String(req.query.address || "").trim();
     if (!address) return res.status(400).json({ message: "address required" });

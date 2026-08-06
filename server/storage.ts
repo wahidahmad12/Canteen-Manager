@@ -4364,6 +4364,63 @@ export class DatabaseStorage implements IStorage {
     }));
   }
 
+  async getContractorDashboard(year: number, contractorId?: number): Promise<any> {
+    const cid = Number(contractorId) || 0;
+    const cFilter = cid > 0 ? ' AND contractor_id = ?' : '';
+    const cArgs = cid > 0 ? [cid] : [];
+
+    // month-wise bill for the year
+    const [billRows]: any = await pool.query(
+      `SELECT month, SUM(qty * rate) AS billed FROM contractor_meal_entries WHERE year = ?${cFilter} GROUP BY month`,
+      [year, ...cArgs],
+    );
+    // month-wise received for the year
+    const [payRows]: any = await pool.query(
+      `SELECT MONTH(payment_date) AS month, SUM(amount) AS received FROM contractor_payments WHERE YEAR(payment_date) = ?${cFilter} GROUP BY MONTH(payment_date)`,
+      [year, ...cArgs],
+    );
+    const monthly = Array.from({ length: 12 }, (_, i) => {
+      const m = i + 1;
+      const billed = Number(billRows.find((r: any) => Number(r.month) === m)?.billed) || 0;
+      const received = Number(payRows.find((r: any) => Number(r.month) === m)?.received) || 0;
+      return { month: m, billed: Math.round(billed * 100) / 100, received: Math.round(received * 100) / 100, balance: Math.round((billed - received) * 100) / 100 };
+    });
+
+    // year-wise totals (all years, for year-over-year graph)
+    const [yBill]: any = await pool.query(
+      `SELECT year, SUM(qty * rate) AS billed FROM contractor_meal_entries WHERE 1=1${cFilter} GROUP BY year ORDER BY year`,
+      cArgs,
+    );
+    const [yPay]: any = await pool.query(
+      `SELECT YEAR(payment_date) AS year, SUM(amount) AS received FROM contractor_payments WHERE 1=1${cFilter} GROUP BY YEAR(payment_date) ORDER BY year`,
+      cArgs,
+    );
+    const yearSet = new Set<number>([...yBill.map((r: any) => Number(r.year)), ...yPay.map((r: any) => Number(r.year))]);
+    const yearly = Array.from(yearSet).sort().map((y) => {
+      const billed = Number(yBill.find((r: any) => Number(r.year) === y)?.billed) || 0;
+      const received = Number(yPay.find((r: any) => Number(r.year) === y)?.received) || 0;
+      return { year: y, billed: Math.round(billed * 100) / 100, received: Math.round(received * 100) / 100, balance: Math.round((billed - received) * 100) / 100 };
+    });
+
+    // contractor-wise for the selected year
+    const [cRows]: any = await pool.query(
+      `SELECT c.id AS contractorId, c.vendor_code AS vendorCode, c.name, COALESCE(b.billed, 0) AS billed, COALESCE(p.received, 0) AS received
+       FROM contractors c
+       LEFT JOIN (SELECT contractor_id, SUM(qty * rate) AS billed FROM contractor_meal_entries WHERE year = ? GROUP BY contractor_id) b ON b.contractor_id = c.id
+       LEFT JOIN (SELECT contractor_id, SUM(amount) AS received FROM contractor_payments WHERE YEAR(payment_date) = ? GROUP BY contractor_id) p ON p.contractor_id = c.id
+       ${cid > 0 ? 'WHERE c.id = ?' : ''}
+       ORDER BY c.vendor_code`,
+      cid > 0 ? [year, year, cid] : [year, year],
+    );
+    const contractors = (cRows as any[]).map((r) => {
+      const billed = Number(r.billed) || 0;
+      const received = Number(r.received) || 0;
+      return { ...r, billed: Math.round(billed * 100) / 100, received: Math.round(received * 100) / 100, balance: Math.round((billed - received) * 100) / 100 };
+    });
+
+    return { monthly, yearly, contractors };
+  }
+
   async setContractorMealRates(contractorId: number, month: number, year: number, rates: Record<string, number>): Promise<void> {
     const [found]: any = await pool.query(`SELECT id FROM contractors WHERE id = ?`, [contractorId]);
     if (!found.length) throw new Error('Contractor not found');
