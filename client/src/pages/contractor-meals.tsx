@@ -92,6 +92,9 @@ export default function ContractorMealsPage() {
     [contractors, clientFilter],
   );
 
+  // Load button: true = sab contractors dikhao; false = sirf jinka data hai
+  const [showAll, setShowAll] = useState(false);
+
   // Merge saved entries + local edits into row values
   const rowValue = (c: Contractor) => {
     const saved = { billNo: "", breakfast: "", lunch: "", dinner: "", entryDate: "" };
@@ -111,6 +114,12 @@ export default function ContractorMealsPage() {
       dinner: ed?.dinner ?? saved.dinner,
     };
   };
+
+  const hasRowData = (c: Contractor) => {
+    const v = rowValue(c);
+    return (Number(v.breakfast) || 0) > 0 || (Number(v.lunch) || 0) > 0 || (Number(v.dinner) || 0) > 0 || v.billNo.trim() !== "";
+  };
+  const gridContractors = showAll ? filteredContractors : filteredContractors.filter(hasRowData);
 
   const setCell = (c: Contractor, key: "billNo" | "breakfast" | "lunch" | "dinner", val: string) => {
     setEdits((prev) => ({ ...prev, [c.id]: { ...rowValue(c), ...prev[c.id], [key]: val } }));
@@ -132,6 +141,7 @@ export default function ContractorMealsPage() {
     },
     onSuccess: () => {
       setEdits({});
+      setShowAll(false); // save ke baad sirf data wale contractors dikhao
       qc.invalidateQueries({ queryKey: ["/api/contractor-meals", month, year] });
       qc.invalidateQueries({ queryKey: ["/api/contractor-dashboard"] });
       toast({ title: "Saved", description: `${MONTHS[month - 1]} ${year} entries saved.` });
@@ -305,7 +315,14 @@ export default function ContractorMealsPage() {
     }
   };
 
-  const buildInvoiceHtml = (c: Contractor, forPrint: boolean) => {
+  const buildInvoiceHtml = (
+    c: Contractor,
+    forPrint: boolean,
+    override?: { rates: Record<"Breakfast" | "Lunch" | "Dinner", string>; invNo: string; invDate: string; bodyOnly?: boolean },
+  ) => {
+    const useRates = override?.rates ?? invRates;
+    const useInvNo = override?.invNo ?? invNo;
+    const useInvDate = override?.invDate ?? invDate;
     const v = rowValue(c);
     const lastDay = new Date(year, month, 0).getDate();
     const mm = String(month).padStart(2, "0");
@@ -317,13 +334,13 @@ export default function ContractorMealsPage() {
     const shipToAddr = `${c.clientName.toUpperCase()}${client?.address ? " " + client.address : " Unut - 1 Rangpo Rohatang Road, Kumrek Sikkim - 737132"}`;
     const mobileNo = c.mobile?.trim() || "9641627280";
     const qrUrl = new URL(qrImg, window.location.origin).href;
-    const [dy, dm, dd] = invDate.split("-");
-    const dateDisp = invDate ? `${dd}-${dm}-${dy}` : "";
+    const [dy, dm, dd] = useInvDate.split("-");
+    const dateDisp = useInvDate ? `${dd}-${dm}-${dy}` : "";
 
     const items = (["Breakfast", "Lunch", "Dinner"] as const)
       .map((meal) => {
         const qty = Number(v[meal.toLowerCase() as "breakfast" | "lunch" | "dinner"]) || 0;
-        const rate = Number(invRates[meal]) || 0;
+        const rate = Number(useRates[meal]) || 0;
         return { meal, qty, rate, total: Math.round(qty * rate * 100) / 100 };
       })
       .filter((it) => it.qty > 0);
@@ -345,34 +362,12 @@ export default function ContractorMealsPage() {
         <td class="r">${fmt(it.total)}</td>
       </tr>`).join("");
 
-    const html = `<!DOCTYPE html><html><head><meta charset="utf-8">
-<title>${esc(c.name)} - ${esc(invNo || "Invoice")} - ${dateDisp}</title>
-<style>
-  @page { size: A5; margin: 6mm; }
-  * { box-sizing: border-box; }
-  body { font-family: Calibri, Arial, sans-serif; font-size: 10px; color: #000; margin: 0; }
-  .frame { border: 1px solid #000; }
-  table { border-collapse: collapse; width: 100%; }
-  td, th { padding: 3px 6px; vertical-align: top; }
-  .bordered td, .bordered th { border: 1px solid #000; }
-  .title { font-weight: bold; font-size: 12px; padding: 4px; }
-  .title span { color: #888; font-weight: normal; font-size: 9px; letter-spacing: 1px; }
-  .company { color: #7A1FA2; font-size: 16px; font-weight: bold; line-height: 1.2; }
-  .c { text-align: center; } .r { text-align: right; }
-  .head-blue { background: #cfe6f5; font-weight: bold; text-align: center; }
-  .item-name { font-weight: bold; font-size: 11px; }
-  .item-period { font-size: 8px; margin-top: 2px; }
-  .lbl { font-weight: bold; white-space: nowrap; }
-  .sec-title { font-weight: bold; padding: 4px 6px; }
-  .sign { text-align: center; font-size: 9px; }
-  .sign .space { height: 40px; }
-</style></head><body>
-<div class="title">INVOICE <span>ORIGINAL FOR RECIPIENT</span></div>
+    const page = `<div class="title">INVOICE <span>ORIGINAL FOR RECIPIENT</span></div>
 <div class="frame">
   <table class="bordered">
     <tr>
       <td style="width:50%"><div class="company">DJ Hospitality &amp; Facility<br>Management Pvt Ltd</div></td>
-      <td class="c" style="width:25%"><b>Invoice Number</b><br><br><span style="font-size:15px;font-weight:bold">${esc(invNo)}</span></td>
+      <td class="c" style="width:25%"><b>Invoice Number</b><br><br><span style="font-size:15px;font-weight:bold">${esc(useInvNo)}</span></td>
       <td class="c" style="width:25%"><b>Invoice Date</b><br><br><span style="font-size:15px;font-weight:bold">${dateDisp}</span></td>
     </tr>
     <tr><td colspan="3">Rangpo Rohatang Road, Kumrek Sikkim - 737132</td></tr>
@@ -430,10 +425,35 @@ export default function ContractorMealsPage() {
       </td>
     </tr>
   </table>
-</div>
+</div>`;
+
+    const html = `<!DOCTYPE html><html><head><meta charset="utf-8">
+<title>${esc(c.name)} - ${esc(useInvNo || "Invoice")} - ${dateDisp}</title>
+<style>
+  @page { size: A5; margin: 6mm; }
+  * { box-sizing: border-box; }
+  body { font-family: Calibri, Arial, sans-serif; font-size: 10px; color: #000; margin: 0; }
+  .frame { border: 1px solid #000; }
+  table { border-collapse: collapse; width: 100%; }
+  td, th { padding: 3px 6px; vertical-align: top; }
+  .bordered td, .bordered th { border: 1px solid #000; }
+  .title { font-weight: bold; font-size: 12px; padding: 4px; }
+  .title span { color: #888; font-weight: normal; font-size: 9px; letter-spacing: 1px; }
+  .company { color: #7A1FA2; font-size: 16px; font-weight: bold; line-height: 1.2; }
+  .c { text-align: center; } .r { text-align: right; }
+  .head-blue { background: #cfe6f5; font-weight: bold; text-align: center; }
+  .item-name { font-weight: bold; font-size: 11px; }
+  .item-period { font-size: 8px; margin-top: 2px; }
+  .lbl { font-weight: bold; white-space: nowrap; }
+  .sec-title { font-weight: bold; padding: 4px 6px; }
+  .sign { text-align: center; font-size: 9px; }
+  .sign .space { height: 40px; }
+  .page-break { page-break-after: always; }
+</style></head><body>
+${page}
 ${forPrint ? "<script>window.onload = function(){ window.print(); };</scr" + "ipt>" : ""}
 </body></html>`;
-    return { html, fileName: `Invoice-${c.vendorCode}-${mm}-${year}.jpg` };
+    return { html, page, fileName: `Invoice-${c.vendorCode}-${mm}-${year}.jpg` };
   };
 
   const printBusy = useRef(false);
@@ -455,6 +475,57 @@ ${forPrint ? "<script>window.onload = function(){ window.print(); };</scr" + "ip
     w.document.write(html);
     w.document.close();
     setInvContractor(null);
+  };
+
+  // ---- Convert all saved meal data of the month into invoices (one per contractor) ----
+  const [convertingAll, setConvertingAll] = useState(false);
+  const convertAllToInvoices = async () => {
+    if (convertingAll) return;
+    setConvertingAll(true);
+    try {
+      const t = new Date();
+      const today = `${t.getFullYear()}-${String(t.getMonth() + 1).padStart(2, "0")}-${String(t.getDate()).padStart(2, "0")}`;
+      const list = contractors.filter((c) => {
+        const v = rowValue(c);
+        return (Number(v.breakfast) || 0) > 0 || (Number(v.lunch) || 0) > 0 || (Number(v.dinner) || 0) > 0;
+      });
+      if (!list.length) {
+        toast({ title: "Koi data nahi", description: "Is month me kisi contractor ki qty nahi hai. Pehle data bhar kar Save All kijiye.", variant: "destructive" });
+        return;
+      }
+      const pages: string[] = [];
+      for (const c of list) {
+        // rate: is month ki saved rate, warna default
+        const saved: Record<"Breakfast" | "Lunch" | "Dinner", string> = { Breakfast: "", Lunch: "", Dinner: "" };
+        for (const e of entries) {
+          if (e.contractorId === c.id && Number(e.rate) > 0) saved[e.mealType as "Breakfast" | "Lunch" | "Dinner"] = String(Number(e.rate));
+        }
+        const rates = { Breakfast: saved.Breakfast || "4.6", Lunch: saved.Lunch || "11.6", Dinner: saved.Dinner || "11.6" };
+        // rate save pehle — fail ho to poora convert rok do, taki invoice aur data alag na ho
+        await apiRequest("POST", "/api/contractor-meals/rates", {
+          contractorId: c.id, month, year,
+          rates: { Breakfast: Number(rates.Breakfast) || 0, Lunch: Number(rates.Lunch) || 0, Dinner: Number(rates.Dinner) || 0 },
+        });
+        const { page } = buildInvoiceHtml(c, false, { rates, invNo: rowValue(c).billNo || "", invDate: today });
+        pages.push(page);
+      }
+      qc.invalidateQueries({ queryKey: ["/api/contractor-meals", month, year] });
+      qc.invalidateQueries({ queryKey: ["/api/contractor-dashboard"] });
+      qc.invalidateQueries({ queryKey: ["/api/contractor-billing-summary"] });
+      // sab invoices ek saath, har ek apne page par
+      const { html } = buildInvoiceHtml(list[0], false);
+      const head = html.slice(0, html.indexOf("</head>") + 7);
+      const combined = `${head}<body>${pages.map((p) => `<div class="page-break">${p}</div>`).join("")}<script>window.onload = function(){ window.print(); };</scr${""}ipt></body></html>`;
+      const w = window.open("", "_blank");
+      if (!w) { toast({ title: "Popup blocked", description: "Browser me popup allow kijiye.", variant: "destructive" }); return; }
+      w.document.write(combined);
+      w.document.close();
+      toast({ title: `${list.length} invoice ban gaye`, description: "Print window me sab invoices ek saath hain." });
+    } catch (e: any) {
+      toast({ title: "Convert failed", description: e?.message || "Dobara try kijiye.", variant: "destructive" });
+    } finally {
+      setConvertingAll(false);
+    }
   };
 
   const [sharingJpeg, setSharingJpeg] = useState(false);
@@ -739,8 +810,14 @@ ${tbl(`Contractor-wise (${dashYear})`, dashContractors.map((c) => ({ label: `${c
                   </SelectContent>
                 </Select>
               </div>
+              <Button variant={showAll ? "secondary" : "default"} onClick={() => setShowAll(!showAll)} data-testid="button-load-contractors">
+                <Users className="h-4 w-4 mr-1" /> {showAll ? "Sirf Data Wale" : "Load"}
+              </Button>
               <Button onClick={() => saveMutation.mutate()} disabled={saveMutation.isPending} data-testid="button-save-entries">
                 <Save className="h-4 w-4 mr-1" /> {saveMutation.isPending ? "Saving..." : "Save All"}
+              </Button>
+              <Button variant="outline" className="text-purple-700 border-purple-700" onClick={convertAllToInvoices} disabled={convertingAll} data-testid="button-convert-invoices">
+                <Printer className="h-4 w-4 mr-1" /> {convertingAll ? "Ban raha hai..." : "Convert to Invoice"}
               </Button>
               <Button variant="outline" onClick={downloadTemplate} data-testid="button-template">
                 <FileSpreadsheet className="h-4 w-4 mr-1" /> Template
@@ -779,12 +856,11 @@ ${tbl(`Contractor-wise (${dashYear})`, dashContractors.map((c) => ({ label: `${c
                     <th className="p-2 text-center">Lunch</th>
                     <th className="p-2 text-center">Dinner</th>
                     <th className="p-2">Bill No</th>
-                    <th className="p-2">Cont &amp; Month</th>
                     <th className="p-2 text-center">Invoice</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {filteredContractors.map((c) => {
+                  {gridContractors.map((c) => {
                     const v = rowValue(c);
                     return (
                       <tr key={c.id} className="border-b" data-testid={`row-meal-${c.vendorCode}`}>
@@ -810,9 +886,6 @@ ${tbl(`Contractor-wise (${dashYear})`, dashContractors.map((c) => ({ label: `${c
                             data-testid={`input-billno-${c.vendorCode}`}
                           />
                         </td>
-                        <td className="p-2 text-xs text-muted-foreground whitespace-nowrap">
-                          {c.name}{monthName.slice(0, 3)}{year}
-                        </td>
                         <td className="p-1 text-center">
                           <Button
                             variant="ghost" size="icon" className="h-8 w-8"
@@ -826,18 +899,22 @@ ${tbl(`Contractor-wise (${dashYear})`, dashContractors.map((c) => ({ label: `${c
                       </tr>
                     );
                   })}
-                  {filteredContractors.length === 0 && (
-                    <tr><td colSpan={8} className="p-6 text-center text-muted-foreground">No contractors. Pehle "Contractor List" tab me add kijiye.</td></tr>
+                  {gridContractors.length === 0 && (
+                    <tr><td colSpan={7} className="p-6 text-center text-muted-foreground">
+                      {filteredContractors.length === 0
+                        ? 'No contractors. Pehle "Contractor List" tab me add kijiye.'
+                        : 'Is month me abhi koi data nahi. Naya data bharne ke liye "Load" button dabaiye.'}
+                    </td></tr>
                   )}
                 </tbody>
-                {filteredContractors.length > 0 && (
+                {gridContractors.length > 0 && (
                   <tfoot>
                     <tr className="border-t bg-muted/50 font-semibold">
                       <td className="p-2" colSpan={2}>Total</td>
                       <td className="p-2 text-center" data-testid="text-total-breakfast">{totals.b}</td>
                       <td className="p-2 text-center" data-testid="text-total-lunch">{totals.l}</td>
                       <td className="p-2 text-center" data-testid="text-total-dinner">{totals.d}</td>
-                      <td className="p-2" colSpan={3}>Grand Total: {totals.all}</td>
+                      <td className="p-2" colSpan={2}>Grand Total: {totals.all}</td>
                     </tr>
                   </tfoot>
                 )}
