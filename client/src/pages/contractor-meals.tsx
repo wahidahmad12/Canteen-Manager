@@ -442,7 +442,7 @@ export default function ContractorMealsPage() {
   .item-period { font-size: 8px; margin-top: 2px; }
   .lbl { font-weight: bold; white-space: nowrap; }
   .sec-title { font-weight: bold; padding: 4px 6px; }
-  .sign { text-align: center; font-size: 9px; }
+  .sign { text-align: center; font-size: 9px; vertical-align: bottom; padding-bottom: 4px; }
   .sign .space { height: 40px; }
   .page-break { page-break-after: always; }
 </style></head><body>
