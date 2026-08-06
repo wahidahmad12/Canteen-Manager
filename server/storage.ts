@@ -4364,20 +4364,25 @@ export class DatabaseStorage implements IStorage {
     }));
   }
 
-  async getContractorDashboard(year: number, contractorId?: number): Promise<any> {
+  async getContractorDashboard(year: number, contractorId?: number, month?: number, clientName?: string): Promise<any> {
     const cid = Number(contractorId) || 0;
+    const mon = Number(month) || 0;
+    const clientStr = String(clientName || '').trim();
+    // entry-table filters (e = contractor_meal_entries alias-free, joined with contractors via subselect)
     const cFilter = cid > 0 ? ' AND contractor_id = ?' : '';
     const cArgs = cid > 0 ? [cid] : [];
+    const clFilter = clientStr ? ' AND contractor_id IN (SELECT id FROM contractors WHERE client_name = ?)' : '';
+    const clArgs = clientStr ? [clientStr] : [];
 
     // month-wise bill for the year
     const [billRows]: any = await pool.query(
-      `SELECT month, SUM(qty * COALESCE(NULLIF(rate, 0), CASE meal_type WHEN 'Breakfast' THEN 4.6 ELSE 11.6 END)) AS billed FROM contractor_meal_entries WHERE year = ?${cFilter} GROUP BY month`,
-      [year, ...cArgs],
+      `SELECT month, SUM(qty * COALESCE(NULLIF(rate, 0), CASE meal_type WHEN 'Breakfast' THEN 4.6 ELSE 11.6 END)) AS billed FROM contractor_meal_entries WHERE year = ?${cFilter}${clFilter} GROUP BY month`,
+      [year, ...cArgs, ...clArgs],
     );
     // month-wise received for the year
     const [payRows]: any = await pool.query(
-      `SELECT MONTH(payment_date) AS month, SUM(amount) AS received FROM contractor_payments WHERE YEAR(payment_date) = ?${cFilter} GROUP BY MONTH(payment_date)`,
-      [year, ...cArgs],
+      `SELECT MONTH(payment_date) AS month, SUM(amount) AS received FROM contractor_payments WHERE YEAR(payment_date) = ?${cFilter}${clFilter} GROUP BY MONTH(payment_date)`,
+      [year, ...cArgs, ...clArgs],
     );
     const monthly = Array.from({ length: 12 }, (_, i) => {
       const m = i + 1;
@@ -4388,12 +4393,12 @@ export class DatabaseStorage implements IStorage {
 
     // year-wise totals (all years, for year-over-year graph)
     const [yBill]: any = await pool.query(
-      `SELECT year, SUM(qty * COALESCE(NULLIF(rate, 0), CASE meal_type WHEN 'Breakfast' THEN 4.6 ELSE 11.6 END)) AS billed FROM contractor_meal_entries WHERE 1=1${cFilter} GROUP BY year ORDER BY year`,
-      cArgs,
+      `SELECT year, SUM(qty * COALESCE(NULLIF(rate, 0), CASE meal_type WHEN 'Breakfast' THEN 4.6 ELSE 11.6 END)) AS billed FROM contractor_meal_entries WHERE 1=1${cFilter}${clFilter} GROUP BY year ORDER BY year`,
+      [...cArgs, ...clArgs],
     );
     const [yPay]: any = await pool.query(
-      `SELECT YEAR(payment_date) AS year, SUM(amount) AS received FROM contractor_payments WHERE 1=1${cFilter} GROUP BY YEAR(payment_date) ORDER BY year`,
-      cArgs,
+      `SELECT YEAR(payment_date) AS year, SUM(amount) AS received FROM contractor_payments WHERE 1=1${cFilter}${clFilter} GROUP BY YEAR(payment_date) ORDER BY year`,
+      [...cArgs, ...clArgs],
     );
     const yearSet = new Set<number>([...yBill.map((r: any) => Number(r.year)), ...yPay.map((r: any) => Number(r.year))]);
     const yearly = Array.from(yearSet).sort().map((y) => {
@@ -4403,14 +4408,20 @@ export class DatabaseStorage implements IStorage {
     });
 
     // contractor-wise for the selected year
+    const mBillFilter = mon > 0 ? ' AND month = ?' : '';
+    const mPayFilter = mon > 0 ? ' AND MONTH(payment_date) = ?' : '';
+    const where: string[] = [];
+    const whereArgs: any[] = [];
+    if (cid > 0) { where.push('c.id = ?'); whereArgs.push(cid); }
+    if (clientStr) { where.push('c.client_name = ?'); whereArgs.push(clientStr); }
     const [cRows]: any = await pool.query(
       `SELECT c.id AS contractorId, c.vendor_code AS vendorCode, c.name, COALESCE(b.billed, 0) AS billed, COALESCE(p.received, 0) AS received
        FROM contractors c
-       LEFT JOIN (SELECT contractor_id, SUM(qty * COALESCE(NULLIF(rate, 0), CASE meal_type WHEN 'Breakfast' THEN 4.6 ELSE 11.6 END)) AS billed FROM contractor_meal_entries WHERE year = ? GROUP BY contractor_id) b ON b.contractor_id = c.id
-       LEFT JOIN (SELECT contractor_id, SUM(amount) AS received FROM contractor_payments WHERE YEAR(payment_date) = ? GROUP BY contractor_id) p ON p.contractor_id = c.id
-       ${cid > 0 ? 'WHERE c.id = ?' : ''}
+       LEFT JOIN (SELECT contractor_id, SUM(qty * COALESCE(NULLIF(rate, 0), CASE meal_type WHEN 'Breakfast' THEN 4.6 ELSE 11.6 END)) AS billed FROM contractor_meal_entries WHERE year = ?${mBillFilter} GROUP BY contractor_id) b ON b.contractor_id = c.id
+       LEFT JOIN (SELECT contractor_id, SUM(amount) AS received FROM contractor_payments WHERE YEAR(payment_date) = ?${mPayFilter} GROUP BY contractor_id) p ON p.contractor_id = c.id
+       ${where.length ? 'WHERE ' + where.join(' AND ') : ''}
        ORDER BY c.vendor_code`,
-      cid > 0 ? [year, year, cid] : [year, year],
+      [year, ...(mon > 0 ? [mon] : []), year, ...(mon > 0 ? [mon] : []), ...whereArgs],
     );
     const contractors = (cRows as any[]).map((r) => {
       const billed = Number(r.billed) || 0;

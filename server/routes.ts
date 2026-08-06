@@ -1147,7 +1147,12 @@ export async function registerRoutes(
     if (!Number.isInteger(year) || year < 2000 || year > 2100) {
       return res.status(400).json({ message: 'Valid year required' });
     }
-    res.json(await storage.getContractorDashboard(year, contractorId));
+    const rawMonth = String(req.query.month ?? '0');
+    if (!/^\d+$/.test(rawMonth)) return res.status(400).json({ message: 'Valid month required' });
+    const month = Number(rawMonth);
+    if (month < 0 || month > 12) return res.status(400).json({ message: 'Valid month required' });
+    const clientName = String(req.query.client ?? '').trim();
+    res.json(await storage.getContractorDashboard(year, contractorId, month, clientName));
   });
 
   app.get("/api/geocode", requireAdmin, async (req, res) => {

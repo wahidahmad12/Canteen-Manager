@@ -636,23 +636,30 @@ ${forPrint ? "<script>window.onload = function(){ window.print(); };</scr" + "ip
   // ---- Dashboard state ----
   const [dashYear, setDashYear] = useState(() => new Date().getFullYear());
   const [dashContractor, setDashContractor] = useState<string>("all");
+  const [dashMonth, setDashMonth] = useState<string>("all");
+  const [dashClient, setDashClient] = useState<string>("all");
   type DashData = {
     monthly: { month: number; billed: number; received: number; balance: number }[];
     yearly: { year: number; billed: number; received: number; balance: number }[];
     contractors: { contractorId: number; vendorCode: string; name: string; billed: number; received: number; balance: number }[];
   };
   const { data: dash } = useQuery<DashData>({
-    queryKey: ["/api/contractor-dashboard", dashYear, dashContractor],
+    queryKey: ["/api/contractor-dashboard", dashYear, dashContractor, dashMonth, dashClient],
     queryFn: async () =>
-      (await apiRequest("GET", `/api/contractor-dashboard?year=${dashYear}&contractorId=${dashContractor === "all" ? 0 : dashContractor}`)).json(),
+      (await apiRequest(
+        "GET",
+        `/api/contractor-dashboard?year=${dashYear}&contractorId=${dashContractor === "all" ? 0 : dashContractor}&month=${dashMonth === "all" ? 0 : dashMonth}&client=${encodeURIComponent(dashClient === "all" ? "" : dashClient)}`,
+      )).json(),
   });
   const dashMonthly = (dash?.monthly ?? []).map((m) => ({ ...m, name: MONTH_NAMES[m.month - 1] }));
   const dashYearly = dash?.yearly ?? [];
   const dashContractors = (dash?.contractors ?? []).filter((c) => c.billed > 0 || c.received > 0);
-  const dashTotals = dashMonthly.reduce(
+  const dashMonthlyShown = dashMonth === "all" ? dashMonthly : dashMonthly.filter((m) => m.month === Number(dashMonth));
+  const dashTotals = dashMonthlyShown.reduce(
     (s, m) => ({ billed: s.billed + m.billed, received: s.received + m.received }),
     { billed: 0, received: 0 },
   );
+  const dashPeriodLabel = dashMonth === "all" ? String(dashYear) : `${MONTH_NAMES[Number(dashMonth) - 1]} ${dashYear}`;
   const dashYearOptions = useMemo(() => {
     const ys = new Set<number>(dashYearly.map((y) => y.year));
     ys.add(new Date().getFullYear());
@@ -665,9 +672,9 @@ ${forPrint ? "<script>window.onload = function(){ window.print(); };</scr" + "ip
   const exportDashboard = () => {
     const wb = XLSX.utils.book_new();
     const ws1 = XLSX.utils.json_to_sheet(
-      dashMonthly.map((m) => ({ Month: m.name, "Bill Amount": m.billed, "Payment Received": m.received, Balance: m.balance })),
+      dashMonthlyShown.map((m) => ({ Month: m.name, "Bill Amount": m.billed, "Payment Received": m.received, Balance: m.balance })),
     );
-    XLSX.utils.book_append_sheet(wb, ws1, `Monthwise ${dashYear}`);
+    XLSX.utils.book_append_sheet(wb, ws1, `Monthwise ${dashPeriodLabel}`.slice(0,31));
     const ws2 = XLSX.utils.json_to_sheet(
       dashYearly.map((y) => ({ Year: y.year, "Bill Amount": y.billed, "Payment Received": y.received, Balance: y.balance })),
     );
@@ -675,7 +682,7 @@ ${forPrint ? "<script>window.onload = function(){ window.print(); };</scr" + "ip
     const ws3 = XLSX.utils.json_to_sheet(
       dashContractors.map((c) => ({ "Vendor Code": c.vendorCode, Contractor: c.name, "Bill Amount": c.billed, "Payment Received": c.received, Balance: c.balance })),
     );
-    XLSX.utils.book_append_sheet(wb, ws3, `Contractorwise ${dashYear}`);
+    XLSX.utils.book_append_sheet(wb, ws3, `Contractorwise ${dashPeriodLabel}`.slice(0,31));
     XLSX.writeFile(wb, `Contractor-Dashboard-${dashYear}${dashContractor === "all" ? "" : "-" + dashContractorName.replace(/\s+/g, "")}.xlsx`);
   };
 
@@ -703,10 +710,10 @@ ${forPrint ? "<script>window.onload = function(){ window.print(); };</scr" + "ip
   .head th { background: #cfe6f5; } .total td { font-weight: bold; background: #f2f2f2; }
 </style></head><body>
 <h2>DJ Hospitality &amp; Facility Management Pvt Ltd</h2>
-<div class="sub">Contractor Meal Dashboard — Year ${dashYear} — ${esc(dashContractorName)}</div>
-${tbl(`Month-wise (${dashYear})`, dashMonthly.map((m) => ({ label: m.name, billed: m.billed, received: m.received, balance: m.balance })))}
+<div class="sub">Contractor Meal Dashboard — ${dashPeriodLabel} — ${esc(dashClient === "all" ? "All Clients" : dashClient)} — ${esc(dashContractorName)}</div>
+${tbl(`Month-wise (${dashPeriodLabel})`, dashMonthlyShown.map((m) => ({ label: m.name, billed: m.billed, received: m.received, balance: m.balance })))}
 ${tbl("Year-wise", dashYearly.map((y) => ({ label: String(y.year), billed: y.billed, received: y.received, balance: y.balance })))}
-${tbl(`Contractor-wise (${dashYear})`, dashContractors.map((c) => ({ label: `${c.vendorCode} — ${c.name}`, billed: c.billed, received: c.received, balance: c.balance })))}
+${tbl(`Contractor-wise (${dashPeriodLabel})`, dashContractors.map((c) => ({ label: `${c.vendorCode} — ${c.name}`, billed: c.billed, received: c.received, balance: c.balance })))}
 <script>window.onload = function(){ window.print(); };</scr${""}ipt>
 </body></html>`;
     const w = window.open("", "_blank");
@@ -1182,6 +1189,26 @@ ${tbl(`Contractor-wise (${dashYear})`, dashContractors.map((c) => ({ label: `${c
                 </Select>
               </div>
               <div>
+                <Label>Month</Label>
+                <Select value={dashMonth} onValueChange={setDashMonth}>
+                  <SelectTrigger className="w-32" data-testid="select-dash-month"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Months</SelectItem>
+                    {MONTH_NAMES.map((m, i) => <SelectItem key={m} value={String(i + 1)}>{m}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <Label>Client</Label>
+                <Select value={dashClient} onValueChange={setDashClient}>
+                  <SelectTrigger className="w-44" data-testid="select-dash-client"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Clients</SelectItem>
+                    {clients.map((c) => <SelectItem key={c.id} value={c.name}>{c.name}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
                 <Label>Contractor</Label>
                 <Select value={dashContractor} onValueChange={setDashContractor}>
                   <SelectTrigger className="w-64" data-testid="select-dash-contractor"><SelectValue /></SelectTrigger>
@@ -1205,15 +1232,15 @@ ${tbl(`Contractor-wise (${dashYear})`, dashContractors.map((c) => ({ label: `${c
 
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             <Card><CardContent className="pt-4">
-              <div className="text-sm text-muted-foreground">Total Bill ({dashYear})</div>
+              <div className="text-sm text-muted-foreground">Total Bill ({dashPeriodLabel})</div>
               <div className="text-2xl font-bold" data-testid="text-dash-billed">{fmtInr(dashTotals.billed)}</div>
             </CardContent></Card>
             <Card><CardContent className="pt-4">
-              <div className="text-sm text-muted-foreground">Payment Received ({dashYear})</div>
+              <div className="text-sm text-muted-foreground">Payment Received ({dashPeriodLabel})</div>
               <div className="text-2xl font-bold text-green-600" data-testid="text-dash-received">{fmtInr(dashTotals.received)}</div>
             </CardContent></Card>
             <Card><CardContent className="pt-4">
-              <div className="text-sm text-muted-foreground">Balance ({dashYear})</div>
+              <div className="text-sm text-muted-foreground">Balance ({dashPeriodLabel})</div>
               <div className={`text-2xl font-bold ${dashTotals.billed - dashTotals.received > 0 ? "text-red-600" : "text-green-600"}`} data-testid="text-dash-balance">
                 {fmtInr(dashTotals.billed - dashTotals.received)}
               </div>
@@ -1221,10 +1248,10 @@ ${tbl(`Contractor-wise (${dashYear})`, dashContractors.map((c) => ({ label: `${c
           </div>
 
           <Card>
-            <CardHeader className="py-3"><CardTitle className="text-base">Month-wise — Bill vs Received vs Balance ({dashYear})</CardTitle></CardHeader>
+            <CardHeader className="py-3"><CardTitle className="text-base">Month-wise — Bill vs Received vs Balance ({dashPeriodLabel})</CardTitle></CardHeader>
             <CardContent style={{ height: 300 }}>
               <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={dashMonthly}>
+                <BarChart data={dashMonthlyShown}>
                   <CartesianGrid strokeDasharray="3 3" />
                   <XAxis dataKey="name" fontSize={12} />
                   <YAxis fontSize={12} tickFormatter={(v) => "₹" + Number(v).toLocaleString("en-IN")} width={80} />
@@ -1256,7 +1283,7 @@ ${tbl(`Contractor-wise (${dashYear})`, dashContractors.map((c) => ({ label: `${c
           </Card>
 
           <Card>
-            <CardHeader className="py-3"><CardTitle className="text-base">Contractor-wise ({dashYear})</CardTitle></CardHeader>
+            <CardHeader className="py-3"><CardTitle className="text-base">Contractor-wise ({dashPeriodLabel})</CardTitle></CardHeader>
             <CardContent className="overflow-x-auto p-0">
               <table className="w-full text-sm">
                 <thead>
