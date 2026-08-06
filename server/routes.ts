@@ -2813,6 +2813,15 @@ export async function registerRoutes(
       res.json({ ok: true });
     } catch (err: any) { res.status(400).json({ message: err.message }); }
   });
+  app.post('/api/quotations/:id/po', requirePermission('salesinvoice'), async (req: any, res) => {
+    try {
+      const { scope, forbidden } = quotationScope(req);
+      if (forbidden) return res.status(403).json({ message: 'No client assigned to your account' });
+      const createdBy = req.session?.displayName || req.session?.username || '';
+      await storage.attachPoToQuotation(Number(req.params.id), { ...req.body, createdBy }, scope);
+      res.json({ ok: true });
+    } catch (err: any) { res.status(400).json({ message: err.message }); }
+  });
   app.patch('/api/quotations/:id/status', requirePermission('salesinvoice'), async (req, res) => {
     try {
       const { scope, forbidden } = quotationScope(req);

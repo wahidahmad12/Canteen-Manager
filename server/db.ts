@@ -178,6 +178,9 @@ async function initPool(): Promise<void> {
       FOREIGN KEY (quotation_id) REFERENCES quotations(id) ON DELETE CASCADE
     )`,
     `UPDATE quotations SET quotation_no = CONCAT('DJ-GEN-00-Q', LPAD(id, 3, '0')) WHERE quotation_no = ''`,
+    `ALTER TABLE quotations ADD COLUMN IF NOT EXISTS po_number VARCHAR(100) DEFAULT ''`,
+    `ALTER TABLE quotations ADD COLUMN IF NOT EXISTS po_date VARCHAR(10) DEFAULT ''`,
+    `ALTER TABLE quotations ADD COLUMN IF NOT EXISTS po_id INT NULL`,
     `ALTER TABLE quotations ADD UNIQUE INDEX uq_quotation_no (quotation_no)`,
   ];
   for (const sql of migrations) {

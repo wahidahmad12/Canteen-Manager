@@ -8,13 +8,16 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 import { useClientNames } from "@/hooks/use-reports";
-import { FileSpreadsheet, Plus, Trash2, Loader2, Save, Pencil, X, Clock } from "lucide-react";
+import { FileSpreadsheet, Plus, Trash2, Loader2, Save, Pencil, X, Clock, Link2 } from "lucide-react";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 
 interface QuotationItem { id?: number; itemName: string; qty: number; rate: number; amount: number; }
 interface Quotation {
   id: number; quotationNo: string; quotationDate: string; quotationThru: string;
   clientName: string; totalAmount: number; status: "open" | "converted" | "closed";
   remarks: string; createdBy: string; items: QuotationItem[];
+  poNumber?: string; poDate?: string; poId?: number | null;
+  taxInvoiceNo?: string | null; taxInvoiceDate?: string | null;
 }
 
 const fmt = (n: number) => n.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -59,6 +62,12 @@ export function OpenQuotationTab() {
 
   // list filters
   const [statusFilter, setStatusFilter] = useState("open");
+
+  // Add PO dialog
+  const [poFor, setPoFor] = useState<Quotation | null>(null);
+  const [poNumber, setPoNumber] = useState("");
+  const [poDate, setPoDate] = useState(todayStr());
+  const [poAmount, setPoAmount] = useState("");
 
   const { data: quotations = [], isLoading } = useQuery<Quotation[]>({
     queryKey: ["/api/quotations"],
@@ -118,6 +127,27 @@ export function OpenQuotationTab() {
       if (!res.ok) throw new Error("Could not update status");
     },
     onSuccess: () => { qc.invalidateQueries({ queryKey: ["/api/quotations"] }); toast({ title: "Status updated" }); },
+    onError: (e: any) => toast({ title: "Failed", description: e.message, variant: "destructive" }),
+  });
+
+  const poMutation = useMutation({
+    mutationFn: async () => {
+      if (!poFor) return;
+      const res = await fetch(`/api/quotations/${poFor.id}/po`, {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ poNumber, poDate, poAmount: Number(poAmount) || 0 }), credentials: "include",
+      });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error(data.message || "Could not save PO");
+      }
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["/api/quotations"] });
+      qc.invalidateQueries({ queryKey: ["/api/purchase-orders"] });
+      toast({ title: "PO added", description: "The PO is now linked to this quotation and shows in the Purchase Orders tab too." });
+      setPoFor(null);
+    },
     onError: (e: any) => toast({ title: "Failed", description: e.message, variant: "destructive" }),
   });
 
@@ -293,6 +323,8 @@ export function OpenQuotationTab() {
                     <th className="text-left py-2 px-2">Thru</th>
                     <th className="text-left py-2 px-2">Items</th>
                     <th className="text-right py-2 px-2">Amount (₹)</th>
+                    <th className="text-left py-2 px-2">PO No / Date</th>
+                    <th className="text-left py-2 px-2">Tax Invoice</th>
                     <th className="text-center py-2 px-2">Pending</th>
                     <th className="text-center py-2 px-2">Status</th>
                     <th className="text-center py-2 px-2 w-24">Actions</th>
@@ -309,6 +341,26 @@ export function OpenQuotationTab() {
                         {q.items.map(it => `${it.itemName} (${it.qty} × ₹${fmt(it.rate)})`).join(", ") || "-"}
                       </td>
                       <td className="py-2 px-2 text-right font-mono font-semibold">₹{fmt(q.totalAmount)}</td>
+                      <td className="py-2 px-2 text-xs whitespace-nowrap">
+                        {q.poNumber ? (
+                          <div>
+                            <div className="font-mono font-semibold">{q.poNumber}</div>
+                            {q.poDate && <div className="text-muted-foreground">{fmtDate(q.poDate)}</div>}
+                          </div>
+                        ) : (
+                          <Button size="sm" variant="outline" className="h-7 text-[11px] gap-1" onClick={() => { setPoFor(q); setPoNumber(""); setPoDate(todayStr()); setPoAmount(String(q.totalAmount || "")); }} data-testid={`button-add-po-${q.id}`}>
+                            <Link2 className="w-3 h-3" /> Add PO
+                          </Button>
+                        )}
+                      </td>
+                      <td className="py-2 px-2 text-xs whitespace-nowrap">
+                        {q.taxInvoiceNo ? (
+                          <div>
+                            <div className="font-mono font-semibold text-emerald-700 dark:text-emerald-400">{q.taxInvoiceNo}</div>
+                            {q.taxInvoiceDate && <div className="text-muted-foreground">{q.taxInvoiceDate}</div>}
+                          </div>
+                        ) : <span className="text-slate-400">—</span>}
+                      </td>
                       <td className="py-2 px-2 text-center">
                         {q.status === "open" ? (
                           <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold ${pendingDays(q.quotationDate) > 15 ? "bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-300" : "bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300"}`} data-testid={`text-pending-${q.id}`}>
@@ -340,6 +392,41 @@ export function OpenQuotationTab() {
           )}
         </CardContent>
       </Card>
+
+      {/* Add PO dialog */}
+      <Dialog open={!!poFor} onOpenChange={(open) => { if (!open) setPoFor(null); }}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle className="text-base">Add Purchase Order</DialogTitle>
+          </DialogHeader>
+          {poFor && (
+            <div className="space-y-3">
+              <p className="text-xs text-muted-foreground">
+                For quotation <span className="font-mono font-semibold">{poFor.quotationNo}</span> — {poFor.clientName || "no client"}.
+                The PO will also appear in the Purchase Orders tab.
+              </p>
+              <div>
+                <Label className="text-xs">PO Number</Label>
+                <Input placeholder="e.g. PO17926276" value={poNumber} onChange={e => setPoNumber(e.target.value)} data-testid="input-po-number" />
+              </div>
+              <div>
+                <Label className="text-xs">PO Date</Label>
+                <Input type="date" value={poDate} onChange={e => setPoDate(e.target.value)} data-testid="input-po-date" />
+              </div>
+              <div>
+                <Label className="text-xs">PO Amount (₹)</Label>
+                <Input type="number" min="0" value={poAmount} onChange={e => setPoAmount(e.target.value)} data-testid="input-po-amount" />
+              </div>
+              <div className="flex justify-end gap-2 pt-1">
+                <Button variant="outline" onClick={() => setPoFor(null)} data-testid="button-cancel-po">Cancel</Button>
+                <Button onClick={() => { if (!poNumber.trim()) { toast({ title: "Please enter the PO number", variant: "destructive" }); return; } poMutation.mutate(); }} disabled={poMutation.isPending} className="bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white gap-2" data-testid="button-save-po">
+                  {poMutation.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />} Save PO
+                </Button>
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

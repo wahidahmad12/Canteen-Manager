@@ -3261,12 +3261,18 @@ export class DatabaseStorage implements IStorage {
   // === QUOTATIONS (Open Quotation tracking) ===
   async getQuotations(clientScope?: string): Promise<any[]> {
     const [qRows] = await db.execute(sql`
-      SELECT id, quotation_no AS quotationNo, quotation_date AS quotationDate, quotation_thru AS quotationThru,
-             client_name AS clientName, total_amount AS totalAmount, status, remarks,
-             created_by AS createdBy, created_at AS createdAt
-      FROM quotations
-      WHERE ${clientScope ? sql`client_name = ${clientScope}` : sql`1=1`}
-      ORDER BY quotation_date DESC, id DESC
+      SELECT q.id, q.quotation_no AS quotationNo, q.quotation_date AS quotationDate, q.quotation_thru AS quotationThru,
+             q.client_name AS clientName, q.total_amount AS totalAmount, q.status, q.remarks,
+             q.po_number AS poNumber, q.po_date AS poDate, q.po_id AS poId,
+             ti.invoice_number AS taxInvoiceNo, ti.invoice_date AS taxInvoiceDate,
+             q.created_by AS createdBy, q.created_at AS createdAt
+      FROM quotations q
+      LEFT JOIN (
+        SELECT po_number, MAX(invoice_number) AS invoice_number, MAX(invoice_date) AS invoice_date
+        FROM tax_invoices WHERE po_number <> '' GROUP BY po_number
+      ) ti ON ti.po_number = q.po_number
+      WHERE ${clientScope ? sql`q.client_name = ${clientScope}` : sql`1=1`}
+      ORDER BY q.quotation_date DESC, q.id DESC
     `) as any;
     const quotations = Array.isArray(qRows) ? qRows : [];
     if (quotations.length === 0) return [];
@@ -3389,6 +3395,40 @@ export class DatabaseStorage implements IStorage {
           VALUES (${id}, ${it.itemName}, ${it.qty}, ${it.rate}, ${it.amount})
         `);
       }
+    });
+  }
+
+  // Attach a received Purchase Order to a quotation: records PO no/date on the quotation
+  // and creates the PO in the Purchase Orders section (if not already there).
+  async attachPoToQuotation(id: number, data: any, clientScope?: string): Promise<void> {
+    const poNumber = String(data.poNumber || '').trim().slice(0, 100);
+    const poDate = String(data.poDate || '');
+    if (!poNumber) throw new Error('PO number is required');
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(poDate)) throw new Error('PO date is required (YYYY-MM-DD)');
+    const poAmount = Number(data.poAmount);
+    await db.transaction(async (tx) => {
+      const [qRows] = await tx.execute(sql`
+        SELECT id, client_name AS clientName, total_amount AS totalAmount FROM quotations
+        WHERE id = ${id} ${clientScope ? sql`AND client_name = ${clientScope}` : sql``}
+      `) as any;
+      const q = (Array.isArray(qRows) ? qRows : [])[0];
+      if (!q) throw new Error('Quotation not found');
+      const amount = isFinite(poAmount) && poAmount > 0 ? poAmount : Number(q.totalAmount) || 0;
+      // Reuse an existing PO with this number, otherwise create it in the PO section
+      const [existing] = await tx.execute(sql`SELECT id FROM purchase_orders WHERE po_number = ${poNumber} LIMIT 1`) as any;
+      let poId = Number((Array.isArray(existing) ? existing : [])[0]?.id) || 0;
+      if (!poId) {
+        const [ins] = await tx.execute(sql`
+          INSERT INTO purchase_orders (po_number, po_date, po_amount, client_name, created_by)
+          VALUES (${poNumber}, ${poDate}, ${amount}, ${q.clientName || ''}, ${String(data.createdBy || '').slice(0, 200)})
+        `) as any;
+        poId = Number((ins as any).insertId);
+      }
+      await tx.execute(sql`
+        UPDATE quotations SET po_number = ${poNumber}, po_date = ${poDate}, po_id = ${poId},
+          status = 'converted', updated_at = NOW()
+        WHERE id = ${id}
+      `);
     });
   }
 
