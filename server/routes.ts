@@ -1103,6 +1103,20 @@ export async function registerRoutes(
     }
   });
 
+  app.post('/api/contractor-meals/rates', requirePermission('salesinvoice'), async (req, res) => {
+    try {
+      const { contractorId, month, year, rates } = req.body || {};
+      const cid = Number(contractorId), m = Number(month), y = Number(year);
+      if (!Number.isInteger(cid) || cid <= 0 || !Number.isInteger(m) || m < 1 || m > 12 || !Number.isInteger(y) || y < 2000 || y > 2100) {
+        return res.status(400).json({ message: 'Valid contractorId, month, year required' });
+      }
+      await storage.setContractorMealRates(cid, m, y, rates || {});
+      res.json({ ok: true });
+    } catch (err: any) {
+      res.status(400).json({ message: err?.message || 'Failed to save rates' });
+    }
+  });
+
   app.get("/api/geocode", requireAdmin, async (req, res) => {
     const address = String(req.query.address || "").trim();
     if (!address) return res.status(400).json({ message: "address required" });

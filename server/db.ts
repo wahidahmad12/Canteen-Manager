@@ -242,6 +242,7 @@ async function initPool(): Promise<void> {
       ('DJ-SKI-023','Indus Systems & Services Pvt. Ltd.','Cipla Limited'),
       ('DJ-SKI-024','M/s.BLUSPRING ENTERPRISES LIMITED','Cipla Limited'),
       ('DJ-SKI-025','G S COMPUTECH PRIVATE LIMITED','Cipla Limited')`,
+    `ALTER TABLE contractor_meal_entries ADD COLUMN IF NOT EXISTS rate DECIMAL(10,2) NOT NULL DEFAULT 0`,
   ];
   for (const sql of migrations) {
     try { await pool.execute(sql); } catch (e: any) { console.log('[db] migration note:', e.message?.slice(0, 80)); }

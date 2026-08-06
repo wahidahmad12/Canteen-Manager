@@ -4240,7 +4240,7 @@ export class DatabaseStorage implements IStorage {
   async getContractorMealEntries(month: number, year: number): Promise<any[]> {
     const [rows] = await pool.query(
       `SELECT e.id, e.entry_date AS entryDate, e.month, e.year, e.contractor_id AS contractorId,
-              e.meal_type AS mealType, e.qty, e.bill_no AS billNo,
+              e.meal_type AS mealType, e.qty, e.bill_no AS billNo, e.rate,
               c.vendor_code AS vendorCode, c.name AS contractorName, c.client_name AS clientName
        FROM contractor_meal_entries e
        JOIN contractors c ON c.id = e.contractor_id
@@ -4308,6 +4308,19 @@ export class DatabaseStorage implements IStorage {
       throw e;
     } finally {
       conn.release();
+    }
+  }
+
+  async setContractorMealRates(contractorId: number, month: number, year: number, rates: Record<string, number>): Promise<void> {
+    const [found]: any = await pool.query(`SELECT id FROM contractors WHERE id = ?`, [contractorId]);
+    if (!found.length) throw new Error('Contractor not found');
+    for (const mealType of ['Breakfast', 'Lunch', 'Dinner']) {
+      const r = Number(rates?.[mealType]);
+      if (!Number.isFinite(r) || r < 0) continue;
+      await pool.execute(
+        `UPDATE contractor_meal_entries SET rate = ? WHERE contractor_id = ? AND month = ? AND year = ? AND meal_type = ?`,
+        [r, contractorId, month, year, mealType],
+      );
     }
   }
 }

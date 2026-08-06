@@ -9,13 +9,46 @@ import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
-import { Plus, Trash2, Pencil, Save, Users } from "lucide-react";
+import { Plus, Trash2, Pencil, Save, Users, Printer } from "lucide-react";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 
 type Contractor = { id: number; vendorCode: string; name: string; clientName: string };
 type MealEntry = {
   id: number; entryDate: string; month: number; year: number; contractorId: number;
-  mealType: string; qty: number; billNo: string; vendorCode: string; contractorName: string; clientName: string;
+  mealType: string; qty: number; billNo: string; rate: number | string; vendorCode: string; contractorName: string; clientName: string;
 };
+
+// ---- Amount in words (Indian system) ----
+const ONES = ["", "One", "Two", "Three", "Four", "Five", "Six", "Seven", "Eight", "Nine", "Ten", "Eleven", "Twelve", "Thirteen", "Fourteen", "Fifteen", "Sixteen", "Seventeen", "Eighteen", "Nineteen"];
+const TENS = ["", "", "Twenty", "Thirty", "Forty", "Fifty", "Sixty", "Seventy", "Eighty", "Ninety"];
+function twoDigits(n: number): string {
+  if (n < 20) return ONES[n];
+  return (TENS[Math.floor(n / 10)] + (n % 10 ? " " + ONES[n % 10] : "")).trim();
+}
+function threeDigits(n: number): string {
+  const h = Math.floor(n / 100), r = n % 100;
+  return ((h ? ONES[h] + " Hundred" : "") + (r ? (h ? " " : "") + twoDigits(r) : "")).trim();
+}
+function numberToWordsIndian(n: number): string {
+  if (n === 0) return "Zero";
+  const crore = Math.floor(n / 10000000);
+  const lakh = Math.floor((n % 10000000) / 100000);
+  const thousand = Math.floor((n % 100000) / 1000);
+  const rest = n % 1000;
+  const parts: string[] = [];
+  if (crore) parts.push(numberToWordsIndian(crore) + " Crore");
+  if (lakh) parts.push(twoDigits(lakh) + " Lakh");
+  if (thousand) parts.push(twoDigits(thousand) + " Thousand");
+  if (rest) parts.push(threeDigits(rest));
+  return parts.join(" ");
+}
+function amountInWords(amount: number): string {
+  const rupees = Math.floor(amount);
+  const paise = Math.round((amount - rupees) * 100);
+  let s = "Rupees " + numberToWordsIndian(rupees);
+  if (paise > 0) s += " And Paise " + twoDigits(paise);
+  return s + " Only";
+}
 
 const MONTHS = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
 
@@ -111,6 +144,168 @@ export default function ContractorMealsPage() {
     return { b, l, d, all: b + l + d };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [filteredContractors, entries, edits]);
+
+  // ---- Invoice (without GST) state ----
+  const [invContractor, setInvContractor] = useState<Contractor | null>(null);
+  const [invNo, setInvNo] = useState("");
+  const [invDate, setInvDate] = useState("");
+  const [invRates, setInvRates] = useState({ Breakfast: "", Lunch: "", Dinner: "" });
+
+  const openInvoice = (c: Contractor) => {
+    const v = rowValue(c);
+    const saved: Record<string, string> = { Breakfast: "", Lunch: "", Dinner: "" };
+    for (const e of entries) {
+      if (e.contractorId === c.id && Number(e.rate) > 0) saved[e.mealType] = String(Number(e.rate));
+    }
+    setInvContractor(c);
+    setInvNo(v.billNo);
+    const t = new Date();
+    setInvDate(`${t.getFullYear()}-${String(t.getMonth() + 1).padStart(2, "0")}-${String(t.getDate()).padStart(2, "0")}`);
+    setInvRates({ Breakfast: saved.Breakfast, Lunch: saved.Lunch, Dinner: saved.Dinner });
+  };
+
+  const printInvoice = async () => {
+    const c = invContractor;
+    if (!c) return;
+    // persist rates first — do not print if the save fails, so invoice and saved data never diverge
+    try {
+      await apiRequest("POST", "/api/contractor-meals/rates", {
+        contractorId: c.id, month, year,
+        rates: { Breakfast: Number(invRates.Breakfast) || 0, Lunch: Number(invRates.Lunch) || 0, Dinner: Number(invRates.Dinner) || 0 },
+      });
+      qc.invalidateQueries({ queryKey: ["/api/contractor-meals", month, year] });
+    } catch (e: any) {
+      toast({ title: "Rate save failed", description: e?.message || "Dobara try kijiye.", variant: "destructive" });
+      return;
+    }
+
+    const v = rowValue(c);
+    const lastDay = new Date(year, month, 0).getDate();
+    const mm = String(month).padStart(2, "0");
+    const period = `01-${mm}-${year} To ${lastDay}-${mm}-${year}`;
+    const client = clients.find((cl) => cl.name === c.clientName);
+    const clientAddr = `${c.clientName.toUpperCase()}${client?.address ? " " + client.address : " Unut - 1 Rangpo Rohatang Road, Kumrek Sikkim - 737132"}`;
+    const [dy, dm, dd] = invDate.split("-");
+    const dateDisp = invDate ? `${dd}-${dm}-${dy}` : "";
+
+    const items = (["Breakfast", "Lunch", "Dinner"] as const)
+      .map((meal) => {
+        const qty = Number(v[meal.toLowerCase() as "breakfast" | "lunch" | "dinner"]) || 0;
+        const rate = Number(invRates[meal]) || 0;
+        return { meal, qty, rate, total: Math.round(qty * rate * 100) / 100 };
+      })
+      .filter((it) => it.qty > 0);
+    const grand = Math.round(items.reduce((s, it) => s + it.total, 0) * 100) / 100;
+    const esc = (s: string) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+    const fmt = (n: number) => n.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+
+    const rowsHtml = items.map((it, i) => `
+      <tr>
+        <td class="c">${i + 1}</td>
+        <td><div class="item-name">${it.meal}</div><div class="item-period">${period}</div></td>
+        <td></td>
+        <td class="c">${it.qty}</td>
+        <td class="c">NOS</td>
+        <td class="c">${it.rate}</td>
+        <td class="r">${fmt(it.total)}</td>
+        <td class="c">-</td>
+        <td class="c">-</td>
+        <td class="r">${fmt(it.total)}</td>
+      </tr>`).join("");
+
+    const html = `<!DOCTYPE html><html><head><meta charset="utf-8">
+<title>${esc(c.name)} - ${esc(invNo || "Invoice")} - ${dateDisp}</title>
+<style>
+  @page { size: A4; margin: 10mm; }
+  * { box-sizing: border-box; }
+  body { font-family: Calibri, Arial, sans-serif; font-size: 12px; color: #000; margin: 0; }
+  .frame { border: 1px solid #000; }
+  table { border-collapse: collapse; width: 100%; }
+  td, th { padding: 3px 6px; vertical-align: top; }
+  .bordered td, .bordered th { border: 1px solid #000; }
+  .title { font-weight: bold; font-size: 14px; padding: 6px; }
+  .title span { color: #888; font-weight: normal; font-size: 11px; letter-spacing: 1px; }
+  .company { color: #7A1FA2; font-size: 22px; font-weight: bold; line-height: 1.2; }
+  .c { text-align: center; } .r { text-align: right; }
+  .head-blue { background: #cfe6f5; font-weight: bold; text-align: center; }
+  .item-name { font-weight: bold; font-size: 14px; }
+  .item-period { font-size: 10px; margin-top: 2px; }
+  .lbl { font-weight: bold; white-space: nowrap; }
+  .sec-title { font-weight: bold; padding: 4px 6px; }
+  .sign { text-align: center; font-size: 11px; }
+  .sign .space { height: 60px; }
+</style></head><body>
+<div class="title">INVOICE <span>ORIGINAL FOR RECIPIENT</span></div>
+<div class="frame">
+  <table class="bordered">
+    <tr>
+      <td style="width:50%"><div class="company">DJ Hospitality &amp; Facility<br>Management Pvt Ltd</div></td>
+      <td class="c" style="width:25%"><b>Invoice Number</b><br><br><span style="font-size:15px;font-weight:bold">${esc(invNo)}</span></td>
+      <td class="c" style="width:25%"><b>Invoice Date</b><br><br><span style="font-size:15px;font-weight:bold">${dateDisp}</span></td>
+    </tr>
+    <tr><td colspan="3">Rangpo Rohatang Road, Kumrek Sikkim - 737132</td></tr>
+  </table>
+  <table class="bordered">
+    <tr>
+      <td style="width:50%; padding:0">
+        <table>
+          <tr><td class="lbl">BILL TO</td><td><b>${esc(c.vendorCode)}</b></td></tr>
+          <tr><td class="lbl">Name :</td><td><b>${esc(c.name)}</b></td></tr>
+          <tr><td class="lbl">Address :</td><td rowspan="2">${esc(clientAddr)}</td></tr>
+          <tr><td class="lbl">Place of Supply :</td></tr>
+          <tr><td class="lbl">Mobile No</td><td><b>9641627280</b></td></tr>
+        </table>
+      </td>
+      <td style="width:50%; padding:0">
+        <table>
+          <tr><td class="lbl">SHIP TO</td><td></td></tr>
+          <tr><td class="lbl">Name :</td><td><b>${esc(c.name)}</b></td></tr>
+          <tr><td class="lbl">Address :</td><td>${esc(clientAddr)}</td></tr>
+        </table>
+      </td>
+    </tr>
+  </table>
+  <table class="bordered">
+    <tr class="head-blue">
+      <th style="width:6%">S.NO</th><th style="width:28%">ITEMS</th><th style="width:7%">HSN</th>
+      <th style="width:9%">QUANTITY</th><th style="width:7%">UoM</th><th style="width:8%">RATE</th>
+      <th style="width:10%">Total</th><th style="width:8%">CGST</th><th style="width:8%">SGST</th><th style="width:11%">AMOUNT</th>
+    </tr>
+    ${rowsHtml}
+    <tr class="head-blue">
+      <td colspan="6" class="r"><b>TOTAL AMOUNT</b></td>
+      <td class="r"><b>${fmt(grand)}</b></td>
+      <td class="c">-</td><td class="c">-</td>
+      <td class="r"><b>${fmt(grand)}</b></td>
+    </tr>
+  </table>
+  <div class="sec-title" style="border-bottom:1px solid #000">INVOICE AMOUNT IN WORDS<br><br>${esc(amountInWords(grand))}</div>
+  <div class="sec-title">BANK DETAILS</div>
+  <table>
+    <tr><td class="lbl" style="width:160px">A/C Holder Name :</td><td><b>Sunita Devi</b></td></tr>
+    <tr><td class="lbl">Account Number:</td><td><b>03720100022770</b></td></tr>
+    <tr><td class="lbl">IFSC code:</td><td><b>BARB0PATRIX</b></td></tr>
+    <tr><td class="lbl">Bank &amp; Branch:</td><td><b>BANK OF BARODA, PATRI BRANCH PATDI</b></td></tr>
+    <tr><td class="lbl">UPI ID : -</td><td><b>amardeepkumar2427-1@oksbi</b></td></tr>
+  </table>
+  <table class="bordered">
+    <tr>
+      <td style="width:55%"><b style="font-size:14px">Notes:-</b></td>
+      <td class="sign" style="width:45%">
+        <div class="space"></div>
+        Authorised Signature for<br><b>DJ Hospitality &amp; Facility Management Private Limited</b>
+      </td>
+    </tr>
+  </table>
+</div>
+<script>window.onload = function(){ window.print(); };</script>
+</body></html>`;
+    const w = window.open("", "_blank");
+    if (!w) { toast({ title: "Popup blocked", description: "Browser me popup allow kijiye.", variant: "destructive" }); return; }
+    w.document.write(html);
+    w.document.close();
+    setInvContractor(null);
+  };
 
   // ---- Contractor master state ----
   const emptyForm = { vendorCode: "", name: "", clientName: "Cipla Limited" };
@@ -223,6 +418,7 @@ export default function ContractorMealsPage() {
                     <th className="p-2 text-center">Dinner</th>
                     <th className="p-2">Bill No</th>
                     <th className="p-2">Cont &amp; Month</th>
+                    <th className="p-2 text-center">Invoice</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -255,11 +451,21 @@ export default function ContractorMealsPage() {
                         <td className="p-2 text-xs text-muted-foreground whitespace-nowrap">
                           {c.name}{monthName.slice(0, 3)}{year}
                         </td>
+                        <td className="p-1 text-center">
+                          <Button
+                            variant="ghost" size="icon" className="h-8 w-8"
+                            title="Print invoice (without GST)"
+                            onClick={() => openInvoice(c)}
+                            data-testid={`button-invoice-${c.vendorCode}`}
+                          >
+                            <Printer className="h-4 w-4" />
+                          </Button>
+                        </td>
                       </tr>
                     );
                   })}
                   {filteredContractors.length === 0 && (
-                    <tr><td colSpan={7} className="p-6 text-center text-muted-foreground">No contractors. Pehle "Contractor List" tab me add kijiye.</td></tr>
+                    <tr><td colSpan={8} className="p-6 text-center text-muted-foreground">No contractors. Pehle "Contractor List" tab me add kijiye.</td></tr>
                   )}
                 </tbody>
                 {filteredContractors.length > 0 && (
@@ -269,7 +475,7 @@ export default function ContractorMealsPage() {
                       <td className="p-2 text-center" data-testid="text-total-breakfast">{totals.b}</td>
                       <td className="p-2 text-center" data-testid="text-total-lunch">{totals.l}</td>
                       <td className="p-2 text-center" data-testid="text-total-dinner">{totals.d}</td>
-                      <td className="p-2" colSpan={2}>Grand Total: {totals.all}</td>
+                      <td className="p-2" colSpan={3}>Grand Total: {totals.all}</td>
                     </tr>
                   </tfoot>
                 )}
@@ -371,6 +577,70 @@ export default function ContractorMealsPage() {
           </Card>
         </TabsContent>
       </Tabs>
+
+      {/* Invoice (without GST) dialog */}
+      <Dialog open={!!invContractor} onOpenChange={(o) => { if (!o) setInvContractor(null); }}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Invoice — {invContractor?.name}</DialogTitle>
+          </DialogHeader>
+          {invContractor && (() => {
+            const v = rowValue(invContractor);
+            const qtys = { Breakfast: Number(v.breakfast) || 0, Lunch: Number(v.lunch) || 0, Dinner: Number(v.dinner) || 0 };
+            const total = (["Breakfast", "Lunch", "Dinner"] as const)
+              .reduce((s, m) => s + qtys[m] * (Number(invRates[m]) || 0), 0);
+            return (
+              <div className="space-y-3">
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <Label>Invoice Number</Label>
+                    <Input value={invNo} onChange={(e) => setInvNo(e.target.value)} placeholder="DJ-SKI-26-C…" data-testid="input-invoice-no" />
+                  </div>
+                  <div>
+                    <Label>Invoice Date</Label>
+                    <Input type="date" value={invDate} onChange={(e) => setInvDate(e.target.value)} data-testid="input-invoice-date" />
+                  </div>
+                </div>
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="border-b text-left">
+                      <th className="py-1">Item</th>
+                      <th className="py-1 text-center">Qty ({monthName.slice(0, 3)} {year})</th>
+                      <th className="py-1 text-center">Rate (₹)</th>
+                      <th className="py-1 text-right">Amount</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {(["Breakfast", "Lunch", "Dinner"] as const).map((m) => (
+                      <tr key={m} className="border-b">
+                        <td className="py-1">{m}</td>
+                        <td className="py-1 text-center">{qtys[m]}</td>
+                        <td className="py-1 text-center">
+                          <Input
+                            type="number" min={0} step="0.01" className="w-24 h-8 text-center mx-auto"
+                            value={invRates[m]}
+                            onChange={(e) => setInvRates({ ...invRates, [m]: e.target.value })}
+                            data-testid={`input-rate-${m.toLowerCase()}`}
+                          />
+                        </td>
+                        <td className="py-1 text-right">{(qtys[m] * (Number(invRates[m]) || 0)).toLocaleString("en-IN", { minimumFractionDigits: 2 })}</td>
+                      </tr>
+                    ))}
+                    <tr className="font-semibold">
+                      <td className="py-1" colSpan={3}>Total Amount</td>
+                      <td className="py-1 text-right" data-testid="text-invoice-total">₹{total.toLocaleString("en-IN", { minimumFractionDigits: 2 })}</td>
+                    </tr>
+                  </tbody>
+                </table>
+                <p className="text-xs text-muted-foreground">Bina GST wala invoice — qty is month ki saved entry se aati hai. Pehle "Save All" kar lijiye agar qty change ki hai.</p>
+                <Button className="w-full" onClick={printInvoice} data-testid="button-print-invoice">
+                  <Printer className="h-4 w-4 mr-1" /> Print Invoice
+                </Button>
+              </div>
+            );
+          })()}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
