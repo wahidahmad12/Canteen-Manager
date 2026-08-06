@@ -352,13 +352,10 @@ export default function ContractorMealsPage() {
       <tr>
         <td class="c">${i + 1}</td>
         <td><div class="item-name">${it.meal}</div><div class="item-period">${period}</div></td>
-        <td></td>
         <td class="c">${it.qty}</td>
         <td class="c">NOS</td>
         <td class="c">${it.rate}</td>
         <td class="r">${fmt(it.total)}</td>
-        <td class="c">-</td>
-        <td class="c">-</td>
         <td class="r">${fmt(it.total)}</td>
       </tr>`).join("");
 
@@ -394,15 +391,14 @@ export default function ContractorMealsPage() {
   </table>
   <table class="bordered">
     <tr class="head-blue">
-      <th style="width:6%">S.NO</th><th style="width:28%">ITEMS</th><th style="width:7%">HSN</th>
-      <th style="width:9%">QUANTITY</th><th style="width:7%">UoM</th><th style="width:8%">RATE</th>
-      <th style="width:10%">Total</th><th style="width:8%">CGST</th><th style="width:8%">SGST</th><th style="width:11%">AMOUNT</th>
+      <th style="width:7%">S.NO</th><th style="width:38%">ITEMS</th>
+      <th style="width:12%">QUANTITY</th><th style="width:9%">UoM</th><th style="width:10%">RATE</th>
+      <th style="width:12%">Total</th><th style="width:12%">AMOUNT</th>
     </tr>
     ${rowsHtml}
     <tr class="head-blue">
-      <td colspan="6" class="r"><b>TOTAL AMOUNT</b></td>
+      <td colspan="5" class="r"><b>TOTAL AMOUNT</b></td>
       <td class="r"><b>${fmt(grand)}</b></td>
-      <td class="c">-</td><td class="c">-</td>
       <td class="r"><b>${fmt(grand)}</b></td>
     </tr>
   </table>
