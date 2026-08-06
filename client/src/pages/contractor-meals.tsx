@@ -285,21 +285,22 @@ export default function ContractorMealsPage() {
     });
   };
 
-  const printInvoice = async () => {
-    const c = invContractor;
-    if (!c) return;
-    // persist rates first — do not print if the save fails, so invoice and saved data never diverge
+  // persist rates first — do not print/share if the save fails, so invoice and saved data never diverge
+  const saveInvoiceRates = async (c: Contractor) => {
     try {
       await apiRequest("POST", "/api/contractor-meals/rates", {
         contractorId: c.id, month, year,
         rates: { Breakfast: Number(invRates.Breakfast) || 0, Lunch: Number(invRates.Lunch) || 0, Dinner: Number(invRates.Dinner) || 0 },
       });
       qc.invalidateQueries({ queryKey: ["/api/contractor-meals", month, year] });
+      return true;
     } catch (e: any) {
       toast({ title: "Rate save failed", description: e?.message || "Dobara try kijiye.", variant: "destructive" });
-      return;
+      return false;
     }
+  };
 
+  const buildInvoiceHtml = (c: Contractor, forPrint: boolean) => {
     const v = rowValue(c);
     const lastDay = new Date(year, month, 0).getDate();
     const mm = String(month).padStart(2, "0");
@@ -425,13 +426,84 @@ export default function ContractorMealsPage() {
     </tr>
   </table>
 </div>
-<script>window.onload = function(){ window.print(); };</script>
+${forPrint ? "<script>window.onload = function(){ window.print(); };</scr" + "ipt>" : ""}
 </body></html>`;
+    return { html, fileName: `Invoice-${c.vendorCode}-${mm}-${year}.jpg` };
+  };
+
+  const printBusy = useRef(false);
+  const printInvoice = async () => {
+    const c = invContractor;
+    if (!c || printBusy.current) return;
+    printBusy.current = true;
+    try {
+      await doPrintInvoice(c);
+    } finally {
+      printBusy.current = false;
+    }
+  };
+  const doPrintInvoice = async (c: Contractor) => {
+    if (!(await saveInvoiceRates(c))) return;
+    const { html } = buildInvoiceHtml(c, true);
     const w = window.open("", "_blank");
     if (!w) { toast({ title: "Popup blocked", description: "Browser me popup allow kijiye.", variant: "destructive" }); return; }
     w.document.write(html);
     w.document.close();
     setInvContractor(null);
+  };
+
+  const [sharingJpeg, setSharingJpeg] = useState(false);
+  const shareInvoiceJpeg = async () => {
+    const c = invContractor;
+    if (!c || sharingJpeg) return;
+    setSharingJpeg(true); // single-flight guard set before any await
+    try {
+      if (!(await saveInvoiceRates(c))) return;
+      const { html, fileName } = buildInvoiceHtml(c, false);
+      // render the invoice off-screen at A4 width, then snapshot to JPEG
+      const iframe = document.createElement("iframe");
+      iframe.style.cssText = "position:fixed;left:-10000px;top:0;width:820px;height:1200px;border:0;";
+      document.body.appendChild(iframe);
+      try {
+        const doc = iframe.contentDocument!;
+        doc.open(); doc.write(html); doc.close();
+        // wait for images (QR) to load
+        await Promise.all(
+          Array.from(doc.images).map((img) =>
+            img.complete ? Promise.resolve() : new Promise((res) => { img.onload = img.onerror = () => res(null); })
+          )
+        );
+        await new Promise((r) => setTimeout(r, 100));
+        const { default: html2canvas } = await import("html2canvas");
+        const canvas = await html2canvas(doc.body, { scale: 2, backgroundColor: "#ffffff", width: 820, windowWidth: 820 });
+        const blob: Blob = await new Promise((res, rej) =>
+          canvas.toBlob((b) => (b ? res(b) : rej(new Error("Image ban nahi payi"))), "image/jpeg", 0.92)
+        );
+        const file = new File([blob], fileName, { type: "image/jpeg" });
+        // mobile: share sheet me WhatsApp choose kar ke seedha bhej sakte hain
+        if (navigator.canShare && navigator.canShare({ files: [file] })) {
+          try {
+            await navigator.share({ files: [file], title: fileName });
+            return;
+          } catch (err: any) {
+            if (err?.name === "AbortError") return; // user cancelled the share sheet
+          }
+        }
+        // desktop fallback: JPEG download + WhatsApp Web kholo, user attach kar de
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url; a.download = fileName; a.click();
+        setTimeout(() => URL.revokeObjectURL(url), 10000);
+        toast({ title: "Invoice JPEG download ho gayi", description: "WhatsApp me photo attach kar ke bhej dijiye." });
+        window.open("https://web.whatsapp.com/", "_blank");
+      } finally {
+        iframe.remove();
+      }
+    } catch (e: any) {
+      toast({ title: "JPEG banane me dikkat", description: e?.message || "Dobara try kijiye.", variant: "destructive" });
+    } finally {
+      setSharingJpeg(false);
+    }
   };
 
   // ---- Payments state ----
@@ -979,36 +1051,14 @@ export default function ContractorMealsPage() {
                   </Button>
                   <Button
                     variant="outline" className="flex-1 text-green-600 border-green-600"
-                    onClick={() => {
-                      const c = invContractor;
-                      if (!c) return;
-                      const mm = String(month).padStart(2, "0");
-                      const lastDay = new Date(year, month, 0).getDate();
-                      const lines = [
-                        `*DJ Hospitality & Facility Management Pvt Ltd*`,
-                        `Invoice: *${invNo || "-"}*  Date: ${invDate.split("-").reverse().join("-")}`,
-                        `Bill To: ${c.vendorCode} - ${c.name}`,
-                        `Period: 01-${mm}-${year} To ${lastDay}-${mm}-${year}`,
-                        ``,
-                        ...(["Breakfast", "Lunch", "Dinner"] as const)
-                          .filter((m) => qtys[m] > 0)
-                          .map((m) => `${m}: ${qtys[m]} NOS x Rs.${Number(invRates[m]) || 0} = Rs.${(qtys[m] * (Number(invRates[m]) || 0)).toLocaleString("en-IN", { minimumFractionDigits: 2 })}`),
-                        ``,
-                        `*Total Amount: Rs.${total.toLocaleString("en-IN", { minimumFractionDigits: 2 })}*`,
-                        `(${amountInWords(Math.round(total * 100) / 100)})`,
-                        ``,
-                        `Bank: Bank of Baroda, Patri Branch Patdi`,
-                        `A/C: Sunita Devi, 03720100022770, IFSC: BARB0PATRIX`,
-                        `UPI: amardeepkumar2427-1@oksbi`,
-                      ];
-                      window.open(`https://wa.me/?text=${encodeURIComponent(lines.join("\n"))}`, "_blank");
-                    }}
+                    disabled={sharingJpeg}
+                    onClick={shareInvoiceJpeg}
                     data-testid="button-whatsapp-invoice"
                   >
-                    <MessageCircle className="h-4 w-4 mr-1" /> WhatsApp
+                    <MessageCircle className="h-4 w-4 mr-1" /> {sharingJpeg ? "Ban raha hai..." : "WhatsApp (JPEG)"}
                   </Button>
                 </div>
-                <p className="text-xs text-muted-foreground">WhatsApp button bill ka message bhejta hai. PDF bhejne ke liye Print Invoice → "Save as PDF" karke WhatsApp me attach kijiye.</p>
+                <p className="text-xs text-muted-foreground">WhatsApp button invoice ki JPEG photo banata hai — mobile par share sheet se seedha WhatsApp me bhejiye; computer par photo download ho kar WhatsApp Web khulega, wahan attach kar dijiye.</p>
               </div>
             );
           })()}
