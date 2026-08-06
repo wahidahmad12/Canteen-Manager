@@ -277,7 +277,12 @@ export default function ContractorMealsPage() {
     setInvNo(v.billNo);
     const t = new Date();
     setInvDate(`${t.getFullYear()}-${String(t.getMonth() + 1).padStart(2, "0")}-${String(t.getDate()).padStart(2, "0")}`);
-    setInvRates({ Breakfast: saved.Breakfast, Lunch: saved.Lunch, Dinner: saved.Dinner });
+    // Default rates (change anytime in this box; saved per contractor per month)
+    setInvRates({
+      Breakfast: saved.Breakfast || "4.6",
+      Lunch: saved.Lunch || "11.6",
+      Dinner: saved.Dinner || "11.6",
+    });
   };
 
   const printInvoice = async () => {
