@@ -2781,32 +2781,55 @@ export async function registerRoutes(
   });
 
   // === QUOTATIONS (Open Quotation tracking) ===
-  app.get('/api/quotations', requirePermission('salesinvoice'), async (_req, res) => {
-    try { res.json(await storage.getQuotations()); }
-    catch (err: any) { res.status(500).json({ message: err.message }); }
+  // Non-admin users are scoped to their own client's quotations.
+  const quotationScope = (req: Request): { scope?: string; forbidden: boolean } => {
+    if (req.session.role === 'admin') return { forbidden: false };
+    const c = req.session.clientName;
+    return c ? { scope: c, forbidden: false } : { forbidden: true };
+  };
+  app.get('/api/quotations', requirePermission('salesinvoice'), async (req, res) => {
+    try {
+      const { scope, forbidden } = quotationScope(req);
+      if (forbidden) return res.status(403).json({ message: 'No client assigned to your account' });
+      res.json(await storage.getQuotations(scope));
+    } catch (err: any) { res.status(500).json({ message: err.message }); }
   });
   app.post('/api/quotations', requirePermission('salesinvoice'), async (req: any, res) => {
     try {
+      const { scope, forbidden } = quotationScope(req);
+      if (forbidden) return res.status(403).json({ message: 'No client assigned to your account' });
       const createdBy = req.session?.displayName || req.session?.username || '';
-      const id = await storage.createQuotation({ ...req.body, createdBy });
-      res.status(201).json({ id });
+      const body = scope ? { ...req.body, clientName: scope } : req.body;
+      const result = await storage.createQuotation({ ...body, createdBy });
+      res.status(201).json(result);
     } catch (err: any) { res.status(400).json({ message: err.message }); }
   });
   app.put('/api/quotations/:id', requirePermission('salesinvoice'), async (req, res) => {
-    try { await storage.updateQuotation(Number(req.params.id), req.body); res.json({ ok: true }); }
-    catch (err: any) { res.status(400).json({ message: err.message }); }
+    try {
+      const { scope, forbidden } = quotationScope(req);
+      if (forbidden) return res.status(403).json({ message: 'No client assigned to your account' });
+      const body = scope ? { ...req.body, clientName: scope } : req.body;
+      await storage.updateQuotation(Number(req.params.id), body, scope);
+      res.json({ ok: true });
+    } catch (err: any) { res.status(400).json({ message: err.message }); }
   });
   app.patch('/api/quotations/:id/status', requirePermission('salesinvoice'), async (req, res) => {
     try {
+      const { scope, forbidden } = quotationScope(req);
+      if (forbidden) return res.status(403).json({ message: 'No client assigned to your account' });
       const status = String(req.body?.status || '');
       if (!['open', 'converted', 'closed'].includes(status)) return res.status(400).json({ message: 'Invalid status' });
-      await storage.updateQuotationStatus(Number(req.params.id), status);
+      await storage.updateQuotationStatus(Number(req.params.id), status, scope);
       res.json({ ok: true });
     } catch (err: any) { res.status(400).json({ message: err.message }); }
   });
   app.delete('/api/quotations/:id', requirePermission('salesinvoice'), async (req, res) => {
-    try { await storage.deleteQuotation(Number(req.params.id)); res.status(204).send(); }
-    catch (err: any) { res.status(400).json({ message: err.message }); }
+    try {
+      const { scope, forbidden } = quotationScope(req);
+      if (forbidden) return res.status(403).json({ message: 'No client assigned to your account' });
+      await storage.deleteQuotation(Number(req.params.id), scope);
+      res.status(204).send();
+    } catch (err: any) { res.status(400).json({ message: err.message }); }
   });
 
   // === DAILY P&L ROUTES ===

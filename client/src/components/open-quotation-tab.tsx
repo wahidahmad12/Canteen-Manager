@@ -102,10 +102,11 @@ export function OpenQuotationTab() {
         const data = await res.json().catch(() => ({}));
         throw new Error(data.message || `Save failed (error ${res.status})`);
       }
+      return res.json().catch(() => ({})) as Promise<{ quotationNo?: string }>;
     },
-    onSuccess: () => {
+    onSuccess: (data) => {
       qc.invalidateQueries({ queryKey: ["/api/quotations"] });
-      toast({ title: editId ? "Quotation updated" : "Quotation saved" });
+      toast({ title: editId ? "Quotation updated" : `Quotation saved${data?.quotationNo ? `: ${data.quotationNo}` : ""}` });
       resetForm();
     },
     onError: (e: any) => toast({ title: "Save failed", description: e.message, variant: "destructive" }),
@@ -171,7 +172,7 @@ export function OpenQuotationTab() {
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
               <div>
                 <Label className="text-xs">Quotation No.</Label>
-                <Input placeholder="e.g. QTN-001" value={quotationNo} onChange={e => setQuotationNo(e.target.value)} data-testid="input-q-no" />
+                <Input value={editId ? quotationNo : "Auto (e.g. DJ-KOL-26-Q001)"} readOnly disabled className="bg-muted/60 text-muted-foreground" data-testid="input-q-no" />
               </div>
               <div>
                 <Label className="text-xs">Quotation Date</Label>

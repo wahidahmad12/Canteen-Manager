@@ -3259,12 +3259,14 @@ export class DatabaseStorage implements IStorage {
   }
 
   // === QUOTATIONS (Open Quotation tracking) ===
-  async getQuotations(): Promise<any[]> {
+  async getQuotations(clientScope?: string): Promise<any[]> {
     const [qRows] = await db.execute(sql`
       SELECT id, quotation_no AS quotationNo, quotation_date AS quotationDate, quotation_thru AS quotationThru,
              client_name AS clientName, total_amount AS totalAmount, status, remarks,
              created_by AS createdBy, created_at AS createdAt
-      FROM quotations ORDER BY quotation_date DESC, id DESC
+      FROM quotations
+      WHERE ${clientScope ? sql`client_name = ${clientScope}` : sql`1=1`}
+      ORDER BY quotation_date DESC, id DESC
     `) as any;
     const quotations = Array.isArray(qRows) ? qRows : [];
     if (quotations.length === 0) return [];
@@ -3285,62 +3287,124 @@ export class DatabaseStorage implements IStorage {
     }));
   }
 
-  async createQuotation(data: any): Promise<number> {
-    const { quotationNo, quotationDate, quotationThru, clientName, remarks, createdBy, items } = data;
-    if (!quotationDate) throw new Error('Quotation date is required');
-    const rows: any[] = Array.isArray(items) ? items : [];
-    const total = rows.reduce((s, it) => s + (Number(it.amount) || 0), 0);
-    return await db.transaction(async (tx) => {
-      const [result] = await tx.execute(sql`
-        INSERT INTO quotations (quotation_no, quotation_date, quotation_thru, client_name, total_amount, status, remarks, created_by)
-        VALUES (${quotationNo || ''}, ${quotationDate}, ${quotationThru || ''}, ${clientName || ''}, ${total}, 'open', ${remarks || ''}, ${createdBy || ''})
-      `) as any;
-      const qid = Number((result as any).insertId);
-      for (const it of rows) {
-        if (!String(it.itemName || '').trim()) continue;
-        await tx.execute(sql`
-          INSERT INTO quotation_items (quotation_id, item_name, qty, rate, amount)
-          VALUES (${qid}, ${it.itemName || ''}, ${Number(it.qty) || 0}, ${Number(it.rate) || 0}, ${Number(it.amount) || 0})
-        `);
-      }
-      return qid;
-    });
+  // Auto quotation number: DJ-<client state code>-<financial year>-Q<serial>, e.g. DJ-KOL-26-Q001
+  private async nextQuotationNo(tx: any, quotationDate: string, clientName: string): Promise<string> {
+    let code = 'GEN';
+    if (clientName) {
+      const [cRows] = await tx.execute(sql`SELECT state_code FROM client_names WHERE name = ${clientName} LIMIT 1`) as any;
+      const c = (Array.isArray(cRows) ? cRows : [])[0];
+      if (c?.state_code) code = String(c.state_code).toUpperCase();
+    }
+    // Indian financial year: Apr–Mar; use the 2-digit start year (e.g. Aug 2026 → 26)
+    const d = new Date(quotationDate + 'T00:00:00');
+    const fyStart = d.getMonth() + 1 >= 4 ? d.getFullYear() : d.getFullYear() - 1;
+    const fy = String(fyStart % 100).padStart(2, '0');
+    const prefix = `DJ-${code}-${fy}-Q`;
+    const [mRows] = await tx.execute(sql`
+      SELECT MAX(CAST(SUBSTRING(quotation_no, ${prefix.length + 1}) AS UNSIGNED)) AS maxSerial
+      FROM quotations WHERE quotation_no LIKE ${prefix + '%'}
+    `) as any;
+    const maxSerial = Number((Array.isArray(mRows) ? mRows : [])[0]?.maxSerial) || 0;
+    return `${prefix}${String(maxSerial + 1).padStart(3, '0')}`;
   }
 
-  async updateQuotation(id: number, data: any): Promise<void> {
-    const { quotationNo, quotationDate, quotationThru, clientName, remarks, items, status } = data;
-    const rows: any[] = Array.isArray(items) ? items : [];
-    const total = rows.reduce((s, it) => s + (Number(it.amount) || 0), 0);
+  // Validate + normalize quotation payload; amounts always computed server-side (qty × rate).
+  private normalizeQuotationInput(data: any): { quotationDate: string; quotationThru: string; clientName: string; remarks: string; items: { itemName: string; qty: number; rate: number; amount: number }[]; total: number } {
+    const quotationDate = String(data.quotationDate || '');
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(quotationDate) || isNaN(new Date(quotationDate + 'T00:00:00').getTime())) {
+      throw new Error('Quotation date is required (YYYY-MM-DD)');
+    }
+    const items = (Array.isArray(data.items) ? data.items : [])
+      .filter((it: any) => String(it?.itemName || '').trim())
+      .map((it: any) => {
+        const qty = Number(it.qty);
+        const rate = Number(it.rate);
+        if (!isFinite(qty) || qty < 0 || !isFinite(rate) || rate < 0) throw new Error('Item qty and rate must be non-negative numbers');
+        const amount = Math.round(qty * rate * 100) / 100;
+        return { itemName: String(it.itemName).slice(0, 500), qty, rate, amount };
+      });
+    if (items.length === 0) throw new Error('At least one item is required');
+    const total = Math.round(items.reduce((s: number, it: any) => s + it.amount, 0) * 100) / 100;
+    return {
+      quotationDate,
+      quotationThru: String(data.quotationThru || '').slice(0, 200),
+      clientName: String(data.clientName || '').slice(0, 500),
+      remarks: String(data.remarks || ''),
+      items,
+      total,
+    };
+  }
+
+  async createQuotation(data: any): Promise<{ id: number; quotationNo: string }> {
+    const q = this.normalizeQuotationInput(data);
+    const createdBy = String(data.createdBy || '').slice(0, 200);
+    let lastErr: any;
+    for (let attempt = 0; attempt < 3; attempt++) {
+      try {
+        return await db.transaction(async (tx) => {
+          const quotationNo = await this.nextQuotationNo(tx, q.quotationDate, q.clientName);
+          const [result] = await tx.execute(sql`
+            INSERT INTO quotations (quotation_no, quotation_date, quotation_thru, client_name, total_amount, status, remarks, created_by)
+            VALUES (${quotationNo}, ${q.quotationDate}, ${q.quotationThru}, ${q.clientName}, ${q.total}, 'open', ${q.remarks}, ${createdBy})
+          `) as any;
+          const qid = Number((result as any).insertId);
+          for (const it of q.items) {
+            await tx.execute(sql`
+              INSERT INTO quotation_items (quotation_id, item_name, qty, rate, amount)
+              VALUES (${qid}, ${it.itemName}, ${it.qty}, ${it.rate}, ${it.amount})
+            `);
+          }
+          return { id: qid, quotationNo };
+        });
+      } catch (err: any) {
+        lastErr = err;
+        // Duplicate quotation_no from a concurrent save — retry with a fresh serial.
+        if (String(err?.message || '').includes('Duplicate entry')) continue;
+        throw err;
+      }
+    }
+    throw lastErr;
+  }
+
+  async updateQuotation(id: number, data: any, clientScope?: string): Promise<void> {
+    const q = this.normalizeQuotationInput(data);
+    const status = ['open', 'converted', 'closed'].includes(String(data.status)) ? String(data.status) : 'open';
     await db.transaction(async (tx) => {
-      await tx.execute(sql`
+      const [result] = await tx.execute(sql`
         UPDATE quotations SET
-          quotation_no = ${quotationNo || ''},
-          quotation_date = ${quotationDate},
-          quotation_thru = ${quotationThru || ''},
-          client_name = ${clientName || ''},
-          total_amount = ${total},
-          status = ${status || 'open'},
-          remarks = ${remarks || ''},
+          quotation_date = ${q.quotationDate},
+          quotation_thru = ${q.quotationThru},
+          client_name = ${q.clientName},
+          total_amount = ${q.total},
+          status = ${status},
+          remarks = ${q.remarks},
           updated_at = NOW()
-        WHERE id = ${id}
-      `);
+        WHERE id = ${id} ${clientScope ? sql`AND client_name = ${clientScope}` : sql``}
+      `) as any;
+      if (!Number((result as any).affectedRows)) throw new Error('Quotation not found');
       await tx.execute(sql`DELETE FROM quotation_items WHERE quotation_id = ${id}`);
-      for (const it of rows) {
-        if (!String(it.itemName || '').trim()) continue;
+      for (const it of q.items) {
         await tx.execute(sql`
           INSERT INTO quotation_items (quotation_id, item_name, qty, rate, amount)
-          VALUES (${id}, ${it.itemName || ''}, ${Number(it.qty) || 0}, ${Number(it.rate) || 0}, ${Number(it.amount) || 0})
+          VALUES (${id}, ${it.itemName}, ${it.qty}, ${it.rate}, ${it.amount})
         `);
       }
     });
   }
 
-  async updateQuotationStatus(id: number, status: string): Promise<void> {
-    await db.execute(sql`UPDATE quotations SET status = ${status}, updated_at = NOW() WHERE id = ${id}`);
+  async updateQuotationStatus(id: number, status: string, clientScope?: string): Promise<void> {
+    const [result] = await db.execute(sql`
+      UPDATE quotations SET status = ${status}, updated_at = NOW()
+      WHERE id = ${id} ${clientScope ? sql`AND client_name = ${clientScope}` : sql``}
+    `) as any;
+    if (!Number((result as any).affectedRows)) throw new Error('Quotation not found');
   }
 
-  async deleteQuotation(id: number): Promise<void> {
-    await db.execute(sql`DELETE FROM quotations WHERE id = ${id}`);
+  async deleteQuotation(id: number, clientScope?: string): Promise<void> {
+    const [result] = await db.execute(sql`
+      DELETE FROM quotations WHERE id = ${id} ${clientScope ? sql`AND client_name = ${clientScope}` : sql``}
+    `) as any;
+    if (!Number((result as any).affectedRows)) throw new Error('Quotation not found');
   }
 
   // === DAILY P&L ===

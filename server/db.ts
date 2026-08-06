@@ -177,6 +177,8 @@ async function initPool(): Promise<void> {
       amount DECIMAL(14,2) DEFAULT '0',
       FOREIGN KEY (quotation_id) REFERENCES quotations(id) ON DELETE CASCADE
     )`,
+    `UPDATE quotations SET quotation_no = CONCAT('DJ-GEN-00-Q', LPAD(id, 3, '0')) WHERE quotation_no = ''`,
+    `ALTER TABLE quotations ADD UNIQUE INDEX uq_quotation_no (quotation_no)`,
   ];
   for (const sql of migrations) {
     try { await pool.execute(sql); } catch (e: any) { console.log('[db] migration note:', e.message?.slice(0, 80)); }
