@@ -15,7 +15,7 @@ import { LETTERHEAD_HTML, LETTERHEAD_CSS } from "@/lib/letterhead";
 interface QuotationItem { id?: number; itemName: string; qty: number; rate: number; amount: number; }
 interface Quotation {
   id: number; quotationNo: string; quotationDate: string; quotationThru: string;
-  clientName: string; totalAmount: number; status: "open" | "converted" | "closed"; subject?: string;
+  clientName: string; totalAmount: number; status: "open" | "converted" | "closed"; subject?: string; attention?: string; salutation?: string;
   remarks: string; createdBy: string; items: QuotationItem[];
   quotationType?: "item" | "service"; gstPercent?: number; serviceChargePercent?: number;
   serviceChargeAmount?: number; gstAmount?: number; grandTotal?: number;
@@ -62,6 +62,8 @@ export function OpenQuotationTab() {
   const [clientName, setClientName] = useState("");
   const [remarks, setRemarks] = useState("");
   const [subject, setSubject] = useState("");
+  const [attention, setAttention] = useState("");
+  const [salutation, setSalutation] = useState("Dear Sir/Madam,");
   const [status, setStatus] = useState<"open" | "converted" | "closed">("open");
   const [items, setItems] = useState<QuotationItem[]>([emptyItem()]);
   const [quotationType, setQuotationType] = useState<"item" | "service">("item");
@@ -86,7 +88,7 @@ export function OpenQuotationTab() {
     setEditId(null); setQuotationNo(""); setQuotationDate(todayStr());
     setQuotationThru(""); setClientName(""); setRemarks(""); setStatus("open");
     setItems([emptyItem()]); setShowForm(false);
-    setQuotationType("item"); setGstPercent("0"); setServiceChargePercent("0"); setSubject("");
+    setQuotationType("item"); setGstPercent("0"); setServiceChargePercent("0"); setSubject(""); setAttention(""); setSalutation("Dear Sir/Madam,");
   };
 
   const startEdit = (q: Quotation) => {
@@ -95,7 +97,7 @@ export function OpenQuotationTab() {
     setStatus(q.status); setItems(q.items.length > 0 ? q.items.map(i => ({ ...i })) : [emptyItem()]);
     setQuotationType(q.quotationType === "service" ? "service" : "item");
     setGstPercent(String(q.gstPercent || 0)); setServiceChargePercent(String(q.serviceChargePercent || 0));
-    setSubject(q.subject || "");
+    setSubject(q.subject || ""); setAttention(q.attention || ""); setSalutation(q.salutation || "Dear Sir/Madam,");
     setShowForm(true);
     window.scrollTo({ top: 0, behavior: "smooth" });
   };
@@ -118,7 +120,7 @@ export function OpenQuotationTab() {
 
   const saveMutation = useMutation({
     mutationFn: async () => {
-      const payload = { quotationNo, quotationDate, quotationThru, clientName, remarks, subject, status, quotationType, gstPercent: Number(gstPercent) || 0, serviceChargePercent: Number(serviceChargePercent) || 0, items: items.filter(i => i.itemName.trim()) };
+      const payload = { quotationNo, quotationDate, quotationThru, clientName, remarks, subject, attention, salutation, status, quotationType, gstPercent: Number(gstPercent) || 0, serviceChargePercent: Number(serviceChargePercent) || 0, items: items.filter(i => i.itemName.trim()) };
       const res = editId
         ? await fetch(`/api/quotations/${editId}`, { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload), credentials: "include" })
         : await fetch("/api/quotations", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload), credentials: "include" });
@@ -206,10 +208,11 @@ export function OpenQuotationTab() {
         <span><b>Date:</b> ${fmtDate(q.quotationDate)}</span>
       </div>
       <p style="margin-top:8px;"><b>To,</b></p>
+      ${q.attention?.trim() ? `<p>${esc(q.attention)}</p>` : ""}
       <p><b>${esc(q.clientName || "-")}</b></p>
       ${q.clientAddress ? `<p>${esc(q.clientAddress)}</p>` : ""}
       ${q.clientGstNo ? `<p>GSTIN. ${esc(q.clientGstNo)}</p>` : ""}
-      <p style="margin-top:12px;">Dear Sir/Madam,</p>
+      <p style="margin-top:12px;">${esc(q.salutation || "Dear Sir/Madam,")}</p>
       <p>We are pleased to submit our quotation for the following ${isService ? "services" : "items"}:</p>
       <table style="width:100%;border-collapse:collapse;margin:12px 0;font-size:13px;">
         <thead>
@@ -419,6 +422,29 @@ export function OpenQuotationTab() {
               <Plus className="w-4 h-4 mr-1" /> Add Item
             </Button>
 
+            <div>
+              <Label className="text-xs">Attention To (prints under "To," before client name)</Label>
+              <Input list="attention-options" placeholder="e.g. HR Manager / Procurement Manager or type any" value={attention} onChange={e => setAttention(e.target.value)} data-testid="input-q-attention" />
+              <datalist id="attention-options">
+                <option value="HR Manager" />
+                <option value="Procurement Manager" />
+                <option value="Admin Manager" />
+                <option value="Factory Manager" />
+                <option value="Purchase Manager" />
+                <option value="General Manager" />
+              </datalist>
+            </div>
+            <div>
+              <Label className="text-xs">Salutation (greeting line in print)</Label>
+              <Select value={salutation} onValueChange={setSalutation}>
+                <SelectTrigger className="w-56" data-testid="select-q-salutation"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="Dear Sir,">Dear Sir,</SelectItem>
+                  <SelectItem value="Dear Madam,">Dear Madam,</SelectItem>
+                  <SelectItem value="Dear Sir/Madam,">Dear Sir/Madam,</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
             <div>
               <Label className="text-xs">Subject (shows as heading in print)</Label>
               <Input placeholder="e.g. QUOTATION FOR SPECIAL MEALS – 5TH MARCH 2026" value={subject} onChange={e => setSubject(e.target.value)} data-testid="input-q-subject" />
