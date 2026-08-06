@@ -8,7 +8,7 @@ export const LETTERHEAD_CSS = `
     position: relative;
     text-align: center;
     margin-bottom: 8px;
-    padding: 0 0 6px 16mm;
+    padding: 0 24mm 6px 24mm;
   }
   .lh-rule {
     border-bottom: 3px solid #E36C0A;
@@ -16,14 +16,14 @@ export const LETTERHEAD_CSS = `
   }
   .letterhead .lh-logo {
     position: absolute;
-    left: -12mm;
-    top: -2mm;
-    width: 27mm;
+    left: 0;
+    top: 0;
+    width: 22mm;
     height: auto;
   }
   .letterhead h2 {
     font-family: Georgia, 'Times New Roman', serif;
-    font-size: 17px;
+    font-size: 16px;
     font-weight: bold;
     margin: 2px 0 3px 0;
     letter-spacing: 0.3px;
@@ -71,7 +71,7 @@ export const LETTERHEAD_HTML = `
   <div class="letterhead">
     <img class="lh-logo" src="${DJ_LOGO_BASE64}" alt="DJ Hospitality" />
     <h2>DJ HOSPITALITY &amp; FACILITY MANAGEMENT PRIVATE LIMITED</h2>
-    <p class="contact">Ph.: +91 6200202710 | Email: kolkata@djfoods.in | Sales@djfoods.in | Web: www.djfoods.in</p>
+    <p class="contact">Ph.: +91 6200202710 | Web: www.djfoods.in</p>
     <p class="address">Regd. &amp; Head Office: 730, Tin Made, Sodiem Siolim, Mapusa Bardez, North Goa-403502, India</p>
     <p class="address">Branch Office: 7 Crematorium Street, Kolkata- 700014</p>
     <p class="cin-gstin">CIN: U74910GA2020PTC014271, GSTIN: 30AAHCD6485G1ZO</p>
