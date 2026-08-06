@@ -641,7 +641,7 @@ ${forPrint ? "<script>window.onload = function(){ window.print(); };</scr" + "ip
   type DashData = {
     monthly: { month: number; billed: number; received: number; balance: number }[];
     yearly: { year: number; billed: number; received: number; balance: number }[];
-    contractors: { contractorId: number; vendorCode: string; name: string; billed: number; received: number; balance: number }[];
+    contractors: { contractorId: number; vendorCode: string; name: string; billed: number; received: number; balance: number; billNo?: string }[];
   };
   const { data: dash } = useQuery<DashData>({
     queryKey: ["/api/contractor-dashboard", dashYear, dashContractor, dashMonth, dashClient],
@@ -714,6 +714,43 @@ ${forPrint ? "<script>window.onload = function(){ window.print(); };</scr" + "ip
 ${tbl(`Month-wise (${dashPeriodLabel})`, dashMonthlyShown.map((m) => ({ label: m.name, billed: m.billed, received: m.received, balance: m.balance })))}
 ${tbl("Year-wise", dashYearly.map((y) => ({ label: String(y.year), billed: y.billed, received: y.received, balance: y.balance })))}
 ${tbl(`Contractor-wise (${dashPeriodLabel})`, dashContractors.map((c) => ({ label: `${c.vendorCode} — ${c.name}`, billed: c.billed, received: c.received, balance: c.balance })))}
+<script>window.onload = function(){ window.print(); };</scr${""}ipt>
+</body></html>`;
+    const w = window.open("", "_blank");
+    if (!w) { toast({ title: "Popup blocked", description: "Browser me popup allow kijiye.", variant: "destructive" }); return; }
+    w.document.write(html);
+    w.document.close();
+  };
+
+  const printBillReport = () => {
+    const esc = (s: string) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+    const money = (n: number) => (Number(n) || 0).toLocaleString("en-IN", { maximumFractionDigits: 0 });
+    const list = dashContractors.filter((c) => String(c.billNo || "").trim() !== "" && c.billed > 0);
+    if (list.length === 0) {
+      toast({ title: "Koi data nahi", description: "Is month/filter me bill no wale contractor nahi mile.", variant: "destructive" });
+      return;
+    }
+    const total = list.reduce((s, c) => s + c.billed, 0);
+    const clientLabel = dashClient === "all" ? "All Clients" : dashClient;
+    const title = `${clientLabel} Contractor Bill Amount Month Of ${dashPeriodLabel}`;
+    const html = `<!DOCTYPE html><html><head><meta charset="utf-8"><title>${esc(title)}</title>
+<style>
+  @page { size: A4; margin: 12mm; }
+  body { font-family: Calibri, Arial, sans-serif; font-size: 13px; color: #000; }
+  table { border-collapse: collapse; width: 100%; }
+  td, th { border: 1px solid #000; padding: 6px 8px; text-align: left; }
+  .r { text-align: right; }
+  .title { background: #ffff00; text-align: center; font-weight: bold; font-size: 15px; }
+  .head th { background: #b8e0a0; }
+  tr:nth-child(even) td { background: #d9efc9; }
+  .total td { font-weight: bold; background: #b8e0a0; }
+</style></head><body>
+<table>
+  <tr><td class="title" colspan="3">${esc(title)}</td></tr>
+  <tr class="head"><th>Contractor</th><th class="r">Total</th><th>Bill No</th></tr>
+  ${list.map((c) => `<tr><td><b>${esc(c.name)}</b></td><td class="r"><b>${money(c.billed)}</b></td><td><b>${esc(String(c.billNo))}</b></td></tr>`).join("")}
+  <tr class="total"><td class="r">Total</td><td class="r">${money(total)}</td><td></td></tr>
+</table>
 <script>window.onload = function(){ window.print(); };</scr${""}ipt>
 </body></html>`;
     const w = window.open("", "_blank");
@@ -1226,6 +1263,9 @@ ${tbl(`Contractor-wise (${dashPeriodLabel})`, dashContractors.map((c) => ({ labe
               </Button>
               <Button variant="outline" onClick={printDashboard} data-testid="button-dash-print">
                 <Printer className="h-4 w-4 mr-1" /> Print
+              </Button>
+              <Button variant="outline" onClick={printBillReport} data-testid="button-dash-bill-report">
+                <Printer className="h-4 w-4 mr-1" /> Bill Report
               </Button>
             </CardContent>
           </Card>
