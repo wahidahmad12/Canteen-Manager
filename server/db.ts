@@ -243,6 +243,17 @@ async function initPool(): Promise<void> {
       ('DJ-SKI-024','M/s.BLUSPRING ENTERPRISES LIMITED','Cipla Limited'),
       ('DJ-SKI-025','G S COMPUTECH PRIVATE LIMITED','Cipla Limited')`,
     `ALTER TABLE contractor_meal_entries ADD COLUMN IF NOT EXISTS rate DECIMAL(10,2) NOT NULL DEFAULT 0`,
+    `ALTER TABLE contractors ADD COLUMN IF NOT EXISTS mobile VARCHAR(20) NOT NULL DEFAULT ''`,
+    `ALTER TABLE contractors ADD COLUMN IF NOT EXISTS address VARCHAR(300) NOT NULL DEFAULT ''`,
+    `CREATE TABLE IF NOT EXISTS contractor_payments (
+      id INT AUTO_INCREMENT PRIMARY KEY,
+      contractor_id INT NOT NULL,
+      payment_date VARCHAR(10) NOT NULL,
+      amount DECIMAL(12,2) NOT NULL DEFAULT 0,
+      note VARCHAR(300) NOT NULL DEFAULT '',
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      KEY idx_cp_contractor (contractor_id)
+    )`,
   ];
   for (const sql of migrations) {
     try { await pool.execute(sql); } catch (e: any) { console.log('[db] migration note:', e.message?.slice(0, 80)); }

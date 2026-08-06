@@ -1117,6 +1117,28 @@ export async function registerRoutes(
     }
   });
 
+  app.get('/api/contractor-payments', requirePermission('salesinvoice'), async (_req, res) => {
+    res.json(await storage.getContractorPayments());
+  });
+
+  app.post('/api/contractor-payments', requirePermission('salesinvoice'), async (req, res) => {
+    try {
+      await storage.createContractorPayment(req.body || {});
+      res.status(201).json({ ok: true });
+    } catch (err: any) {
+      res.status(400).json({ message: err?.message || 'Failed to save payment' });
+    }
+  });
+
+  app.delete('/api/contractor-payments/:id', requirePermission('salesinvoice'), async (req, res) => {
+    await storage.deleteContractorPayment(Number(req.params.id));
+    res.status(204).send();
+  });
+
+  app.get('/api/contractor-billing-summary', requirePermission('salesinvoice'), async (_req, res) => {
+    res.json(await storage.getContractorBillingSummary());
+  });
+
   app.get("/api/geocode", requireAdmin, async (req, res) => {
     const address = String(req.query.address || "").trim();
     if (!address) return res.status(400).json({ message: "address required" });

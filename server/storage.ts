@@ -4184,38 +4184,42 @@ export class DatabaseStorage implements IStorage {
 
   async getContractors(): Promise<any[]> {
     const [rows] = await pool.query(
-      `SELECT id, vendor_code AS vendorCode, name, client_name AS clientName FROM contractors ORDER BY vendor_code`,
+      `SELECT id, vendor_code AS vendorCode, name, client_name AS clientName, mobile, address FROM contractors ORDER BY vendor_code`,
     );
     return rows as any[];
   }
 
-  async createContractor(data: { vendorCode: string; name: string; clientName: string }): Promise<any> {
+  async createContractor(data: { vendorCode: string; name: string; clientName: string; mobile?: string; address?: string }): Promise<any> {
     const vendorCode = String(data.vendorCode || '').trim();
     const name = String(data.name || '').trim();
     const clientName = String(data.clientName || '').trim();
+    const mobile = String(data.mobile || '').trim();
+    const address = String(data.address || '').trim();
     if (!vendorCode || !name) throw new Error('Vendor code and name are required');
     try {
       await pool.execute(
-        `INSERT INTO contractors (vendor_code, name, client_name) VALUES (?,?,?)`,
-        [vendorCode, name, clientName],
+        `INSERT INTO contractors (vendor_code, name, client_name, mobile, address) VALUES (?,?,?,?,?)`,
+        [vendorCode, name, clientName, mobile, address],
       );
     } catch (e: any) {
       if (e?.code === 'ER_DUP_ENTRY') throw new Error('This vendor code already exists');
       throw e;
     }
     const [rows]: any = await pool.query(
-      `SELECT id, vendor_code AS vendorCode, name, client_name AS clientName FROM contractors WHERE vendor_code = ?`,
+      `SELECT id, vendor_code AS vendorCode, name, client_name AS clientName, mobile, address FROM contractors WHERE vendor_code = ?`,
       [vendorCode],
     );
     return rows[0];
   }
 
-  async updateContractor(id: number, data: { vendorCode?: string; name?: string; clientName?: string }): Promise<any> {
+  async updateContractor(id: number, data: { vendorCode?: string; name?: string; clientName?: string; mobile?: string; address?: string }): Promise<any> {
     const sets: string[] = [];
     const vals: any[] = [];
     if (data.vendorCode !== undefined) { sets.push('vendor_code = ?'); vals.push(String(data.vendorCode).trim()); }
     if (data.name !== undefined) { sets.push('name = ?'); vals.push(String(data.name).trim()); }
     if (data.clientName !== undefined) { sets.push('client_name = ?'); vals.push(String(data.clientName).trim()); }
+    if (data.mobile !== undefined) { sets.push('mobile = ?'); vals.push(String(data.mobile).trim()); }
+    if (data.address !== undefined) { sets.push('address = ?'); vals.push(String(data.address).trim()); }
     if (sets.length) {
       try {
         await pool.execute(`UPDATE contractors SET ${sets.join(', ')} WHERE id = ?`, [...vals, id]);
@@ -4225,7 +4229,7 @@ export class DatabaseStorage implements IStorage {
       }
     }
     const [rows]: any = await pool.query(
-      `SELECT id, vendor_code AS vendorCode, name, client_name AS clientName FROM contractors WHERE id = ?`,
+      `SELECT id, vendor_code AS vendorCode, name, client_name AS clientName, mobile, address FROM contractors WHERE id = ?`,
       [id],
     );
     if (!rows[0]) throw new Error('Contractor not found');
@@ -4309,6 +4313,55 @@ export class DatabaseStorage implements IStorage {
     } finally {
       conn.release();
     }
+  }
+
+  async getContractorPayments(): Promise<any[]> {
+    const [rows] = await pool.query(
+      `SELECT p.id, p.contractor_id AS contractorId, p.payment_date AS paymentDate, p.amount, p.note,
+              c.vendor_code AS vendorCode, c.name AS contractorName
+       FROM contractor_payments p
+       JOIN contractors c ON c.id = p.contractor_id
+       ORDER BY p.payment_date DESC, p.id DESC`,
+    );
+    return rows as any[];
+  }
+
+  async createContractorPayment(data: { contractorId: number; paymentDate: string; amount: number; note?: string }): Promise<void> {
+    const cid = Number(data.contractorId);
+    const amount = Number(data.amount);
+    const paymentDate = String(data.paymentDate || '').trim();
+    if (!Number.isInteger(cid) || cid <= 0) throw new Error('Contractor required');
+    if (!Number.isFinite(amount) || amount <= 0) throw new Error('Amount must be more than 0');
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(paymentDate)) throw new Error('Valid date required');
+    const [found]: any = await pool.query(`SELECT id FROM contractors WHERE id = ?`, [cid]);
+    if (!found.length) throw new Error('Contractor not found');
+    await pool.execute(
+      `INSERT INTO contractor_payments (contractor_id, payment_date, amount, note) VALUES (?,?,?,?)`,
+      [cid, paymentDate, amount, String(data.note || '').trim()],
+    );
+  }
+
+  async deleteContractorPayment(id: number): Promise<void> {
+    await pool.execute(`DELETE FROM contractor_payments WHERE id = ?`, [id]);
+  }
+
+  async getContractorBillingSummary(): Promise<any[]> {
+    const [rows] = await pool.query(
+      `SELECT c.id AS contractorId, c.vendor_code AS vendorCode, c.name, c.client_name AS clientName,
+              COALESCE(b.billed, 0) AS billed, COALESCE(p.received, 0) AS received
+       FROM contractors c
+       LEFT JOIN (SELECT contractor_id, SUM(qty * rate) AS billed FROM contractor_meal_entries GROUP BY contractor_id) b
+         ON b.contractor_id = c.id
+       LEFT JOIN (SELECT contractor_id, SUM(amount) AS received FROM contractor_payments GROUP BY contractor_id) p
+         ON p.contractor_id = c.id
+       ORDER BY c.vendor_code`,
+    );
+    return (rows as any[]).map((r) => ({
+      ...r,
+      billed: Number(r.billed) || 0,
+      received: Number(r.received) || 0,
+      balance: Math.round(((Number(r.billed) || 0) - (Number(r.received) || 0)) * 100) / 100,
+    }));
   }
 
   async setContractorMealRates(contractorId: number, month: number, year: number, rates: Record<string, number>): Promise<void> {

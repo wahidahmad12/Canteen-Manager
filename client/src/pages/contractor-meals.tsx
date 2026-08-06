@@ -12,9 +12,10 @@ import { useToast } from "@/hooks/use-toast";
 import { Plus, Trash2, Pencil, Save, Users, Printer, Download, Upload, FileSpreadsheet, MessageCircle } from "lucide-react";
 import * as XLSX from "xlsx";
 import { useRef } from "react";
+import qrImg from "@assets/image_1786018663605.png";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 
-type Contractor = { id: number; vendorCode: string; name: string; clientName: string };
+type Contractor = { id: number; vendorCode: string; name: string; clientName: string; mobile?: string; address?: string };
 type MealEntry = {
   id: number; entryDate: string; month: number; year: number; contractorId: number;
   mealType: string; qty: number; billNo: string; rate: number | string; vendorCode: string; contractorName: string; clientName: string;
@@ -221,7 +222,13 @@ export default function ContractorMealsPage() {
       const applyCell = (c: Contractor, key: "breakfast" | "lunch" | "dinner" | "billNo", val: any) => {
         if (val === undefined || val === null || String(val).trim() === "") return;
         const base = newEdits[c.id] ?? { ...rowValue(c) };
-        base[key] = key === "billNo" ? String(val).trim() : String(Math.max(0, Math.round(Number(val) || 0)));
+        if (key === "billNo") {
+          base[key] = String(val).trim();
+        } else {
+          const qty = Math.max(0, Math.round(Number(val) || 0));
+          // qty 0 => leave blank so it is not saved and never printed on the bill
+          base[key] = qty > 0 ? String(qty) : "";
+        }
         newEdits[c.id] = base;
       };
       for (const r of rows) {
@@ -293,7 +300,11 @@ export default function ContractorMealsPage() {
     const mm = String(month).padStart(2, "0");
     const period = `01-${mm}-${year} To ${lastDay}-${mm}-${year}`;
     const client = clients.find((cl) => cl.name === c.clientName);
-    const clientAddr = `${c.clientName.toUpperCase()}${client?.address ? " " + client.address : " Unut - 1 Rangpo Rohatang Road, Kumrek Sikkim - 737132"}`;
+    const clientAddr = c.address?.trim()
+      ? c.address.trim()
+      : `${c.clientName.toUpperCase()}${client?.address ? " " + client.address : " Unut - 1 Rangpo Rohatang Road, Kumrek Sikkim - 737132"}`;
+    const mobileNo = c.mobile?.trim() || "9641627280";
+    const qrUrl = new URL(qrImg, window.location.origin).href;
     const [dy, dm, dd] = invDate.split("-");
     const dateDisp = invDate ? `${dd}-${dm}-${dy}` : "";
 
@@ -362,7 +373,7 @@ export default function ContractorMealsPage() {
           <tr><td class="lbl">Name :</td><td><b>${esc(c.name)}</b></td></tr>
           <tr><td class="lbl">Address :</td><td rowspan="2">${esc(clientAddr)}</td></tr>
           <tr><td class="lbl">Place of Supply :</td></tr>
-          <tr><td class="lbl">Mobile No</td><td><b>9641627280</b></td></tr>
+          <tr><td class="lbl">Mobile No</td><td><b>${esc(mobileNo)}</b></td></tr>
         </table>
       </td>
       <td style="width:50%; padding:0">
@@ -399,7 +410,8 @@ export default function ContractorMealsPage() {
   </table>
   <table class="bordered">
     <tr>
-      <td style="width:55%"><b style="font-size:14px">Notes:-</b></td>
+      <td style="width:22%" class="c"><img src="${qrUrl}" alt="UPI QR" style="width:120px;height:120px;object-fit:contain"></td>
+      <td style="width:33%"><b style="font-size:14px">Notes:-</b></td>
       <td class="sign" style="width:45%">
         <div class="space"></div>
         Authorised Signature for<br><b>DJ Hospitality &amp; Facility Management Private Limited</b>
@@ -416,8 +428,55 @@ export default function ContractorMealsPage() {
     setInvContractor(null);
   };
 
+  // ---- Payments state ----
+  type Payment = { id: number; contractorId: number; paymentDate: string; amount: number | string; note: string; vendorCode: string; contractorName: string };
+  type BillingSummary = { contractorId: number; vendorCode: string; name: string; clientName: string; billed: number; received: number; balance: number };
+
+  const { data: payments = [] } = useQuery<Payment[]>({
+    queryKey: ["/api/contractor-payments"],
+    queryFn: async () => (await apiRequest("GET", "/api/contractor-payments")).json(),
+  });
+  const { data: billing = [] } = useQuery<BillingSummary[]>({
+    queryKey: ["/api/contractor-billing-summary"],
+    queryFn: async () => (await apiRequest("GET", "/api/contractor-billing-summary")).json(),
+  });
+
+  const [payContractorId, setPayContractorId] = useState<string>("");
+  const [payDate, setPayDate] = useState(() => {
+    const t = new Date();
+    return `${t.getFullYear()}-${String(t.getMonth() + 1).padStart(2, "0")}-${String(t.getDate()).padStart(2, "0")}`;
+  });
+  const [payAmount, setPayAmount] = useState("");
+  const [payNote, setPayNote] = useState("");
+
+  const addPayment = useMutation({
+    mutationFn: async () => {
+      await apiRequest("POST", "/api/contractor-payments", {
+        contractorId: Number(payContractorId), paymentDate: payDate, amount: Number(payAmount), note: payNote,
+      });
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["/api/contractor-payments"] });
+      qc.invalidateQueries({ queryKey: ["/api/contractor-billing-summary"] });
+      setPayAmount(""); setPayNote("");
+      toast({ title: "Payment saved" });
+    },
+    onError: (e: any) => toast({ title: "Failed", description: e?.message || "", variant: "destructive" }),
+  });
+
+  const deletePayment = useMutation({
+    mutationFn: async (id: number) => { await apiRequest("DELETE", `/api/contractor-payments/${id}`); },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["/api/contractor-payments"] });
+      qc.invalidateQueries({ queryKey: ["/api/contractor-billing-summary"] });
+      toast({ title: "Payment deleted" });
+    },
+  });
+
+  const fmtInr = (n: number) => "₹" + (Number(n) || 0).toLocaleString("en-IN", { minimumFractionDigits: 2 });
+
   // ---- Contractor master state ----
-  const emptyForm = { vendorCode: "", name: "", clientName: "Cipla Limited" };
+  const emptyForm = { vendorCode: "", name: "", clientName: "Cipla Limited", mobile: "", address: "" };
   const [form, setForm] = useState(emptyForm);
   const [editId, setEditId] = useState<number | null>(null);
 
@@ -465,6 +524,7 @@ export default function ContractorMealsPage() {
         <TabsList>
           <TabsTrigger value="entry" data-testid="tab-meal-entry">Meal Entry</TabsTrigger>
           <TabsTrigger value="master" data-testid="tab-contractor-list">Contractor List</TabsTrigger>
+          <TabsTrigger value="payments" data-testid="tab-payments">Payments</TabsTrigger>
         </TabsList>
 
         {/* ============ MEAL ENTRY ============ */}
@@ -645,6 +705,24 @@ export default function ContractorMealsPage() {
                   </SelectContent>
                 </Select>
               </div>
+              <div>
+                <Label>Mobile No</Label>
+                <Input
+                  className="w-40" placeholder="9641627280" inputMode="tel"
+                  value={form.mobile}
+                  onChange={(e) => setForm({ ...form, mobile: e.target.value })}
+                  data-testid="input-contractor-mobile"
+                />
+              </div>
+              <div>
+                <Label>Address</Label>
+                <Input
+                  className="w-80" placeholder="CIPLA LIMITED Unit - 1 Rangpo Rohatang Road…"
+                  value={form.address}
+                  onChange={(e) => setForm({ ...form, address: e.target.value })}
+                  data-testid="input-contractor-address"
+                />
+              </div>
               <Button
                 onClick={() => upsertContractor.mutate()}
                 disabled={upsertContractor.isPending || !form.name.trim() || !(form.vendorCode.trim() || !editId)}
@@ -666,6 +744,8 @@ export default function ContractorMealsPage() {
                     <th className="p-2">Vendor Code</th>
                     <th className="p-2">Contractor Name</th>
                     <th className="p-2">Client</th>
+                    <th className="p-2">Mobile</th>
+                    <th className="p-2">Address</th>
                     <th className="p-2 text-right">Actions</th>
                   </tr>
                 </thead>
@@ -675,10 +755,12 @@ export default function ContractorMealsPage() {
                       <td className="p-2 font-mono text-xs whitespace-nowrap">{c.vendorCode}</td>
                       <td className="p-2">{c.name}</td>
                       <td className="p-2">{c.clientName}</td>
+                      <td className="p-2 whitespace-nowrap">{c.mobile || ""}</td>
+                      <td className="p-2 text-xs max-w-56 truncate" title={c.address || ""}>{c.address || ""}</td>
                       <td className="p-2 text-right whitespace-nowrap">
                         <Button
                           variant="ghost" size="icon" className="h-8 w-8"
-                          onClick={() => { setEditId(c.id); setForm({ vendorCode: c.vendorCode, name: c.name, clientName: c.clientName }); }}
+                          onClick={() => { setEditId(c.id); setForm({ vendorCode: c.vendorCode, name: c.name, clientName: c.clientName, mobile: c.mobile || "", address: c.address || "" }); }}
                           data-testid={`button-edit-${c.vendorCode}`}
                         >
                           <Pencil className="h-4 w-4" />
@@ -696,7 +778,132 @@ export default function ContractorMealsPage() {
                     </tr>
                   ))}
                   {contractors.length === 0 && (
-                    <tr><td colSpan={4} className="p-6 text-center text-muted-foreground">No contractors yet.</td></tr>
+                    <tr><td colSpan={6} className="p-6 text-center text-muted-foreground">No contractors yet.</td></tr>
+                  )}
+                </tbody>
+              </table>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        {/* ============ PAYMENTS ============ */}
+        <TabsContent value="payments" className="space-y-4">
+          <Card>
+            <CardHeader className="py-3">
+              <CardTitle className="text-base">Payment Received (naya payment)</CardTitle>
+            </CardHeader>
+            <CardContent className="flex flex-wrap items-end gap-3">
+              <div>
+                <Label>Contractor</Label>
+                <Select value={payContractorId} onValueChange={setPayContractorId}>
+                  <SelectTrigger className="w-64" data-testid="select-pay-contractor"><SelectValue placeholder="Choose contractor" /></SelectTrigger>
+                  <SelectContent>
+                    {contractors.map((c) => (
+                      <SelectItem key={c.id} value={String(c.id)}>{c.vendorCode} — {c.name}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <Label>Received Date</Label>
+                <Input type="date" className="w-40" value={payDate} onChange={(e) => setPayDate(e.target.value)} data-testid="input-pay-date" />
+              </div>
+              <div>
+                <Label>Amount (₹)</Label>
+                <Input type="number" min={0} step="0.01" className="w-32" value={payAmount} onChange={(e) => setPayAmount(e.target.value)} data-testid="input-pay-amount" />
+              </div>
+              <div>
+                <Label>Note (optional)</Label>
+                <Input className="w-48" placeholder="Bill no / UPI / cheque…" value={payNote} onChange={(e) => setPayNote(e.target.value)} data-testid="input-pay-note" />
+              </div>
+              <Button
+                onClick={() => addPayment.mutate()}
+                disabled={addPayment.isPending || !payContractorId || !(Number(payAmount) > 0)}
+                data-testid="button-add-payment"
+              >
+                <Plus className="h-4 w-4 mr-1" /> {addPayment.isPending ? "Saving..." : "Add Payment"}
+              </Button>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader className="py-3">
+              <CardTitle className="text-base">Contractor-wise Balance (total bill vs received)</CardTitle>
+            </CardHeader>
+            <CardContent className="overflow-x-auto p-0">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b bg-muted/50 text-left">
+                    <th className="p-2">Vendor Code</th>
+                    <th className="p-2">Contractor</th>
+                    <th className="p-2 text-right">Total Bill</th>
+                    <th className="p-2 text-right">Received</th>
+                    <th className="p-2 text-right">Balance</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {billing.filter((b) => b.billed > 0 || b.received > 0).map((b) => (
+                    <tr key={b.contractorId} className="border-b" data-testid={`row-balance-${b.vendorCode}`}>
+                      <td className="p-2 font-mono text-xs whitespace-nowrap">{b.vendorCode}</td>
+                      <td className="p-2">{b.name}</td>
+                      <td className="p-2 text-right">{fmtInr(b.billed)}</td>
+                      <td className="p-2 text-right text-green-600">{fmtInr(b.received)}</td>
+                      <td className={`p-2 text-right font-semibold ${b.balance > 0 ? "text-red-600" : "text-green-600"}`}>{fmtInr(b.balance)}</td>
+                    </tr>
+                  ))}
+                  {billing.filter((b) => b.billed > 0 || b.received > 0).length === 0 && (
+                    <tr><td colSpan={5} className="p-6 text-center text-muted-foreground">Abhi koi bill ya payment nahi. Bill amount ke liye invoice me Rate save kijiye.</td></tr>
+                  )}
+                </tbody>
+                <tfoot>
+                  <tr className="border-t bg-muted/50 font-semibold">
+                    <td className="p-2" colSpan={2}>Total</td>
+                    <td className="p-2 text-right">{fmtInr(billing.reduce((s, b) => s + b.billed, 0))}</td>
+                    <td className="p-2 text-right">{fmtInr(billing.reduce((s, b) => s + b.received, 0))}</td>
+                    <td className="p-2 text-right">{fmtInr(billing.reduce((s, b) => s + b.balance, 0))}</td>
+                  </tr>
+                </tfoot>
+              </table>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader className="py-3">
+              <CardTitle className="text-base">Payment History</CardTitle>
+            </CardHeader>
+            <CardContent className="overflow-x-auto p-0">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b bg-muted/50 text-left">
+                    <th className="p-2">Date</th>
+                    <th className="p-2">Contractor</th>
+                    <th className="p-2 text-right">Amount</th>
+                    <th className="p-2">Note</th>
+                    <th className="p-2 text-right">Action</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {payments.map((p) => (
+                    <tr key={p.id} className="border-b" data-testid={`row-payment-${p.id}`}>
+                      <td className="p-2 whitespace-nowrap">{p.paymentDate.split("-").reverse().join("-")}</td>
+                      <td className="p-2">{p.vendorCode} — {p.contractorName}</td>
+                      <td className="p-2 text-right">{fmtInr(Number(p.amount))}</td>
+                      <td className="p-2 text-xs">{p.note}</td>
+                      <td className="p-2 text-right">
+                        {isAdmin && (
+                          <Button
+                            variant="ghost" size="icon" className="h-8 w-8 text-destructive"
+                            onClick={() => { if (confirm("Delete this payment?")) deletePayment.mutate(p.id); }}
+                            data-testid={`button-delete-payment-${p.id}`}
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        )}
+                      </td>
+                    </tr>
+                  ))}
+                  {payments.length === 0 && (
+                    <tr><td colSpan={5} className="p-6 text-center text-muted-foreground">No payments yet.</td></tr>
                   )}
                 </tbody>
               </table>
