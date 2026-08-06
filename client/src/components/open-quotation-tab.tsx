@@ -8,8 +8,9 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 import { useClientNames } from "@/hooks/use-reports";
-import { FileSpreadsheet, Plus, Trash2, Loader2, Save, Pencil, X, Clock, Link2 } from "lucide-react";
+import { FileSpreadsheet, Plus, Trash2, Loader2, Save, Pencil, X, Clock, Link2, Printer } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { LETTERHEAD_HTML, getCoverLetterPrintStyles } from "@/lib/letterhead";
 
 interface QuotationItem { id?: number; itemName: string; qty: number; rate: number; amount: number; }
 interface Quotation {
@@ -159,6 +160,60 @@ export function OpenQuotationTab() {
     onSuccess: () => { qc.invalidateQueries({ queryKey: ["/api/quotations"] }); toast({ title: "Quotation deleted" }); },
     onError: (e: any) => toast({ title: "Failed", description: e.message, variant: "destructive" }),
   });
+
+  const esc = (s: any) => String(s ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+
+  const handlePrint = (q: Quotation) => {
+    const itemRows = q.items.map((it, i) => `
+      <tr>
+        <td style="border:1px solid #000;padding:6px;text-align:center;">${i + 1}</td>
+        <td style="border:1px solid #000;padding:6px;">${esc(it.itemName)}</td>
+        <td style="border:1px solid #000;padding:6px;text-align:right;">${fmt(it.qty)}</td>
+        <td style="border:1px solid #000;padding:6px;text-align:right;">${fmt(it.rate)}</td>
+        <td style="border:1px solid #000;padding:6px;text-align:right;">${fmt(it.amount)}</td>
+      </tr>`).join("");
+    const body = `
+      ${LETTERHEAD_HTML}
+      <div class="subject">QUOTATION</div>
+      <div class="ref-line">
+        <span><b>Quotation No:</b> ${esc(q.quotationNo || `#${q.id}`)}</span>
+        <span><b>Date:</b> ${fmtDate(q.quotationDate)}</span>
+      </div>
+      <p><b>To:</b> ${esc(q.clientName || "-")}</p>
+      ${q.quotationThru ? `<p><b>Thru:</b> ${esc(q.quotationThru)}</p>` : ""}
+      <p style="margin-top:12px;">Dear Sir/Madam,</p>
+      <p>We are pleased to submit our quotation for the following items/services:</p>
+      <table style="width:100%;border-collapse:collapse;margin:12px 0;font-size:13px;">
+        <thead>
+          <tr style="background:#f0f0f0;">
+            <th style="border:1px solid #000;padding:6px;width:40px;">Sl.</th>
+            <th style="border:1px solid #000;padding:6px;text-align:left;">Item / Description</th>
+            <th style="border:1px solid #000;padding:6px;width:80px;">Qty</th>
+            <th style="border:1px solid #000;padding:6px;width:100px;">Rate (Rs.)</th>
+            <th style="border:1px solid #000;padding:6px;width:110px;">Amount (Rs.)</th>
+          </tr>
+        </thead>
+        <tbody>${itemRows}</tbody>
+        <tfoot>
+          <tr>
+            <td colspan="4" style="border:1px solid #000;padding:6px;text-align:right;font-weight:bold;">Total</td>
+            <td style="border:1px solid #000;padding:6px;text-align:right;font-weight:bold;">Rs. ${fmt(q.totalAmount)}</td>
+          </tr>
+        </tfoot>
+      </table>
+      ${q.remarks ? `<p><b>Remarks:</b> ${esc(q.remarks)}</p>` : ""}
+      ${q.poNumber ? `<p><b>PO Reference:</b> ${esc(q.poNumber)}${q.poDate ? ` dated ${fmtDate(q.poDate)}` : ""}</p>` : ""}
+      <p style="margin-top:14px;">We hope you will find our rates competitive and look forward to your valued order.</p>
+      <p style="margin-top:36px;">Thanking you,</p>
+      <p style="margin-top:40px;"><b>For DJ Hospitality &amp; Facility Management Pvt. Ltd.</b></p>
+      <p style="margin-top:40px;">Authorised Signatory</p>
+    `;
+    const w = window.open("", "_blank");
+    if (!w) { toast({ title: "Please allow pop-ups to print", variant: "destructive" }); return; }
+    w.document.write(`<!DOCTYPE html><html><head><title>Quotation ${esc(q.quotationNo)}</title><style>${getCoverLetterPrintStyles()}</style></head><body>${body}</body></html>`);
+    w.document.close();
+    w.onload = () => { w.print(); w.onafterprint = () => w.close(); };
+  };
 
   const handleSave = () => {
     if (!quotationDate) { toast({ title: "Please select a quotation date", variant: "destructive" }); return; }
@@ -381,6 +436,7 @@ export function OpenQuotationTab() {
                         </Select>
                       </td>
                       <td className="py-2 px-2 text-center whitespace-nowrap">
+                        <button onClick={() => handlePrint(q)} className="text-violet-600 hover:text-violet-800 mr-3" title="Print" data-testid={`button-print-${q.id}`}><Printer className="w-4 h-4" /></button>
                         <button onClick={() => startEdit(q)} className="text-blue-500 hover:text-blue-700 mr-3" title="Edit" data-testid={`button-edit-${q.id}`}><Pencil className="w-4 h-4" /></button>
                         <button onClick={() => { if (confirm("Delete this quotation?")) deleteMutation.mutate(q.id); }} className="text-red-500 hover:text-red-700" title="Delete" data-testid={`button-delete-${q.id}`}><Trash2 className="w-4 h-4" /></button>
                       </td>
