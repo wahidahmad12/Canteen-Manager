@@ -204,7 +204,6 @@ export function OpenQuotationTab() {
         <span><b>Date:</b> ${fmtDate(q.quotationDate)}</span>
       </div>
       <p style="margin-top:8px;"><b>To,</b></p>
-      ${q.quotationThru ? `<p>${esc(q.quotationThru)}</p>` : ""}
       <p><b>${esc(q.clientName || "-")}</b></p>
       ${q.clientAddress ? `<p>${esc(q.clientAddress)}</p>` : ""}
       ${q.clientGstNo ? `<p>GSTIN. ${esc(q.clientGstNo)}</p>` : ""}
