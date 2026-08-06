@@ -87,6 +87,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
     { href: '/price-history', label: 'Price History', icon: History, perm: 'purchase' },
     { href: '/item-stock-report', label: 'Item Stock Report', icon: BarChart3, perm: 'purchase' },
     { href: '/sales-invoice', label: tr('salesInvoiceLedger'), icon: FileText, perm: 'salesinvoice' },
+    { href: '/contractor-meals', label: 'Contractor Meal Entry', icon: Users, perm: 'salesinvoice' },
     { href: '/daily-pnl', label: tr('dailyPnl'), icon: BarChart3, perm: null },
     { href: '/monthly-pnl', label: tr('monthlyPnl'), icon: IndianRupee, perm: null },
     { href: '/fixed-assets', label: 'Fixed Assets', icon: Package, perm: null },

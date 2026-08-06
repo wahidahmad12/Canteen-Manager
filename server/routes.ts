@@ -1054,6 +1054,55 @@ export async function registerRoutes(
     res.status(204).send();
   });
 
+  // === CONTRACTOR ROUTES (contractor master + monthly meal entries) ===
+  app.get('/api/contractors', requirePermission('salesinvoice'), async (_req, res) => {
+    res.json(await storage.getContractors());
+  });
+
+  app.post('/api/contractors', requirePermission('salesinvoice'), async (req, res) => {
+    try {
+      res.status(201).json(await storage.createContractor(req.body || {}));
+    } catch (err: any) {
+      res.status(400).json({ message: err?.message || 'Failed to create contractor' });
+    }
+  });
+
+  app.put('/api/contractors/:id', requirePermission('salesinvoice'), async (req, res) => {
+    try {
+      res.json(await storage.updateContractor(Number(req.params.id), req.body || {}));
+    } catch (err: any) {
+      const code = err?.message === 'Contractor not found' ? 404 : 400;
+      res.status(code).json({ message: err?.message || 'Failed to update contractor' });
+    }
+  });
+
+  app.delete('/api/contractors/:id', requireAdmin, async (req, res) => {
+    await storage.deleteContractor(Number(req.params.id));
+    res.status(204).send();
+  });
+
+  app.get('/api/contractor-meals', requirePermission('salesinvoice'), async (req, res) => {
+    const month = Number(req.query.month);
+    const year = Number(req.query.year);
+    if (!month || !year) return res.status(400).json({ message: 'month and year required' });
+    res.json(await storage.getContractorMealEntries(month, year));
+  });
+
+  app.post('/api/contractor-meals/bulk', requirePermission('salesinvoice'), async (req, res) => {
+    try {
+      const { entryDate, month, year, rows } = req.body || {};
+      const m = Number(month), y = Number(year);
+      if (!m || m < 1 || m > 12 || !y || y < 2000 || y > 2100) {
+        return res.status(400).json({ message: 'Valid month and year required' });
+      }
+      if (!Array.isArray(rows)) return res.status(400).json({ message: 'rows required' });
+      await storage.saveContractorMealEntries({ entryDate: String(entryDate || ''), month: m, year: y, rows });
+      res.json({ ok: true });
+    } catch (err: any) {
+      res.status(400).json({ message: err?.message || 'Failed to save entries' });
+    }
+  });
+
   app.get("/api/geocode", requireAdmin, async (req, res) => {
     const address = String(req.query.address || "").trim();
     if (!address) return res.status(400).json({ message: "address required" });

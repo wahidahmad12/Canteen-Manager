@@ -4179,6 +4179,137 @@ export class DatabaseStorage implements IStorage {
       filteredByClients: hasClients ? clients : [],
     };
   }
+
+  // === CONTRACTORS (client-wise contractor master + monthly meal entries) ===
+
+  async getContractors(): Promise<any[]> {
+    const [rows] = await pool.query(
+      `SELECT id, vendor_code AS vendorCode, name, client_name AS clientName FROM contractors ORDER BY vendor_code`,
+    );
+    return rows as any[];
+  }
+
+  async createContractor(data: { vendorCode: string; name: string; clientName: string }): Promise<any> {
+    const vendorCode = String(data.vendorCode || '').trim();
+    const name = String(data.name || '').trim();
+    const clientName = String(data.clientName || '').trim();
+    if (!vendorCode || !name) throw new Error('Vendor code and name are required');
+    try {
+      await pool.execute(
+        `INSERT INTO contractors (vendor_code, name, client_name) VALUES (?,?,?)`,
+        [vendorCode, name, clientName],
+      );
+    } catch (e: any) {
+      if (e?.code === 'ER_DUP_ENTRY') throw new Error('This vendor code already exists');
+      throw e;
+    }
+    const [rows]: any = await pool.query(
+      `SELECT id, vendor_code AS vendorCode, name, client_name AS clientName FROM contractors WHERE vendor_code = ?`,
+      [vendorCode],
+    );
+    return rows[0];
+  }
+
+  async updateContractor(id: number, data: { vendorCode?: string; name?: string; clientName?: string }): Promise<any> {
+    const sets: string[] = [];
+    const vals: any[] = [];
+    if (data.vendorCode !== undefined) { sets.push('vendor_code = ?'); vals.push(String(data.vendorCode).trim()); }
+    if (data.name !== undefined) { sets.push('name = ?'); vals.push(String(data.name).trim()); }
+    if (data.clientName !== undefined) { sets.push('client_name = ?'); vals.push(String(data.clientName).trim()); }
+    if (sets.length) {
+      try {
+        await pool.execute(`UPDATE contractors SET ${sets.join(', ')} WHERE id = ?`, [...vals, id]);
+      } catch (e: any) {
+        if (e?.code === 'ER_DUP_ENTRY') throw new Error('This vendor code already exists');
+        throw e;
+      }
+    }
+    const [rows]: any = await pool.query(
+      `SELECT id, vendor_code AS vendorCode, name, client_name AS clientName FROM contractors WHERE id = ?`,
+      [id],
+    );
+    if (!rows[0]) throw new Error('Contractor not found');
+    return rows[0];
+  }
+
+  async deleteContractor(id: number): Promise<void> {
+    await pool.execute(`DELETE FROM contractor_meal_entries WHERE contractor_id = ?`, [id]);
+    await pool.execute(`DELETE FROM contractors WHERE id = ?`, [id]);
+  }
+
+  async getContractorMealEntries(month: number, year: number): Promise<any[]> {
+    const [rows] = await pool.query(
+      `SELECT e.id, e.entry_date AS entryDate, e.month, e.year, e.contractor_id AS contractorId,
+              e.meal_type AS mealType, e.qty, e.bill_no AS billNo,
+              c.vendor_code AS vendorCode, c.name AS contractorName, c.client_name AS clientName
+       FROM contractor_meal_entries e
+       JOIN contractors c ON c.id = e.contractor_id
+       WHERE e.month = ? AND e.year = ?
+       ORDER BY FIELD(e.meal_type,'Breakfast','Lunch','Dinner'), c.vendor_code`,
+      [month, year],
+    );
+    return rows as any[];
+  }
+
+  async saveContractorMealEntries(input: {
+    entryDate: string; month: number; year: number;
+    rows: { contractorId: number; billNo?: string; breakfast?: number | null; lunch?: number | null; dinner?: number | null }[];
+  }): Promise<void> {
+    const MEALS: [string, 'breakfast' | 'lunch' | 'dinner'][] = [['Breakfast', 'breakfast'], ['Lunch', 'lunch'], ['Dinner', 'dinner']];
+
+    // Validate everything before touching the database.
+    const ids = input.rows.map((r) => Number(r.contractorId)).filter((n) => Number.isInteger(n) && n > 0);
+    if (ids.length !== input.rows.length) throw new Error('Invalid contractor in rows');
+    if (ids.length) {
+      const [found]: any = await pool.query(
+        `SELECT id FROM contractors WHERE id IN (${ids.map(() => '?').join(',')})`,
+        ids,
+      );
+      const foundSet = new Set((found as any[]).map((r) => r.id));
+      for (const id of ids) if (!foundSet.has(id)) throw new Error('Contractor not found');
+    }
+    for (const r of input.rows) {
+      for (const [, key] of MEALS) {
+        const raw = (r as any)[key];
+        if (raw === undefined || raw === null || raw === '') continue;
+        const n = Number(raw);
+        if (!Number.isFinite(n) || n < 0) throw new Error('Quantity must be a number 0 or more');
+      }
+    }
+
+    const conn = await pool.getConnection();
+    try {
+      await conn.beginTransaction();
+      for (const r of input.rows) {
+        const contractorId = Number(r.contractorId);
+        const billNo = String(r.billNo || '').trim();
+        for (const [mealType, key] of MEALS) {
+          const raw = (r as any)[key];
+          if (raw === undefined || raw === null || raw === '') {
+            // no value entered → remove any existing row for this meal
+            await conn.execute(
+              `DELETE FROM contractor_meal_entries WHERE contractor_id = ? AND month = ? AND year = ? AND meal_type = ?`,
+              [contractorId, input.month, input.year, mealType],
+            );
+            continue;
+          }
+          const qty = Math.round(Number(raw));
+          await conn.execute(
+            `INSERT INTO contractor_meal_entries (entry_date, month, year, contractor_id, meal_type, qty, bill_no)
+             VALUES (?,?,?,?,?,?,?)
+             ON DUPLICATE KEY UPDATE entry_date = VALUES(entry_date), qty = VALUES(qty), bill_no = VALUES(bill_no)`,
+            [input.entryDate, input.month, input.year, contractorId, mealType, qty, billNo],
+          );
+        }
+      }
+      await conn.commit();
+    } catch (e) {
+      await conn.rollback();
+      throw e;
+    } finally {
+      conn.release();
+    }
+  }
 }
 
 export const storage = new DatabaseStorage();

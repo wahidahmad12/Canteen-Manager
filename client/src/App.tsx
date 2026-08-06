@@ -51,6 +51,7 @@ import EmployeeDashboard from "./pages/employee-dashboard";
 import QrScannerPage from "./pages/qr-scanner";
 import DailyAttendancePage from "./pages/daily-attendance";
 import AttendanceReportPage from "./pages/attendance-report";
+import ContractorMealsPage from "./pages/contractor-meals";
 import AttendanceKiosk from "./pages/attendance-kiosk";
 import Login from "./pages/login";
 import { useCurrentUser } from "./hooks/use-reports";
@@ -157,6 +158,7 @@ function AuthenticatedRouter() {
       <Route path="/weekly-bom" component={WeeklyBomPage} />
       <Route path="/price-history">{() => <PermRoute perm="purchase"><PriceHistoryPage /></PermRoute>}</Route>
       <Route path="/item-stock-report">{() => <PermRoute perm="purchase"><ItemStockReportPage /></PermRoute>}</Route>
+      <Route path="/contractor-meals">{() => <PermRoute perm="salesinvoice"><ContractorMealsPage /></PermRoute>}</Route>
       <Route path="/fixed-assets" component={FixedAssetsPage} />
       <Route path="/depreciation-report" component={DepreciationReportPage} />
       <Route path="/qr-scanner" component={QrScannerPage} />
