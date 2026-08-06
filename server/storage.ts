@@ -3263,7 +3263,7 @@ export class DatabaseStorage implements IStorage {
     const [qRows] = await db.execute(sql`
       SELECT q.id, q.quotation_no AS quotationNo, q.quotation_date AS quotationDate, q.quotation_thru AS quotationThru,
              q.client_name AS clientName, q.total_amount AS totalAmount, q.status, q.remarks,
-             q.quotation_type AS quotationType, q.gst_percent AS gstPercent, q.service_charge_percent AS serviceChargePercent,
+             q.quotation_type AS quotationType, q.gst_percent AS gstPercent, q.service_charge_percent AS serviceChargePercent, q.subject,
              q.po_number AS poNumber, q.po_date AS poDate, q.po_id AS poId,
              ti.invoice_number AS taxInvoiceNo, ti.invoice_date AS taxInvoiceDate,
              q.created_by AS createdBy, q.created_at AS createdAt,
@@ -3330,7 +3330,7 @@ export class DatabaseStorage implements IStorage {
   }
 
   // Validate + normalize quotation payload; amounts always computed server-side (qty × rate).
-  private normalizeQuotationInput(data: any): { quotationDate: string; quotationThru: string; clientName: string; remarks: string; quotationType: string; gstPercent: number; serviceChargePercent: number; items: { itemName: string; qty: number; rate: number; amount: number }[]; total: number } {
+  private normalizeQuotationInput(data: any): { quotationDate: string; quotationThru: string; clientName: string; remarks: string; subject: string; quotationType: string; gstPercent: number; serviceChargePercent: number; items: { itemName: string; qty: number; rate: number; amount: number }[]; total: number } {
     const quotationDate = String(data.quotationDate || '');
     if (!/^\d{4}-\d{2}-\d{2}$/.test(quotationDate) || isNaN(new Date(quotationDate + 'T00:00:00').getTime())) {
       throw new Error('Quotation date is required (YYYY-MM-DD)');
@@ -3351,6 +3351,7 @@ export class DatabaseStorage implements IStorage {
       quotationThru: String(data.quotationThru || '').slice(0, 200),
       clientName: String(data.clientName || '').slice(0, 500),
       remarks: String(data.remarks || ''),
+      subject: String(data.subject || '').slice(0, 300),
       quotationType: String(data.quotationType) === 'service' ? 'service' : 'item',
       gstPercent: (() => { const n = Number(data.gstPercent); return isFinite(n) && n >= 0 && n <= 100 ? Math.round(n * 100) / 100 : 0; })(),
       serviceChargePercent: (() => { const n = Number(data.serviceChargePercent); return isFinite(n) && n >= 0 && n <= 100 ? Math.round(n * 100) / 100 : 0; })(),
@@ -3368,8 +3369,8 @@ export class DatabaseStorage implements IStorage {
         return await db.transaction(async (tx) => {
           const quotationNo = await this.nextQuotationNo(tx, q.quotationDate, q.clientName);
           const [result] = await tx.execute(sql`
-            INSERT INTO quotations (quotation_no, quotation_date, quotation_thru, client_name, total_amount, status, remarks, created_by, quotation_type, gst_percent, service_charge_percent)
-            VALUES (${quotationNo}, ${q.quotationDate}, ${q.quotationThru}, ${q.clientName}, ${q.total}, 'open', ${q.remarks}, ${createdBy}, ${q.quotationType}, ${q.gstPercent}, ${q.serviceChargePercent})
+            INSERT INTO quotations (quotation_no, quotation_date, quotation_thru, client_name, total_amount, status, remarks, created_by, quotation_type, gst_percent, service_charge_percent, subject)
+            VALUES (${quotationNo}, ${q.quotationDate}, ${q.quotationThru}, ${q.clientName}, ${q.total}, 'open', ${q.remarks}, ${createdBy}, ${q.quotationType}, ${q.gstPercent}, ${q.serviceChargePercent}, ${q.subject})
           `) as any;
           const qid = Number((result as any).insertId);
           for (const it of q.items) {
@@ -3405,6 +3406,7 @@ export class DatabaseStorage implements IStorage {
           quotation_type = ${q.quotationType},
           gst_percent = ${q.gstPercent},
           service_charge_percent = ${q.serviceChargePercent},
+          subject = ${q.subject},
           updated_at = NOW()
         WHERE id = ${id} ${clientScope ? sql`AND client_name = ${clientScope}` : sql``}
       `) as any;

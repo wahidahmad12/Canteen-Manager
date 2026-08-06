@@ -194,6 +194,7 @@ async function initPool(): Promise<void> {
     `ALTER TABLE quotations ADD COLUMN IF NOT EXISTS quotation_type VARCHAR(20) NOT NULL DEFAULT 'item'`,
     `ALTER TABLE quotations ADD COLUMN IF NOT EXISTS gst_percent DECIMAL(5,2) NOT NULL DEFAULT 0`,
     `ALTER TABLE quotations ADD COLUMN IF NOT EXISTS service_charge_percent DECIMAL(5,2) NOT NULL DEFAULT 0`,
+    `ALTER TABLE quotations ADD COLUMN IF NOT EXISTS subject VARCHAR(300) NOT NULL DEFAULT ''`,
   ];
   for (const sql of migrations) {
     try { await pool.execute(sql); } catch (e: any) { console.log('[db] migration note:', e.message?.slice(0, 80)); }

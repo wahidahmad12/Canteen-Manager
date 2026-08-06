@@ -15,7 +15,7 @@ import { LETTERHEAD_HTML, LETTERHEAD_CSS } from "@/lib/letterhead";
 interface QuotationItem { id?: number; itemName: string; qty: number; rate: number; amount: number; }
 interface Quotation {
   id: number; quotationNo: string; quotationDate: string; quotationThru: string;
-  clientName: string; totalAmount: number; status: "open" | "converted" | "closed";
+  clientName: string; totalAmount: number; status: "open" | "converted" | "closed"; subject?: string;
   remarks: string; createdBy: string; items: QuotationItem[];
   quotationType?: "item" | "service"; gstPercent?: number; serviceChargePercent?: number;
   serviceChargeAmount?: number; gstAmount?: number; grandTotal?: number;
@@ -61,6 +61,7 @@ export function OpenQuotationTab() {
   const [quotationThru, setQuotationThru] = useState("");
   const [clientName, setClientName] = useState("");
   const [remarks, setRemarks] = useState("");
+  const [subject, setSubject] = useState("");
   const [status, setStatus] = useState<"open" | "converted" | "closed">("open");
   const [items, setItems] = useState<QuotationItem[]>([emptyItem()]);
   const [quotationType, setQuotationType] = useState<"item" | "service">("item");
@@ -85,7 +86,7 @@ export function OpenQuotationTab() {
     setEditId(null); setQuotationNo(""); setQuotationDate(todayStr());
     setQuotationThru(""); setClientName(""); setRemarks(""); setStatus("open");
     setItems([emptyItem()]); setShowForm(false);
-    setQuotationType("item"); setGstPercent("0"); setServiceChargePercent("0");
+    setQuotationType("item"); setGstPercent("0"); setServiceChargePercent("0"); setSubject("");
   };
 
   const startEdit = (q: Quotation) => {
@@ -94,6 +95,7 @@ export function OpenQuotationTab() {
     setStatus(q.status); setItems(q.items.length > 0 ? q.items.map(i => ({ ...i })) : [emptyItem()]);
     setQuotationType(q.quotationType === "service" ? "service" : "item");
     setGstPercent(String(q.gstPercent || 0)); setServiceChargePercent(String(q.serviceChargePercent || 0));
+    setSubject(q.subject || "");
     setShowForm(true);
     window.scrollTo({ top: 0, behavior: "smooth" });
   };
@@ -116,7 +118,7 @@ export function OpenQuotationTab() {
 
   const saveMutation = useMutation({
     mutationFn: async () => {
-      const payload = { quotationNo, quotationDate, quotationThru, clientName, remarks, status, quotationType, gstPercent: Number(gstPercent) || 0, serviceChargePercent: Number(serviceChargePercent) || 0, items: items.filter(i => i.itemName.trim()) };
+      const payload = { quotationNo, quotationDate, quotationThru, clientName, remarks, subject, status, quotationType, gstPercent: Number(gstPercent) || 0, serviceChargePercent: Number(serviceChargePercent) || 0, items: items.filter(i => i.itemName.trim()) };
       const res = editId
         ? await fetch(`/api/quotations/${editId}`, { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload), credentials: "include" })
         : await fetch("/api/quotations", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload), credentials: "include" });
@@ -198,7 +200,7 @@ export function OpenQuotationTab() {
       </tr>`;
     const body = `
       ${LETTERHEAD_HTML}
-      <div class="subject">${isService ? "SERVICE QUOTATION" : "QUOTATION"}</div>
+      <div class="subject">${esc(q.subject?.trim() || (isService ? "SERVICE QUOTATION" : "QUOTATION"))}</div>
       <div class="ref-line">
         <span><b>Quotation No:</b> ${esc(q.quotationNo || `#${q.id}`)}</span>
         <span><b>Date:</b> ${fmtDate(q.quotationDate)}</span>
@@ -236,7 +238,8 @@ export function OpenQuotationTab() {
     `;
     const w = window.open("", "_blank");
     if (!w) { toast({ title: "Please allow pop-ups to print", variant: "destructive" }); return; }
-    w.document.write(`<!DOCTYPE html><html><head><title>Quotation ${esc(q.quotationNo)}</title><style>
+    const pdfName = [q.clientName, q.quotationNo || `#${q.id}`, fmtDate(q.quotationDate)].filter(Boolean).join(" - ");
+    w.document.write(`<!DOCTYPE html><html><head><title>${esc(pdfName)}</title><style>
       @page { size: A4 portrait; margin: 12mm 15mm 18mm 15mm; }
       body { margin: 0; padding: 0; font-family: Calibri, Arial, sans-serif; font-size: 13px; color: #000; line-height: 1.5; }
       p { margin: 4px 0; }
@@ -416,6 +419,10 @@ export function OpenQuotationTab() {
               <Plus className="w-4 h-4 mr-1" /> Add Item
             </Button>
 
+            <div>
+              <Label className="text-xs">Subject (shows as heading in print)</Label>
+              <Input placeholder="e.g. QUOTATION FOR SPECIAL MEALS – 5TH MARCH 2026" value={subject} onChange={e => setSubject(e.target.value)} data-testid="input-q-subject" />
+            </div>
             <div>
               <Label className="text-xs">Remarks</Label>
               <Input placeholder="Optional notes" value={remarks} onChange={e => setRemarks(e.target.value)} data-testid="input-q-remarks" />
