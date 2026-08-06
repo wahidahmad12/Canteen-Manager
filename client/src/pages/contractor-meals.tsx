@@ -305,9 +305,10 @@ export default function ContractorMealsPage() {
     const mm = String(month).padStart(2, "0");
     const period = `01-${mm}-${year} To ${lastDay}-${mm}-${year}`;
     const client = clients.find((cl) => cl.name === c.clientName);
-    const clientAddr = c.address?.trim()
-      ? c.address.trim()
-      : `${c.clientName.toUpperCase()}${client?.address ? " " + client.address : " Unut - 1 Rangpo Rohatang Road, Kumrek Sikkim - 737132"}`;
+    // BILL TO = contractor's own address (from Contractor master)
+    const billToAddr = c.address?.trim() || "";
+    // SHIP TO = client's address (Cipla / Hindustan Unilever etc. from Client master)
+    const shipToAddr = `${c.clientName.toUpperCase()}${client?.address ? " " + client.address : " Unut - 1 Rangpo Rohatang Road, Kumrek Sikkim - 737132"}`;
     const mobileNo = c.mobile?.trim() || "9641627280";
     const qrUrl = new URL(qrImg, window.location.origin).href;
     const [dy, dm, dd] = invDate.split("-");
@@ -376,7 +377,7 @@ export default function ContractorMealsPage() {
         <table>
           <tr><td class="lbl">BILL TO</td><td><b>${esc(c.vendorCode)}</b></td></tr>
           <tr><td class="lbl">Name :</td><td><b>${esc(c.name)}</b></td></tr>
-          <tr><td class="lbl">Address :</td><td rowspan="2">${esc(clientAddr)}</td></tr>
+          <tr><td class="lbl">Address :</td><td rowspan="2">${esc(billToAddr)}</td></tr>
           <tr><td class="lbl">Place of Supply :</td></tr>
           <tr><td class="lbl">Mobile No</td><td><b>${esc(mobileNo)}</b></td></tr>
         </table>
@@ -384,8 +385,8 @@ export default function ContractorMealsPage() {
       <td style="width:50%; padding:0">
         <table>
           <tr><td class="lbl">SHIP TO</td><td></td></tr>
-          <tr><td class="lbl">Name :</td><td><b>${esc(c.name)}</b></td></tr>
-          <tr><td class="lbl">Address :</td><td>${esc(clientAddr)}</td></tr>
+          <tr><td class="lbl">Name :</td><td><b>${esc(c.clientName)}</b></td></tr>
+          <tr><td class="lbl">Address :</td><td>${esc(shipToAddr)}</td></tr>
         </table>
       </td>
     </tr>
