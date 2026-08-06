@@ -8,14 +8,14 @@ export const LETTERHEAD_CSS = `
     position: relative;
     text-align: center;
     margin-bottom: 8px;
-    padding: 0 0 6px 0;
+    padding: 0 0 6px 16mm;
     border-bottom: 3px solid #E36C0A;
   }
   .letterhead .lh-logo {
     position: absolute;
-    left: 0;
-    top: 0;
-    width: 78px;
+    left: -12mm;
+    top: -2mm;
+    width: 27mm;
     height: auto;
   }
   .letterhead h2 {

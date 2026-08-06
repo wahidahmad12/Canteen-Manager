@@ -3,6 +3,7 @@ import { Button } from '@/components/ui/button';
 import { Printer, ArrowLeft } from 'lucide-react';
 import { Link, useParams } from 'wouter';
 import type { Employee } from '@shared/schema';
+import { LETTERHEAD_HTML, LETTERHEAD_CSS } from '@/lib/letterhead';
 
 const fmtDate = (d: string | null | undefined): string => {
   if (!d) return "";
@@ -62,16 +63,18 @@ export default function FormXV() {
       </div>
 
       <style>{`
+        ${LETTERHEAD_CSS}
         @media print {
-          @page { size: A4 portrait; margin: 15mm 15mm; }
+          @page { size: A4 portrait; margin: 12mm 15mm 15mm 15mm; }
           body * { visibility: hidden; }
           .form-xv-print, .form-xv-print * { visibility: visible; }
           .form-xv-print { position: absolute; left: 0; top: 0; width: 100%; }
         }
       `}</style>
 
-      <div className="form-xv-print border-2 border-black bg-white text-black p-6 sm:p-10 print:border-2 print:border-black print:p-10">
-        <div className="text-center mb-6">
+      <div className="form-xv-print border-2 border-black bg-white text-black p-6 sm:p-10 print:border-0 print:p-0">
+        <div dangerouslySetInnerHTML={{ __html: LETTERHEAD_HTML }} />
+        <div className="text-center mb-6 mt-4">
           <h2 className="text-lg font-bold uppercase tracking-wide" data-testid="text-form-title">FORM XV</h2>
           <p className="text-sm mt-1">(See Rule 77)</p>
           <p className="text-base font-bold mt-2 underline">Service Certificate</p>

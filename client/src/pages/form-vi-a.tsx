@@ -6,6 +6,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Printer, ArrowLeft } from 'lucide-react';
 import { Link } from 'wouter';
 import { useClientNames } from '@/hooks/use-reports';
+import { LETTERHEAD_HTML, LETTERHEAD_CSS } from '@/lib/letterhead';
 
 const fmtDate = (d: string | null | undefined): string => {
   if (!d) return "";
@@ -135,16 +136,18 @@ export default function FormVIA() {
       </div>
 
       <style>{`
+        ${LETTERHEAD_CSS}
         @media print {
-          @page { size: A4 portrait; margin: 20mm 20mm; }
+          @page { size: A4 portrait; margin: 12mm 20mm 20mm 20mm; }
           body * { visibility: hidden; }
           .form-via-print, .form-via-print * { visibility: visible; }
           .form-via-print { position: absolute; left: 0; top: 0; width: 100%; }
         }
       `}</style>
 
-      <div className="form-via-print border-2 border-black bg-white text-black p-8 sm:p-12 print:border-0 print:p-12" style={{ fontFamily: 'serif', lineHeight: 1.8 }}>
-        <div className="text-center mb-10">
+      <div className="form-via-print border-2 border-black bg-white text-black p-8 sm:p-12 print:border-0 print:p-0" style={{ fontFamily: 'serif', lineHeight: 1.8 }}>
+        <div dangerouslySetInnerHTML={{ __html: LETTERHEAD_HTML }} />
+        <div className="text-center mb-10 mt-6">
           <h2 className="text-xl font-bold uppercase tracking-wide">FORM VI-A</h2>
           <p className="text-sm mt-1 italic">See Rule 25(2)(viii)</p>
           <p className="text-lg font-bold mt-4 uppercase underline">
