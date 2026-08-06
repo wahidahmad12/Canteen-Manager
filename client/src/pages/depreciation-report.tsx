@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Link } from "wouter";
 import { Button } from "@/components/ui/button";
@@ -51,7 +51,16 @@ function groupTotals(rows: AssetRow[], key: (r: AssetRow) => string) {
 export default function DepreciationReportPage() {
   const { data: assets = [], isLoading } = useQuery<FixedAsset[]>({ queryKey: ["/api/fixed-assets"] });
 
-  const asOf = useMemo(() => new Date(), []);
+  const todayStr = useMemo(() => {
+    const d = new Date();
+    const pad = (n: number) => String(n).padStart(2, "0");
+    return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+  }, []);
+  const [asOfInput, setAsOfInput] = useState<string>(todayStr);
+  const asOf = useMemo(() => {
+    const d = new Date((asOfInput || todayStr) + "T00:00:00");
+    return isNaN(d.getTime()) ? new Date(todayStr + "T00:00:00") : d;
+  }, [asOfInput, todayStr]);
   const rows = useMemo(
     () =>
       assets
@@ -197,7 +206,17 @@ export default function DepreciationReportPage() {
           <TrendingDown className="w-6 h-6 text-blue-600" />
           <h1 className="text-xl md:text-2xl font-bold">Asset Depreciation Report</h1>
         </div>
-        <div className="flex gap-2">
+        <div className="flex items-center gap-2">
+          <label htmlFor="dep-asof" className="text-sm font-medium whitespace-nowrap">As on</label>
+          <input
+            id="dep-asof"
+            type="date"
+            value={asOfInput}
+            max={todayStr}
+            onChange={(e) => setAsOfInput(e.target.value)}
+            className="h-9 rounded-md border border-input bg-background px-2 text-sm"
+            data-testid="input-asof-date"
+          />
           <Link href="/fixed-assets">
             <Button variant="outline" size="sm"><ArrowLeft className="w-4 h-4 mr-1" /> Fixed Assets</Button>
           </Link>
