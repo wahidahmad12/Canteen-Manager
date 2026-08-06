@@ -4417,7 +4417,7 @@ export class DatabaseStorage implements IStorage {
     const [cRows]: any = await pool.query(
       `SELECT c.id AS contractorId, c.vendor_code AS vendorCode, c.name, COALESCE(b.billed, 0) AS billed, COALESCE(p.received, 0) AS received, COALESCE(b.billNo, '') AS billNo
        FROM contractors c
-       LEFT JOIN (SELECT contractor_id, SUM(qty * COALESCE(NULLIF(rate, 0), CASE meal_type WHEN 'Breakfast' THEN 4.6 ELSE 11.6 END)) AS billed, MAX(NULLIF(bill_no, '')) AS billNo FROM contractor_meal_entries WHERE year = ?${mBillFilter} GROUP BY contractor_id) b ON b.contractor_id = c.id
+       LEFT JOIN (SELECT contractor_id, SUM(qty * COALESCE(NULLIF(rate, 0), CASE meal_type WHEN 'Breakfast' THEN 4.6 ELSE 11.6 END)) AS billed, GROUP_CONCAT(DISTINCT NULLIF(bill_no, '') ORDER BY month SEPARATOR ', ') AS billNo FROM contractor_meal_entries WHERE year = ?${mBillFilter} GROUP BY contractor_id) b ON b.contractor_id = c.id
        LEFT JOIN (SELECT contractor_id, SUM(amount) AS received FROM contractor_payments WHERE YEAR(payment_date) = ?${mPayFilter} GROUP BY contractor_id) p ON p.contractor_id = c.id
        ${where.length ? 'WHERE ' + where.join(' AND ') : ''}
        ORDER BY c.vendor_code`,
