@@ -2355,7 +2355,7 @@ function PankajReport({ invoices, clients }: { invoices: any[]; clients: string[
       const tdsAmt = Math.round(totalTds * 100) / 100;
       const gstMinusTds = Math.round((gstAt5 - totalTds) * 100) / 100;
       const fixedAmt = fixedAmounts[clientName] || 0;
-      const total = Math.round((gstMinusTds + fixedAmt) * 100) / 100;
+      const total = Math.round((gstAmt + fixedAmt) * 100) / 100;
 
       // Invoice status based on ALL invoices (for the status filter/badge)
       const totalAllToReceive = clientInvoices.reduce((s, i) => s + Math.round((Number(i.totalBillAmount) - Number(i.tdsAmount)) * 100) / 100, 0);
@@ -2414,7 +2414,7 @@ function PankajReport({ invoices, clients }: { invoices: any[]; clients: string[
       month: Number(month),
       year: Number(year),
       toReceive: String(r.toReceive),
-      gstMinusTds: String(r.gstMinusTds),
+      gstMinusTds: String(r.gstAmt),
       fixedAmount: String(r.fixedAmt),
       total: String(r.total),
       givenDate: latestDate,
@@ -2545,7 +2545,7 @@ function PankajReport({ invoices, clients }: { invoices: any[]; clients: string[
       <table>
         <thead><tr>
           <th>Sl</th><th>Client Name</th>
-          <th>To Receive</th><th>GST Amt (5%)</th><th>TDS Amt</th><th>Fixed Amt</th><th>Total</th>
+          <th>To Receive</th><th>GST Amt (5%)</th><th>Fixed Amt</th><th>Total</th>
           <th>Pymnt Date</th><th>Instalment #</th><th>Given Date</th><th>Given Amt</th>
           <th>Total Given</th><th>Pending Amt</th><th>Status</th>
         </tr></thead>
@@ -2563,7 +2563,6 @@ function PankajReport({ invoices, clients }: { invoices: any[]; clients: string[
             <td class="center">${r.idx}</td><td>${r.clientName}</td>
             <td class="right">${r.toReceive.toLocaleString("en-IN", {minimumFractionDigits:2})}</td>
             <td class="right">${r.gstAmt.toLocaleString("en-IN", {minimumFractionDigits:2})}</td>
-            <td class="right">${r.tdsAmt.toLocaleString("en-IN", {minimumFractionDigits:2})}</td>
             <td class="right">${r.fixedAmt > 0 ? r.fixedAmt.toLocaleString("en-IN", {minimumFractionDigits:2}) : "-"}</td>
             <td class="right" style="font-weight:bold">${r.total.toLocaleString("en-IN", {minimumFractionDigits:2})}</td>
             <td class="center">${pd}</td>
@@ -2581,7 +2580,6 @@ function PankajReport({ invoices, clients }: { invoices: any[]; clients: string[
             ${isFirst ? `<td class="center" rowspan="${rowspan}">${r.idx}</td><td rowspan="${rowspan}">${r.clientName}</td>
             <td class="right" rowspan="${rowspan}">${r.toReceive.toLocaleString("en-IN", {minimumFractionDigits:2})}</td>
             <td class="right" rowspan="${rowspan}">${r.gstAmt.toLocaleString("en-IN", {minimumFractionDigits:2})}</td>
-            <td class="right" rowspan="${rowspan}">${r.tdsAmt.toLocaleString("en-IN", {minimumFractionDigits:2})}</td>
             <td class="right" rowspan="${rowspan}">${r.fixedAmt > 0 ? r.fixedAmt.toLocaleString("en-IN", {minimumFractionDigits:2}) : "-"}</td>
             <td class="right" rowspan="${rowspan}" style="font-weight:bold">${r.total.toLocaleString("en-IN", {minimumFractionDigits:2})}</td>
             <td class="center" rowspan="${rowspan}">${pd}</td>` : ""}
@@ -2598,7 +2596,6 @@ function PankajReport({ invoices, clients }: { invoices: any[]; clients: string[
           <td colspan="2" style="text-align:center"><b>Grand Total</b></td>
           <td class="right">${grandToReceive.toLocaleString("en-IN", {minimumFractionDigits:2})}</td>
           <td class="right">${grandGstAmt.toLocaleString("en-IN", {minimumFractionDigits:2})}</td>
-          <td class="right">${grandTdsAmt.toLocaleString("en-IN", {minimumFractionDigits:2})}</td>
           <td class="right">${grandFixedAmt > 0 ? grandFixedAmt.toLocaleString("en-IN", {minimumFractionDigits:2}) : "-"}</td>
           <td class="right">${grandTotal.toLocaleString("en-IN", {minimumFractionDigits:2})}</td>
           <td colspan="4"></td>
@@ -2607,7 +2604,7 @@ function PankajReport({ invoices, clients }: { invoices: any[]; clients: string[
           <td></td>
         </tr></tfoot>
       </table>
-      <p class="note">GST Amt = Bill Amount ka 5% &nbsp;|&nbsp; Total = GST + Fixed Amount - TDS</p>
+      <p class="note">GST Amt = Bill Amount ka 5% &nbsp;|&nbsp; Total = GST + Fixed Amount</p>
       <script>window.onload=function(){window.print();}<\/script>
     </body></html>`);
     printWindow.document.close();
@@ -2619,7 +2616,7 @@ function PankajReport({ invoices, clients }: { invoices: any[]; clients: string[
     const wb = new ExcelJS.Workbook();
     const ws = wb.addWorksheet("Amount Give To Pankaj");
 
-    const TOTAL_COLS = 14;
+    const TOTAL_COLS = 13;
     const fmtD = (d: string) => { const p = d.split("-"); return `${p[2]}/${p[1]}/${p[0]}`; };
     const today = new Date();
     const dateStr = `${String(today.getDate()).padStart(2,"0")}/${String(today.getMonth()+1).padStart(2,"0")}/${today.getFullYear()}`;
@@ -2667,7 +2664,7 @@ function PankajReport({ invoices, clients }: { invoices: any[]; clients: string[
 
     // Row 5 — Column headers
     const headers = [
-      "Sl", "Client Name", "To Receive", "GST Amt (5%)", "TDS Amt", "Fixed Amt", "Total",
+      "Sl", "Client Name", "To Receive", "GST Amt (5%)", "Fixed Amt", "Total",
       "Pymnt Date", "Instalment #", "Given Date", "Given Amt",
       "Total Given", "Pending Amt", "Status"
     ];
@@ -2695,8 +2692,7 @@ function PankajReport({ invoices, clients }: { invoices: any[]; clients: string[
     ws.getColumn(10).width = 13;
     ws.getColumn(11).width = 13;
     ws.getColumn(12).width = 13;
-    ws.getColumn(13).width = 13;
-    ws.getColumn(14).width = 12;
+    ws.getColumn(13).width = 12;
 
     // Data rows
     let rowIdx = 6;
@@ -2715,16 +2711,15 @@ function PankajReport({ invoices, clients }: { invoices: any[]; clients: string[
           [2, r.clientName, "left", false],
           [3, r.toReceive, "right", false],
           [4, r.gstAmt, "right", false],
-          [5, r.tdsAmt, "right", false],
-          [6, r.fixedAmt > 0 ? r.fixedAmt : "-", "right", false],
-          [7, r.total, "right", true],
-          [8, pd, "center", false],
+          [5, r.fixedAmt > 0 ? r.fixedAmt : "-", "right", false],
+          [6, r.total, "right", true],
+          [7, pd, "center", false],
+          [8, "-", "center", false],
           [9, "-", "center", false],
-          [10, "-", "center", false],
+          [10, "-", "right", false],
           [11, "-", "right", false],
           [12, "-", "right", false],
-          [13, "-", "right", false],
-          [14, badge, "center", false],
+          [13, badge, "center", false],
         ];
         cells.forEach(([col, val, align, bold]) => {
           const c = dr.getCell(col);
@@ -2733,8 +2728,8 @@ function PankajReport({ invoices, clients }: { invoices: any[]; clients: string[
           c.alignment = { horizontal: align as any, vertical: "middle" };
           c.fill = { type: "pattern", pattern: "solid", fgColor: { argb: rowBg } };
           if (bold) c.font = { bold: true };
-          if (col === 3 || col === 4 || col === 5 || col === 7) c.numFmt = '#,##0.00';
-          if (col === 14) c.font = { bold: true, color: { argb: badgeColor } };
+          if (col === 3 || col === 4 || col === 6) c.numFmt = '#,##0.00';
+          if (col === 13) c.font = { bold: true, color: { argb: badgeColor } };
         });
       } else {
         pmts.forEach((p: any, pi: number) => {
@@ -2746,39 +2741,39 @@ function PankajReport({ invoices, clients }: { invoices: any[]; clients: string[
 
           // Client-level data only on the first instalment row
           if (pi === 0) {
-            [[1, r.idx], [2, r.clientName], [3, r.toReceive], [4, r.gstAmt], [5, r.tdsAmt],
-             [6, r.fixedAmt > 0 ? r.fixedAmt : "-"], [7, r.total], [8, pd]].forEach(([col, val]) => {
+            [[1, r.idx], [2, r.clientName], [3, r.toReceive], [4, r.gstAmt],
+             [5, r.fixedAmt > 0 ? r.fixedAmt : "-"], [6, r.total], [7, pd]].forEach(([col, val]) => {
               const c = dr.getCell(col as number);
               c.value = val;
               c.border = thinBorder;
               c.fill = { type: "pattern", pattern: "solid", fgColor: { argb: rowBg } };
-              c.alignment = { horizontal: col === 1 || col === 8 ? "center" : col === 2 ? "left" : "right" as any, vertical: "middle" };
-              if (col === 3 || col === 4 || col === 5 || col === 7) { if (typeof val === "number") c.numFmt = '#,##0.00'; }
-              if (col === 7) c.font = { bold: true };
+              c.alignment = { horizontal: col === 1 || col === 7 ? "center" : col === 2 ? "left" : "right" as any, vertical: "middle" };
+              if (col === 3 || col === 4 || col === 6) { if (typeof val === "number") c.numFmt = '#,##0.00'; }
+              if (col === 6) c.font = { bold: true };
             });
           } else {
             // Subsequent instalment rows — keep border + bg, no value
-            [1, 2, 3, 4, 5, 6, 7, 8].forEach(col => {
+            [1, 2, 3, 4, 5, 6, 7].forEach(col => {
               const c = dr.getCell(col);
               c.border = thinBorder;
               c.fill = { type: "pattern", pattern: "solid", fgColor: { argb: rowBg } };
             });
           }
 
-          const instCell = dr.getCell(9);
+          const instCell = dr.getCell(8);
           instCell.value = `Inst. ${pi + 1}`;
           instCell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: instBg } };
           instCell.font = { bold: true, color: { argb: violet } };
           instCell.border = thinBorder;
           instCell.alignment = { horizontal: "center", vertical: "middle" };
 
-          const gdCell = dr.getCell(10);
+          const gdCell = dr.getCell(9);
           gdCell.value = gd;
           gdCell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: instBg } };
           gdCell.border = thinBorder;
           gdCell.alignment = { horizontal: "center", vertical: "middle" };
 
-          const amtCell = dr.getCell(11);
+          const amtCell = dr.getCell(10);
           amtCell.value = Number(p.amount);
           amtCell.numFmt = '#,##0.00';
           amtCell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: instBg } };
@@ -2787,7 +2782,7 @@ function PankajReport({ invoices, clients }: { invoices: any[]; clients: string[
           amtCell.alignment = { horizontal: "right", vertical: "middle" };
 
           if (isLast) {
-            const tgCell = dr.getCell(12);
+            const tgCell = dr.getCell(11);
             tgCell.value = r.givenAmt;
             tgCell.numFmt = '#,##0.00';
             tgCell.font = { bold: true, color: { argb: violet } };
@@ -2795,7 +2790,7 @@ function PankajReport({ invoices, clients }: { invoices: any[]; clients: string[
             tgCell.alignment = { horizontal: "right", vertical: "middle" };
             tgCell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: instBg } };
 
-            const paCell = dr.getCell(13);
+            const paCell = dr.getCell(12);
             paCell.value = pendingAmt > 0 ? pendingAmt : (r.givenAmt > 0 ? 0 : "-" as any);
             if (typeof paCell.value === "number") paCell.numFmt = '#,##0.00';
             paCell.font = { bold: pendingAmt > 0, color: { argb: pendingAmt <= 0 && r.givenAmt > 0 ? green : pendingAmt > 0 ? red : "FF4B5563" } };
@@ -2803,14 +2798,14 @@ function PankajReport({ invoices, clients }: { invoices: any[]; clients: string[
             paCell.alignment = { horizontal: "right", vertical: "middle" };
             paCell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: instBg } };
 
-            const stCell = dr.getCell(14);
+            const stCell = dr.getCell(13);
             stCell.value = badge;
             stCell.font = { bold: true, color: { argb: badgeColor } };
             stCell.border = thinBorder;
             stCell.alignment = { horizontal: "center", vertical: "middle" };
             stCell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: instBg } };
           } else {
-            [12, 13, 14].forEach(col => {
+            [11, 12, 13].forEach(col => {
               const c = dr.getCell(col);
               c.border = thinBorder;
               c.fill = { type: "pattern", pattern: "solid", fgColor: { argb: rowBg } };
@@ -2829,18 +2824,18 @@ function PankajReport({ invoices, clients }: { invoices: any[]; clients: string[
     gtRow.getCell(1).fill = { type: "pattern", pattern: "solid", fgColor: { argb: grey } };
     gtRow.getCell(1).border = thinBorder;
 
-    [[3, grandToReceive], [4, grandGstAmt], [5, grandTdsAmt], [6, grandFixedAmt > 0 ? grandFixedAmt : "-"], [7, grandTotal],
-     [12, grandGivenAmt > 0 ? grandGivenAmt : "-"], [13, grandPendingAmt > 0 ? grandPendingAmt : 0]
+    [[3, grandToReceive], [4, grandGstAmt], [5, grandFixedAmt > 0 ? grandFixedAmt : "-"], [6, grandTotal],
+     [11, grandGivenAmt > 0 ? grandGivenAmt : "-"], [12, grandPendingAmt > 0 ? grandPendingAmt : 0]
     ].forEach(([col, val]) => {
       const c = gtRow.getCell(col as number);
       c.value = val;
       if (typeof val === "number") c.numFmt = '#,##0.00';
-      c.font = { bold: true, color: { argb: col === 12 ? violet : col === 13 ? (grandPendingAmt > 0 ? red : green) : "FF000000" } };
+      c.font = { bold: true, color: { argb: col === 11 ? violet : col === 12 ? (grandPendingAmt > 0 ? red : green) : "FF000000" } };
       c.border = thinBorder;
       c.alignment = { horizontal: "right", vertical: "middle" };
       c.fill = { type: "pattern", pattern: "solid", fgColor: { argb: grey } };
     });
-    [8, 9, 10, 11, 14].forEach(col => {
+    [7, 8, 9, 10, 13].forEach(col => {
       const c = gtRow.getCell(col);
       c.border = thinBorder;
       c.fill = { type: "pattern", pattern: "solid", fgColor: { argb: grey } };
@@ -2849,7 +2844,7 @@ function PankajReport({ invoices, clients }: { invoices: any[]; clients: string[
 
     // Note row
     ws.mergeCells(rowIdx + 2, 1, rowIdx + 2, TOTAL_COLS);
-    ws.getRow(rowIdx + 2).getCell(1).value = "GST Amt = Bill Amount ka 5%  |  Total = GST + Fixed Amount – TDS";
+    ws.getRow(rowIdx + 2).getCell(1).value = "GST Amt = Bill Amount ka 5%  |  Total = GST + Fixed Amount";
     ws.getRow(rowIdx + 2).getCell(1).font = { italic: true, size: 9, color: { argb: "FF555555" } };
 
     // Download
@@ -3072,7 +3067,6 @@ function PankajReport({ invoices, clients }: { invoices: any[]; clients: string[
                       <th className="text-left py-3.5 px-4 font-semibold text-xs">Client Name</th>
                       <th className="text-right py-3.5 px-4 font-semibold text-xs">To Receive</th>
                       <th className="text-right py-3.5 px-4 font-semibold text-xs">GST Amt (5%)</th>
-                      <th className="text-right py-3.5 px-4 font-semibold text-xs">TDS Amt</th>
                       <th className="text-center py-3.5 px-4 font-semibold text-xs">Fixed Amount</th>
                       <th className="text-right py-3.5 px-4 font-semibold text-xs">Total</th>
                       <th className="text-center py-3.5 px-4 font-semibold text-xs">Pymnt Date</th>
@@ -3098,7 +3092,6 @@ function PankajReport({ invoices, clients }: { invoices: any[]; clients: string[
                         </td>
                         <td className="py-3 px-4 text-right font-mono text-sm">{fmtCurrency(r.toReceive)}</td>
                         <td className="py-3 px-4 text-right font-mono text-sm text-blue-600 dark:text-blue-400">{fmtCurrency(r.gstAmt)}</td>
-                        <td className="py-3 px-4 text-right font-mono text-sm text-orange-600 dark:text-orange-400">{fmtCurrency(r.tdsAmt)}</td>
                         <td className="py-2 px-2 text-center">
                           <Input type="number" className="w-24 h-8 text-xs text-center font-mono mx-auto" placeholder="0" disabled={multiMonth || (!!r.savedId && !editingRows.has(r.clientName))} value={fixedAmounts[r.clientName] || ""} onChange={(e) => setFixedAmounts(prev => ({ ...prev, [r.clientName]: Number(e.target.value) || 0 }))} data-testid={`input-fixed-amt-${r.idx}`} />
                         </td>
@@ -3194,7 +3187,6 @@ function PankajReport({ invoices, clients }: { invoices: any[]; clients: string[
                       <td colSpan={2} className="py-3 px-4 text-sm font-bold">Grand Total</td>
                       <td className="py-3 px-4 text-right font-mono text-sm font-bold">{fmtCurrency(grandToReceive)}</td>
                       <td className="py-3 px-4 text-right font-mono text-sm font-bold text-blue-600">{fmtCurrency(grandGstAmt)}</td>
-                      <td className="py-3 px-4 text-right font-mono text-sm font-bold text-orange-600">{fmtCurrency(grandTdsAmt)}</td>
                       <td className="py-3 px-4 text-center font-mono text-sm font-bold">{grandFixedAmt > 0 ? fmtCurrency(grandFixedAmt) : "-"}</td>
                       <td className="py-3 px-4 text-right font-mono text-sm font-bold text-emerald-600">{fmtCurrency(grandTotal)}</td>
                       <td className="py-3 px-3"></td>
@@ -3247,10 +3239,6 @@ function PankajReport({ invoices, clients }: { invoices: any[]; clients: string[
                     <div className="bg-blue-50 dark:bg-blue-950/20 rounded-xl p-2.5 text-center">
                       <p className="text-[10px] text-blue-600 dark:text-blue-400 uppercase tracking-wider font-medium">GST Amt (5%)</p>
                       <p className="font-mono font-bold text-blue-700 dark:text-blue-300 mt-0.5">{fmtCurrency(r.gstAmt)}</p>
-                    </div>
-                    <div className="bg-orange-50 dark:bg-orange-950/20 rounded-xl p-2.5 text-center">
-                      <p className="text-[10px] text-orange-600 dark:text-orange-400 uppercase tracking-wider font-medium">TDS Amt</p>
-                      <p className="font-mono font-bold text-orange-700 dark:text-orange-300 mt-0.5">{fmtCurrency(r.tdsAmt)}</p>
                     </div>
                     <div className="bg-purple-50 dark:bg-purple-950/20 rounded-xl p-2.5 text-center">
                       <p className="text-[10px] text-purple-600 dark:text-purple-400 uppercase tracking-wider font-medium">Fixed Amount</p>
