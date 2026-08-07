@@ -595,6 +595,87 @@ ${forPrint ? "<script>window.onload = function(){ window.print(); };</scr" + "ip
     nvOpenWindow(`${head}<body>${pages.map((p) => `<div class="page-break">${p}</div>`).join("")}<script>window.onload = function(){ window.print(); };</scr${""}ipt></body></html>`);
   };
 
+  // render invoice HTML in an offscreen iframe and snapshot to a JPEG file
+  const renderInvoiceJpeg = async (html: string, fileName: string): Promise<{ file: File; blob: Blob }> => {
+    const iframe = document.createElement("iframe");
+    iframe.style.cssText = "position:fixed;left:-10000px;top:0;width:820px;height:1200px;border:0;";
+    document.body.appendChild(iframe);
+    try {
+      const doc = iframe.contentDocument!;
+      doc.open(); doc.write(html); doc.close();
+      await Promise.all(
+        Array.from(doc.images).map((img) =>
+          img.complete ? Promise.resolve() : new Promise((res) => { img.onload = img.onerror = () => res(null); })
+        )
+      );
+      await new Promise((r) => setTimeout(r, 100));
+      const { toJpeg } = await import("html-to-image");
+      const dataUrl = await toJpeg(doc.body, {
+        quality: 0.97,
+        pixelRatio: 4,
+        backgroundColor: "#ffffff",
+        width: 820,
+        height: doc.body.scrollHeight,
+      });
+      const blob = await (await fetch(dataUrl)).blob();
+      return { file: new File([blob], fileName, { type: "image/jpeg" }), blob };
+    } finally {
+      iframe.remove();
+    }
+  };
+
+  const [nvSharing, setNvSharing] = useState(false);
+  const nvShareFiles = async (items: { html: string; fileName: string }[]) => {
+    if (nvSharing) return;
+    setNvSharing(true);
+    try {
+      const rendered: { file: File; blob: Blob; fileName: string }[] = [];
+      for (const it of items) {
+        const { file, blob } = await renderInvoiceJpeg(it.html, it.fileName);
+        rendered.push({ file, blob, fileName: it.fileName });
+      }
+      const files = rendered.map((r) => r.file);
+      // mobile: share sheet me WhatsApp choose kar ke seedha bhej sakte hain
+      if (navigator.canShare && navigator.canShare({ files })) {
+        try {
+          await navigator.share({ files, title: files.length === 1 ? files[0].name : `${files.length} Invoices` });
+          return;
+        } catch (err: any) {
+          if (err?.name === "AbortError") return;
+        }
+      }
+      // desktop fallback: sab JPEG download + WhatsApp Web kholo
+      for (const r of rendered) {
+        const url = URL.createObjectURL(r.blob);
+        const a = document.createElement("a");
+        a.href = url; a.download = r.fileName; a.click();
+        setTimeout(() => URL.revokeObjectURL(url), 10000);
+        await new Promise((res) => setTimeout(res, 300));
+      }
+      toast({ title: `${rendered.length} invoice JPEG download ho gayi`, description: "WhatsApp me photo attach kar ke bhej dijiye." });
+      window.open("https://web.whatsapp.com/", "_blank");
+    } catch (e: any) {
+      toast({ title: "JPEG banane me dikkat", description: e?.message || "Dobara try kijiye.", variant: "destructive" });
+    } finally {
+      setNvSharing(false);
+    }
+  };
+  const nvShareOne = (row: (typeof nvRows)[number]) => {
+    const rates = { Breakfast: String(row.rates.Breakfast), Lunch: String(row.rates.Lunch), Dinner: String(row.rates.Dinner) };
+    const { html, fileName } = buildInvoiceHtml(row.c, false, { rates, invNo: row.billNo, invDate: nvToday(), ctx: { entries: nvEntries, month: nvMonth, year: nvYear } });
+    nvShareFiles([{ html, fileName }]);
+  };
+  const nvShareAll = () => {
+    if (!nvRows.length) { toast({ title: "Koi data nahi", description: "Is month me koi invoice nahi hai.", variant: "destructive" }); return; }
+    const today = nvToday();
+    const items = nvRows.map((row) => {
+      const rates = { Breakfast: String(row.rates.Breakfast), Lunch: String(row.rates.Lunch), Dinner: String(row.rates.Dinner) };
+      const { html, fileName } = buildInvoiceHtml(row.c, false, { rates, invNo: row.billNo, invDate: today, ctx: { entries: nvEntries, month: nvMonth, year: nvYear } });
+      return { html, fileName };
+    });
+    nvShareFiles(items);
+  };
+
   const [sharingJpeg, setSharingJpeg] = useState(false);
   const shareInvoiceJpeg = async () => {
     const c = invContractor;
@@ -1178,6 +1259,9 @@ ${tbl(`Contractor-wise (${dashPeriodLabel})`, dashContractors.map((c) => ({ labe
               <Button variant="outline" className="text-purple-700 border-purple-700" onClick={nvPrintAll} data-testid="button-nv-print-all">
                 <Printer className="h-4 w-4 mr-1" /> Print All
               </Button>
+              <Button variant="outline" className="text-green-600 border-green-600" onClick={nvShareAll} disabled={nvSharing} data-testid="button-nv-whatsapp-all">
+                <MessageCircle className="h-4 w-4 mr-1" /> {nvSharing ? "Ban raha hai..." : "WhatsApp All"}
+              </Button>
             </CardContent>
           </Card>
           <Card>
@@ -1206,9 +1290,14 @@ ${tbl(`Contractor-wise (${dashPeriodLabel})`, dashContractors.map((c) => ({ labe
                       <td className="border p-2 text-right">{row.dinner || ""}</td>
                       <td className="border p-2 text-right font-semibold">{row.total.toLocaleString("en-IN", { minimumFractionDigits: 2 })}</td>
                       <td className="border p-2 text-center">
-                        <Button size="sm" variant="outline" onClick={() => nvPrintOne(row)} data-testid={`button-nv-print-${row.c.id}`}>
-                          <Printer className="h-4 w-4 mr-1" /> Print
-                        </Button>
+                        <div className="flex gap-1 justify-center">
+                          <Button size="sm" variant="outline" onClick={() => nvPrintOne(row)} data-testid={`button-nv-print-${row.c.id}`}>
+                            <Printer className="h-4 w-4 mr-1" /> Print
+                          </Button>
+                          <Button size="sm" variant="outline" className="text-green-600 border-green-600" onClick={() => nvShareOne(row)} disabled={nvSharing} data-testid={`button-nv-whatsapp-${row.c.id}`}>
+                            <MessageCircle className="h-4 w-4" />
+                          </Button>
+                        </div>
                       </td>
                     </tr>
                   ))}
