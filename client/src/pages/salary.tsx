@@ -537,7 +537,7 @@ export default function SalaryRegister() {
       ? prsDays + (holidays + holidayWorking) + holidayWorking + halfDay
       : n(s.daysWorked);
     const otHrs = n(s.overtimeHours);
-    const skillCategory = emp?.skills || "";
+    const skillCategory = (emp?.skills || "").trim();
     const skillBasedRate = skillRateMap.get(`${skillCategory}_${month}_${year}`);
     const basicRate = skillBasedRate !== undefined ? skillBasedRate : n(emp?.dailyRate);
     const basicWage = n(s.basicWage);

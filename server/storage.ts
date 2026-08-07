@@ -2387,7 +2387,7 @@ export class DatabaseStorage implements IStorage {
     for (const emp of activeEmps) {
       const att = attendanceRecords.find(a => a.employeeId === emp.id);
       const daysWorked = att ? Number(att.totalPresent) : 0;
-      const skillRate = await this.getSkillWageRate(emp.skills || "", month, year);
+      const skillRate = await this.getSkillWageRate((emp.skills || "").trim(), month, year);
       const dailyRate = skillRate ? Number(skillRate.dailyRate) : (Number(emp.dailyRate) || 0);
       const basicWage = daysWorked * dailyRate;
       const da = 0;
@@ -2653,7 +2653,7 @@ export class DatabaseStorage implements IStorage {
   }
   async getSkillWageRate(skillCategory: string, month: number, year: number): Promise<SkillWageRate | undefined> {
     const [rec] = await db.select().from(skillWageRates).where(
-      and(eq(skillWageRates.skillCategory, skillCategory), eq(skillWageRates.month, month), eq(skillWageRates.year, year))
+      and(eq(skillWageRates.skillCategory, skillCategory.trim()), eq(skillWageRates.month, month), eq(skillWageRates.year, year))
     );
     return rec;
   }

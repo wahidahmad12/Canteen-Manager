@@ -1968,7 +1968,7 @@ export async function registerRoutes(
 
     const { employees, skillWageRates: swrTable } = await import("@shared/schema");
     const empRows = await db.select().from(employees).where(eq(employees.id, employeeId));
-    const empSkill = empRows.length > 0 ? (empRows[0].skills || "") : "";
+    const empSkill = empRows.length > 0 ? (empRows[0].skills || "").trim() : "";
     let dailyRate = empRows.length > 0 ? Number(empRows[0].dailyRate || 0) : 0;
 
     const monthsWithRates: number[] = [];
@@ -2003,7 +2003,7 @@ export async function registerRoutes(
       const empRows = await db.select().from(employees).where(eq(employees.id, employeeId));
       if (empRows.length === 0) return res.status(404).json({ error: "Employee not found" });
       const emp = empRows[0];
-      const empSkill = emp.skills || "";
+      const empSkill = (emp.skills || "").trim();
 
       const allAttendance = await db.select().from(attendance).where(eq(attendance.employeeId, employeeId));
       if (allAttendance.length === 0) return res.json({ generated: 0, message: "No attendance records found" });
