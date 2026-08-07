@@ -2349,7 +2349,9 @@ function PankajReport({ invoices, clients }: { invoices: any[]; clients: string[
       const totalGst = fullPaidInvoices.reduce((s, i) => s + Number(i.gstAmount), 0);
       const totalTds = fullPaidInvoices.reduce((s, i) => s + Number(i.tdsAmount), 0);
       const toReceive = Math.round((totalBill + totalGst - totalTds) * 100) / 100;
-      const gstMinusTds = Math.round((totalGst - totalTds) * 100) / 100;
+      // Pankaj report me GST hamesha 5% flat — invoice ka asli GST % kuch bhi ho
+      const gstAt5 = Math.round(totalBill * 5) / 100;
+      const gstMinusTds = Math.round((gstAt5 - totalTds) * 100) / 100;
       const fixedAmt = fixedAmounts[clientName] || 0;
       const total = Math.round((gstMinusTds + fixedAmt) * 100) / 100;
 
