@@ -2402,7 +2402,7 @@ function PankajReport({ invoices, clients }: { invoices: any[]; clients: string[
   const grandFixedAmt = rows.reduce((s, r) => s + r.fixedAmt, 0);
   const grandTotal = rows.reduce((s, r) => s + r.total, 0);
   const grandGivenAmt = rows.reduce((s, r) => s + r.givenAmt, 0);
-  const grandPendingAmt = rows.reduce((s, r) => s + Math.max(r.total - r.givenAmt, 0), 0);
+  const grandPendingAmt = Math.round(rows.reduce((s, r) => s + (r.total - r.givenAmt), 0) * 100) / 100;
 
   const buildPayload = (r: typeof allRows[0]) => {
     const pmts = r.payments || [];
@@ -2554,8 +2554,8 @@ function PankajReport({ invoices, clients }: { invoices: any[]; clients: string[
           const pd = r.latestPaymentDate ? fmtD(r.latestPaymentDate) : "-";
           const pmts = r.payments || [];
           const pendingAmt = r.total - r.givenAmt;
-          const pendingStr = r.givenAmt <= 0 ? "-" : pendingAmt <= 0 ? "0.00" : pendingAmt.toLocaleString("en-IN", {minimumFractionDigits:2});
-          const pendingStyle = pendingAmt <= 0 && r.givenAmt > 0 ? "color:#15803d;" : r.givenAmt > 0 ? "color:#dc2626;font-weight:bold;" : "";
+          const pendingStr = r.givenAmt <= 0 ? "-" : pendingAmt.toLocaleString("en-IN", {minimumFractionDigits:2});
+          const pendingStyle = pendingAmt < 0 ? "color:#15803d;font-weight:bold;" : pendingAmt <= 0 && r.givenAmt > 0 ? "color:#15803d;" : r.givenAmt > 0 ? "color:#dc2626;font-weight:bold;" : "";
           const badge = r.pankajStatus === "given" ? "Full Paid" : r.pankajStatus === "partial" ? "Pending" : "Not Given";
           const badgeStyle = r.pankajStatus === "given" ? "color:#15803d;background:#dcfce7;" : r.pankajStatus === "partial" ? "color:#b45309;background:#fef3c7;" : "color:#4b5563;background:#f3f4f6;";
           if (pmts.length === 0) {
@@ -2600,7 +2600,7 @@ function PankajReport({ invoices, clients }: { invoices: any[]; clients: string[
           <td class="right">${grandTotal.toLocaleString("en-IN", {minimumFractionDigits:2})}</td>
           <td colspan="4"></td>
           <td class="right" style="color:#7c3aed;font-weight:bold">${grandGivenAmt > 0 ? grandGivenAmt.toLocaleString("en-IN", {minimumFractionDigits:2}) : "-"}</td>
-          <td class="right" style="${grandPendingAmt > 0 ? "color:#dc2626;font-weight:bold" : "color:#15803d;font-weight:bold"}">${grandPendingAmt > 0 ? grandPendingAmt.toLocaleString("en-IN", {minimumFractionDigits:2}) : "0.00"}</td>
+          <td class="right" style="${grandPendingAmt > 0 ? "color:#dc2626;font-weight:bold" : "color:#15803d;font-weight:bold"}">${grandPendingAmt.toLocaleString("en-IN", {minimumFractionDigits:2})}</td>
           <td></td>
         </tr></tfoot>
       </table>
@@ -2608,6 +2608,81 @@ function PankajReport({ invoices, clients }: { invoices: any[]; clients: string[
       <script>window.onload=function(){window.print();}<\/script>
     </body></html>`);
     printWindow.document.close();
+  };
+
+  // ---- Fixed Amount Pending report (month-wise; blank fixed amount = pending) ----
+  const [fixedPendingBusy, setFixedPendingBusy] = useState(false);
+  const handleFixedPendingReport = async () => {
+    if (fixedPendingBusy) return;
+    setFixedPendingBusy(true);
+    try {
+      const monthsArr = Array.from({ length: 12 }, (_, i) => i + 1);
+      const all = await Promise.all(
+        monthsArr.map(async (m) => {
+          const res = await fetch(`/api/pankaj-reports?month=${m}&year=${year}`, { credentials: "include" });
+          if (!res.ok) return [] as any[];
+          return (await res.json()) as any[];
+        }),
+      );
+      // client -> month -> fixedAmount (saved record hone par); no record = koi entry nahi
+      const byClient: Record<string, Record<number, number | null>> = {};
+      all.forEach((recs, i) => {
+        const m = i + 1;
+        for (const rec of recs) {
+          const name = rec.clientName;
+          if (!byClient[name]) byClient[name] = {};
+          byClient[name][m] = Number(rec.fixedAmount) > 0 ? Number(rec.fixedAmount) : null; // null = blank/0 = Pending
+        }
+      });
+      const clientNames = Object.keys(byClient).sort();
+      if (clientNames.length === 0) {
+        toast({ title: "Koi saved data nahi", description: `${year} me koi Pankaj report saved nahi hai. Pehle month-wise Save kijiye.`, variant: "destructive" });
+        return;
+      }
+      const MN = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+      const fmtA = (n: number) => n.toLocaleString("en-IN", { minimumFractionDigits: 2 });
+      const rowsHtml = clientNames.map((name, idx) => {
+        const cells = monthsArr.map((m) => {
+          const v = byClient[name][m];
+          if (v === undefined) return `<td class="center grey">-</td>`; // us month ka record hi nahi
+          if (v === null) return `<td class="center pending">Pending</td>`;
+          return `<td class="right">${fmtA(v)}</td>`;
+        }).join("");
+        const totalFixed = monthsArr.reduce((s, m) => s + (byClient[name][m] || 0), 0);
+        const pendCount = monthsArr.filter((m) => byClient[name][m] === null).length;
+        return `<tr><td class="center">${idx + 1}</td><td>${name}</td>${cells}<td class="right" style="font-weight:bold">${fmtA(totalFixed)}</td><td class="center" style="font-weight:bold;${pendCount > 0 ? "color:#dc2626" : "color:#15803d"}">${pendCount}</td></tr>`;
+      }).join("");
+      const w = window.open("", "_blank");
+      if (!w) { toast({ title: "Popup blocked", description: "Browser me popup allow kijiye.", variant: "destructive" }); return; }
+      w.document.write(`<!DOCTYPE html><html><head><title>Fixed Amount Pending - ${year}</title>
+      <style>
+        @page { size: A4 landscape; margin: 10mm; }
+        body { font-family: Calibri, Arial, sans-serif; font-size: 11px; color: #000; margin: 15px 20px; }
+        .company { font-size: 15px; font-weight: bold; text-align: center; }
+        .title { font-size: 13px; font-weight: bold; text-align: center; margin: 4px 0 10px; }
+        table { border-collapse: collapse; width: 100%; }
+        td, th { border: 1px solid #999; padding: 4px 6px; }
+        th { background: #1a237e; color: #fff; }
+        .center { text-align: center; } .right { text-align: right; }
+        .pending { color: #dc2626; font-weight: bold; background: #fef2f2; }
+        .grey { color: #999; }
+        .note { font-size: 10px; margin-top: 8px; font-style: italic; color: #444; }
+      </style></head><body>
+      <div class="company">DJ Hospitality &amp; Facility Management Private Limited</div>
+      <div class="title">Fixed Amount Pending Report — ${year}</div>
+      <table>
+        <thead><tr><th>Sl</th><th>Client Name</th>${monthsArr.map((m) => `<th>${MN[m - 1]}</th>`).join("")}<th>Total Fixed</th><th>Pending Months</th></tr></thead>
+        <tbody>${rowsHtml}</tbody>
+      </table>
+      <p class="note">Pending = us month ki report saved hai lekin Fixed Amount blank/0 hai &nbsp;|&nbsp; "-" = us month ki report abhi saved nahi hai</p>
+      <script>window.onload=function(){window.print();}<\/script>
+      </body></html>`);
+      w.document.close();
+    } catch (e: any) {
+      toast({ title: "Report banane me dikkat", description: e?.message || "Dobara try kijiye.", variant: "destructive" });
+    } finally {
+      setFixedPendingBusy(false);
+    }
   };
 
   const handleExportExcel = async () => {
@@ -2698,7 +2773,7 @@ function PankajReport({ invoices, clients }: { invoices: any[]; clients: string[
     let rowIdx = 6;
     rows.forEach(r => {
       const pmts = r.payments || [];
-      const pendingAmt = Math.max(r.total - r.givenAmt, 0);
+      const pendingAmt = Math.round((r.total - r.givenAmt) * 100) / 100;
       const badge = r.pankajStatus === "given" ? "Full Paid" : r.pankajStatus === "partial" ? "Pending" : "Not Given";
       const badgeColor = r.pankajStatus === "given" ? green : r.pankajStatus === "partial" ? amber : "FF4B5563";
       const pd = r.latestPaymentDate ? fmtD(r.latestPaymentDate) : "-";
@@ -2791,9 +2866,9 @@ function PankajReport({ invoices, clients }: { invoices: any[]; clients: string[
             tgCell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: instBg } };
 
             const paCell = dr.getCell(12);
-            paCell.value = pendingAmt > 0 ? pendingAmt : (r.givenAmt > 0 ? 0 : "-" as any);
+            paCell.value = r.givenAmt > 0 ? pendingAmt : "-" as any;
             if (typeof paCell.value === "number") paCell.numFmt = '#,##0.00';
-            paCell.font = { bold: pendingAmt > 0, color: { argb: pendingAmt <= 0 && r.givenAmt > 0 ? green : pendingAmt > 0 ? red : "FF4B5563" } };
+            paCell.font = { bold: pendingAmt !== 0, color: { argb: pendingAmt <= 0 && r.givenAmt > 0 ? green : pendingAmt > 0 ? red : "FF4B5563" } };
             paCell.border = thinBorder;
             paCell.alignment = { horizontal: "right", vertical: "middle" };
             paCell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: instBg } };
@@ -2825,7 +2900,7 @@ function PankajReport({ invoices, clients }: { invoices: any[]; clients: string[
     gtRow.getCell(1).border = thinBorder;
 
     [[3, grandToReceive], [4, grandGstAmt], [5, grandFixedAmt > 0 ? grandFixedAmt : "-"], [6, grandTotal],
-     [11, grandGivenAmt > 0 ? grandGivenAmt : "-"], [12, grandPendingAmt > 0 ? grandPendingAmt : 0]
+     [11, grandGivenAmt > 0 ? grandGivenAmt : "-"], [12, grandPendingAmt]
     ].forEach(([col, val]) => {
       const c = gtRow.getCell(col as number);
       c.value = val;
@@ -2884,6 +2959,9 @@ function PankajReport({ invoices, clients }: { invoices: any[]; clients: string[
               </Button>
               <Button size="sm" className="h-9 bg-gradient-to-r from-violet-600 to-purple-600 hover:from-violet-700 hover:to-purple-700 text-white shadow-md" onClick={handlePrint} data-testid="button-print-pankaj">
                 <Printer className="w-4 h-4 mr-1" /> Print
+              </Button>
+              <Button size="sm" variant="outline" className="h-9 border-orange-300 text-orange-700 hover:bg-orange-50 dark:border-orange-700 dark:text-orange-400" onClick={handleFixedPendingReport} disabled={fixedPendingBusy} data-testid="button-fixed-pending-pankaj">
+                <Printer className="w-4 h-4 mr-1" /> {fixedPendingBusy ? "Ban raha hai..." : "Fixed Pending"}
               </Button>
             </div>
           </div>
@@ -3140,9 +3218,10 @@ function PankajReport({ invoices, clients }: { invoices: any[]; clients: string[
                         {/* Pending Amt = Total - sum(payments) */}
                         <td className="py-3 px-3 text-right min-w-[90px]">
                           {(() => {
-                            const pending = r.total - r.givenAmt;
+                            const pending = Math.round((r.total - r.givenAmt) * 100) / 100;
                             if (r.givenAmt <= 0) return <span className="text-xs text-muted-foreground">—</span>;
-                            if (pending <= 0) return <span className="text-xs font-mono font-bold text-emerald-600">₹0.00</span>;
+                            if (pending < 0) return <span className="text-xs font-mono font-bold text-emerald-600">-{fmtCurrency(Math.abs(pending))}</span>;
+                            if (pending === 0) return <span className="text-xs font-mono font-bold text-emerald-600">₹0.00</span>;
                             return <span className="text-xs font-mono font-bold text-red-600 dark:text-red-400">{fmtCurrency(pending)}</span>;
                           })()}
                         </td>
@@ -3192,7 +3271,7 @@ function PankajReport({ invoices, clients }: { invoices: any[]; clients: string[
                       <td className="py-3 px-3"></td>
                       <td className="py-3 px-3"></td>
                       <td className="py-3 px-3 text-right font-mono text-sm font-bold text-violet-700 dark:text-violet-300">{grandGivenAmt > 0 ? fmtCurrency(grandGivenAmt) : "—"}</td>
-                      <td className="py-3 px-3 text-right font-mono text-sm font-bold text-red-600 dark:text-red-400">{grandPendingAmt > 0 ? fmtCurrency(grandPendingAmt) : <span className="text-emerald-600">₹0.00</span>}</td>
+                      <td className="py-3 px-3 text-right font-mono text-sm font-bold text-red-600 dark:text-red-400">{grandPendingAmt > 0 ? fmtCurrency(grandPendingAmt) : <span className="text-emerald-600">{grandPendingAmt < 0 ? `-${fmtCurrency(Math.abs(grandPendingAmt))}` : "₹0.00"}</span>}</td>
                       <td colSpan={3}></td>
                     </tr>
                   </tfoot>
@@ -3291,7 +3370,7 @@ function PankajReport({ invoices, clients }: { invoices: any[]; clients: string[
                         <IndianRupee className={`w-3.5 h-3.5 flex-shrink-0 ${r.total - r.givenAmt <= 0 ? "text-emerald-500" : "text-red-500"}`} />
                         <span className="text-xs text-muted-foreground flex-shrink-0">Pending:</span>
                         <span className={`text-xs font-mono font-bold ml-auto ${r.total - r.givenAmt <= 0 ? "text-emerald-600" : "text-red-600 dark:text-red-400"}`}>
-                          {r.total - r.givenAmt <= 0 ? "₹0.00 (Full Paid)" : fmtCurrency(r.total - r.givenAmt)}
+                          {r.total - r.givenAmt < 0 ? `-${fmtCurrency(Math.abs(r.total - r.givenAmt))} (Extra Given)` : r.total - r.givenAmt === 0 ? "₹0.00 (Full Paid)" : fmtCurrency(r.total - r.givenAmt)}
                         </span>
                       </div>
                     )}
