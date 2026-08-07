@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Layout } from "@/components/layout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -8,8 +8,8 @@ import { format } from "date-fns";
 import { Label } from "@/components/ui/label";
 import { Save, Loader2, ArrowLeft, CalendarDays, Sun, ChefHat, Cookie, Package, PackageOpen, PackageMinus, ClipboardList } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import { useCreateInventory, useInventories } from "@/hooks/use-reports";
-import { useLocation } from "wouter";
+import { useCreateInventory, useUpdateInventory, useInventory } from "@/hooks/use-reports";
+import { useLocation, useSearch } from "wouter";
 
 const DEFAULT_KITCHEN_STOCK = [
   { name: "Banana", unit: "Pcs" },
@@ -35,6 +35,16 @@ export default function DailyInventory() {
   const { toast } = useToast();
   const [, navigate] = useLocation();
   const createMutation = useCreateInventory();
+  const updateMutation = useUpdateInventory();
+
+  // Edit mode: /inventory?edit=<id> (reactive to URL changes)
+  const search = useSearch();
+  const editId = (() => {
+    const m = new URLSearchParams(search).get("edit");
+    return m && /^\d+$/.test(m) ? Number(m) : null;
+  })();
+  const { data: editData, isLoading: editLoading } = useInventory(editId);
+  const [loadedEditId, setLoadedEditId] = useState<number | null>(null);
 
   const [kitchenStock, setKitchenStock] = useState(
     DEFAULT_KITCHEN_STOCK.map(item => ({
@@ -83,9 +93,41 @@ export default function DailyInventory() {
     });
   };
 
+  // Reset form whenever the edit target changes (edit A -> edit B, or edit -> new)
+  useEffect(() => {
+    if (loadedEditId !== null && loadedEditId !== editId) {
+      setLoadedEditId(null);
+      setDate(new Date());
+      setKitchenStock(DEFAULT_KITCHEN_STOCK.map(item => ({ ...item, open: 0, used: 0, balance: 0, remarks: "" })));
+      setBiscuits(DEFAULT_BISCUITS.map(item => ({ ...item, expDate: "", brand: "", given: 0, used: 0, balance: 0 })));
+    }
+  }, [editId, loadedEditId]);
+
+  // Populate form when editing an existing record (re-hydrates when fresh data arrives)
+  useEffect(() => {
+    if (!editId || !editData || editData.id !== editId) return;
+    setDate(new Date(editData.date));
+    if (editData.kitchenStock?.length) {
+      setKitchenStock(editData.kitchenStock.map((i: any) => ({
+        name: i.name, unit: i.unit,
+        open: Number(i.open) || 0, used: Number(i.used) || 0,
+        balance: Number(i.balance) || (Number(i.open) || 0) - (Number(i.used) || 0),
+        remarks: i.remarks || "",
+      })));
+    }
+    if (editData.biscuits?.length) {
+      setBiscuits(editData.biscuits.map((i: any) => ({
+        name: i.name, expDate: i.expDate || "", brand: i.brand || "",
+        given: Number(i.given) || 0, used: Number(i.used) || 0,
+        balance: Number(i.balance) || (Number(i.given) || 0) - (Number(i.used) || 0),
+      })));
+    }
+    setLoadedEditId(editId);
+  }, [editId, editData]);
+
   const handleSave = async () => {
     try {
-      await createMutation.mutateAsync({
+      const payload = {
         date: format(date, "yyyy-MM-dd"),
         kitchenStock: kitchenStock.map(item => ({
           name: item.name,
@@ -103,8 +145,13 @@ export default function DailyInventory() {
           used: Number(item.used),
           balance: Number(item.balance),
         })),
-      });
-      toast({ title: "Success", description: "Daily Inventory saved successfully" });
+      };
+      if (editId) {
+        await updateMutation.mutateAsync({ id: editId, ...payload });
+      } else {
+        await createMutation.mutateAsync(payload);
+      }
+      toast({ title: "Success", description: editId ? "Daily Inventory updated successfully" : "Daily Inventory saved successfully" });
       navigate("/");
     } catch (e: any) {
       toast({ title: "Error", description: e.message || "Failed to save inventory", variant: "destructive" });
@@ -128,7 +175,7 @@ export default function DailyInventory() {
             </Button>
             <div className="min-w-0">
               <h1 className="text-lg sm:text-2xl font-bold tracking-tight bg-gradient-to-r from-orange-600 via-amber-600 to-yellow-500 bg-clip-text text-transparent" data-testid="text-inventory-title">
-                Daily Inventory
+                Daily Inventory{editId ? " (Edit)" : ""}
               </h1>
               <p className="text-muted-foreground text-xs sm:text-sm">Kitchen stock & biscuit tracking</p>
             </div>
@@ -139,16 +186,16 @@ export default function DailyInventory() {
             </Button>
             <Button
               onClick={handleSave}
-              disabled={createMutation.isPending}
+              disabled={createMutation.isPending || updateMutation.isPending || (!!editId && editLoading)}
               className="shadow-lg shadow-orange-500/20 text-xs sm:text-sm h-9 sm:h-10 rounded-xl bg-gradient-to-r from-orange-500 to-amber-600 hover:from-orange-600 hover:to-amber-700 border-0"
               data-testid="button-save-inventory"
             >
-              {createMutation.isPending ? (
+              {createMutation.isPending || updateMutation.isPending ? (
                 <Loader2 className="w-4 h-4 mr-2 animate-spin" />
               ) : (
                 <Save className="w-4 h-4 mr-2" />
               )}
-              Save Inventory
+              {editId ? "Update Inventory" : "Save Inventory"}
             </Button>
           </div>
         </div>

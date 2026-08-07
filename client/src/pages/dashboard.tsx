@@ -6,7 +6,7 @@ import { useToast } from "@/hooks/use-toast";
 import { Plus, Loader2, FileText, ArrowRight, Calculator, ClipboardList, UtensilsCrossed, ShoppingCart, Trash2, Check, CheckCircle2, FileDown, Pencil, Receipt, BarChart3, IndianRupee, TrendingUp, TrendingDown, Wallet, CreditCard, DollarSign, Store, FileSpreadsheet, Search, X, ScanLine } from "lucide-react";
 import GroceryScanTab from "@/components/grocery-scan-tab";
 import { SiWhatsapp } from "react-icons/si";
-import { useReports, useDeleteReport, useInventories, useCashSeals, useSavedMenus, useDeleteSavedMenu, usePurchaseRequests, useDeletePurchaseRequest, useUpdatePurchaseRequest, useCurrentUser, usePurchaseInvoices, useDeletePurchaseInvoice, useBananaRates } from "@/hooks/use-reports";
+import { useReports, useDeleteReport, useInventories, useDeleteInventory, useCashSeals, useSavedMenus, useDeleteSavedMenu, usePurchaseRequests, useDeletePurchaseRequest, useUpdatePurchaseRequest, useCurrentUser, usePurchaseInvoices, useDeletePurchaseInvoice, useBananaRates } from "@/hooks/use-reports";
 import { format } from "date-fns";
 import { bananaRateForDate } from "@shared/banana-rate";
 
@@ -90,6 +90,7 @@ export default function Dashboard() {
   const { data: purchaseRequests, isLoading: prLoading } = usePurchaseRequests({ enabled: hasPurchase });
   const { data: purchaseInvoices, isLoading: piLoading } = usePurchaseInvoices({ enabled: hasPurchase });
   const isAdmin = user?.role === 'admin';
+  const deleteInventoryMutation = useDeleteInventory();
   const deleteMutation = useDeleteReport();
   const deleteMenuMutation = useDeleteSavedMenu();
   const deletePurchaseMutation = useDeletePurchaseRequest();
@@ -1026,7 +1027,19 @@ export default function Dashboard() {
                             </div>
                             <div className="flex gap-1">
                               <Link href={`/inventory/${inv.id}/pdf`}><Button size="sm" variant="ghost" className="h-8 w-8 p-0 text-emerald-600" data-testid={`button-pdf-inventory-${inv.id}`}><FileDown className="w-4 h-4" /></Button></Link>
-                              <Button size="sm" variant="ghost" className="h-8 px-2 text-xs text-orange-600" data-testid={`button-view-inventory-${inv.id}`}>View <ArrowRight className="w-3 h-3 ml-1" /></Button>
+                              <Link href={`/inventory/${inv.id}/pdf`}><Button size="sm" variant="ghost" className="h-8 px-2 text-xs text-orange-600" data-testid={`button-view-inventory-${inv.id}`}>View <ArrowRight className="w-3 h-3 ml-1" /></Button></Link>
+                              <Link href={`/inventory?edit=${inv.id}`}><Button size="sm" variant="ghost" className="h-8 w-8 p-0 text-teal-600" data-testid={`button-edit-inventory-${inv.id}`}><Pencil className="w-4 h-4" /></Button></Link>
+                              {isAdmin && (
+                                <AlertDialog>
+                                  <AlertDialogTrigger asChild>
+                                    <Button size="sm" variant="ghost" className="h-8 w-8 p-0 text-destructive" data-testid={`button-delete-inventory-${inv.id}`}><Trash2 className="w-4 h-4" /></Button>
+                                  </AlertDialogTrigger>
+                                  <AlertDialogContent>
+                                    <AlertDialogHeader><AlertDialogTitle>Are you sure?</AlertDialogTitle><AlertDialogDescription>This will permanently delete the inventory record for {format(new Date(inv.date), "dd-MM-yyyy")}.</AlertDialogDescription></AlertDialogHeader>
+                                    <AlertDialogFooter><AlertDialogCancel>Cancel</AlertDialogCancel><AlertDialogAction onClick={() => deleteInventoryMutation.mutate(inv.id)} className="bg-destructive hover:bg-destructive/90 text-destructive-foreground">Delete</AlertDialogAction></AlertDialogFooter>
+                                  </AlertDialogContent>
+                                </AlertDialog>
+                              )}
                             </div>
                           </div>
                           <div className="grid grid-cols-3 gap-1.5 text-center">
@@ -1079,7 +1092,19 @@ export default function Dashboard() {
                               <td className="px-3 py-2.5 text-right">
                                 <div className="flex items-center justify-end gap-1">
                                   <Link href={`/inventory/${inv.id}/pdf`}><Button size="sm" variant="ghost" className="h-7 text-xs text-emerald-600" data-testid={`button-pdf-inventory-${inv.id}`}><FileDown className="w-3.5 h-3.5 mr-0.5" />PDF</Button></Link>
-                                  <Button size="sm" variant="ghost" className="h-7 text-xs text-orange-600" data-testid={`button-view-inventory-${inv.id}`}>View <ArrowRight className="w-3 h-3 ml-1" /></Button>
+                                  <Link href={`/inventory/${inv.id}/pdf`}><Button size="sm" variant="ghost" className="h-7 text-xs text-orange-600" data-testid={`button-view-inventory-${inv.id}`}>View <ArrowRight className="w-3 h-3 ml-1" /></Button></Link>
+                                  <Link href={`/inventory?edit=${inv.id}`}><Button size="sm" variant="ghost" className="h-7 text-xs text-teal-600" data-testid={`button-edit-inventory-${inv.id}`}><Pencil className="w-3.5 h-3.5 mr-0.5" />Edit</Button></Link>
+                                  {isAdmin && (
+                                    <AlertDialog>
+                                      <AlertDialogTrigger asChild>
+                                        <Button size="sm" variant="ghost" className="h-7 text-xs text-destructive" data-testid={`button-delete-inventory-${inv.id}`}><Trash2 className="w-3.5 h-3.5" /></Button>
+                                      </AlertDialogTrigger>
+                                      <AlertDialogContent>
+                                        <AlertDialogHeader><AlertDialogTitle>Are you sure?</AlertDialogTitle><AlertDialogDescription>This will permanently delete the inventory record for {format(new Date(inv.date), "dd-MM-yyyy")}.</AlertDialogDescription></AlertDialogHeader>
+                                        <AlertDialogFooter><AlertDialogCancel>Cancel</AlertDialogCancel><AlertDialogAction onClick={() => deleteInventoryMutation.mutate(inv.id)} className="bg-destructive hover:bg-destructive/90 text-destructive-foreground">Delete</AlertDialogAction></AlertDialogFooter>
+                                      </AlertDialogContent>
+                                    </AlertDialog>
+                                  )}
                                 </div>
                               </td>
                             </tr>

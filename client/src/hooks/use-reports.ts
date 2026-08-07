@@ -451,8 +451,9 @@ export function useUpdateInventory() {
       }
       return res.json() as Promise<InventoryWithItems>;
     },
-    onSuccess: () => {
+    onSuccess: (data, vars) => {
       queryClient.invalidateQueries({ queryKey: [api.inventory.list.path] });
+      queryClient.setQueryData([api.inventory.get.path, vars.id], data);
     },
   });
 }
@@ -465,8 +466,9 @@ export function useDeleteInventory() {
       const res = await fetch(url, { method: "DELETE", credentials: "include" });
       if (!res.ok) throw new Error("Failed to delete inventory");
     },
-    onSuccess: () => {
+    onSuccess: (_data, id) => {
       queryClient.invalidateQueries({ queryKey: [api.inventory.list.path] });
+      queryClient.removeQueries({ queryKey: [api.inventory.get.path, id] });
     },
   });
 }
