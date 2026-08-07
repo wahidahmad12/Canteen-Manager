@@ -318,15 +318,29 @@ export default function ContractorMealsPage() {
   const buildInvoiceHtml = (
     c: Contractor,
     forPrint: boolean,
-    override?: { rates: Record<"Breakfast" | "Lunch" | "Dinner", string>; invNo: string; invDate: string; bodyOnly?: boolean },
+    override?: { rates: Record<"Breakfast" | "Lunch" | "Dinner", string>; invNo: string; invDate: string; bodyOnly?: boolean; ctx?: { entries: MealEntry[]; month: number; year: number } },
   ) => {
     const useRates = override?.rates ?? invRates;
     const useInvNo = override?.invNo ?? invNo;
     const useInvDate = override?.invDate ?? invDate;
-    const v = rowValue(c);
-    const lastDay = new Date(year, month, 0).getDate();
-    const mm = String(month).padStart(2, "0");
-    const period = `01-${mm}-${year} To ${lastDay}-${mm}-${year}`;
+    const useMonth = override?.ctx?.month ?? month;
+    const useYear = override?.ctx?.year ?? year;
+    let v: { billNo: string; breakfast: string; lunch: string; dinner: string };
+    if (override?.ctx) {
+      v = { billNo: "", breakfast: "", lunch: "", dinner: "" };
+      for (const e of override.ctx.entries) {
+        if (e.contractorId !== c.id) continue;
+        if (e.billNo) v.billNo = e.billNo;
+        if (e.mealType === "Breakfast") v.breakfast = String(e.qty);
+        if (e.mealType === "Lunch") v.lunch = String(e.qty);
+        if (e.mealType === "Dinner") v.dinner = String(e.qty);
+      }
+    } else {
+      v = rowValue(c);
+    }
+    const lastDay = new Date(useYear, useMonth, 0).getDate();
+    const mm = String(useMonth).padStart(2, "0");
+    const period = `01-${mm}-${useYear} To ${lastDay}-${mm}-${useYear}`;
     const client = clients.find((cl) => cl.name === c.clientName);
     // BILL TO = contractor's own address (from Contractor master)
     const billToAddr = c.address?.trim() || "";
@@ -449,7 +463,7 @@ export default function ContractorMealsPage() {
 ${page}
 ${forPrint ? "<script>window.onload = function(){ window.print(); };</scr" + "ipt>" : ""}
 </body></html>`;
-    return { html, page, fileName: `Invoice-${c.vendorCode}-${mm}-${year}.jpg` };
+    return { html, page, fileName: `Invoice-${c.vendorCode}-${mm}-${useYear}.jpg` };
   };
 
   const printBusy = useRef(false);
@@ -522,6 +536,63 @@ ${forPrint ? "<script>window.onload = function(){ window.print(); };</scr" + "ip
     } finally {
       setConvertingAll(false);
     }
+  };
+
+  // ---- Non GST Invoice tab (month-wise invoices) ----
+  const [nvMonth, setNvMonth] = useState(now.getMonth() + 1);
+  const [nvYear, setNvYear] = useState(now.getFullYear());
+  const { data: nvEntries = [], isFetching: nvFetching } = useQuery<MealEntry[]>({
+    queryKey: ["/api/contractor-meals", nvMonth, nvYear],
+    queryFn: async () => (await apiRequest("GET", `/api/contractor-meals?month=${nvMonth}&year=${nvYear}`)).json(),
+  });
+  const nvRows = useMemo(() => {
+    return contractors
+      .map((c) => {
+        const r = { billNo: "", breakfast: 0, lunch: 0, dinner: 0, rates: { Breakfast: 0, Lunch: 0, Dinner: 0 } };
+        for (const e of nvEntries) {
+          if (e.contractorId !== c.id) continue;
+          if (e.billNo) r.billNo = e.billNo;
+          if (Number(e.rate) > 0) (r.rates as any)[e.mealType] = Number(e.rate);
+          if (e.mealType === "Breakfast") r.breakfast = e.qty;
+          if (e.mealType === "Lunch") r.lunch = e.qty;
+          if (e.mealType === "Dinner") r.dinner = e.qty;
+        }
+        const rates = {
+          Breakfast: r.rates.Breakfast || 4.6,
+          Lunch: r.rates.Lunch || 11.6,
+          Dinner: r.rates.Dinner || 11.6,
+        };
+        const total = Math.round((r.breakfast * rates.Breakfast + r.lunch * rates.Lunch + r.dinner * rates.Dinner) * 100) / 100;
+        return { c, ...r, rates, total };
+      })
+      .filter((r) => r.breakfast > 0 || r.lunch > 0 || r.dinner > 0);
+  }, [contractors, nvEntries]);
+
+  const nvOpenWindow = (html: string) => {
+    const w = window.open("", "_blank");
+    if (!w) { toast({ title: "Popup blocked", description: "Browser me popup allow kijiye.", variant: "destructive" }); return; }
+    w.document.write(html);
+    w.document.close();
+  };
+  const nvToday = () => {
+    const t = new Date();
+    return `${t.getFullYear()}-${String(t.getMonth() + 1).padStart(2, "0")}-${String(t.getDate()).padStart(2, "0")}`;
+  };
+  const nvPrintOne = (row: (typeof nvRows)[number]) => {
+    const rates = { Breakfast: String(row.rates.Breakfast), Lunch: String(row.rates.Lunch), Dinner: String(row.rates.Dinner) };
+    const { html } = buildInvoiceHtml(row.c, true, { rates, invNo: row.billNo, invDate: nvToday(), ctx: { entries: nvEntries, month: nvMonth, year: nvYear } });
+    nvOpenWindow(html);
+  };
+  const nvPrintAll = () => {
+    if (!nvRows.length) { toast({ title: "Koi data nahi", description: "Is month me koi invoice nahi hai.", variant: "destructive" }); return; }
+    const today = nvToday();
+    const pages = nvRows.map((row) => {
+      const rates = { Breakfast: String(row.rates.Breakfast), Lunch: String(row.rates.Lunch), Dinner: String(row.rates.Dinner) };
+      return buildInvoiceHtml(row.c, false, { rates, invNo: row.billNo, invDate: today, ctx: { entries: nvEntries, month: nvMonth, year: nvYear } }).page;
+    });
+    const { html } = buildInvoiceHtml(nvRows[0].c, false, { rates: { Breakfast: "4.6", Lunch: "11.6", Dinner: "11.6" }, invNo: "", invDate: today, ctx: { entries: nvEntries, month: nvMonth, year: nvYear } });
+    const head = html.slice(0, html.indexOf("</head>") + 7);
+    nvOpenWindow(`${head}<body>${pages.map((p) => `<div class="page-break">${p}</div>`).join("")}<script>window.onload = function(){ window.print(); };</scr${""}ipt></body></html>`);
   };
 
   const [sharingJpeg, setSharingJpeg] = useState(false);
@@ -809,6 +880,7 @@ ${tbl(`Contractor-wise (${dashPeriodLabel})`, dashContractors.map((c) => ({ labe
         <TabsList>
           <TabsTrigger value="entry" data-testid="tab-meal-entry">Meal Entry</TabsTrigger>
           <TabsTrigger value="master" data-testid="tab-contractor-list">Contractor List</TabsTrigger>
+          <TabsTrigger value="nongst" data-testid="tab-non-gst">Non GST Invoice</TabsTrigger>
           <TabsTrigger value="payments" data-testid="tab-payments">Payments</TabsTrigger>
           <TabsTrigger value="dashboard" data-testid="tab-dashboard">Dashboard</TabsTrigger>
         </TabsList>
@@ -1079,6 +1151,76 @@ ${tbl(`Contractor-wise (${dashPeriodLabel})`, dashContractors.map((c) => ({ labe
         </TabsContent>
 
         {/* ============ PAYMENTS ============ */}
+        <TabsContent value="nongst" className="space-y-4">
+          <Card>
+            <CardContent className="pt-4 flex flex-wrap items-end gap-3">
+              <div>
+                <Label>Month</Label>
+                <Select value={String(nvMonth)} onValueChange={(v) => setNvMonth(Number(v))}>
+                  <SelectTrigger className="w-32" data-testid="select-nv-month"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    {MONTH_NAMES.map((m, i) => <SelectItem key={m} value={String(i + 1)}>{m}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <Label>Year</Label>
+                <Select value={String(nvYear)} onValueChange={(v) => setNvYear(Number(v))}>
+                  <SelectTrigger className="w-28" data-testid="select-nv-year"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    {Array.from({ length: 6 }, (_, i) => now.getFullYear() - 3 + i).map((y) => (
+                      <SelectItem key={y} value={String(y)}>{y}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="flex-1" />
+              <Button variant="outline" className="text-purple-700 border-purple-700" onClick={nvPrintAll} data-testid="button-nv-print-all">
+                <Printer className="h-4 w-4 mr-1" /> Print All
+              </Button>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardContent className="pt-4 overflow-x-auto">
+              <table className="w-full text-sm border-collapse">
+                <thead>
+                  <tr className="bg-muted">
+                    <th className="border p-2 text-left">Vendor Code</th>
+                    <th className="border p-2 text-left">Contractor</th>
+                    <th className="border p-2 text-left">Bill No</th>
+                    <th className="border p-2 text-right">Breakfast</th>
+                    <th className="border p-2 text-right">Lunch</th>
+                    <th className="border p-2 text-right">Dinner</th>
+                    <th className="border p-2 text-right">Total (₹)</th>
+                    <th className="border p-2 text-center">Invoice</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {nvRows.map((row) => (
+                    <tr key={row.c.id} data-testid={`row-nv-${row.c.id}`}>
+                      <td className="border p-2">{row.c.vendorCode}</td>
+                      <td className="border p-2 font-medium">{row.c.name}</td>
+                      <td className="border p-2">{row.billNo}</td>
+                      <td className="border p-2 text-right">{row.breakfast || ""}</td>
+                      <td className="border p-2 text-right">{row.lunch || ""}</td>
+                      <td className="border p-2 text-right">{row.dinner || ""}</td>
+                      <td className="border p-2 text-right font-semibold">{row.total.toLocaleString("en-IN", { minimumFractionDigits: 2 })}</td>
+                      <td className="border p-2 text-center">
+                        <Button size="sm" variant="outline" onClick={() => nvPrintOne(row)} data-testid={`button-nv-print-${row.c.id}`}>
+                          <Printer className="h-4 w-4 mr-1" /> Print
+                        </Button>
+                      </td>
+                    </tr>
+                  ))}
+                  {nvRows.length === 0 && (
+                    <tr><td className="border p-4 text-center text-muted-foreground" colSpan={8}>{nvFetching ? "Loading..." : "Is month me koi invoice data nahi hai."}</td></tr>
+                  )}
+                </tbody>
+              </table>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
         <TabsContent value="payments" className="space-y-4">
           <Card>
             <CardHeader className="py-3">
