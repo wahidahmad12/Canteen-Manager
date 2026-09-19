@@ -8,6 +8,7 @@ import mysql from "mysql2/promise";
 import { dbReady } from "./db";
 
 const app = express();
+app.use(express.static('public'));
 app.set("trust proxy", 1);
 const httpServer = createServer(app);
 
