@@ -18,7 +18,7 @@ app.post('/api/save-sales', async (req: any, res: any) => {
         // Aaj ki date ko 'YYYY-MM-DD' format mein nikalna
         const today = new Date().toISOString().split('T')[0]; 
 
-        // Data insert ya aaj ke din ke hisaab se update karega
+        // TiDB mein data insert ya update karna
         await db.insert(canteenSales).values({
             recordDate: today,
             bfCount: data.bfCount, bfAmt: data.bfAmt,
@@ -34,13 +34,31 @@ app.post('/api/save-sales', async (req: any, res: any) => {
             grandTotal: data.grandTotal, totalRevenue: data.totalRevenue
         }});
 
-        res.status(200).json({ success: true, message: "Data Saved!" });
+        res.status(200).json({ success: true, message: "Data Database mein Save ho gaya!" });
     } catch (error: any) {
         console.error("Save Error:", error);
         res.status(500).json({ success: false, error: error.message });
     }
 });
 
+// 2. REPORT FETCH KARNE KI API
+app.get('/api/get-report', async (req: any, res: any) => {
+    try {
+        const queryDate = req.query.date; 
+        
+        // Database se us specific date ka data recall karna
+        const record = await db.select().from(canteenSales).where(eq(canteenSales.recordDate, queryDate));
+        
+        if (record.length > 0) {
+            res.status(200).json(record[0]);
+        } else {
+            res.status(404).json({ message: "Is date ka data maujood nahi hai." });
+        }
+    } catch (error: any) {
+        console.error("Fetch Error:", error);
+        res.status(500).json({ success: false, error: error.message });
+    }
+});
 // ... aapka purana app.post('/api/save-sales', ...) wala code upar rahega ...
 
 // 2. REPORT FETCH KARNE KI API (Data recall karne ke liye)
