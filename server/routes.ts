@@ -9,7 +9,56 @@ import bcrypt from "bcryptjs";
 import { insertPankajReportSchema, insertTaxInvoiceSchema, insertTaxInvoiceItemSchema } from "@shared/schema";
 import { generateRegistrationOptions, verifyRegistrationResponse, generateAuthenticationOptions, verifyAuthenticationResponse } from '@simplewebauthn/server';
 import { isoBase64URL, isoUint8Array } from '@simplewebauthn/server/helpers';
-import { daily_reports } from "../shared/schema";
+import { eq } from "drizzle-orm"; // Ise file ke top par import karein
+
+// 1. DATA SAVE KARNE KI API
+app.post('/api/save-sales', async (req: any, res: any) => {
+    try {
+        const data = req.body;
+        // Aaj ki date ko 'YYYY-MM-DD' format mein nikalna
+        const today = new Date().toISOString().split('T')[0]; 
+
+        // Data insert ya aaj ke din ke hisaab se update karega
+        await db.insert(canteenSales).values({
+            recordDate: today,
+            bfCount: data.bfCount, bfAmt: data.bfAmt,
+            luVeg: data.luVeg, luNonVeg: data.luNonVeg, luAmt: data.luAmt,
+            evVeg: data.evVeg, evNonVeg: data.evNonVeg, evAmt: data.evAmt,
+            niCount: data.niCount, niAmt: data.niAmt,
+            grandTotal: data.grandTotal, totalRevenue: data.totalRevenue
+        }).onDuplicateKeyUpdate({ set: {
+            bfCount: data.bfCount, bfAmt: data.bfAmt,
+            luVeg: data.luVeg, luNonVeg: data.luNonVeg, luAmt: data.luAmt,
+            evVeg: data.evVeg, evNonVeg: data.evNonVeg, evAmt: data.evAmt,
+            niCount: data.niCount, niAmt: data.niAmt,
+            grandTotal: data.grandTotal, totalRevenue: data.totalRevenue
+        }});
+
+        res.status(200).json({ success: true, message: "Data Saved!" });
+    } catch (error: any) {
+        console.error("Save Error:", error);
+        res.status(500).json({ success: false, error: error.message });
+    }
+});
+
+// 2. REPORT FETCH KARNE KI API
+app.get('/api/get-report', async (req: any, res: any) => {
+    try {
+        const queryDate = req.query.date; // Frontend se aayi date
+        
+        // Database se us din ka exact data nikalna
+        const record = await db.select().from(canteenSales).where(eq(canteenSales.recordDate, queryDate));
+        
+        if (record.length > 0) {
+            res.status(200).json(record[0]);
+        } else {
+            res.status(404).json({ message: "Is date ka data maujood nahi hai." });
+        }
+    } catch (error: any) {
+        console.error("Fetch Error:", error);
+        res.status(500).json({ success: false, error: error.message });
+    }
+});
 const webauthnRegChallenges = new Map<number, string>();
 const webauthnAuthChallenges = new Map<number, string>();
 
