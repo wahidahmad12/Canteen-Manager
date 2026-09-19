@@ -1314,3 +1314,19 @@ export const weeklyMenuItems = mysqlTable("weekly_menu_items", {
 export type WeeklyMenuItem = typeof weeklyMenuItems.$inferSelect;
 export const insertWeeklyMenuItemSchema = createInsertSchema(weeklyMenuItems).omit({ id: true, createdAt: true });
 export type InsertWeeklyMenuItem = z.infer<typeof insertWeeklyMenuItemSchema>;
+// Nayi Canteen Sales Table
+export const canteenSales = mysqlTable("canteen_sales", {
+    recordDate: date("record_date").primaryKey(),
+    bfCount: int("bf_count").default(0),
+    bfAmt: int("bf_amt").default(0),
+    luVeg: int("lu_veg").default(0),
+    luNonVeg: int("lu_nonveg").default(0),
+    luAmt: int("lu_amt").default(0),
+    evVeg: int("ev_veg").default(0),
+    evNonVeg: int("ev_nonveg").default(0),
+    evAmt: int("ev_amt").default(0),
+    niCount: int("ni_count").default(0),
+    niAmt: int("ni_amt").default(0),
+    grandTotal: int("grand_total").default(0),
+    totalRevenue: int("total_revenue").default(0),
+});
