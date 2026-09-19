@@ -1,7 +1,8 @@
 
 import { z } from 'zod';
 import { insertDailyReportSchema, insertExpenseItemSchema, selectDailyReportSchema, selectExpenseItemSchema, selectVegetableItemSchema, inventoryWithItemsSchema, selectClientNameSchema, selectSavedMenuSchema, purchaseRequestWithItemsSchema, selectSavedItemNameSchema, selectVendorSchema, purchaseInvoiceWithItemsSchema, selectItemMasterSchema } from './schema';
-
+import { eq } from "drizzle-orm";
+import { canteenSales } from "../shared/schema";
 export const errorSchemas = {
   validation: z.object({
     message: z.string(),
