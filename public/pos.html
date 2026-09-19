@@ -217,7 +217,7 @@
             }
         }
 
-        // --- DATA SAVE SYSTEM ---
+        // --- DATA SAVE SYSTEM (LOCAL + RENDER API INTEGRATED) ---
         function loadSavedData() {
             let savedInventory = localStorage.getItem("hul_inventory");
             if (savedInventory) {
@@ -239,12 +239,30 @@
             if (savedRev) totalRevenue = parseInt(savedRev);
         }
 
-        function saveData() {
+        // API INTEGRATION: Ab data local storage aur live server dono me save hoga
+        async function saveData() {
+            // 1. Local Storage Update (taaki page refresh hone par data na ude)
             localStorage.setItem("hul_inventory", JSON.stringify(inventory));
             localStorage.setItem("hul_veg", totalVeg);
             localStorage.setItem("hul_nonveg", totalNonVeg);
             localStorage.setItem("hul_grand", grandTotal);
             localStorage.setItem("hul_revenue", totalRevenue);
+
+            // 2. Render Server / Database par data bhejna (Fetch API)
+            try {
+                await fetch('/api/save-sales', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        totalVeg: totalVeg,
+                        totalNonVeg: totalNonVeg,
+                        grandTotal: grandTotal,
+                        totalRevenue: totalRevenue
+                    })
+                });
+            } catch (error) {
+                console.error("Data server tak nahi pahucha:", error);
+            }
         }
 
         function resetAllData() {
