@@ -122,7 +122,21 @@
             </div>
         </div>
     </div>
-
+<!-- Reports Section -->
+        <div class="box" style="margin-top: 20px; width: 100%;">
+            <h2>📊 Date-wise Sales Report</h2>
+            <div class="controls" style="max-width: 300px;">
+                <label for="reportDate"><strong>Select Date:</strong></label>
+                <input type="date" id="reportDate" onchange="fetchReportData()">
+            </div>
+            
+            <div class="dashboard" id="reportResult" style="display: none; margin-top: 15px;">
+                <div class="dash-card">Veg Meals<br><span class="highlight text-veg" id="rep-veg">0</span></div>
+                <div class="dash-card">Non-Veg Meals<br><span class="highlight text-nonveg" id="rep-nonveg">0</span></div>
+                <div class="dash-card">Total Meals<br><span class="highlight" id="rep-total">0</span></div>
+                <div class="dash-card">Total Revenue<br><span class="highlight">₹ <span id="rep-rev">0</span></span></div>
+            </div>
+        </div>
     <script>
         // 1. Initial Default Inventory
         let defaultInventory = {
