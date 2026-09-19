@@ -90,7 +90,20 @@ export async function registerRoutes(
   httpServer: Server,
   app: Express
 ): Promise<Server> {
-
+// --- CANTEEN POS ROUTES ---
+  app.post('/api/save-sales', async (req: any, res: any) => {
+      try {
+          const { totalVeg, totalNonVeg, grandTotal, totalRevenue } = req.body;
+          
+          // Drizzle ORM insert logic yahan aayega
+          console.log("Canteen POS Data Received:", req.body);
+          
+          res.status(200).json({ success: true, message: "API connected successfully!" });
+      } catch (error: any) {
+          console.error("API Error:", error);
+          res.status(500).json({ success: false, error: error.message });
+      }
+  });
   // === AUTH ROUTES (no auth required) ===
   app.post(api.auth.login.path, async (req, res) => {
     try {
