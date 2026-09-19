@@ -29,7 +29,8 @@
         .btn-add-stock { background-color: #2c3e50; padding: 10px; margin-top: 10px;}
         
         .reset-btn { background-color: #e74c3c; padding: 5px 10px; font-size: 12px; border-radius: 4px; width: auto; }
-        .toggle-inv-btn { background-color: #34495e; padding: 15px; font-size: 18px; border-radius: 8px; margin-bottom: 15px; }
+        .toggle-inv-btn { background-color: #34495e; padding: 15px; font-size: 18px; border-radius: 8px; margin-bottom: 15px; color: white; text-decoration: none; display: block; text-align: center; border: none; cursor: pointer;}
+        .report-btn { background-color: #8e44ad; }
 
         table { width: 100%; border-collapse: collapse; margin-top: 15px; font-size: 14px; }
         th, td { padding: 10px; text-align: left; border-bottom: 1px solid #ddd; }
@@ -42,17 +43,17 @@
         
         .stock-entry { background: #eef2f3; padding: 15px; border-radius: 8px; margin-bottom: 15px; border: 1px dashed #b2bec3; }
         .canteen-status { font-size: 18px; font-weight: bold; color: #c0392b; text-align: center; margin-top: 15px; padding: 10px; background: #fadbd8; border-radius: 5px; display: none; }
-        
-        /* Detailed Report Table Styles */
-        .report-table th { background-color: #34495e; color: white; text-align: center;}
-        .report-table td { text-align: center; border: 1px solid #ddd;}
-        .report-table .section-title { text-align: left; font-weight: bold; background: #ecf0f1; }
     </style>
 </head>
 <body>
 
     <h1 class="header-title">HINDUSTAN UNILEVER LIMITED</h1>
     <div class="sub-header">KIDDERPORE FACTORY - SMART CANTEEN POS</div>
+
+    <div class="container" style="justify-content: center; margin-bottom: 20px;">
+        <!-- Naye Report Page Par Jane Ka Button -->
+        <a href="reports.html" class="toggle-inv-btn report-btn" style="width: 100%; max-width: 1200px;">📊 View Detailed Reports Page</a>
+    </div>
 
     <div class="container">
         <!-- Billing Section -->
@@ -118,69 +119,9 @@
                 </table>
             </div>
         </div>
-
-        <!-- DETAILED REPORTS SECTION -->
-        <div class="box" style="margin-top: 20px; width: 100%;">
-            <h2>📊 Canteen Detailed Report</h2>
-            <div class="controls">
-                <div class="controls-inner">
-                    <label><strong>Report Type:</strong></label>
-                    <select id="reportType" onchange="fetchReportData()">
-                        <option value="daily">Daily</option>
-                        <option value="weekly">Weekly</option>
-                        <option value="monthly">Monthly</option>
-                        <option value="yearly">Yearly</option>
-                    </select>
-                </div>
-                <div class="controls-inner">
-                    <label><strong>Reference Date:</strong></label>
-                    <input type="date" id="reportDate" onchange="fetchReportData()">
-                </div>
-            </div>
-
-            <table class="report-table" id="reportResult" style="display: none; margin-top: 15px; width: 100%;">
-                <thead>
-                    <tr>
-                        <th>Meal Type</th>
-                        <th>Veg Count</th>
-                        <th>Non-Veg Count</th>
-                        <th>Total Count</th>
-                        <th>Total Amount (₹)</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    <tr>
-                        <td class="section-title">Breakfast</td>
-                        <td>-</td><td>-</td>
-                        <td id="rep-bf-cnt">0</td><td id="rep-bf-amt">0</td>
-                    </tr>
-                    <tr>
-                        <td class="section-title">Lunch</td>
-                        <td id="rep-lu-veg">0</td><td id="rep-lu-nonveg">0</td>
-                        <td id="rep-lu-total">0</td><td id="rep-lu-amt">0</td>
-                    </tr>
-                    <tr>
-                        <td class="section-title">Evening Snacks</td>
-                        <td id="rep-ev-veg">0</td><td id="rep-ev-nonveg">0</td>
-                        <td id="rep-ev-total">0</td><td id="rep-ev-amt">0</td>
-                    </tr>
-                    <tr>
-                        <td class="section-title">Night Snacks</td>
-                        <td>-</td><td>-</td>
-                        <td id="rep-ni-cnt">0</td><td id="rep-ni-amt">0</td>
-                    </tr>
-                    <tr style="background-color: #f1f2f6; font-weight: bold;">
-                        <td colspan="3" style="text-align: right;">GRAND TOTAL:</td>
-                        <td id="rep-grand-total">0</td>
-                        <td id="rep-grand-rev">₹ 0</td>
-                    </tr>
-                </tbody>
-            </table>
-        </div>
     </div>
 
     <script>
-        // 1. Initial Default Inventory
         let defaultInventory = {
             "Rice (kg)": 150.0, "Dal/Chana Dal (kg)": 50.0, "Sabji/Aloo (kg)": 100.0,
             "Roti/Luchi/Paratha (pcs)": 1500, "Fish (kg)": 20.0, "Chicken (kg)": 30.0,
@@ -189,14 +130,12 @@
         };
         let inventory = {};
 
-        // 2. Detailed Trackers
         let bfCount = 0, bfAmt = 0;
         let luVeg = 0, luNonVeg = 0, luAmt = 0;
         let evVeg = 0, evNonVeg = 0, evAmt = 0;
         let niCount = 0, niAmt = 0;
         let grandTotal = 0, totalRevenue = 0;
 
-        // 3. Recipes map
         const recipes = {
             "Monday": {
                 "Breakfast": { "Roti/Luchi/Paratha (pcs)": 4, "Dal/Chana Dal (kg)": 0.025 },
@@ -256,7 +195,6 @@
             }
         };
 
-        // --- INVENTORY FUNCTIONS ---
         function toggleInventory() {
             var invSection = document.getElementById("inventory-section");
             invSection.style.display = invSection.style.display === "none" ? "block" : "none";
@@ -285,7 +223,6 @@
             alert(`Added ${qtyToAdd} to ${selectedItem}.`);
         }
 
-        // --- LOCAL STORAGE FUNCTIONS ---
         function loadSavedData() {
             let savedInventory = localStorage.getItem("hul_inventory");
             inventory = savedInventory ? JSON.parse(savedInventory) : JSON.parse(JSON.stringify(defaultInventory));
@@ -314,7 +251,6 @@
             }
         }
 
-        // --- MAIN BILLING FUNCTION ---
         async function addMeal(mealType, price) {
             let currentDay = document.getElementById("dayPicker").value;
             let dailyMenu = recipes[currentDay];
@@ -323,17 +259,14 @@
 
             let recipe = dailyMenu[mealType];
             
-            // Stock Check
             for (let ingredient in recipe) {
                 if (inventory[ingredient] < recipe[ingredient]) {
                     alert("Not enough stock for " + ingredient + "!"); return; 
                 }
             }
 
-            // Deduct Stock
             for (let ingredient in recipe) inventory[ingredient] -= recipe[ingredient];
 
-            // Update Detailed Counters
             if (mealType === 'Breakfast') { bfCount++; bfAmt += price; }
             else if (mealType === 'LunchVeg') { luVeg++; luAmt += price; }
             else if (mealType === 'LunchNonVeg') { luNonVeg++; luAmt += price; }
@@ -346,7 +279,6 @@
             saveDataLocally();
             updateUI();
 
-            // API INTEGRATION: Send data to Render Server/TiDB
             try {
                 await fetch('/api/save-sales', {
                     method: 'POST',
@@ -358,45 +290,6 @@
             } catch (error) { console.error("Error sending to server:", error); }
         }
 
-        // --- REPORT FETCH API ---
-        async function fetchReportData() {
-            let selectedDate = document.getElementById("reportDate").value;
-            let reportType = document.getElementById("reportType").value;
-            if (!selectedDate) return;
-
-            try {
-                let response = await fetch(`/api/get-report?type=${reportType}&date=${selectedDate}`);
-                if (response.ok) {
-                    let data = await response.json();
-                    document.getElementById("reportResult").style.display = "table";
-                    
-                    document.getElementById("rep-bf-cnt").innerText = data.bfCount || 0;
-                    document.getElementById("rep-bf-amt").innerText = data.bfAmt || 0;
-                    
-                    document.getElementById("rep-lu-veg").innerText = data.luVeg || 0;
-                    document.getElementById("rep-lu-nonveg").innerText = data.luNonVeg || 0;
-                    document.getElementById("rep-lu-total").innerText = (data.luVeg || 0) + (data.luNonVeg || 0);
-                    document.getElementById("rep-lu-amt").innerText = data.luAmt || 0;
-                    
-                    document.getElementById("rep-ev-veg").innerText = data.evVeg || 0;
-                    document.getElementById("rep-ev-nonveg").innerText = data.evNonVeg || 0;
-                    document.getElementById("rep-ev-total").innerText = (data.evVeg || 0) + (data.evNonVeg || 0);
-                    document.getElementById("rep-ev-amt").innerText = data.evAmt || 0;
-                    
-                    document.getElementById("rep-ni-cnt").innerText = data.niCount || 0;
-                    document.getElementById("rep-ni-amt").innerText = data.niAmt || 0;
-
-                    document.getElementById("rep-grand-total").innerText = data.grandTotal || 0;
-                    document.getElementById("rep-grand-rev").innerText = "₹ " + (data.totalRevenue || 0);
-                } else {
-                    alert("Is date ka data abhi server par maujood nahi hai.");
-                }
-            } catch (error) {
-                console.error("Report fetch error:", error);
-            }
-        }
-
-        // --- UI & UTILS ---
         function updateUI() {
             document.getElementById("grand-total").innerText = grandTotal;
             document.getElementById("total-revenue").innerText = totalRevenue;
