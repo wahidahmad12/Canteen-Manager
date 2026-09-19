@@ -9,7 +9,7 @@ import bcrypt from "bcryptjs";
 import { insertPankajReportSchema, insertTaxInvoiceSchema, insertTaxInvoiceItemSchema } from "@shared/schema";
 import { generateRegistrationOptions, verifyRegistrationResponse, generateAuthenticationOptions, verifyAuthenticationResponse } from '@simplewebauthn/server';
 import { isoBase64URL, isoUint8Array } from '@simplewebauthn/server/helpers';
-
+import { daily_reports } from "../shared/schema";
 const webauthnRegChallenges = new Map<number, string>();
 const webauthnAuthChallenges = new Map<number, string>();
 
