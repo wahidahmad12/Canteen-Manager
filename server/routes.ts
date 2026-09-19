@@ -90,17 +90,34 @@ export async function registerRoutes(
   httpServer: Server,
   app: Express
 ): Promise<Server> {
-// --- CANTEEN POS ROUTES ---
+// --- CANTEEN POS SAVE DATA API ---
   app.post('/api/save-sales', async (req: any, res: any) => {
       try {
-          const { totalVeg, totalNonVeg, grandTotal, totalRevenue } = req.body;
+          // Frontend se bheja gaya saara data receive karna
+          const data = req.body;
           
-          // Drizzle ORM insert logic yahan aayega
-          console.log("Canteen POS Data Received:", req.body);
+          // Drizzle ORM ke zariye TiDB mein data save karna
+          // Note: 'daily_reports' aapki table ka naam hona chahiye
+          await db.insert(daily_reports).values({
+              breakfastCount: data.bfCount,
+              breakfastAmount: data.bfAmt,
+              lunchVegCount: data.luVeg,
+              lunchNonVegCount: data.luNonVeg,
+              lunchAmount: data.luAmt,
+              eveningVegCount: data.evVeg,
+              eveningNonVegCount: data.evNonVeg,
+              eveningAmount: data.evAmt,
+              nightCount: data.niCount,
+              nightAmount: data.niAmt,
+              totalCount: data.grandTotal,
+              revenue: data.totalRevenue,
+              date: new Date() // Aaj ki date aur time
+          });
           
-          res.status(200).json({ success: true, message: "API connected successfully!" });
+          console.log("Canteen POS Data TiDB mein save ho gaya!");
+          res.status(200).json({ success: true, message: "Data Saved to Database!" });
       } catch (error: any) {
-          console.error("API Error:", error);
+          console.error("Database Insert Error:", error);
           res.status(500).json({ success: false, error: error.message });
       }
   });
