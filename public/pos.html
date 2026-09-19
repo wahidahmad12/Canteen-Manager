@@ -124,10 +124,21 @@
     </div>
 <!-- Reports Section -->
         <div class="box" style="margin-top: 20px; width: 100%;">
-            <h2>📊 Date-wise Sales Report</h2>
-            <div class="controls" style="max-width: 300px;">
-                <label for="reportDate"><strong>Select Date:</strong></label>
-                <input type="date" id="reportDate" onchange="fetchReportData()">
+            <h2>📊 Canteen Sales Report</h2>
+            <div class="controls" style="display: flex; gap: 15px; max-width: 600px;">
+                <div style="flex: 1;">
+                    <label for="reportType"><strong>Report Type:</strong></label>
+                    <select id="reportType" onchange="fetchReportData()">
+                        <option value="daily">Daily (Rozana)</option>
+                        <option value="weekly">Weekly (Saptahik)</option>
+                        <option value="monthly">Monthly (Mahina)</option>
+                        <option value="yearly">Yearly (Saal)</option>
+                    </select>
+                </div>
+                <div style="flex: 1;">
+                    <label for="reportDate"><strong>Reference Date:</strong></label>
+                    <input type="date" id="reportDate" onchange="fetchReportData()">
+                </div>
             </div>
             
             <div class="dashboard" id="reportResult" style="display: none; margin-top: 15px;">
@@ -438,7 +449,7 @@
             
             setInterval(checkMealTimings, 60000); 
         };
-        // --- FETCH DATE-WISE REPORT ---
+       // --- FETCH DATE-WISE REPORT ---
         async function fetchReportData() {
             let selectedDate = document.getElementById("reportDate").value;
             if (!selectedDate) return;
