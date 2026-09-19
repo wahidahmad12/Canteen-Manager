@@ -12,8 +12,9 @@
         .box { background: white; padding: 20px; border-radius: 8px; box-shadow: 0 4px 8px rgba(0,0,0,0.1); flex: 1; min-width: 300px; }
         h2 { color: #333; border-bottom: 2px solid #ddd; padding-bottom: 10px; display: flex; justify-content: space-between; align-items: center;}
         
-        .controls { margin-bottom: 15px; }
-        select, input { padding: 10px; font-size: 16px; border-radius: 5px; border: 1px solid #ccc; width: 100%; box-sizing: border-box; margin-bottom: 10px;}
+        .controls { margin-bottom: 15px; display: flex; gap: 15px; flex-wrap: wrap;}
+        .controls-inner { flex: 1; min-width: 200px; }
+        select, input { padding: 10px; font-size: 16px; border-radius: 5px; border: 1px solid #ccc; width: 100%; box-sizing: border-box; margin-top: 5px;}
         
         .btn-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-top: 15px; }
         button { padding: 15px; font-size: 16px; border: none; border-radius: 8px; cursor: pointer; color: white; font-weight: bold; transition: 0.2s; width: 100%;}
@@ -25,7 +26,7 @@
         .btn-ev-veg { background-color: #16a085; }
         .btn-ev-nonveg { background-color: #d35400; }
         .btn-night { background-color: #2980b9; }
-        .btn-add-stock { background-color: #2c3e50; padding: 10px; }
+        .btn-add-stock { background-color: #2c3e50; padding: 10px; margin-top: 10px;}
         
         .reset-btn { background-color: #e74c3c; padding: 5px 10px; font-size: 12px; border-radius: 4px; width: auto; }
         .toggle-inv-btn { background-color: #34495e; padding: 15px; font-size: 18px; border-radius: 8px; margin-bottom: 15px; }
@@ -39,9 +40,10 @@
         .dash-card { font-size: 16px; color: #2c3e50; background: white; padding: 10px; border-radius: 5px; box-shadow: 0 2px 4px rgba(0,0,0,0.05); text-align: center; border: 1px solid #dcdde1; }
         .highlight { font-size: 22px; font-weight: bold; color: #003399; display: block; margin-top: 5px; }
         
+        .stock-entry { background: #eef2f3; padding: 15px; border-radius: 8px; margin-bottom: 15px; border: 1px dashed #b2bec3; }
         .canteen-status { font-size: 18px; font-weight: bold; color: #c0392b; text-align: center; margin-top: 15px; padding: 10px; background: #fadbd8; border-radius: 5px; display: none; }
         
-        /* New Detailed Report Table Styles */
+        /* Detailed Report Table Styles */
         .report-table th { background-color: #34495e; color: white; text-align: center;}
         .report-table td { text-align: center; border: 1px solid #ddd;}
         .report-table .section-title { text-align: left; font-weight: bold; background: #ecf0f1; }
@@ -61,27 +63,29 @@
             </h2>
             
             <div class="controls">
-                <label for="dayPicker"><strong>Select Day Menu:</strong></label>
-                <select id="dayPicker" onchange="updateUI()">
-                    <option value="Monday">Monday</option>
-                    <option value="Tuesday">Tuesday</option>
-                    <option value="Wednesday">Wednesday</option>
-                    <option value="Thursday">Thursday</option>
-                    <option value="Friday">Friday</option>
-                    <option value="Saturday">Saturday</option>
-                    <option value="Sunday">Sunday</option>
-                </select>
+                <div class="controls-inner" style="width: 100%;">
+                    <label for="dayPicker"><strong>Select Day Menu:</strong></label>
+                    <select id="dayPicker" onchange="updateUI()">
+                        <option value="Monday">Monday</option>
+                        <option value="Tuesday">Tuesday</option>
+                        <option value="Wednesday">Wednesday</option>
+                        <option value="Thursday">Thursday</option>
+                        <option value="Friday">Friday</option>
+                        <option value="Saturday">Saturday</option>
+                        <option value="Sunday">Sunday</option>
+                    </select>
+                </div>
             </div>
 
             <div id="statusMessage" class="canteen-status">Canteen is Currently Closed!</div>
 
             <div class="btn-grid" id="mealButtonsGrid">
-                <button id="btn-breakfast" class="btn-bf" onclick="addMeal('Breakfast', 5)">Breakfast (₹5)</button>
-                <button id="btn-lunch-veg" class="btn-lunch-veg" onclick="addMeal('LunchVeg', 20)">Lunch VEG (₹20)</button>
-                <button id="btn-lunch-nonveg" class="btn-lunch-nonveg" onclick="addMeal('LunchNonVeg', 20)">Lunch NON-VEG (₹20)</button>
-                <button id="btn-ev-veg" class="btn-ev-veg" onclick="addMeal('EveningVeg', 10)">Ev. Snacks VEG (₹10)</button>
-                <button id="btn-ev-nonveg" class="btn-ev-nonveg" onclick="addMeal('EveningNonVeg', 10)">Ev. Snacks NON-VEG (₹10)</button>
-                <button id="btn-night" class="btn-night" onclick="addMeal('NightSnacks', 10)">Night Snacks (₹10)</button>
+                <button id="btn-breakfast" class="btn-bf" onclick="addMeal('Breakfast', 5)">Breakfast (₹5)<br><small>7:00 AM - 9:00 AM</small></button>
+                <button id="btn-lunch-veg" class="btn-lunch-veg" onclick="addMeal('LunchVeg', 20)">Lunch VEG (₹20)<br><small>11:00 AM - 3:30 PM</small></button>
+                <button id="btn-lunch-nonveg" class="btn-lunch-nonveg" onclick="addMeal('LunchNonVeg', 20)">Lunch NON-VEG (₹20)<br><small>11:00 AM - 3:30 PM</small></button>
+                <button id="btn-ev-veg" class="btn-ev-veg" onclick="addMeal('EveningVeg', 10)">Ev. Snacks VEG (₹10)<br><small>5:00 PM - 7:00 PM</small></button>
+                <button id="btn-ev-nonveg" class="btn-ev-nonveg" onclick="addMeal('EveningNonVeg', 10)">Ev. Snacks NON-VEG (₹10)<br><small>5:00 PM - 7:00 PM</small></button>
+                <button id="btn-night" class="btn-night" onclick="addMeal('NightSnacks', 10)">Night Snacks (₹10)<br><small>10:00 PM - 3:00 AM</small></button>
             </div>
             
             <div class="dashboard">
@@ -93,7 +97,19 @@
         <!-- Inventory Section -->
         <div class="box">
             <button class="toggle-inv-btn" onclick="toggleInventory()">📦 Show / Hide Inventory & Stock</button>
+            
             <div id="inventory-section" style="display: none;">
+                <div class="stock-entry">
+                    <h3 style="margin-top: 0; color: #2c3e50; font-size: 16px;">➕ Add New Stock (Purchase)</h3>
+                    <label for="stockItemDropdown">Select Item:</label>
+                    <select id="stockItemDropdown"></select>
+                    
+                    <label for="stockQuantity">Quantity to Add (kg/pcs/pkt):</label>
+                    <input type="number" id="stockQuantity" placeholder="e.g. 50" min="0.1" step="0.1">
+                    
+                    <button class="btn-add-stock" onclick="addStock()">Update Inventory</button>
+                </div>
+
                 <table>
                     <thead>
                         <tr><th>Ingredient</th><th>Available Stock</th></tr>
@@ -103,11 +119,11 @@
             </div>
         </div>
 
-        <!-- NEW DETAILED REPORTS SECTION -->
+        <!-- DETAILED REPORTS SECTION -->
         <div class="box" style="margin-top: 20px; width: 100%;">
             <h2>📊 Canteen Detailed Report</h2>
-            <div class="controls" style="display: flex; gap: 15px; max-width: 600px;">
-                <div style="flex: 1;">
+            <div class="controls">
+                <div class="controls-inner">
                     <label><strong>Report Type:</strong></label>
                     <select id="reportType" onchange="fetchReportData()">
                         <option value="daily">Daily</option>
@@ -116,13 +132,12 @@
                         <option value="yearly">Yearly</option>
                     </select>
                 </div>
-                <div style="flex: 1;">
+                <div class="controls-inner">
                     <label><strong>Reference Date:</strong></label>
                     <input type="date" id="reportDate" onchange="fetchReportData()">
                 </div>
             </div>
 
-            <!-- Detailed Report Table -->
             <table class="report-table" id="reportResult" style="display: none; margin-top: 15px; width: 100%;">
                 <thead>
                     <tr>
@@ -165,7 +180,7 @@
     </div>
 
     <script>
-        // 1. Initial Default Inventory & Recipes
+        // 1. Initial Default Inventory
         let defaultInventory = {
             "Rice (kg)": 150.0, "Dal/Chana Dal (kg)": 50.0, "Sabji/Aloo (kg)": 100.0,
             "Roti/Luchi/Paratha (pcs)": 1500, "Fish (kg)": 20.0, "Chicken (kg)": 30.0,
@@ -174,13 +189,14 @@
         };
         let inventory = {};
 
-        // Detailed Trackers
+        // 2. Detailed Trackers
         let bfCount = 0, bfAmt = 0;
         let luVeg = 0, luNonVeg = 0, luAmt = 0;
         let evVeg = 0, evNonVeg = 0, evAmt = 0;
         let niCount = 0, niAmt = 0;
         let grandTotal = 0, totalRevenue = 0;
 
+        // 3. Recipes map
         const recipes = {
             "Monday": {
                 "Breakfast": { "Roti/Luchi/Paratha (pcs)": 4, "Dal/Chana Dal (kg)": 0.025 },
@@ -190,26 +206,132 @@
                 "EveningNonVeg": { "Egg (pcs)": 1, "Roti/Luchi/Paratha (pcs)": 1, "Sabji/Aloo (kg)": 0.050, "Banana/Mishti (pcs)": 1 },
                 "NightSnacks": { "Cake/Biscuit (pkt)": 2 }
             },
-            // ... (Aap baaki dino ki recipes ko yahan copy rakh sakte hain jaise pehle tha)
-            "Tuesday": { /* Same as before */ }, "Wednesday": { /* Same as before */ },
-            "Thursday": { /* Same as before */ }, "Friday": { /* Same as before */ },
-            "Saturday": { /* Same as before */ }, "Sunday": { /* Same as before */ }
+            "Tuesday": {
+                "Breakfast": { "Roti/Luchi/Paratha (pcs)": 4, "Sabji/Aloo (kg)": 0.100 },
+                "LunchVeg": { "Rice (kg)": 0.200, "Roti/Luchi/Paratha (pcs)": 4, "Dal/Chana Dal (kg)": 0.025, "Sabji/Aloo (kg)": 0.150, "Banana/Mishti (pcs)": 1, "Dahi (kg)": 0.100 },
+                "LunchNonVeg": { "Rice (kg)": 0.200, "Roti/Luchi/Paratha (pcs)": 4, "Dal/Chana Dal (kg)": 0.025, "Sabji/Aloo (kg)": 0.150, "Chicken (kg)": 0.100, "Dahi (kg)": 0.100 },
+                "EveningVeg": { "Roti/Luchi/Paratha (pcs)": 4, "Sabji/Aloo (kg)": 0.100, "Banana/Mishti (pcs)": 1 },
+                "EveningNonVeg": { "Roti/Luchi/Paratha (pcs)": 5, "Dal/Chana Dal (kg)": 0.100, "Egg (pcs)": 1, "Banana/Mishti (pcs)": 1 },
+                "NightSnacks": { "Cake/Biscuit (pkt)": 2 }
+            },
+            "Wednesday": {
+                "Breakfast": { "Roti/Luchi/Paratha (pcs)": 2, "Sabji/Aloo (kg)": 0.100 },
+                "LunchVeg": { "Rice (kg)": 0.200, "Roti/Luchi/Paratha (pcs)": 4, "Dal/Chana Dal (kg)": 0.025, "Sabji/Aloo (kg)": 0.150, "Banana/Mishti (pcs)": 1, "Dahi (kg)": 0.100 },
+                "LunchNonVeg": { "Rice (kg)": 0.200, "Roti/Luchi/Paratha (pcs)": 4, "Dal/Chana Dal (kg)": 0.025, "Sabji/Aloo (kg)": 0.150, "Egg (pcs)": 1, "Dahi (kg)": 0.100 },
+                "EveningVeg": { "Roti/Luchi/Paratha (pcs)": 1, "Sabji/Aloo (kg)": 0.050, "Banana/Mishti (pcs)": 1 },
+                "EveningNonVeg": { "Roti/Luchi/Paratha (pcs)": 4, "Dal/Chana Dal (kg)": 0.100, "Egg (pcs)": 1, "Banana/Mishti (pcs)": 1 },
+                "NightSnacks": { "Cake/Biscuit (pkt)": 2 }
+            },
+            "Thursday": {
+                "Breakfast": { "Roti/Luchi/Paratha (pcs)": 4, "Sabji/Aloo (kg)": 0.100 },
+                "LunchVeg": { "Rice (kg)": 0.200, "Roti/Luchi/Paratha (pcs)": 4, "Dal/Chana Dal (kg)": 0.025, "Sabji/Aloo (kg)": 0.150, "Banana/Mishti (pcs)": 1, "Dahi (kg)": 0.100 },
+                "LunchNonVeg": { "Rice (kg)": 0.200, "Roti/Luchi/Paratha (pcs)": 4, "Dal/Chana Dal (kg)": 0.025, "Sabji/Aloo (kg)": 0.150, "Paneer (kg)": 0.100, "Banana/Mishti (pcs)": 1 },
+                "EveningVeg": { "Roti/Luchi/Paratha (pcs)": 4, "Sabji/Aloo (kg)": 0.100, "Banana/Mishti (pcs)": 1 },
+                "EveningNonVeg": { "Roti/Luchi/Paratha (pcs)": 4, "Sabji/Aloo (kg)": 0.100, "Banana/Mishti (pcs)": 1 },
+                "NightSnacks": { "Cake/Biscuit (pkt)": 2 }
+            },
+            "Friday": {
+                "Breakfast": { "Roti/Luchi/Paratha (pcs)": 4, "Sabji/Aloo (kg)": 0.100 },
+                "LunchVeg": { "Rice (kg)": 0.200, "Dal/Chana Dal (kg)": 0.025, "Sabji/Aloo (kg)": 0.150, "Banana/Mishti (pcs)": 1, "Dahi (kg)": 0.100 },
+                "LunchNonVeg": { "Rice (kg)": 0.200, "Dal/Chana Dal (kg)": 0.025, "Chicken (kg)": 0.100, "Banana/Mishti (pcs)": 1, "Dahi (kg)": 0.100 },
+                "EveningVeg": { "Roti/Luchi/Paratha (pcs)": 2, "Dal/Chana Dal (kg)": 0.100 },
+                "EveningNonVeg": { "Roti/Luchi/Paratha (pcs)": 2, "Dal/Chana Dal (kg)": 0.100, "Egg (pcs)": 1 },
+                "NightSnacks": { "Cake/Biscuit (pkt)": 2 }
+            },
+            "Saturday": {
+                "Breakfast": { "Roti/Luchi/Paratha (pcs)": 2, "Dal/Chana Dal (kg)": 0.100 },
+                "LunchVeg": { "Rice (kg)": 0.200, "Roti/Luchi/Paratha (pcs)": 4, "Dal/Chana Dal (kg)": 0.025, "Sabji/Aloo (kg)": 0.150, "Banana/Mishti (pcs)": 2 },
+                "LunchNonVeg": { "Rice (kg)": 0.200, "Roti/Luchi/Paratha (pcs)": 4, "Dal/Chana Dal (kg)": 0.025, "Sabji/Aloo (kg)": 0.150, "Fish (kg)": 0.070, "Banana/Mishti (pcs)": 2 },
+                "EveningVeg": { "Cake/Biscuit (pkt)": 2 },
+                "EveningNonVeg": { "Cake/Biscuit (pkt)": 2 },
+                "NightSnacks": { "Cake/Biscuit (pkt)": 2 }
+            },
+            "Sunday": {
+                "Breakfast": { "Roti/Luchi/Paratha (pcs)": 4, "Sabji/Aloo (kg)": 0.100 },
+                "LunchVeg": { "Rice (kg)": 0.200, "Dal/Chana Dal (kg)": 0.025, "Sabji/Aloo (kg)": 0.150, "Dahi (kg)": 0.100 },
+                "LunchNonVeg": { "Rice (kg)": 0.200, "Dal/Chana Dal (kg)": 0.025, "Chicken (kg)": 0.100, "Dahi (kg)": 0.100 },
+                "EveningVeg": { "Roti/Luchi/Paratha (pcs)": 2, "Sabji/Aloo (kg)": 0.100 },
+                "EveningNonVeg": { "Egg (pcs)": 1, "Roti/Luchi/Paratha (pcs)": 2 },
+                "NightSnacks": { "Cake/Biscuit (pkt)": 2 }
+            }
         };
 
+        // --- INVENTORY FUNCTIONS ---
         function toggleInventory() {
             var invSection = document.getElementById("inventory-section");
             invSection.style.display = invSection.style.display === "none" ? "block" : "none";
         }
 
-        // Add Meal with Detailed Tracking
-        function addMeal(mealType, price) {
-            let currentDay = document.getElementById("dayPicker").value;
-            let dailyMenu = recipes[currentDay] || recipes["Monday"]; // Fallback for demo
-            if (!dailyMenu[mealType]) { alert("Not scheduled!"); return; }
+        function populateStockDropdown() {
+            const dropdown = document.getElementById("stockItemDropdown");
+            dropdown.innerHTML = "";
+            for (let item in inventory) {
+                dropdown.innerHTML += `<option value="${item}">${item}</option>`;
+            }
+        }
 
-            // Deduct Inventory (Simplified for focus)
+        function addStock() {
+            let selectedItem = document.getElementById("stockItemDropdown").value;
+            let qtyToAdd = parseFloat(document.getElementById("stockQuantity").value);
+
+            if (isNaN(qtyToAdd) || qtyToAdd <= 0) {
+                alert("Please enter a valid quantity."); return;
+            }
+
+            inventory[selectedItem] += qtyToAdd;
+            document.getElementById("stockQuantity").value = "";
+            
+            saveDataLocally(); updateUI();
+            alert(`Added ${qtyToAdd} to ${selectedItem}.`);
+        }
+
+        // --- LOCAL STORAGE FUNCTIONS ---
+        function loadSavedData() {
+            let savedInventory = localStorage.getItem("hul_inventory");
+            inventory = savedInventory ? JSON.parse(savedInventory) : JSON.parse(JSON.stringify(defaultInventory));
+
+            let storedData = localStorage.getItem("hul_sales_data");
+            if(storedData) {
+                let parsed = JSON.parse(storedData);
+                bfCount = parsed.bfCount || 0; bfAmt = parsed.bfAmt || 0;
+                luVeg = parsed.luVeg || 0; luNonVeg = parsed.luNonVeg || 0; luAmt = parsed.luAmt || 0;
+                evVeg = parsed.evVeg || 0; evNonVeg = parsed.evNonVeg || 0; evAmt = parsed.evAmt || 0;
+                niCount = parsed.niCount || 0; niAmt = parsed.niAmt || 0;
+                grandTotal = parsed.grandTotal || 0; totalRevenue = parsed.totalRevenue || 0;
+            }
+        }
+
+        function saveDataLocally() {
+            localStorage.setItem("hul_inventory", JSON.stringify(inventory));
+            localStorage.setItem("hul_sales_data", JSON.stringify({
+                bfCount, bfAmt, luVeg, luNonVeg, luAmt, evVeg, evNonVeg, evAmt, niCount, niAmt, grandTotal, totalRevenue
+            }));
+        }
+
+        function resetAllData() {
+            if(confirm("Warning! This will delete all current sales and reset inventory to default levels. Are you sure?")) {
+                localStorage.clear(); location.reload();
+            }
+        }
+
+        // --- MAIN BILLING FUNCTION ---
+        async function addMeal(mealType, price) {
+            let currentDay = document.getElementById("dayPicker").value;
+            let dailyMenu = recipes[currentDay];
+            
+            if (!dailyMenu || !dailyMenu[mealType]) { alert("This meal is not scheduled for " + currentDay); return; }
+
             let recipe = dailyMenu[mealType];
-            for (let ing in recipe) inventory[ing] -= recipe[ing];
+            
+            // Stock Check
+            for (let ingredient in recipe) {
+                if (inventory[ingredient] < recipe[ingredient]) {
+                    alert("Not enough stock for " + ingredient + "!"); return; 
+                }
+            }
+
+            // Deduct Stock
+            for (let ingredient in recipe) inventory[ingredient] -= recipe[ingredient];
 
             // Update Detailed Counters
             if (mealType === 'Breakfast') { bfCount++; bfAmt += price; }
@@ -220,29 +342,23 @@
             else if (mealType === 'NightSnacks') { niCount++; niAmt += price; }
 
             grandTotal++; totalRevenue += price;
-            
-            saveData();
-            updateUI();
-        }
 
-        // API INTEGRATION
-        async function saveData() {
+            saveDataLocally();
+            updateUI();
+
+            // API INTEGRATION: Send data to Render Server/TiDB
             try {
                 await fetch('/api/save-sales', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
-                        bfCount, bfAmt,
-                        luVeg, luNonVeg, luAmt,
-                        evVeg, evNonVeg, evAmt,
-                        niCount, niAmt,
-                        grandTotal, totalRevenue
+                        bfCount, bfAmt, luVeg, luNonVeg, luAmt, evVeg, evNonVeg, evAmt, niCount, niAmt, grandTotal, totalRevenue
                     })
                 });
-            } catch (error) { console.error("Error:", error); }
+            } catch (error) { console.error("Error sending to server:", error); }
         }
 
-        // FETCH DETAILED REPORT
+        // --- REPORT FETCH API ---
         async function fetchReportData() {
             let selectedDate = document.getElementById("reportDate").value;
             let reportType = document.getElementById("reportType").value;
@@ -254,7 +370,6 @@
                     let data = await response.json();
                     document.getElementById("reportResult").style.display = "table";
                     
-                    // Map API data to HTML Table
                     document.getElementById("rep-bf-cnt").innerText = data.bfCount || 0;
                     document.getElementById("rep-bf-amt").innerText = data.bfAmt || 0;
                     
@@ -273,29 +388,71 @@
 
                     document.getElementById("rep-grand-total").innerText = data.grandTotal || 0;
                     document.getElementById("rep-grand-rev").innerText = "₹ " + (data.totalRevenue || 0);
+                } else {
+                    alert("Is date ka data abhi server par maujood nahi hai.");
                 }
             } catch (error) {
                 console.error("Report fetch error:", error);
             }
         }
 
+        // --- UI & UTILS ---
         function updateUI() {
             document.getElementById("grand-total").innerText = grandTotal;
             document.getElementById("total-revenue").innerText = totalRevenue;
-            // ... (inventory UI update code here)
+
+            const tableBody = document.getElementById("inventory-table");
+            tableBody.innerHTML = "";
+            for (let item in inventory) {
+                let currentStock = inventory[item].toFixed(2);
+                let isLow = currentStock < 15; 
+                let stockClass = isLow ? "low-stock" : "";
+                let alertText = isLow ? " ⚠️ Low" : "";
+                
+                tableBody.innerHTML += `<tr><td>${item}</td><td class="${stockClass}">${currentStock} ${alertText}</td></tr>`;
+            }
+        }
+
+        function checkMealTimings() {
+            let now = new Date();
+            let h = now.getHours();
+            let m = now.getMinutes();
+            let t = h + (m / 60);
+
+            let buttons = {
+                bf: document.getElementById("btn-breakfast"),
+                luV: document.getElementById("btn-lunch-veg"),
+                luNV: document.getElementById("btn-lunch-nonveg"),
+                evV: document.getElementById("btn-ev-veg"),
+                evNV: document.getElementById("btn-ev-nonveg"),
+                ni: document.getElementById("btn-night")
+            };
+            let statusMsg = document.getElementById("statusMessage");
+
+            for(let key in buttons) buttons[key].style.display = "none";
+            let isAnyMealActive = false;
+
+            if (t >= 7 && t < 9) { buttons.bf.style.display = "block"; isAnyMealActive = true; }
+            else if (t >= 11 && t <= 15.5) { buttons.luV.style.display = "block"; buttons.luNV.style.display = "block"; isAnyMealActive = true; }
+            else if (t >= 17 && t < 19) { buttons.evV.style.display = "block"; buttons.evNV.style.display = "block"; isAnyMealActive = true; }
+            else if (t >= 22 || t < 3) { buttons.ni.style.display = "block"; isAnyMealActive = true; }
+
+            statusMsg.style.display = isAnyMealActive ? "none" : "block";
+            statusMsg.innerHTML = isAnyMealActive ? "" : `Canteen is Currently Closed!<br><small>Wait for the next meal shift to open.</small>`;
         }
 
         function autoSelectDay() {
             const days = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
             document.getElementById("dayPicker").value = days[new Date().getDay()];
         }
-        
-        function resetAllData() { if(confirm("Are you sure?")) location.reload(); }
-        function checkMealTimings() { /* Keeps timings logic as earlier */ }
 
         window.onload = function() {
-            inventory = JSON.parse(JSON.stringify(defaultInventory)); // Load stock
-            autoSelectDay(); updateUI();
+            autoSelectDay();
+            loadSavedData();
+            checkMealTimings();
+            populateStockDropdown();
+            updateUI();
+            setInterval(checkMealTimings, 60000); 
         };
     </script>
 </body>
