@@ -22,6 +22,18 @@
         .report-table th { background-color: #34495e; color: white; text-align: center; padding: 10px; border: 1px solid #ddd;}
         .report-table td { text-align: center; border: 1px solid #ddd; padding: 10px;}
         .report-table .section-title { text-align: left; font-weight: bold; background: #ecf0f1; }
+
+        /* Print and Excel Buttons */
+        .export-btn-group { display: flex; gap: 15px; margin-top: 20px; }
+        .btn-print { background-color: #2980b9; color: white; padding: 12px; border: none; border-radius: 5px; cursor: pointer; font-size: 16px; flex: 1; font-weight: bold;}
+        .btn-excel { background-color: #27ae60; color: white; padding: 12px; border: none; border-radius: 5px; cursor: pointer; font-size: 16px; flex: 1; font-weight: bold;}
+        
+        /* Print Styles - Ye ensure karega ki print me buttons na dikhein */
+        @media print {
+            .no-print { display: none !important; }
+            body { background-color: white; padding: 0; }
+            .box { box-shadow: none; border: none; padding: 0; }
+        }
     </style>
 </head>
 <body>
@@ -29,16 +41,14 @@
     <h1 class="header-title">HINDUSTAN UNILEVER LIMITED</h1>
     <div class="sub-header">KIDDERPORE FACTORY - CANTEEN REPORTS</div>
 
-    <div class="container" style="justify-content: center; margin-bottom: 20px;">
-        <!-- Wapas POS par jane ka button -->
+    <div class="container no-print" style="justify-content: center; margin-bottom: 20px;">
         <a href="pos.html" class="toggle-inv-btn" style="max-width: 1200px;">⬅ Back to POS Billing</a>
     </div>
 
     <div class="container">
-        <!-- DETAILED REPORTS SECTION -->
         <div class="box" style="width: 100%;">
-            <h2>📊 Canteen Detailed Report</h2>
-            <div class="controls">
+            <h2 class="no-print">📊 Canteen Detailed Report</h2>
+            <div class="controls no-print">
                 <div class="controls-inner">
                     <label><strong>Report Type:</strong></label>
                     <select id="reportType" onchange="fetchReportData()">
@@ -54,6 +64,7 @@
                 </div>
             </div>
 
+            <!-- Report Table -->
             <table class="report-table" id="reportResult" style="display: none; margin-top: 15px; width: 100%;">
                 <thead>
                     <tr>
@@ -92,16 +103,20 @@
                     </tr>
                 </tbody>
             </table>
+
+            <!-- Export Buttons (Hidden until data is fetched) -->
+            <div class="export-btn-group no-print" id="exportSection" style="display: none;">
+                <button class="btn-print" onclick="window.print()">🖨️ Print / Save PDF</button>
+                <button class="btn-excel" onclick="exportToExcel()">📊 Download Excel (CSV)</button>
+            </div>
+
         </div>
     </div>
 
     <script>
-        // Set today's date by default when the reports page loads
         window.onload = function() {
             let today = new Date().toISOString().split('T')[0];
             document.getElementById("reportDate").value = today;
-            // Optionally, automatically fetch today's report
-            // fetchReportData(); 
         };
 
         async function fetchReportData() {
@@ -114,6 +129,7 @@
                 if (response.ok) {
                     let data = await response.json();
                     document.getElementById("reportResult").style.display = "table";
+                    document.getElementById("exportSection").style.display = "flex"; // Show Export Buttons
                     
                     document.getElementById("rep-bf-cnt").innerText = data.bfCount || 0;
                     document.getElementById("rep-bf-amt").innerText = data.bfAmt || 0;
@@ -135,11 +151,47 @@
                     document.getElementById("rep-grand-rev").innerText = "₹ " + (data.totalRevenue || 0);
                 } else {
                     document.getElementById("reportResult").style.display = "none";
+                    document.getElementById("exportSection").style.display = "none"; // Hide Export Buttons
                     alert("Is date ka data abhi server par maujood nahi hai.");
                 }
             } catch (error) {
                 console.error("Report fetch error:", error);
             }
+        }
+
+        // --- EXPORT TO EXCEL (CSV) LOGIC ---
+        function exportToExcel() {
+            let date = document.getElementById("reportDate").value;
+            let type = document.getElementById("reportType").options[document.getElementById("reportType").selectedIndex].text;
+            
+            // CSV Header Setup
+            let csvContent = "data:text/csv;charset=utf-8,";
+            csvContent += `HUL Kidderpore Factory - Canteen Report\n`;
+            csvContent += `Report Type:,${type}\n`;
+            csvContent += `Date:,${date}\n\n`;
+            
+            // HTML Table se rows aur columns uthana
+            let table = document.getElementById("reportResult");
+            let rows = table.querySelectorAll("tr");
+            
+            rows.forEach(function(row) {
+                let rowData = [];
+                let cols = row.querySelectorAll("td, th");
+                cols.forEach(function(col) {
+                    // Data clean karke array me daalna
+                    rowData.push('"' + col.innerText.replace(/"/g, '""') + '"');
+                });
+                csvContent += rowData.join(",") + "\n";
+            });
+
+            // CSV Download karwana
+            let encodedUri = encodeURI(csvContent);
+            let link = document.createElement("a");
+            link.setAttribute("href", encodedUri);
+            link.setAttribute("download", `Canteen_Report_${date}.csv`);
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
         }
     </script>
 </body>
