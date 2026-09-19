@@ -438,6 +438,30 @@
             
             setInterval(checkMealTimings, 60000); 
         };
+        // --- FETCH DATE-WISE REPORT ---
+        async function fetchReportData() {
+            let selectedDate = document.getElementById("reportDate").value;
+            if (!selectedDate) return;
+
+            try {
+                // Yeh API backend se us date ka data layegi
+                let response = await fetch(`/api/get-report?date=${selectedDate}`);
+                
+                if (response.ok) {
+                    let data = await response.json();
+                    document.getElementById("reportResult").style.display = "grid";
+                    document.getElementById("rep-veg").innerText = data.totalVeg || 0;
+                    document.getElementById("rep-nonveg").innerText = data.totalNonVeg || 0;
+                    document.getElementById("rep-total").innerText = data.grandTotal || 0;
+                    document.getElementById("rep-rev").innerText = data.totalRevenue || 0;
+                } else {
+                    alert("Is date ka koi data nahi mila ya API abhi bani nahi hai.");
+                }
+            } catch (error) {
+                console.error("Report fetch error:", error);
+                alert("Server se connect nahi ho paya.");
+            }
+        }
     </script>
 </body>
 </html>
