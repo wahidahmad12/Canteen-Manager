@@ -159,14 +159,13 @@
             }
         }
 
-        // --- EXPORT TO EXCEL (CSV) LOGIC ---
+        // --- EXPORT TO EXCEL (CSV) ADVANCED LOGIC ---
         function exportToExcel() {
             let date = document.getElementById("reportDate").value;
             let type = document.getElementById("reportType").options[document.getElementById("reportType").selectedIndex].text;
             
             // CSV Header Setup
-            let csvContent = "data:text/csv;charset=utf-8,";
-            csvContent += `HUL Kidderpore Factory - Canteen Report\n`;
+            let csvContent = `HUL Kidderpore Factory - Canteen Report\n`;
             csvContent += `Report Type:,${type}\n`;
             csvContent += `Date:,${date}\n\n`;
             
@@ -178,16 +177,17 @@
                 let rowData = [];
                 let cols = row.querySelectorAll("td, th");
                 cols.forEach(function(col) {
-                    // Data clean karke array me daalna
                     rowData.push('"' + col.innerText.replace(/"/g, '""') + '"');
                 });
                 csvContent += rowData.join(",") + "\n";
             });
 
-            // CSV Download karwana
-            let encodedUri = encodeURI(csvContent);
+            // Blob method ka use karein (Rupee symbol aur security blocks ko bypass karne ke liye)
+            let blob = new Blob(["\uFEFF" + csvContent], { type: 'text/csv;charset=utf-8;' }); 
+            let url = URL.createObjectURL(blob);
             let link = document.createElement("a");
-            link.setAttribute("href", encodedUri);
+            
+            link.setAttribute("href", url);
             link.setAttribute("download", `Canteen_Report_${date}.csv`);
             document.body.appendChild(link);
             link.click();
