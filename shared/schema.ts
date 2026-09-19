@@ -3,6 +3,7 @@ import { mysqlTable, varchar, text, int, decimal, date, timestamp, boolean, json
 import { createInsertSchema, createSelectSchema } from "drizzle-zod";
 import { z } from "zod";
 import { relations, sql } from "drizzle-orm";
+import { mysqlTable, date, int } from "drizzle-orm/mysql-core";
 
 // === TABLE DEFINITIONS ===
 
