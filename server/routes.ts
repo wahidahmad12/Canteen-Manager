@@ -41,16 +41,18 @@ app.post('/api/save-sales', async (req: any, res: any) => {
     }
 });
 
-// 2. REPORT FETCH KARNE KI API
+// ... aapka purana app.post('/api/save-sales', ...) wala code upar rahega ...
+
+// 2. REPORT FETCH KARNE KI API (Data recall karne ke liye)
 app.get('/api/get-report', async (req: any, res: any) => {
     try {
-        const queryDate = req.query.date; // Frontend se aayi date
+        const queryDate = req.query.date; // Frontend se select ki hui date aayegi
         
-        // Database se us din ka exact data nikalna
+        // Yahan par aapki Drizzle query database se data recall karegi
         const record = await db.select().from(canteenSales).where(eq(canteenSales.recordDate, queryDate));
         
         if (record.length > 0) {
-            res.status(200).json(record[0]);
+            res.status(200).json(record[0]); // Data mil gaya toh wapas frontend par bhej do
         } else {
             res.status(404).json({ message: "Is date ka data maujood nahi hai." });
         }
