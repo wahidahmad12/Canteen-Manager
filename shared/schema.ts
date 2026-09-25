@@ -1,9 +1,7 @@
-
 import { mysqlTable, varchar, text, int, decimal, date, timestamp, boolean, json } from "drizzle-orm/mysql-core";
 import { createInsertSchema, createSelectSchema } from "drizzle-zod";
 import { z } from "zod";
 import { relations, sql } from "drizzle-orm";
-import { mysqlTable, date, int } from "drizzle-orm/mysql-core";
 
 // === TABLE DEFINITIONS ===
 
@@ -930,6 +928,7 @@ export const ublDateEntries = mysqlTable("ubl_date_entries", {
   tea1: int("tea1").default(0),
   biscuit1: int("biscuit1").default(0),
   breakfast: int("breakfast").default(0),
+  contractorBreakfast: int("contractor_breakfast").default(0), // <--- ADDED HERE
   tea2: int("tea2").default(0),
   lunch: int("lunch").default(0),
   mutton: int("mutton").default(0),
