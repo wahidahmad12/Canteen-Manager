@@ -4440,7 +4440,7 @@ export class DatabaseStorage implements IStorage {
     return { monthly, yearly, contractors };
   }
 
-  async setContractorMealRates(contractorId: number, month: number, year: number, rates: Record<string, number>): Promise<void> {
+ async setContractorMealRates(contractorId: number, month: number, year: number, rates: Record<string, number>): Promise<void> {
     const [found]: any = await pool.query(`SELECT id FROM contractors WHERE id = ?`, [contractorId]);
     if (!found.length) throw new Error('Contractor not found');
     for (const mealType of ['Breakfast', 'Lunch', 'Dinner']) {
@@ -4452,5 +4452,6 @@ export class DatabaseStorage implements IStorage {
       );
     }
   }
+} // <--- Class ka closing bracket
 
-export const storage = new DatabaseStorage();
+export const storage = new DatabaseStorage(); // <--- Export statement
