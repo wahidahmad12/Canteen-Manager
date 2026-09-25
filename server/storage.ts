@@ -3029,8 +3029,8 @@ export class DatabaseStorage implements IStorage {
     await db.delete(hulDateEntries).where(eq(hulDateEntries.id, id));
   }
 
-  // HUL KPF Executive/Manager Snacks
-  async getUblDateYearlySummary(year: number): Promise<{ month: number; breakfast: number; lunch: number; dinner: number; tea: number; mutton: number; tiffin: number; boiledEgg: number; biscuit: number }[]> {
+  // United Breweries Ltd 
+  async getUblDateYearlySummary(year: number): Promise<{ month: number; breakfast: number; contractorBreakfast: number; lunch: number; dinner: number; tea: number; mutton: number; tiffin: number; boiledEgg: number; biscuit: number }[]> {
     // Group by billing period (21st–20th) using entry_date, consistent with monthly view
     const startDate = `${year}-01-21`;
     const endDate = `${year + 1}-01-20`;
@@ -3041,6 +3041,7 @@ export class DatabaseStorage implements IStorage {
           ELSE IF(MONTH(entry_date) = 1, 12, MONTH(entry_date) - 1)
         END AS billing_month,
         COALESCE(SUM(breakfast),0) AS breakfast,
+        COALESCE(SUM(contractor_breakfast),0) AS contractorBreakfast, 
         COALESCE(SUM(lunch),0) AS lunch,
         COALESCE(SUM(dinner),0) AS dinner,
         COALESCE(SUM(tea1)+SUM(tea2)+SUM(tea3)+SUM(tea4)+SUM(tea5)+SUM(tea6),0) AS tea,
@@ -3053,9 +3054,16 @@ export class DatabaseStorage implements IStorage {
       GROUP BY billing_month ORDER BY billing_month
     `) as any;
     return (rows as any[]).map((r: any) => ({
-      month: Number(r.billing_month), breakfast: Number(r.breakfast), lunch: Number(r.lunch),
-      dinner: Number(r.dinner), tea: Number(r.tea), mutton: Number(r.mutton),
-      tiffin: Number(r.tiffin), boiledEgg: Number(r.boiledEgg), biscuit: Number(r.biscuit),
+      month: Number(r.billing_month), 
+      breakfast: Number(r.breakfast), 
+      contractorBreakfast: Number(r.contractorBreakfast), 
+      lunch: Number(r.lunch),
+      dinner: Number(r.dinner), 
+      tea: Number(r.tea), 
+      mutton: Number(r.mutton),
+      tiffin: Number(r.tiffin), 
+      boiledEgg: Number(r.boiledEgg), 
+      biscuit: Number(r.biscuit),
     }));
   }
 
