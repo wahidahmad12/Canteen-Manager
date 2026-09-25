@@ -9,6 +9,7 @@ const MONTHS_SHORT = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct
 
 const COLORS = {
   breakfast: "#f59e0b",
+  contractorBreakfast: "#d97706", // Added new color for Contractor Breakfast
   lunch: "#10b981",
   dinner: "#6366f1",
   tea: "#f97316",
@@ -218,6 +219,7 @@ export function DateEntryDashboard({ year }: { year: number }) {
 
   // UBL totals
   const ublBreakfast = sum(ublDate, 'breakfast');
+  const ublContractorBreakfast = sum(ublDate, 'contractorBreakfast'); // Added Calculation
   const ublLunchT = sum(ublDate, 'lunch');
   const ublDinner = sum(ublDate, 'dinner');
   const ublTea = sum(ublDate, 'tea');
@@ -260,7 +262,7 @@ export function DateEntryDashboard({ year }: { year: number }) {
   const pecMilk = sum(pecCanteen, 'milkMorning') + sum(pecCanteen, 'milkEvening');
 
   // Chart data
-  const ublDateChart = buildMonthChart(ublDate, ['breakfast','lunch','dinner','tea']);
+  const ublDateChart = buildMonthChart(ublDate, ['breakfast', 'contractorBreakfast', 'lunch', 'dinner', 'tea']); // Added field
   const ublLunchChart = buildMonthChart(ublLunch, ['perment','casual','contractual','canteen']);
   const ciplaChart = buildMonthChart(ciplaData, ['breakfast','lunch','dinner']);
   const unichSnackChart = buildMonthChart(unichEmSnacks, ['breakfast','eveningSnacks','nightSnacks']);
@@ -280,7 +282,7 @@ export function DateEntryDashboard({ year }: { year: number }) {
     };
   });
 
-  const grandUbl = ublBreakfast + ublLunchT + ublDinner;
+  const grandUbl = ublBreakfast + ublContractorBreakfast + ublLunchT + ublDinner; // Updated grand total
   const grandCipla = ciplaBreakfast + ciplaLunch + ciplaDinner;
   const grandUnichem = unichBreakfast + unichEvening + unichNight + unichLunch + unichDinner;
   const grandHul = hulKpfBreakfast + hulKpfLunch + hulKpfEvng + hulKpfNight + hulTecBreakfast + hulTecLunch + hulTecEvng + hulTecNight;
@@ -288,7 +290,7 @@ export function DateEntryDashboard({ year }: { year: number }) {
   const grandAll = grandUbl + grandCipla + grandUnichem + grandHul + grandPec;
 
   // Per-client monthly totals (for insights + comparison charts)
-  const ublMonthly = MONTHS_SHORT.map((_, i) => monthVal(ublDate, i + 1, ['breakfast','lunch','dinner']));
+  const ublMonthly = MONTHS_SHORT.map((_, i) => monthVal(ublDate, i + 1, ['breakfast', 'contractorBreakfast', 'lunch', 'dinner'])); // Added field
   const ciplaMonthly = MONTHS_SHORT.map((_, i) => monthVal(ciplaData, i + 1, ['breakfast','lunch','dinner']));
   const unichMonthly = MONTHS_SHORT.map((_, i) =>
     monthVal(unichEmSnacks, i + 1, ['breakfast','eveningSnacks','nightSnacks']) + monthVal(unichEmLunch, i + 1, ['lunch','dinner']));
@@ -298,7 +300,7 @@ export function DateEntryDashboard({ year }: { year: number }) {
   const allMonthly = MONTHS_SHORT.map((_, i) => ublMonthly[i] + ciplaMonthly[i] + unichMonthly[i] + hulMonthly[i] + pecMonthly[i]);
 
   // Previous year monthly totals
-  const pUblMonthly = MONTHS_SHORT.map((_, i) => monthVal(pUblDate, i + 1, ['breakfast','lunch','dinner']));
+  const pUblMonthly = MONTHS_SHORT.map((_, i) => monthVal(pUblDate, i + 1, ['breakfast', 'contractorBreakfast', 'lunch', 'dinner'])); // Added field
   const pCiplaMonthly = MONTHS_SHORT.map((_, i) => monthVal(pCiplaData, i + 1, ['breakfast','lunch','dinner']));
   const pUnichMonthly = MONTHS_SHORT.map((_, i) =>
     monthVal(pUnichSnacks, i + 1, ['breakfast','eveningSnacks','nightSnacks']) + monthVal(pUnichLunch, i + 1, ['lunch','dinner']));
@@ -327,6 +329,7 @@ export function DateEntryDashboard({ year }: { year: number }) {
   // Meal type mix pie (all clients)
   const mealMix = [
     { name: "Breakfast", value: ublBreakfast + ciplaBreakfast + unichBreakfast + hulKpfBreakfast + hulTecBreakfast, color: COLORS.breakfast },
+    { name: "Cont. Breakfast", value: ublContractorBreakfast, color: COLORS.contractorBreakfast }, // Added to pie
     { name: "Lunch", value: ublLunchT + ciplaLunch + unichLunch + hulKpfLunch + hulTecLunch + pecLunchBill, color: COLORS.lunch },
     { name: "Dinner", value: ublDinner + ciplaDinner + unichDinner + pecDinnerBill, color: COLORS.dinner },
     { name: "Evening Snacks", value: unichEvening + hulKpfEvng + hulTecEvng, color: COLORS.eveningSnacks },
@@ -475,15 +478,16 @@ export function DateEntryDashboard({ year }: { year: number }) {
       {/* ========== UBL SECTION ========== */}
       <SectionHeader title="United Breweries Ltd (UBL)" subtitle="Meal & Snack Data — Bill Data Sheet + Lunch Per Day" color="#f59e0b" />
       <InsightStrip monthlyTotals={ublMonthly} color="#f59e0b" />
-      <div className="grid grid-cols-3 sm:grid-cols-5 gap-2 mb-4">
+      <div className="grid grid-cols-3 sm:grid-cols-6 gap-2 mb-4">
         <StatCard label="Breakfast" value={ublBreakfast} color={COLORS.breakfast} />
+        <StatCard label="Cont. Brkft" value={ublContractorBreakfast} color={COLORS.contractorBreakfast} />
         <StatCard label="Lunch" value={ublLunchT} color={COLORS.lunch} />
         <StatCard label="Dinner" value={ublDinner} color={COLORS.dinner} />
         <StatCard label="Total Tea" value={ublTea} color={COLORS.tea} />
         <StatCard label="Mutton" value={ublMutton} color={COLORS.mutton} />
       </div>
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-2">
-        <ChartCard title="UBL — Monthly Meals (Breakfast / Lunch / Dinner / Tea)">
+        <ChartCard title="UBL — Monthly Meals (Breakfast / Cont. / Lunch / Dinner / Tea)">
           <ResponsiveContainer width="100%" height={CHART_H}>
             <BarChart data={ublDateChart} margin={{ top: 5, right: 10, left: -10, bottom: 5 }}>
               <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
@@ -492,6 +496,7 @@ export function DateEntryDashboard({ year }: { year: number }) {
               <Tooltip />
               <Legend wrapperStyle={{ fontSize: 11 }} />
               <Bar dataKey="breakfast" name="Breakfast" fill={COLORS.breakfast} radius={[2,2,0,0]} />
+              <Bar dataKey="contractorBreakfast" name="Cont. Brkft" fill={COLORS.contractorBreakfast} radius={[2,2,0,0]} />
               <Bar dataKey="lunch" name="Lunch" fill={COLORS.lunch} radius={[2,2,0,0]} />
               <Bar dataKey="dinner" name="Dinner" fill={COLORS.dinner} radius={[2,2,0,0]} />
               <Bar dataKey="tea" name="Tea (All)" fill={COLORS.tea} radius={[2,2,0,0]} />
