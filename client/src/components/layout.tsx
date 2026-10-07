@@ -361,8 +361,14 @@ export function Layout({ children }: { children: React.ReactNode }) {
                 <FilePlus className="w-5 h-5" />
                 <span className="text-[10px] font-medium">{tr('expense')}</span>
               </Link>
-            )}
-
+  
+            <Link href="/nomination-forms">
+  <a className="flex items-center gap-2 px-3 py-2 rounded-md hover:bg-gray-100">
+    {/* Agar aap koi icon use kar rahe hain toh yahan add kar sakte hain */}
+    <span>Nomination Forms (II, III, VII)</span>
+  </a>
+</Link>
+           )}
             {/* Cash Seal — if permitted */}
             {perms.includes('cashseal') && (
               <Link href="/cash-seal" onClick={closeSidebar}
