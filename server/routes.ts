@@ -10,7 +10,9 @@ import { insertPankajReportSchema, insertTaxInvoiceSchema, insertTaxInvoiceItemS
 import { generateRegistrationOptions, verifyRegistrationResponse, generateAuthenticationOptions, verifyAuthenticationResponse } from '@simplewebauthn/server';
 import { isoBase64URL, isoUint8Array } from '@simplewebauthn/server/helpers';
 import { eq } from "drizzle-orm"; // Ise file ke top par import karein
-
+// File ke top par add karein:
+import { employeeNominations, nominationNominees, employees } from "@shared/schema";
+import { eq, desc } from "drizzle-orm";
 // 1. DATA SAVE KARNE KI API
 app.post('/api/save-sales', async (req: any, res: any) => {
     try {
@@ -1368,7 +1370,87 @@ export async function registerRoutes(
     const employees = await storage.getEmployees(clientName);
     res.json(employees);
   });
+// ==========================================
+  // NOMINATIONS FORMS API (Form II, III, VII)
+  // ==========================================
 
+  // 1. GET: Sabhi nominations laane ke liye 
+  app.get("/api/nominations", requireAuth, async (req, res) => {
+    try {
+      const { formType, employeeId } = req.query;
+      let query = db.select({
+        nomination: employeeNominations,
+        employee: employees
+      }).from(employeeNominations)
+        .leftJoin(employees, eq(employeeNominations.employeeId, employees.id));
+
+      const results = await query.orderBy(desc(employeeNominations.createdAt));
+
+      const filtered = results.filter(r => {
+        let match = true;
+        if (formType && r.nomination.formType !== formType) match = false;
+        if (employeeId && r.nomination.employeeId !== Number(employeeId)) match = false;
+        return match;
+      });
+
+      res.json(filtered);
+    } catch (err) {
+      console.error("Fetch nominations error:", err);
+      res.status(500).json({ message: "Nominations fetch karne mein error aayi" });
+    }
+  });
+
+  // 2. GET: Ek specific nomination aur uske nominees laane ke liye
+  app.get("/api/nominations/:id", requireAuth, async (req, res) => {
+    try {
+      const id = Number(req.params.id);
+      const [nomination] = await db.select().from(employeeNominations).where(eq(employeeNominations.id, id));
+      if (!nomination) return res.status(404).json({ message: "Nomination nahi mila" });
+
+      const [employee] = await db.select().from(employees).where(eq(employees.id, nomination.employeeId));
+      const nominees = await db.select().from(nominationNominees).where(eq(nominationNominees.nominationId, id));
+
+      res.json({ nomination, employee, nominees });
+    } catch (err) {
+      res.status(500).json({ message: "Nomination detail fetch karne mein error aayi" });
+    }
+  });
+
+  // 3. POST: Naya nomination aur uske nominees save karne ke liye
+  app.post("/api/nominations", requireAuth, async (req, res) => {
+    try {
+      const { nomination, nominees } = req.body;
+
+      const [result] = await db.insert(employeeNominations).values(nomination);
+      const nominationId = result.insertId;
+
+      if (nominees && nominees.length > 0) {
+        const nomineesWithId = nominees.map((n: any) => ({
+          ...n,
+          nominationId: nominationId,
+        }));
+        await db.insert(nominationNominees).values(nomineesWithId);
+      }
+
+      res.status(201).json({ id: nominationId, message: "Nomination successfully save ho gaya" });
+    } catch (err) {
+      console.error("Create nomination error:", err);
+      res.status(500).json({ message: "Nomination create karne mein error aayi" });
+    }
+  });
+
+  // 4. DELETE: Nomination aur uske nominees delete karne ke liye
+  app.delete("/api/nominations/:id", requireAuth, async (req, res) => {
+    try {
+      const id = Number(req.params.id);
+      await db.delete(nominationNominees).where(eq(nominationNominees.nominationId, id));
+      await db.delete(employeeNominations).where(eq(employeeNominations.id, id));
+      
+      res.json({ message: "Successfully delete ho gaya" });
+    } catch (err) {
+      res.status(500).json({ message: "Nomination delete karne mein error aayi" });
+    }
+  });
   app.get("/api/employees/:id", requireAdmin, async (req, res) => {
     const emp = await storage.getEmployee(Number(req.params.id));
     if (!emp) return res.status(404).json({ message: "Employee not found" });
