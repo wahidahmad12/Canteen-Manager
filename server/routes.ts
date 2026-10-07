@@ -1,24 +1,84 @@
+
 import type { Express, Request, Response, NextFunction } from "express";
 import type { Server } from "http";
 import { storage } from "./storage";
-import { pool, db } from "./db";
+import { pool } from "./db";
 import { api } from "@shared/routes";
 import { z } from "zod";
 import bcrypt from "bcryptjs";
-import { 
-  insertPankajReportSchema, 
-  insertTaxInvoiceSchema, 
-  insertTaxInvoiceItemSchema,
-  employeeNominations, 
-  nominationNominees, 
-  employees,
-  daily_reports,
-  canteenSales
-} from "@shared/schema";
+import { insertPankajReportSchema, insertTaxInvoiceSchema, insertTaxInvoiceItemSchema } from "@shared/schema";
 import { generateRegistrationOptions, verifyRegistrationResponse, generateAuthenticationOptions, verifyAuthenticationResponse } from '@simplewebauthn/server';
 import { isoBase64URL, isoUint8Array } from '@simplewebauthn/server/helpers';
-import { eq, desc } from "drizzle-orm";
+import { eq } from "drizzle-orm"; // Ise file ke top par import karein
 
+// 1. DATA SAVE KARNE KI API
+app.post('/api/save-sales', async (req: any, res: any) => {
+    try {
+        const data = req.body;
+        // Aaj ki date ko 'YYYY-MM-DD' format mein nikalna
+        const today = new Date().toISOString().split('T')[0]; 
+
+        // TiDB mein data insert ya update karna
+        await db.insert(canteenSales).values({
+            recordDate: today,
+            bfCount: data.bfCount, bfAmt: data.bfAmt,
+            luVeg: data.luVeg, luNonVeg: data.luNonVeg, luAmt: data.luAmt,
+            evVeg: data.evVeg, evNonVeg: data.evNonVeg, evAmt: data.evAmt,
+            niCount: data.niCount, niAmt: data.niAmt,
+            grandTotal: data.grandTotal, totalRevenue: data.totalRevenue
+        }).onDuplicateKeyUpdate({ set: {
+            bfCount: data.bfCount, bfAmt: data.bfAmt,
+            luVeg: data.luVeg, luNonVeg: data.luNonVeg, luAmt: data.luAmt,
+            evVeg: data.evVeg, evNonVeg: data.evNonVeg, evAmt: data.evAmt,
+            niCount: data.niCount, niAmt: data.niAmt,
+            grandTotal: data.grandTotal, totalRevenue: data.totalRevenue
+        }});
+
+        res.status(200).json({ success: true, message: "Data Database mein Save ho gaya!" });
+    } catch (error: any) {
+        console.error("Save Error:", error);
+        res.status(500).json({ success: false, error: error.message });
+    }
+});
+
+// 2. REPORT FETCH KARNE KI API
+app.get('/api/get-report', async (req: any, res: any) => {
+    try {
+        const queryDate = req.query.date; 
+        
+        // Database se us specific date ka data recall karna
+        const record = await db.select().from(canteenSales).where(eq(canteenSales.recordDate, queryDate));
+        
+        if (record.length > 0) {
+            res.status(200).json(record[0]);
+        } else {
+            res.status(404).json({ message: "Is date ka data maujood nahi hai." });
+        }
+    } catch (error: any) {
+        console.error("Fetch Error:", error);
+        res.status(500).json({ success: false, error: error.message });
+    }
+});
+// ... aapka purana app.post('/api/save-sales', ...) wala code upar rahega ...
+
+// 2. REPORT FETCH KARNE KI API (Data recall karne ke liye)
+app.get('/api/get-report', async (req: any, res: any) => {
+    try {
+        const queryDate = req.query.date; // Frontend se select ki hui date aayegi
+        
+        // Yahan par aapki Drizzle query database se data recall karegi
+        const record = await db.select().from(canteenSales).where(eq(canteenSales.recordDate, queryDate));
+        
+        if (record.length > 0) {
+            res.status(200).json(record[0]); // Data mil gaya toh wapas frontend par bhej do
+        } else {
+            res.status(404).json({ message: "Is date ka data maujood nahi hai." });
+        }
+    } catch (error: any) {
+        console.error("Fetch Error:", error);
+        res.status(500).json({ success: false, error: error.message });
+    }
+});
 const webauthnRegChallenges = new Map<number, string>();
 const webauthnAuthChallenges = new Map<number, string>();
 
@@ -55,6 +115,7 @@ function requirePermission(perm: string) {
   };
 }
 
+// True if the given (month, year) is strictly before the current calendar month.
 function isPastMonth(month: number, year: number): boolean {
   const now = new Date();
   const curY = now.getFullYear();
@@ -62,22 +123,31 @@ function isPastMonth(month: number, year: number): boolean {
   return year < curY || (year === curY && month < curM);
 }
 
+// True if the given (month, year) is exactly the current calendar month.
 function isCurrentMonth(month: number, year: number): boolean {
   const now = new Date();
   return year === now.getFullYear() && month === now.getMonth() + 1;
 }
 
+// Extract { month, year } from an ISO-ish date string ("YYYY-MM-DD").
+// Returns NaN parts when the input is missing/malformed.
 function monthYearFromEntryDate(entryDate: unknown): { month: number; year: number } {
   const parts = String(entryDate ?? "").split("-");
   return { year: Number(parts[0]), month: Number(parts[1]) };
 }
 
+// For PEC Ventures date-entry: non-admins may only edit the current month.
+// Returns true if the write should be blocked (past month + not admin).
 function pecPastMonthBlocked(req: Request, month: number, year: number): boolean {
   if (req.session.role === "admin") return false;
   if (!Number.isFinite(month) || !Number.isFinite(year)) return false;
   return isPastMonth(month, year);
 }
 
+// Returns the effective clientName for a request.
+// - Admin:                          returns caller-supplied value (undefined = no filter / all records)
+// - Non-admin with session client:  returns session clientName (ignores supplied value)
+// - Non-admin without session client: returns false (fail-closed — caller must reject the request)
 function effectiveClientName(req: Request, supplied: string | undefined): string | undefined | false {
   if (req.session.role === "admin") return supplied;
   const sessionClient = req.session.clientName;
@@ -89,61 +159,37 @@ export async function registerRoutes(
   httpServer: Server,
   app: Express
 ): Promise<Server> {
-
-  // --- CANTEEN POS SAVE DATA API ---
+// --- CANTEEN POS SAVE DATA API ---
   app.post('/api/save-sales', async (req: any, res: any) => {
       try {
+          // Frontend se bheja gaya saara data receive karna
           const data = req.body;
-          const today = new Date().toISOString().split('T')[0]; 
           
-          if (canteenSales) {
-              await db.insert(canteenSales).values({
-                  recordDate: today,
-                  bfCount: data.bfCount, bfAmt: data.bfAmt,
-                  luVeg: data.luVeg, luNonVeg: data.luNonVeg, luAmt: data.luAmt,
-                  evVeg: data.evVeg, evNonVeg: data.evNonVeg, evAmt: data.evAmt,
-                  niCount: data.niCount, niAmt: data.niAmt,
-                  grandTotal: data.grandTotal, totalRevenue: data.totalRevenue
-              }).onDuplicateKeyUpdate({ set: {
-                  bfCount: data.bfCount, bfAmt: data.bfAmt,
-                  luVeg: data.luVeg, luNonVeg: data.luNonVeg, luAmt: data.luAmt,
-                  evVeg: data.evVeg, evNonVeg: data.evNonVeg, evAmt: data.evAmt,
-                  niCount: data.niCount, niAmt: data.niAmt,
-                  grandTotal: data.grandTotal, totalRevenue: data.totalRevenue
-              }});
-          } else if (daily_reports) {
-              await db.insert(daily_reports).values({
-                  breakfastCount: data.bfCount, breakfastAmount: data.bfAmt,
-                  lunchVegCount: data.luVeg, lunchNonVegCount: data.luNonVeg, lunchAmount: data.luAmt,
-                  eveningVegCount: data.evVeg, eveningNonVegCount: data.evNonVeg, eveningAmount: data.evAmt,
-                  nightCount: data.niCount, nightAmount: data.niAmt,
-                  totalCount: data.grandTotal, revenue: data.totalRevenue,
-                  date: new Date()
-              });
-          }
+          // Drizzle ORM ke zariye TiDB mein data save karna
+          // Note: 'daily_reports' aapki table ka naam hona chahiye
+          await db.insert(daily_reports).values({
+              breakfastCount: data.bfCount,
+              breakfastAmount: data.bfAmt,
+              lunchVegCount: data.luVeg,
+              lunchNonVegCount: data.luNonVeg,
+              lunchAmount: data.luAmt,
+              eveningVegCount: data.evVeg,
+              eveningNonVegCount: data.evNonVeg,
+              eveningAmount: data.evAmt,
+              nightCount: data.niCount,
+              nightAmount: data.niAmt,
+              totalCount: data.grandTotal,
+              revenue: data.totalRevenue,
+              date: new Date() // Aaj ki date aur time
+          });
+          
+          console.log("Canteen POS Data TiDB mein save ho gaya!");
           res.status(200).json({ success: true, message: "Data Saved to Database!" });
       } catch (error: any) {
           console.error("Database Insert Error:", error);
           res.status(500).json({ success: false, error: error.message });
       }
   });
-
-  // --- REPORT FETCH API ---
-  app.get('/api/get-report', async (req: any, res: any) => {
-      try {
-          const queryDate = req.query.date; 
-          const record = await db.select().from(canteenSales).where(eq(canteenSales.recordDate, queryDate));
-          if (record.length > 0) {
-              res.status(200).json(record[0]);
-          } else {
-              res.status(404).json({ message: "Is date ka data maujood nahi hai." });
-          }
-      } catch (error: any) {
-          console.error("Fetch Error:", error);
-          res.status(500).json({ success: false, error: error.message });
-      }
-  });
-
   // === AUTH ROUTES (no auth required) ===
   app.post(api.auth.login.path, async (req, res) => {
     try {
@@ -299,6 +345,7 @@ export async function registerRoutes(
     if (!month || !year) return res.status(400).json({ message: "month and year required" });
     const record = await storage.getSalaryByEmployeeId(employeeId, Number(month), Number(year));
     if (!record) return res.status(404).json({ message: "No salary record" });
+    // Fetch OT records from the employee's actual client name
     const emp = await storage.getEmployee(employeeId);
     const otRecords = await storage.getOvertimeRecords(emp?.clientName || record?.clientName || "");
     const empOt = otRecords.filter(ot => {
@@ -374,11 +421,14 @@ export async function registerRoutes(
   });
 
   // === PROTECTED ROUTES (require auth) ===
+
+  // Get all reports
   app.get(api.reports.list.path, requirePermission('expense'), async (req, res) => {
     const reports = await storage.getReports();
     res.json(reports);
   });
 
+  // Get single report
   app.get(api.reports.get.path, requirePermission('expense'), async (req, res) => {
     const report = await storage.getReport(Number(req.params.id));
     if (!report) {
@@ -387,6 +437,7 @@ export async function registerRoutes(
     res.json(report);
   });
 
+  // Create report
   app.post(api.reports.create.path, requirePermission('expense'), async (req, res) => {
     try {
       const input = api.reports.create.input.parse(req.body);
@@ -399,6 +450,7 @@ export async function registerRoutes(
           field: err.errors[0].path.join('.'),
         });
       }
+      // Check for unique constraint violation on date
       if (err instanceof Error && 'code' in (err as any) && (err as any).code === '23505') {
         return res.status(400).json({ message: 'A report for this date already exists. Each day can only have one report.' });
       }
@@ -406,6 +458,7 @@ export async function registerRoutes(
     }
   });
 
+  // Update report
   app.put(api.reports.update.path, requirePermission('expense'), async (req, res) => {
     try {
       const input = api.reports.update.input.parse(req.body);
@@ -425,26 +478,31 @@ export async function registerRoutes(
     }
   });
 
+  // Delete report
   app.delete(api.reports.delete.path, requireAdmin, async (req, res) => {
     await storage.deleteReport(Number(req.params.id));
     res.status(204).send();
   });
 
+  // Get previous day balance
   app.get('/api/reports/previous-balance/:date', requirePermission('expense'), async (req, res) => {
     const balance = await storage.getPreviousDayBalance(req.params.date as string);
     res.json({ balance });
   });
 
+  // Get last vegetable prices
   app.get(api.vegetables.lastPrices.path, requirePermission('expense'), async (req, res) => {
     const prices = await storage.getLastVegetablePrices();
     res.json(prices);
   });
 
+  // Get vegetable items
   app.get(api.vegetables.list.path, requirePermission('expense'), async (req, res) => {
     const items = await storage.getVegetableItems();
     res.json(items);
   });
 
+  // Create vegetable item
   app.post(api.vegetables.create.path, requireAdmin, async (req, res) => {
     try {
       const input = api.vegetables.create.input.parse(req.body);
@@ -461,6 +519,7 @@ export async function registerRoutes(
     }
   });
 
+  // Update vegetable item
   app.put(api.vegetables.update.path, requireAdmin, async (req, res) => {
     try {
       const input = api.vegetables.update.input.parse(req.body);
@@ -480,12 +539,14 @@ export async function registerRoutes(
     }
   });
 
+  // Delete vegetable item
   app.delete(api.vegetables.delete.path, requireAdmin, async (req, res) => {
     await storage.deleteVegetableItem(Number(req.params.id));
     res.status(204).send();
   });
 
   // === CASH SEAL ROUTES ===
+  // Get Cash Seal Akbar Ali amount by date (for auto-fill in expense report)
   app.get('/api/cash-seals/by-date/:date', requireAuth, async (req, res) => {
     const dateStr = req.params.date;
     const seals = await storage.getCashSeals();
@@ -509,6 +570,7 @@ export async function registerRoutes(
     try {
       const input = api.cashSeals.create.input.parse(req.body);
       const seal = await storage.createCashSeal(input);
+      // Auto-sync Akbar Ali total → expense report receivedAmount
       if (seal?.reportId) {
         await storage.syncCashSealToReport(seal.reportId, Number(input.totalGivenToAkbarAli) || 0);
       }
@@ -525,6 +587,7 @@ export async function registerRoutes(
     try {
       const id = Number(req.params.id);
       const seal = await storage.updateCashSeal(id, req.body);
+      // Auto-sync Akbar Ali total → expense report receivedAmount
       if (seal?.reportId) {
         await storage.syncCashSealToReport(seal.reportId, Number(req.body.totalGivenToAkbarAli) || 0);
       }
@@ -780,16 +843,19 @@ export async function registerRoutes(
     res.json(invoices);
   });
 
+  // Available years for expense item stock report
   app.get('/api/expense-items/stock-years', requireAuth, async (req, res) => {
     try { res.json(await storage.getExpenseItemStockYears()); }
     catch (e: any) { res.status(500).json({ error: e.message }); }
   });
 
+  // Available years for purchase item stock report
   app.get('/api/purchase-invoices/item-stock-years', requireAuth, async (req, res) => {
     try { res.json(await storage.getPurchaseItemStockYears()); }
     catch (e: any) { res.status(500).json({ error: e.message }); }
   });
 
+  // Expense item-wise stock monthly report (from daily cash expenses)
   app.get('/api/expense-items/stock-report', requireAuth, async (req, res) => {
     try {
       const year = Number(req.query.year) || new Date().getFullYear();
@@ -801,6 +867,7 @@ export async function registerRoutes(
     }
   });
 
+  // Item-wise stock monthly report
   app.get('/api/purchase-invoices/item-stock-report', requireAuth, async (req, res) => {
     try {
       const year = Number(req.query.year) || new Date().getFullYear();
@@ -821,6 +888,7 @@ export async function registerRoutes(
     }
   });
 
+  // Must be registered BEFORE /:id to avoid "price-history" being treated as an ID
   app.get('/api/purchase-invoices/price-history', requireAuth, async (req, res) => {
     try {
       const item = String(req.query.item || '').trim();
@@ -898,6 +966,7 @@ export async function registerRoutes(
     }
   });
 
+  // ── Payment Out (vendor-level payments allocated across bills) ─────────────
   app.get('/api/payment-outs', requirePermission('purchase'), async (req: any, res) => {
     try {
       const vendor = req.query.vendor ? String(req.query.vendor) : undefined;
@@ -967,6 +1036,7 @@ export async function registerRoutes(
       if (req.session.role !== 'admin' && invoice.createdBy !== req.session.displayName && invoice.createdBy !== req.session.username) {
         return res.status(403).json({ message: "Access denied" });
       }
+      // Pull any available advance from earlier bills, then push any excess forward
       await storage.applyVendorAdvanceToInvoice(invoice.id);
       await storage.applyExcessToLaterInvoices(invoice.id);
       res.json({ message: "Advance adjustment updated" });
@@ -1033,12 +1103,14 @@ export async function registerRoutes(
     res.status(204).send();
   });
 
+  // === SAVED ITEM NAMES ROUTES ===
   app.get(api.savedItems.list.path, requireAuth, async (req, res) => {
     const source = req.query.source as string | undefined;
     const items = await storage.getSavedItemNames(source);
     res.json(items);
   });
 
+  // === CLIENT ROUTES ===
   app.get(api.clients.list.path, requireAuth, async (req, res) => {
     const items = await storage.getClientNames();
     res.json(items);
@@ -1081,95 +1153,220 @@ export async function registerRoutes(
     res.status(204).send();
   });
 
-  // ==========================================
-  // NOMINATIONS FORMS API (Form II, III, VII) - SAFE VERSION
-  // ==========================================
+  // === CONTRACTOR ROUTES (contractor master + monthly meal entries) ===
+  app.get('/api/contractors', requirePermission('salesinvoice'), async (_req, res) => {
+    res.json(await storage.getContractors());
+  });
 
-  // 1. GET: Saare saved nominations
-  app.get("/api/nominations", async (req, res) => {
+  app.post('/api/contractors', requirePermission('salesinvoice'), async (req, res) => {
     try {
-      const { formType, employeeId } = req.query;
-      const results = await db.select().from(employeeNominations);
-      
-      let filtered = results;
-      if (formType) {
-          filtered = filtered.filter(r => r.formType === formType);
-      }
-      if (employeeId) {
-          filtered = filtered.filter(r => r.employeeId === Number(employeeId));
-      }
-      
-      const mappedResults = filtered.map(nom => ({
-          nomination: nom,
-          employee: null 
-      }));
-
-      res.json(mappedResults);
-    } catch (error) {
-      console.error("GET /nominations Error:", error);
-      res.status(500).json({ message: "Error fetching nominations" });
+      res.status(201).json(await storage.createContractor(req.body || {}));
+    } catch (err: any) {
+      res.status(400).json({ message: err?.message || 'Failed to create contractor' });
     }
   });
 
-  // 2. GET (Single)
-  app.get("/api/nominations/:id", async (req, res) => {
+  app.put('/api/contractors/:id', requirePermission('salesinvoice'), async (req, res) => {
     try {
-      const id = Number(req.params.id);
-      const results = await db.select().from(employeeNominations).where(eq(employeeNominations.id, id));
-      
-      if (!results || results.length === 0) {
-          return res.status(404).json({ message: "Nomination nahi mila" });
-      }
-      
-      const nomination = results[0];
-      const nominees = await db.select().from(nominationNominees).where(eq(nominationNominees.nominationId, id));
-
-      res.json({ nomination, employee: null, nominees });
-    } catch (error) {
-      console.error("GET /nominations/:id Error:", error);
-      res.status(500).json({ message: "Error fetching nomination details" });
+      res.json(await storage.updateContractor(Number(req.params.id), req.body || {}));
+    } catch (err: any) {
+      const code = err?.message === 'Contractor not found' ? 404 : 400;
+      res.status(code).json({ message: err?.message || 'Failed to update contractor' });
     }
   });
 
-  // 3. POST
-  app.post("/api/nominations", async (req, res) => {
+  app.delete('/api/contractors/:id', requireAdmin, async (req, res) => {
+    await storage.deleteContractor(Number(req.params.id));
+    res.status(204).send();
+  });
+
+  app.get('/api/contractor-meals', requirePermission('salesinvoice'), async (req, res) => {
+    const month = Number(req.query.month);
+    const year = Number(req.query.year);
+    if (!month || !year) return res.status(400).json({ message: 'month and year required' });
+    res.json(await storage.getContractorMealEntries(month, year));
+  });
+
+  app.post('/api/contractor-meals/bulk', requirePermission('salesinvoice'), async (req, res) => {
     try {
-      const { nomination, nominees } = req.body;
-      
-      if (!nomination || !nomination.employeeId) {
-          return res.status(400).json({ message: "Missing required nomination data" });
+      const { entryDate, month, year, rows } = req.body || {};
+      const m = Number(month), y = Number(year);
+      if (!m || m < 1 || m > 12 || !y || y < 2000 || y > 2100) {
+        return res.status(400).json({ message: 'Valid month and year required' });
       }
-
-      const [insertedNomination] = await db.insert(employeeNominations).values(nomination);
-      const nominationId = insertedNomination.insertId;
-
-      if (nominees && Array.isArray(nominees) && nominees.length > 0) {
-        const nomineesData = nominees.map((n: any) => ({
-          ...n,
-          nominationId: nominationId,
-          sharePercentage: String(n.sharePercentage) 
-        }));
-        await db.insert(nominationNominees).values(nomineesData);
-      }
-
-      res.status(201).json({ id: nominationId, message: "Nomination successfully save ho gaya" });
-    } catch (error) {
-      console.error("POST /nominations Error:", error);
-      res.status(500).json({ message: "Nomination create karne mein error aayi" });
+      if (!Array.isArray(rows)) return res.status(400).json({ message: 'rows required' });
+      await storage.saveContractorMealEntries({ entryDate: String(entryDate || ''), month: m, year: y, rows });
+      res.json({ ok: true });
+    } catch (err: any) {
+      res.status(400).json({ message: err?.message || 'Failed to save entries' });
     }
   });
 
-  // 4. DELETE
-  app.delete("/api/nominations/:id", async (req, res) => {
+  app.post('/api/contractor-meals/rates', requirePermission('salesinvoice'), async (req, res) => {
     try {
-      const id = Number(req.params.id);
-      await db.delete(nominationNominees).where(eq(nominationNominees.nominationId, id));
-      await db.delete(employeeNominations).where(eq(employeeNominations.id, id));
-      res.json({ message: "Successfully delete ho gaya" });
-    } catch (error) {
-      console.error("DELETE /nominations Error:", error);
-      res.status(500).json({ message: "Nomination delete karne mein error aayi" });
+      const { contractorId, month, year, rates } = req.body || {};
+      const cid = Number(contractorId), m = Number(month), y = Number(year);
+      if (!Number.isInteger(cid) || cid <= 0 || !Number.isInteger(m) || m < 1 || m > 12 || !Number.isInteger(y) || y < 2000 || y > 2100) {
+        return res.status(400).json({ message: 'Valid contractorId, month, year required' });
+      }
+      await storage.setContractorMealRates(cid, m, y, rates || {});
+      res.json({ ok: true });
+    } catch (err: any) {
+      res.status(400).json({ message: err?.message || 'Failed to save rates' });
     }
+  });
+
+  app.get('/api/contractor-payments', requirePermission('salesinvoice'), async (_req, res) => {
+    res.json(await storage.getContractorPayments());
+  });
+
+  app.post('/api/contractor-payments', requirePermission('salesinvoice'), async (req, res) => {
+    try {
+      await storage.createContractorPayment(req.body || {});
+      res.status(201).json({ ok: true });
+    } catch (err: any) {
+      res.status(400).json({ message: err?.message || 'Failed to save payment' });
+    }
+  });
+
+  app.delete('/api/contractor-payments/:id', requirePermission('salesinvoice'), async (req, res) => {
+    await storage.deleteContractorPayment(Number(req.params.id));
+    res.status(204).send();
+  });
+
+  app.get('/api/contractor-billing-summary', requirePermission('salesinvoice'), async (_req, res) => {
+    res.json(await storage.getContractorBillingSummary());
+  });
+
+  app.get('/api/contractor-dashboard', requirePermission('salesinvoice'), async (req, res) => {
+    const year = Number(req.query.year);
+    const rawCid = String(req.query.contractorId ?? '0');
+    if (!/^\d+$/.test(rawCid)) return res.status(400).json({ message: 'Valid contractorId required' });
+    const contractorId = Number(rawCid);
+    if (!Number.isInteger(year) || year < 2000 || year > 2100) {
+      return res.status(400).json({ message: 'Valid year required' });
+    }
+    const rawMonth = String(req.query.month ?? '0');
+    if (!/^\d+$/.test(rawMonth)) return res.status(400).json({ message: 'Valid month required' });
+    const month = Number(rawMonth);
+    if (month < 0 || month > 12) return res.status(400).json({ message: 'Valid month required' });
+    const clientName = String(req.query.client ?? '').trim();
+    res.json(await storage.getContractorDashboard(year, contractorId, month, clientName));
+  });
+
+  app.get("/api/geocode", requireAdmin, async (req, res) => {
+    const address = String(req.query.address || "").trim();
+    if (!address) return res.status(400).json({ message: "address required" });
+    try {
+      const url = `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(address)}&format=json&limit=1&addressdetails=1`;
+      const r = await fetch(url, { headers: { "User-Agent": "DJHospitality/1.0 (contact@djhospitality.in)", "Accept-Language": "en" } });
+      const data = await r.json() as any[];
+      if (!data.length) return res.json({ found: false });
+      res.json({ found: true, lat: data[0].lat, lng: data[0].lon, display: data[0].display_name });
+    } catch (e: any) {
+      res.status(500).json({ message: "Geocoding failed" });
+    }
+  });
+
+  // === ADMIN ROUTES ===
+  app.post(api.admin.verifyPin.path, requireAdmin, async (req, res) => {
+    const { pin } = api.admin.verifyPin.input.parse(req.body);
+    const valid = await storage.verifyAdminPin(pin);
+    if (valid) {
+      (req as any).session = (req as any).session || {};
+      (req as any).session.adminAuthenticated = true;
+    }
+    res.json({ valid });
+  });
+
+  app.post(api.admin.changePin.path, requireAdmin, async (req, res) => {
+    const { currentPin, newPin } = api.admin.changePin.input.parse(req.body);
+    const valid = await storage.verifyAdminPin(currentPin);
+    if (!valid) {
+      return res.status(400).json({ message: "Current PIN is incorrect" });
+    }
+    await storage.setAdminPin(newPin);
+    res.json({ success: true });
+  });
+
+  // === ITEM MASTER ROUTES ===
+  app.get(api.itemMaster.list.path, requireAuth, async (req, res) => {
+    const itemType = req.query.type as string | undefined;
+    const items = await storage.getItemMasterItems(itemType);
+    res.json(items);
+  });
+
+  app.post(api.itemMaster.create.path, requireAdmin, async (req, res) => {
+    try {
+      const input = api.itemMaster.create.input.parse(req.body);
+      const item = await storage.createItemMasterItem(input);
+      res.status(201).json(item);
+    } catch (err) {
+      if (err instanceof z.ZodError) {
+        return res.status(400).json({ message: err.errors[0].message, field: err.errors[0].path.join('.') });
+      }
+      if (err instanceof Error) {
+        const msg = err.message || "";
+        const code = (err as any).code || "";
+        const errno = (err as any).errno;
+        if (
+          code === '23505' || code === 'ER_DUP_ENTRY' || errno === 1062 ||
+          msg.includes('already exists') || msg.toLowerCase().includes('duplicate')
+        ) {
+          return res.status(400).json({ message: err.message.includes('already exists') ? err.message : 'This item name already exists.' });
+        }
+      }
+      throw err;
+    }
+  });
+
+  app.put(api.itemMaster.update.path, requireAdmin, async (req, res) => {
+    try {
+      const input = api.itemMaster.update.input.parse(req.body);
+      const item = await storage.updateItemMasterItem(Number(req.params.id), input);
+      res.json(item);
+    } catch (err) {
+      if (err instanceof z.ZodError) {
+        return res.status(400).json({ message: err.errors[0].message, field: err.errors[0].path.join('.') });
+      }
+      if (err instanceof Error && err.message === "Item not found") {
+        return res.status(404).json({ message: "Item not found" });
+      }
+      if (err instanceof Error) {
+        const msg = err.message || "";
+        const code = (err as any).code || "";
+        const errno = (err as any).errno;
+        if (
+          code === '23505' || code === 'ER_DUP_ENTRY' || errno === 1062 ||
+          msg.includes('already exists') || msg.toLowerCase().includes('duplicate')
+        ) {
+          return res.status(400).json({ message: 'This item name already exists.' });
+        }
+      }
+      throw err;
+    }
+  });
+
+  app.delete(api.itemMaster.delete.path, requireAdmin, async (req, res) => {
+    await storage.deleteItemMasterItem(Number(req.params.id));
+    res.status(204).send();
+  });
+
+  app.post('/api/item-master/sync-rates', requireAdmin, async (req, res) => {
+    try {
+      const result = await storage.syncItemMasterRates();
+      res.json(result);
+    } catch (e: any) {
+      res.status(500).json({ error: e.message });
+    }
+  });
+
+  // === EMPLOYEE MASTER ===
+  app.get("/api/employees", requirePermission('labour'), async (req, res) => {
+    const clientName = effectiveClientName(req, req.query.clientName as string | undefined);
+    if (clientName === false) return res.status(403).json({ message: "Client scope required" });
+    const employees = await storage.getEmployees(clientName);
+    res.json(employees);
   });
 
   app.get("/api/employees/:id", requireAdmin, async (req, res) => {
@@ -1204,11 +1401,7 @@ export async function registerRoutes(
     res.status(204).send();
   });
 
-  // === REST OF THE ROUTES ===
-  // Note: All remaining routes from your original code (like WebAuthn, Kiosk, 
-  // Leaves, Wages, Shifts, Reports, etc.) were kept exactly the same to ensure 
-  // no other feature breaks. They are safely enclosed within registerRoutes.
-
+  // === FACE DESCRIPTOR ===
   app.get("/api/employees/face-descriptors", requireAuth, async (req, res) => {
     const { clientName } = req.query;
     if (!clientName) return res.status(400).json({ message: "clientName required" });
@@ -1223,6 +1416,7 @@ export async function registerRoutes(
     res.json({ ok: true });
   });
 
+  // === WEBAUTHN FINGERPRINT ===
   app.get("/api/employees/:id/webauthn/credentials", requireAuth, async (req, res) => {
     const creds = await storage.getEmployeeWebAuthnCredentials(Number(req.params.id));
     res.json({ count: creds.length, registered: creds.length > 0 });
@@ -1360,6 +1554,10 @@ export async function registerRoutes(
     }
   });
 
+  // === ATTENDANCE KIOSK ===
+  // All kiosk endpoints require a shared secret token set via KIOSK_SECRET env var.
+  // Physical kiosk devices are configured with /kiosk?token=<secret> so the
+  // frontend includes the token in every API call via x-kiosk-token header.
   const requireKioskToken = (req: any, res: any, next: any) => {
     const secret = process.env.KIOSK_SECRET;
     if (!secret) {
@@ -1470,6 +1668,7 @@ export async function registerRoutes(
     }
   });
 
+  // QR-based kiosk attendance — token-gated via requireKioskToken
   app.post("/api/kiosk/qr-attendance", requireKioskToken, async (req, res) => {
     try {
       const { employeeCode, clientName, attendanceDate } = req.body;
@@ -1502,6 +1701,7 @@ export async function registerRoutes(
     }
   });
 
+  // === DAILY ATTENDANCE LOGS (Face Recognition) ===
   app.get("/api/daily-attendance/month", requirePermission('labour'), async (req, res) => {
     const { month, year } = req.query;
     const clientName = effectiveClientName(req, req.query.clientName as string | undefined);
@@ -1547,6 +1747,7 @@ export async function registerRoutes(
     res.json(result);
   });
 
+  // === ATTENDANCE / MUSTER ROLL ===
   app.get("/api/attendance", requirePermission('labour'), async (req, res) => {
     const { month, year } = req.query;
     const clientName = effectiveClientName(req, req.query.clientName as string | undefined);
@@ -1560,6 +1761,7 @@ export async function registerRoutes(
     res.json(record);
   });
 
+  // === SALARY RECORDS ===
   app.get("/api/salary/annual", requirePermission('labour'), async (req, res) => {
     const { fyStart } = req.query;
     const clientName = effectiveClientName(req, req.query.clientName as string | undefined);
@@ -1574,6 +1776,7 @@ export async function registerRoutes(
     const clientName = effectiveClientName(req, req.query.clientName as string | undefined);
     if (!clientName || !year) return res.status(400).json({ message: "clientName, year required" });
 
+    // Helper: merge OT register amounts into salary records and cascade-recalculate dependent fields
     const mergeOt = async (records: any[], m: number, y: number) => {
       const allOt = await storage.getOvertimeRecords(clientName as string);
       return records.map(rec => {
@@ -1590,6 +1793,7 @@ export async function registerRoutes(
         }
         otHrs = Math.round(otHrs * 100) / 100;
         otAmt = Math.round(otAmt);
+        // Cascade-recalculate all fields that depend on OT amount
         const basicWage = Number(rec.basicWage) || 0;
         const hra5 = Number(rec.otherAllowance) || 0;
         const fixedHra = Number(rec.hra) || 0;
@@ -1661,6 +1865,7 @@ export async function registerRoutes(
     res.status(204).send();
   });
 
+  // === FINES ===
   app.get("/api/fines", requirePermission('labour'), async (req, res) => {
     const clientName = effectiveClientName(req, req.query.clientName as string | undefined);
     if (clientName === false) return res.status(403).json({ message: "Client scope required" });
@@ -1683,6 +1888,7 @@ export async function registerRoutes(
     res.status(204).send();
   });
 
+  // === ADVANCES ===
   app.get("/api/advances", requirePermission('labour'), async (req, res) => {
     const clientName = effectiveClientName(req, req.query.clientName as string | undefined);
     if (clientName === false) return res.status(403).json({ message: "Client scope required" });
@@ -1705,6 +1911,7 @@ export async function registerRoutes(
     res.status(204).send();
   });
 
+  // === OVERTIME REGISTER ===
   app.get("/api/overtime", requirePermission('labour'), async (req, res) => {
     const clientName = effectiveClientName(req, req.query.clientName as string | undefined);
     if (clientName === false) return res.status(403).json({ message: "Client scope required" });
@@ -1747,6 +1954,7 @@ export async function registerRoutes(
           dailyRate = Number(skillRate.dailyRate);
         }
       }
+      // Formula: ROUND(((Basic Rate + Basic Rate×5%) / 4) × OT Hrs, 0)
       const overtimeRate = Math.round((dailyRate * 1.05) / 4 * 100) / 100;
       const hours = Number(ot.overtimeHours) || 0;
       const overtimeAmount = Math.round(overtimeRate * hours);
@@ -1759,6 +1967,7 @@ export async function registerRoutes(
     res.json({ updated });
   });
 
+  // === DAMAGE DEDUCTIONS ===
   app.get("/api/damage-deductions", requirePermission('labour'), async (req, res) => {
     const clientName = effectiveClientName(req, req.query.clientName as string | undefined);
     if (clientName === false) return res.status(403).json({ message: "Client scope required" });
@@ -1781,11 +1990,13 @@ export async function registerRoutes(
     res.status(204).send();
   });
 
+  // === LEAVE WITH WAGES (Form 15) ===
   app.get("/api/leave-with-wages", requirePermission('labour'), async (req, res) => {
     const employeeId = req.query.employeeId ? Number(req.query.employeeId) : undefined;
     const clientName = effectiveClientName(req, req.query.clientName as string | undefined);
     if (clientName === false) return res.status(403).json({ message: "Client scope required" });
     if (employeeId) {
+      // Non-admins must verify the requested employee belongs to their client
       if (req.session.role !== "admin") {
         const emp = await storage.getEmployee(employeeId);
         if (!emp || emp.clientName !== req.session.clientName) {
@@ -1806,6 +2017,7 @@ export async function registerRoutes(
     const employeeId = Number(req.query.employeeId);
     const year = Number(req.query.year);
     if (!employeeId || !year) return res.status(400).json({ error: "employeeId and year required" });
+    // Non-admins must verify the requested employee belongs to their client
     if (req.session.role !== "admin") {
       const emp = await storage.getEmployee(employeeId);
       if (!emp || emp.clientName !== req.session.clientName) {
@@ -1825,8 +2037,8 @@ export async function registerRoutes(
     let leavesAvailed = 0;
     let absences = 0;
     let totalPresent = 0;
+
     let holidayWork = 0;
-    
     for (const rec of records) {
       const daysInMonth = new Date(year, rec.month, 0).getDate();
       for (let d = 1; d <= daysInMonth; d++) {
@@ -1837,7 +2049,7 @@ export async function registerRoutes(
         if (upper === "P") {
           totalPresent++;
         } else if (upper === "H" || upper.startsWith("P/") || (upper.includes("HL") && upper !== "PH")) {
-          holidayWork++; 
+          holidayWork++; // holiday working — not counted for leave entitlement
         } else if (upper === "WO") {
           weeklyOffs++;
         } else if (upper === "PH") {
@@ -1969,8 +2181,10 @@ export async function registerRoutes(
           const totalLeave = leaveEarned + prevLeaveBalance;
           const wasPaid = existing.dateOfPayment && existing.dateOfPayment.trim() !== "" && existing.dateOfPayment.trim().toUpperCase() !== "NA";
           if (wasPaid) {
+            // Leave was encashed/paid — nothing carries forward to next year
             prevLeaveBalance = 0;
           } else {
+            // Leave not yet paid — remaining balance carries forward (always integer)
             prevLeaveBalance = Math.floor(Math.max(0, totalLeave - Number(existing.leaveEnjoyed || 0)));
           }
         } else {
@@ -2000,6 +2214,7 @@ export async function registerRoutes(
         }
         generated++;
       }
+
       res.json({ generated, years, message: `Generated/updated ${generated} year(s) of leave records` });
     } catch (error: any) {
       res.status(500).json({ error: error.message });
@@ -2027,6 +2242,7 @@ export async function registerRoutes(
     res.status(204).send();
   });
 
+  // === EMPLOYEE WAGE RATES (Year-wise) ===
   app.get("/api/employee-wage-rates", requireAdmin, async (req, res) => {
     const employeeId = Number(req.query.employeeId);
     if (!employeeId) return res.status(400).json({ error: "employeeId required" });
@@ -2068,6 +2284,7 @@ export async function registerRoutes(
     res.status(204).send();
   });
 
+  // === SKILL WAGE RATES (Month/Year-wise by Skill Category) ===
   app.get("/api/skill-wage-rates", requireAuth, async (req, res) => {
     const year = req.query.year ? Number(req.query.year) : undefined;
     const rates = await storage.getSkillWageRates(year);
@@ -2507,6 +2724,7 @@ export async function registerRoutes(
     res.status(204).send();
   });
 
+  // === UBL LUNCH ENTRY ROUTES (Format 2) ===
   app.get('/api/ubl-lunch-entries', requirePermission('salesinvoice'), async (req, res) => {
     const month = Number(req.query.month) || new Date().getMonth() + 1;
     const year = Number(req.query.year) || new Date().getFullYear();
@@ -2530,6 +2748,7 @@ export async function registerRoutes(
     res.status(204).send();
   });
 
+  // === UBL DATE ENTRY ROUTES ===
   app.get('/api/ubl-date-entries', requirePermission('salesinvoice'), async (req, res) => {
     const month = Number(req.query.month) || new Date().getMonth() + 1;
     const year = Number(req.query.year) || new Date().getFullYear();
@@ -2553,6 +2772,7 @@ export async function registerRoutes(
     res.status(204).send();
   });
 
+  // === CIPLA DATE ENTRY ROUTES ===
   app.get('/api/cipla-date-entries', requirePermission('salesinvoice'), async (req, res) => {
     const month = Number(req.query.month) || new Date().getMonth() + 1;
     const year = Number(req.query.year) || new Date().getFullYear();
@@ -2576,6 +2796,7 @@ export async function registerRoutes(
     res.status(204).send();
   });
 
+  // Cipla Machine Summary (billing-period totals)
   app.get('/api/cipla-machine-summary', requirePermission('salesinvoice'), async (req, res) => {
     const month = Number(req.query.month) || new Date().getMonth() + 1;
     const year = Number(req.query.year) || new Date().getFullYear();
@@ -2595,6 +2816,8 @@ export async function registerRoutes(
     } catch (e: any) { res.status(500).json({ error: e.message }); }
   });
 
+  // === UNICHEM SNACK ENTRIES (Form 1) ===
+  // ── Grocery Expenses (handwritten receipt scanner) ──────────────────────────
   app.get('/api/grocery-expenses', requirePermission('expense'), async (_req, res) => {
     try {
       const [rows] = await pool.query(`SELECT id, DATE_FORMAT(entry_date, '%Y-%m-%d') AS entryDate, item_name AS itemName, quantity, cost, payer FROM grocery_expenses ORDER BY entry_date DESC, id DESC`);
@@ -2650,7 +2873,7 @@ export async function registerRoutes(
 
   app.post('/api/grocery-expenses/scan', requirePermission('expense'), async (req, res) => {
     try {
-      const { image } = z.object({ image: z.string().min(100).max(14 * 1024 * 1024) }).parse(req.body); 
+      const { image } = z.object({ image: z.string().min(100).max(14 * 1024 * 1024) }).parse(req.body); // data URL
       const m = image.match(/^data:image\/(jpeg|jpg|png|webp);base64,([A-Za-z0-9+/=]+)$/);
       if (!m) return res.status(400).json({ message: "Please upload a JPG, PNG or WEBP photo." });
       const decodedBytes = Math.floor(m[2].length * 3 / 4);
@@ -2742,6 +2965,7 @@ export async function registerRoutes(
     await storage.deleteUnichEmSnackEntry(Number(req.params.id)); res.status(204).send();
   });
 
+  // === UNICHEM LUNCH ENTRIES (Form 2) ===
   app.get('/api/unichem-lunch-entries', requirePermission('salesinvoice'), async (req, res) => {
     const month = Number(req.query.month) || new Date().getMonth() + 1;
     const year = Number(req.query.year) || new Date().getFullYear();
@@ -2780,6 +3004,7 @@ export async function registerRoutes(
     await storage.deleteUnichEmLunchEntry(Number(req.params.id)); res.status(204).send();
   });
 
+  // === HUL DATE ENTRIES (Hindustan Unilever Limited — KPF / TEC) ===
   app.get('/api/ubl-date-entries/yearly-summary', requirePermission('salesinvoice'), async (req, res) => {
     const year = Number(req.query.year) || new Date().getFullYear();
     res.json(await storage.getUblDateYearlySummary(year));
@@ -2832,6 +3057,7 @@ export async function registerRoutes(
     await storage.deleteHulDateEntry(Number(req.params.id)); res.status(204).send();
   });
 
+  // === HUL KPF EXECUTIVE/MANAGER SNACKS ===
   app.get('/api/hul-kpf-exec-snacks', requirePermission('salesinvoice'), async (req, res) => {
     const month = Number(req.query.month) || new Date().getMonth() + 1;
     const year = Number(req.query.year) || new Date().getFullYear();
@@ -2849,6 +3075,7 @@ export async function registerRoutes(
     await storage.deleteHulKpfExecSnack(Number(req.params.id)); res.status(204).send();
   });
 
+  // === HUL SPECIAL ORDERS ===
   app.get('/api/hul-special-orders', requirePermission('salesinvoice'), async (req, res) => {
     const year = Number(req.query.year) || new Date().getFullYear();
     if (req.query.month === undefined || req.query.month === '') {
@@ -2862,8 +3089,10 @@ export async function registerRoutes(
     const year = Number(req.query.year) || new Date().getFullYear();
     try {
       const rows = await storage.getHulSpecialOrdersByYear(year);
+      console.log('[yearly special orders] year:', year, 'count:', rows.length);
       res.json(rows);
     } catch (err: any) {
+      console.error('[yearly special orders] error:', err.message);
       res.status(500).json({ message: err.message });
     }
   });
@@ -2879,6 +3108,8 @@ export async function registerRoutes(
     await storage.deleteHulSpecialOrder(Number(req.params.id)); res.status(204).send();
   });
 
+  // === QUOTATIONS (Open Quotation tracking) ===
+  // Non-admin users are scoped to their own client's quotations.
   const quotationScope = (req: Request): { scope?: string; forbidden: boolean } => {
     if (req.session.role === 'admin') return { forbidden: false };
     const c = req.session.clientName;
@@ -2938,6 +3169,7 @@ export async function registerRoutes(
     } catch (err: any) { res.status(400).json({ message: err.message }); }
   });
 
+  // === DAILY P&L ROUTES ===
   app.get('/api/daily-pnl/entry', requireAdmin, async (req, res) => {
     const date = String(req.query.date || '');
     const clientName = String(req.query.client || 'KPF');
@@ -2983,6 +3215,7 @@ export async function registerRoutes(
     res.json({ price });
   });
 
+  // === PEC VENTURES ENTRIES ===
   app.get('/api/pec-ventures-entries/yearly-summary', requirePermission('salesinvoice'), async (req, res) => {
     const year = Number(req.query.year) || new Date().getFullYear();
     res.json(await storage.getPecVenturesYearlySummary(year));
@@ -2997,6 +3230,8 @@ export async function registerRoutes(
     const entries = await storage.getPecVenturesEntries(month, year);
     res.json(entries);
   });
+  // PEC Ventures Form 1 (Canteen Expense): non-admins may only CREATE new current-month
+  // entries. Once a day is saved it is locked — only an admin can change/delete saved data.
   app.post('/api/pec-ventures-entries', requirePermission('salesinvoice'), async (req, res) => {
     try {
       const { month, year } = monthYearFromEntryDate(req.body?.entryDate);
@@ -3009,6 +3244,7 @@ export async function registerRoutes(
           return res.status(403).json({ message: "This day is already saved. Only an admin can change saved entries." });
         }
       }
+      // Always derive month/year from entryDate so stored values can't be tampered via the payload.
       const payload = (Number.isFinite(month) && Number.isFinite(year)) ? { ...req.body, month, year } : req.body;
       const entry = await storage.createPecVenturesEntry(payload); res.status(201).json(entry);
     }
@@ -3030,6 +3266,7 @@ export async function registerRoutes(
     await storage.deletePecVenturesEntry(Number(req.params.id)); res.status(204).send();
   });
 
+  // === PEC VENTURES ITEM RATES (snapshot per month; month=0/year=0 = current default) ===
   app.get('/api/pec-ventures-rates', requirePermission('salesinvoice'), async (req, res) => {
     try {
       const def = await storage.getPecVenturesRate(0, 0);
@@ -3045,6 +3282,9 @@ export async function registerRoutes(
       }
     } catch (err: any) { res.status(500).json({ message: err.message }); }
   });
+  // Editing rate values is admin-only. The carry-forward default (month=0,year=0) is always
+  // editable; a real month (1-12) can only be created while unlocked — once it has a snapshot it
+  // is immutable, so previously-saved months/data can never change when rates are updated later.
   app.put('/api/pec-ventures-rates', requireAdmin, async (req, res) => {
     try {
       const month = Number(req.body.month);
@@ -3058,6 +3298,8 @@ export async function registerRoutes(
         const v = Number(req.body[k]);
         if (!Number.isFinite(v) || v < 0) return res.status(400).json({ message: `Invalid rate value for ${k}` });
       }
+      // A locked month is normally immutable so saved data never changes. Admins may explicitly
+      // override this (the "Edit Rates" action) by sending force=true to correct a saved month.
       if (!isDefault && req.body.force !== true) {
         const existing = await storage.getPecVenturesRate(month, year);
         if (existing) return res.status(409).json({ message: 'This month is locked; its rates cannot be changed.' });
@@ -3065,6 +3307,7 @@ export async function registerRoutes(
       res.json(await storage.upsertPecVenturesRate(req.body));
     } catch (err: any) { res.status(500).json({ message: err.message }); }
   });
+  // Locking a month (snapshot from default) is allowed for any data-entry user; never overwrites an existing snapshot
   app.post('/api/pec-ventures-rates/ensure', requirePermission('salesinvoice'), async (req, res) => {
     try {
       const month = Number(req.body.month);
@@ -3076,11 +3319,14 @@ export async function registerRoutes(
     } catch (err: any) { res.status(500).json({ message: err.message }); }
   });
 
+  // Drizzle wraps MySQL errors, so the "Duplicate entry" text may live on err.cause.
   const isDuplicateErr = (err: any): boolean =>
     String(err?.message || '').includes('Duplicate') ||
     String(err?.cause?.message || '').includes('Duplicate') ||
     err?.errno === 1062 || err?.cause?.errno === 1062;
 
+  // === BANANA EXPENSE RATE SCHEDULE ===
+  // Any logged-in user may read the schedule (needed to price cash seals in the UI).
   app.get('/api/banana-rates', requireAuth, async (_req, res) => {
     try { res.json(await storage.getBananaRates()); }
     catch (err: any) { res.status(500).json({ message: err.message }); }
@@ -3119,6 +3365,7 @@ export async function registerRoutes(
     catch (err: any) { res.status(500).json({ message: err.message }); }
   });
 
+  // === FIXED ASSET MANAGEMENT ===
   const validateFixedAsset = (body: any, partial = false): any => {
     const out: any = {};
     const str = (v: any, max: number) => String(v ?? '').trim().slice(0, max);
@@ -3184,6 +3431,7 @@ export async function registerRoutes(
     catch (err: any) { res.status(500).json({ message: err.message }); }
   });
 
+  // Fixed asset dropdown options (categories & locations)
   app.get('/api/fixed-asset-options', requireAuth, async (_req, res) => {
     try { res.json(await storage.getFixedAssetOptions()); }
     catch (err: any) { res.status(500).json({ message: err.message }); }
@@ -3217,6 +3465,7 @@ export async function registerRoutes(
     catch (err: any) { res.status(500).json({ message: err.message }); }
   });
 
+  // === MENU CATEGORY CUSTOM ITEMS (persisted "Add Item" options in Menu Manager) ===
   app.get('/api/menu-category-items', requirePermission('menu'), async (_req, res) => {
     try { res.json(await storage.getMenuCategoryItems()); }
     catch (err: any) { res.status(500).json({ message: err.message }); }
@@ -3255,6 +3504,7 @@ export async function registerRoutes(
     } catch (err: any) { res.status(500).json({ message: err.message }); }
   });
 
+  // === EMPLOYEE SHIFT DUTIES ===
   app.get('/api/shift-duties', requireAuth, async (req, res) => {
     try {
       const month = Number(req.query.month) || new Date().getMonth() + 1;
@@ -3275,6 +3525,7 @@ export async function registerRoutes(
     } catch (err: any) { res.status(500).json({ message: err.message }); }
   });
 
+  // === FLASH MESSAGES ===
   app.get('/api/flash-messages', requireAuth, async (req, res) => {
     try {
       const activeOnly = req.query.active === 'true';
@@ -3301,6 +3552,8 @@ export async function registerRoutes(
     } catch (err: any) { res.status(500).json({ message: err.message }); }
   });
 
+  // === BILL OF MATERIAL ===
+  // Known aliases: DB full names ↔ legacy BOM short codes
   const BOM_ALIASES: Record<string, string[]> = {
     "Hindustan Unilever Limited": ["Hindustan Unilever Limited", "HUL - KPF", "HUL - TEC"],
     "HUL - KPF":  ["HUL - KPF",  "Hindustan Unilever Limited"],
@@ -3340,6 +3593,7 @@ export async function registerRoutes(
     catch (err: any) { res.status(500).json({ message: err.message }); }
   });
 
+  // === WEEKLY MENU ===
   app.get('/api/weekly-menu', requireAuth, async (req, res) => {
     try {
       await storage.ensureWeeklyMenuTable();
@@ -3377,6 +3631,7 @@ export async function registerRoutes(
     } catch (err: any) { res.status(500).json({ message: err.message }); }
   });
 
+  // === MONTHLY P&L ===
   app.get('/api/monthly-pnl', requireAuth, async (req, res) => {
     try {
       const month = parseInt(req.query.month as string);
@@ -3423,3 +3678,4 @@ async function seedDatabase() {
 
 // Run seeder
 setTimeout(seedDatabase, 1000);
+
