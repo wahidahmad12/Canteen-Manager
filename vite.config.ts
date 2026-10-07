@@ -37,4 +37,8 @@ export default defineConfig({
       deny: ["**/.*"],
     },
   },
+  build: {
+    // Ye line add karne se chunk size ki warning aana band ho jayegi
+    chunkSizeWarningLimit: 2000, 
+  }
 });
