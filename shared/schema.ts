@@ -1333,7 +1333,7 @@ export const canteenSales = mysqlTable("canteen_sales", {
 
 // 1. Nomination Master Record
 export const employeeNominations = mysqlTable("employee_nominations", {
-  id: int("id").autoincrement().primaryKey(), // FIX: use autoincrement instead of serial
+  id: int("id").autoincrement().primaryKey(),
   employeeId: int("employee_id").notNull(),
   formType: varchar("form_type", { length: 30 }).notNull(), // 'FORM_VII_WAGES' | 'FORM_II_PF' | 'FORM_III_GRATUITY'
   
@@ -1365,10 +1365,9 @@ export const employeeNominations = mysqlTable("employee_nominations", {
   
   createdAt: timestamp("created_at").defaultNow(),
 });
-
 // 2. Nominees Line Items Table
 export const nominationNominees = mysqlTable("nomination_nominees", {
-  id: int("id").autoincrement().primaryKey(), // FIX: use autoincrement instead of serial
+  id: int("id").autoincrement().primaryKey(),
   nominationId: int("nomination_id").notNull(),
   nomineeCategory: varchar("nominee_category", { length: 20 }).default("GENERAL"), // 'GENERAL' | 'EPS_PENSION' | 'EPS_UNMARRIED'
   name: varchar("name", { length: 150 }).notNull(),
@@ -1381,7 +1380,6 @@ export const nominationNominees = mysqlTable("nomination_nominees", {
   guardianRelationship: varchar("guardian_relationship", { length: 50 }),
   guardianAddress: text("guardian_address"),
 });
-
 export const insertNominationSchema = createInsertSchema(employeeNominations);
 export const insertNomineeSchema = createInsertSchema(nominationNominees);
 
