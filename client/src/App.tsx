@@ -5,6 +5,7 @@ import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import NotFound from "@/pages/not-found";
 import Dashboard from "./pages/dashboard";
+import NominationFormsPage from "./pages/nomination-forms";
 import ReportForm from "./pages/report-form";
 import Admin from "./pages/admin";
 import CashSeal from "./pages/cash-seal";
@@ -142,6 +143,7 @@ function AuthenticatedRouter() {
       <Route path="/form-xiv/:id" component={FormXIV} />
       <Route path="/form-xv/:id" component={FormXV} />
       <Route path="/form-vi-a" component={FormVIA} />
+      <Route path="/nomination-forms" component={NominationFormsPage} />
       <Route path="/bonus-return" component={BonusReturn} />
       <Route path="/half-yearly-return" component={HalfYearlyReturn} />
       <Route path="/leave-with-wages" component={LeaveWithWages} />
