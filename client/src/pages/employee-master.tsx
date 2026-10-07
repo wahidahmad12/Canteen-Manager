@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { apiRequest, queryClient } from "@/lib/queryClient";
+import { apiRequest } from "@/lib/queryClient";
 import { Layout } from "@/components/layout";
 import { useClientNames } from "@/hooks/use-reports";
 import { useToast } from "@/hooks/use-toast";
@@ -26,7 +26,6 @@ const fmtDate = (d: string | null | undefined): string => {
   return `${dd}-${m}-${y}`;
 };
 
-// YYYY-MM-DD → DD-MM-YYYY for display in text input
 const storeToDisplay = (v: string): string => {
   if (!v) return "";
   const s = v.split("T")[0].split(" ")[0];
@@ -35,7 +34,6 @@ const storeToDisplay = (v: string): string => {
   return v;
 };
 
-// DD-MM-YYYY → YYYY-MM-DD for storage; returns raw string while typing
 const displayToStore = (raw: string): string => {
   const clean = raw.replace(/[^\d-]/g, "");
   const parts = clean.split("-");
@@ -45,7 +43,6 @@ const displayToStore = (raw: string): string => {
   return clean;
 };
 
-// Auto-insert dashes while typing: "101" → "10-1", "1006" → "10-06", "10062000" → "10-06-2000"
 const autoFormatDate = (prev: string, next: string): string => {
   const digits = next.replace(/\D/g, "").slice(0, 8);
   let result = "";
@@ -75,6 +72,9 @@ interface Employee {
   dailyRate: string | null;
   fixedHra: string | null;
   gender: string | null;
+  religion: string | null; // Naya addition
+  maritalStatus: string | null;
+  email: string | null; // Naya addition
   dob: string | null;
   address: string | null;
   permanentAddress: string | null;
@@ -108,6 +108,9 @@ const emptyForm = {
   dailyRate: "",
   fixedHra: "",
   gender: "Male",
+  religion: "",
+  maritalStatus: "Unmarried",
+  email: "",
   dob: "",
   address: "",
   permanentAddress: "",
@@ -259,6 +262,9 @@ export default function EmployeeMaster() {
       dailyRate: emp.dailyRate || "",
       fixedHra: emp.fixedHra || "",
       gender: emp.gender || "Male",
+      religion: emp.religion || "",
+      maritalStatus: emp.maritalStatus || "Unmarried",
+      email: emp.email || "",
       dob: emp.dob ? storeToDisplay(String(emp.dob)) : "",
       address: emp.address || "",
       permanentAddress: emp.permanentAddress || "",
@@ -446,18 +452,18 @@ export default function EmployeeMaster() {
       <div className="space-y-4 sm:space-y-6">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
           <div>
-            <h1 className="text-xl sm:text-2xl font-bold tracking-tight" data-testid="text-employee-master-title">Employee Master</h1>
+            <h1 className="text-xl sm:text-2xl font-bold tracking-tight">Employee Master</h1>
             <p className="text-muted-foreground text-xs sm:text-sm mt-1">Manage employee records</p>
           </div>
           <div className="flex flex-wrap gap-2">
-            <Button variant="outline" onClick={handlePrintAllQR} className="gap-2 border-emerald-300 text-emerald-700 hover:bg-emerald-50 dark:border-emerald-700 dark:text-emerald-400" data-testid="button-print-all-qr">
+            <Button variant="outline" onClick={handlePrintAllQR} className="gap-2 border-emerald-300 text-emerald-700 hover:bg-emerald-50 dark:border-emerald-700 dark:text-emerald-400">
               <QrCode className="w-4 h-4" /> Print All QR
             </Button>
-            <Button variant="outline" onClick={handlePrintWeekOfReport} data-testid="button-print-weekof-report">
+            <Button variant="outline" onClick={handlePrintWeekOfReport}>
               <Printer className="w-4 h-4 mr-2" />
               Print Week Of Report
             </Button>
-            <Button onClick={openAdd} data-testid="button-add-employee">
+            <Button onClick={openAdd}>
               <Plus className="w-4 h-4 mr-2" />
               Add Employee
             </Button>
@@ -474,11 +480,10 @@ export default function EmployeeMaster() {
                   value={searchText}
                   onChange={e => setSearchText(e.target.value)}
                   className="pl-9"
-                  data-testid="input-search-employee"
                 />
               </div>
               <Select value={filterClient} onValueChange={setFilterClient}>
-                <SelectTrigger className="w-full sm:w-48" data-testid="select-filter-client">
+                <SelectTrigger className="w-full sm:w-48">
                   <SelectValue placeholder="All Clients" />
                 </SelectTrigger>
                 <SelectContent>
@@ -489,7 +494,7 @@ export default function EmployeeMaster() {
                 </SelectContent>
               </Select>
               <Select value={filterActive} onValueChange={setFilterActive}>
-                <SelectTrigger className="w-full sm:w-36" data-testid="select-filter-status">
+                <SelectTrigger className="w-full sm:w-36">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -518,7 +523,7 @@ export default function EmployeeMaster() {
           <>
             <div className="md:hidden space-y-3">
               {filteredEmployees.map(emp => (
-                <Card key={emp.id} data-testid={`card-employee-${emp.id}`}>
+                <Card key={emp.id}>
                   <CardContent className="p-4">
                     <div className="flex items-start justify-between gap-2">
                       <div className="flex-1 min-w-0 space-y-1">
@@ -568,16 +573,16 @@ export default function EmployeeMaster() {
                         </div>
                       </div>
                       <div className="flex gap-1 shrink-0">
-                        <Button size="icon" variant="ghost" className="text-indigo-600 hover:bg-indigo-50 dark:hover:bg-indigo-900/20" title="Register Fingerprint" onClick={() => handleRegisterFingerprint(emp)} disabled={registeringFingerprintId === emp.id} data-testid={`button-fingerprint-mobile-${emp.id}`}>
+                        <Button size="icon" variant="ghost" className="text-indigo-600 hover:bg-indigo-50 dark:hover:bg-indigo-900/20" title="Register Fingerprint" onClick={() => handleRegisterFingerprint(emp)} disabled={registeringFingerprintId === emp.id}>
                           {registeringFingerprintId === emp.id ? <Loader2 className="w-4 h-4 animate-spin" /> : <Fingerprint className="w-4 h-4" />}
                         </Button>
-                        <Button size="icon" variant="ghost" className="text-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-900/20" title="Generate QR Code" onClick={() => setQrEmp(emp)} data-testid={`button-qr-mobile-${emp.id}`}>
+                        <Button size="icon" variant="ghost" className="text-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-900/20" title="Generate QR Code" onClick={() => setQrEmp(emp)}>
                           <QrCode className="w-4 h-4" />
                         </Button>
-                        <Button size="icon" variant="ghost" onClick={() => openEdit(emp)} data-testid={`button-edit-employee-${emp.id}`}>
+                        <Button size="icon" variant="ghost" onClick={() => openEdit(emp)}>
                           <Pencil className="w-4 h-4" />
                         </Button>
-                        <Button size="icon" variant="ghost" onClick={() => setDeleteId(emp.id)} data-testid={`button-delete-employee-${emp.id}`}>
+                        <Button size="icon" variant="ghost" onClick={() => setDeleteId(emp.id)}>
                           <Trash2 className="w-4 h-4 text-destructive" />
                         </Button>
                       </div>
@@ -590,7 +595,7 @@ export default function EmployeeMaster() {
             <Card className="hidden md:block">
               <CardContent className="p-0">
                 <div className="overflow-x-auto">
-                  <table className="w-full text-sm" data-testid="table-employees">
+                  <table className="w-full text-sm">
                     <thead>
                       <tr className="border-b bg-muted/50">
                         <th className="px-3 py-2.5 text-left text-xs font-semibold text-muted-foreground">Code</th>
@@ -606,7 +611,7 @@ export default function EmployeeMaster() {
                     </thead>
                     <tbody>
                       {filteredEmployees.map(emp => (
-                        <tr key={emp.id} className="border-b last:border-0 hover:bg-muted/30 transition-colors" data-testid={`row-employee-${emp.id}`}>
+                        <tr key={emp.id} className="border-b last:border-0 hover:bg-muted/30 transition-colors">
                           <td className="px-3 py-2.5 font-medium">{emp.employeeCode}</td>
                           <td className="px-3 py-2.5">{emp.name}</td>
                           <td className="px-3 py-2.5 text-muted-foreground">{emp.clientName}</td>
@@ -627,16 +632,16 @@ export default function EmployeeMaster() {
                           </td>
                           <td className="px-3 py-2.5 text-right">
                             <div className="flex justify-end gap-1">
-                              <Button size="icon" variant="ghost" className="text-indigo-600 hover:bg-indigo-50 dark:hover:bg-indigo-900/20" title="Register Fingerprint for attendance" onClick={() => handleRegisterFingerprint(emp)} disabled={registeringFingerprintId === emp.id} data-testid={`button-fingerprint-${emp.id}`}>
+                              <Button size="icon" variant="ghost" className="text-indigo-600 hover:bg-indigo-50 dark:hover:bg-indigo-900/20" title="Register Fingerprint for attendance" onClick={() => handleRegisterFingerprint(emp)} disabled={registeringFingerprintId === emp.id}>
                                 {registeringFingerprintId === emp.id ? <Loader2 className="w-4 h-4 animate-spin" /> : <Fingerprint className="w-4 h-4" />}
                               </Button>
-                              <Button size="icon" variant="ghost" className="text-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-900/20" title="Generate QR Code" onClick={() => setQrEmp(emp)} data-testid={`button-qr-${emp.id}`}>
+                              <Button size="icon" variant="ghost" className="text-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-900/20" title="Generate QR Code" onClick={() => setQrEmp(emp)}>
                                 <QrCode className="w-4 h-4" />
                               </Button>
-                              <Button size="icon" variant="ghost" onClick={() => openEdit(emp)} data-testid={`button-edit-employee-${emp.id}`}>
+                              <Button size="icon" variant="ghost" onClick={() => openEdit(emp)}>
                                 <Pencil className="w-4 h-4" />
                               </Button>
-                              <Button size="icon" variant="ghost" onClick={() => setDeleteId(emp.id)} data-testid={`button-delete-employee-${emp.id}`}>
+                              <Button size="icon" variant="ghost" onClick={() => setDeleteId(emp.id)}>
                                 <Trash2 className="w-4 h-4 text-destructive" />
                               </Button>
                             </div>
@@ -649,7 +654,7 @@ export default function EmployeeMaster() {
               </CardContent>
             </Card>
 
-            <p className="text-xs text-muted-foreground text-center" data-testid="text-employee-count">
+            <p className="text-xs text-muted-foreground text-center">
               Showing {filteredEmployees.length} of {employees?.length || 0} employees
             </p>
           </>
@@ -659,7 +664,7 @@ export default function EmployeeMaster() {
       <Dialog open={dialogOpen} onOpenChange={open => { if (!open) closeDialog(); }}>
         <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle data-testid="text-dialog-title">
+            <DialogTitle>
               {editingId ? "Edit Employee" : "Add Employee"}
             </DialogTitle>
           </DialogHeader>
@@ -672,20 +677,20 @@ export default function EmployeeMaster() {
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
                   <Label htmlFor="employeeCode">Employee Code *</Label>
-                  <Input id="employeeCode" value={form.employeeCode} onChange={e => setField("employeeCode", e.target.value)} data-testid="input-employee-code" />
+                  <Input id="employeeCode" value={form.employeeCode} onChange={e => setField("employeeCode", e.target.value)} />
                 </div>
                 <div>
                   <Label htmlFor="name">Name *</Label>
-                  <Input id="name" value={form.name} onChange={e => setField("name", e.target.value)} data-testid="input-name" />
+                  <Input id="name" value={form.name} onChange={e => setField("name", e.target.value)} />
                 </div>
                 <div>
                   <Label htmlFor="fatherName">Father's Name</Label>
-                  <Input id="fatherName" value={form.fatherName} onChange={e => setField("fatherName", e.target.value)} data-testid="input-father-name" />
+                  <Input id="fatherName" value={form.fatherName} onChange={e => setField("fatherName", e.target.value)} />
                 </div>
                 <div>
                   <Label htmlFor="gender">Gender</Label>
                   <Select value={form.gender} onValueChange={v => setField("gender", v)}>
-                    <SelectTrigger data-testid="select-gender">
+                    <SelectTrigger>
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
@@ -695,16 +700,38 @@ export default function EmployeeMaster() {
                     </SelectContent>
                   </Select>
                 </div>
+                
+                {/* Marital Status */}
+                <div>
+                  <Label htmlFor="maritalStatus">Marital Status</Label>
+                  <Select value={form.maritalStatus} onValueChange={v => setField("maritalStatus", v)}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select status" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="Unmarried">Unmarried</SelectItem>
+                      <SelectItem value="Married">Married</SelectItem>
+                      <SelectItem value="Widowed">Widowed</SelectItem>
+                      <SelectItem value="Divorced">Divorced</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                {/* Religion */}
+                <div>
+                  <Label htmlFor="religion">Religion</Label>
+                  <Input id="religion" value={form.religion} onChange={e => setField("religion", e.target.value)} placeholder="e.g. Hindu, Muslim, Christian" />
+                </div>
+
                 <div>
                   <Label htmlFor="dob">Date of Birth</Label>
                   <Input id="dob" type="text" inputMode="numeric" placeholder="DD-MM-YYYY"
                     value={form.dob}
-                    onChange={e => setField("dob", autoFormatDate(form.dob, e.target.value))}
-                    data-testid="input-dob" />
+                    onChange={e => setField("dob", autoFormatDate(form.dob, e.target.value))} />
                 </div>
                 <div className="sm:col-span-2">
                   <Label htmlFor="identificationMarks">Identification Marks</Label>
-                  <Input id="identificationMarks" value={form.identificationMarks} onChange={e => setField("identificationMarks", e.target.value)} placeholder="e.g. Mole on left cheek, scar on right hand" data-testid="input-identification-marks" />
+                  <Input id="identificationMarks" value={form.identificationMarks} onChange={e => setField("identificationMarks", e.target.value)} placeholder="e.g. Mole on left cheek, scar on right hand" />
                 </div>
               </div>
             </div>
@@ -716,16 +743,16 @@ export default function EmployeeMaster() {
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
                   <Label htmlFor="designation">Designation</Label>
-                  <Input id="designation" value={form.designation} onChange={e => setField("designation", e.target.value)} data-testid="input-designation" />
+                  <Input id="designation" value={form.designation} onChange={e => setField("designation", e.target.value)} />
                 </div>
                 <div>
                   <Label htmlFor="department">Department</Label>
-                  <Input id="department" value={form.department} onChange={e => setField("department", e.target.value)} data-testid="input-department" />
+                  <Input id="department" value={form.department} onChange={e => setField("department", e.target.value)} />
                 </div>
                 <div>
                   <Label htmlFor="clientName">Client / Company *</Label>
                   <Select value={form.clientName} onValueChange={v => setField("clientName", v)}>
-                    <SelectTrigger data-testid="select-client-name">
+                    <SelectTrigger>
                       <SelectValue placeholder="Select client" />
                     </SelectTrigger>
                     <SelectContent>
@@ -737,16 +764,16 @@ export default function EmployeeMaster() {
                 </div>
                 <div>
                   <Label htmlFor="dailyRate">Daily Rate</Label>
-                  <Input id="dailyRate" value={form.dailyRate} onChange={e => setField("dailyRate", e.target.value)} inputMode="decimal" data-testid="input-daily-rate" />
+                  <Input id="dailyRate" value={form.dailyRate} onChange={e => setField("dailyRate", e.target.value)} inputMode="decimal" />
                 </div>
                 <div>
                   <Label htmlFor="fixedHra">Fixed HRA (Monthly)</Label>
-                  <Input id="fixedHra" value={form.fixedHra} onChange={e => setField("fixedHra", e.target.value)} inputMode="decimal" placeholder="0" data-testid="input-fixed-hra" />
+                  <Input id="fixedHra" value={form.fixedHra} onChange={e => setField("fixedHra", e.target.value)} inputMode="decimal" placeholder="0" />
                 </div>
                 <div>
                   <Label htmlFor="weeklyOffDay">Weekly Off Day</Label>
                   <Select value={form.weeklyOffDay || "none"} onValueChange={v => setField("weeklyOffDay", v === "none" ? "" : v)}>
-                    <SelectTrigger data-testid="select-weekly-off-day">
+                    <SelectTrigger>
                       <SelectValue placeholder="Select day" />
                     </SelectTrigger>
                     <SelectContent>
@@ -765,8 +792,7 @@ export default function EmployeeMaster() {
                   <Label htmlFor="joiningDate">Joining Date</Label>
                   <Input id="joiningDate" type="text" inputMode="numeric" placeholder="DD-MM-YYYY"
                     value={form.joiningDate}
-                    onChange={e => setField("joiningDate", autoFormatDate(form.joiningDate, e.target.value))}
-                    data-testid="input-joining-date" />
+                    onChange={e => setField("joiningDate", autoFormatDate(form.joiningDate, e.target.value))} />
                 </div>
               </div>
             </div>
@@ -778,23 +804,23 @@ export default function EmployeeMaster() {
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
                   <Label htmlFor="esicNo">ESIC No</Label>
-                  <Input id="esicNo" value={form.esicNo} onChange={e => setField("esicNo", e.target.value)} data-testid="input-esic-no" />
+                  <Input id="esicNo" value={form.esicNo} onChange={e => setField("esicNo", e.target.value)} />
                 </div>
                 <div>
                   <Label htmlFor="pfNo">PF No</Label>
-                  <Input id="pfNo" value={form.pfNo} onChange={e => setField("pfNo", e.target.value)} data-testid="input-pf-no" />
+                  <Input id="pfNo" value={form.pfNo} onChange={e => setField("pfNo", e.target.value)} />
                 </div>
                 <div>
                   <Label htmlFor="uanNo">UAN No</Label>
-                  <Input id="uanNo" value={form.uanNo} onChange={e => setField("uanNo", e.target.value)} data-testid="input-uan-no" />
+                  <Input id="uanNo" value={form.uanNo} onChange={e => setField("uanNo", e.target.value)} />
                 </div>
                 <div>
                   <Label htmlFor="aadhaarNo">Aadhaar No</Label>
-                  <Input id="aadhaarNo" value={form.aadhaarNo} onChange={e => setField("aadhaarNo", e.target.value)} inputMode="numeric" data-testid="input-aadhaar-no" />
+                  <Input id="aadhaarNo" value={form.aadhaarNo} onChange={e => setField("aadhaarNo", e.target.value)} inputMode="numeric" />
                 </div>
                 <div>
                   <Label htmlFor="panNo">PAN No</Label>
-                  <Input id="panNo" value={form.panNo} onChange={e => setField("panNo", e.target.value)} data-testid="input-pan-no" />
+                  <Input id="panNo" value={form.panNo} onChange={e => setField("panNo", e.target.value)} />
                 </div>
               </div>
             </div>
@@ -806,15 +832,15 @@ export default function EmployeeMaster() {
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
                   <Label htmlFor="bankName">Bank Name</Label>
-                  <Input id="bankName" value={form.bankName} onChange={e => setField("bankName", e.target.value)} data-testid="input-bank-name" />
+                  <Input id="bankName" value={form.bankName} onChange={e => setField("bankName", e.target.value)} />
                 </div>
                 <div>
                   <Label htmlFor="accountNo">Account No</Label>
-                  <Input id="accountNo" value={form.accountNo} onChange={e => setField("accountNo", e.target.value)} inputMode="numeric" data-testid="input-account-no" />
+                  <Input id="accountNo" value={form.accountNo} onChange={e => setField("accountNo", e.target.value)} inputMode="numeric" />
                 </div>
                 <div>
                   <Label htmlFor="ifscCode">IFSC Code</Label>
-                  <Input id="ifscCode" value={form.ifscCode} onChange={e => setField("ifscCode", e.target.value)} data-testid="input-ifsc-code" />
+                  <Input id="ifscCode" value={form.ifscCode} onChange={e => setField("ifscCode", e.target.value)} />
                 </div>
               </div>
             </div>
@@ -824,22 +850,28 @@ export default function EmployeeMaster() {
                 <MapPin className="w-4 h-4" /> Address & Contact
               </h3>
               <div className="space-y-3">
+                {/* Email Address */}
+                <div>
+                  <Label htmlFor="email">Email Address</Label>
+                  <Input id="email" type="email" value={form.email} onChange={e => setField("email", e.target.value)} placeholder="example@email.com" />
+                </div>
+
                 <div>
                   <Label htmlFor="permanentAddress">Permanent Address</Label>
-                  <Textarea id="permanentAddress" value={form.permanentAddress} onChange={e => setField("permanentAddress", e.target.value)} rows={2} data-testid="input-permanent-address" />
+                  <Textarea id="permanentAddress" value={form.permanentAddress} onChange={e => setField("permanentAddress", e.target.value)} rows={2} />
                 </div>
                 <div>
                   <Label htmlFor="localAddress">Local Address</Label>
-                  <Textarea id="localAddress" value={form.localAddress} onChange={e => setField("localAddress", e.target.value)} rows={2} data-testid="input-local-address" />
+                  <Textarea id="localAddress" value={form.localAddress} onChange={e => setField("localAddress", e.target.value)} rows={2} />
                 </div>
                 <div>
                   <Label htmlFor="address">Address (Legacy)</Label>
-                  <Textarea id="address" value={form.address} onChange={e => setField("address", e.target.value)} rows={2} data-testid="input-address" />
+                  <Textarea id="address" value={form.address} onChange={e => setField("address", e.target.value)} rows={2} />
                 </div>
                 <div>
                   <Label htmlFor="skills">Skills / Category</Label>
                   <Select value={form.skills || ""} onValueChange={v => setField("skills", v)}>
-                    <SelectTrigger data-testid="select-skills">
+                    <SelectTrigger>
                       <SelectValue placeholder="Select skill category" />
                     </SelectTrigger>
                     <SelectContent>
@@ -852,7 +884,7 @@ export default function EmployeeMaster() {
                 </div>
                 <div>
                   <Label htmlFor="mobile">Mobile No.</Label>
-                  <Input id="mobile" value={form.mobile} onChange={e => setField("mobile", e.target.value)} inputMode="tel" data-testid="input-mobile" />
+                  <Input id="mobile" value={form.mobile} onChange={e => setField("mobile", e.target.value)} inputMode="tel" />
                 </div>
               </div>
             </div>
@@ -863,7 +895,7 @@ export default function EmployeeMaster() {
               </h3>
               <div className="space-y-3">
                 <div className="flex items-center gap-3">
-                  <Switch checked={form.isActive} onCheckedChange={v => setField("isActive", v)} data-testid="switch-is-active" />
+                  <Switch checked={form.isActive} onCheckedChange={v => setField("isActive", v)} />
                   <Label>{form.isActive ? "Active" : "Inactive"}</Label>
                 </div>
                 {!form.isActive && (
@@ -872,12 +904,11 @@ export default function EmployeeMaster() {
                       <Label htmlFor="leavingDate">Leaving Date</Label>
                       <Input id="leavingDate" type="text" inputMode="numeric" placeholder="DD-MM-YYYY"
                         value={form.leavingDate ?? ""}
-                        onChange={e => setField("leavingDate", autoFormatDate(form.leavingDate ?? "", e.target.value))}
-                        data-testid="input-leaving-date" />
+                        onChange={e => setField("leavingDate", autoFormatDate(form.leavingDate ?? "", e.target.value))} />
                     </div>
                     <div>
                       <Label htmlFor="leavingReason">Leaving Reason</Label>
-                      <Input id="leavingReason" value={form.leavingReason} onChange={e => setField("leavingReason", e.target.value)} data-testid="input-leaving-reason" />
+                      <Input id="leavingReason" value={form.leavingReason} onChange={e => setField("leavingReason", e.target.value)} />
                     </div>
                   </div>
                 )}
@@ -886,8 +917,8 @@ export default function EmployeeMaster() {
           </div>
 
           <DialogFooter className="gap-2">
-            <Button variant="outline" onClick={closeDialog} data-testid="button-cancel">Cancel</Button>
-            <Button onClick={handleSubmit} disabled={isSaving} data-testid="button-save-employee">
+            <Button variant="outline" onClick={closeDialog}>Cancel</Button>
+            <Button onClick={handleSubmit} disabled={isSaving}>
               {isSaving && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
               {editingId ? "Update" : "Create"}
             </Button>
@@ -951,7 +982,6 @@ export default function EmployeeMaster() {
                   };
                   img.src = "data:image/svg+xml;base64," + btoa(unescape(encodeURIComponent(svgData)));
                 }}
-                data-testid="button-download-qr"
               >
                 <Download className="w-4 h-4" /> Download QR
               </Button>
@@ -969,11 +999,10 @@ export default function EmployeeMaster() {
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel data-testid="button-cancel-delete">Cancel</AlertDialogCancel>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
             <AlertDialogAction
               onClick={() => deleteId && deleteMutation.mutate(deleteId)}
               disabled={deleteMutation.isPending}
-              data-testid="button-confirm-delete"
             >
               {deleteMutation.isPending && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
               Delete
