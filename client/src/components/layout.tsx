@@ -111,6 +111,24 @@ export function Layout({ children }: { children: React.ReactNode }) {
     { href: '/epfo-esic', label: tr('epfoEsic'), icon: FileText },
     { href: '/ptax-report', label: tr('ptaxReport'), icon: IndianRupee },
     { href: '/letterhead', label: tr('letterheadLetters'), icon: FileText },
+    const labourSubItems = [
+    ...(user?.role === 'admin' ? [{ href: '/employee-master', label: tr('employeeMaster'), icon: Users }] : []),
+    { href: '/muster-roll', label: tr('musterRoll'), icon: CalendarDays },
+    { href: '/salary', label: tr('salaryRegister'), icon: Wallet },
+    ...(user?.role === 'admin' ? [{ href: '/skill-wage-rates', label: tr('baseWageRates'), icon: IndianRupee }] : []),
+    ...(user?.role === 'admin' ? [{ href: '/shift-duty', label: tr('shiftDutyChart'), icon: CalendarDays }] : []),
+    { href: '/registers', label: tr('registers'), icon: BookOpen },
+    { href: '/form-xiii', label: tr('workmenRegister'), icon: FileText },
+    { href: '/form-vi-a', label: tr('formVIA'), icon: FileText },
+    { href: '/bonus-return', label: tr('bonusReturn'), icon: FileText },
+    { href: '/half-yearly-return', label: tr('halfYearlyReturn'), icon: FileText },
+    { href: '/leave-with-wages', label: tr('leaveWithWages'), icon: FileText },
+    { href: '/epfo-esic', label: tr('epfoEsic'), icon: FileText },
+    { href: '/ptax-report', label: tr('ptaxReport'), icon: IndianRupee },
+    { href: '/letterhead', label: tr('letterheadLetters'), icon: FileText },
+    // 👇 Yahan apna naya link add karein 👇
+    { href: '/nomination-forms', label: 'Nomination Forms', icon: FileText },
+  ];
   ];
 
   const bottomNavItems = [
@@ -361,14 +379,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
                 <FilePlus className="w-5 h-5" />
                 <span className="text-[10px] font-medium">{tr('expense')}</span>
               </Link>
-  
-            <Link href="/nomination-forms">
-  <a className="flex items-center gap-2 px-3 py-2 rounded-md hover:bg-gray-100">
-    {/* Agar aap koi icon use kar rahe hain toh yahan add kar sakte hain */}
-    <span>Nomination Forms (II, III, VII)</span>
-  </a>
-</Link>
-           )}
+                       )}
             {/* Cash Seal — if permitted */}
             {perms.includes('cashseal') && (
               <Link href="/cash-seal" onClick={closeSidebar}
