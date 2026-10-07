@@ -1390,4 +1390,4 @@ export const insertNomineeSchema = createInsertSchema(nominationNominees);
 
 export type EmployeeNomination = typeof employeeNominations.$inferSelect;
 export type NominationNominee = typeof nominationNominees.$inferSelect;
-});
+
