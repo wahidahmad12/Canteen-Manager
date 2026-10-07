@@ -30,6 +30,8 @@ export default defineConfig({
   build: {
     outDir: path.resolve(import.meta.dirname, "dist/public"),
     emptyOutDir: true,
+    // Chunk size ki warning hatane ke liye
+    chunkSizeWarningLimit: 2000,
   },
   server: {
     fs: {
@@ -37,8 +39,4 @@ export default defineConfig({
       deny: ["**/.*"],
     },
   },
-  build: {
-    // Ye line add karne se chunk size ki warning aana band ho jayegi
-    chunkSizeWarningLimit: 2000, 
-  }
 });
