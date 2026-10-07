@@ -508,7 +508,6 @@ export const savedItemNames = mysqlTable("saved_item_names", {
 });
 
 // Custom menu items added per category in the Menu Manager (persisted, editable).
-// Keyed by category name because numeric category ids collide between client types.
 export const menuCategoryItems = mysqlTable("menu_category_items", {
   id: int("id").autoincrement().primaryKey(),
   categoryName: varchar("category_name", { length: 100 }).notNull(),
@@ -928,7 +927,7 @@ export const ublDateEntries = mysqlTable("ubl_date_entries", {
   tea1: int("tea1").default(0),
   biscuit1: int("biscuit1").default(0),
   breakfast: int("breakfast").default(0),
-  contractorBreakfast: int("contractor_breakfast").default(0), // <--- ADDED HERE
+  contractorBreakfast: int("contractor_breakfast").default(0),
   tea2: int("tea2").default(0),
   lunch: int("lunch").default(0),
   mutton: int("mutton").default(0),
@@ -1314,29 +1313,27 @@ export const weeklyMenuItems = mysqlTable("weekly_menu_items", {
 export type WeeklyMenuItem = typeof weeklyMenuItems.$inferSelect;
 export const insertWeeklyMenuItemSchema = createInsertSchema(weeklyMenuItems).omit({ id: true, createdAt: true });
 export type InsertWeeklyMenuItem = z.infer<typeof insertWeeklyMenuItemSchema>;
-// Nayi Canteen Sales Table
+
+// === CANTEEN SALES TABLE ===
 export const canteenSales = mysqlTable("canteen_sales", {
-    recordDate: date("record_date").primaryKey(),
-    bfCount: int("bf_count").default(0),
-    bfAmt: int("bf_amt").default(0),
-    luVeg: int("lu_veg").default(0),
-    luNonVeg: int("lu_nonveg").default(0),
-    luAmt: int("lu_amt").default(0),
-    evVeg: int("ev_veg").default(0),
-    evNonVeg: int("ev_nonveg").default(0),
-    evAmt: int("ev_amt").default(0),
-    niCount: int("ni_count").default(0),
-    niAmt: int("ni_amt").default(0),
-    grandTotal: int("grand_total").default(0),
-    totalRevenue: int("total_revenue").default(0),
+  recordDate: date("record_date").primaryKey(),
+  bfCount: int("bf_count").default(0),
+  bfAmt: int("bf_amt").default(0),
+  luVeg: int("lu_veg").default(0),
+  luNonVeg: int("lu_nonveg").default(0),
+  luAmt: int("lu_amt").default(0),
+  evVeg: int("ev_veg").default(0),
+  evNonVeg: int("ev_nonveg").default(0),
+  evAmt: int("ev_amt").default(0),
+  niCount: int("ni_count").default(0),
+  niAmt: int("ni_amt").default(0),
+  grandTotal: int("grand_total").default(0),
+  totalRevenue: int("total_revenue").default(0),
 });
-import { mysqlTable, serial, int, varchar, text, date, decimal, timestamp, json } from "drizzle-orm/mysql-core";
-import { createInsertSchema } from "drizzle-zod";
-import { z } from "zod";
 
 // 1. Nomination Master Record
 export const employeeNominations = mysqlTable("employee_nominations", {
-  id: serial("id").primaryKey(),
+  id: int("id").autoincrement().primaryKey(), // FIX: use autoincrement instead of serial
   employeeId: int("employee_id").notNull(),
   formType: varchar("form_type", { length: 30 }).notNull(), // 'FORM_VII_WAGES' | 'FORM_II_PF' | 'FORM_III_GRATUITY'
   
@@ -1371,7 +1368,7 @@ export const employeeNominations = mysqlTable("employee_nominations", {
 
 // 2. Nominees Line Items Table
 export const nominationNominees = mysqlTable("nomination_nominees", {
-  id: serial("id").primaryKey(),
+  id: int("id").autoincrement().primaryKey(), // FIX: use autoincrement instead of serial
   nominationId: int("nomination_id").notNull(),
   nomineeCategory: varchar("nominee_category", { length: 20 }).default("GENERAL"), // 'GENERAL' | 'EPS_PENSION' | 'EPS_UNMARRIED'
   name: varchar("name", { length: 150 }).notNull(),
@@ -1390,4 +1387,3 @@ export const insertNomineeSchema = createInsertSchema(nominationNominees);
 
 export type EmployeeNomination = typeof employeeNominations.$inferSelect;
 export type NominationNominee = typeof nominationNominees.$inferSelect;
-
