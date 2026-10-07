@@ -5,13 +5,14 @@ import { pool, db } from "./db";
 import { api } from "@shared/routes";
 import { z } from "zod";
 import bcrypt from "bcryptjs";
-import {
-  insertPankajReportSchema,
-  insertTaxInvoiceSchema,
+import { 
+  insertPankajReportSchema, 
+  insertTaxInvoiceSchema, 
   insertTaxInvoiceItemSchema,
-  employeeNominations,
-  nominationNominees,
+  employeeNominations, 
+  nominationNominees, 
   employees,
+  daily_reports,
   canteenSales
 } from "@shared/schema";
 import { generateRegistrationOptions, verifyRegistrationResponse, generateAuthenticationOptions, verifyAuthenticationResponse } from '@simplewebauthn/server';
@@ -90,63 +91,57 @@ export async function registerRoutes(
 ): Promise<Server> {
 
   // --- CANTEEN POS SAVE DATA API ---
-  app.post('/api/save-sales', async (req: Request, res: Response) => {
-    try {
-      const data = req.body;
-      const today = new Date().toISOString().split('T')[0];
-
-      const values = {
-        bfCount: data.bfCount,
-        bfAmt: data.bfAmt,
-        luVeg: data.luVeg,
-        luNonVeg: data.luNonVeg,
-        luAmt: data.luAmt,
-        evVeg: data.evVeg,
-        evNonVeg: data.evNonVeg,
-        evAmt: data.evAmt,
-        niCount: data.niCount,
-        niAmt: data.niAmt,
-        grandTotal: data.grandTotal,
-        totalRevenue: data.totalRevenue,
-      };
-
-      await db
-        .insert(canteenSales)
-        .values({ recordDate: today, ...values })
-        .onConflictDoUpdate({
-          target: canteenSales.recordDate,
-          set: values,
-        });
-
-      res.status(200).json({ success: true, message: "Data Saved to Database!" });
-    } catch (error: any) {
-      console.error("Database Insert Error:", error);
-      res.status(500).json({ success: false, error: error.message });
-    }
+  app.post('/api/save-sales', async (req: any, res: any) => {
+      try {
+          const data = req.body;
+          const today = new Date().toISOString().split('T')[0]; 
+          
+          if (canteenSales) {
+              await db.insert(canteenSales).values({
+                  recordDate: today,
+                  bfCount: data.bfCount, bfAmt: data.bfAmt,
+                  luVeg: data.luVeg, luNonVeg: data.luNonVeg, luAmt: data.luAmt,
+                  evVeg: data.evVeg, evNonVeg: data.evNonVeg, evAmt: data.evAmt,
+                  niCount: data.niCount, niAmt: data.niAmt,
+                  grandTotal: data.grandTotal, totalRevenue: data.totalRevenue
+              }).onDuplicateKeyUpdate({ set: {
+                  bfCount: data.bfCount, bfAmt: data.bfAmt,
+                  luVeg: data.luVeg, luNonVeg: data.luNonVeg, luAmt: data.luAmt,
+                  evVeg: data.evVeg, evNonVeg: data.evNonVeg, evAmt: data.evAmt,
+                  niCount: data.niCount, niAmt: data.niAmt,
+                  grandTotal: data.grandTotal, totalRevenue: data.totalRevenue
+              }});
+          } else if (daily_reports) {
+              await db.insert(daily_reports).values({
+                  breakfastCount: data.bfCount, breakfastAmount: data.bfAmt,
+                  lunchVegCount: data.luVeg, lunchNonVegCount: data.luNonVeg, lunchAmount: data.luAmt,
+                  eveningVegCount: data.evVeg, eveningNonVegCount: data.evNonVeg, eveningAmount: data.evAmt,
+                  nightCount: data.niCount, nightAmount: data.niAmt,
+                  totalCount: data.grandTotal, revenue: data.totalRevenue,
+                  date: new Date()
+              });
+          }
+          res.status(200).json({ success: true, message: "Data Saved to Database!" });
+      } catch (error: any) {
+          console.error("Database Insert Error:", error);
+          res.status(500).json({ success: false, error: error.message });
+      }
   });
 
   // --- REPORT FETCH API ---
-  app.get('/api/get-report', async (req: Request, res: Response) => {
-    try {
-      const queryDate = String(req.query.date ?? "");
-      if (!queryDate) {
-        return res.status(400).json({ message: "date query parameter is required" });
+  app.get('/api/get-report', async (req: any, res: any) => {
+      try {
+          const queryDate = req.query.date; 
+          const record = await db.select().from(canteenSales).where(eq(canteenSales.recordDate, queryDate));
+          if (record.length > 0) {
+              res.status(200).json(record[0]);
+          } else {
+              res.status(404).json({ message: "Is date ka data maujood nahi hai." });
+          }
+      } catch (error: any) {
+          console.error("Fetch Error:", error);
+          res.status(500).json({ success: false, error: error.message });
       }
-
-      const record = await db
-        .select()
-        .from(canteenSales)
-        .where(eq(canteenSales.recordDate, queryDate));
-
-      if (record.length > 0) {
-        res.status(200).json(record[0]);
-      } else {
-        res.status(404).json({ message: "Is date ka data maujood nahi hai." });
-      }
-    } catch (error: any) {
-      console.error("Fetch Error:", error);
-      res.status(500).json({ success: false, error: error.message });
-    }
   });
 
   // === AUTH ROUTES (no auth required) ===
