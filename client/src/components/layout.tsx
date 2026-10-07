@@ -7,7 +7,8 @@ import { Button } from '@/components/ui/button';
 import { useLang } from '@/contexts/language-context';
 import type { Lang } from '@/lib/translations';
 
-const labourWorksPaths = ['/employee-master', '/muster-roll', '/salary', '/skill-wage-rates', '/shift-duty', '/registers', '/form-xiii', '/form-vi-a', '/bonus-return', '/half-yearly-return', '/leave-with-wages', '/epfo-esic', '/letterhead', '/ptax-report'];
+// 'nomination-forms' added here so the menu stays open when you are on that page
+const labourWorksPaths = ['/employee-master', '/muster-roll', '/salary', '/skill-wage-rates', '/shift-duty', '/registers', '/form-xiii', '/form-vi-a', '/bonus-return', '/half-yearly-return', '/leave-with-wages', '/epfo-esic', '/letterhead', '/ptax-report', '/nomination-forms'];
 
 export function Layout({ children }: { children: React.ReactNode }) {
   const [location] = useLocation();
@@ -111,24 +112,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
     { href: '/epfo-esic', label: tr('epfoEsic'), icon: FileText },
     { href: '/ptax-report', label: tr('ptaxReport'), icon: IndianRupee },
     { href: '/letterhead', label: tr('letterheadLetters'), icon: FileText },
-    const labourSubItems = [
-    ...(user?.role === 'admin' ? [{ href: '/employee-master', label: tr('employeeMaster'), icon: Users }] : []),
-    { href: '/muster-roll', label: tr('musterRoll'), icon: CalendarDays },
-    { href: '/salary', label: tr('salaryRegister'), icon: Wallet },
-    ...(user?.role === 'admin' ? [{ href: '/skill-wage-rates', label: tr('baseWageRates'), icon: IndianRupee }] : []),
-    ...(user?.role === 'admin' ? [{ href: '/shift-duty', label: tr('shiftDutyChart'), icon: CalendarDays }] : []),
-    { href: '/registers', label: tr('registers'), icon: BookOpen },
-    { href: '/form-xiii', label: tr('workmenRegister'), icon: FileText },
-    { href: '/form-vi-a', label: tr('formVIA'), icon: FileText },
-    { href: '/bonus-return', label: tr('bonusReturn'), icon: FileText },
-    { href: '/half-yearly-return', label: tr('halfYearlyReturn'), icon: FileText },
-    { href: '/leave-with-wages', label: tr('leaveWithWages'), icon: FileText },
-    { href: '/epfo-esic', label: tr('epfoEsic'), icon: FileText },
-    { href: '/ptax-report', label: tr('ptaxReport'), icon: IndianRupee },
-    { href: '/letterhead', label: tr('letterheadLetters'), icon: FileText },
-    // 👇 Yahan apna naya link add karein 👇
     { href: '/nomination-forms', label: 'Nomination Forms', icon: FileText },
-  ];
   ];
 
   const bottomNavItems = [
@@ -379,7 +363,8 @@ export function Layout({ children }: { children: React.ReactNode }) {
                 <FilePlus className="w-5 h-5" />
                 <span className="text-[10px] font-medium">{tr('expense')}</span>
               </Link>
-                       )}
+            )}
+
             {/* Cash Seal — if permitted */}
             {perms.includes('cashseal') && (
               <Link href="/cash-seal" onClick={closeSidebar}
