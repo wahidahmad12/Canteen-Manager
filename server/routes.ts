@@ -1089,10 +1089,21 @@ export async function registerRoutes(
           filtered = filtered.filter(r => r.employeeId === Number(employeeId));
       }
       
-      const mappedResults = filtered.map(nom => ({
-          nomination: nom,
-          employee: null 
-      }));
+      const mappedResults = filtered.map((nom: any) => {
+          // Nomination ki Date of Birth format fix
+          if (nom.dateOfBirth) {
+              nom.dateOfBirth = new Date(nom.dateOfBirth).toISOString().split('T')[0];
+          }
+          // Agar dob naam se field hai toh:
+          if (nom.dob) {
+              nom.dob = new Date(nom.dob).toISOString().split('T')[0];
+          }
+
+          return {
+              nomination: nom,
+              employee: null 
+          };
+      });
 
       res.json(mappedResults);
     } catch (error) {
@@ -1111,10 +1122,30 @@ export async function registerRoutes(
           return res.status(404).json({ message: "Nomination nahi mila" });
       }
       
-      const nomination = results[0];
+      const nomination = results[0] as any;
+      
+      // Date of Birth format fix for main employee in nomination
+      if (nomination.dateOfBirth) {
+          nomination.dateOfBirth = new Date(nomination.dateOfBirth).toISOString().split('T')[0];
+      }
+      if (nomination.dob) {
+          nomination.dob = new Date(nomination.dob).toISOString().split('T')[0];
+      }
+
       const nominees = await db.select().from(nominationNominees).where(eq(nominationNominees.nominationId, id));
 
-      res.json({ nomination, employee: null, nominees });
+      // Nominees list ki bhi date format fix (agar unki age/dob required hoti hai form me)
+      const formattedNominees = nominees.map((n: any) => {
+          if (n.nomineeDob) { 
+              n.nomineeDob = new Date(n.nomineeDob).toISOString().split('T')[0];
+          }
+          if (n.dateOfBirth) { 
+              n.dateOfBirth = new Date(n.dateOfBirth).toISOString().split('T')[0];
+          }
+          return n;
+      });
+
+      res.json({ nomination, employee: null, nominees: formattedNominees });
     } catch (error) {
       console.error("GET /nominations/:id Error:", error);
       res.status(500).json({ message: "Error fetching nomination details" });
