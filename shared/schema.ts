@@ -1330,3 +1330,64 @@ export const canteenSales = mysqlTable("canteen_sales", {
     grandTotal: int("grand_total").default(0),
     totalRevenue: int("total_revenue").default(0),
 });
+import { mysqlTable, serial, int, varchar, text, date, decimal, timestamp, json } from "drizzle-orm/mysql-core";
+import { createInsertSchema } from "drizzle-zod";
+import { z } from "zod";
+
+// 1. Nomination Master Record
+export const employeeNominations = mysqlTable("employee_nominations", {
+  id: serial("id").primaryKey(),
+  employeeId: int("employee_id").notNull(),
+  formType: varchar("form_type", { length: 30 }).notNull(), // 'FORM_VII_WAGES' | 'FORM_II_PF' | 'FORM_III_GRATUITY'
+  
+  // Specific Form Declarations & Details
+  dateOfSubmission: date("date_of_submission").notNull(),
+  place: varchar("place", { length: 100 }).default("Kolkata"),
+  
+  // Form II (PF) Specific
+  epsAccountNo: varchar("eps_account_no", { length: 50 }),
+  hasFamily: varchar("has_family", { length: 10 }).default("yes"), // 'yes' | 'no'
+  parentsDependent: varchar("parents_dependent", { length: 10 }).default("yes"), // 'yes' | 'no'
+  
+  // Form III (Gratuity) Specific
+  religion: varchar("religion", { length: 50 }),
+  ticketOrSerialNo: varchar("ticket_serial_no", { length: 50 }),
+  dateOfAppointment: date("date_of_appointment"),
+  dateOfSuperannuation: date("date_of_superannuation"),
+  village: varchar("village", { length: 100 }),
+  postOffice: varchar("post_office", { length: 100 }),
+  thana: varchar("thana", { length: 100 }),
+  district: varchar("district", { length: 100 }),
+  state: varchar("state", { length: 100 }),
+  pinCode: varchar("pin_code", { length: 10 }),
+  
+  // Employer Attestation
+  employerName: varchar("employer_name", { length: 150 }).default("DJ Hospitality & Facility Management Pvt Ltd"),
+  employerDesignation: varchar("employer_designation", { length: 100 }).default("Authorized Signatory"),
+  employerRefNo: varchar("employer_ref_no", { length: 100 }),
+  
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+// 2. Nominees Line Items Table
+export const nominationNominees = mysqlTable("nomination_nominees", {
+  id: serial("id").primaryKey(),
+  nominationId: int("nomination_id").notNull(),
+  nomineeCategory: varchar("nominee_category", { length: 20 }).default("GENERAL"), // 'GENERAL' | 'EPS_PENSION' | 'EPS_UNMARRIED'
+  name: varchar("name", { length: 150 }).notNull(),
+  address: text("address").notNull(),
+  relationship: varchar("relationship", { length: 50 }).notNull(),
+  dateOfBirth: date("date_of_birth"),
+  age: int("age"),
+  sharePercentage: decimal("share_percentage", { precision: 5, scale: 2 }).notNull(), // e.g. 100.00
+  guardianName: varchar("guardian_name", { length: 150 }),
+  guardianRelationship: varchar("guardian_relationship", { length: 50 }),
+  guardianAddress: text("guardian_address"),
+});
+
+export const insertNominationSchema = createInsertSchema(employeeNominations);
+export const insertNomineeSchema = createInsertSchema(nominationNominees);
+
+export type EmployeeNomination = typeof employeeNominations.$inferSelect;
+export type NominationNominee = typeof nominationNominees.$inferSelect;
+});
