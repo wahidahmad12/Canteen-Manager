@@ -1162,14 +1162,23 @@ export async function registerRoutes(
     }
   });
 
-  // 5. GET ALL EMPLOYEES
+ // 5. GET ALL EMPLOYEES (With Date of Birth Fix)
   app.get("/api/employees", requireAuth, async (req, res) => {
     try {
       const clientName = req.query.clientName as string | undefined;
-      // Agar user admin nahi hai, toh sirf uski company/client ke employees dikhaye
       const effectiveClient = req.session.role === "admin" ? clientName : req.session.clientName;
       
-      const employeesList = await storage.getEmployees(effectiveClient);
+      let employeesList = await storage.getEmployees(effectiveClient);
+      
+      // Date of Birth ko "YYYY-MM-DD" format mein clean karna
+      employeesList = employeesList.map((emp: any) => {
+        // Agar aapke database mein field ka naam 'dob' hai toh emp.dateOfBirth ki jagah emp.dob use karein
+        if (emp.dateOfBirth) {
+          emp.dateOfBirth = new Date(emp.dateOfBirth).toISOString().split('T')[0];
+        }
+        return emp;
+      });
+
       res.json(employeesList);
     } catch (err: any) {
       console.error("Error fetching employees:", err);
