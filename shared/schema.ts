@@ -336,6 +336,12 @@ export const employees = mysqlTable("employees", {
   dailyRate: decimal("daily_rate", { precision: 10, scale: 2 }).default("0"),
   fixedHra: decimal("fixed_hra", { precision: 10, scale: 2 }).default("0"),
   gender: varchar("gender", { length: 500 }).default("Male"),
+  
+  // -- NAYE COLUMNS --
+  maritalStatus: varchar("marital_status", { length: 50 }),
+  religion: varchar("religion", { length: 100 }), 
+  email: varchar("email", { length: 255 }),
+  
   dob: date("dob"),
   address: varchar("address", { length: 500 }).default(""),
   permanentAddress: varchar("permanent_address", { length: 500 }).default(""),
@@ -1365,6 +1371,7 @@ export const employeeNominations = mysqlTable("employee_nominations", {
   
   createdAt: timestamp("created_at").defaultNow(),
 });
+
 // 2. Nominees Line Items Table
 export const nominationNominees = mysqlTable("nomination_nominees", {
   id: int("id").autoincrement().primaryKey(),
@@ -1380,6 +1387,7 @@ export const nominationNominees = mysqlTable("nomination_nominees", {
   guardianRelationship: varchar("guardian_relationship", { length: 50 }),
   guardianAddress: text("guardian_address"),
 });
+
 export const insertNominationSchema = createInsertSchema(employeeNominations);
 export const insertNomineeSchema = createInsertSchema(nominationNominees);
 
