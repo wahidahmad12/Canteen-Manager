@@ -11,7 +11,7 @@ export default function FormVIIWages({ data }: { data: any }) {
       const onlyDate = dateStr.split("T")[0]; // T00:00:00.000Z ko hatayega
       const [year, month, day] = onlyDate.split("-"); // YYYY, MM, DD ko alag karega
       
-      // Agar date sahi se alag nahi hui, toh wahi wapas kar dega
+      // Agar date format proper nahi hai, toh wahi wapas bhej do
       if (!day || !month || !year) return onlyDate; 
       
       return `${day}-${month}-${year}`; // DD-MM-YYYY format mein jodega
@@ -67,4 +67,39 @@ export default function FormVIIWages({ data }: { data: any }) {
                   <td className="border border-gray-800 p-2">{nominee.name}</td>
                   <td className="border border-gray-800 p-2">{nominee.address}</td>
                   <td className="border border-gray-800 p-2">{nominee.relationship}</td>
-                  {/* Agar
+                  {/* Nominee ki date of birth bhi format kardi */}
+                  <td className="border border-gray-800 p-2">{formatDate(nominee.dateOfBirth)}</td>
+                  <td className="border border-gray-800 p-2">{nominee.sharePercentage}%</td>
+                  <td className="border border-gray-800 p-2">{nominee.guardianName || "-"}</td>
+                </tr>
+              ))
+            ) : (
+              <tr><td colSpan={6} className="border border-gray-800 p-8">No nominees added</td></tr>
+            )}
+          </tbody>
+        </table>
+
+        {/* Declarations & Signatures */}
+        <div className="mt-8 space-y-8">
+          <div>
+            <p>1. Certified that I have no family and if I acquire a family hereafter, the above nomination shall be deemed as cancelled.</p>
+            <p>2. Certified that my father/mother is/are dependent upon me.</p>
+          </div>
+          <div className="flex justify-between items-end mt-12">
+            <div>Place: {data?.nomination?.place || "Kolkata"}<br/>Date: ____________</div>
+            <div className="text-right">_________________________________<br/>Signature/Thumb impression of employee</div>
+          </div>
+          
+          <div className="border-t-2 border-black pt-4 mt-8">
+            <h3 className="font-bold text-center mb-4">CERTIFICATE BY EMPLOYER</h3>
+            <p>Certified that the above declaration and nomination has been signed/thumb impressed before me by Shri/Smt {data?.employee?.name || "________"} employed in my establishment...</p>
+            <div className="flex justify-between mt-12">
+              <div>Date: ____________</div>
+              <div className="text-right">_________________________________<br/>Signature of Employer (DJ KPF)</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
