@@ -130,6 +130,10 @@
     display: none !important;
   }
 
+  .nomination-form-set header.nomination-form-heading {
+    display: block !important;
+  }
+
   .nomination-form-page {
     width: 210mm;
     height: 297mm;
