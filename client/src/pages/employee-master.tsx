@@ -144,14 +144,14 @@ export default function EmployeeMaster() {
     ? ["/api/employees", filterClient]
     : ["/api/employees"];
 
-  const { data: employees, isLoading } = useQuery<Employee[]>({
+  const { data: employees, isLoading, isError, error } = useQuery<Employee[]>({
     queryKey,
     queryFn: async () => {
       const url = filterClient && filterClient !== "all"
         ? `/api/employees?clientName=${encodeURIComponent(filterClient)}`
         : "/api/employees";
       const res = await fetch(url, { credentials: "include" });
-      if (!res.ok) throw new Error("Failed to fetch employees");
+      if (!res.ok) throw new Error(`Failed to fetch employees (${res.status})`);
       return res.json();
     },
   });
@@ -511,6 +511,16 @@ export default function EmployeeMaster() {
           <div className="flex justify-center py-16">
             <Loader2 className="w-8 h-8 animate-spin text-muted-foreground" />
           </div>
+        ) : isError ? (
+          <Card>
+            <CardContent className="text-center py-16">
+              <Users className="w-12 h-12 text-destructive mx-auto mb-4" />
+              <h3 className="text-lg font-semibold mb-1">Could not load employees</h3>
+              <p className="text-muted-foreground text-sm">
+                {error instanceof Error ? error.message : "An unexpected error occurred while loading employees."}
+              </p>
+            </CardContent>
+          </Card>
         ) : filteredEmployees.length === 0 ? (
           <Card>
             <CardContent className="text-center py-16">
