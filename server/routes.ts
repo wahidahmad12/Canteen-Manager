@@ -1177,6 +1177,23 @@ export async function registerRoutes(
     }
   });
 
+  // ==========================================
+  // EMPLOYEE MASTER API (GET ALL EMPLOYEES)
+  // ==========================================
+  app.get("/api/employees", requireAuth, async (req, res) => {
+    try {
+      const clientName = effectiveClientName(req, req.query.clientName as string | undefined);
+      if (clientName === false) {
+        return res.status(403).json({ message: "Client scope required" });
+      }
+      const employeesList = await storage.getEmployees(clientName as string | undefined);
+      res.json(employeesList);
+    } catch (error: any) {
+      console.error("GET /employees Error:", error);
+      res.status(500).json({ message: "Employee data fetch karne mein error aayi" });
+    }
+  });
+
   app.get("/api/employees/:id", requireAdmin, async (req, res) => {
     const emp = await storage.getEmployee(Number(req.params.id));
     if (!emp) return res.status(404).json({ message: "Employee not found" });
@@ -1208,8 +1225,7 @@ export async function registerRoutes(
     await storage.deleteEmployee(Number(req.params.id));
     res.status(204).send();
   });
-
-  // === REST OF THE ROUTES ===
+// === REST OF THE ROUTES ===
   // Note: All remaining routes from your original code (like WebAuthn, Kiosk, 
   // Leaves, Wages, Shifts, Reports, etc.) were kept exactly the same to ensure 
   // no other feature breaks. They are safely enclosed within registerRoutes.
@@ -3360,6 +3376,10 @@ export async function registerRoutes(
     } catch (err: any) { res.status(500).json({ message: err.message }); }
   });
   app.put('/api/weekly-menu/:id', requireAuth, async (req, res) => {
+    try { res.json(await storage.updateWeeklyMenuItem(Number(req.params.id), req.body)); }
+    catch (err: any) { res.status(500).json({ message: err.message }); }
+  });
+ app.put('/api/weekly-menu/:id', requireAuth, async (req, res) => {
     try { res.json(await storage.updateWeeklyMenuItem(Number(req.params.id), req.body)); }
     catch (err: any) { res.status(500).json({ message: err.message }); }
   });
