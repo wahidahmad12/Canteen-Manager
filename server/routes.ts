@@ -2467,8 +2467,15 @@ export async function registerRoutes(
   app.post("/api/tax-invoices", requirePermission("salesinvoice"), async (req, res) => {
     try {
       const input = taxInvoiceInputSchema.parse(req.body);
+      const invoiceNumber = input.invoiceNumber.trim();
+      if (!invoiceNumber) return res.status(400).json({ message: "Invoice number is required" });
+      const existingInvoices = await storage.getTaxInvoices();
+      if (existingInvoices.some(inv => inv.invoiceNumber.trim().toLowerCase() === invoiceNumber.toLowerCase())) {
+        return res.status(409).json({ message: `Invoice number ${invoiceNumber} is already in use` });
+      }
       const invoice = await storage.createTaxInvoice({
         ...input,
+        invoiceNumber,
         createdBy: req.session.displayName || req.session.username || '',
       });
       res.status(201).json(invoice);
@@ -2481,7 +2488,18 @@ export async function registerRoutes(
   app.put("/api/tax-invoices/:id", requirePermission("salesinvoice"), async (req, res) => {
     try {
       const input = taxInvoiceInputSchema.partial().parse(req.body);
-      const invoice = await storage.updateTaxInvoice(Number(req.params.id), input);
+      const id = Number(req.params.id);
+      const existingInvoices = await storage.getTaxInvoices();
+      const currentInvoice = existingInvoices.find(inv => inv.id === id);
+      if (!currentInvoice) return res.status(404).json({ message: "Tax invoice not found" });
+      const invoiceNumber = (input.invoiceNumber ?? currentInvoice.invoiceNumber).trim();
+      if (!invoiceNumber) return res.status(400).json({ message: "Invoice number is required" });
+      if (existingInvoices.some(inv =>
+        inv.id !== id && inv.invoiceNumber.trim().toLowerCase() === invoiceNumber.toLowerCase()
+      )) {
+        return res.status(409).json({ message: `Invoice number ${invoiceNumber} is already in use` });
+      }
+      const invoice = await storage.updateTaxInvoice(id, { ...input, invoiceNumber });
       res.json(invoice);
     } catch (err: any) {
       if (err instanceof z.ZodError) return res.status(400).json({ message: err.errors[0]?.message || "Invalid input" });
