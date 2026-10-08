@@ -31,6 +31,10 @@ async function initPool(): Promise<void> {
   db = drizzle(pool, { schema, mode: "default" });
 
   const migrations = [
+    `ALTER TABLE employees ADD COLUMN IF NOT EXISTS marital_status VARCHAR(50) DEFAULT NULL`,
+    `ALTER TABLE employees ADD COLUMN IF NOT EXISTS religion VARCHAR(100) DEFAULT NULL`,
+    `ALTER TABLE employees ADD COLUMN IF NOT EXISTS email VARCHAR(255) DEFAULT NULL`,
+    `ALTER TABLE employees ADD COLUMN IF NOT EXISTS identification_marks VARCHAR(500) DEFAULT ''`,
     `ALTER TABLE employees ADD COLUMN IF NOT EXISTS face_descriptor LONGTEXT DEFAULT NULL`,
     `ALTER TABLE client_names ADD COLUMN IF NOT EXISTS attendance_lat DECIMAL(10,7) DEFAULT NULL`,
     `ALTER TABLE client_names ADD COLUMN IF NOT EXISTS attendance_lng DECIMAL(10,7) DEFAULT NULL`,
