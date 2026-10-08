@@ -91,6 +91,7 @@ export default function FormVIIWages({ data }: { data: any }) {
           <div>Place: {data?.nomination?.place || ""}</div>
           <div>Signature of the employer or other authorised officer of the establishment and Designation</div>
         </div>
+        <p className="nomination-form-page-number">Page 1 of 2</p>
       </section>
 
       <section className="nomination-form-page">
@@ -109,6 +110,7 @@ export default function FormVIIWages({ data }: { data: any }) {
           <div>Date: ____________________</div>
           <div>Signature of the Employee</div>
         </div>
+        <p className="nomination-form-page-number">Page 2 of 2</p>
       </section>
     </div>
   );

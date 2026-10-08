@@ -96,6 +96,7 @@ export default function FormIIPF({ data }: { data: any }) {
           <div>Date: ____________________</div>
           <div>Signature or thumb impression of the subscriber</div>
         </div>
+        <p className="nomination-form-page-number">Page 1 of 2</p>
       </section>
 
       <section className="nomination-form-page">
@@ -154,6 +155,7 @@ export default function FormIIPF({ data }: { data: any }) {
             <div>Signature of Employer &amp; Stamp</div>
           </div>
         </div>
+        <p className="nomination-form-page-number">Page 2 of 2</p>
       </section>
     </div>
   );
