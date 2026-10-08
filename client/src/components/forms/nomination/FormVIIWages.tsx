@@ -1,105 +1,115 @@
 import React from "react";
 import { Button } from "@/components/ui/button";
+import "./nomination-form.css";
 
 export default function FormVIIWages({ data }: { data: any }) {
-  const handlePrint = () => window.print();
-
-  // Date ko DD-MM-YYYY format mein badalne ka function
-  const formatDate = (dateStr: string) => {
-    if (!dateStr) return "_________________";
-    try {
-      const onlyDate = dateStr.split("T")[0]; // T00:00:00.000Z ko hatayega
-      const [year, month, day] = onlyDate.split("-"); // YYYY, MM, DD ko alag karega
-      
-      // Agar date format proper nahi hai, toh wahi wapas bhej do
-      if (!day || !month || !year) return onlyDate; 
-      
-      return `${day}-${month}-${year}`; // DD-MM-YYYY format mein jodega
-    } catch (e) {
-      return dateStr;
-    }
+  const formatDate = (dateStr?: string | null) => {
+    if (!dateStr) return "";
+    const [year, month, day] = dateStr.split("T")[0].split("-");
+    return year && month && day ? `${day}-${month}-${year}` : dateStr;
   };
+  const employee = data?.employee || {};
+  const nominees = data?.nominees || [];
 
   return (
-    <div className="bg-white p-8 max-w-4xl mx-auto border shadow-sm print:shadow-none print:border-none print:p-0">
-      {/* Print Button - Sirf screen par dikhega, print mein hide ho jayega */}
-      <div className="flex justify-end mb-4 print:hidden">
-        <Button onClick={handlePrint}>Print Form VII</Button>
+    <div className="nomination-form-set">
+      <div className="nomination-form-control">
+        <Button onClick={() => window.print()}>Print Form VII</Button>
       </div>
 
-      {/* Form Content - Jo print hoga */}
-      <div className="text-sm space-y-4">
-        <div className="text-center font-bold text-lg mb-6">
-          FORM-VII <br /> NOMINATION FORM
+      <section className="nomination-form-page">
+        <header className="nomination-form-heading">
+          <h1>FORM - VII</h1>
+          <h2>NOMINATION FORM</h2>
+        </header>
+
+        <div className="nomination-form-details">
+          <p>1. Name of person making nomination (In block letters): <strong>{employee.name || ""}</strong></p>
+          <p>2. Father&apos;s/Spouse&apos;s Name: <strong>{employee.fatherName || ""}</strong></p>
+          <p>3. Date of Birth: <strong>{formatDate(employee.dob)}</strong></p>
+          <p>4. Sex: <strong>{employee.gender || ""}</strong></p>
+          <p>5. Marital Status: <strong>{employee.maritalStatus || ""}</strong></p>
+          <p>6. Address:</p>
+          <p>Permanent: <strong>{employee.permanentAddress || employee.address || ""}</strong></p>
+          <p>Temporary: <strong>{employee.localAddress || ""}</strong></p>
         </div>
 
-        {/* Employee Details */}
-        <div className="space-y-2">
-          <p><strong>1. Name of person making nomination:</strong> {data?.employee?.name || "_________________"}</p>
-          <p><strong>2. Father's/Spouse's Name:</strong> {data?.employee?.fatherName || "_________________"}</p>
-          {/* Yahan formatDate function ka use kiya gaya hai */}
-          <p><strong>3. Date of Birth:</strong> {formatDate(data?.employee?.dob)}</p>
-          <p><strong>4. Sex:</strong> {data?.employee?.gender || "_________________"}</p>
-          <p><strong>5. Marital Status:</strong> {data?.employee?.maritalStatus || "_________________"}</p>
-          <p><strong>6. Address (Permanent):</strong> {data?.employee?.permanentAddress || data?.employee?.address || "_________________"}</p>
-        </div>
-
-        <p className="mt-4">
-          I hereby nominate the person(s)/cancel the nomination made by me previously and nominate the person(s) mentioned below to receive any amount due to me from the employer in the event of my death:-
+        <p>
+          I hereby nominate the person(s)/cancel the nomination made by me previously and nominate
+          the person(s) mentioned below to receive any amount due to me from the employer in the
+          event of my death: -
         </p>
 
-        {/* Nominees Table */}
-        <table className="w-full border-collapse border border-gray-800 mt-4 text-center">
+        <table className="nomination-form-table">
           <thead>
             <tr>
-              <th className="border border-gray-800 p-2">Name of nominee(s)</th>
-              <th className="border border-gray-800 p-2">Address</th>
-              <th className="border border-gray-800 p-2">Relationship</th>
-              <th className="border border-gray-800 p-2">Date of Birth</th>
-              <th className="border border-gray-800 p-2">Total share (%)</th>
-              <th className="border border-gray-800 p-2">If minor, guardian details</th>
+              <th>Name of nominee/nominees<span className="nomination-column-number">(1)</span></th>
+              <th>Address<span className="nomination-column-number">(2)</span></th>
+              <th>Relationship with the employee<span className="nomination-column-number">(3)</span></th>
+              <th>Date of Birth<span className="nomination-column-number">(4)</span></th>
+              <th>Nominee&apos;s share of accumulations in credit to be paid to each nominee<span className="nomination-column-number">(5)</span></th>
+              <th>If nominee is minor: name, relationship and address of guardian<span className="nomination-column-number">(6)</span></th>
             </tr>
           </thead>
           <tbody>
-            {data?.nominees?.length > 0 ? (
-              data.nominees.map((nominee: any, index: number) => (
-                <tr key={index}>
-                  <td className="border border-gray-800 p-2">{nominee.name}</td>
-                  <td className="border border-gray-800 p-2">{nominee.address}</td>
-                  <td className="border border-gray-800 p-2">{nominee.relationship}</td>
-                  {/* Nominee ki date of birth bhi format kardi */}
-                  <td className="border border-gray-800 p-2">{formatDate(nominee.dateOfBirth)}</td>
-                  <td className="border border-gray-800 p-2">{nominee.sharePercentage}%</td>
-                  <td className="border border-gray-800 p-2">{nominee.guardianName || "-"}</td>
-                </tr>
-              ))
-            ) : (
-              <tr><td colSpan={6} className="border border-gray-800 p-8">No nominees added</td></tr>
-            )}
+            {nominees.length > 0 ? nominees.map((nominee: any, index: number) => (
+              <tr key={index}>
+                <td>{nominee.name}</td>
+                <td>{nominee.address}</td>
+                <td>{nominee.relationship}</td>
+                <td>{formatDate(nominee.dateOfBirth)}</td>
+                <td>{nominee.sharePercentage}%</td>
+                <td>{nominee.guardianName || ""}</td>
+              </tr>
+            )) : Array.from({ length: 4 }, (_, index) => (
+              <tr key={index}>{Array.from({ length: 6 }, (_, column) => (
+                <td key={column} style={{ height: "8mm" }} />
+              ))}</tr>
+            ))}
           </tbody>
         </table>
 
-        {/* Declarations & Signatures */}
-        <div className="mt-8 space-y-8">
-          <div>
-            <p>1. Certified that I have no family and if I acquire a family hereafter, the above nomination shall be deemed as cancelled.</p>
-            <p>2. Certified that my father/mother is/are dependent upon me.</p>
-          </div>
-          <div className="flex justify-between items-end mt-12">
-            <div>Place: {data?.nomination?.place || "Kolkata"}<br/>Date: ____________</div>
-            <div className="text-right">_________________________________<br/>Signature/Thumb impression of employee</div>
-          </div>
-          
-          <div className="border-t-2 border-black pt-4 mt-8">
-            <h3 className="font-bold text-center mb-4">CERTIFICATE BY EMPLOYER</h3>
-            <p>Certified that the above declaration and nomination has been signed/thumb impressed before me by Shri/Smt {data?.employee?.name || "________"} employed in my establishment...</p>
-            <div className="flex justify-between mt-12">
-              <div>Date: ____________</div>
-              <div className="text-right">_________________________________<br/>Signature of Employer (DJ KPF)</div>
-            </div>
-          </div>
+        <div className="nomination-form-details">
+          <p>1. Certified that I have no family and if I acquire a family hereafter, the above nomination shall be deemed as cancelled.</p>
+          <p>2. Certified that my father/mother is/are dependent upon me.</p>
+          <p>3. Strike out whichever is not applicable.</p>
         </div>
-      </div>
+
+        <div className="nomination-form-signatures">
+          <div />
+          <div>Signature or thumb impression of the employee</div>
+        </div>
+
+        <h3 className="nomination-form-heading">CERTIFICATE BY EMPLOYER</h3>
+        <p>
+          Certified that the above declaration and nomination has been signed/thumb impressed
+          before me by Shri/Smt/Ku <strong>{employee.name || ""}</strong> employed in my
+          establishment after he/she has read the entry/entries or have been read over to him/her
+          by me and got confirmed by him/her in either of the cases.
+        </p>
+        <div className="nomination-form-signatures">
+          <div>Place: {data?.nomination?.place || ""}</div>
+          <div>Signature of the employer or other authorised officer of the establishment and Designation</div>
+        </div>
+      </section>
+
+      <section className="nomination-form-page">
+        <p>Name and Address of the Factory/Establishment and rubber stamp thereof</p>
+        <span className="nomination-form-wide-line" />
+        <span className="nomination-form-wide-line" />
+
+        <h2 className="nomination-form-heading" style={{ marginTop: "24mm" }}>
+          ACKNOWLEDGEMENT BY THE EMPLOYEE
+        </h2>
+        <p>
+          Received the duplicate copy of nomination in Form - VII filed by me and duly certified
+          by the employer.
+        </p>
+        <div className="nomination-form-signatures" style={{ marginTop: "35mm" }}>
+          <div>Date: ____________________</div>
+          <div>Signature of the Employee</div>
+        </div>
+      </section>
     </div>
   );
 }
