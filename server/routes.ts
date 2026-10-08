@@ -1,24 +1,84 @@
+
 import type { Express, Request, Response, NextFunction } from "express";
 import type { Server } from "http";
 import { storage } from "./storage";
-import { pool, db } from "./db";
+import { pool } from "./db";
 import { api } from "@shared/routes";
 import { z } from "zod";
 import bcrypt from "bcryptjs";
-import { 
-  insertPankajReportSchema, 
-  insertTaxInvoiceSchema, 
-  insertTaxInvoiceItemSchema,
-  employeeNominations, 
-  nominationNominees, 
-  employees,
-  canteenSales,
-  dailyReports 
-} from "@shared/schema";
+import { insertPankajReportSchema, insertTaxInvoiceSchema, insertTaxInvoiceItemSchema } from "@shared/schema";
 import { generateRegistrationOptions, verifyRegistrationResponse, generateAuthenticationOptions, verifyAuthenticationResponse } from '@simplewebauthn/server';
 import { isoBase64URL, isoUint8Array } from '@simplewebauthn/server/helpers';
-import { eq, desc } from "drizzle-orm";
+import { eq } from "drizzle-orm"; // Ise file ke top par import karein
 
+// 1. DATA SAVE KARNE KI API
+app.post('/api/save-sales', async (req: any, res: any) => {
+    try {
+        const data = req.body;
+        // Aaj ki date ko 'YYYY-MM-DD' format mein nikalna
+        const today = new Date().toISOString().split('T')[0]; 
+
+        // TiDB mein data insert ya update karna
+        await db.insert(canteenSales).values({
+            recordDate: today,
+            bfCount: data.bfCount, bfAmt: data.bfAmt,
+            luVeg: data.luVeg, luNonVeg: data.luNonVeg, luAmt: data.luAmt,
+            evVeg: data.evVeg, evNonVeg: data.evNonVeg, evAmt: data.evAmt,
+            niCount: data.niCount, niAmt: data.niAmt,
+            grandTotal: data.grandTotal, totalRevenue: data.totalRevenue
+        }).onDuplicateKeyUpdate({ set: {
+            bfCount: data.bfCount, bfAmt: data.bfAmt,
+            luVeg: data.luVeg, luNonVeg: data.luNonVeg, luAmt: data.luAmt,
+            evVeg: data.evVeg, evNonVeg: data.evNonVeg, evAmt: data.evAmt,
+            niCount: data.niCount, niAmt: data.niAmt,
+            grandTotal: data.grandTotal, totalRevenue: data.totalRevenue
+        }});
+
+        res.status(200).json({ success: true, message: "Data Database mein Save ho gaya!" });
+    } catch (error: any) {
+        console.error("Save Error:", error);
+        res.status(500).json({ success: false, error: error.message });
+    }
+});
+
+// 2. REPORT FETCH KARNE KI API
+app.get('/api/get-report', async (req: any, res: any) => {
+    try {
+        const queryDate = req.query.date; 
+        
+        // Database se us specific date ka data recall karna
+        const record = await db.select().from(canteenSales).where(eq(canteenSales.recordDate, queryDate));
+        
+        if (record.length > 0) {
+            res.status(200).json(record[0]);
+        } else {
+            res.status(404).json({ message: "Is date ka data maujood nahi hai." });
+        }
+    } catch (error: any) {
+        console.error("Fetch Error:", error);
+        res.status(500).json({ success: false, error: error.message });
+    }
+});
+// ... aapka purana app.post('/api/save-sales', ...) wala code upar rahega ...
+
+// 2. REPORT FETCH KARNE KI API (Data recall karne ke liye)
+app.get('/api/get-report', async (req: any, res: any) => {
+    try {
+        const queryDate = req.query.date; // Frontend se select ki hui date aayegi
+        
+        // Yahan par aapki Drizzle query database se data recall karegi
+        const record = await db.select().from(canteenSales).where(eq(canteenSales.recordDate, queryDate));
+        
+        if (record.length > 0) {
+            res.status(200).json(record[0]); // Data mil gaya toh wapas frontend par bhej do
+        } else {
+            res.status(404).json({ message: "Is date ka data maujood nahi hai." });
+        }
+    } catch (error: any) {
+        console.error("Fetch Error:", error);
+        res.status(500).json({ success: false, error: error.message });
+    }
+});
 const webauthnRegChallenges = new Map<number, string>();
 const webauthnAuthChallenges = new Map<number, string>();
 
@@ -55,6 +115,7 @@ function requirePermission(perm: string) {
   };
 }
 
+// True if the given (month, year) is strictly before the current calendar month.
 function isPastMonth(month: number, year: number): boolean {
   const now = new Date();
   const curY = now.getFullYear();
@@ -62,22 +123,31 @@ function isPastMonth(month: number, year: number): boolean {
   return year < curY || (year === curY && month < curM);
 }
 
+// True if the given (month, year) is exactly the current calendar month.
 function isCurrentMonth(month: number, year: number): boolean {
   const now = new Date();
   return year === now.getFullYear() && month === now.getMonth() + 1;
 }
 
+// Extract { month, year } from an ISO-ish date string ("YYYY-MM-DD").
+// Returns NaN parts when the input is missing/malformed.
 function monthYearFromEntryDate(entryDate: unknown): { month: number; year: number } {
   const parts = String(entryDate ?? "").split("-");
   return { year: Number(parts[0]), month: Number(parts[1]) };
 }
 
+// For PEC Ventures date-entry: non-admins may only edit the current month.
+// Returns true if the write should be blocked (past month + not admin).
 function pecPastMonthBlocked(req: Request, month: number, year: number): boolean {
   if (req.session.role === "admin") return false;
   if (!Number.isFinite(month) || !Number.isFinite(year)) return false;
   return isPastMonth(month, year);
 }
 
+// Returns the effective clientName for a request.
+// - Admin:                          returns caller-supplied value (undefined = no filter / all records)
+// - Non-admin with session client:  returns session clientName (ignores supplied value)
+// - Non-admin without session client: returns false (fail-closed — caller must reject the request)
 function effectiveClientName(req: Request, supplied: string | undefined): string | undefined | false {
   if (req.session.role === "admin") return supplied;
   const sessionClient = req.session.clientName;
@@ -89,58 +159,52 @@ export async function registerRoutes(
   httpServer: Server,
   app: Express
 ): Promise<Server> {
-
-  // --- CANTEEN POS APIs ---
+// --- CANTEEN POS SAVE DATA API ---
   app.post('/api/save-sales', async (req: any, res: any) => {
       try {
+          // Frontend se bheja gaya saara data receive karna
           const data = req.body;
-          const today = new Date().toISOString().split('T')[0]; 
           
-          await db.insert(canteenSales).values({
-              recordDate: today,
-              bfCount: data.bfCount, bfAmt: data.bfAmt,
-              luVeg: data.luVeg, luNonVeg: data.luNonVeg, luAmt: data.luAmt,
-              evVeg: data.evVeg, evNonVeg: data.evNonVeg, evAmt: data.evAmt,
-              niCount: data.niCount, niAmt: data.niAmt,
-              grandTotal: data.grandTotal, totalRevenue: data.totalRevenue
-          }).onDuplicateKeyUpdate({ set: {
-              bfCount: data.bfCount, bfAmt: data.bfAmt,
-              luVeg: data.luVeg, luNonVeg: data.luNonVeg, luAmt: data.luAmt,
-              evVeg: data.evVeg, evNonVeg: data.evNonVeg, evAmt: data.evAmt,
-              niCount: data.niCount, niAmt: data.niAmt,
-              grandTotal: data.grandTotal, totalRevenue: data.totalRevenue
-          }});
+          // Drizzle ORM ke zariye TiDB mein data save karna
+          // Note: 'daily_reports' aapki table ka naam hona chahiye
+          await db.insert(daily_reports).values({
+              breakfastCount: data.bfCount,
+              breakfastAmount: data.bfAmt,
+              lunchVegCount: data.luVeg,
+              lunchNonVegCount: data.luNonVeg,
+              lunchAmount: data.luAmt,
+              eveningVegCount: data.evVeg,
+              eveningNonVegCount: data.evNonVeg,
+              eveningAmount: data.evAmt,
+              nightCount: data.niCount,
+              nightAmount: data.niAmt,
+              totalCount: data.grandTotal,
+              revenue: data.totalRevenue,
+              date: new Date() // Aaj ki date aur time
+          });
           
+          console.log("Canteen POS Data TiDB mein save ho gaya!");
           res.status(200).json({ success: true, message: "Data Saved to Database!" });
       } catch (error: any) {
+          console.error("Database Insert Error:", error);
           res.status(500).json({ success: false, error: error.message });
       }
   });
-
-  app.get('/api/get-report', async (req: any, res: any) => {
-      try {
-          const queryDate = req.query.date; 
-          const record = await db.select().from(canteenSales).where(eq(canteenSales.recordDate, queryDate));
-          if (record.length > 0) {
-              res.status(200).json(record[0]);
-          } else {
-              res.status(404).json({ message: "Data not found for this date." });
-          }
-      } catch (error: any) {
-          res.status(500).json({ success: false, error: error.message });
-      }
-  });
-
-  // --- AUTH APIs ---
+  // === AUTH ROUTES (no auth required) ===
   app.post(api.auth.login.path, async (req, res) => {
     try {
       const { username, password } = api.auth.login.input.parse(req.body);
       const user = await storage.getUserByUsername(username);
-      if (!user) return res.status(401).json({ message: "Invalid username or password" });
-      if (!user.isActive) return res.status(401).json({ message: "Account is disabled" });
+      if (!user) {
+        return res.status(401).json({ message: "Invalid username or password" });
+      }
+      if (!user.isActive) {
+        return res.status(401).json({ message: "Account is disabled" });
+      }
       const valid = await bcrypt.compare(password, user.passwordHash);
-      if (!valid) return res.status(401).json({ message: "Invalid username or password" });
-      
+      if (!valid) {
+        return res.status(401).json({ message: "Invalid username or password" });
+      }
       req.session.userId = user.id;
       req.session.username = user.username;
       req.session.role = user.role;
@@ -149,37 +213,21 @@ export async function registerRoutes(
       req.session.permissions = user.permissions;
       req.session.employeeId = user.employeeId;
       req.session.save((err) => {
-        if (err) return res.status(500).json({ message: "Session save failed" });
+        if (err) {
+          console.error("Session save error:", err);
+          return res.status(500).json({ message: "Session save failed" });
+        }
         res.json({ id: user.id, username: user.username, displayName: user.displayName, role: user.role, clientName: user.clientName, permissions: user.permissions, employeeId: user.employeeId });
       });
     } catch (err) {
-      if (err instanceof z.ZodError) return res.status(400).json({ message: err.errors[0].message });
+      if (err instanceof z.ZodError) {
+        return res.status(400).json({ message: err.errors[0].message });
+      }
       throw err;
     }
   });
 
-  app.post(api.auth.logout.path, (req, res) => {
-    req.session.destroy((err) => {
-      if (err) return res.status(500).json({ message: "Failed to logout" });
-      res.json({ success: true });
-    });
-  });
-
-  app.get(api.auth.me.path, (req, res) => {
-    if (!req.session.userId) return res.status(401).json({ message: "Not authenticated" });
-    res.json({
-      id: req.session.userId,
-      displayName: req.session.displayName,
-      role: req.session.role,
-      clientName: req.session.clientName,
-      username: req.session.username || "",
-      permissions: req.session.permissions || [],
-      employeeId: req.session.employeeId || null,
-    });
-  });
-
-  // --- WEBAUTHN (Fingerprint) APIs ---
-  const bufToStr = (v: any): string => Buffer.isBuffer(v) ? v.toString('utf8') : String(v);
+  const loginChallenges = new Map<string, string>();
 
   app.post("/api/auth/webauthn/login/challenge", async (req, res) => {
     try {
@@ -190,7 +238,6 @@ export async function registerRoutes(
       if (!user.employeeId) return res.status(400).json({ message: "No fingerprint linked to this account" });
       const creds = await storage.getEmployeeWebAuthnCredentials(Number(user.employeeId));
       if (!creds.length) return res.status(400).json({ message: "No fingerprint registered. Ask admin to enrol your fingerprint first." });
-      
       const rpID = req.hostname;
       const options = await generateAuthenticationOptions({
         rpID,
@@ -202,7 +249,7 @@ export async function registerRoutes(
         })),
         userVerification: "required",
       });
-      webauthnAuthChallenges.set(Number(user.employeeId), options.challenge);
+      loginChallenges.set(username, options.challenge);
       res.json(options);
     } catch (err: any) { res.status(500).json({ message: err.message }); }
   });
@@ -210,17 +257,16 @@ export async function registerRoutes(
   app.post("/api/auth/webauthn/login/verify", async (req, res) => {
     try {
       const { username, authenticationResponse } = req.body;
-      const user = await storage.getUserByUsername(username);
-      if (!user || !user.employeeId) return res.status(400).json({ message: "User not found" });
-      const challenge = webauthnAuthChallenges.get(Number(user.employeeId));
+      const challenge = loginChallenges.get(username);
       if (!challenge) return res.status(400).json({ message: "No challenge found. Please try again." });
-
+      const user = await storage.getUserByUsername(username);
+      if (!user || !user.isActive) return res.status(400).json({ message: "User not found or disabled" });
+      if (!user.employeeId) return res.status(400).json({ message: "No fingerprint linked to this account" });
       const rpID = req.hostname;
       const origin = (req.headers.origin as string) || `https://${rpID}`;
       const creds = await storage.getEmployeeWebAuthnCredentials(Number(user.employeeId));
       const cred = creds.find((c: any) => bufToStr(c.credential_id) === authenticationResponse.id);
       if (!cred) return res.status(400).json({ message: "Credential not found for this device" });
-
       const verification = await verifyAuthenticationResponse({
         response: authenticationResponse,
         expectedChallenge: challenge,
@@ -234,11 +280,9 @@ export async function registerRoutes(
           transports: JSON.parse(bufToStr(cred.transports || "[]")),
         },
       });
-
       if (!verification.verified) return res.status(400).json({ message: "Fingerprint verification failed" });
       await storage.updateWebAuthnCounter(bufToStr(cred.credential_id), verification.authenticationInfo.newCounter);
-      webauthnAuthChallenges.delete(Number(user.employeeId));
-
+      loginChallenges.delete(username);
       req.session.userId = user.id;
       req.session.username = user.username;
       req.session.role = user.role;
@@ -248,22 +292,108 @@ export async function registerRoutes(
       req.session.employeeId = user.employeeId;
       req.session.save((err) => {
         if (err) return res.status(500).json({ message: "Session save failed" });
-        res.json({ id: user.id, username: user.username, displayName: user.displayName, role: user.role, clientName: user.clientName });
+        res.json({ id: user.id, username: user.username, displayName: user.displayName, role: user.role, clientName: user.clientName, permissions: user.permissions, employeeId: user.employeeId });
       });
     } catch (err: any) { res.status(400).json({ message: err.message || "Authentication failed" }); }
   });
 
-  // --- USERS ADMIN APIs ---
+  app.post(api.auth.logout.path, (req, res) => {
+    req.session.destroy((err) => {
+      if (err) return res.status(500).json({ message: "Failed to logout" });
+      res.json({ success: true });
+    });
+  });
+
+  app.get(api.auth.me.path, (req, res) => {
+    if (!req.session.userId) {
+      return res.status(401).json({ message: "Not authenticated" });
+    }
+    res.json({
+      id: req.session.userId,
+      displayName: req.session.displayName,
+      role: req.session.role,
+      clientName: req.session.clientName,
+      username: req.session.username || "",
+      permissions: req.session.permissions || [],
+      employeeId: req.session.employeeId || null,
+    });
+  });
+
+  // === EMPLOYEE SELF-SERVICE ROUTES ===
+  app.get("/api/employee/me", requireAuth, async (req, res) => {
+    const employeeId = req.session.employeeId;
+    if (!employeeId) return res.status(404).json({ message: "No linked employee" });
+    const emp = await storage.getEmployee(employeeId);
+    if (!emp) return res.status(404).json({ message: "Employee not found" });
+    res.json(emp);
+  });
+
+  app.get("/api/employee/me/attendance", requireAuth, async (req, res) => {
+    const employeeId = req.session.employeeId;
+    if (!employeeId) return res.status(404).json({ message: "No linked employee" });
+    const { month, year } = req.query;
+    if (!month || !year) return res.status(400).json({ message: "month and year required" });
+    const record = await storage.getAttendanceByEmployeeId(employeeId, Number(month), Number(year));
+    if (!record) return res.status(404).json({ message: "No attendance record" });
+    res.json(record);
+  });
+
+  app.get("/api/employee/me/salary", requireAuth, async (req, res) => {
+    const employeeId = req.session.employeeId;
+    if (!employeeId) return res.status(404).json({ message: "No linked employee" });
+    const { month, year } = req.query;
+    if (!month || !year) return res.status(400).json({ message: "month and year required" });
+    const record = await storage.getSalaryByEmployeeId(employeeId, Number(month), Number(year));
+    if (!record) return res.status(404).json({ message: "No salary record" });
+    // Fetch OT records from the employee's actual client name
+    const emp = await storage.getEmployee(employeeId);
+    const otRecords = await storage.getOvertimeRecords(emp?.clientName || record?.clientName || "");
+    const empOt = otRecords.filter(ot => {
+      if (ot.employeeId !== employeeId) return false;
+      const d = new Date(ot.date);
+      return d.getMonth() + 1 === Number(month) && d.getFullYear() === Number(year);
+    });
+    let otHours = 0, otAmount = 0;
+    for (const ot of empOt) {
+      otHours += Number(ot.overtimeHours) || 0;
+      otAmount += Number(ot.overtimeAmount) || 0;
+    }
+    const result = {
+      ...record,
+      overtimeHours: String(Math.round(otHours * 100) / 100),
+      overtimeAmount: String(Math.round(otAmount)),
+    };
+    res.json(result);
+  });
+
+  app.get("/api/employee/me/shift-duty", requireAuth, async (req, res) => {
+    const employeeId = req.session.employeeId;
+    if (!employeeId) return res.status(404).json({ message: "No linked employee" });
+    const { month, year } = req.query;
+    if (!month || !year) return res.status(400).json({ message: "month and year required" });
+    const row = await storage.getEmployeeShiftDuty(employeeId, Number(month), Number(year));
+    if (!row) return res.status(404).json({ message: "No shift duty record" });
+    res.json(row);
+  });
+
+  // === USER MANAGEMENT ROUTES (admin only) ===
   app.get(api.users.list.path, requireAdmin, async (req, res) => {
-    res.json(await storage.getUsers());
+    const users = await storage.getUsers();
+    res.json(users);
   });
 
   app.post(api.users.create.path, requireAdmin, async (req, res) => {
     try {
       const input = api.users.create.input.parse(req.body);
-      res.status(201).json(await storage.createUser(input));
+      const user = await storage.createUser(input);
+      res.status(201).json(user);
     } catch (err) {
-      if (err instanceof z.ZodError) return res.status(400).json({ message: err.errors[0].message });
+      if (err instanceof z.ZodError) {
+        return res.status(400).json({ message: err.errors[0].message });
+      }
+      if (err instanceof Error && 'code' in (err as any) && (err as any).code === '23505') {
+        return res.status(400).json({ message: 'This username already exists.' });
+      }
       throw err;
     }
   });
@@ -275,9 +405,12 @@ export async function registerRoutes(
       if (!existing) return res.status(404).json({ message: "User not found" });
       if (existing.username === 'admin') return res.status(403).json({ message: "Cannot edit the admin account" });
       const input = api.users.update.input.parse(req.body);
-      res.json(await storage.updateUser(id, input));
+      const user = await storage.updateUser(id, input);
+      res.json(user);
     } catch (err) {
-      if (err instanceof z.ZodError) return res.status(400).json({ message: err.errors[0].message });
+      if (err instanceof z.ZodError) {
+        return res.status(400).json({ message: err.errors[0].message });
+      }
       throw err;
     }
   });
@@ -287,31 +420,961 @@ export async function registerRoutes(
     res.status(204).send();
   });
 
-  // ==========================================
-  // EMPLOYEE MASTER APIs (THE FIX IS HERE)
-  // ==========================================
+  // === PROTECTED ROUTES (require auth) ===
 
-  // 1. GET ALL EMPLOYEES (Fixed to show data correctly)
-  app.get("/api/employees", requireAuth, async (req, res) => {
+  // Get all reports
+  app.get(api.reports.list.path, requirePermission('expense'), async (req, res) => {
+    const reports = await storage.getReports();
+    res.json(reports);
+  });
+
+  // Get single report
+  app.get(api.reports.get.path, requirePermission('expense'), async (req, res) => {
+    const report = await storage.getReport(Number(req.params.id));
+    if (!report) {
+      return res.status(404).json({ message: 'Report not found' });
+    }
+    res.json(report);
+  });
+
+  // Create report
+  app.post(api.reports.create.path, requirePermission('expense'), async (req, res) => {
     try {
-      const clientName = req.query.clientName as string | undefined;
-      // Fetch employees logic via storage
-      const employeesData = await storage.getEmployees(clientName);
-      res.json(employeesData);
-    } catch (err: any) {
-      console.error("GET /api/employees Error:", err);
-      res.status(500).json({ message: "Failed to fetch employees" });
+      const input = api.reports.create.input.parse(req.body);
+      const report = await storage.createReport(input);
+      res.status(201).json(report);
+    } catch (err) {
+      if (err instanceof z.ZodError) {
+        return res.status(400).json({
+          message: err.errors[0].message,
+          field: err.errors[0].path.join('.'),
+        });
+      }
+      // Check for unique constraint violation on date
+      if (err instanceof Error && 'code' in (err as any) && (err as any).code === '23505') {
+        return res.status(400).json({ message: 'A report for this date already exists. Each day can only have one report.' });
+      }
+      throw err;
     }
   });
 
-  // 2. GET SINGLE EMPLOYEE
+  // Update report
+  app.put(api.reports.update.path, requirePermission('expense'), async (req, res) => {
+    try {
+      const input = api.reports.update.input.parse(req.body);
+      const report = await storage.updateReport(Number(req.params.id), input);
+      res.json(report);
+    } catch (err) {
+      if (err instanceof z.ZodError) {
+        return res.status(400).json({
+          message: err.errors[0].message,
+          field: err.errors[0].path.join('.'),
+        });
+      }
+      if (err instanceof Error && err.message === "Report not found") {
+        return res.status(404).json({ message: "Report not found" });
+      }
+      throw err;
+    }
+  });
+
+  // Delete report
+  app.delete(api.reports.delete.path, requireAdmin, async (req, res) => {
+    await storage.deleteReport(Number(req.params.id));
+    res.status(204).send();
+  });
+
+  // Get previous day balance
+  app.get('/api/reports/previous-balance/:date', requirePermission('expense'), async (req, res) => {
+    const balance = await storage.getPreviousDayBalance(req.params.date as string);
+    res.json({ balance });
+  });
+
+  // Get last vegetable prices
+  app.get(api.vegetables.lastPrices.path, requirePermission('expense'), async (req, res) => {
+    const prices = await storage.getLastVegetablePrices();
+    res.json(prices);
+  });
+
+  // Get vegetable items
+  app.get(api.vegetables.list.path, requirePermission('expense'), async (req, res) => {
+    const items = await storage.getVegetableItems();
+    res.json(items);
+  });
+
+  // Create vegetable item
+  app.post(api.vegetables.create.path, requireAdmin, async (req, res) => {
+    try {
+      const input = api.vegetables.create.input.parse(req.body);
+      const item = await storage.createVegetableItem(input);
+      res.status(201).json(item);
+    } catch (err) {
+      if (err instanceof z.ZodError) {
+        return res.status(400).json({
+          message: err.errors[0].message,
+          field: err.errors[0].path.join('.'),
+        });
+      }
+      throw err;
+    }
+  });
+
+  // Update vegetable item
+  app.put(api.vegetables.update.path, requireAdmin, async (req, res) => {
+    try {
+      const input = api.vegetables.update.input.parse(req.body);
+      const item = await storage.updateVegetableItem(Number(req.params.id), input);
+      res.json(item);
+    } catch (err) {
+      if (err instanceof z.ZodError) {
+        return res.status(400).json({
+          message: err.errors[0].message,
+          field: err.errors[0].path.join('.'),
+        });
+      }
+      if (err instanceof Error && err.message === "Vegetable not found") {
+        return res.status(404).json({ message: "Vegetable not found" });
+      }
+      throw err;
+    }
+  });
+
+  // Delete vegetable item
+  app.delete(api.vegetables.delete.path, requireAdmin, async (req, res) => {
+    await storage.deleteVegetableItem(Number(req.params.id));
+    res.status(204).send();
+  });
+
+  // === CASH SEAL ROUTES ===
+  // Get Cash Seal Akbar Ali amount by date (for auto-fill in expense report)
+  app.get('/api/cash-seals/by-date/:date', requireAuth, async (req, res) => {
+    const dateStr = req.params.date;
+    const seals = await storage.getCashSeals();
+    const seal = seals.find((s: any) => s.date === dateStr);
+    res.json({ totalGivenToAkbarAli: seal ? Number(seal.totalGivenToAkbarAli) || 0 : 0 });
+  });
+
+  app.get(api.cashSeals.list.path, requirePermission('cashseal'), async (req, res) => {
+    const seals = await storage.getCashSeals();
+    res.json(seals);
+  });
+
+  app.get('/api/cash-seals/:id', requirePermission('cashseal'), async (req, res) => {
+    const id = Number(req.params.id);
+    const seal = await storage.getCashSeal(id);
+    if (!seal) return res.status(404).json({ message: "Cash seal not found" });
+    res.json(seal);
+  });
+
+  app.post(api.cashSeals.create.path, requirePermission('cashseal'), async (req, res) => {
+    try {
+      const input = api.cashSeals.create.input.parse(req.body);
+      const seal = await storage.createCashSeal(input);
+      // Auto-sync Akbar Ali total → expense report receivedAmount
+      if (seal?.reportId) {
+        await storage.syncCashSealToReport(seal.reportId, Number(input.totalGivenToAkbarAli) || 0);
+      }
+      res.status(201).json(seal);
+    } catch (err) {
+      if (err instanceof z.ZodError) {
+        return res.status(400).json({ message: err.errors[0].message, field: err.errors[0].path.join('.') });
+      }
+      throw err;
+    }
+  });
+
+  app.put('/api/cash-seals/:id', requirePermission('cashseal'), async (req, res) => {
+    try {
+      const id = Number(req.params.id);
+      const seal = await storage.updateCashSeal(id, req.body);
+      // Auto-sync Akbar Ali total → expense report receivedAmount
+      if (seal?.reportId) {
+        await storage.syncCashSealToReport(seal.reportId, Number(req.body.totalGivenToAkbarAli) || 0);
+      }
+      res.json(seal);
+    } catch (err) {
+      throw err;
+    }
+  });
+
+  app.delete('/api/cash-seals/:id', requirePermission('cashseal'), async (req, res) => {
+    try {
+      const id = Number(req.params.id);
+      await storage.deleteCashSeal(id);
+      res.json({ success: true });
+    } catch (err) {
+      throw err;
+    }
+  });
+
+  // === INVENTORY ROUTES ===
+  app.get(api.inventory.list.path, requirePermission('inventory'), async (req, res) => {
+    const inventories = await storage.getInventories();
+    res.json(inventories);
+  });
+
+  app.get(api.inventory.get.path, requirePermission('inventory'), async (req, res) => {
+    const inv = await storage.getInventory(Number(req.params.id));
+    if (!inv) return res.status(404).json({ message: 'Inventory not found' });
+    res.json(inv);
+  });
+
+  app.post(api.inventory.create.path, requirePermission('inventory'), async (req, res) => {
+    try {
+      const input = api.inventory.create.input.parse(req.body);
+      const inv = await storage.createInventory(input);
+      res.status(201).json(inv);
+    } catch (err) {
+      if (err instanceof z.ZodError) {
+        return res.status(400).json({ message: err.errors[0].message, field: err.errors[0].path.join('.') });
+      }
+      if (err instanceof Error && 'code' in (err as any) && (err as any).code === '23505') {
+        return res.status(400).json({ message: 'An inventory record for this date already exists.' });
+      }
+      throw err;
+    }
+  });
+
+  app.put(api.inventory.update.path, requirePermission('inventory'), async (req, res) => {
+    try {
+      const input = api.inventory.update.input.parse(req.body);
+      const inv = await storage.updateInventory(Number(req.params.id), input);
+      res.json(inv);
+    } catch (err) {
+      if (err instanceof z.ZodError) {
+        return res.status(400).json({ message: err.errors[0].message, field: err.errors[0].path.join('.') });
+      }
+      if (err instanceof Error && err.message === "Inventory not found") {
+        return res.status(404).json({ message: "Inventory not found" });
+      }
+      throw err;
+    }
+  });
+
+  app.delete(api.inventory.delete.path, requireAdmin, async (req, res) => {
+    await storage.deleteInventory(Number(req.params.id));
+    res.status(204).send();
+  });
+
+  // === MENU ROUTES ===
+  app.get(api.menus.list.path, requirePermission('menu'), async (req, res) => {
+    const menus = await storage.getSavedMenus();
+    res.json(menus);
+  });
+
+  app.get(api.menus.get.path, requirePermission('menu'), async (req, res) => {
+    const menu = await storage.getSavedMenu(Number(req.params.id));
+    if (!menu) return res.status(404).json({ message: "Menu not found" });
+    res.json(menu);
+  });
+
+  app.post(api.menus.create.path, requirePermission('menu'), async (req, res) => {
+    try {
+      const input = api.menus.create.input.parse(req.body);
+      const menu = await storage.createSavedMenu(input);
+      try {
+        const menuData = JSON.parse(input.menuData);
+        const menuItemNames = Array.from(new Set(Object.values(menuData).filter((v): v is string => typeof v === 'string' && v.trim().length > 0)));
+        if (menuItemNames.length > 0) {
+          await storage.saveItemNames(menuItemNames as string[], 'menu');
+        }
+      } catch {}
+      res.status(201).json(menu);
+    } catch (err) {
+      if (err instanceof z.ZodError) {
+        return res.status(400).json({ message: err.errors[0].message, field: err.errors[0].path.join('.') });
+      }
+      throw err;
+    }
+  });
+
+  app.put('/api/menus/:id', requirePermission('menu'), async (req, res) => {
+    try {
+      const { clientName, startDate, endDate, menuData } = req.body;
+      const menu = await storage.updateSavedMenu(Number(req.params.id), {
+        ...(clientName !== undefined && { clientName }),
+        ...(startDate !== undefined && { startDate }),
+        ...(endDate !== undefined && { endDate }),
+        ...(menuData !== undefined && { menuData }),
+      });
+      if (!menu) return res.status(404).json({ message: "Menu not found" });
+      if (menuData) {
+        try {
+          const parsed = JSON.parse(menuData);
+          const names = Array.from(new Set(Object.values(parsed).filter((v): v is string => typeof v === 'string' && v.trim().length > 0)));
+          if (names.length > 0) await storage.saveItemNames(names as string[], 'menu');
+        } catch {}
+      }
+      res.json(menu);
+    } catch (err: any) {
+      res.status(500).json({ message: err.message });
+    }
+  });
+
+  app.delete(api.menus.delete.path, requireAdmin, async (req, res) => {
+    await storage.deleteSavedMenu(Number(req.params.id));
+    res.status(204).send();
+  });
+
+  // === PURCHASE REQUEST ROUTES ===
+  app.get(api.purchaseRequests.list.path, requirePermission('purchase'), async (req, res) => {
+    const requests = await storage.getPurchaseRequests();
+    if (req.session.role === 'admin') {
+      res.json(requests);
+    } else {
+      const username = req.session.displayName || req.session.username || '';
+      res.json(requests.filter(r => r.createdBy === username));
+    }
+  });
+
+  app.get(api.purchaseRequests.get.path, requirePermission('purchase'), async (req, res) => {
+    const request = await storage.getPurchaseRequest(Number(req.params.id));
+    if (!request) return res.status(404).json({ message: "Purchase request not found" });
+    if (req.session.role !== 'admin') {
+      const username = req.session.displayName || req.session.username || '';
+      if (request.createdBy !== username) {
+        return res.status(403).json({ message: "Access denied" });
+      }
+    }
+    res.json(request);
+  });
+
+  app.post(api.purchaseRequests.create.path, requirePermission('purchase'), async (req, res) => {
+    try {
+      const input = api.purchaseRequests.create.input.parse(req.body);
+      const { status, ...safeInput } = input as any;
+      const createdByName = req.session.displayName || req.session.username || '';
+      const request = await storage.createPurchaseRequest({ ...safeInput, createdBy: createdByName });
+      const itemNames = safeInput.items.map((i: any) => i.itemName).filter((n: string) => n.trim());
+      if (itemNames.length > 0) {
+        await storage.saveItemNames(itemNames, 'purchase');
+      }
+      res.status(201).json(request);
+    } catch (err) {
+      if (err instanceof z.ZodError) {
+        return res.status(400).json({ message: err.errors[0].message, field: err.errors[0].path.join('.') });
+      }
+      throw err;
+    }
+  });
+
+  app.put(api.purchaseRequests.update.path, requireAdmin, async (req, res) => {
+    try {
+      const input = api.purchaseRequests.update.input.parse(req.body);
+      const updateData: any = { ...input };
+      if (input.status === 'approved') {
+        updateData.approvedBy = req.session.displayName || req.session.username || '';
+      }
+      const request = await storage.updatePurchaseRequest(Number(req.params.id), updateData);
+      res.json(request);
+    } catch (err) {
+      if (err instanceof z.ZodError) {
+        return res.status(400).json({ message: err.errors[0].message, field: err.errors[0].path.join('.') });
+      }
+      if (err instanceof Error && err.message === "Purchase request not found") {
+        return res.status(404).json({ message: "Purchase request not found" });
+      }
+      throw err;
+    }
+  });
+
+  app.delete(api.purchaseRequests.delete.path, requireAdmin, async (req, res) => {
+    await storage.deletePurchaseRequest(Number(req.params.id));
+    res.status(204).send();
+  });
+
+  // === VENDOR ROUTES ===
+  app.get(api.vendors.list.path, requireAuth, async (req, res) => {
+    const vendorsList = await storage.getVendors();
+    res.json(vendorsList);
+  });
+
+  app.post(api.vendors.create.path, requireAuth, async (req, res) => {
+    try {
+      const input = api.vendors.create.input.parse(req.body);
+      const vendor = await storage.createVendor(input);
+      res.status(201).json(vendor);
+    } catch (err) {
+      if (err instanceof z.ZodError) {
+        return res.status(400).json({ message: err.errors[0].message, field: err.errors[0].path.join('.') });
+      }
+      if (err instanceof Error && 'code' in (err as any) && (err as any).code === '23505') {
+        return res.status(400).json({ message: 'This vendor already exists.' });
+      }
+      throw err;
+    }
+  });
+
+  app.put(api.vendors.update.path, requireAdmin, async (req, res) => {
+    try {
+      const input = api.vendors.update.input.parse(req.body);
+      const vendor = await storage.updateVendor(Number(req.params.id), input);
+      res.json(vendor);
+    } catch (err) {
+      if (err instanceof Error && err.message === "Vendor not found") {
+        return res.status(404).json({ message: "Vendor not found" });
+      }
+      throw err;
+    }
+  });
+
+  app.delete(api.vendors.delete.path, requireAdmin, async (req, res) => {
+    await storage.deleteVendor(Number(req.params.id));
+    res.status(204).send();
+  });
+
+  // === PURCHASE INVOICE ROUTES ===
+  app.get(api.purchaseInvoices.lastPrices.path, requireAuth, async (req, res) => {
+    const prices = await storage.getLastPurchasePrices();
+    res.json(prices);
+  });
+
+  app.get(api.purchaseInvoices.nextDjNo.path, requirePermission('purchase'), async (req, res) => {
+    const djInvoiceNo = await storage.getNextDjInvoiceNo();
+    res.json({ djInvoiceNo });
+  });
+
+  app.get(api.purchaseInvoices.list.path, requirePermission('purchase'), async (req, res) => {
+    const invoices = await storage.getPurchaseInvoices();
+    if (req.session.role !== 'admin') {
+      const filtered = invoices.filter(inv => inv.createdBy === req.session.displayName || inv.createdBy === req.session.username);
+      return res.json(filtered);
+    }
+    res.json(invoices);
+  });
+
+  // Available years for expense item stock report
+  app.get('/api/expense-items/stock-years', requireAuth, async (req, res) => {
+    try { res.json(await storage.getExpenseItemStockYears()); }
+    catch (e: any) { res.status(500).json({ error: e.message }); }
+  });
+
+  // Available years for purchase item stock report
+  app.get('/api/purchase-invoices/item-stock-years', requireAuth, async (req, res) => {
+    try { res.json(await storage.getPurchaseItemStockYears()); }
+    catch (e: any) { res.status(500).json({ error: e.message }); }
+  });
+
+  // Expense item-wise stock monthly report (from daily cash expenses)
+  app.get('/api/expense-items/stock-report', requireAuth, async (req, res) => {
+    try {
+      const year = Number(req.query.year) || new Date().getFullYear();
+      const category = req.query.category ? String(req.query.category) : undefined;
+      const rows = await storage.getExpenseItemStockReport(year, category);
+      res.json(rows);
+    } catch (e: any) {
+      res.status(500).json({ error: e.message });
+    }
+  });
+
+  // Item-wise stock monthly report
+  app.get('/api/purchase-invoices/item-stock-report', requireAuth, async (req, res) => {
+    try {
+      const year = Number(req.query.year) || new Date().getFullYear();
+      const clientName = req.query.client ? String(req.query.client) : undefined;
+      const rows = await storage.getItemStockReport(year, clientName);
+      res.json(rows);
+    } catch (e: any) {
+      res.status(500).json({ error: e.message });
+    }
+  });
+
+  app.get('/api/purchase-invoices/item-stock-clients', requireAuth, async (req, res) => {
+    try {
+      const clients = await storage.getItemStockClients();
+      res.json(clients);
+    } catch (e: any) {
+      res.status(500).json({ error: e.message });
+    }
+  });
+
+  // Must be registered BEFORE /:id to avoid "price-history" being treated as an ID
+  app.get('/api/purchase-invoices/price-history', requireAuth, async (req, res) => {
+    try {
+      const item = String(req.query.item || '').trim();
+      if (!item) return res.json([]);
+      const from = req.query.from ? String(req.query.from) : undefined;
+      const to   = req.query.to   ? String(req.query.to)   : undefined;
+      const rows = await storage.getPriceHistory(item, from, to);
+      res.json(rows);
+    } catch (e: any) {
+      res.status(500).json({ error: e.message });
+    }
+  });
+
+  app.get(api.purchaseInvoices.get.path, requirePermission('purchase'), async (req, res) => {
+    const invoice = await storage.getPurchaseInvoice(Number(req.params.id));
+    if (!invoice) return res.status(404).json({ message: "Invoice not found" });
+    if (req.session.role !== 'admin' && invoice.createdBy !== req.session.displayName && invoice.createdBy !== req.session.username) {
+      return res.status(403).json({ message: "Access denied" });
+    }
+    res.json(invoice);
+  });
+
+  app.post(api.purchaseInvoices.create.path, requirePermission('purchase'), async (req, res) => {
+    try {
+      const input = api.purchaseInvoices.create.input.parse(req.body);
+      const createdByName = req.session.displayName || req.session.username || '';
+      const invoice = await storage.createPurchaseInvoice({ ...input, createdBy: createdByName });
+      res.status(201).json(invoice);
+    } catch (err) {
+      if (err instanceof z.ZodError) {
+        return res.status(400).json({ message: err.errors[0].message, field: err.errors[0].path.join('.') });
+      }
+      if (err instanceof Error && err.message.includes('already exists')) {
+        return res.status(409).json({ message: err.message });
+      }
+      throw err;
+    }
+  });
+
+  app.put(api.purchaseInvoices.update.path, requirePermission('purchase'), async (req, res) => {
+    try {
+      const existing = await storage.getPurchaseInvoice(Number(req.params.id));
+      if (!existing) return res.status(404).json({ message: "Purchase invoice not found" });
+      if (req.session.role !== 'admin' && existing.createdBy !== req.session.displayName && existing.createdBy !== req.session.username) {
+        return res.status(403).json({ message: "Access denied" });
+      }
+      const input = api.purchaseInvoices.update.input.parse(req.body);
+      const invoice = await storage.updatePurchaseInvoice(Number(req.params.id), input);
+      res.json(invoice);
+    } catch (err) {
+      if (err instanceof z.ZodError) {
+        return res.status(400).json({ message: err.errors[0].message, field: err.errors[0].path.join('.') });
+      }
+      if (err instanceof Error && err.message === "Purchase invoice not found") {
+        return res.status(404).json({ message: "Purchase invoice not found" });
+      }
+      if (err instanceof Error && err.message.includes('already exists')) {
+        return res.status(409).json({ message: err.message });
+      }
+      throw err;
+    }
+  });
+
+  app.delete(api.purchaseInvoices.delete.path, requireAdmin, async (req, res) => {
+    await storage.deletePurchaseInvoice(Number(req.params.id));
+    res.status(204).send();
+  });
+
+  app.post('/api/purchase-invoices/renumber-dj', requireAdmin, async (req, res) => {
+    try {
+      const result = await storage.renumberDjInvoiceNos();
+      res.json(result);
+    } catch (e: any) {
+      res.status(500).json({ message: e.message });
+    }
+  });
+
+  // ── Payment Out (vendor-level payments allocated across bills) ─────────────
+  app.get('/api/payment-outs', requirePermission('purchase'), async (req: any, res) => {
+    try {
+      const vendor = req.query.vendor ? String(req.query.vendor) : undefined;
+      let rows = await storage.getPaymentOuts(vendor);
+      if (req.session.role !== 'admin') {
+        const names = [req.session.displayName, req.session.username].filter(Boolean);
+        rows = rows.filter((r: any) => names.includes(r.createdBy));
+      }
+      res.json(rows);
+    } catch (e: any) { res.status(500).json({ message: e.message }); }
+  });
+
+  app.get('/api/payment-outs/unpaid-invoices', requirePermission('purchase'), async (req: any, res) => {
+    try {
+      const vendor = String(req.query.vendor || '');
+      if (!vendor) return res.status(400).json({ message: "vendor is required" });
+      const onlyCreatedBy = req.session.role === 'admin'
+        ? undefined
+        : [req.session.displayName, req.session.username].filter(Boolean);
+      const client = req.query.client ? String(req.query.client) : undefined;
+      res.json(await storage.getVendorUnpaidInvoices(vendor, onlyCreatedBy, client));
+    } catch (e: any) { res.status(500).json({ message: e.message }); }
+  });
+
+  app.post('/api/payment-outs', requirePermission('purchase'), async (req: any, res) => {
+    try {
+      const schema = z.object({
+        vendorName: z.string().trim().min(1).max(200),
+        clientName: z.string().trim().max(200).optional().default(''),
+        paymentDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Invalid date"),
+        amount: z.number().finite().min(0.01).max(99999999),
+        utrNo: z.string().max(100).optional().default(''),
+        allocations: z.array(z.object({
+          invoiceId: z.number().int().positive(),
+          amount: z.number().finite().min(0).max(99999999),
+        })).max(200).default([]),
+      });
+      const data = schema.parse(req.body);
+      const result = await storage.createPaymentOut({
+        ...data,
+        createdBy: req.session.displayName || req.session.username || '',
+        allowedCreators: req.session.role === 'admin'
+          ? undefined
+          : [req.session.displayName, req.session.username].filter(Boolean),
+      });
+      res.status(201).json(result);
+    } catch (e: any) {
+      if (e instanceof z.ZodError) return res.status(400).json({ message: e.errors[0].message });
+      res.status(400).json({ message: e.message });
+    }
+  });
+
+  app.delete('/api/payment-outs/:id', requirePermission('purchase'), async (req: any, res) => {
+    try {
+      if (req.session.role !== 'admin') {
+        return res.status(403).json({ message: "Only the admin can delete a payment out" });
+      }
+      await storage.deletePaymentOut(Number(req.params.id));
+      res.status(204).end();
+    } catch (e: any) { res.status(500).json({ message: e.message }); }
+  });
+
+  app.post(api.purchaseInvoices.applyAdvance.path, requirePermission('purchase'), async (req, res) => {
+    try {
+      const invoice = await storage.getPurchaseInvoice(Number(req.params.id));
+      if (!invoice) return res.status(404).json({ message: "Invoice not found" });
+      if (req.session.role !== 'admin' && invoice.createdBy !== req.session.displayName && invoice.createdBy !== req.session.username) {
+        return res.status(403).json({ message: "Access denied" });
+      }
+      // Pull any available advance from earlier bills, then push any excess forward
+      await storage.applyVendorAdvanceToInvoice(invoice.id);
+      await storage.applyExcessToLaterInvoices(invoice.id);
+      res.json({ message: "Advance adjustment updated" });
+    } catch (e: any) {
+      res.status(500).json({ message: e.message });
+    }
+  });
+
+  app.get(api.purchaseInvoices.getPayments.path, requirePermission('purchase'), async (req, res) => {
+    const invoice = await storage.getPurchaseInvoice(Number(req.params.id));
+    if (!invoice) return res.status(404).json({ message: "Invoice not found" });
+    if (req.session.role !== 'admin' && invoice.createdBy !== req.session.displayName && invoice.createdBy !== req.session.username) {
+      return res.status(403).json({ message: "Access denied" });
+    }
+    const payments = await storage.getPurchaseInvoicePayments(Number(req.params.id));
+    res.json(payments);
+  });
+
+  app.post(api.purchaseInvoices.addPayment.path, requirePermission('purchase'), async (req, res) => {
+    try {
+      const invoice = await storage.getPurchaseInvoice(Number(req.params.id));
+      if (!invoice) return res.status(404).json({ message: "Invoice not found" });
+      if (req.session.role !== 'admin' && invoice.createdBy !== req.session.displayName && invoice.createdBy !== req.session.username) {
+        return res.status(403).json({ message: "Access denied" });
+      }
+      const input = api.purchaseInvoices.addPayment.input.parse(req.body);
+      const payment = await storage.addPurchaseInvoicePayment({ ...input, invoiceId: Number(req.params.id) });
+      res.status(201).json(payment);
+    } catch (err) {
+      if (err instanceof z.ZodError) {
+        return res.status(400).json({ message: err.errors[0].message });
+      }
+      throw err;
+    }
+  });
+
+  app.patch(api.purchaseInvoices.updatePayment.path, requirePermission('purchase'), async (req, res) => {
+    try {
+      const payment = await storage.getPurchaseInvoicePaymentById(Number(req.params.id));
+      if (!payment) return res.status(404).json({ message: "Payment not found" });
+      const invoice = await storage.getPurchaseInvoice(payment.invoiceId);
+      if (!invoice) return res.status(404).json({ message: "Invoice not found" });
+      if (req.session.role !== 'admin' && invoice.createdBy !== req.session.displayName && invoice.createdBy !== req.session.username) {
+        return res.status(403).json({ message: "Access denied" });
+      }
+      const [poRows] = await pool.query(`SELECT payment_out_id FROM purchase_invoice_payments WHERE id = ?`, [Number(req.params.id)]) as any;
+      if (Array.isArray(poRows) && poRows[0]?.payment_out_id) {
+        return res.status(400).json({ message: "This entry came from a Payment Out. Edit or delete the Payment Out instead." });
+      }
+      const input = api.purchaseInvoices.updatePayment.input.parse(req.body);
+      const updated = await storage.updatePurchaseInvoicePayment(Number(req.params.id), input);
+      res.json(updated);
+    } catch (e: any) {
+      res.status(400).json({ message: e.message });
+    }
+  });
+
+  app.delete(api.purchaseInvoices.deletePayment.path, requireAdmin, async (req, res) => {
+    const [poRows] = await pool.query(`SELECT payment_out_id FROM purchase_invoice_payments WHERE id = ?`, [Number(req.params.id)]) as any;
+    if (Array.isArray(poRows) && poRows[0]?.payment_out_id) {
+      return res.status(400).json({ message: "This entry came from a Payment Out. Delete the Payment Out instead." });
+    }
+    await storage.deletePurchaseInvoicePayment(Number(req.params.id));
+    res.status(204).send();
+  });
+
+  // === SAVED ITEM NAMES ROUTES ===
+  app.get(api.savedItems.list.path, requireAuth, async (req, res) => {
+    const source = req.query.source as string | undefined;
+    const items = await storage.getSavedItemNames(source);
+    res.json(items);
+  });
+
+  // === CLIENT ROUTES ===
+  app.get(api.clients.list.path, requireAuth, async (req, res) => {
+    const items = await storage.getClientNames();
+    res.json(items);
+  });
+
+  app.post(api.clients.create.path, requireAdmin, async (req, res) => {
+    try {
+      const input = api.clients.create.input.parse(req.body);
+      const item = await storage.createClientName(input);
+      res.status(201).json(item);
+    } catch (err) {
+      if (err instanceof z.ZodError) {
+        return res.status(400).json({ message: err.errors[0].message, field: err.errors[0].path.join('.') });
+      }
+      if (err instanceof Error && 'code' in (err as any) && (err as any).code === '23505') {
+        return res.status(400).json({ message: 'This client name already exists.' });
+      }
+      throw err;
+    }
+  });
+
+  app.put(api.clients.update.path, requireAdmin, async (req, res) => {
+    try {
+      const input = api.clients.update.input.parse(req.body);
+      const item = await storage.updateClientName(Number(req.params.id), input);
+      res.json(item);
+    } catch (err) {
+      if (err instanceof z.ZodError) {
+        return res.status(400).json({ message: err.errors[0].message, field: err.errors[0].path.join('.') });
+      }
+      if (err instanceof Error && err.message === "Client not found") {
+        return res.status(404).json({ message: "Client not found" });
+      }
+      throw err;
+    }
+  });
+
+  app.delete(api.clients.delete.path, requireAdmin, async (req, res) => {
+    await storage.deleteClientName(Number(req.params.id));
+    res.status(204).send();
+  });
+
+  // === CONTRACTOR ROUTES (contractor master + monthly meal entries) ===
+  app.get('/api/contractors', requirePermission('salesinvoice'), async (_req, res) => {
+    res.json(await storage.getContractors());
+  });
+
+  app.post('/api/contractors', requirePermission('salesinvoice'), async (req, res) => {
+    try {
+      res.status(201).json(await storage.createContractor(req.body || {}));
+    } catch (err: any) {
+      res.status(400).json({ message: err?.message || 'Failed to create contractor' });
+    }
+  });
+
+  app.put('/api/contractors/:id', requirePermission('salesinvoice'), async (req, res) => {
+    try {
+      res.json(await storage.updateContractor(Number(req.params.id), req.body || {}));
+    } catch (err: any) {
+      const code = err?.message === 'Contractor not found' ? 404 : 400;
+      res.status(code).json({ message: err?.message || 'Failed to update contractor' });
+    }
+  });
+
+  app.delete('/api/contractors/:id', requireAdmin, async (req, res) => {
+    await storage.deleteContractor(Number(req.params.id));
+    res.status(204).send();
+  });
+
+  app.get('/api/contractor-meals', requirePermission('salesinvoice'), async (req, res) => {
+    const month = Number(req.query.month);
+    const year = Number(req.query.year);
+    if (!month || !year) return res.status(400).json({ message: 'month and year required' });
+    res.json(await storage.getContractorMealEntries(month, year));
+  });
+
+  app.post('/api/contractor-meals/bulk', requirePermission('salesinvoice'), async (req, res) => {
+    try {
+      const { entryDate, month, year, rows } = req.body || {};
+      const m = Number(month), y = Number(year);
+      if (!m || m < 1 || m > 12 || !y || y < 2000 || y > 2100) {
+        return res.status(400).json({ message: 'Valid month and year required' });
+      }
+      if (!Array.isArray(rows)) return res.status(400).json({ message: 'rows required' });
+      await storage.saveContractorMealEntries({ entryDate: String(entryDate || ''), month: m, year: y, rows });
+      res.json({ ok: true });
+    } catch (err: any) {
+      res.status(400).json({ message: err?.message || 'Failed to save entries' });
+    }
+  });
+
+  app.post('/api/contractor-meals/rates', requirePermission('salesinvoice'), async (req, res) => {
+    try {
+      const { contractorId, month, year, rates } = req.body || {};
+      const cid = Number(contractorId), m = Number(month), y = Number(year);
+      if (!Number.isInteger(cid) || cid <= 0 || !Number.isInteger(m) || m < 1 || m > 12 || !Number.isInteger(y) || y < 2000 || y > 2100) {
+        return res.status(400).json({ message: 'Valid contractorId, month, year required' });
+      }
+      await storage.setContractorMealRates(cid, m, y, rates || {});
+      res.json({ ok: true });
+    } catch (err: any) {
+      res.status(400).json({ message: err?.message || 'Failed to save rates' });
+    }
+  });
+
+  app.get('/api/contractor-payments', requirePermission('salesinvoice'), async (_req, res) => {
+    res.json(await storage.getContractorPayments());
+  });
+
+  app.post('/api/contractor-payments', requirePermission('salesinvoice'), async (req, res) => {
+    try {
+      await storage.createContractorPayment(req.body || {});
+      res.status(201).json({ ok: true });
+    } catch (err: any) {
+      res.status(400).json({ message: err?.message || 'Failed to save payment' });
+    }
+  });
+
+  app.delete('/api/contractor-payments/:id', requirePermission('salesinvoice'), async (req, res) => {
+    await storage.deleteContractorPayment(Number(req.params.id));
+    res.status(204).send();
+  });
+
+  app.get('/api/contractor-billing-summary', requirePermission('salesinvoice'), async (_req, res) => {
+    res.json(await storage.getContractorBillingSummary());
+  });
+
+  app.get('/api/contractor-dashboard', requirePermission('salesinvoice'), async (req, res) => {
+    const year = Number(req.query.year);
+    const rawCid = String(req.query.contractorId ?? '0');
+    if (!/^\d+$/.test(rawCid)) return res.status(400).json({ message: 'Valid contractorId required' });
+    const contractorId = Number(rawCid);
+    if (!Number.isInteger(year) || year < 2000 || year > 2100) {
+      return res.status(400).json({ message: 'Valid year required' });
+    }
+    const rawMonth = String(req.query.month ?? '0');
+    if (!/^\d+$/.test(rawMonth)) return res.status(400).json({ message: 'Valid month required' });
+    const month = Number(rawMonth);
+    if (month < 0 || month > 12) return res.status(400).json({ message: 'Valid month required' });
+    const clientName = String(req.query.client ?? '').trim();
+    res.json(await storage.getContractorDashboard(year, contractorId, month, clientName));
+  });
+
+  app.get("/api/geocode", requireAdmin, async (req, res) => {
+    const address = String(req.query.address || "").trim();
+    if (!address) return res.status(400).json({ message: "address required" });
+    try {
+      const url = `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(address)}&format=json&limit=1&addressdetails=1`;
+      const r = await fetch(url, { headers: { "User-Agent": "DJHospitality/1.0 (contact@djhospitality.in)", "Accept-Language": "en" } });
+      const data = await r.json() as any[];
+      if (!data.length) return res.json({ found: false });
+      res.json({ found: true, lat: data[0].lat, lng: data[0].lon, display: data[0].display_name });
+    } catch (e: any) {
+      res.status(500).json({ message: "Geocoding failed" });
+    }
+  });
+
+  // === ADMIN ROUTES ===
+  app.post(api.admin.verifyPin.path, requireAdmin, async (req, res) => {
+    const { pin } = api.admin.verifyPin.input.parse(req.body);
+    const valid = await storage.verifyAdminPin(pin);
+    if (valid) {
+      (req as any).session = (req as any).session || {};
+      (req as any).session.adminAuthenticated = true;
+    }
+    res.json({ valid });
+  });
+
+  app.post(api.admin.changePin.path, requireAdmin, async (req, res) => {
+    const { currentPin, newPin } = api.admin.changePin.input.parse(req.body);
+    const valid = await storage.verifyAdminPin(currentPin);
+    if (!valid) {
+      return res.status(400).json({ message: "Current PIN is incorrect" });
+    }
+    await storage.setAdminPin(newPin);
+    res.json({ success: true });
+  });
+
+  // === ITEM MASTER ROUTES ===
+  app.get(api.itemMaster.list.path, requireAuth, async (req, res) => {
+    const itemType = req.query.type as string | undefined;
+    const items = await storage.getItemMasterItems(itemType);
+    res.json(items);
+  });
+
+  app.post(api.itemMaster.create.path, requireAdmin, async (req, res) => {
+    try {
+      const input = api.itemMaster.create.input.parse(req.body);
+      const item = await storage.createItemMasterItem(input);
+      res.status(201).json(item);
+    } catch (err) {
+      if (err instanceof z.ZodError) {
+        return res.status(400).json({ message: err.errors[0].message, field: err.errors[0].path.join('.') });
+      }
+      if (err instanceof Error) {
+        const msg = err.message || "";
+        const code = (err as any).code || "";
+        const errno = (err as any).errno;
+        if (
+          code === '23505' || code === 'ER_DUP_ENTRY' || errno === 1062 ||
+          msg.includes('already exists') || msg.toLowerCase().includes('duplicate')
+        ) {
+          return res.status(400).json({ message: err.message.includes('already exists') ? err.message : 'This item name already exists.' });
+        }
+      }
+      throw err;
+    }
+  });
+
+  app.put(api.itemMaster.update.path, requireAdmin, async (req, res) => {
+    try {
+      const input = api.itemMaster.update.input.parse(req.body);
+      const item = await storage.updateItemMasterItem(Number(req.params.id), input);
+      res.json(item);
+    } catch (err) {
+      if (err instanceof z.ZodError) {
+        return res.status(400).json({ message: err.errors[0].message, field: err.errors[0].path.join('.') });
+      }
+      if (err instanceof Error && err.message === "Item not found") {
+        return res.status(404).json({ message: "Item not found" });
+      }
+      if (err instanceof Error) {
+        const msg = err.message || "";
+        const code = (err as any).code || "";
+        const errno = (err as any).errno;
+        if (
+          code === '23505' || code === 'ER_DUP_ENTRY' || errno === 1062 ||
+          msg.includes('already exists') || msg.toLowerCase().includes('duplicate')
+        ) {
+          return res.status(400).json({ message: 'This item name already exists.' });
+        }
+      }
+      throw err;
+    }
+  });
+
+  app.delete(api.itemMaster.delete.path, requireAdmin, async (req, res) => {
+    await storage.deleteItemMasterItem(Number(req.params.id));
+    res.status(204).send();
+  });
+
+  app.post('/api/item-master/sync-rates', requireAdmin, async (req, res) => {
+    try {
+      const result = await storage.syncItemMasterRates();
+      res.json(result);
+    } catch (e: any) {
+      res.status(500).json({ error: e.message });
+    }
+  });
+
+  // === EMPLOYEE MASTER ===
+  app.get("/api/employees", requirePermission('labour'), async (req, res) => {
+    const clientName = effectiveClientName(req, req.query.clientName as string | undefined);
+    if (clientName === false) return res.status(403).json({ message: "Client scope required" });
+    const employees = await storage.getEmployees(clientName);
+    res.json(employees);
+  });
+
   app.get("/api/employees/:id", requireAdmin, async (req, res) => {
     const emp = await storage.getEmployee(Number(req.params.id));
     if (!emp) return res.status(404).json({ message: "Employee not found" });
     res.json(emp);
   });
 
-  // 3. CREATE EMPLOYEE
   app.post("/api/employees", requireAdmin, async (req, res) => {
     try {
       const emp = await storage.createEmployee(req.body);
@@ -322,7 +1385,6 @@ export async function registerRoutes(
     }
   });
 
-  // 4. UPDATE EMPLOYEE
   app.put("/api/employees/:id", requireAdmin, async (req, res) => {
     try {
       const emp = await storage.updateEmployee(Number(req.params.id), req.body);
@@ -334,188 +1396,2256 @@ export async function registerRoutes(
     }
   });
 
-  // 5. DELETE EMPLOYEE
   app.delete("/api/employees/:id", requireAdmin, async (req, res) => {
     await storage.deleteEmployee(Number(req.params.id));
     res.status(204).send();
   });
 
+  // === FACE DESCRIPTOR ===
+  app.get("/api/employees/face-descriptors", requireAuth, async (req, res) => {
+    const { clientName } = req.query;
+    if (!clientName) return res.status(400).json({ message: "clientName required" });
+    const descriptors = await storage.getEmployeeFaceDescriptors(clientName as string);
+    res.json(descriptors);
+  });
 
-  // ==========================================
-  // NOMINATIONS FORMS APIs
-  // ==========================================
-  app.get("/api/nominations", requireAuth, async (req, res) => {
+  app.put("/api/employees/:id/face", requireAuth, async (req, res) => {
+    const { faceDescriptor } = req.body;
+    if (!faceDescriptor) return res.status(400).json({ message: "faceDescriptor required" });
+    await storage.updateEmployeeFace(Number(req.params.id), faceDescriptor);
+    res.json({ ok: true });
+  });
+
+  // === WEBAUTHN FINGERPRINT ===
+  app.get("/api/employees/:id/webauthn/credentials", requireAuth, async (req, res) => {
+    const creds = await storage.getEmployeeWebAuthnCredentials(Number(req.params.id));
+    res.json({ count: creds.length, registered: creds.length > 0 });
+  });
+
+  const bufToStr = (v: any): string => Buffer.isBuffer(v) ? v.toString('utf8') : String(v);
+
+  app.post("/api/webauthn/register/challenge", requireAuth, async (req, res) => {
     try {
-      const { formType, employeeId } = req.query;
-      const results = await db.select().from(employeeNominations);
-      
-      let filtered = results;
-      if (formType) filtered = filtered.filter(r => r.formType === formType);
-      if (employeeId) filtered = filtered.filter(r => r.employeeId === Number(employeeId));
-      
-      const mappedResults = filtered.map(nom => ({
-          nomination: nom,
-          employee: null 
-      }));
-
-      res.json(mappedResults);
-    } catch (error) {
-      res.status(500).json({ message: "Error fetching nominations" });
+      const { employeeId } = req.body;
+      const employee = await storage.getEmployee(Number(employeeId));
+      if (!employee) return res.status(404).json({ message: "Employee not found" });
+      const rpID = req.hostname;
+      const existingCreds = await storage.getEmployeeWebAuthnCredentials(Number(employeeId));
+      const options = await generateRegistrationOptions({
+        rpName: "DJ Hospitality Attendance",
+        rpID,
+        userID: isoUint8Array.fromUTF8String(String(employeeId)),
+        userName: employee.name,
+        timeout: 60000,
+        attestationType: "none",
+        excludeCredentials: existingCreds.map((c: any) => ({
+          id: bufToStr(c.credential_id),
+          type: "public-key" as const,
+          transports: JSON.parse(bufToStr(c.transports || "[]")),
+        })),
+        authenticatorSelection: {
+          authenticatorAttachment: "platform",
+          requireResidentKey: false,
+          userVerification: "required",
+        },
+      });
+      webauthnRegChallenges.set(Number(employeeId), options.challenge);
+      res.json(options);
+    } catch (err: any) {
+      res.status(500).json({ message: err.message });
     }
   });
 
-  app.get("/api/nominations/:id", requireAuth, async (req, res) => {
+  app.post("/api/webauthn/register/verify", requireAuth, async (req, res) => {
     try {
-      const id = Number(req.params.id);
-      const results = await db.select().from(employeeNominations).where(eq(employeeNominations.id, id));
-      
-      if (!results || results.length === 0) return res.status(404).json({ message: "Nomination nahi mila" });
-      
-      const nomination = results[0];
-      const nominees = await db.select().from(nominationNominees).where(eq(nominationNominees.nominationId, id));
-
-      res.json({ nomination, employee: null, nominees });
-    } catch (error) {
-      res.status(500).json({ message: "Error fetching nomination details" });
-    }
-  });
-
-  app.post("/api/nominations", requireAuth, async (req, res) => {
-    try {
-      const { nomination, nominees } = req.body;
-      if (!nomination || !nomination.employeeId) return res.status(400).json({ message: "Missing required data" });
-
-      const [insertedNomination] = await db.insert(employeeNominations).values(nomination);
-      const nominationId = insertedNomination.insertId;
-
-      if (nominees && Array.isArray(nominees) && nominees.length > 0) {
-        const nomineesData = nominees.map((n: any) => ({
-          ...n,
-          nominationId: nominationId,
-          sharePercentage: String(n.sharePercentage) 
-        }));
-        await db.insert(nominationNominees).values(nomineesData);
+      const { employeeId, registrationResponse } = req.body;
+      const challenge = webauthnRegChallenges.get(Number(employeeId));
+      if (!challenge) return res.status(400).json({ message: "No challenge found. Start registration again." });
+      const rpID = req.hostname;
+      const origin = (req.headers.origin as string) || `https://${rpID}`;
+      const verification = await verifyRegistrationResponse({
+        response: registrationResponse,
+        expectedChallenge: challenge,
+        expectedOrigin: origin,
+        expectedRPID: rpID,
+        requireUserVerification: true,
+      });
+      if (!verification.verified || !verification.registrationInfo) {
+        return res.status(400).json({ message: "Verification failed" });
       }
-      res.status(201).json({ id: nominationId, message: "Nomination successfully saved" });
-    } catch (error) {
-      res.status(500).json({ message: "Nomination create error" });
+      const { credential } = verification.registrationInfo;
+      await storage.saveEmployeeWebAuthnCredential({
+        employeeId: Number(employeeId),
+        credentialId: isoBase64URL.fromBuffer(credential.id),
+        publicKey: isoBase64URL.fromBuffer(credential.publicKey),
+        counter: credential.counter,
+        deviceType: (verification.registrationInfo as any).credentialDeviceType || "singleDevice",
+        transports: JSON.stringify(registrationResponse.response?.transports || []),
+      });
+      webauthnRegChallenges.delete(Number(employeeId));
+      res.json({ verified: true });
+    } catch (err: any) {
+      res.status(400).json({ message: err.message || "Verification failed" });
     }
   });
 
-  app.delete("/api/nominations/:id", requireAuth, async (req, res) => {
+  app.post("/api/webauthn/authenticate/challenge", requireAuth, async (req, res) => {
+    try {
+      const { employeeId } = req.body;
+      const creds = await storage.getEmployeeWebAuthnCredentials(Number(employeeId));
+      if (!creds.length) return res.status(400).json({ message: "No fingerprint registered for this employee" });
+      const rpID = req.hostname;
+      const options = await generateAuthenticationOptions({
+        rpID,
+        timeout: 60000,
+        allowCredentials: creds.map((c: any) => ({
+          id: bufToStr(c.credential_id),
+          type: "public-key" as const,
+          transports: JSON.parse(bufToStr(c.transports || "[]")),
+        })),
+        userVerification: "required",
+      });
+      webauthnAuthChallenges.set(Number(employeeId), options.challenge);
+      res.json(options);
+    } catch (err: any) {
+      res.status(500).json({ message: err.message });
+    }
+  });
+
+  app.post("/api/webauthn/authenticate/verify", requireAuth, async (req, res) => {
+    try {
+      const { employeeId, authenticationResponse, clientName, attendanceDate, scannedLat, scannedLng } = req.body;
+      const challenge = webauthnAuthChallenges.get(Number(employeeId));
+      if (!challenge) return res.status(400).json({ message: "No challenge found. Start authentication again." });
+      const rpID = req.hostname;
+      const origin = (req.headers.origin as string) || `https://${rpID}`;
+      const creds = await storage.getEmployeeWebAuthnCredentials(Number(employeeId));
+      const cred = creds.find((c: any) => bufToStr(c.credential_id) === authenticationResponse.id);
+      if (!cred) return res.status(400).json({ message: "Credential not found for this device" });
+      const verification = await verifyAuthenticationResponse({
+        response: authenticationResponse,
+        expectedChallenge: challenge,
+        expectedOrigin: origin,
+        expectedRPID: rpID,
+        requireUserVerification: true,
+        credential: {
+          id: bufToStr(cred.credential_id),
+          publicKey: isoBase64URL.toBuffer(bufToStr(cred.public_key)),
+          counter: Number(cred.counter),
+          transports: JSON.parse(bufToStr(cred.transports || "[]")),
+        },
+      });
+      if (!verification.verified) return res.status(400).json({ message: "Fingerprint verification failed" });
+      await storage.updateWebAuthnCounter(bufToStr(cred.credential_id), verification.authenticationInfo.newCounter);
+      webauthnAuthChallenges.delete(Number(employeeId));
+      const log = await storage.saveDailyAttendanceLog({
+        employeeId: Number(employeeId),
+        clientName,
+        attendanceDate,
+        status: "P",
+        scannedLat: scannedLat ?? null,
+        scannedLng: scannedLng ?? null,
+        scannedBy: ((req as any).user?.username || "unknown") + " (fingerprint)",
+      });
+      res.json({ verified: true, log });
+    } catch (err: any) {
+      if (err.message?.includes("already recorded")) return res.status(409).json({ message: err.message });
+      res.status(400).json({ message: err.message || "Authentication failed" });
+    }
+  });
+
+  // === ATTENDANCE KIOSK ===
+  // All kiosk endpoints require a shared secret token set via KIOSK_SECRET env var.
+  // Physical kiosk devices are configured with /kiosk?token=<secret> so the
+  // frontend includes the token in every API call via x-kiosk-token header.
+  const requireKioskToken = (req: any, res: any, next: any) => {
+    const secret = process.env.KIOSK_SECRET;
+    if (!secret) {
+      return res.status(503).json({ message: "Kiosk is not configured on this server. Set KIOSK_SECRET environment variable." });
+    }
+    const provided = req.headers["x-kiosk-token"];
+    if (!provided || provided !== secret) {
+      return res.status(401).json({ message: "Unauthorized: invalid or missing kiosk token" });
+    }
+    next();
+  };
+
+  const kioskChallenges = new Map<number, string>();
+
+  app.get("/api/kiosk/clients", requireKioskToken, async (req, res) => {
+    try {
+      const [rows] = await pool.execute(`SELECT id, name FROM clients ORDER BY name ASC`) as any;
+      res.json(rows);
+    } catch (err: any) { res.status(500).json({ message: err.message }); }
+  });
+
+  app.get("/api/kiosk/employees", requireKioskToken, async (req, res) => {
+    try {
+      const { clientName } = req.query;
+      if (!clientName) return res.status(400).json({ message: "clientName required" });
+      const [rows] = await pool.execute(
+        `SELECT id, name FROM employees WHERE client_name = ? AND is_active = 1 ORDER BY name ASC`,
+        [clientName]
+      ) as any;
+      res.json(rows);
+    } catch (err: any) { res.status(500).json({ message: err.message }); }
+  });
+
+  app.get("/api/kiosk/today-logs", requireKioskToken, async (req, res) => {
+    try {
+      const { clientName } = req.query;
+      if (!clientName) return res.status(400).json({ message: "clientName required" });
+      const todayDate = new Date().toISOString().slice(0, 10);
+      const [rows] = await pool.execute(
+        `SELECT employee_id FROM daily_attendance_logs WHERE client_name = ? AND attendance_date = ?`,
+        [clientName, todayDate]
+      ) as any;
+      res.json(rows);
+    } catch (err: any) { res.status(500).json({ message: err.message }); }
+  });
+
+  app.post("/api/kiosk/webauthn/challenge", requireKioskToken, async (req, res) => {
+    try {
+      const { employeeId } = req.body;
+      const creds = await storage.getEmployeeWebAuthnCredentials(Number(employeeId));
+      if (!creds.length) return res.status(400).json({ message: "No fingerprint registered for this employee. Please ask admin to register your fingerprint." });
+      const rpID = req.hostname;
+      const options = await generateAuthenticationOptions({
+        rpID,
+        timeout: 60000,
+        allowCredentials: creds.map((c: any) => ({
+          id: bufToStr(c.credential_id),
+          type: "public-key" as const,
+          transports: JSON.parse(bufToStr(c.transports || "[]")),
+        })),
+        userVerification: "required",
+      });
+      kioskChallenges.set(Number(employeeId), options.challenge);
+      res.json(options);
+    } catch (err: any) { res.status(500).json({ message: err.message }); }
+  });
+
+  app.post("/api/kiosk/webauthn/verify", requireKioskToken, async (req, res) => {
+    try {
+      const { employeeId, authenticationResponse, clientName, attendanceDate } = req.body;
+      const challenge = kioskChallenges.get(Number(employeeId));
+      if (!challenge) return res.status(400).json({ message: "No challenge found. Please try again." });
+      const rpID = req.hostname;
+      const origin = (req.headers.origin as string) || `https://${rpID}`;
+      const creds = await storage.getEmployeeWebAuthnCredentials(Number(employeeId));
+      const cred = creds.find((c: any) => bufToStr(c.credential_id) === authenticationResponse.id);
+      if (!cred) return res.status(400).json({ message: "Credential not found for this device" });
+      const verification = await verifyAuthenticationResponse({
+        response: authenticationResponse,
+        expectedChallenge: challenge,
+        expectedOrigin: origin,
+        expectedRPID: rpID,
+        requireUserVerification: true,
+        credential: {
+          id: bufToStr(cred.credential_id),
+          publicKey: isoBase64URL.toBuffer(bufToStr(cred.public_key)),
+          counter: Number(cred.counter),
+          transports: JSON.parse(bufToStr(cred.transports || "[]")),
+        },
+      });
+      if (!verification.verified) return res.status(400).json({ message: "Fingerprint verification failed" });
+      await storage.updateWebAuthnCounter(bufToStr(cred.credential_id), verification.authenticationInfo.newCounter);
+      kioskChallenges.delete(Number(employeeId));
+      const todayDate = new Date().toISOString().slice(0, 10);
+      const log = await storage.saveDailyAttendanceLog({
+        employeeId: Number(employeeId),
+        clientName,
+        attendanceDate: todayDate,
+        status: "P",
+        scannedLat: null,
+        scannedLng: null,
+        scannedBy: "kiosk (fingerprint)",
+      });
+      res.json({ verified: true, log });
+    } catch (err: any) {
+      if (err.message?.includes("already recorded")) return res.status(409).json({ message: "Attendance already recorded today for this employee." });
+      res.status(400).json({ message: err.message || "Authentication failed" });
+    }
+  });
+
+  // QR-based kiosk attendance — token-gated via requireKioskToken
+  app.post("/api/kiosk/qr-attendance", requireKioskToken, async (req, res) => {
+    try {
+      const { employeeCode, clientName, attendanceDate } = req.body;
+      if (!employeeCode || !clientName || !attendanceDate) {
+        return res.status(400).json({ message: "employeeCode, clientName and attendanceDate are required" });
+      }
+      const todayDate = new Date().toISOString().slice(0, 10);
+      if (attendanceDate !== todayDate) {
+        return res.status(400).json({ message: "Attendance can only be recorded for today" });
+      }
+      const employees = await storage.getEmployees(clientName);
+      const emp = employees.find((e: any) => {
+        const code = Buffer.isBuffer(e.employeeCode) ? e.employeeCode.toString("utf8") : String(e.employeeCode || "");
+        return code.toLowerCase().trim() === String(employeeCode).toLowerCase().trim();
+      });
+      if (!emp) return res.status(404).json({ message: `Employee code "${employeeCode}" not found for ${clientName}` });
+      const log = await storage.saveDailyAttendanceLog({
+        employeeId: emp.id,
+        clientName,
+        attendanceDate,
+        status: "P",
+        scannedLat: null,
+        scannedLng: null,
+        scannedBy: "kiosk (QR)",
+      });
+      res.json({ success: true, log, employeeName: emp.name, employeeCode: emp.employeeCode });
+    } catch (err: any) {
+      if (err.message?.includes("already recorded")) return res.status(409).json({ message: "Attendance already recorded today for this employee." });
+      res.status(400).json({ message: err.message || "Failed to save attendance" });
+    }
+  });
+
+  // === DAILY ATTENDANCE LOGS (Face Recognition) ===
+  app.get("/api/daily-attendance/month", requirePermission('labour'), async (req, res) => {
+    const { month, year } = req.query;
+    const clientName = effectiveClientName(req, req.query.clientName as string | undefined);
+    if (!clientName || !month || !year) return res.status(400).json({ message: "clientName, month, year required" });
+    const logs = await storage.getDailyAttendanceMonth(clientName as string, Number(month), Number(year));
+    res.json(logs);
+  });
+
+  app.get("/api/daily-attendance", requirePermission('labour'), async (req, res) => {
+    const { date } = req.query;
+    const clientName = effectiveClientName(req, req.query.clientName as string | undefined);
+    if (!clientName || !date) return res.status(400).json({ message: "clientName and date required" });
+    const logs = await storage.getDailyAttendanceLogs(clientName as string, date as string);
+    res.json(logs);
+  });
+
+  app.post("/api/daily-attendance", requireAdmin, async (req, res) => {
+    try {
+      const log = await storage.saveDailyAttendanceLog({ ...req.body, scannedBy: (req as any).user?.username });
+      res.status(201).json(log);
+    } catch (e: any) {
+      if (e.message?.includes("already recorded")) return res.status(409).json({ message: e.message });
+      throw e;
+    }
+  });
+
+  app.put("/api/daily-attendance/:id", requireAdmin, async (req, res) => {
+    const { status } = req.body;
+    if (!status) return res.status(400).json({ message: "status required" });
+    const log = await storage.updateDailyAttendanceLog(Number(req.params.id), status);
+    res.json(log);
+  });
+
+  app.delete("/api/daily-attendance/:id", requireAdmin, async (req, res) => {
+    await storage.deleteDailyAttendanceLog(Number(req.params.id));
+    res.status(204).send();
+  });
+
+  app.post("/api/daily-attendance/push-to-muster-roll", requireAdmin, async (req, res) => {
+    const { clientName, month, year } = req.body;
+    if (!clientName || !month || !year) return res.status(400).json({ message: "clientName, month, year required" });
+    const result = await storage.pushDailyAttendanceToMusterRoll(clientName, Number(month), Number(year));
+    res.json(result);
+  });
+
+  // === ATTENDANCE / MUSTER ROLL ===
+  app.get("/api/attendance", requirePermission('labour'), async (req, res) => {
+    const { month, year } = req.query;
+    const clientName = effectiveClientName(req, req.query.clientName as string | undefined);
+    if (!clientName || !month || !year) return res.status(400).json({ message: "clientName, month, year required" });
+    const records = await storage.getAttendance(clientName as string, Number(month), Number(year));
+    res.json(records);
+  });
+
+  app.post("/api/attendance", requireAdmin, async (req, res) => {
+    const record = await storage.saveAttendance(req.body);
+    res.json(record);
+  });
+
+  // === SALARY RECORDS ===
+  app.get("/api/salary/annual", requirePermission('labour'), async (req, res) => {
+    const { fyStart } = req.query;
+    const clientName = effectiveClientName(req, req.query.clientName as string | undefined);
+    if (!clientName || !fyStart) return res.status(400).json({ message: "clientName and fyStart required" });
+    const startYear = Number(fyStart);
+    const records = await storage.getAnnualSalary(clientName as string, startYear);
+    res.json(records);
+  });
+
+  app.get("/api/salary", requirePermission('labour'), async (req, res) => {
+    const { month, year, months: monthsParam } = req.query;
+    const clientName = effectiveClientName(req, req.query.clientName as string | undefined);
+    if (!clientName || !year) return res.status(400).json({ message: "clientName, year required" });
+
+    // Helper: merge OT register amounts into salary records and cascade-recalculate dependent fields
+    const mergeOt = async (records: any[], m: number, y: number) => {
+      const allOt = await storage.getOvertimeRecords(clientName as string);
+      return records.map(rec => {
+        const empOt = allOt.filter((ot: any) => {
+          if (ot.employeeId !== rec.employeeId) return false;
+          const d = new Date(ot.date);
+          return d.getMonth() + 1 === m && d.getFullYear() === y;
+        });
+        if (empOt.length === 0) return rec;
+        let otHrs = 0, otAmt = 0;
+        for (const ot of empOt) {
+          otHrs += Number(ot.overtimeHours) || 0;
+          otAmt += Number(ot.overtimeAmount) || 0;
+        }
+        otHrs = Math.round(otHrs * 100) / 100;
+        otAmt = Math.round(otAmt);
+        // Cascade-recalculate all fields that depend on OT amount
+        const basicWage = Number(rec.basicWage) || 0;
+        const hra5 = Number(rec.otherAllowance) || 0;
+        const fixedHra = Number(rec.hra) || 0;
+        const da = Number(rec.da) || 0;
+        const grossWage = Math.round((basicWage + hra5 + fixedHra + otAmt + da) * 100) / 100;
+        const pfDeduction = Number(rec.pfDeduction) || 0;
+        const esicDeduction = grossWage <= 21000 ? Math.round(grossWage * 0.0075 * 100) / 100 : 0;
+        const professionalTax = grossWage > 40000 ? 200 : grossWage > 25000 ? 150 : grossWage > 15000 ? 130 : grossWage > 10000 ? 110 : 0;
+        const lwf = Number(rec.lwf) || 0;
+        const advanceDeduction = Number(rec.advanceDeduction) || 0;
+        const fineDeduction = Number(rec.fineDeduction) || 0;
+        const otherDeduction = Number(rec.otherDeduction) || 0;
+        const totalDeduction = Math.round((pfDeduction + esicDeduction + professionalTax + lwf + advanceDeduction + fineDeduction + otherDeduction) * 100) / 100;
+        const netPay = Math.round((grossWage - totalDeduction) * 100) / 100;
+        return {
+          ...rec,
+          overtimeHours: String(otHrs),
+          overtimeAmount: String(otAmt),
+          grossWage: String(grossWage),
+          esicDeduction: String(esicDeduction),
+          professionalTax: String(professionalTax),
+          totalDeduction: String(totalDeduction),
+          netPay: String(netPay),
+        };
+      });
+    };
+
+    if (monthsParam) {
+      const monthsList = (monthsParam as string).split(',').map(Number);
+      const allRecords = [];
+      for (const m of monthsList) {
+        const records = await storage.getSalaryRecords(clientName as string, m, Number(year));
+        allRecords.push(...(await mergeOt(records, m, Number(year))));
+      }
+      return res.json(allRecords);
+    }
+    if (!month) return res.status(400).json({ message: "month required" });
+    const records = await storage.getSalaryRecords(clientName as string, Number(month), Number(year));
+    res.json(await mergeOt(records, Number(month), Number(year)));
+  });
+
+  app.get("/api/salary/:id", requireAdmin, async (req, res) => {
+    const record = await storage.getSalaryRecord(Number(req.params.id));
+    if (!record) return res.status(404).json({ message: "Salary record not found" });
+    res.json(record);
+  });
+
+  app.post("/api/salary/generate", requireAdmin, async (req, res) => {
+    const { clientName, month, year, paidOn } = req.body;
+    if (!clientName || !month || !year) return res.status(400).json({ message: "clientName, month, year required" });
+    const records = await storage.generateSalary(clientName, Number(month), Number(year), paidOn || undefined);
+    res.json(records);
+  });
+
+  app.put("/api/salary/paid-date", requireAdmin, async (req, res) => {
+    const { clientName, month, year, paidOn } = req.body;
+    if (!clientName || !month || !year) return res.status(400).json({ message: "clientName, month, year required" });
+    const updated = await storage.updateSalaryPaidDate(clientName, Number(month), Number(year), paidOn || null);
+    res.json({ updated });
+  });
+
+  app.put("/api/salary/:id", requireAdmin, async (req, res) => {
+    const record = await storage.saveSalaryRecord({ ...req.body, id: Number(req.params.id) });
+    res.json(record);
+  });
+
+  app.delete("/api/salary/:id", requireAdmin, async (req, res) => {
+    await storage.deleteSalaryRecord(Number(req.params.id));
+    res.status(204).send();
+  });
+
+  // === FINES ===
+  app.get("/api/fines", requirePermission('labour'), async (req, res) => {
+    const clientName = effectiveClientName(req, req.query.clientName as string | undefined);
+    if (clientName === false) return res.status(403).json({ message: "Client scope required" });
+    const records = await storage.getFines(clientName);
+    res.json(records);
+  });
+
+  app.post("/api/fines", requireAdmin, async (req, res) => {
+    const record = await storage.createFine(req.body);
+    res.status(201).json(record);
+  });
+
+  app.put("/api/fines/:id", requireAdmin, async (req, res) => {
+    const record = await storage.updateFine(Number(req.params.id), req.body);
+    res.json(record);
+  });
+
+  app.delete("/api/fines/:id", requireAdmin, async (req, res) => {
+    await storage.deleteFine(Number(req.params.id));
+    res.status(204).send();
+  });
+
+  // === ADVANCES ===
+  app.get("/api/advances", requirePermission('labour'), async (req, res) => {
+    const clientName = effectiveClientName(req, req.query.clientName as string | undefined);
+    if (clientName === false) return res.status(403).json({ message: "Client scope required" });
+    const records = await storage.getAdvances(clientName);
+    res.json(records);
+  });
+
+  app.post("/api/advances", requireAdmin, async (req, res) => {
+    const record = await storage.createAdvance(req.body);
+    res.status(201).json(record);
+  });
+
+  app.put("/api/advances/:id", requireAdmin, async (req, res) => {
+    const record = await storage.updateAdvance(Number(req.params.id), req.body);
+    res.json(record);
+  });
+
+  app.delete("/api/advances/:id", requireAdmin, async (req, res) => {
+    await storage.deleteAdvance(Number(req.params.id));
+    res.status(204).send();
+  });
+
+  // === OVERTIME REGISTER ===
+  app.get("/api/overtime", requirePermission('labour'), async (req, res) => {
+    const clientName = effectiveClientName(req, req.query.clientName as string | undefined);
+    if (clientName === false) return res.status(403).json({ message: "Client scope required" });
+    const records = await storage.getOvertimeRecords(clientName);
+    res.json(records);
+  });
+
+  app.post("/api/overtime", requireAdmin, async (req, res) => {
+    const record = await storage.createOvertimeRecord(req.body);
+    res.status(201).json(record);
+  });
+
+  app.put("/api/overtime/:id", requireAdmin, async (req, res) => {
+    const record = await storage.updateOvertimeRecordFull(Number(req.params.id), req.body);
+    res.json(record);
+  });
+
+  app.delete("/api/overtime/:id", requireAdmin, async (req, res) => {
+    await storage.deleteOvertimeRecord(Number(req.params.id));
+    res.status(204).send();
+  });
+
+  app.post("/api/overtime/recalculate-rates", requireAdmin, async (req, res) => {
+    const { clientName } = req.body;
+    if (!clientName) return res.status(400).json({ error: "clientName required" });
+    const allOt = await storage.getOvertimeRecords(clientName);
+    const allEmployees = await storage.getEmployees(clientName);
+    const empMap = new Map(allEmployees.map(e => [e.id, e]));
+    let updated = 0;
+    for (const ot of allOt) {
+      const emp = empMap.get(ot.employeeId);
+      if (!emp) continue;
+      const d = new Date(ot.date);
+      const month = d.getMonth() + 1;
+      const year = d.getFullYear();
+      let dailyRate = parseFloat(emp.dailyRate) || 0;
+      if (emp.skills) {
+        const skillRate = await storage.getSkillWageRate(emp.skills, month, year);
+        if (skillRate && Number(skillRate.dailyRate) > 0) {
+          dailyRate = Number(skillRate.dailyRate);
+        }
+      }
+      // Formula: ROUND(((Basic Rate + Basic Rate×5%) / 4) × OT Hrs, 0)
+      const overtimeRate = Math.round((dailyRate * 1.05) / 4 * 100) / 100;
+      const hours = Number(ot.overtimeHours) || 0;
+      const overtimeAmount = Math.round(overtimeRate * hours);
+      await storage.updateOvertimeRecord(ot.id, {
+        overtimeRate: String(overtimeRate),
+        overtimeAmount: String(overtimeAmount),
+      });
+      updated++;
+    }
+    res.json({ updated });
+  });
+
+  // === DAMAGE DEDUCTIONS ===
+  app.get("/api/damage-deductions", requirePermission('labour'), async (req, res) => {
+    const clientName = effectiveClientName(req, req.query.clientName as string | undefined);
+    if (clientName === false) return res.status(403).json({ message: "Client scope required" });
+    const records = await storage.getDamageDeductions(clientName);
+    res.json(records);
+  });
+
+  app.post("/api/damage-deductions", requireAdmin, async (req, res) => {
+    const record = await storage.createDamageDeduction(req.body);
+    res.status(201).json(record);
+  });
+
+  app.put("/api/damage-deductions/:id", requireAdmin, async (req, res) => {
+    const record = await storage.updateDamageDeduction(Number(req.params.id), req.body);
+    res.json(record);
+  });
+
+  app.delete("/api/damage-deductions/:id", requireAdmin, async (req, res) => {
+    await storage.deleteDamageDeduction(Number(req.params.id));
+    res.status(204).send();
+  });
+
+  // === LEAVE WITH WAGES (Form 15) ===
+  app.get("/api/leave-with-wages", requirePermission('labour'), async (req, res) => {
+    const employeeId = req.query.employeeId ? Number(req.query.employeeId) : undefined;
+    const clientName = effectiveClientName(req, req.query.clientName as string | undefined);
+    if (clientName === false) return res.status(403).json({ message: "Client scope required" });
+    if (employeeId) {
+      // Non-admins must verify the requested employee belongs to their client
+      if (req.session.role !== "admin") {
+        const emp = await storage.getEmployee(employeeId);
+        if (!emp || emp.clientName !== req.session.clientName) {
+          return res.status(403).json({ message: "Access denied" });
+        }
+      }
+      const records = await storage.getLeaveWithWages(employeeId);
+      res.json(records);
+    } else if (clientName) {
+      const records = await storage.getLeaveWithWagesByClient(clientName);
+      res.json(records);
+    } else {
+      res.json([]);
+    }
+  });
+
+  app.get("/api/leave-with-wages/yearly-present", requirePermission('labour'), async (req, res) => {
+    const employeeId = Number(req.query.employeeId);
+    const year = Number(req.query.year);
+    if (!employeeId || !year) return res.status(400).json({ error: "employeeId and year required" });
+    // Non-admins must verify the requested employee belongs to their client
+    if (req.session.role !== "admin") {
+      const emp = await storage.getEmployee(employeeId);
+      if (!emp || emp.clientName !== req.session.clientName) {
+        return res.status(403).json({ message: "Access denied" });
+      }
+    }
+    const { attendance } = await import("@shared/schema");
+    const { eq, and } = await import("drizzle-orm");
+    const { db } = await import("./db");
+    const records = await db.select().from(attendance).where(
+      and(eq(attendance.employeeId, employeeId), eq(attendance.year, year))
+    );
+
+    let totalDaysInYear = 0;
+    let weeklyOffs = 0;
+    let paidHolidays = 0;
+    let leavesAvailed = 0;
+    let absences = 0;
+    let totalPresent = 0;
+
+    let holidayWork = 0;
+    for (const rec of records) {
+      const daysInMonth = new Date(year, rec.month, 0).getDate();
+      for (let d = 1; d <= daysInMonth; d++) {
+        const val = (rec as any)[`day${d}`] as string | null;
+        if (!val) continue;
+        totalDaysInYear++;
+        const upper = val.toUpperCase().trim();
+        if (upper === "P") {
+          totalPresent++;
+        } else if (upper === "H" || upper.startsWith("P/") || (upper.includes("HL") && upper !== "PH")) {
+          holidayWork++; // holiday working — not counted for leave entitlement
+        } else if (upper === "WO") {
+          weeklyOffs++;
+        } else if (upper === "PH") {
+          paidHolidays++;
+        } else if (upper === "CL" || upper === "SL" || upper === "EL") {
+          leavesAvailed++;
+        } else if (upper === "A") {
+          absences++;
+        }
+      }
+    }
+
+    const actualDaysWorked = totalDaysInYear - (weeklyOffs + paidHolidays + leavesAvailed + absences + holidayWork);
+    const leaveEarned = Math.floor(actualDaysWorked / 20);
+
+    const { employees, skillWageRates: swrTable } = await import("@shared/schema");
+    const empRows = await db.select().from(employees).where(eq(employees.id, employeeId));
+    const empSkill = empRows.length > 0 ? (empRows[0].skills || "").trim() : "";
+    let dailyRate = empRows.length > 0 ? Number(empRows[0].dailyRate || 0) : 0;
+
+    const monthsWithRates: number[] = [];
+    let totalSkillRate = 0;
+    for (let m = 1; m <= 12; m++) {
+      const sr = await db.select().from(swrTable).where(
+        and(eq(swrTable.skillCategory, empSkill), eq(swrTable.month, m), eq(swrTable.year, year))
+      );
+      if (sr.length > 0) {
+        totalSkillRate += Number(sr[0].dailyRate);
+        monthsWithRates.push(m);
+      }
+    }
+    if (monthsWithRates.length > 0) {
+      dailyRate = Math.round((totalSkillRate / monthsWithRates.length) * 100) / 100;
+    }
+    const amountOfWages = 0;
+
+    res.json({ totalDaysInYear, weeklyOffs, paidHolidays, leavesAvailed, absences, actualDaysWorked, totalPresent, leaveEarned, dailyRate, amountOfWages });
+  });
+
+  app.post("/api/leave-with-wages/generate", requireAdmin, async (req, res) => {
+    try {
+      const employeeId = Number(req.body.employeeId);
+      const clientName = req.body.clientName as string;
+      if (!employeeId || !clientName) return res.status(400).json({ error: "employeeId and clientName required" });
+
+      const { attendance, employees, skillWageRates: swrTable, leaveWithWages: lwwTable } = await import("@shared/schema");
+      const { eq, and } = await import("drizzle-orm");
+      const { db } = await import("./db");
+
+      const empRows = await db.select().from(employees).where(eq(employees.id, employeeId));
+      if (empRows.length === 0) return res.status(404).json({ error: "Employee not found" });
+      const emp = empRows[0];
+      const empSkill = (emp.skills || "").trim();
+
+      const allAttendance = await db.select().from(attendance).where(eq(attendance.employeeId, employeeId));
+      if (allAttendance.length === 0) return res.json({ generated: 0, message: "No attendance records found" });
+
+      const yearSet = new Set<number>();
+      for (const rec of allAttendance) yearSet.add(rec.year);
+      const years = Array.from(yearSet).sort();
+
+      const existingRecords = await db.select().from(lwwTable).where(eq(lwwTable.employeeId, employeeId));
+      const existingYears = new Set(existingRecords.map(r => r.calendarYear));
+
+      let generated = 0;
+      let prevLeaveBalance = 0;
+
+      for (const year of years) {
+        const yearAttendance = allAttendance.filter(r => r.year === year);
+        let totalDaysInYear = 0;
+        let weeklyOffs = 0;
+        let paidHolidays = 0;
+        let leavesAvailed = 0;
+        let absences = 0;
+        let holidayWork = 0;
+
+        for (const rec of yearAttendance) {
+          const daysInMonth = new Date(year, rec.month, 0).getDate();
+          for (let d = 1; d <= daysInMonth; d++) {
+            const val = (rec as any)[`day${d}`] as string | null;
+            if (!val) continue;
+            totalDaysInYear++;
+            const upper = val.toUpperCase().trim();
+            if (upper === "WO") weeklyOffs++;
+            else if (upper === "PH") paidHolidays++;
+            else if (upper === "CL" || upper === "SL" || upper === "EL") leavesAvailed++;
+            else if (upper === "A") absences++;
+            else if (upper === "H" || upper.startsWith("P/") || (upper.includes("HL") && upper !== "PH")) holidayWork++;
+          }
+        }
+
+        const actualDaysWorked = totalDaysInYear - (weeklyOffs + paidHolidays + leavesAvailed + absences + holidayWork);
+        const leaveEarned = Math.floor(actualDaysWorked / 20);
+
+        let dailyRate = Number(emp.dailyRate || 0);
+        const monthsWithRates: number[] = [];
+        let totalSkillRate = 0;
+        for (let m = 1; m <= 12; m++) {
+          const sr = await db.select().from(swrTable).where(
+            and(eq(swrTable.skillCategory, empSkill), eq(swrTable.month, m), eq(swrTable.year, year))
+          );
+          if (sr.length > 0) {
+            totalSkillRate += Number(sr[0].dailyRate);
+            monthsWithRates.push(m);
+          }
+        }
+        if (monthsWithRates.length > 0) {
+          dailyRate = Math.round((totalSkillRate / monthsWithRates.length) * 100) / 100;
+        }
+
+        if (existingYears.has(year)) {
+          const existing = existingRecords.find(r => r.calendarYear === year)!;
+          const enjoyed = Number(existing.leaveEnjoyed || 0);
+          const totalLeaveForAmt = leaveEarned + prevLeaveBalance;
+          const amtRs = enjoyed > 0
+            ? Math.round(dailyRate * enjoyed)
+            : Math.round(dailyRate * totalLeaveForAmt);
+          await storage.updateLeaveWithWages(existing.id, {
+            daysLeaveEarned: String(leaveEarned),
+            daysLeaveBroughtForward: String(prevLeaveBalance),
+            leaveEarned: String(leaveEarned),
+            otherAbsenceDays: String(absences),
+            actualDaysWorked: String(actualDaysWorked),
+            rateOfWagesRs: String(dailyRate),
+            rateOfWagesP: "0",
+            amountOfWagesRs: String(amtRs),
+            amountOfWagesP: "0",
+          });
+          const totalLeave = leaveEarned + prevLeaveBalance;
+          const wasPaid = existing.dateOfPayment && existing.dateOfPayment.trim() !== "" && existing.dateOfPayment.trim().toUpperCase() !== "NA";
+          if (wasPaid) {
+            // Leave was encashed/paid — nothing carries forward to next year
+            prevLeaveBalance = 0;
+          } else {
+            // Leave not yet paid — remaining balance carries forward (always integer)
+            prevLeaveBalance = Math.floor(Math.max(0, totalLeave - Number(existing.leaveEnjoyed || 0)));
+          }
+        } else {
+          const newTotalLeave = Math.floor(leaveEarned + prevLeaveBalance);
+          await storage.createLeaveWithWages({
+            employeeId,
+            clientName,
+            calendarYear: year,
+            daysLeaveEarned: String(leaveEarned),
+            daysLeaveBroughtForward: String(prevLeaveBalance),
+            layOffDays: "0",
+            maternityLeaveDays: "0",
+            leaveEarned: String(leaveEarned),
+            leaveEnjoyed: "0",
+            otherAbsenceDays: String(absences),
+            actualDaysWorked: String(actualDaysWorked),
+            leaveAllowedDate: "NA",
+            leaveAllowedDays: "NA",
+            rateOfWagesRs: String(dailyRate),
+            rateOfWagesP: "0",
+            amountOfWagesRs: String(Math.round(dailyRate * newTotalLeave)),
+            amountOfWagesP: "0",
+            dateOfPayment: "",
+            remarks: "",
+          });
+          prevLeaveBalance = Math.floor(newTotalLeave);
+        }
+        generated++;
+      }
+
+      res.json({ generated, years, message: `Generated/updated ${generated} year(s) of leave records` });
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  app.post("/api/leave-with-wages", requireAdmin, async (req, res) => {
+    const { insertLeaveWithWagesSchema } = await import("@shared/schema");
+    const parsed = insertLeaveWithWagesSchema.safeParse(req.body);
+    if (!parsed.success) return res.status(400).json({ error: parsed.error.message });
+    const record = await storage.createLeaveWithWages(parsed.data);
+    res.status(201).json(record);
+  });
+
+  app.put("/api/leave-with-wages/:id", requireAdmin, async (req, res) => {
+    const { insertLeaveWithWagesSchema } = await import("@shared/schema");
+    const parsed = insertLeaveWithWagesSchema.partial().safeParse(req.body);
+    if (!parsed.success) return res.status(400).json({ error: parsed.error.message });
+    const record = await storage.updateLeaveWithWages(Number(req.params.id), parsed.data);
+    res.json(record);
+  });
+
+  app.delete("/api/leave-with-wages/:id", requireAdmin, async (req, res) => {
+    await storage.deleteLeaveWithWages(Number(req.params.id));
+    res.status(204).send();
+  });
+
+  // === EMPLOYEE WAGE RATES (Year-wise) ===
+  app.get("/api/employee-wage-rates", requireAdmin, async (req, res) => {
+    const employeeId = Number(req.query.employeeId);
+    if (!employeeId) return res.status(400).json({ error: "employeeId required" });
+    const rates = await storage.getEmployeeWageRates(employeeId);
+    res.json(rates);
+  });
+
+  app.get("/api/employee-wage-rates/by-year", requireAdmin, async (req, res) => {
+    const employeeId = Number(req.query.employeeId);
+    const year = Number(req.query.year);
+    if (!employeeId || !year) return res.status(400).json({ error: "employeeId and year required" });
+    const rate = await storage.getEmployeeWageRate(employeeId, year);
+    res.json(rate || null);
+  });
+
+  app.post("/api/employee-wage-rates", requireAdmin, async (req, res) => {
+    const { insertEmployeeWageRateSchema } = await import("@shared/schema");
+    const parsed = insertEmployeeWageRateSchema.safeParse(req.body);
+    if (!parsed.success) return res.status(400).json({ error: parsed.error.flatten() });
+    const existing = await storage.getEmployeeWageRate(parsed.data.employeeId, parsed.data.calendarYear);
+    if (existing) {
+      const updated = await storage.updateEmployeeWageRate(existing.id, parsed.data);
+      return res.json(updated);
+    }
+    const rec = await storage.createEmployeeWageRate(parsed.data);
+    res.status(201).json(rec);
+  });
+
+  app.put("/api/employee-wage-rates/:id", requireAdmin, async (req, res) => {
+    const { insertEmployeeWageRateSchema } = await import("@shared/schema");
+    const parsed = insertEmployeeWageRateSchema.safeParse(req.body);
+    if (!parsed.success) return res.status(400).json({ error: parsed.error.flatten() });
+    const rec = await storage.updateEmployeeWageRate(Number(req.params.id), parsed.data);
+    res.json(rec);
+  });
+
+  app.delete("/api/employee-wage-rates/:id", requireAdmin, async (req, res) => {
+    await storage.deleteEmployeeWageRate(Number(req.params.id));
+    res.status(204).send();
+  });
+
+  // === SKILL WAGE RATES (Month/Year-wise by Skill Category) ===
+  app.get("/api/skill-wage-rates", requireAuth, async (req, res) => {
+    const year = req.query.year ? Number(req.query.year) : undefined;
+    const rates = await storage.getSkillWageRates(year);
+    res.json(rates);
+  });
+
+  app.get("/api/skill-wage-rates/lookup", requireAuth, async (req, res) => {
+    const { skillCategory, month, year } = req.query;
+    if (!skillCategory || !month || !year) return res.status(400).json({ error: "skillCategory, month, year required" });
+    const rate = await storage.getSkillWageRate(String(skillCategory), Number(month), Number(year));
+    res.json(rate || null);
+  });
+
+  app.post("/api/skill-wage-rates", requireAdmin, async (req, res) => {
+    const { insertSkillWageRateSchema } = await import("@shared/schema");
+    const parsed = insertSkillWageRateSchema.safeParse(req.body);
+    if (!parsed.success) return res.status(400).json({ error: parsed.error.flatten() });
+    const rec = await storage.createOrUpdateSkillWageRate(parsed.data);
+    res.json(rec);
+  });
+
+  app.post("/api/skill-wage-rates/bulk", requireAdmin, async (req, res) => {
+    const { rates } = req.body;
+    if (!Array.isArray(rates)) return res.status(400).json({ error: "rates array required" });
+    const { insertSkillWageRateSchema } = await import("@shared/schema");
+    const results = [];
+    for (const r of rates) {
+      const parsed = insertSkillWageRateSchema.safeParse(r);
+      if (!parsed.success) continue;
+      const rec = await storage.createOrUpdateSkillWageRate(parsed.data);
+      results.push(rec);
+    }
+    res.json(results);
+  });
+
+  app.delete("/api/skill-wage-rates/:id", requireAdmin, async (req, res) => {
+    await storage.deleteSkillWageRate(Number(req.params.id));
+    res.status(204).send();
+  });
+
+  app.get("/api/half-yearly-returns", requireAdmin, async (req, res) => {
+    const clientName = req.query.clientName as string | undefined;
+    const records = await storage.getHalfYearlyReturns(clientName);
+    res.json(records);
+  });
+
+  app.get("/api/half-yearly-returns/lookup", requireAdmin, async (req, res) => {
+    const { clientName, halfYear, year } = req.query;
+    if (!clientName || !halfYear || !year) return res.status(400).json({ message: "clientName, halfYear, year required" });
+    const record = await storage.getHalfYearlyReturn(clientName as string, halfYear as string, Number(year));
+    res.json(record || null);
+  });
+
+  app.post("/api/half-yearly-returns", requireAdmin, async (req, res) => {
+    const record = await storage.saveHalfYearlyReturn(req.body);
+    res.json(record);
+  });
+
+  app.delete("/api/half-yearly-returns/:id", requireAdmin, async (req, res) => {
+    await storage.deleteHalfYearlyReturn(Number(req.params.id));
+    res.status(204).send();
+  });
+
+  app.get("/api/bonus-returns/lookup", requireAdmin, async (req, res) => {
+    const { clientName, fyStartYear } = req.query;
+    if (!clientName || !fyStartYear) return res.status(400).json({ message: "clientName and fyStartYear required" });
+    const record = await storage.getBonusReturn(clientName as string, Number(fyStartYear));
+    res.json(record || null);
+  });
+
+  app.post("/api/bonus-returns", requireAdmin, async (req, res) => {
+    const record = await storage.saveBonusReturn(req.body);
+    res.json(record);
+  });
+
+  app.delete("/api/bonus-returns/:id", requireAdmin, async (req, res) => {
+    await storage.deleteBonusReturn(Number(req.params.id));
+    res.status(204).send();
+  });
+
+  app.get("/api/letters", requireAdmin, async (req, res) => {
+    const allLetters = await storage.getLetters();
+    res.json(allLetters);
+  });
+
+  app.get("/api/letters/next-serial", requireAdmin, async (req, res) => {
+    const nextSerial = await storage.getNextLetterSerialNumber();
+    res.json({ nextSerial });
+  });
+
+  app.get("/api/letters/:id", requireAdmin, async (req, res) => {
+    const letter = await storage.getLetter(Number(req.params.id));
+    if (!letter) return res.status(404).json({ message: "Letter not found" });
+    res.json(letter);
+  });
+
+  app.post("/api/letters", requireAdmin, async (req, res) => {
+    const { refNumber, letterDate, toName, toAddress, toGstin, subject, body, regards, clientName } = req.body;
+    if (!refNumber || !letterDate) return res.status(400).json({ message: "refNumber and letterDate are required" });
+    const letter = await storage.createLetter({ refNumber, letterDate, toName, toAddress, toGstin, subject, body, regards, clientName, createdBy: req.session.displayName || req.session.username || '' });
+    res.status(201).json(letter);
+  });
+
+  app.put("/api/letters/:id", requireAdmin, async (req, res) => {
+    const existing = await storage.getLetter(Number(req.params.id));
+    if (!existing) return res.status(404).json({ message: "Letter not found" });
+    const { refNumber, letterDate, toName, toAddress, toGstin, subject, body, regards, clientName } = req.body;
+    const letter = await storage.updateLetter(Number(req.params.id), { refNumber, letterDate, toName, toAddress, toGstin, subject, body, regards, clientName });
+    res.json(letter);
+  });
+
+  app.delete("/api/letters/:id", requireAdmin, async (req, res) => {
+    await storage.deleteLetter(Number(req.params.id));
+    res.status(204).send();
+  });
+
+  app.get("/api/purchase-orders", requireAdmin, async (req, res) => {
+    try {
+      const pos = await storage.getPurchaseOrders();
+      res.json(pos);
+    } catch (err: any) {
+      res.status(500).json({ message: err.message });
+    }
+  });
+
+  app.get("/api/purchase-orders/:id", requireAdmin, async (req, res) => {
+    const po = await storage.getPurchaseOrder(Number(req.params.id));
+    if (!po) return res.status(404).json({ message: "Purchase order not found" });
+    res.json(po);
+  });
+
+  app.get("/api/purchase-orders/:id/balance", requireAdmin, async (req, res) => {
+    try {
+      const po = await storage.getPurchaseOrder(Number(req.params.id));
+      if (!po) return res.status(404).json({ message: "Purchase order not found" });
+      const allInvoices = await storage.getSalesInvoices();
+      const linkedInvoices = allInvoices.filter(inv => inv.poId === po.id);
+      const usedAmount = linkedInvoices.reduce((sum, inv) => sum + Number(inv.billAmount), 0);
+      const balance = Math.round((Number(po.poAmount) - usedAmount) * 100) / 100;
+      res.json({ poId: po.id, poAmount: Number(po.poAmount), usedAmount, balance, invoiceCount: linkedInvoices.length });
+    } catch (err: any) {
+      res.status(500).json({ message: err.message });
+    }
+  });
+
+  app.post("/api/purchase-orders", requireAdmin, async (req, res) => {
+    try {
+      const { poNumber, poDate, poAmount, clientName } = req.body;
+      if (!poNumber || !poDate || !clientName) {
+        return res.status(400).json({ message: "PO Number, PO Date, and Client Name are required" });
+      }
+      const allPOs = await storage.getPurchaseOrders();
+      const duplicate = allPOs.find(p => p.poNumber.trim().toLowerCase() === poNumber.trim().toLowerCase());
+      if (duplicate) {
+        return res.status(400).json({ message: `PO Number "${poNumber.trim()}" already exists (Client: ${duplicate.clientName})` });
+      }
+      const po = await storage.createPurchaseOrder({
+        poNumber, poDate, poAmount: String(poAmount || 0), clientName,
+        createdBy: req.session.displayName || req.session.username || '',
+      });
+      res.status(201).json(po);
+    } catch (err: any) {
+      res.status(500).json({ message: err.message });
+    }
+  });
+
+  app.put("/api/purchase-orders/:id", requireAdmin, async (req, res) => {
+    try {
+      const existing = await storage.getPurchaseOrder(Number(req.params.id));
+      if (!existing) return res.status(404).json({ message: "Purchase order not found" });
+      const { poNumber, poDate, poAmount, clientName } = req.body;
+      if (poNumber !== undefined) {
+        const allPOs = await storage.getPurchaseOrders();
+        const duplicate = allPOs.find(p => p.poNumber.trim().toLowerCase() === poNumber.trim().toLowerCase() && p.id !== existing.id);
+        if (duplicate) {
+          return res.status(400).json({ message: `PO Number "${poNumber.trim()}" already exists (Client: ${duplicate.clientName})` });
+        }
+      }
+      const po = await storage.updatePurchaseOrder(Number(req.params.id), {
+        ...(poNumber !== undefined && { poNumber }),
+        ...(poDate !== undefined && { poDate }),
+        ...(poAmount !== undefined && { poAmount: String(poAmount) }),
+        ...(clientName !== undefined && { clientName }),
+      });
+      res.json(po);
+    } catch (err: any) {
+      res.status(500).json({ message: err.message });
+    }
+  });
+
+  app.delete("/api/purchase-orders/:id", requireAdmin, async (req, res) => {
+    try {
+      const allInvoices = await storage.getSalesInvoices();
+      const linked = allInvoices.filter(inv => inv.poId === Number(req.params.id));
+      if (linked.length > 0) {
+        return res.status(400).json({ message: `Cannot delete PO — ${linked.length} invoice(s) are linked to it` });
+      }
+      await storage.deletePurchaseOrder(Number(req.params.id));
+      res.status(204).send();
+    } catch (err: any) {
+      res.status(500).json({ message: err.message });
+    }
+  });
+
+  app.get("/api/sales-invoices/next-bill-number", requirePermission("salesinvoice"), async (req, res) => {
+    try {
+      const { stateCode, year } = req.query;
+      if (!stateCode || !year) return res.status(400).json({ message: "stateCode and year are required" });
+      const yy = String(year).slice(-2);
+      const prefix = `DJ-${stateCode}-${yy}-`;
+      const allInvoices = await storage.getSalesInvoices();
+      const matching = allInvoices.filter(inv => inv.billNumber && inv.billNumber.startsWith(prefix));
+      let maxSerial = 0;
+      matching.forEach(inv => {
+        const parts = inv.billNumber.split('-');
+        const serial = parseInt(parts[parts.length - 1], 10);
+        if (!isNaN(serial) && serial > maxSerial) maxSerial = serial;
+      });
+      const nextSerial = String(maxSerial + 1).padStart(3, '0');
+      res.json({ billNumber: `${prefix}${nextSerial}`, nextSerial: maxSerial + 1 });
+    } catch (err: any) {
+      res.status(500).json({ message: err.message });
+    }
+  });
+
+  app.get("/api/sales-invoices", requirePermission("salesinvoice"), async (req, res) => {
+    try {
+      const invoices = await storage.getSalesInvoices();
+      res.json(invoices);
+    } catch (err: any) {
+      res.status(500).json({ message: err.message });
+    }
+  });
+
+  app.get("/api/sales-invoices/:id", requirePermission("salesinvoice"), async (req, res) => {
+    const invoice = await storage.getSalesInvoice(Number(req.params.id));
+    if (!invoice) return res.status(404).json({ message: "Sales invoice not found" });
+    res.json(invoice);
+  });
+
+  app.post("/api/sales-invoices", requirePermission("salesinvoice"), async (req, res) => {
+    try {
+      const { clientName, billDate, billNumber, billAmount, gstPercent, gstAmount, totalBillAmount, tdsPercent, tdsAmount, paymentReceivedDate, paymentReceivedAmount, utrNo, poId, bypassPO } = req.body;
+      if (!clientName || !billDate || !billNumber) {
+        return res.status(400).json({ message: "Client name, bill date, and bill number are required" });
+      }
+      const allInvoices = await storage.getSalesInvoices();
+      const duplicateBill = allInvoices.find(inv => inv.billNumber === billNumber.trim());
+      if (duplicateBill) {
+        return res.status(400).json({ message: `Bill Number "${billNumber.trim()}" already exists (Sl# ${duplicateBill.slNo}, Client: ${duplicateBill.clientName})` });
+      }
+      if (poId) {
+        const po = await storage.getPurchaseOrder(Number(poId));
+        if (!po) return res.status(400).json({ message: "Selected PO not found" });
+        if (po.clientName !== clientName) {
+          return res.status(400).json({ message: "PO does not belong to the selected client" });
+        }
+        if (!bypassPO) {
+          const usedAmount = allInvoices.filter(inv => inv.poId === po.id).reduce((sum, inv) => sum + Number(inv.billAmount), 0);
+          const balance = Math.round((Number(po.poAmount) - usedAmount) * 100) / 100;
+          if (Number(billAmount) > balance) {
+            return res.status(400).json({ message: `Bill Amount (₹${Number(billAmount).toFixed(2)}) exceeds PO remaining balance (₹${balance.toFixed(2)})` });
+          }
+        }
+      }
+      const invoice = await storage.createSalesInvoice({
+        clientName, billDate, billNumber,
+        billAmount: String(billAmount || 0),
+        gstPercent: String(gstPercent || 0),
+        gstAmount: String(gstAmount || 0),
+        totalBillAmount: String(totalBillAmount || 0),
+        tdsPercent: String(tdsPercent || 0),
+        tdsAmount: String(tdsAmount || 0),
+        paymentReceivedDate: paymentReceivedDate || null,
+        paymentReceivedAmount: String(paymentReceivedAmount || 0),
+        utrNo: utrNo?.trim() || null,
+        poId: poId ? Number(poId) : null,
+        createdBy: req.session.displayName || req.session.username || '',
+      });
+      res.status(201).json(invoice);
+    } catch (err: any) {
+      res.status(500).json({ message: err.message });
+    }
+  });
+
+  app.put("/api/sales-invoices/:id", requirePermission("salesinvoice"), async (req, res) => {
+    try {
+      const existing = await storage.getSalesInvoice(Number(req.params.id));
+      if (!existing) return res.status(404).json({ message: "Sales invoice not found" });
+      const { clientName, billDate, billNumber, billAmount, gstPercent, gstAmount, totalBillAmount, tdsPercent, tdsAmount, paymentReceivedDate, paymentReceivedAmount, utrNo, poId, bypassPO } = req.body;
+      if (billNumber !== undefined) {
+        const allInvForDup = await storage.getSalesInvoices();
+        const duplicateBill = allInvForDup.find(inv => inv.billNumber === billNumber.trim() && inv.id !== existing.id);
+        if (duplicateBill) {
+          return res.status(400).json({ message: `Bill Number "${billNumber.trim()}" already exists (Sl# ${duplicateBill.slNo}, Client: ${duplicateBill.clientName})` });
+        }
+      }
+      const targetPoId = poId !== undefined ? (poId ? Number(poId) : null) : existing.poId;
+      const effectiveBillAmount = billAmount !== undefined ? Number(billAmount) : Number(existing.billAmount);
+      const effectiveClientName = clientName !== undefined ? clientName : existing.clientName;
+      if (targetPoId) {
+        const po = await storage.getPurchaseOrder(targetPoId);
+        if (!po) return res.status(400).json({ message: "Selected PO not found" });
+        if (po.clientName !== effectiveClientName) {
+          return res.status(400).json({ message: "PO does not belong to the selected client" });
+        }
+        if (!bypassPO) {
+          const allInvoices = await storage.getSalesInvoices();
+          const usedAmount = allInvoices.filter(inv => inv.poId === po.id && inv.id !== existing.id).reduce((sum, inv) => sum + Number(inv.billAmount), 0);
+          const balance = Math.round((Number(po.poAmount) - usedAmount) * 100) / 100;
+          if (effectiveBillAmount > balance) {
+            return res.status(400).json({ message: `Bill Amount (₹${effectiveBillAmount.toFixed(2)}) exceeds PO remaining balance (₹${balance.toFixed(2)})` });
+          }
+        }
+      }
+      const invoice = await storage.updateSalesInvoice(Number(req.params.id), {
+        ...(clientName !== undefined && { clientName }),
+        ...(billDate !== undefined && { billDate }),
+        ...(billNumber !== undefined && { billNumber }),
+        ...(billAmount !== undefined && { billAmount: String(billAmount) }),
+        ...(gstPercent !== undefined && { gstPercent: String(gstPercent) }),
+        ...(gstAmount !== undefined && { gstAmount: String(gstAmount) }),
+        ...(totalBillAmount !== undefined && { totalBillAmount: String(totalBillAmount) }),
+        ...(tdsPercent !== undefined && { tdsPercent: String(tdsPercent) }),
+        ...(tdsAmount !== undefined && { tdsAmount: String(tdsAmount) }),
+        ...(paymentReceivedDate !== undefined && { paymentReceivedDate: paymentReceivedDate || null }),
+        ...(paymentReceivedAmount !== undefined && { paymentReceivedAmount: String(paymentReceivedAmount) }),
+        ...(utrNo !== undefined && { utrNo: utrNo?.trim() || null }),
+        ...(poId !== undefined && { poId: poId ? Number(poId) : null }),
+      });
+      res.json(invoice);
+    } catch (err: any) {
+      res.status(500).json({ message: err.message });
+    }
+  });
+
+  app.delete("/api/sales-invoices/:id", requireAdmin, async (req, res) => {
+    await storage.deleteSalesInvoice(Number(req.params.id));
+    res.status(204).send();
+  });
+
+  const taxInvoiceInputSchema = insertTaxInvoiceSchema.omit({ createdBy: true }).extend({
+    items: z.array(insertTaxInvoiceItemSchema),
+  });
+
+  app.get("/api/tax-invoices/next-invoice-number", requirePermission("salesinvoice"), async (req, res) => {
+    try {
+      const { stateCode, year } = req.query;
+      if (!stateCode || !year) return res.status(400).json({ message: "stateCode and year are required" });
+      const yy = String(year).slice(-2);
+      const prefix = `DJ-${stateCode}-${yy}-`;
+      const allInvoices = await storage.getTaxInvoices();
+      const matching = allInvoices.filter(inv => inv.invoiceNumber && inv.invoiceNumber.startsWith(prefix));
+      let maxSerial = 0;
+      matching.forEach(inv => {
+        const parts = inv.invoiceNumber.split('-');
+        const serial = parseInt(parts[parts.length - 1], 10);
+        if (!isNaN(serial) && serial > maxSerial) maxSerial = serial;
+      });
+      const nextSerial = String(maxSerial + 1).padStart(3, '0');
+      res.json({ invoiceNumber: `${prefix}${nextSerial}`, nextSerial: maxSerial + 1 });
+    } catch (err: any) {
+      res.status(500).json({ message: err.message });
+    }
+  });
+
+  app.get("/api/tax-invoices", requirePermission("salesinvoice"), async (req, res) => {
+    try {
+      const invoices = await storage.getTaxInvoices();
+      res.json(invoices);
+    } catch (err: any) {
+      res.status(500).json({ message: err.message });
+    }
+  });
+
+  app.post("/api/tax-invoices", requirePermission("salesinvoice"), async (req, res) => {
+    try {
+      const input = taxInvoiceInputSchema.parse(req.body);
+      const invoice = await storage.createTaxInvoice({
+        ...input,
+        createdBy: req.session.displayName || req.session.username || '',
+      });
+      res.status(201).json(invoice);
+    } catch (err: any) {
+      if (err instanceof z.ZodError) return res.status(400).json({ message: err.errors[0]?.message || "Invalid input" });
+      res.status(500).json({ message: err.message });
+    }
+  });
+
+  app.put("/api/tax-invoices/:id", requirePermission("salesinvoice"), async (req, res) => {
+    try {
+      const input = taxInvoiceInputSchema.partial().parse(req.body);
+      const invoice = await storage.updateTaxInvoice(Number(req.params.id), input);
+      res.json(invoice);
+    } catch (err: any) {
+      if (err instanceof z.ZodError) return res.status(400).json({ message: err.errors[0]?.message || "Invalid input" });
+      if (err.message === "Tax invoice not found") return res.status(404).json({ message: err.message });
+      res.status(500).json({ message: err.message });
+    }
+  });
+
+  app.delete("/api/tax-invoices/:id", requireAdmin, async (req, res) => {
+    await storage.deleteTaxInvoice(Number(req.params.id));
+    res.status(204).send();
+  });
+
+  app.get("/api/pankaj-reports", requireAdmin, async (req, res) => {
+    const month = Number(req.query.month);
+    const year = Number(req.query.year);
+    if (!month || !year) return res.status(400).json({ error: "month and year required" });
+    const reports = await storage.getPankajReports(month, year);
+    res.json(reports);
+  });
+
+  app.post("/api/pankaj-reports", requireAdmin, async (req, res) => {
+    try {
+      const validated = insertPankajReportSchema.parse(req.body);
+      const report = await storage.savePankajReport(validated);
+      res.status(201).json(report);
+    } catch (err: any) {
+      res.status(400).json({ message: err.message });
+    }
+  });
+
+  app.put("/api/pankaj-reports/:id", requireAdmin, async (req, res) => {
+    try {
+      const validated = insertPankajReportSchema.partial().parse(req.body);
+      const report = await storage.updatePankajReport(Number(req.params.id), validated);
+      res.json(report);
+    } catch (err: any) {
+      res.status(400).json({ message: err.message });
+    }
+  });
+
+  app.delete("/api/pankaj-reports/:id", requireAdmin, async (req, res) => {
+    await storage.deletePankajReport(Number(req.params.id));
+    res.status(204).send();
+  });
+
+  // === UBL LUNCH ENTRY ROUTES (Format 2) ===
+  app.get('/api/ubl-lunch-entries', requirePermission('salesinvoice'), async (req, res) => {
+    const month = Number(req.query.month) || new Date().getMonth() + 1;
+    const year = Number(req.query.year) || new Date().getFullYear();
+    const entries = await storage.getUblLunchEntries(month, year);
+    res.json(entries);
+  });
+  app.post('/api/ubl-lunch-entries', requirePermission('salesinvoice'), async (req, res) => {
+    try {
+      const entry = await storage.createUblLunchEntry(req.body);
+      res.status(201).json(entry);
+    } catch (err: any) { res.status(500).json({ message: err.message }); }
+  });
+  app.put('/api/ubl-lunch-entries/:id', requirePermission('salesinvoice'), async (req, res) => {
+    try {
+      const entry = await storage.updateUblLunchEntry(Number(req.params.id), req.body);
+      res.json(entry);
+    } catch (err: any) { res.status(500).json({ message: err.message }); }
+  });
+  app.delete('/api/ubl-lunch-entries/:id', requirePermission('salesinvoice'), async (req, res) => {
+    await storage.deleteUblLunchEntry(Number(req.params.id));
+    res.status(204).send();
+  });
+
+  // === UBL DATE ENTRY ROUTES ===
+  app.get('/api/ubl-date-entries', requirePermission('salesinvoice'), async (req, res) => {
+    const month = Number(req.query.month) || new Date().getMonth() + 1;
+    const year = Number(req.query.year) || new Date().getFullYear();
+    const entries = await storage.getUblDateEntries(month, year);
+    res.json(entries);
+  });
+  app.post('/api/ubl-date-entries', requirePermission('salesinvoice'), async (req, res) => {
+    try {
+      const entry = await storage.createUblDateEntry(req.body);
+      res.status(201).json(entry);
+    } catch (err: any) { res.status(500).json({ message: err.message }); }
+  });
+  app.put('/api/ubl-date-entries/:id', requirePermission('salesinvoice'), async (req, res) => {
+    try {
+      const entry = await storage.updateUblDateEntry(Number(req.params.id), req.body);
+      res.json(entry);
+    } catch (err: any) { res.status(500).json({ message: err.message }); }
+  });
+  app.delete('/api/ubl-date-entries/:id', requirePermission('salesinvoice'), async (req, res) => {
+    await storage.deleteUblDateEntry(Number(req.params.id));
+    res.status(204).send();
+  });
+
+  // === CIPLA DATE ENTRY ROUTES ===
+  app.get('/api/cipla-date-entries', requirePermission('salesinvoice'), async (req, res) => {
+    const month = Number(req.query.month) || new Date().getMonth() + 1;
+    const year = Number(req.query.year) || new Date().getFullYear();
+    const entries = await storage.getCiplaDateEntries(month, year);
+    res.json(entries);
+  });
+  app.post('/api/cipla-date-entries', requirePermission('salesinvoice'), async (req, res) => {
+    try {
+      const entry = await storage.createCiplaDateEntry(req.body);
+      res.status(201).json(entry);
+    } catch (err: any) { res.status(500).json({ message: err.message }); }
+  });
+  app.put('/api/cipla-date-entries/:id', requirePermission('salesinvoice'), async (req, res) => {
+    try {
+      const entry = await storage.updateCiplaDateEntry(Number(req.params.id), req.body);
+      res.json(entry);
+    } catch (err: any) { res.status(500).json({ message: err.message }); }
+  });
+  app.delete('/api/cipla-date-entries/:id', requirePermission('salesinvoice'), async (req, res) => {
+    await storage.deleteCiplaDateEntry(Number(req.params.id));
+    res.status(204).send();
+  });
+
+  // Cipla Machine Summary (billing-period totals)
+  app.get('/api/cipla-machine-summary', requirePermission('salesinvoice'), async (req, res) => {
+    const month = Number(req.query.month) || new Date().getMonth() + 1;
+    const year = Number(req.query.year) || new Date().getFullYear();
+    const data = await storage.getCiplaaMachineSummary(month, year);
+    res.json(data || { bfMachine: 0, luMachine: 0, diMachine: 0 });
+  });
+
+  app.put('/api/cipla-machine-summary', requirePermission('salesinvoice'), async (req, res) => {
+    try {
+      const { month, year, bfMachine, luMachine, diMachine } = req.body;
+      const data = await storage.upsertCiplaaMachineSummary(Number(month), Number(year), {
+        bfMachine: Number(bfMachine) || 0,
+        luMachine: Number(luMachine) || 0,
+        diMachine: Number(diMachine) || 0,
+      });
+      res.json(data);
+    } catch (e: any) { res.status(500).json({ error: e.message }); }
+  });
+
+  // === UNICHEM SNACK ENTRIES (Form 1) ===
+  // ── Grocery Expenses (handwritten receipt scanner) ──────────────────────────
+  app.get('/api/grocery-expenses', requirePermission('expense'), async (_req, res) => {
+    try {
+      const [rows] = await pool.query(`SELECT id, DATE_FORMAT(entry_date, '%Y-%m-%d') AS entryDate, item_name AS itemName, quantity, cost, payer FROM grocery_expenses ORDER BY entry_date DESC, id DESC`);
+      res.json(rows);
+    } catch (e: any) { res.status(500).json({ message: e.message }); }
+  });
+
+  app.post('/api/grocery-expenses', requirePermission('expense'), async (req, res) => {
+    try {
+      const schema = z.object({
+        items: z.array(z.object({
+          entryDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Invalid date").refine(s => !isNaN(new Date(s + "T00:00:00Z").getTime()), "Invalid date"),
+          itemName: z.string().trim().min(1).max(300),
+          quantity: z.string().max(50).optional().default(''),
+          cost: z.number().finite().min(0).max(9999999)
+            .refine(n => Math.round(n * 100) === n * 100 || Math.abs(Math.round(n * 100) - n * 100) < 1e-6, "Cost can have at most 2 decimals"),
+          payer: z.string().max(100).optional().default(''),
+        })).min(1).max(200),
+      });
+      const { items } = schema.parse(req.body);
+      const conn = await pool.getConnection();
+      try {
+        await conn.beginTransaction();
+        for (const it of items) {
+          await conn.query(
+            `INSERT INTO grocery_expenses (entry_date, item_name, quantity, cost, payer) VALUES (?, ?, ?, ?, ?)`,
+            [it.entryDate, it.itemName, it.quantity || '', (Math.round(it.cost * 100) / 100).toFixed(2), it.payer || ''],
+          );
+        }
+        await conn.commit();
+      } catch (txErr) {
+        await conn.rollback();
+        throw txErr;
+      } finally {
+        conn.release();
+      }
+      res.status(201).json({ saved: items.length });
+    } catch (e: any) {
+      if (e instanceof z.ZodError) return res.status(400).json({ message: e.errors[0].message });
+      res.status(500).json({ message: e.message });
+    }
+  });
+
+  app.delete('/api/grocery-expenses/:id', requirePermission('expense'), async (req: any, res) => {
+    try {
+      if (req.session.role !== 'admin') {
+        return res.status(403).json({ message: "Only the admin can delete grocery expenses." });
+      }
+      await pool.query(`DELETE FROM grocery_expenses WHERE id = ?`, [Number(req.params.id)]);
+      res.status(204).end();
+    } catch (e: any) { res.status(500).json({ message: e.message }); }
+  });
+
+  app.post('/api/grocery-expenses/scan', requirePermission('expense'), async (req, res) => {
+    try {
+      const { image } = z.object({ image: z.string().min(100).max(14 * 1024 * 1024) }).parse(req.body); // data URL
+      const m = image.match(/^data:image\/(jpeg|jpg|png|webp);base64,([A-Za-z0-9+/=]+)$/);
+      if (!m) return res.status(400).json({ message: "Please upload a JPG, PNG or WEBP photo." });
+      const decodedBytes = Math.floor(m[2].length * 3 / 4);
+      if (decodedBytes > 10 * 1024 * 1024) return res.status(400).json({ message: "Photo too big (max 10 MB)." });
+      const apiKey = process.env.OPENAI_API_KEY;
+      if (!apiKey) {
+        return res.status(503).json({ message: "AI key not set up yet. Please add the AI API key first." });
+      }
+      const prompt = `This is a photo of a handwritten grocery list/receipt (may be in Hindi, Marathi or English). Extract every item with its quantity and price. Respond ONLY with JSON: {"items":[{"itemName":string,"quantity":string,"cost":number}]}. Use the item name as written (transliterate to Latin letters if needed). quantity like "1 kg", "2 pc", or "" if not written. cost is the price number, 0 if unreadable.`;
+      const isGoogleKey = apiKey.startsWith("AIza");
+      let content = "{}";
+      if (isGoogleKey) {
+        const mimeType = `image/${m[1] === "jpg" ? "jpeg" : m[1]}`;
+        const aiRes = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            contents: [{ parts: [
+              { text: prompt },
+              { inline_data: { mime_type: mimeType, data: m[2] } },
+            ]}],
+            generationConfig: { response_mime_type: "application/json", maxOutputTokens: 2000 },
+          }),
+        });
+        if (!aiRes.ok) {
+          const errText = await aiRes.text();
+          console.error("Gemini scan error:", errText.slice(0, 500));
+          return res.status(502).json({ message: "AI could not read the image. Please try a clearer photo." });
+        }
+        const aiJson: any = await aiRes.json();
+        content = aiJson.candidates?.[0]?.content?.parts?.[0]?.text || "{}";
+      } else {
+        const aiRes = await fetch("https://api.openai.com/v1/chat/completions", {
+          method: "POST",
+          headers: { "Content-Type": "application/json", Authorization: `Bearer ${apiKey}` },
+          body: JSON.stringify({
+            model: "gpt-4o-mini",
+            max_tokens: 1500,
+            response_format: { type: "json_object" },
+            messages: [{
+              role: "user",
+              content: [
+                { type: "text", text: prompt },
+                { type: "image_url", image_url: { url: image } },
+              ],
+            }],
+          }),
+        });
+        if (!aiRes.ok) {
+          const errText = await aiRes.text();
+          console.error("OpenAI scan error:", errText.slice(0, 500));
+          return res.status(502).json({ message: "AI could not read the image. Please try a clearer photo." });
+        }
+        const aiJson: any = await aiRes.json();
+        content = aiJson.choices?.[0]?.message?.content || "{}";
+      }
+      let parsed: any = {};
+      try { parsed = JSON.parse(content); } catch { return res.status(502).json({ message: "AI returned an unreadable answer. Please try again." }); }
+      const items = Array.isArray(parsed.items) ? parsed.items
+        .filter((it: any) => it && typeof it.itemName === "string" && it.itemName.trim())
+        .map((it: any) => ({
+          itemName: String(it.itemName).slice(0, 300),
+          quantity: String(it.quantity ?? "").slice(0, 50),
+          cost: Math.max(0, Number(it.cost) || 0),
+        })) : [];
+      res.json({ items });
+    } catch (e: any) {
+      if (e instanceof z.ZodError) return res.status(400).json({ message: "Please upload a valid image." });
+      res.status(500).json({ message: e.message });
+    }
+  });
+
+  app.get('/api/unichem-snack-entries', requirePermission('salesinvoice'), async (req, res) => {
+    const month = Number(req.query.month) || new Date().getMonth() + 1;
+    const year = Number(req.query.year) || new Date().getFullYear();
+    const location = String(req.query.location || 'Main Plant');
+    const entries = await storage.getUnichEmSnackEntries(month, year, location);
+    res.json(entries);
+  });
+  app.post('/api/unichem-snack-entries', requirePermission('salesinvoice'), async (req, res) => {
+    try { const entry = await storage.createUnichEmSnackEntry(req.body); res.status(201).json(entry); }
+    catch (err: any) { res.status(500).json({ message: err.message }); }
+  });
+  app.put('/api/unichem-snack-entries/:id', requirePermission('salesinvoice'), async (req, res) => {
+    try { const entry = await storage.updateUnichEmSnackEntry(Number(req.params.id), req.body); res.json(entry); }
+    catch (err: any) { res.status(500).json({ message: err.message }); }
+  });
+  app.delete('/api/unichem-snack-entries/:id', requirePermission('salesinvoice'), async (req, res) => {
+    await storage.deleteUnichEmSnackEntry(Number(req.params.id)); res.status(204).send();
+  });
+
+  // === UNICHEM LUNCH ENTRIES (Form 2) ===
+  app.get('/api/unichem-lunch-entries', requirePermission('salesinvoice'), async (req, res) => {
+    const month = Number(req.query.month) || new Date().getMonth() + 1;
+    const year = Number(req.query.year) || new Date().getFullYear();
+    const location = String(req.query.location || 'Main Plant');
+    const mealType = req.query.mealType ? String(req.query.mealType) : undefined;
+    const entries = await storage.getUnichEmLunchEntries(month, year, location, mealType);
+    res.json(entries);
+  });
+  app.post('/api/unichem-lunch-entries', requirePermission('salesinvoice'), async (req, res) => {
+    try {
+      if (req.body?.location === 'PEC Ventures') {
+        const { month, year } = monthYearFromEntryDate(req.body?.entryDate);
+        if (pecPastMonthBlocked(req, month, year)) {
+          return res.status(403).json({ message: "Only admins can edit previous months for PEC Ventures." });
+        }
+      }
+      const entry = await storage.createUnichEmLunchEntry(req.body); res.status(201).json(entry);
+    }
+    catch (err: any) { res.status(500).json({ message: err.message }); }
+  });
+  app.put('/api/unichem-lunch-entries/:id', requirePermission('salesinvoice'), async (req, res) => {
+    try {
+      const existing = await storage.getUnichEmLunchEntryById(Number(req.params.id));
+      if (existing && existing.location === 'PEC Ventures' && pecPastMonthBlocked(req, existing.month, existing.year)) {
+        return res.status(403).json({ message: "Only admins can edit previous months for PEC Ventures." });
+      }
+      const entry = await storage.updateUnichEmLunchEntry(Number(req.params.id), req.body); res.json(entry);
+    }
+    catch (err: any) { res.status(500).json({ message: err.message }); }
+  });
+  app.delete('/api/unichem-lunch-entries/:id', requirePermission('salesinvoice'), async (req, res) => {
+    const existing = await storage.getUnichEmLunchEntryById(Number(req.params.id));
+    if (existing && existing.location === 'PEC Ventures' && pecPastMonthBlocked(req, existing.month, existing.year)) {
+      return res.status(403).json({ message: "Only admins can edit previous months for PEC Ventures." });
+    }
+    await storage.deleteUnichEmLunchEntry(Number(req.params.id)); res.status(204).send();
+  });
+
+  // === HUL DATE ENTRIES (Hindustan Unilever Limited — KPF / TEC) ===
+  app.get('/api/ubl-date-entries/yearly-summary', requirePermission('salesinvoice'), async (req, res) => {
+    const year = Number(req.query.year) || new Date().getFullYear();
+    res.json(await storage.getUblDateYearlySummary(year));
+  });
+  app.get('/api/ubl-lunch-entries/yearly-summary', requirePermission('salesinvoice'), async (req, res) => {
+    const year = Number(req.query.year) || new Date().getFullYear();
+    res.json(await storage.getUblLunchYearlySummary(year));
+  });
+  app.get('/api/cipla-date-entries/yearly-summary', requirePermission('salesinvoice'), async (req, res) => {
+    const year = Number(req.query.year) || new Date().getFullYear();
+    res.json(await storage.getCiplaYearlySummary(year));
+  });
+  app.get('/api/unichem-snack-entries/yearly-summary', requirePermission('salesinvoice'), async (req, res) => {
+    const year = Number(req.query.year) || new Date().getFullYear();
+    res.json(await storage.getUnichEmSnackYearlySummary(year));
+  });
+  app.get('/api/unichem-lunch-entries/yearly-summary', requirePermission('salesinvoice'), async (req, res) => {
+    const year = Number(req.query.year) || new Date().getFullYear();
+    res.json(await storage.getUnichEmLunchYearlySummary(year));
+  });
+  app.get('/api/unichem-lunch-entries/yearly-sunday-summary', requirePermission('salesinvoice'), async (req, res) => {
+    const year = Number(req.query.year) || new Date().getFullYear();
+    res.json(await storage.getUnichEmSundayLunchYearlySummary(year));
+  });
+  app.get('/api/hul-date-entries/yearly-summary', requirePermission('salesinvoice'), async (req, res) => {
+    const year = Number(req.query.year) || new Date().getFullYear();
+    const location = String(req.query.location || 'KPF');
+    res.json(await storage.getHulYearlySummary(year, location));
+  });
+  app.get('/api/hul-kpf-exec-snacks/yearly-summary', requirePermission('salesinvoice'), async (req, res) => {
+    const year = Number(req.query.year) || new Date().getFullYear();
+    res.json(await storage.getHulExecYearlySummary(year));
+  });
+  app.get('/api/hul-date-entries', requirePermission('salesinvoice'), async (req, res) => {
+    const month = Number(req.query.month) || new Date().getMonth() + 1;
+    const year = Number(req.query.year) || new Date().getFullYear();
+    const location = String(req.query.location || 'KPF');
+    const entries = await storage.getHulDateEntries(month, year, location);
+    res.json(entries);
+  });
+  app.post('/api/hul-date-entries', requirePermission('salesinvoice'), async (req, res) => {
+    try { const entry = await storage.createHulDateEntry(req.body); res.status(201).json(entry); }
+    catch (err: any) { res.status(500).json({ message: err.message }); }
+  });
+  app.put('/api/hul-date-entries/:id', requirePermission('salesinvoice'), async (req, res) => {
+    try { const entry = await storage.updateHulDateEntry(Number(req.params.id), req.body); res.json(entry); }
+    catch (err: any) { res.status(500).json({ message: err.message }); }
+  });
+  app.delete('/api/hul-date-entries/:id', requirePermission('salesinvoice'), async (req, res) => {
+    await storage.deleteHulDateEntry(Number(req.params.id)); res.status(204).send();
+  });
+
+  // === HUL KPF EXECUTIVE/MANAGER SNACKS ===
+  app.get('/api/hul-kpf-exec-snacks', requirePermission('salesinvoice'), async (req, res) => {
+    const month = Number(req.query.month) || new Date().getMonth() + 1;
+    const year = Number(req.query.year) || new Date().getFullYear();
+    res.json(await storage.getHulKpfExecSnacks(month, year));
+  });
+  app.post('/api/hul-kpf-exec-snacks', requirePermission('salesinvoice'), async (req, res) => {
+    try { res.status(201).json(await storage.createHulKpfExecSnack(req.body)); }
+    catch (err: any) { res.status(500).json({ message: err.message }); }
+  });
+  app.put('/api/hul-kpf-exec-snacks/:id', requirePermission('salesinvoice'), async (req, res) => {
+    try { res.json(await storage.updateHulKpfExecSnack(Number(req.params.id), req.body)); }
+    catch (err: any) { res.status(500).json({ message: err.message }); }
+  });
+  app.delete('/api/hul-kpf-exec-snacks/:id', requirePermission('salesinvoice'), async (req, res) => {
+    await storage.deleteHulKpfExecSnack(Number(req.params.id)); res.status(204).send();
+  });
+
+  // === HUL SPECIAL ORDERS ===
+  app.get('/api/hul-special-orders', requirePermission('salesinvoice'), async (req, res) => {
+    const year = Number(req.query.year) || new Date().getFullYear();
+    if (req.query.month === undefined || req.query.month === '') {
+      const rows = await storage.getHulSpecialOrdersByYear(year);
+      return res.json(rows);
+    }
+    const month = Number(req.query.month) || new Date().getMonth() + 1;
+    res.json(await storage.getHulSpecialOrders(month, year));
+  });
+  app.get('/api/hul-special-orders/yearly', requirePermission('salesinvoice'), async (req, res) => {
+    const year = Number(req.query.year) || new Date().getFullYear();
+    try {
+      const rows = await storage.getHulSpecialOrdersByYear(year);
+      console.log('[yearly special orders] year:', year, 'count:', rows.length);
+      res.json(rows);
+    } catch (err: any) {
+      console.error('[yearly special orders] error:', err.message);
+      res.status(500).json({ message: err.message });
+    }
+  });
+  app.post('/api/hul-special-orders', requirePermission('salesinvoice'), async (req, res) => {
+    try { res.status(201).json(await storage.createHulSpecialOrder(req.body)); }
+    catch (err: any) { res.status(500).json({ message: err.message }); }
+  });
+  app.put('/api/hul-special-orders/:id', requirePermission('salesinvoice'), async (req, res) => {
+    try { res.json(await storage.updateHulSpecialOrder(Number(req.params.id), req.body)); }
+    catch (err: any) { res.status(500).json({ message: err.message }); }
+  });
+  app.delete('/api/hul-special-orders/:id', requirePermission('salesinvoice'), async (req, res) => {
+    await storage.deleteHulSpecialOrder(Number(req.params.id)); res.status(204).send();
+  });
+
+  // === QUOTATIONS (Open Quotation tracking) ===
+  // Non-admin users are scoped to their own client's quotations.
+  const quotationScope = (req: Request): { scope?: string; forbidden: boolean } => {
+    if (req.session.role === 'admin') return { forbidden: false };
+    const c = req.session.clientName;
+    return c ? { scope: c, forbidden: false } : { forbidden: true };
+  };
+  app.get('/api/quotations', requirePermission('salesinvoice'), async (req, res) => {
+    try {
+      const { scope, forbidden } = quotationScope(req);
+      if (forbidden) return res.status(403).json({ message: 'No client assigned to your account' });
+      res.json(await storage.getQuotations(scope));
+    } catch (err: any) { res.status(500).json({ message: err.message }); }
+  });
+  app.post('/api/quotations', requirePermission('salesinvoice'), async (req: any, res) => {
+    try {
+      const { scope, forbidden } = quotationScope(req);
+      if (forbidden) return res.status(403).json({ message: 'No client assigned to your account' });
+      const createdBy = req.session?.displayName || req.session?.username || '';
+      const body = scope ? { ...req.body, clientName: scope } : req.body;
+      const result = await storage.createQuotation({ ...body, createdBy });
+      res.status(201).json(result);
+    } catch (err: any) { res.status(400).json({ message: err.message }); }
+  });
+  app.put('/api/quotations/:id', requirePermission('salesinvoice'), async (req, res) => {
+    try {
+      const { scope, forbidden } = quotationScope(req);
+      if (forbidden) return res.status(403).json({ message: 'No client assigned to your account' });
+      const body = scope ? { ...req.body, clientName: scope } : req.body;
+      await storage.updateQuotation(Number(req.params.id), body, scope);
+      res.json({ ok: true });
+    } catch (err: any) { res.status(400).json({ message: err.message }); }
+  });
+  app.post('/api/quotations/:id/po', requirePermission('salesinvoice'), async (req: any, res) => {
+    try {
+      const { scope, forbidden } = quotationScope(req);
+      if (forbidden) return res.status(403).json({ message: 'No client assigned to your account' });
+      const createdBy = req.session?.displayName || req.session?.username || '';
+      await storage.attachPoToQuotation(Number(req.params.id), { ...req.body, createdBy }, scope);
+      res.json({ ok: true });
+    } catch (err: any) { res.status(400).json({ message: err.message }); }
+  });
+  app.patch('/api/quotations/:id/status', requirePermission('salesinvoice'), async (req, res) => {
+    try {
+      const { scope, forbidden } = quotationScope(req);
+      if (forbidden) return res.status(403).json({ message: 'No client assigned to your account' });
+      const status = String(req.body?.status || '');
+      if (!['open', 'converted', 'closed'].includes(status)) return res.status(400).json({ message: 'Invalid status' });
+      await storage.updateQuotationStatus(Number(req.params.id), status, scope);
+      res.json({ ok: true });
+    } catch (err: any) { res.status(400).json({ message: err.message }); }
+  });
+  app.delete('/api/quotations/:id', requirePermission('salesinvoice'), async (req, res) => {
+    try {
+      const { scope, forbidden } = quotationScope(req);
+      if (forbidden) return res.status(403).json({ message: 'No client assigned to your account' });
+      await storage.deleteQuotation(Number(req.params.id), scope);
+      res.status(204).send();
+    } catch (err: any) { res.status(400).json({ message: err.message }); }
+  });
+
+  // === DAILY P&L ROUTES ===
+  app.get('/api/daily-pnl/entry', requireAdmin, async (req, res) => {
+    const date = String(req.query.date || '');
+    const clientName = String(req.query.client || 'KPF');
+    if (!date) return res.status(400).json({ error: 'date required' });
+    const entry = await storage.getDailyPnlEntry(date, clientName);
+    res.json(entry ?? null);
+  });
+  app.post('/api/daily-pnl/entry', requireAdmin, async (req, res) => {
+    const id = await storage.saveDailyPnlEntry(req.body);
+    res.json({ id });
+  });
+  app.get('/api/daily-pnl/month-summary', requireAdmin, async (req, res) => {
+    const month = Number(req.query.month) || new Date().getMonth() + 1;
+    const year = Number(req.query.year) || new Date().getFullYear();
+    res.json(await storage.getDailyPnlMonthSummary(month, year));
+  });
+  app.get('/api/daily-pnl/monthly-report', requireAdmin, async (req, res) => {
+    const year = Number(req.query.year) || new Date().getFullYear();
+    const clientName = req.query.client ? String(req.query.client) : undefined;
+    res.json(await storage.getDailyPnlMonthlySummary(year, clientName));
+  });
+  app.get('/api/daily-pnl/yearly-report', requireAdmin, async (req, res) => {
+    const clientName = req.query.client ? String(req.query.client) : undefined;
+    res.json(await storage.getDailyPnlYearlySummary(clientName));
+  });
+  app.get('/api/daily-pnl/prev-balance', requireAdmin, async (req, res) => {
+    const date = String(req.query.date || '');
+    const clientName = String(req.query.client || 'KPF');
+    if (!date) return res.json({ balance: 0 });
+    const balance = await storage.getPrevDailyPnlBalance(date, clientName);
+    res.json({ balance });
+  });
+  app.get('/api/daily-pnl/cash-seal', requireAdmin, async (req, res) => {
+    const date = String(req.query.date || '');
+    if (!date) return res.json(null);
+    const cs = await storage.getCashSealForDate(date);
+    res.json(cs ?? null);
+  });
+  app.get('/api/daily-pnl/last-price', requireAdmin, async (req, res) => {
+    const item = String(req.query.item || '');
+    if (!item) return res.json({ price: 0 });
+    const price = await storage.getLastPurchasePrice(item);
+    res.json({ price });
+  });
+
+  // === PEC VENTURES ENTRIES ===
+  app.get('/api/pec-ventures-entries/yearly-summary', requirePermission('salesinvoice'), async (req, res) => {
+    const year = Number(req.query.year) || new Date().getFullYear();
+    res.json(await storage.getPecVenturesYearlySummary(year));
+  });
+  app.get('/api/pec-ventures-entries/lunch-yearly-summary', requirePermission('salesinvoice'), async (req, res) => {
+    const year = Number(req.query.year) || new Date().getFullYear();
+    res.json(await storage.getPecVenturesLunchYearlySummary(year));
+  });
+  app.get('/api/pec-ventures-entries', requirePermission('salesinvoice'), async (req, res) => {
+    const month = Number(req.query.month) || new Date().getMonth() + 1;
+    const year = Number(req.query.year) || new Date().getFullYear();
+    const entries = await storage.getPecVenturesEntries(month, year);
+    res.json(entries);
+  });
+  // PEC Ventures Form 1 (Canteen Expense): non-admins may only CREATE new current-month
+  // entries. Once a day is saved it is locked — only an admin can change/delete saved data.
+  app.post('/api/pec-ventures-entries', requirePermission('salesinvoice'), async (req, res) => {
+    try {
+      const { month, year } = monthYearFromEntryDate(req.body?.entryDate);
+      if (req.session.role !== "admin") {
+        if (!Number.isFinite(month) || !Number.isFinite(year) || !isCurrentMonth(month, year)) {
+          return res.status(403).json({ message: "Only admins can edit other months for PEC Ventures." });
+        }
+        const existing = await storage.getPecVenturesEntryByDate(String(req.body?.entryDate ?? ""));
+        if (existing) {
+          return res.status(403).json({ message: "This day is already saved. Only an admin can change saved entries." });
+        }
+      }
+      // Always derive month/year from entryDate so stored values can't be tampered via the payload.
+      const payload = (Number.isFinite(month) && Number.isFinite(year)) ? { ...req.body, month, year } : req.body;
+      const entry = await storage.createPecVenturesEntry(payload); res.status(201).json(entry);
+    }
+    catch (err: any) { res.status(500).json({ message: err.message }); }
+  });
+  app.put('/api/pec-ventures-entries/:id', requirePermission('salesinvoice'), async (req, res) => {
+    try {
+      if (req.session.role !== "admin") {
+        return res.status(403).json({ message: "This entry is saved. Only an admin can change saved entries." });
+      }
+      const entry = await storage.updatePecVenturesEntry(Number(req.params.id), req.body); res.json(entry);
+    }
+    catch (err: any) { res.status(500).json({ message: err.message }); }
+  });
+  app.delete('/api/pec-ventures-entries/:id', requirePermission('salesinvoice'), async (req, res) => {
+    if (req.session.role !== "admin") {
+      return res.status(403).json({ message: "This entry is saved. Only an admin can change saved entries." });
+    }
+    await storage.deletePecVenturesEntry(Number(req.params.id)); res.status(204).send();
+  });
+
+  // === PEC VENTURES ITEM RATES (snapshot per month; month=0/year=0 = current default) ===
+  app.get('/api/pec-ventures-rates', requirePermission('salesinvoice'), async (req, res) => {
+    try {
+      const def = await storage.getPecVenturesRate(0, 0);
+      if (req.query.month !== undefined) {
+        const month = Number(req.query.month);
+        const year = Number(req.query.year) || new Date().getFullYear();
+        const rate = await storage.getPecVenturesRate(month, year);
+        res.json({ rate, default: def });
+      } else {
+        const year = Number(req.query.year) || new Date().getFullYear();
+        const monthly = (await storage.getPecVenturesRatesByYear(year)).filter(r => r.month >= 1 && r.month <= 12 && r.year === year);
+        res.json({ monthly, default: def });
+      }
+    } catch (err: any) { res.status(500).json({ message: err.message }); }
+  });
+  // Editing rate values is admin-only. The carry-forward default (month=0,year=0) is always
+  // editable; a real month (1-12) can only be created while unlocked — once it has a snapshot it
+  // is immutable, so previously-saved months/data can never change when rates are updated later.
+  app.put('/api/pec-ventures-rates', requireAdmin, async (req, res) => {
+    try {
+      const month = Number(req.body.month);
+      const year = Number(req.body.year);
+      const isDefault = month === 0 && year === 0;
+      if (!isDefault && (!Number.isInteger(month) || month < 1 || month > 12 || !Number.isInteger(year) || year < 2000 || year > 2100)) {
+        return res.status(400).json({ message: 'Invalid month/year' });
+      }
+      const rateKeys = ['redLabel','tataTea','coffee','sugar','ginger','biscuit','teaCup','greenElaychi','greenTea','blackSalt','milk'];
+      for (const k of rateKeys) {
+        const v = Number(req.body[k]);
+        if (!Number.isFinite(v) || v < 0) return res.status(400).json({ message: `Invalid rate value for ${k}` });
+      }
+      // A locked month is normally immutable so saved data never changes. Admins may explicitly
+      // override this (the "Edit Rates" action) by sending force=true to correct a saved month.
+      if (!isDefault && req.body.force !== true) {
+        const existing = await storage.getPecVenturesRate(month, year);
+        if (existing) return res.status(409).json({ message: 'This month is locked; its rates cannot be changed.' });
+      }
+      res.json(await storage.upsertPecVenturesRate(req.body));
+    } catch (err: any) { res.status(500).json({ message: err.message }); }
+  });
+  // Locking a month (snapshot from default) is allowed for any data-entry user; never overwrites an existing snapshot
+  app.post('/api/pec-ventures-rates/ensure', requirePermission('salesinvoice'), async (req, res) => {
+    try {
+      const month = Number(req.body.month);
+      const year = Number(req.body.year);
+      if (!Number.isInteger(month) || month < 1 || month > 12 || !Number.isInteger(year) || year < 2000 || year > 2100) {
+        return res.status(400).json({ message: 'Invalid month/year' });
+      }
+      res.json(await storage.ensurePecVenturesRateSnapshot(month, year));
+    } catch (err: any) { res.status(500).json({ message: err.message }); }
+  });
+
+  // Drizzle wraps MySQL errors, so the "Duplicate entry" text may live on err.cause.
+  const isDuplicateErr = (err: any): boolean =>
+    String(err?.message || '').includes('Duplicate') ||
+    String(err?.cause?.message || '').includes('Duplicate') ||
+    err?.errno === 1062 || err?.cause?.errno === 1062;
+
+  // === BANANA EXPENSE RATE SCHEDULE ===
+  // Any logged-in user may read the schedule (needed to price cash seals in the UI).
+  app.get('/api/banana-rates', requireAuth, async (_req, res) => {
+    try { res.json(await storage.getBananaRates()); }
+    catch (err: any) { res.status(500).json({ message: err.message }); }
+  });
+  const validateBananaRate = (body: any): { effectiveDate: string; rate: number } | { error: string } => {
+    const effectiveDate = String(body.effectiveDate || '').slice(0, 10);
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(effectiveDate)) return { error: 'Invalid effective date (use YYYY-MM-DD)' };
+    const rate = Number(body.rate);
+    if (!Number.isFinite(rate) || rate < 0) return { error: 'Invalid rate' };
+    return { effectiveDate, rate };
+  };
+  app.post('/api/banana-rates', requireAdmin, async (req, res) => {
+    try {
+      const v = validateBananaRate(req.body);
+      if ('error' in v) return res.status(400).json({ message: v.error });
+      res.json(await storage.createBananaRate(v));
+    } catch (err: any) {
+      if (isDuplicateErr(err)) return res.status(409).json({ message: 'A rate already exists for this date' });
+      res.status(500).json({ message: err.message });
+    }
+  });
+  app.put('/api/banana-rates/:id', requireAdmin, async (req, res) => {
+    try {
+      const v = validateBananaRate(req.body);
+      if ('error' in v) return res.status(400).json({ message: v.error });
+      const row = await storage.updateBananaRate(Number(req.params.id), v);
+      if (!row) return res.status(404).json({ message: 'Rate not found' });
+      res.json(row);
+    } catch (err: any) {
+      if (isDuplicateErr(err)) return res.status(409).json({ message: 'A rate already exists for this date' });
+      res.status(500).json({ message: err.message });
+    }
+  });
+  app.delete('/api/banana-rates/:id', requireAdmin, async (req, res) => {
+    try { await storage.deleteBananaRate(Number(req.params.id)); res.json({ success: true }); }
+    catch (err: any) { res.status(500).json({ message: err.message }); }
+  });
+
+  // === FIXED ASSET MANAGEMENT ===
+  const validateFixedAsset = (body: any, partial = false): any => {
+    const out: any = {};
+    const str = (v: any, max: number) => String(v ?? '').trim().slice(0, max);
+    if (!partial || body.assetTag !== undefined) {
+      out.assetTag = str(body.assetTag, 100);
+      if (!out.assetTag) return { error: 'Asset Tag / ID is required' };
+    }
+    if (!partial || body.name !== undefined) {
+      out.name = str(body.name, 255);
+      if (!out.name) return { error: 'Asset name is required' };
+    }
+    if (!partial || body.purchaseDate !== undefined) {
+      out.purchaseDate = str(body.purchaseDate, 10);
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(out.purchaseDate)) return { error: 'Invalid purchase date (use YYYY-MM-DD)' };
+    }
+    if (!partial || body.vendor !== undefined) out.vendor = str(body.vendor, 255);
+    if (!partial || body.category !== undefined) out.category = str(body.category, 100);
+    if (!partial || body.location !== undefined) out.location = str(body.location, 200);
+    if (!partial || body.cost !== undefined) {
+      const cost = Number(body.cost);
+      if (!Number.isFinite(cost) || cost < 0) return { error: 'Invalid cost' };
+      out.cost = String(cost);
+    }
+    if (!partial || body.depreciationPercent !== undefined) {
+      const dep = Number(body.depreciationPercent ?? 0);
+      if (!Number.isFinite(dep) || dep < 0 || dep > 100) return { error: 'Depreciation must be 0-100%' };
+      out.depreciationPercent = String(dep);
+    }
+    if (!partial || body.status !== undefined) {
+      out.status = str(body.status, 30) || 'Active';
+      if (!['Active', 'Under Maintenance', 'Retired'].includes(out.status)) return { error: 'Invalid status' };
+    }
+    return out;
+  };
+  app.get('/api/fixed-assets', requireAuth, async (_req, res) => {
+    try { res.json(await storage.getFixedAssets()); }
+    catch (err: any) { res.status(500).json({ message: err.message }); }
+  });
+  app.post('/api/fixed-assets', requireAdmin, async (req, res) => {
+    try {
+      const v = validateFixedAsset(req.body);
+      if (v.error) return res.status(400).json({ message: v.error });
+      res.json(await storage.createFixedAsset(v));
+    } catch (err: any) {
+      if (isDuplicateErr(err)) return res.status(409).json({ message: 'An asset with this Asset Tag / ID already exists' });
+      res.status(500).json({ message: err.message });
+    }
+  });
+  app.put('/api/fixed-assets/:id', requireAdmin, async (req, res) => {
+    try {
+      const v = validateFixedAsset(req.body, true);
+      if (v.error) return res.status(400).json({ message: v.error });
+      const row = await storage.updateFixedAsset(Number(req.params.id), v);
+      if (!row) return res.status(404).json({ message: 'Asset not found' });
+      res.json(row);
+    } catch (err: any) {
+      if (isDuplicateErr(err)) return res.status(409).json({ message: 'An asset with this Asset Tag / ID already exists' });
+      res.status(500).json({ message: err.message });
+    }
+  });
+  app.delete('/api/fixed-assets/:id', requireAdmin, async (req, res) => {
+    try { await storage.deleteFixedAsset(Number(req.params.id)); res.json({ success: true }); }
+    catch (err: any) { res.status(500).json({ message: err.message }); }
+  });
+
+  // Fixed asset dropdown options (categories & locations)
+  app.get('/api/fixed-asset-options', requireAuth, async (_req, res) => {
+    try { res.json(await storage.getFixedAssetOptions()); }
+    catch (err: any) { res.status(500).json({ message: err.message }); }
+  });
+  app.post('/api/fixed-asset-options', requireAdmin, async (req, res) => {
+    try {
+      const optionType = String(req.body.optionType || '').trim();
+      const name = String(req.body.name || '').trim().slice(0, 200);
+      if (!['category', 'location'].includes(optionType)) return res.status(400).json({ message: 'Invalid option type' });
+      if (!name) return res.status(400).json({ message: 'Name is required' });
+      res.json(await storage.createFixedAssetOption(optionType, name));
+    } catch (err: any) {
+      if (isDuplicateErr(err)) return res.status(409).json({ message: 'This name already exists' });
+      res.status(500).json({ message: err.message });
+    }
+  });
+  app.put('/api/fixed-asset-options/:id', requireAdmin, async (req, res) => {
+    try {
+      const name = String(req.body.name || '').trim().slice(0, 200);
+      if (!name) return res.status(400).json({ message: 'Name is required' });
+      const row = await storage.renameFixedAssetOption(Number(req.params.id), name);
+      if (!row) return res.status(404).json({ message: 'Option not found' });
+      res.json(row);
+    } catch (err: any) {
+      if (isDuplicateErr(err)) return res.status(409).json({ message: 'This name already exists' });
+      res.status(500).json({ message: err.message });
+    }
+  });
+  app.delete('/api/fixed-asset-options/:id', requireAdmin, async (req, res) => {
+    try { await storage.deleteFixedAssetOption(Number(req.params.id)); res.json({ success: true }); }
+    catch (err: any) { res.status(500).json({ message: err.message }); }
+  });
+
+  // === MENU CATEGORY CUSTOM ITEMS (persisted "Add Item" options in Menu Manager) ===
+  app.get('/api/menu-category-items', requirePermission('menu'), async (_req, res) => {
+    try { res.json(await storage.getMenuCategoryItems()); }
+    catch (err: any) { res.status(500).json({ message: err.message }); }
+  });
+  app.post('/api/menu-category-items', requirePermission('menu'), async (req, res) => {
+    try {
+      const categoryName = String(req.body.categoryName || '').trim().slice(0, 100);
+      const itemName = String(req.body.itemName || '').trim().slice(0, 200);
+      if (!categoryName || !itemName) return res.status(400).json({ message: 'Category and item name are required' });
+      res.json(await storage.createMenuCategoryItem({ categoryName, itemName }));
+    } catch (err: any) {
+      if (isDuplicateErr(err)) return res.status(409).json({ message: 'Item already exists in this category' });
+      res.status(500).json({ message: err.message });
+    }
+  });
+  app.put('/api/menu-category-items/:id', requirePermission('menu'), async (req, res) => {
     try {
       const id = Number(req.params.id);
-      await db.delete(nominationNominees).where(eq(nominationNominees.nominationId, id));
-      await db.delete(employeeNominations).where(eq(employeeNominations.id, id));
-      res.json({ message: "Successfully deleted" });
-    } catch (error) {
-      res.status(500).json({ message: "Delete error" });
-    }
-  });
-
-  // ==========================================
-  // CLIENTS APIs
-  // ==========================================
-  app.get(api.clients.list.path, requireAuth, async (req, res) => {
-    res.json(await storage.getClientNames());
-  });
-
-  app.post(api.clients.create.path, requireAdmin, async (req, res) => {
-    try {
-      const input = api.clients.create.input.parse(req.body);
-      res.status(201).json(await storage.createClientName(input));
-    } catch (err) {
-      if (err instanceof z.ZodError) return res.status(400).json({ message: err.errors[0].message });
-      throw err;
-    }
-  });
-
-  app.put(api.clients.update.path, requireAdmin, async (req, res) => {
-    try {
-      const input = api.clients.update.input.parse(req.body);
-      res.json(await storage.updateClientName(Number(req.params.id), input));
+      if (!Number.isInteger(id) || id <= 0) return res.status(400).json({ message: 'Invalid item id' });
+      const itemName = String(req.body.itemName || '').trim().slice(0, 200);
+      if (!itemName) return res.status(400).json({ message: 'Item name is required' });
+      const row = await storage.updateMenuCategoryItem(id, { itemName });
+      if (!row) return res.status(404).json({ message: 'Item not found' });
+      res.json(row);
     } catch (err: any) {
-      if (err.message === "Client not found") return res.status(404).json({ message: "Client not found" });
-      throw err;
+      if (isDuplicateErr(err)) return res.status(409).json({ message: 'Item already exists in this category' });
+      res.status(500).json({ message: err.message });
     }
   });
-
-  app.delete(api.clients.delete.path, requireAdmin, async (req, res) => {
-    await storage.deleteClientName(Number(req.params.id));
-    res.status(204).send();
-  });
-
-  // ==========================================
-  // REPORTS APIs
-  // ==========================================
-  app.get(api.reports.list.path, requireAuth, async (req, res) => {
-    res.json(await storage.getReports());
-  });
-
-  app.get(api.reports.get.path, requireAuth, async (req, res) => {
-    const report = await storage.getReport(Number(req.params.id));
-    if (!report) return res.status(404).json({ message: 'Report not found' });
-    res.json(report);
-  });
-
-  app.post(api.reports.create.path, requireAuth, async (req, res) => {
+  app.delete('/api/menu-category-items/:id', requirePermission('menu'), async (req, res) => {
     try {
-      const input = api.reports.create.input.parse(req.body);
-      res.status(201).json(await storage.createReport(input));
-    } catch (err) {
-      if (err instanceof z.ZodError) return res.status(400).json({ message: err.errors[0].message });
-      throw err;
-    }
+      const id = Number(req.params.id);
+      if (!Number.isInteger(id) || id <= 0) return res.status(400).json({ message: 'Invalid item id' });
+      await storage.deleteMenuCategoryItem(id);
+      res.json({ success: true });
+    } catch (err: any) { res.status(500).json({ message: err.message }); }
   });
 
-  app.put(api.reports.update.path, requireAuth, async (req, res) => {
+  // === EMPLOYEE SHIFT DUTIES ===
+  app.get('/api/shift-duties', requireAuth, async (req, res) => {
     try {
-      const input = api.reports.update.input.parse(req.body);
-      res.json(await storage.updateReport(Number(req.params.id), input));
+      const month = Number(req.query.month) || new Date().getMonth() + 1;
+      const year = Number(req.query.year) || new Date().getFullYear();
+      res.json(await storage.getShiftDuties(month, year));
+    } catch (err: any) { res.status(500).json({ message: err.message }); }
+  });
+  app.post('/api/shift-duties', requireAuth, async (req, res) => {
+    try { res.json(await storage.upsertShiftDuty(req.body)); }
+    catch (err: any) { res.status(500).json({ message: err.message }); }
+  });
+  app.get('/api/shift-duties/employee/:employeeId', requireAuth, async (req, res) => {
+    try {
+      const month = Number(req.query.month) || new Date().getMonth() + 1;
+      const year = Number(req.query.year) || new Date().getFullYear();
+      const row = await storage.getEmployeeShiftDuty(Number(req.params.employeeId), month, year);
+      res.json(row || null);
+    } catch (err: any) { res.status(500).json({ message: err.message }); }
+  });
+
+  // === FLASH MESSAGES ===
+  app.get('/api/flash-messages', requireAuth, async (req, res) => {
+    try {
+      const activeOnly = req.query.active === 'true';
+      res.json(await storage.getFlashMessages(activeOnly));
+    } catch (err: any) { res.status(500).json({ message: err.message }); }
+  });
+  app.post('/api/flash-messages', requireAuth, async (req, res) => {
+    try {
+      if ((req as any).session?.user?.role !== 'admin') return res.status(403).json({ message: 'Admin only' });
+      const data = { ...req.body, createdBy: (req as any).session?.user?.displayName || 'Admin' };
+      res.status(201).json(await storage.createFlashMessage(data));
+    } catch (err: any) { res.status(500).json({ message: err.message }); }
+  });
+  app.patch('/api/flash-messages/:id', requireAuth, async (req, res) => {
+    try {
+      if ((req as any).session?.user?.role !== 'admin') return res.status(403).json({ message: 'Admin only' });
+      res.json(await storage.updateFlashMessage(Number(req.params.id), req.body));
+    } catch (err: any) { res.status(500).json({ message: err.message }); }
+  });
+  app.delete('/api/flash-messages/:id', requireAuth, async (req, res) => {
+    try {
+      if ((req as any).session?.user?.role !== 'admin') return res.status(403).json({ message: 'Admin only' });
+      await storage.deleteFlashMessage(Number(req.params.id)); res.status(204).send();
+    } catch (err: any) { res.status(500).json({ message: err.message }); }
+  });
+
+  // === BILL OF MATERIAL ===
+  // Known aliases: DB full names ↔ legacy BOM short codes
+  const BOM_ALIASES: Record<string, string[]> = {
+    "Hindustan Unilever Limited": ["Hindustan Unilever Limited", "HUL - KPF", "HUL - TEC"],
+    "HUL - KPF":  ["HUL - KPF",  "Hindustan Unilever Limited"],
+    "HUL - TEC":  ["HUL - TEC",  "Hindustan Unilever Limited"],
+    "United Breweries Limited": ["United Breweries Limited", "UBL"],
+    "UBL": ["UBL", "United Breweries Limited"],
+  };
+
+  app.get('/api/bom-items', requireAuth, async (req, res) => {
+    try {
+      const clientName = String(req.query.clientName || '');
+      const mealType = String(req.query.mealType || '');
+      if (!clientName || !mealType) return res.status(400).json({ message: 'clientName and mealType are required' });
+      const clientNames = BOM_ALIASES[clientName] ?? [clientName];
+      res.json(await storage.getBomItems(clientNames, mealType));
+    } catch (err: any) { res.status(500).json({ message: err.message }); }
+  });
+  app.post('/api/bom-items/copy', requireAdmin, async (req, res) => {
+    try {
+      const { fromClient, fromMealType, toClient, toMealType } = req.body;
+      if (!fromClient || !fromMealType || !toClient || !toMealType)
+        return res.status(400).json({ message: 'fromClient, fromMealType, toClient and toMealType are required' });
+      const count = await storage.copyBomItems(fromClient, fromMealType, toClient, toMealType);
+      res.json({ count });
+    } catch (err: any) { res.status(500).json({ message: err.message }); }
+  });
+  app.post('/api/bom-items', requireAuth, async (req, res) => {
+    try { res.status(201).json(await storage.createBomItem(req.body)); }
+    catch (err: any) { res.status(500).json({ message: err.message }); }
+  });
+  app.put('/api/bom-items/:id', requireAuth, async (req, res) => {
+    try { res.json(await storage.updateBomItem(Number(req.params.id), req.body)); }
+    catch (err: any) { res.status(500).json({ message: err.message }); }
+  });
+  app.delete('/api/bom-items/:id', requireAuth, async (req, res) => {
+    try { await storage.deleteBomItem(Number(req.params.id)); res.status(204).send(); }
+    catch (err: any) { res.status(500).json({ message: err.message }); }
+  });
+
+  // === WEEKLY MENU ===
+  app.get('/api/weekly-menu', requireAuth, async (req, res) => {
+    try {
+      await storage.ensureWeeklyMenuTable();
+      const clientName = String(req.query.clientName || '');
+      if (!clientName) return res.status(400).json({ message: 'clientName required' });
+      res.json(await storage.getWeeklyMenu(clientName));
+    } catch (err: any) { res.status(500).json({ message: err.message }); }
+  });
+  app.post('/api/weekly-menu', requireAuth, async (req, res) => {
+    try {
+      await storage.ensureWeeklyMenuTable();
+      res.status(201).json(await storage.saveWeeklyMenuItem(req.body));
+    } catch (err: any) { res.status(500).json({ message: err.message }); }
+  });
+  app.put('/api/weekly-menu/:id', requireAuth, async (req, res) => {
+    try { res.json(await storage.updateWeeklyMenuItem(Number(req.params.id), req.body)); }
+    catch (err: any) { res.status(500).json({ message: err.message }); }
+  });
+  app.delete('/api/weekly-menu/:id', requireAuth, async (req, res) => {
+    try { await storage.deleteWeeklyMenuItem(Number(req.params.id)); res.status(204).send(); }
+    catch (err: any) { res.status(500).json({ message: err.message }); }
+  });
+  app.get('/api/weekly-menu-rates', requireAuth, async (req, res) => {
+    try {
+      const clientName = String(req.query.clientName || '');
+      if (!clientName) return res.status(400).json({ message: 'clientName required' });
+      res.json(await storage.getWeeklyMenuRates(clientName));
+    } catch (err: any) { res.status(500).json({ message: err.message }); }
+  });
+  app.post('/api/weekly-menu-rates', requireAuth, async (req, res) => {
+    try {
+      const { clientName, ingredientName, unit, rate } = req.body;
+      await storage.upsertWeeklyMenuRate(clientName, ingredientName, unit, parseFloat(rate) || 0);
+      res.status(200).json({ ok: true });
+    } catch (err: any) { res.status(500).json({ message: err.message }); }
+  });
+
+  // === MONTHLY P&L ===
+  app.get('/api/monthly-pnl', requireAuth, async (req, res) => {
+    try {
+      const month = parseInt(req.query.month as string);
+      const year = parseInt(req.query.year as string);
+      if (!month || !year || month < 1 || month > 12) {
+        return res.status(400).json({ message: 'Invalid month or year' });
+      }
+      const clientsRaw = req.query.clients as string | undefined;
+      const clients = clientsRaw ? clientsRaw.split(',').map(c => c.trim()).filter(Boolean) : [];
+      const data = await storage.getMonthlyPnl(month, year, clients.length ? clients : undefined);
+      res.json(data);
     } catch (err: any) {
-      if (err.message === "Report not found") return res.status(404).json({ message: "Report not found" });
-      throw err;
+      res.status(500).json({ message: err.message });
     }
-  });
-
-  app.delete(api.reports.delete.path, requireAdmin, async (req, res) => {
-    await storage.deleteReport(Number(req.params.id));
-    res.status(204).send();
-  });
-
-  // ==========================================
-  // OTHER GENERAL APIs (Vegetables, Cash Seals, Inventory)
-  // ==========================================
-  app.get(api.vegetables.list.path, requireAuth, async (req, res) => {
-    res.json(await storage.getVegetableItems());
-  });
-
-  app.post(api.vegetables.create.path, requireAdmin, async (req, res) => {
-    const input = api.vegetables.create.input.parse(req.body);
-    res.status(201).json(await storage.createVegetableItem(input));
-  });
-
-  app.delete(api.vegetables.delete.path, requireAdmin, async (req, res) => {
-    await storage.deleteVegetableItem(Number(req.params.id));
-    res.status(204).send();
-  });
-
-  app.get(api.cashSeals.list.path, requireAuth, async (req, res) => {
-    res.json(await storage.getCashSeals());
-  });
-
-  app.get(api.inventory.list.path, requireAuth, async (req, res) => {
-    res.json(await storage.getInventories());
-  });
-
-  app.post(api.inventory.create.path, requireAuth, async (req, res) => {
-    const input = api.inventory.create.input.parse(req.body);
-    res.status(201).json(await storage.createInventory(input));
-  });
-
-  app.delete(api.inventory.delete.path, requireAdmin, async (req, res) => {
-    await storage.deleteInventory(Number(req.params.id));
-    res.status(204).send();
   });
 
   return httpServer;
