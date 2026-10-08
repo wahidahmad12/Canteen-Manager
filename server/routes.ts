@@ -12,7 +12,8 @@ import {
   employeeNominations, 
   nominationNominees, 
   employees,
-  canteenSales
+  canteenSales,
+  dailyReports // <- ADDED BACK TO PREVENT BACKEND ERRORS
 } from "@shared/schema";
 import { generateRegistrationOptions, verifyRegistrationResponse, generateAuthenticationOptions, verifyAuthenticationResponse } from '@simplewebauthn/server';
 import { isoBase64URL, isoUint8Array } from '@simplewebauthn/server/helpers';
@@ -89,28 +90,26 @@ export async function registerRoutes(
   app: Express
 ): Promise<Server> {
 
-  // --- CANTEEN POS SAVE DATA API ---
   app.post('/api/save-sales', async (req: any, res: any) => {
       try {
           const data = req.body;
           const today = new Date().toISOString().split('T')[0]; 
           
-          if (canteenSales) {
-              await db.insert(canteenSales).values({
-                  recordDate: today,
-                  bfCount: data.bfCount, bfAmt: data.bfAmt,
-                  luVeg: data.luVeg, luNonVeg: data.luNonVeg, luAmt: data.luAmt,
-                  evVeg: data.evVeg, evNonVeg: data.evNonVeg, evAmt: data.evAmt,
-                  niCount: data.niCount, niAmt: data.niAmt,
-                  grandTotal: data.grandTotal, totalRevenue: data.totalRevenue
-              }).onDuplicateKeyUpdate({ set: {
-                  bfCount: data.bfCount, bfAmt: data.bfAmt,
-                  luVeg: data.luVeg, luNonVeg: data.luNonVeg, luAmt: data.luAmt,
-                  evVeg: data.evVeg, evNonVeg: data.evNonVeg, evAmt: data.evAmt,
-                  niCount: data.niCount, niAmt: data.niAmt,
-                  grandTotal: data.grandTotal, totalRevenue: data.totalRevenue
-              }});
-          }
+          await db.insert(canteenSales).values({
+              recordDate: today,
+              bfCount: data.bfCount, bfAmt: data.bfAmt,
+              luVeg: data.luVeg, luNonVeg: data.luNonVeg, luAmt: data.luAmt,
+              evVeg: data.evVeg, evNonVeg: data.evNonVeg, evAmt: data.evAmt,
+              niCount: data.niCount, niAmt: data.niAmt,
+              grandTotal: data.grandTotal, totalRevenue: data.totalRevenue
+          }).onDuplicateKeyUpdate({ set: {
+              bfCount: data.bfCount, bfAmt: data.bfAmt,
+              luVeg: data.luVeg, luNonVeg: data.luNonVeg, luAmt: data.luAmt,
+              evVeg: data.evVeg, evNonVeg: data.evNonVeg, evAmt: data.evAmt,
+              niCount: data.niCount, niAmt: data.niAmt,
+              grandTotal: data.grandTotal, totalRevenue: data.totalRevenue
+          }});
+          
           res.status(200).json({ success: true, message: "Data Saved to Database!" });
       } catch (error: any) {
           console.error("Database Insert Error:", error);
@@ -118,7 +117,6 @@ export async function registerRoutes(
       }
   });
 
-  // --- REPORT FETCH API ---
   app.get('/api/get-report', async (req: any, res: any) => {
       try {
           const queryDate = req.query.date; 
@@ -134,21 +132,15 @@ export async function registerRoutes(
       }
   });
 
-  // === AUTH ROUTES (no auth required) ===
   app.post(api.auth.login.path, async (req, res) => {
     try {
       const { username, password } = api.auth.login.input.parse(req.body);
       const user = await storage.getUserByUsername(username);
-      if (!user) {
-        return res.status(401).json({ message: "Invalid username or password" });
-      }
-      if (!user.isActive) {
-        return res.status(401).json({ message: "Account is disabled" });
-      }
+      if (!user) return res.status(401).json({ message: "Invalid username or password" });
+      if (!user.isActive) return res.status(401).json({ message: "Account is disabled" });
       const valid = await bcrypt.compare(password, user.passwordHash);
-      if (!valid) {
-        return res.status(401).json({ message: "Invalid username or password" });
-      }
+      if (!valid) return res.status(401).json({ message: "Invalid username or password" });
+      
       req.session.userId = user.id;
       req.session.username = user.username;
       req.session.role = user.role;
@@ -157,16 +149,11 @@ export async function registerRoutes(
       req.session.permissions = user.permissions;
       req.session.employeeId = user.employeeId;
       req.session.save((err) => {
-        if (err) {
-          console.error("Session save error:", err);
-          return res.status(500).json({ message: "Session save failed" });
-        }
+        if (err) return res.status(500).json({ message: "Session save failed" });
         res.json({ id: user.id, username: user.username, displayName: user.displayName, role: user.role, clientName: user.clientName, permissions: user.permissions, employeeId: user.employeeId });
       });
     } catch (err) {
-      if (err instanceof z.ZodError) {
-        return res.status(400).json({ message: err.errors[0].message });
-      }
+      if (err instanceof z.ZodError) return res.status(400).json({ message: err.errors[0].message });
       throw err;
     }
   });
@@ -249,9 +236,7 @@ export async function registerRoutes(
   });
 
   app.get(api.auth.me.path, (req, res) => {
-    if (!req.session.userId) {
-      return res.status(401).json({ message: "Not authenticated" });
-    }
+    if (!req.session.userId) return res.status(401).json({ message: "Not authenticated" });
     res.json({
       id: req.session.userId,
       displayName: req.session.displayName,
@@ -263,7 +248,6 @@ export async function registerRoutes(
     });
   });
 
-  // === EMPLOYEE SELF-SERVICE ROUTES ===
   app.get("/api/employee/me", requireAuth, async (req, res) => {
     const employeeId = req.session.employeeId;
     if (!employeeId) return res.status(404).json({ message: "No linked employee" });
@@ -319,7 +303,6 @@ export async function registerRoutes(
     res.json(row);
   });
 
-  // === USER MANAGEMENT ROUTES (admin only) ===
   app.get(api.users.list.path, requireAdmin, async (req, res) => {
     const users = await storage.getUsers();
     res.json(users);
@@ -331,9 +314,7 @@ export async function registerRoutes(
       const user = await storage.createUser(input);
       res.status(201).json(user);
     } catch (err) {
-      if (err instanceof z.ZodError) {
-        return res.status(400).json({ message: err.errors[0].message });
-      }
+      if (err instanceof z.ZodError) return res.status(400).json({ message: err.errors[0].message });
       if (err instanceof Error && 'code' in (err as any) && (err as any).code === '23505') {
         return res.status(400).json({ message: 'This username already exists.' });
       }
@@ -351,9 +332,7 @@ export async function registerRoutes(
       const user = await storage.updateUser(id, input);
       res.json(user);
     } catch (err) {
-      if (err instanceof z.ZodError) {
-        return res.status(400).json({ message: err.errors[0].message });
-      }
+      if (err instanceof z.ZodError) return res.status(400).json({ message: err.errors[0].message });
       throw err;
     }
   });
@@ -363,7 +342,6 @@ export async function registerRoutes(
     res.status(204).send();
   });
 
-  // === PROTECTED ROUTES (require auth) ===
   app.get(api.reports.list.path, requirePermission('expense'), async (req, res) => {
     const reports = await storage.getReports();
     res.json(reports);
@@ -371,9 +349,7 @@ export async function registerRoutes(
 
   app.get(api.reports.get.path, requirePermission('expense'), async (req, res) => {
     const report = await storage.getReport(Number(req.params.id));
-    if (!report) {
-      return res.status(404).json({ message: 'Report not found' });
-    }
+    if (!report) return res.status(404).json({ message: 'Report not found' });
     res.json(report);
   });
 
@@ -383,12 +359,7 @@ export async function registerRoutes(
       const report = await storage.createReport(input);
       res.status(201).json(report);
     } catch (err) {
-      if (err instanceof z.ZodError) {
-        return res.status(400).json({
-          message: err.errors[0].message,
-          field: err.errors[0].path.join('.'),
-        });
-      }
+      if (err instanceof z.ZodError) return res.status(400).json({ message: err.errors[0].message, field: err.errors[0].path.join('.') });
       if (err instanceof Error && 'code' in (err as any) && (err as any).code === '23505') {
         return res.status(400).json({ message: 'A report for this date already exists. Each day can only have one report.' });
       }
@@ -402,15 +373,8 @@ export async function registerRoutes(
       const report = await storage.updateReport(Number(req.params.id), input);
       res.json(report);
     } catch (err) {
-      if (err instanceof z.ZodError) {
-        return res.status(400).json({
-          message: err.errors[0].message,
-          field: err.errors[0].path.join('.'),
-        });
-      }
-      if (err instanceof Error && err.message === "Report not found") {
-        return res.status(404).json({ message: "Report not found" });
-      }
+      if (err instanceof z.ZodError) return res.status(400).json({ message: err.errors[0].message, field: err.errors[0].path.join('.') });
+      if (err instanceof Error && err.message === "Report not found") return res.status(404).json({ message: "Report not found" });
       throw err;
     }
   });
@@ -441,12 +405,7 @@ export async function registerRoutes(
       const item = await storage.createVegetableItem(input);
       res.status(201).json(item);
     } catch (err) {
-      if (err instanceof z.ZodError) {
-        return res.status(400).json({
-          message: err.errors[0].message,
-          field: err.errors[0].path.join('.'),
-        });
-      }
+      if (err instanceof z.ZodError) return res.status(400).json({ message: err.errors[0].message, field: err.errors[0].path.join('.') });
       throw err;
     }
   });
@@ -457,15 +416,8 @@ export async function registerRoutes(
       const item = await storage.updateVegetableItem(Number(req.params.id), input);
       res.json(item);
     } catch (err) {
-      if (err instanceof z.ZodError) {
-        return res.status(400).json({
-          message: err.errors[0].message,
-          field: err.errors[0].path.join('.'),
-        });
-      }
-      if (err instanceof Error && err.message === "Vegetable not found") {
-        return res.status(404).json({ message: "Vegetable not found" });
-      }
+      if (err instanceof z.ZodError) return res.status(400).json({ message: err.errors[0].message, field: err.errors[0].path.join('.') });
+      if (err instanceof Error && err.message === "Vegetable not found") return res.status(404).json({ message: "Vegetable not found" });
       throw err;
     }
   });
@@ -475,7 +427,6 @@ export async function registerRoutes(
     res.status(204).send();
   });
 
-  // === CASH SEAL ROUTES ===
   app.get('/api/cash-seals/by-date/:date', requireAuth, async (req, res) => {
     const dateStr = req.params.date;
     const seals = await storage.getCashSeals();
@@ -499,14 +450,10 @@ export async function registerRoutes(
     try {
       const input = api.cashSeals.create.input.parse(req.body);
       const seal = await storage.createCashSeal(input);
-      if (seal?.reportId) {
-        await storage.syncCashSealToReport(seal.reportId, Number(input.totalGivenToAkbarAli) || 0);
-      }
+      if (seal?.reportId) await storage.syncCashSealToReport(seal.reportId, Number(input.totalGivenToAkbarAli) || 0);
       res.status(201).json(seal);
     } catch (err) {
-      if (err instanceof z.ZodError) {
-        return res.status(400).json({ message: err.errors[0].message, field: err.errors[0].path.join('.') });
-      }
+      if (err instanceof z.ZodError) return res.status(400).json({ message: err.errors[0].message, field: err.errors[0].path.join('.') });
       throw err;
     }
   });
@@ -515,9 +462,7 @@ export async function registerRoutes(
     try {
       const id = Number(req.params.id);
       const seal = await storage.updateCashSeal(id, req.body);
-      if (seal?.reportId) {
-        await storage.syncCashSealToReport(seal.reportId, Number(req.body.totalGivenToAkbarAli) || 0);
-      }
+      if (seal?.reportId) await storage.syncCashSealToReport(seal.reportId, Number(req.body.totalGivenToAkbarAli) || 0);
       res.json(seal);
     } catch (err) {
       throw err;
@@ -534,7 +479,6 @@ export async function registerRoutes(
     }
   });
 
-  // === INVENTORY ROUTES ===
   app.get(api.inventory.list.path, requirePermission('inventory'), async (req, res) => {
     const inventories = await storage.getInventories();
     res.json(inventories);
@@ -552,12 +496,8 @@ export async function registerRoutes(
       const inv = await storage.createInventory(input);
       res.status(201).json(inv);
     } catch (err) {
-      if (err instanceof z.ZodError) {
-        return res.status(400).json({ message: err.errors[0].message, field: err.errors[0].path.join('.') });
-      }
-      if (err instanceof Error && 'code' in (err as any) && (err as any).code === '23505') {
-        return res.status(400).json({ message: 'An inventory record for this date already exists.' });
-      }
+      if (err instanceof z.ZodError) return res.status(400).json({ message: err.errors[0].message, field: err.errors[0].path.join('.') });
+      if (err instanceof Error && 'code' in (err as any) && (err as any).code === '23505') return res.status(400).json({ message: 'An inventory record for this date already exists.' });
       throw err;
     }
   });
@@ -568,12 +508,8 @@ export async function registerRoutes(
       const inv = await storage.updateInventory(Number(req.params.id), input);
       res.json(inv);
     } catch (err) {
-      if (err instanceof z.ZodError) {
-        return res.status(400).json({ message: err.errors[0].message, field: err.errors[0].path.join('.') });
-      }
-      if (err instanceof Error && err.message === "Inventory not found") {
-        return res.status(404).json({ message: "Inventory not found" });
-      }
+      if (err instanceof z.ZodError) return res.status(400).json({ message: err.errors[0].message, field: err.errors[0].path.join('.') });
+      if (err instanceof Error && err.message === "Inventory not found") return res.status(404).json({ message: "Inventory not found" });
       throw err;
     }
   });
@@ -583,7 +519,6 @@ export async function registerRoutes(
     res.status(204).send();
   });
 
-  // === MENU ROUTES ===
   app.get(api.menus.list.path, requirePermission('menu'), async (req, res) => {
     const menus = await storage.getSavedMenus();
     res.json(menus);
@@ -602,15 +537,11 @@ export async function registerRoutes(
       try {
         const menuData = JSON.parse(input.menuData);
         const menuItemNames = Array.from(new Set(Object.values(menuData).filter((v): v is string => typeof v === 'string' && v.trim().length > 0)));
-        if (menuItemNames.length > 0) {
-          await storage.saveItemNames(menuItemNames as string[], 'menu');
-        }
+        if (menuItemNames.length > 0) await storage.saveItemNames(menuItemNames as string[], 'menu');
       } catch {}
       res.status(201).json(menu);
     } catch (err) {
-      if (err instanceof z.ZodError) {
-        return res.status(400).json({ message: err.errors[0].message, field: err.errors[0].path.join('.') });
-      }
+      if (err instanceof z.ZodError) return res.status(400).json({ message: err.errors[0].message, field: err.errors[0].path.join('.') });
       throw err;
     }
   });
@@ -643,15 +574,11 @@ export async function registerRoutes(
     res.status(204).send();
   });
 
-  // === PURCHASE REQUEST ROUTES ===
   app.get(api.purchaseRequests.list.path, requirePermission('purchase'), async (req, res) => {
     const requests = await storage.getPurchaseRequests();
-    if (req.session.role === 'admin') {
-      res.json(requests);
-    } else {
-      const username = req.session.displayName || req.session.username || '';
-      res.json(requests.filter(r => r.createdBy === username));
-    }
+    if (req.session.role === 'admin') return res.json(requests);
+    const username = req.session.displayName || req.session.username || '';
+    res.json(requests.filter(r => r.createdBy === username));
   });
 
   app.get(api.purchaseRequests.get.path, requirePermission('purchase'), async (req, res) => {
@@ -659,9 +586,7 @@ export async function registerRoutes(
     if (!request) return res.status(404).json({ message: "Purchase request not found" });
     if (req.session.role !== 'admin') {
       const username = req.session.displayName || req.session.username || '';
-      if (request.createdBy !== username) {
-        return res.status(403).json({ message: "Access denied" });
-      }
+      if (request.createdBy !== username) return res.status(403).json({ message: "Access denied" });
     }
     res.json(request);
   });
@@ -673,14 +598,10 @@ export async function registerRoutes(
       const createdByName = req.session.displayName || req.session.username || '';
       const request = await storage.createPurchaseRequest({ ...safeInput, createdBy: createdByName });
       const itemNames = safeInput.items.map((i: any) => i.itemName).filter((n: string) => n.trim());
-      if (itemNames.length > 0) {
-        await storage.saveItemNames(itemNames, 'purchase');
-      }
+      if (itemNames.length > 0) await storage.saveItemNames(itemNames, 'purchase');
       res.status(201).json(request);
     } catch (err) {
-      if (err instanceof z.ZodError) {
-        return res.status(400).json({ message: err.errors[0].message, field: err.errors[0].path.join('.') });
-      }
+      if (err instanceof z.ZodError) return res.status(400).json({ message: err.errors[0].message, field: err.errors[0].path.join('.') });
       throw err;
     }
   });
@@ -689,18 +610,12 @@ export async function registerRoutes(
     try {
       const input = api.purchaseRequests.update.input.parse(req.body);
       const updateData: any = { ...input };
-      if (input.status === 'approved') {
-        updateData.approvedBy = req.session.displayName || req.session.username || '';
-      }
+      if (input.status === 'approved') updateData.approvedBy = req.session.displayName || req.session.username || '';
       const request = await storage.updatePurchaseRequest(Number(req.params.id), updateData);
       res.json(request);
     } catch (err) {
-      if (err instanceof z.ZodError) {
-        return res.status(400).json({ message: err.errors[0].message, field: err.errors[0].path.join('.') });
-      }
-      if (err instanceof Error && err.message === "Purchase request not found") {
-        return res.status(404).json({ message: "Purchase request not found" });
-      }
+      if (err instanceof z.ZodError) return res.status(400).json({ message: err.errors[0].message, field: err.errors[0].path.join('.') });
+      if (err instanceof Error && err.message === "Purchase request not found") return res.status(404).json({ message: "Purchase request not found" });
       throw err;
     }
   });
@@ -710,7 +625,6 @@ export async function registerRoutes(
     res.status(204).send();
   });
 
-  // === VENDOR ROUTES ===
   app.get(api.vendors.list.path, requireAuth, async (req, res) => {
     const vendorsList = await storage.getVendors();
     res.json(vendorsList);
@@ -722,12 +636,8 @@ export async function registerRoutes(
       const vendor = await storage.createVendor(input);
       res.status(201).json(vendor);
     } catch (err) {
-      if (err instanceof z.ZodError) {
-        return res.status(400).json({ message: err.errors[0].message, field: err.errors[0].path.join('.') });
-      }
-      if (err instanceof Error && 'code' in (err as any) && (err as any).code === '23505') {
-        return res.status(400).json({ message: 'This vendor already exists.' });
-      }
+      if (err instanceof z.ZodError) return res.status(400).json({ message: err.errors[0].message, field: err.errors[0].path.join('.') });
+      if (err instanceof Error && 'code' in (err as any) && (err as any).code === '23505') return res.status(400).json({ message: 'This vendor already exists.' });
       throw err;
     }
   });
@@ -738,9 +648,7 @@ export async function registerRoutes(
       const vendor = await storage.updateVendor(Number(req.params.id), input);
       res.json(vendor);
     } catch (err) {
-      if (err instanceof Error && err.message === "Vendor not found") {
-        return res.status(404).json({ message: "Vendor not found" });
-      }
+      if (err instanceof Error && err.message === "Vendor not found") return res.status(404).json({ message: "Vendor not found" });
       throw err;
     }
   });
@@ -750,7 +658,6 @@ export async function registerRoutes(
     res.status(204).send();
   });
 
-  // === PURCHASE INVOICE ROUTES ===
   app.get(api.purchaseInvoices.lastPrices.path, requireAuth, async (req, res) => {
     const prices = await storage.getLastPurchasePrices();
     res.json(prices);
@@ -786,9 +693,7 @@ export async function registerRoutes(
       const category = req.query.category ? String(req.query.category) : undefined;
       const rows = await storage.getExpenseItemStockReport(year, category);
       res.json(rows);
-    } catch (e: any) {
-      res.status(500).json({ error: e.message });
-    }
+    } catch (e: any) { res.status(500).json({ error: e.message }); }
   });
 
   app.get('/api/purchase-invoices/item-stock-report', requireAuth, async (req, res) => {
@@ -797,18 +702,14 @@ export async function registerRoutes(
       const clientName = req.query.client ? String(req.query.client) : undefined;
       const rows = await storage.getItemStockReport(year, clientName);
       res.json(rows);
-    } catch (e: any) {
-      res.status(500).json({ error: e.message });
-    }
+    } catch (e: any) { res.status(500).json({ error: e.message }); }
   });
 
   app.get('/api/purchase-invoices/item-stock-clients', requireAuth, async (req, res) => {
     try {
       const clients = await storage.getItemStockClients();
       res.json(clients);
-    } catch (e: any) {
-      res.status(500).json({ error: e.message });
-    }
+    } catch (e: any) { res.status(500).json({ error: e.message }); }
   });
 
   app.get('/api/purchase-invoices/price-history', requireAuth, async (req, res) => {
@@ -819,9 +720,7 @@ export async function registerRoutes(
       const to   = req.query.to   ? String(req.query.to)   : undefined;
       const rows = await storage.getPriceHistory(item, from, to);
       res.json(rows);
-    } catch (e: any) {
-      res.status(500).json({ error: e.message });
-    }
+    } catch (e: any) { res.status(500).json({ error: e.message }); }
   });
 
   app.get(api.purchaseInvoices.get.path, requirePermission('purchase'), async (req, res) => {
@@ -840,12 +739,8 @@ export async function registerRoutes(
       const invoice = await storage.createPurchaseInvoice({ ...input, createdBy: createdByName });
       res.status(201).json(invoice);
     } catch (err) {
-      if (err instanceof z.ZodError) {
-        return res.status(400).json({ message: err.errors[0].message, field: err.errors[0].path.join('.') });
-      }
-      if (err instanceof Error && err.message.includes('already exists')) {
-        return res.status(409).json({ message: err.message });
-      }
+      if (err instanceof z.ZodError) return res.status(400).json({ message: err.errors[0].message, field: err.errors[0].path.join('.') });
+      if (err instanceof Error && err.message.includes('already exists')) return res.status(409).json({ message: err.message });
       throw err;
     }
   });
@@ -861,15 +756,9 @@ export async function registerRoutes(
       const invoice = await storage.updatePurchaseInvoice(Number(req.params.id), input);
       res.json(invoice);
     } catch (err) {
-      if (err instanceof z.ZodError) {
-        return res.status(400).json({ message: err.errors[0].message, field: err.errors[0].path.join('.') });
-      }
-      if (err instanceof Error && err.message === "Purchase invoice not found") {
-        return res.status(404).json({ message: "Purchase invoice not found" });
-      }
-      if (err instanceof Error && err.message.includes('already exists')) {
-        return res.status(409).json({ message: err.message });
-      }
+      if (err instanceof z.ZodError) return res.status(400).json({ message: err.errors[0].message, field: err.errors[0].path.join('.') });
+      if (err instanceof Error && err.message === "Purchase invoice not found") return res.status(404).json({ message: "Purchase invoice not found" });
+      if (err instanceof Error && err.message.includes('already exists')) return res.status(409).json({ message: err.message });
       throw err;
     }
   });
@@ -883,9 +772,7 @@ export async function registerRoutes(
     try {
       const result = await storage.renumberDjInvoiceNos();
       res.json(result);
-    } catch (e: any) {
-      res.status(500).json({ message: e.message });
-    }
+    } catch (e: any) { res.status(500).json({ message: e.message }); }
   });
 
   app.get('/api/payment-outs', requirePermission('purchase'), async (req: any, res) => {
@@ -942,9 +829,7 @@ export async function registerRoutes(
 
   app.delete('/api/payment-outs/:id', requirePermission('purchase'), async (req: any, res) => {
     try {
-      if (req.session.role !== 'admin') {
-        return res.status(403).json({ message: "Only the admin can delete a payment out" });
-      }
+      if (req.session.role !== 'admin') return res.status(403).json({ message: "Only the admin can delete a payment out" });
       await storage.deletePaymentOut(Number(req.params.id));
       res.status(204).end();
     } catch (e: any) { res.status(500).json({ message: e.message }); }
@@ -960,9 +845,7 @@ export async function registerRoutes(
       await storage.applyVendorAdvanceToInvoice(invoice.id);
       await storage.applyExcessToLaterInvoices(invoice.id);
       res.json({ message: "Advance adjustment updated" });
-    } catch (e: any) {
-      res.status(500).json({ message: e.message });
-    }
+    } catch (e: any) { res.status(500).json({ message: e.message }); }
   });
 
   app.get(api.purchaseInvoices.getPayments.path, requirePermission('purchase'), async (req, res) => {
@@ -986,9 +869,7 @@ export async function registerRoutes(
       const payment = await storage.addPurchaseInvoicePayment({ ...input, invoiceId: Number(req.params.id) });
       res.status(201).json(payment);
     } catch (err) {
-      if (err instanceof z.ZodError) {
-        return res.status(400).json({ message: err.errors[0].message });
-      }
+      if (err instanceof z.ZodError) return res.status(400).json({ message: err.errors[0].message });
       throw err;
     }
   });
@@ -1009,9 +890,7 @@ export async function registerRoutes(
       const input = api.purchaseInvoices.updatePayment.input.parse(req.body);
       const updated = await storage.updatePurchaseInvoicePayment(Number(req.params.id), input);
       res.json(updated);
-    } catch (e: any) {
-      res.status(400).json({ message: e.message });
-    }
+    } catch (e: any) { res.status(400).json({ message: e.message }); }
   });
 
   app.delete(api.purchaseInvoices.deletePayment.path, requireAdmin, async (req, res) => {
@@ -1040,12 +919,8 @@ export async function registerRoutes(
       const item = await storage.createClientName(input);
       res.status(201).json(item);
     } catch (err) {
-      if (err instanceof z.ZodError) {
-        return res.status(400).json({ message: err.errors[0].message, field: err.errors[0].path.join('.') });
-      }
-      if (err instanceof Error && 'code' in (err as any) && (err as any).code === '23505') {
-        return res.status(400).json({ message: 'This client name already exists.' });
-      }
+      if (err instanceof z.ZodError) return res.status(400).json({ message: err.errors[0].message, field: err.errors[0].path.join('.') });
+      if (err instanceof Error && 'code' in (err as any) && (err as any).code === '23505') return res.status(400).json({ message: 'This client name already exists.' });
       throw err;
     }
   });
@@ -1056,12 +931,8 @@ export async function registerRoutes(
       const item = await storage.updateClientName(Number(req.params.id), input);
       res.json(item);
     } catch (err) {
-      if (err instanceof z.ZodError) {
-        return res.status(400).json({ message: err.errors[0].message, field: err.errors[0].path.join('.') });
-      }
-      if (err instanceof Error && err.message === "Client not found") {
-        return res.status(404).json({ message: "Client not found" });
-      }
+      if (err instanceof z.ZodError) return res.status(400).json({ message: err.errors[0].message, field: err.errors[0].path.join('.') });
+      if (err instanceof Error && err.message === "Client not found") return res.status(404).json({ message: "Client not found" });
       throw err;
     }
   });
@@ -1071,23 +942,14 @@ export async function registerRoutes(
     res.status(204).send();
   });
 
-  // ==========================================
-  // NOMINATIONS FORMS API (Form II, III, VII) - SAFE VERSION
-  // ==========================================
-
-  // 1. GET: Saare saved nominations
   app.get("/api/nominations", async (req, res) => {
     try {
       const { formType, employeeId } = req.query;
       const results = await db.select().from(employeeNominations);
       
       let filtered = results;
-      if (formType) {
-          filtered = filtered.filter(r => r.formType === formType);
-      }
-      if (employeeId) {
-          filtered = filtered.filter(r => r.employeeId === Number(employeeId));
-      }
+      if (formType) filtered = filtered.filter(r => r.formType === formType);
+      if (employeeId) filtered = filtered.filter(r => r.employeeId === Number(employeeId));
       
       const mappedResults = filtered.map(nom => ({
           nomination: nom,
@@ -1101,15 +963,12 @@ export async function registerRoutes(
     }
   });
 
-  // 2. GET (Single)
   app.get("/api/nominations/:id", async (req, res) => {
     try {
       const id = Number(req.params.id);
       const results = await db.select().from(employeeNominations).where(eq(employeeNominations.id, id));
       
-      if (!results || results.length === 0) {
-          return res.status(404).json({ message: "Nomination nahi mila" });
-      }
+      if (!results || results.length === 0) return res.status(404).json({ message: "Nomination nahi mila" });
       
       const nomination = results[0];
       const nominees = await db.select().from(nominationNominees).where(eq(nominationNominees.nominationId, id));
@@ -1121,14 +980,10 @@ export async function registerRoutes(
     }
   });
 
-  // 3. POST
   app.post("/api/nominations", async (req, res) => {
     try {
       const { nomination, nominees } = req.body;
-      
-      if (!nomination || !nomination.employeeId) {
-          return res.status(400).json({ message: "Missing required nomination data" });
-      }
+      if (!nomination || !nomination.employeeId) return res.status(400).json({ message: "Missing required nomination data" });
 
       const [insertedNomination] = await db.insert(employeeNominations).values(nomination);
       const nominationId = insertedNomination.insertId;
@@ -1141,7 +996,6 @@ export async function registerRoutes(
         }));
         await db.insert(nominationNominees).values(nomineesData);
       }
-
       res.status(201).json({ id: nominationId, message: "Nomination successfully save ho gaya" });
     } catch (error) {
       console.error("POST /nominations Error:", error);
@@ -1149,7 +1003,6 @@ export async function registerRoutes(
     }
   });
 
-  // 4. DELETE
   app.delete("/api/nominations/:id", async (req, res) => {
     try {
       const id = Number(req.params.id);
@@ -1162,19 +1015,11 @@ export async function registerRoutes(
     }
   });
 
-  // 5. GET ALL EMPLOYEES
-  app.get("/api/employees", requireAuth, async (req, res) => {
-    try {
-      const clientName = req.query.clientName as string | undefined;
-      // Agar user admin nahi hai, toh sirf uski company/client ke employees dikhaye
-      const effectiveClient = req.session.role === "admin" ? clientName : req.session.clientName;
-      
-      const employeesList = await storage.getEmployees(effectiveClient);
-      res.json(employeesList);
-    } catch (err: any) {
-      console.error("Error fetching employees:", err);
-      res.status(500).json({ message: "Employees fetch karne mein error aayi" });
-    }
+  app.get("/api/employees", requirePermission('labour'), async (req, res) => {
+    const clientName = effectiveClientName(req, req.query.clientName as string | undefined);
+    if (clientName === false) return res.status(403).json({ message: "Client scope required" });
+    const employeesData = await storage.getEmployees(clientName);
+    res.json(employeesData);
   });
 
   app.get("/api/employees/:id", requireAdmin, async (req, res) => {
@@ -1208,11 +1053,6 @@ export async function registerRoutes(
     await storage.deleteEmployee(Number(req.params.id));
     res.status(204).send();
   });
-
-  // === REST OF THE ROUTES ===
-  // Note: All remaining routes from your original code (like WebAuthn, Kiosk, 
-  // Leaves, Wages, Shifts, Reports, etc.) were kept exactly the same to ensure 
-  // no other feature breaks. They are safely enclosed within registerRoutes.
 
   app.get("/api/employees/face-descriptors", requireAuth, async (req, res) => {
     const { clientName } = req.query;
@@ -1262,9 +1102,7 @@ export async function registerRoutes(
       });
       webauthnRegChallenges.set(Number(employeeId), options.challenge);
       res.json(options);
-    } catch (err: any) {
-      res.status(500).json({ message: err.message });
-    }
+    } catch (err: any) { res.status(500).json({ message: err.message }); }
   });
 
   app.post("/api/webauthn/register/verify", requireAuth, async (req, res) => {
@@ -1281,9 +1119,7 @@ export async function registerRoutes(
         expectedRPID: rpID,
         requireUserVerification: true,
       });
-      if (!verification.verified || !verification.registrationInfo) {
-        return res.status(400).json({ message: "Verification failed" });
-      }
+      if (!verification.verified || !verification.registrationInfo) return res.status(400).json({ message: "Verification failed" });
       const { credential } = verification.registrationInfo;
       await storage.saveEmployeeWebAuthnCredential({
         employeeId: Number(employeeId),
@@ -1295,9 +1131,7 @@ export async function registerRoutes(
       });
       webauthnRegChallenges.delete(Number(employeeId));
       res.json({ verified: true });
-    } catch (err: any) {
-      res.status(400).json({ message: err.message || "Verification failed" });
-    }
+    } catch (err: any) { res.status(400).json({ message: err.message || "Verification failed" }); }
   });
 
   app.post("/api/webauthn/authenticate/challenge", requireAuth, async (req, res) => {
@@ -1318,9 +1152,7 @@ export async function registerRoutes(
       });
       webauthnAuthChallenges.set(Number(employeeId), options.challenge);
       res.json(options);
-    } catch (err: any) {
-      res.status(500).json({ message: err.message });
-    }
+    } catch (err: any) { res.status(500).json({ message: err.message }); }
   });
 
   app.post("/api/webauthn/authenticate/verify", requireAuth, async (req, res) => {
@@ -1367,13 +1199,9 @@ export async function registerRoutes(
 
   const requireKioskToken = (req: any, res: any, next: any) => {
     const secret = process.env.KIOSK_SECRET;
-    if (!secret) {
-      return res.status(503).json({ message: "Kiosk is not configured on this server. Set KIOSK_SECRET environment variable." });
-    }
+    if (!secret) return res.status(503).json({ message: "Kiosk is not configured on this server. Set KIOSK_SECRET environment variable." });
     const provided = req.headers["x-kiosk-token"];
-    if (!provided || provided !== secret) {
-      return res.status(401).json({ message: "Unauthorized: invalid or missing kiosk token" });
-    }
+    if (!provided || provided !== secret) return res.status(401).json({ message: "Unauthorized: invalid or missing kiosk token" });
     next();
   };
 
@@ -1478,15 +1306,11 @@ export async function registerRoutes(
   app.post("/api/kiosk/qr-attendance", requireKioskToken, async (req, res) => {
     try {
       const { employeeCode, clientName, attendanceDate } = req.body;
-      if (!employeeCode || !clientName || !attendanceDate) {
-        return res.status(400).json({ message: "employeeCode, clientName and attendanceDate are required" });
-      }
+      if (!employeeCode || !clientName || !attendanceDate) return res.status(400).json({ message: "employeeCode, clientName and attendanceDate are required" });
       const todayDate = new Date().toISOString().slice(0, 10);
-      if (attendanceDate !== todayDate) {
-        return res.status(400).json({ message: "Attendance can only be recorded for today" });
-      }
-      const employees = await storage.getEmployees(clientName);
-      const emp = employees.find((e: any) => {
+      if (attendanceDate !== todayDate) return res.status(400).json({ message: "Attendance can only be recorded for today" });
+      const employeesData = await storage.getEmployees(clientName);
+      const emp = employeesData.find((e: any) => {
         const code = Buffer.isBuffer(e.employeeCode) ? e.employeeCode.toString("utf8") : String(e.employeeCode || "");
         return code.toLowerCase().trim() === String(employeeCode).toLowerCase().trim();
       });
@@ -2793,7 +2617,7 @@ export async function registerRoutes(
     const year = Number(req.query.year) || new Date().getFullYear();
     res.json(await storage.getUblLunchYearlySummary(year));
   });
-  app.get('/api/cipl-date-entries/yearly-summary', requirePermission('salesinvoice'), async (req, res) => {
+  app.get('/api/cipla-date-entries/yearly-summary', requirePermission('salesinvoice'), async (req, res) => {
     const year = Number(req.query.year) || new Date().getFullYear();
     res.json(await storage.getCiplaYearlySummary(year));
   });
@@ -3401,7 +3225,6 @@ export async function registerRoutes(
   return httpServer;
 }
 
-// Helper to seed some initial data
 async function seedDatabase() {
   try {
     const { dbReady } = await import("./db");
@@ -3426,5 +3249,4 @@ async function seedDatabase() {
   }
 }
 
-// Run seeder
 setTimeout(seedDatabase, 1000);
