@@ -390,7 +390,7 @@ export function DateEntryDashboard({ year }: { year: number }) {
         <div className="rounded-xl border bg-amber-50 dark:bg-amber-900/20 p-4 flex flex-col gap-1 shadow-sm">
           <div className="text-xs font-semibold text-amber-700 dark:text-amber-300">UBL — Yearly Meals</div>
           <div className="text-2xl font-bold text-amber-800 dark:text-amber-200">{grandUbl.toLocaleString()}</div>
-          <div className="text-xs text-amber-600">Breakfast + Lunch + Dinner • {pct(grandUbl)}% of total</div>
+          <div className="text-xs text-amber-600">Breakfast + Cont. Brkft + Lunch + Dinner • {pct(grandUbl)}% of total</div>
         </div>
         <div className="rounded-xl border bg-indigo-50 dark:bg-indigo-900/20 p-4 flex flex-col gap-1 shadow-sm">
           <div className="text-xs font-semibold text-indigo-700 dark:text-indigo-300">Cipla — Yearly Meals</div>

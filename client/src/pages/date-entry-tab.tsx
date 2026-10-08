@@ -121,7 +121,10 @@ function UblDateEntryTab({ month, year, loadKey = 0 }: { month: number; year: nu
       const res = await fetch('/api/ubl-date-entries', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(data), credentials: "include" });
       return res.json();
     },
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['/api/ubl-date-entries', month, year] }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['/api/ubl-date-entries', month, year] });
+      qc.invalidateQueries({ queryKey: ['/api/ubl-date-entries/yearly-summary'] });
+    },
   });
 
   const updateMutation = useMutation({
@@ -129,12 +132,18 @@ function UblDateEntryTab({ month, year, loadKey = 0 }: { month: number; year: nu
       const res = await fetch(`/api/ubl-date-entries/${id}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(data), credentials: "include" });
       return res.json();
     },
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['/api/ubl-date-entries', month, year] }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['/api/ubl-date-entries', month, year] });
+      qc.invalidateQueries({ queryKey: ['/api/ubl-date-entries/yearly-summary'] });
+    },
   });
 
   const deleteMutation = useMutation({
     mutationFn: async (id: number) => { await fetch(`/api/ubl-date-entries/${id}`, { method: 'DELETE', credentials: "include" }); },
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['/api/ubl-date-entries', month, year] }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['/api/ubl-date-entries', month, year] });
+      qc.invalidateQueries({ queryKey: ['/api/ubl-date-entries/yearly-summary'] });
+    },
   });
 
   const syncRows = () => { if (localRows.length === 0) setLocalRows(dbRows.map(r => ({ ...r }))); };
@@ -700,7 +709,10 @@ function UblLunchEntryTab({ month, year, loadKey = 0 }: { month: number; year: n
       const res = await fetch('/api/ubl-lunch-entries', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(data), credentials:"include" });
       return res.json();
     },
-    onSuccess: () => qc.invalidateQueries({ queryKey:['/api/ubl-lunch-entries', month, year] }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey:['/api/ubl-lunch-entries', month, year] });
+      qc.invalidateQueries({ queryKey:['/api/ubl-lunch-entries/yearly-summary'] });
+    },
   });
 
   const updateMutation = useMutation({
@@ -708,12 +720,18 @@ function UblLunchEntryTab({ month, year, loadKey = 0 }: { month: number; year: n
       const res = await fetch(`/api/ubl-lunch-entries/${id}`, { method:'PUT', headers:{'Content-Type':'application/json'}, body:JSON.stringify(data), credentials:"include" });
       return res.json();
     },
-    onSuccess: () => qc.invalidateQueries({ queryKey:['/api/ubl-lunch-entries', month, year] }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey:['/api/ubl-lunch-entries', month, year] });
+      qc.invalidateQueries({ queryKey:['/api/ubl-lunch-entries/yearly-summary'] });
+    },
   });
 
   const deleteMutation = useMutation({
     mutationFn: async (id: number) => { await fetch(`/api/ubl-lunch-entries/${id}`, { method:'DELETE', credentials:"include" }); },
-    onSuccess: () => qc.invalidateQueries({ queryKey:['/api/ubl-lunch-entries', month, year] }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey:['/api/ubl-lunch-entries', month, year] });
+      qc.invalidateQueries({ queryKey:['/api/ubl-lunch-entries/yearly-summary'] });
+    },
   });
 
   const syncRows = () => { if (localRows.length === 0) setLocalRows(dbRows.map(r => ({ ...r }))); };
@@ -1232,20 +1250,29 @@ function UnichemSnackTab({ month, year, loadKey = 0 }: { month: number; year: nu
       const res = await fetch('/api/unichem-snack-entries', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(data), credentials: "include" });
       return res.json();
     },
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['/api/unichem-snack-entries', month, year, location] }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['/api/unichem-snack-entries', month, year, location] });
+      qc.invalidateQueries({ queryKey: ['/api/unichem-snack-entries/yearly-summary'] });
+    },
   });
   const updateMutation = useMutation({
     mutationFn: async ({ id, data }: { id: number; data: any }) => {
       const res = await fetch(`/api/unichem-snack-entries/${id}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(data), credentials: "include" });
       return res.json();
     },
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['/api/unichem-snack-entries', month, year, location] }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['/api/unichem-snack-entries', month, year, location] });
+      qc.invalidateQueries({ queryKey: ['/api/unichem-snack-entries/yearly-summary'] });
+    },
   });
   const deleteMutation = useMutation({
     mutationFn: async (id: number) => {
       await fetch(`/api/unichem-snack-entries/${id}`, { method: 'DELETE', credentials: "include" });
     },
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['/api/unichem-snack-entries', month, year, location] }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['/api/unichem-snack-entries', month, year, location] });
+      qc.invalidateQueries({ queryKey: ['/api/unichem-snack-entries/yearly-summary'] });
+    },
   });
 
   const handleSaveRow = async (idx: number) => {
@@ -1942,20 +1969,29 @@ function UnichemMealSubTab({ month, year, location, mealType, loadKey = 0, plate
       const res = await fetch('/api/unichem-lunch-entries', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(data), credentials: "include" });
       return res.json();
     },
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['/api/unichem-lunch-entries', month, year, location, mealType] }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['/api/unichem-lunch-entries', month, year, location, mealType] });
+      qc.invalidateQueries({ queryKey: ['/api/unichem-lunch-entries/yearly-summary'] });
+    },
   });
   const updateMutation = useMutation({
     mutationFn: async ({ id, data }: { id: number; data: any }) => {
       const res = await fetch(`/api/unichem-lunch-entries/${id}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(data), credentials: "include" });
       return res.json();
     },
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['/api/unichem-lunch-entries', month, year, location, mealType] }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['/api/unichem-lunch-entries', month, year, location, mealType] });
+      qc.invalidateQueries({ queryKey: ['/api/unichem-lunch-entries/yearly-summary'] });
+    },
   });
   const deleteMutation = useMutation({
     mutationFn: async (id: number) => {
       await fetch(`/api/unichem-lunch-entries/${id}`, { method: 'DELETE', credentials: "include" });
     },
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['/api/unichem-lunch-entries', month, year, location, mealType] }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['/api/unichem-lunch-entries', month, year, location, mealType] });
+      qc.invalidateQueries({ queryKey: ['/api/unichem-lunch-entries/yearly-summary'] });
+    },
   });
 
   const handleSaveRow = async (idx: number) => {
@@ -2518,7 +2554,10 @@ function CiplaDateEntryTab({ month, year, loadKey = 0 }: { month: number; year: 
       const res = await fetch('/api/cipla-date-entries', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(data), credentials:"include" });
       return res.json();
     },
-    onSuccess: () => qc.invalidateQueries({ queryKey:['/api/cipla-date-entries', month, year] }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey:['/api/cipla-date-entries', month, year] });
+      qc.invalidateQueries({ queryKey:['/api/cipla-date-entries/yearly-summary'] });
+    },
   });
 
   const updateMutation = useMutation({
@@ -2526,12 +2565,18 @@ function CiplaDateEntryTab({ month, year, loadKey = 0 }: { month: number; year: 
       const res = await fetch(`/api/cipla-date-entries/${id}`, { method:'PUT', headers:{'Content-Type':'application/json'}, body:JSON.stringify(data), credentials:"include" });
       return res.json();
     },
-    onSuccess: () => qc.invalidateQueries({ queryKey:['/api/cipla-date-entries', month, year] }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey:['/api/cipla-date-entries', month, year] });
+      qc.invalidateQueries({ queryKey:['/api/cipla-date-entries/yearly-summary'] });
+    },
   });
 
   const deleteMutation = useMutation({
     mutationFn: async (id: number) => { await fetch(`/api/cipla-date-entries/${id}`, { method:'DELETE', credentials:"include" }); },
-    onSuccess: () => qc.invalidateQueries({ queryKey:['/api/cipla-date-entries', month, year] }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey:['/api/cipla-date-entries', month, year] });
+      qc.invalidateQueries({ queryKey:['/api/cipla-date-entries/yearly-summary'] });
+    },
   });
 
   const syncRows = () => { if (localRows.length === 0) setLocalRows(dbRows.map(r => ({ ...r }))); };
@@ -4466,17 +4511,17 @@ function UblSummaryTab({ month, year }: { month: number; year: number }) {
       if (viewMode === 'monthly') {
         // Format 1 Sheet
         const ws1 = wb.addWorksheet('Format 1 - Bill Data');
-        ws1.mergeCells('A1:L1');
+        ws1.mergeCells('A1:M1');
         const t1 = ws1.getCell('A1');
         t1.value = `UBL — Bill Data Sheet — ${label}`; t1.font={bold:true,size:12,color:{argb:'FFFFFFFF'}}; t1.fill=mkFill('FFB45309'); t1.alignment={horizontal:'center'}; t1.border=thin;
-        const h1 = ws1.addRow(['Sl.','Date','Day','Tea(All)','Biscuit(All)','Breakfast','Lunch','Mutton','Tiffin','Boiled Egg','Dinner','Row Total']);
+        const h1 = ws1.addRow(['Sl.','Date','Day','Tea(All)','Biscuit(All)','Breakfast','Cont. Brkft','Lunch','Mutton','Tiffin','Boiled Egg','Dinner','Row Total']);
         h1.eachCell((c: any) => { c.font=wFont; c.fill=mkFill('FFB45309'); c.border=thin; c.alignment={horizontal:'center'}; });
-        ws1.columns=[5,14,8,10,12,12,10,10,10,12,10,12].map((w: number)=>({width:w}));
+        ws1.columns=[5,14,8,10,12,12,12,10,10,10,12,10,12].map((w: number)=>({width:w}));
         dateRows.forEach((r, i) => {
           const tea = (r.tea1||0)+(r.tea2||0)+(r.tea3||0)+(r.tea4||0)+(r.tea5||0)+(r.tea6||0);
           const biscuit = (r.biscuit1||0)+(r.biscuit2||0);
-          const tot = tea + biscuit + (r.breakfast||0) + (r.lunch||0) + (r.mutton||0) + (r.tiffin||0) + (r.boiledEgg||0) + (r.dinner||0);
-          const dr = ws1.addRow([i+1, safeFormat(r.entryDate), r.weekDay, tea||'', biscuit||'', r.breakfast||'', r.lunch||'', r.mutton||'', r.tiffin||'', r.boiledEgg||'', r.dinner||'', tot||'']);
+          const tot = tea + biscuit + (r.breakfast||0) + (r.contractorBreakfast||0) + (r.lunch||0) + (r.mutton||0) + (r.tiffin||0) + (r.boiledEgg||0) + (r.dinner||0);
+          const dr = ws1.addRow([i+1, safeFormat(r.entryDate), r.weekDay, tea||'', biscuit||'', r.breakfast||'', r.contractorBreakfast||'', r.lunch||'', r.mutton||'', r.tiffin||'', r.boiledEgg||'', r.dinner||'', tot||'']);
           if (isSunday(r.entryDate)) dr.eachCell((c: any) => { c.fill=mkFill('FFFFA500'); });
           dr.eachCell((c: any) => { c.border=thin; c.alignment={horizontal:'center'}; });
         });
@@ -4496,18 +4541,18 @@ function UblSummaryTab({ month, year }: { month: number; year: number }) {
       } else {
         // Yearly Format 1
         const ws1 = wb.addWorksheet('Format 1 Yearly');
-        ws1.mergeCells('A1:H1');
+        ws1.mergeCells('A1:I1');
         const t1 = ws1.getCell('A1'); t1.value = `UBL — Bill Data Sheet — Yearly Summary ${yearLabel}`; t1.font={bold:true,size:12,color:{argb:'FFFFFFFF'}}; t1.fill=mkFill('FFB45309'); t1.alignment={horizontal:'center'}; t1.border=thin;
-        const h1 = ws1.addRow(['Billing Period','Breakfast','Lunch','Dinner','Tea (All)','Mutton','Tiffin','Boiled Egg']);
+        const h1 = ws1.addRow(['Billing Period','Breakfast','Cont. Brkft','Lunch','Dinner','Tea (All)','Mutton','Tiffin','Boiled Egg']);
         h1.eachCell((c: any) => { c.font=wFont; c.fill=mkFill('FFB45309'); c.border=thin; c.alignment={horizontal:'center'}; });
-        ws1.columns=[22,12,12,12,12,12,12,12].map((w: number)=>({width:w}));
+        ws1.columns=[22,12,12,12,12,12,12,12,12].map((w: number)=>({width:w}));
         MONTHS.forEach((_mName, mi) => {
           const row = yrDate.find((r: any) => r.month === mi + 1);
           const bpLabel = getBillingRowLabel(mi + 1);
-          const dr = ws1.addRow([bpLabel, row?.breakfast||'', row?.lunch||'', row?.dinner||'', row?.tea||'', row?.mutton||'', row?.tiffin||'', row?.boiledEgg||'']);
+          const dr = ws1.addRow([bpLabel, row?.breakfast||'', row?.contractorBreakfast||'', row?.lunch||'', row?.dinner||'', row?.tea||'', row?.mutton||'', row?.tiffin||'', row?.boiledEgg||'']);
           dr.eachCell((c: any) => { c.border=thin; c.alignment={horizontal:'center'}; });
         });
-        const totRow = ws1.addRow(['Grand Total', sumF(yrDate,'breakfast')||'', sumF(yrDate,'lunch')||'', sumF(yrDate,'dinner')||'', sumF(yrDate,'tea')||'', sumF(yrDate,'mutton')||'', sumF(yrDate,'tiffin')||'', sumF(yrDate,'boiledEgg')||'']);
+        const totRow = ws1.addRow(['Grand Total', sumF(yrDate,'breakfast')||'', sumF(yrDate,'contractorBreakfast')||'', sumF(yrDate,'lunch')||'', sumF(yrDate,'dinner')||'', sumF(yrDate,'tea')||'', sumF(yrDate,'mutton')||'', sumF(yrDate,'tiffin')||'', sumF(yrDate,'boiledEgg')||'']);
         totRow.eachCell((c: any) => { c.font={bold:true}; c.fill=mkFill('FFE8F0FE'); c.border=thin; c.alignment={horizontal:'center'}; });
         // Yearly Format 2
         const ws2 = wb.addWorksheet('Format 2 Yearly');
@@ -4608,6 +4653,7 @@ function UblSummaryTab({ month, year }: { month: number; year: number }) {
                     <th style={thA}>Tiffin</th>
                     <th style={thA}>Boiled Egg</th>
                     <th style={thA}>Dinner</th>
+                    <th style={thA}>Cont. Brkft</th>
                     <th style={{ ...thA, background:'#374151' }}>Total</th>
                   </tr>
                 </thead>
@@ -4616,7 +4662,7 @@ function UblSummaryTab({ month, year }: { month: number; year: number }) {
                     const sun = isSunday(r.entryDate);
                     const tea = (r.tea1||0)+(r.tea2||0)+(r.tea3||0)+(r.tea4||0)+(r.tea5||0)+(r.tea6||0);
                     const biscuit = (r.biscuit1||0)+(r.biscuit2||0);
-                    const rowTot = tea + biscuit + (r.breakfast||0) + (r.lunch||0) + (r.mutton||0) + (r.tiffin||0) + (r.boiledEgg||0) + (r.dinner||0);
+                    const rowTot = tea + biscuit + (r.breakfast||0) + (r.contractorBreakfast||0) + (r.lunch||0) + (r.mutton||0) + (r.tiffin||0) + (r.boiledEgg||0) + (r.dinner||0);
                     return (
                       <tr key={i} style={{ background: sun ? '#ffb380' : undefined }}>
                         <td style={tdS(sun)}>{i+1}</td>
@@ -4630,19 +4676,20 @@ function UblSummaryTab({ month, year }: { month: number; year: number }) {
                         <td style={tdS(sun)}>{r.tiffin || ''}</td>
                         <td style={tdS(sun)}>{r.boiledEgg || ''}</td>
                         <td style={tdS(sun)}>{r.dinner || ''}</td>
+                        <td style={tdS(sun)}>{r.contractorBreakfast || ''}</td>
                         <td style={{ ...tdS(sun), fontWeight:'bold', background: sun ? '#ffa060' : '#f0fdf4' }}>{rowTot || ''}</td>
                       </tr>
                     );
                   })}
                   <tr>
                     <td colSpan={3} style={tdTot}>Total</td>
-                    {(['tea','biscuit','breakfast','lunch','mutton','tiffin','boiledEgg','dinner'] as const).map(f => {
+                    {(['tea','biscuit','breakfast','lunch','mutton','tiffin','boiledEgg','dinner','contractorBreakfast'] as const).map(f => {
                       const v = f === 'tea' ? dateRows.reduce((s,r) => s+(r.tea1||0)+(r.tea2||0)+(r.tea3||0)+(r.tea4||0)+(r.tea5||0)+(r.tea6||0), 0) :
                                f === 'biscuit' ? dateRows.reduce((s,r) => s+(r.biscuit1||0)+(r.biscuit2||0), 0) : sumF(dateRows, f);
                       return <td key={f} style={tdTot}>{v || ''}</td>;
                     })}
                     <td style={{ ...tdTot, background:'#bbf7d0' }}>{dateRows.reduce((s,r) => {
-                      return s + (r.tea1||0)+(r.tea2||0)+(r.tea3||0)+(r.tea4||0)+(r.tea5||0)+(r.tea6||0)+(r.biscuit1||0)+(r.biscuit2||0)+(r.breakfast||0)+(r.lunch||0)+(r.mutton||0)+(r.tiffin||0)+(r.boiledEgg||0)+(r.dinner||0);
+                      return s + (r.tea1||0)+(r.tea2||0)+(r.tea3||0)+(r.tea4||0)+(r.tea5||0)+(r.tea6||0)+(r.biscuit1||0)+(r.biscuit2||0)+(r.breakfast||0)+(r.contractorBreakfast||0)+(r.lunch||0)+(r.mutton||0)+(r.tiffin||0)+(r.boiledEgg||0)+(r.dinner||0);
                     }, 0) || ''}</td>
                   </tr>
                 </tbody>
@@ -4698,6 +4745,7 @@ function UblSummaryTab({ month, year }: { month: number; year: number }) {
                 { name:'Tea (All)',  rate:7,   qty: dateRows.reduce((s,r)=>s+(r.tea1||0)+(r.tea2||0)+(r.tea3||0)+(r.tea4||0)+(r.tea5||0)+(r.tea6||0),0) },
                 { name:'Biscuit',   rate:0.5, qty: dateRows.reduce((s,r)=>s+(r.biscuit1||0)+(r.biscuit2||0),0) },
                 { name:'Breakfast', rate:20,  qty: sumF(dateRows,'breakfast') },
+                { name:'Cont. Brkft',rate:25, qty: sumF(dateRows,'contractorBreakfast') },
                 { name:'Lunch',     rate:50,  qty: sumF(dateRows,'lunch') },
                 { name:'Mutton',    rate:149, qty: sumF(dateRows,'mutton') },
                 { name:'Tiffin',    rate:25,  qty: sumF(dateRows,'tiffin') },
@@ -4743,7 +4791,7 @@ function UblSummaryTab({ month, year }: { month: number; year: number }) {
 
         {!isLoading && viewMode === 'yearly' && (
           <>
-            <YearlyTable data={yrDate} fields={['breakfast','lunch','dinner','tea','mutton','tiffin','boiledEgg']} headers={['Breakfast','Lunch','Dinner','Tea (All)','Mutton','Tiffin','Boiled Egg']} title="Format 1 — Bill Data Sheet" hStyle={thA} />
+            <YearlyTable data={yrDate} fields={['breakfast','contractorBreakfast','lunch','dinner','tea','mutton','tiffin','boiledEgg']} headers={['Breakfast','Cont. Brkft','Lunch','Dinner','Tea (All)','Mutton','Tiffin','Boiled Egg']} title="Format 1 — Bill Data Sheet" hStyle={thA} />
             <YearlyTable data={yrLunch} fields={['perment','casual','contractual','canteen']} headers={['Permanent','Casual','Contractual','Canteen']} title="Format 2 — Lunch Per Day" hStyle={thC} />
             {/* UBL Yearly Rate Wise Summary */}
             {(() => {
@@ -4752,6 +4800,7 @@ function UblSummaryTab({ month, year }: { month: number; year: number }) {
                 { field:'tea',       name:'Tea (All)',   rate:7   },
                 { field:'biscuit',   name:'Biscuit',     rate:0.5 },
                 { field:'breakfast', name:'Breakfast',   rate:20  },
+                { field:'contractorBreakfast', name:'Cont. Brkft', rate:25 },
                 { field:'lunch',     name:'Lunch',       rate:50  },
                 { field:'mutton',    name:'Mutton',      rate:149 },
                 { field:'tiffin',    name:'Tiffin',      rate:25  },
@@ -6948,6 +6997,8 @@ function PecVenturesTab({ month, year, loadKey = 0 }: { month: number; year: num
         body: JSON.stringify({ month, year }), credentials: 'include',
       });
       await qc.invalidateQueries({ queryKey: ['/api/pec-ventures-entries', month, year] });
+      await qc.invalidateQueries({ queryKey: ['/api/pec-ventures-entries/yearly-summary'] });
+      await qc.invalidateQueries({ queryKey: ['/api/pec-ventures-entries/lunch-yearly-summary'] });
       await qc.invalidateQueries({ queryKey: ['/api/pec-ventures-rates', month, year] });
       toast({ title: 'Saved', description: 'PEC Ventures canteen data saved successfully.' });
     } catch (err: any) {
