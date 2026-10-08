@@ -9,9 +9,10 @@ import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
-import { Plus, Trash2, Pencil, Save, Users, Printer, Download, Upload, FileSpreadsheet, MessageCircle } from "lucide-react";
+import { Plus, Trash2, Pencil, Save, Users, Printer, Download, Upload, FileSpreadsheet, MessageCircle, ArrowLeft } from "lucide-react";
 import * as XLSX from "xlsx";
 import { useRef } from "react";
+import { useLocation } from "wouter";
 import qrImg from "@assets/image_1786018663605.png";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, Legend, CartesianGrid } from "recharts";
@@ -59,6 +60,7 @@ function amountInWords(amount: number): string {
 const MONTHS = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
 
 export default function ContractorMealsPage() {
+  const [, navigate] = useLocation();
   const { data: user } = useCurrentUser();
   const isAdmin = user?.role === "admin";
   const { toast } = useToast();
@@ -952,9 +954,20 @@ ${tbl(`Contractor-wise (${dashPeriodLabel})`, dashContractors.map((c) => ({ labe
 
   return (
     <div className="p-4 md:p-6 space-y-4 max-w-6xl mx-auto">
-      <div className="flex items-center gap-2">
-        <Users className="h-6 w-6 text-primary" />
-        <h1 className="text-xl md:text-2xl font-bold" data-testid="text-page-title">Contractor Meal Entry</h1>
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex items-center gap-2">
+          <Users className="h-6 w-6 text-primary" />
+          <h1 className="text-xl md:text-2xl font-bold" data-testid="text-page-title">Contractor Meal Entry</h1>
+        </div>
+        <Button
+          variant="outline"
+          onClick={() => navigate("/")}
+          className="w-fit print:hidden"
+          data-testid="button-back-dashboard"
+        >
+          <ArrowLeft className="h-4 w-4" />
+          Back to Dashboard
+        </Button>
       </div>
 
       <Tabs defaultValue="entry">
