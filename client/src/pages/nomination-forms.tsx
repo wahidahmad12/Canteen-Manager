@@ -19,7 +19,7 @@ export default function NominationFormsPage() {
           Back to Dashboard
         </Button>
         <div>
-          <h1 className="text-2xl font-bold text-slate-800">Nomination Forms</h1>
+          <h1 className="text-2xl font-bold text-slate-800 print:hidden">Nomination Forms</h1>
           <p className="text-sm text-slate-500 mt-1 print:hidden">
             Generate, save and print statutory nomination forms (Form II, Form III, Form VII)
           </p>

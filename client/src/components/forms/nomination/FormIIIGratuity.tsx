@@ -55,6 +55,7 @@ export default function FormIIIGratuity({ data }: { data: any }) {
             ))}
           </tbody>
         </table>
+        <p className="nomination-form-page-number">Page 1 of 3</p>
       </section>
 
       <section className="nomination-form-page">
@@ -110,6 +111,7 @@ export default function FormIIIGratuity({ data }: { data: any }) {
           person(s) nominated is/are entitled to receive the gratuity in accordance with the
           provisions of the Code on Social Security, 2020.
         </p>
+        <p className="nomination-form-page-number">Page 2 of 3</p>
       </section>
 
       <section className="nomination-form-page">
@@ -155,6 +157,7 @@ export default function FormIIIGratuity({ data }: { data: any }) {
           <div>Date: ____________________</div>
           <div>Signature of the Employee</div>
         </div>
+        <p className="nomination-form-page-number">Page 3 of 3</p>
       </section>
     </div>
   );
