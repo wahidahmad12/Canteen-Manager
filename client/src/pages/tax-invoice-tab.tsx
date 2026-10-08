@@ -8,7 +8,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { useToast } from "@/hooks/use-toast";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
-import { Plus, Save, Loader2, Pencil, Trash2, Printer, X, Receipt, Eye, Search, Calendar as CalendarIcon } from "lucide-react";
+import { Plus, Save, Loader2, Pencil, Trash2, Printer, X, Receipt, Eye, Search, Calendar as CalendarIcon, Copy } from "lucide-react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Checkbox } from "@/components/ui/checkbox";
 import logoPath from "@assets/logo1_1771660912341.png";
@@ -420,6 +420,41 @@ export function TaxInvoiceTab({ clients }: { clients: ClientOption[] }) {
     setDialogOpen(true);
   }
 
+  async function openDuplicate(inv: TaxInvoice) {
+    setEditing(null);
+    setInvoiceNumber("");
+    setInvoiceDate(toInputDate(inv.invoiceDate));
+    setPoNumber(inv.poNumber || "");
+    setPoDate(toInputDate(inv.poDate || ""));
+    setVendorCode(inv.vendorCode || "");
+    setBillToName(inv.billToName);
+    setBillToAddress(inv.billToAddress || "");
+    setPlaceOfSupply(inv.placeOfSupply || "");
+    setBillToGstin(inv.billToGstin || "");
+    setShipToName(inv.shipToName || "");
+    setShipToAddress(inv.shipToAddress || "");
+    setNotes(inv.notes || "");
+    setItems(inv.items.length ? inv.items.map(item => ({ ...item })) : [emptyItem()]);
+    setDialogOpen(true);
+
+    const client = clients.find(c => c.name === inv.billToName);
+    if (!client?.stateCode) return;
+    const invoiceDate = toInputDate(inv.invoiceDate);
+    const date = invoiceDate ? new Date(`${invoiceDate}T00:00:00`) : new Date();
+    const fiscalYearStart = date.getMonth() >= 3 ? date.getFullYear() : date.getFullYear() - 1;
+    try {
+      const response = await fetch(
+        `/api/tax-invoices/next-invoice-number?stateCode=${encodeURIComponent(client.stateCode.trim().toUpperCase())}&year=${fiscalYearStart}`,
+        { credentials: "include" },
+      );
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.message || "Could not generate a new invoice number");
+      if (data.invoiceNumber) setInvoiceNumber(data.invoiceNumber);
+    } catch (error: any) {
+      toast({ title: "Invoice number required", description: error.message || "Enter a new unique invoice number.", variant: "destructive" });
+    }
+  }
+
   function applyClient(name: string) {
     const c = clients.find(cl => cl.name === name);
     setBillToName(name);
@@ -611,6 +646,13 @@ export function TaxInvoiceTab({ clients }: { clients: ClientOption[] }) {
   async function handleSave() {
     if (poChecking || saveMutation.isPending) return;
     if (!invoiceNumber.trim()) { toast({ title: "Missing", description: "Invoice Number is required", variant: "destructive" }); return; }
+    const duplicateInvoice = invoices.find(inv =>
+      inv.invoiceNumber.trim().toLowerCase() === invoiceNumber.trim().toLowerCase() && inv.id !== editing?.id
+    );
+    if (duplicateInvoice) {
+      toast({ title: "Duplicate invoice number", description: `Invoice number ${invoiceNumber.trim()} is already used. Enter a different number.`, variant: "destructive" });
+      return;
+    }
     if (!invoiceDate) { toast({ title: "Missing", description: "Invoice Date is required", variant: "destructive" }); return; }
     if (!billToName.trim()) { toast({ title: "Missing", description: "Bill To name is required", variant: "destructive" }); return; }
     if (!items.some(it => it.itemName.trim())) { toast({ title: "Missing", description: "Add at least one line item", variant: "destructive" }); return; }
@@ -849,6 +891,9 @@ export function TaxInvoiceTab({ clients }: { clients: ClientOption[] }) {
                     </Button>
                     <Button size="sm" variant="outline" onClick={() => openEdit(inv)} data-testid={`button-edit-tax-invoice-${inv.id}`}>
                       <Pencil className="w-4 h-4" />
+                    </Button>
+                    <Button size="sm" variant="outline" title="Duplicate invoice" aria-label={`Duplicate invoice ${inv.invoiceNumber}`} onClick={() => openDuplicate(inv)} data-testid={`button-duplicate-tax-invoice-${inv.id}`}>
+                      <Copy className="w-4 h-4" />
                     </Button>
                     <Button size="sm" variant="outline" className="text-red-600 hover:text-red-700" onClick={() => { if (confirm(`Delete tax invoice ${inv.invoiceNumber}?`)) deleteMutation.mutate(inv.id); }} data-testid={`button-delete-tax-invoice-${inv.id}`}>
                       <Trash2 className="w-4 h-4" />
