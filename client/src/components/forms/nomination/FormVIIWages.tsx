@@ -40,8 +40,8 @@ export default function FormVIIWages({ data }: { data: any }) {
           {/* Yahan formatDate function ka use kiya gaya hai */}
           <p><strong>3. Date of Birth:</strong> {formatDate(data?.employee?.dob)}</p>
           <p><strong>4. Sex:</strong> {data?.employee?.gender || "_________________"}</p>
-          <p><strong>5. Marital Status:</strong> {data?.nomination?.maritalStatus || "_________________"}</p>
-          <p><strong>6. Address (Permanent):</strong> {data?.employee?.address || "_________________"}</p>
+          <p><strong>5. Marital Status:</strong> {data?.employee?.maritalStatus || "_________________"}</p>
+          <p><strong>6. Address (Permanent):</strong> {data?.employee?.permanentAddress || data?.employee?.address || "_________________"}</p>
         </div>
 
         <p className="mt-4">

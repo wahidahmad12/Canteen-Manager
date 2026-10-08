@@ -42,7 +42,7 @@ export default function FormIIPF({ data }: { data: any }) {
           <p><strong>4. Sex:</strong> {data?.employee?.gender || "_________________"}</p>
           <p><strong>5. Marital Status:</strong> {data?.nomination?.maritalStatus || "_________________"}</p>
           <p><strong>6. EPS Account No.:</strong> {data?.nomination?.epsAccountNo || "_________________"}</p>
-          <p className="col-span-2"><strong>7. Address:</strong> {data?.employee?.address || "_________________"}</p>
+          <p className="col-span-2"><strong>7. Address:</strong> {data?.employee?.permanentAddress || data?.employee?.address || "_________________"}</p>
         </div>
 
         {/* PART A - EPF */}

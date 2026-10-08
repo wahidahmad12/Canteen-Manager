@@ -65,7 +65,11 @@ export default function NominationManager() {
   // Data to pass to printable forms
   const printData = {
     employee: selectedEmployee || {},
-    nomination: { maritalStatus: "Married", place: "Kolkata" }, // You can add inputs for these later
+    nomination: {
+      maritalStatus: selectedEmployee?.maritalStatus || "",
+      religion: selectedEmployee?.religion || "",
+      place: "Kolkata",
+    },
     nominees: nominees
   };
 

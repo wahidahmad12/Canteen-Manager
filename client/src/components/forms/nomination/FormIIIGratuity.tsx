@@ -42,16 +42,16 @@ export default function FormIIIGratuity({ data }: { data: any }) {
             {/* Yahan Date of Birth ke liye formatDate function lagaya gaya hai */}
             <tr><td className="border border-black p-2">3</td><td className="border border-black p-2 font-bold">Date of Birth</td><td className="border border-black p-2">{formatDate(data?.employee?.dob)}</td></tr>
             
-            <tr><td className="border border-black p-2">4</td><td className="border border-black p-2 font-bold">UAN (Universal Account Number)</td><td className="border border-black p-2">{data?.employee?.uan || ""}</td></tr>
+            <tr><td className="border border-black p-2">4</td><td className="border border-black p-2 font-bold">UAN (Universal Account Number)</td><td className="border border-black p-2">{data?.employee?.uanNo || ""}</td></tr>
             <tr><td className="border border-black p-2">5</td><td className="border border-black p-2 font-bold">Sex</td><td className="border border-black p-2">{data?.employee?.gender || ""}</td></tr>
-            <tr><td className="border border-black p-2">6</td><td className="border border-black p-2 font-bold">Religion</td><td className="border border-black p-2">{data?.nomination?.religion || ""}</td></tr>
+            <tr><td className="border border-black p-2">6</td><td className="border border-black p-2 font-bold">Religion</td><td className="border border-black p-2">{data?.employee?.religion || ""}</td></tr>
             <tr><td className="border border-black p-2">7</td><td className="border border-black p-2 font-bold">Marital Status</td><td className="border border-black p-2">{data?.nomination?.maritalStatus || ""}</td></tr>
-            <tr><td className="border border-black p-2">8</td><td className="border border-black p-2 font-bold">Department</td><td className="border border-black p-2">{data?.employee?.designation || ""}</td></tr>
+            <tr><td className="border border-black p-2">8</td><td className="border border-black p-2 font-bold">Department</td><td className="border border-black p-2">{data?.employee?.department || ""}</td></tr>
             
             {/* Yahan Date of appointment ke liye formatDate function lagaya gaya hai */}
-            <tr><td className="border border-black p-2">9</td><td className="border border-black p-2 font-bold">Date of appointment</td><td className="border border-black p-2">{formatDate(data?.employee?.dateOfJoining)}</td></tr>
+            <tr><td className="border border-black p-2">9</td><td className="border border-black p-2 font-bold">Date of appointment</td><td className="border border-black p-2">{formatDate(data?.employee?.joiningDate)}</td></tr>
             
-            <tr><td className="border border-black p-2">10</td><td className="border border-black p-2 font-bold">Permanent address</td><td className="border border-black p-2">{data?.employee?.address || ""}</td></tr>
+            <tr><td className="border border-black p-2">10</td><td className="border border-black p-2 font-bold">Permanent address</td><td className="border border-black p-2">{data?.employee?.permanentAddress || data?.employee?.address || ""}</td></tr>
           </tbody>
         </table>
 
