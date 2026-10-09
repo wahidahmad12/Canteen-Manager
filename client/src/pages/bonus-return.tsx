@@ -10,7 +10,7 @@ import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Textarea } from '@/components/ui/textarea';
-import { Printer, ArrowLeft, Users, Building2, Gift, Download, Save, Loader2, FileText } from 'lucide-react';
+import { Printer, ArrowLeft, Users, Building2, Gift, Download, Save, Loader2, FileText, Banknote } from 'lucide-react';
 import { useClientNames } from '@/hooks/use-reports';
 import { useToast } from '@/hooks/use-toast';
 import { Link } from 'wouter';
@@ -28,6 +28,13 @@ interface SalaryRecord {
 }
 
 const BONUS_RATE = 8.33;
+const BONUS_MONTHS = [
+  { month: 1, yearOffset: 1 }, { month: 2, yearOffset: 1 }, { month: 3, yearOffset: 1 },
+  { month: 4, yearOffset: 0 }, { month: 5, yearOffset: 0 }, { month: 6, yearOffset: 0 },
+  { month: 7, yearOffset: 0 }, { month: 8, yearOffset: 0 }, { month: 9, yearOffset: 0 },
+  { month: 10, yearOffset: 0 }, { month: 11, yearOffset: 0 }, { month: 12, yearOffset: 0 },
+];
+const MONTH_NAMES = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 
 export default function BonusReturn() {
   const { toast } = useToast();
@@ -43,6 +50,7 @@ export default function BonusReturn() {
   const [letterDate, setLetterDate] = useState('');
   const [savedId, setSavedId] = useState<number | null>(null);
   const [activeTab, setActiveTab] = useState('formc');
+  const [selectedPayslipEmployeeId, setSelectedPayslipEmployeeId] = useState('');
   const [formDNatureOfIndustry, setFormDNatureOfIndustry] = useState('Catering & Facility Management');
   const [formDEmployerName, setFormDEmployerName] = useState('DJ Hospitality & Facility Management Pvt Ltd');
   const [formDSettlement, setFormDSettlement] = useState('');
@@ -138,6 +146,19 @@ export default function BonusReturn() {
     enabled: !!selectedClient && !!fyStart,
   });
 
+  const { data: skillWageRates = [], isLoading: isLoadingWageRates, isError: isWageRateError } = useQuery<{ skillCategory: string; month: number; year: number; dailyRate: string }[]>({
+    queryKey: ['/api/skill-wage-rates', fyStart, fyStart + 1],
+    queryFn: async () => {
+      const rateSets = await Promise.all([fyStart, fyStart + 1].map(async year => {
+        const res = await fetch(`/api/skill-wage-rates?year=${year}`, { credentials: 'include' });
+        if (!res.ok) throw new Error(`Failed to fetch wage rates for ${year}`);
+        return res.json() as Promise<{ skillCategory: string; month: number; year: number; dailyRate: string }[]>;
+      }));
+      return rateSets.flat();
+    },
+    enabled: !!selectedClient && !!fyStart && activeTab === 'payslip',
+  });
+
   const fyEmployees = employees.filter(e => {
     if (!e.leavingDate) return true;
     const leaveDate = new Date(e.leavingDate);
@@ -173,6 +194,34 @@ export default function BonusReturn() {
   }).filter(r => r.totalSalary > 0);
 
   const totalBonus = bonusRows.reduce((s, r) => s + r.netAmount, 0);
+  const payslipEmployees = fyEmployees.filter(emp => annualSalary.some(salary => salary.employeeId === emp.id));
+  const payslipEmployee = payslipEmployees.find(emp => String(emp.id) === selectedPayslipEmployeeId) || payslipEmployees[0];
+  const payslipRows = payslipEmployee ? BONUS_MONTHS.map(({ month, yearOffset }) => {
+    const year = fyStart + yearOffset;
+    const salary = annualSalary.find(record => record.employeeId === payslipEmployee.id && record.month === month && record.year === year);
+    const present = Number(salary?.daysWorked || 0);
+    const basicWages = Number(salary?.basicWage || 0);
+    const skillCategory = (payslipEmployee.skills || '').trim();
+    const skillRate = skillWageRates.find(rate =>
+      rate.skillCategory.trim() === skillCategory && rate.month === month && rate.year === year
+    );
+    const dailyRate = Number(skillRate?.dailyRate) ||
+      (present > 0 ? basicWages / present : 0) ||
+      Number(payslipEmployee.dailyRate);
+
+    return {
+      month: `${MONTH_NAMES[month - 1]}-${String(year).slice(-2)}`,
+      present,
+      basicRate: dailyRate,
+      basicWages,
+      payBonus: Math.round(basicWages * BONUS_RATE / 100),
+    };
+  }) : [];
+  const payslipTotals = payslipRows.reduce((totals, row) => ({
+    present: totals.present + row.present,
+    basicWages: totals.basicWages + row.basicWages,
+    payBonus: totals.payBonus + row.payBonus,
+  }), { present: 0, basicWages: 0, payBonus: 0 });
 
   const handlePrintCover = () => {
     const coverArea = document.getElementById('bonus-cover-print');
@@ -343,6 +392,92 @@ export default function BonusReturn() {
     URL.revokeObjectURL(url);
   };
 
+  const handleExportBonusPayslip = async () => {
+    if (!payslipEmployee) return;
+    const ExcelJS = (await import("exceljs")).default;
+    const workbook = new ExcelJS.Workbook();
+    const worksheet = workbook.addWorksheet("Bonus Pay Slip");
+    const border: Partial<ExcelJS.Borders> = {
+      top: { style: "thin" }, bottom: { style: "thin" }, left: { style: "thin" }, right: { style: "thin" },
+    };
+    const lastColumn = 5;
+
+    worksheet.mergeCells(1, 1, 1, lastColumn);
+    worksheet.getCell("A1").value = "DJ HOSPITALITY & FACILITY MANAGEMENT PVT";
+    worksheet.getCell("A1").font = { bold: true, size: 14 };
+    worksheet.getCell("A1").alignment = { horizontal: "center", vertical: "middle" };
+    worksheet.getRow(1).height = 26;
+
+    worksheet.mergeCells(2, 1, 2, lastColumn);
+    worksheet.getCell("A2").value = `1st April ${fyStart} To 31st March ${fyEnd}`;
+    worksheet.getCell("A2").font = { bold: true, size: 12 };
+    worksheet.getCell("A2").alignment = { horizontal: "center" };
+
+    worksheet.getCell("A3").value = "Name";
+    worksheet.getCell("A3").font = { bold: true };
+    worksheet.getCell("A3").border = border;
+    worksheet.mergeCells(3, 2, 3, lastColumn);
+    worksheet.getCell("B3").value = payslipEmployee.name;
+    worksheet.getCell("B3").font = { bold: true };
+    worksheet.getCell("B3").border = border;
+
+    const headers = ["Month", "Present", "Basic Rate", "Basic wages", `Pay Bonus ${BONUS_RATE}%`];
+    const headerRow = worksheet.getRow(4);
+    headers.forEach((header, index) => {
+      const cell = headerRow.getCell(index + 1);
+      cell.value = header;
+      cell.font = { bold: true };
+      cell.alignment = { horizontal: "center", vertical: "middle", wrapText: true };
+      cell.border = border;
+    });
+    headerRow.height = 32;
+
+    payslipRows.forEach((row, index) => {
+      const excelRow = worksheet.getRow(index + 5);
+      [row.month, row.present, row.basicRate, row.basicWages, row.payBonus].forEach((value, columnIndex) => {
+        const cell = excelRow.getCell(columnIndex + 1);
+        cell.value = value;
+        cell.border = border;
+        cell.alignment = { horizontal: columnIndex === 0 ? "left" : "right", vertical: "middle" };
+        if (typeof value === "number") cell.numFmt = columnIndex === 2 ? "#,##0.##" : "#,##0";
+        if (index % 2 === 1) cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFF5F5F5" } };
+      });
+    });
+
+    const totalRow = worksheet.getRow(payslipRows.length + 5);
+    ["Total", payslipTotals.present, "", payslipTotals.basicWages, payslipTotals.payBonus].forEach((value, index) => {
+      const cell = totalRow.getCell(index + 1);
+      cell.value = value;
+      cell.font = { bold: true };
+      cell.border = border;
+      cell.alignment = { horizontal: index === 0 ? "left" : "right", vertical: "middle" };
+      if (typeof value === "number") cell.numFmt = "#,##0.##";
+    });
+
+    worksheet.mergeCells(payslipRows.length + 6, 1, payslipRows.length + 6, 4);
+    worksheet.getCell(`A${payslipRows.length + 6}`).value = `To Pay Bonus ${BONUS_RATE}%`;
+    worksheet.getCell(`A${payslipRows.length + 6}`).font = { bold: true, size: 12 };
+    worksheet.getCell(`A${payslipRows.length + 6}`).alignment = { horizontal: "center" };
+    worksheet.getCell(`E${payslipRows.length + 6}`).value = payslipTotals.payBonus;
+    worksheet.getCell(`E${payslipRows.length + 6}`).font = { bold: true, size: 12 };
+    worksheet.getCell(`E${payslipRows.length + 6}`).alignment = { horizontal: "right" };
+    worksheet.getColumn(1).width = 19;
+    worksheet.getColumn(2).width = 12;
+    worksheet.getColumn(3).width = 14;
+    worksheet.getColumn(4).width = 17;
+    worksheet.getColumn(5).width = 19;
+    worksheet.views = [{ state: "frozen", ySplit: 4 }];
+
+    const buffer = await workbook.xlsx.writeBuffer();
+    const blob = new Blob([buffer], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `Bonus_Payslip_${payslipEmployee.name.replace(/[^a-z0-9]+/gi, "_")}_${selectedClient}_${fyStart}-${fyEnd}.xlsx`;
+    link.click();
+    URL.revokeObjectURL(url);
+  };
+
   return (
     <Layout>
       <div className="space-y-6">
@@ -375,18 +510,29 @@ export default function BonusReturn() {
               </Button>
               {bonusRows.length > 0 && (
                 <>
-                  <Button onClick={handleExportExcel} variant="outline" size="sm" className="gap-2" data-testid="button-export-excel">
-                    <Download className="w-4 h-4" /> Excel
-                  </Button>
-                  <Button onClick={handlePrintCover} variant="outline" size="sm" className="gap-2" data-testid="button-print-cover">
-                    <Printer className="w-4 h-4" /> Cover Letter
-                  </Button>
-                  <Button onClick={handlePrintFormC} variant="outline" size="sm" className="gap-2" data-testid="button-print-formc">
-                    <Printer className="w-4 h-4" /> Form C
-                  </Button>
-                  <Button onClick={handlePrintFormD} variant="outline" size="sm" className="gap-2" data-testid="button-print-formd">
-                    <Printer className="w-4 h-4" /> Form D
-                  </Button>
+                  {activeTab === 'formc' && (
+                    <>
+                      <Button onClick={handleExportExcel} variant="outline" size="sm" className="gap-2" data-testid="button-export-excel">
+                        <Download className="w-4 h-4" /> Excel
+                      </Button>
+                      <Button onClick={handlePrintCover} variant="outline" size="sm" className="gap-2" data-testid="button-print-cover">
+                        <Printer className="w-4 h-4" /> Cover Letter
+                      </Button>
+                      <Button onClick={handlePrintFormC} variant="outline" size="sm" className="gap-2" data-testid="button-print-formc">
+                        <Printer className="w-4 h-4" /> Form C
+                      </Button>
+                    </>
+                  )}
+                  {activeTab === 'formd' && (
+                    <Button onClick={handlePrintFormD} variant="outline" size="sm" className="gap-2" data-testid="button-print-formd">
+                      <Printer className="w-4 h-4" /> Form D
+                    </Button>
+                  )}
+                  {activeTab === 'payslip' && payslipEmployee && (
+                    <Button onClick={handleExportBonusPayslip} disabled={isLoadingWageRates} variant="outline" size="sm" className="gap-2" data-testid="button-export-bonus-payslip">
+                      <Download className="w-4 h-4" /> Bonus Payslip Excel
+                    </Button>
+                  )}
                 </>
               )}
             </div>
@@ -493,6 +639,7 @@ export default function BonusReturn() {
                 <TabsList className="no-print w-full sm:w-auto h-auto">
                   <TabsTrigger value="formc" className="gap-2 flex-1 sm:flex-none min-h-[44px] text-xs sm:text-sm" data-testid="tab-formc"><FileText className="w-3.5 h-3.5 shrink-0" /> Form C</TabsTrigger>
                   <TabsTrigger value="formd" className="gap-2 flex-1 sm:flex-none min-h-[44px] text-xs sm:text-sm" data-testid="tab-formd"><FileText className="w-3.5 h-3.5 shrink-0" /> Form D</TabsTrigger>
+                  <TabsTrigger value="payslip" className="gap-2 flex-1 sm:flex-none min-h-[44px] text-xs sm:text-sm" data-testid="tab-bonus-payslip"><Banknote className="w-3.5 h-3.5 shrink-0" /> Bonus Payslip</TabsTrigger>
                 </TabsList>
               <TabsContent value="formc" className="space-y-4">
                 <Card className="no-print border-2 border-indigo-200 shadow-lg">
@@ -917,6 +1064,91 @@ export default function BonusReturn() {
                     <p style={{ fontWeight: 600 }}>{formDEmployerName}</p>
                   </div>
                 </div>
+              </TabsContent>
+
+              <TabsContent value="payslip" className="space-y-4">
+                <Card className="border-2 border-amber-200 shadow-lg">
+                  <CardContent className="p-4 sm:p-6 space-y-4">
+                    <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-3">
+                      <div className="space-y-1.5 w-full sm:max-w-sm">
+                        <Label htmlFor="bonus-payslip-employee" className="text-xs font-semibold text-amber-700 dark:text-amber-300">Employee</Label>
+                        <Select
+                          value={payslipEmployee ? String(payslipEmployee.id) : ''}
+                          onValueChange={setSelectedPayslipEmployeeId}
+                        >
+                          <SelectTrigger id="bonus-payslip-employee" data-testid="select-bonus-payslip-employee">
+                            <SelectValue placeholder="Select employee" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {payslipEmployees.map(employee => (
+                              <SelectItem key={employee.id} value={String(employee.id)}>{employee.name}</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div className="text-sm font-semibold text-center sm:text-right">
+                        {`1st April ${fyStart} To 31st March ${fyEnd}`}
+                      </div>
+                    </div>
+
+                    {isWageRateError && (
+                      <p role="alert" className="text-sm text-destructive">
+                        Could not load monthly wage rates. The payslip is using monthly basic wages divided by present days where possible, then the employee's daily rate.
+                      </p>
+                    )}
+                    {payslipEmployee && (
+                      <div className="overflow-x-auto">
+                        <table className="w-full min-w-[620px] border-collapse text-xs sm:text-sm" data-testid="table-bonus-payslip">
+                          <thead>
+                            <tr>
+                              <th colSpan={5} className="border border-slate-500 bg-slate-100 px-2 py-2 text-center font-bold">
+                                DJ HOSPITALITY &amp; FACILITY MANAGEMENT PVT
+                              </th>
+                            </tr>
+                            <tr>
+                              <th colSpan={5} className="border border-slate-500 px-2 py-2 text-center font-bold">
+                                1st April {fyStart} To 31st March {fyEnd}
+                              </th>
+                            </tr>
+                            <tr>
+                              <th className="border border-slate-500 bg-slate-100 px-2 py-2 text-left font-bold">Name</th>
+                              <th colSpan={4} className="border border-slate-500 px-2 py-2 text-left font-bold">{payslipEmployee.name}</th>
+                            </tr>
+                            <tr className="bg-amber-50 dark:bg-amber-950">
+                              {["Month", "Present", "Basic Rate", "Basic wages", `Pay Bonus ${BONUS_RATE}%`].map(header => (
+                                <th key={header} className="border border-slate-500 px-2 py-2 text-center font-bold">{header}</th>
+                              ))}
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {payslipRows.map(row => (
+                              <tr key={row.month}>
+                                <td className="border border-slate-400 px-2 py-1.5">{row.month}</td>
+                                <td className="border border-slate-400 px-2 py-1.5 text-center">{row.present || ''}</td>
+                                <td className="border border-slate-400 px-2 py-1.5 text-right">{row.basicRate ? Math.round(row.basicRate).toLocaleString('en-IN') : ''}</td>
+                                <td className="border border-slate-400 px-2 py-1.5 text-right">{row.basicWages ? Math.round(row.basicWages).toLocaleString('en-IN') : ''}</td>
+                                <td className="border border-slate-400 px-2 py-1.5 text-right">{row.payBonus ? row.payBonus.toLocaleString('en-IN') : ''}</td>
+                              </tr>
+                            ))}
+                          </tbody>
+                          <tfoot>
+                            <tr className="bg-slate-100 font-bold">
+                              <td className="border border-slate-500 px-2 py-2">Total</td>
+                              <td className="border border-slate-500 px-2 py-2 text-center">{payslipTotals.present.toLocaleString('en-IN')}</td>
+                              <td className="border border-slate-500 px-2 py-2"></td>
+                              <td className="border border-slate-500 px-2 py-2 text-right">{Math.round(payslipTotals.basicWages).toLocaleString('en-IN')}</td>
+                              <td className="border border-slate-500 px-2 py-2 text-right">{payslipTotals.payBonus.toLocaleString('en-IN')}</td>
+                            </tr>
+                            <tr className="font-bold">
+                              <td colSpan={4} className="border border-slate-500 px-2 py-3 text-center">To Pay Bonus {BONUS_RATE}%</td>
+                              <td className="border border-slate-500 px-2 py-3 text-right">{payslipTotals.payBonus.toLocaleString('en-IN')}</td>
+                            </tr>
+                          </tfoot>
+                        </table>
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
               </TabsContent>
               </Tabs>
             )}

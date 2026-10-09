@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useQuery, useMutation } from "@tanstack/react-query";
+import { useQuery, useQueries, useMutation } from "@tanstack/react-query";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { Layout } from "@/components/layout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
 import { useClientNames, useCurrentUser } from "@/hooks/use-reports";
@@ -21,6 +22,9 @@ export default function LeaveWithWagesPage() {
   const { data: clientNames = [] } = useClientNames();
   const [selectedClient, setSelectedClient] = useState("");
   const [selectedEmployeeId, setSelectedEmployeeId] = useState<string>("");
+  const [activeTab, setActiveTab] = useState("register");
+  const [calculationYear, setCalculationYear] = useState(String(new Date().getFullYear()));
+  const [payslipEmployeeId, setPayslipEmployeeId] = useState("");
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingRecord, setEditingRecord] = useState<LeaveWithWages | null>(null);
 
@@ -57,6 +61,71 @@ export default function LeaveWithWagesPage() {
     queryFn: () => fetch(`/api/leave-with-wages?employeeId=${selectedEmployeeId}`).then(r => r.json()),
     enabled: !!selectedEmployeeId,
   });
+
+  const calculationYearNumber = Number(calculationYear);
+  const attendanceQueries = useQueries({
+    queries: Array.from({ length: 12 }, (_, index) => index + 1).map(month => ({
+      queryKey: ["/api/attendance", selectedClient, month, calculationYearNumber],
+      queryFn: async () => {
+        const response = await fetch(
+          `/api/attendance?clientName=${encodeURIComponent(selectedClient)}&month=${month}&year=${calculationYearNumber}`,
+          { credentials: "include" },
+        );
+        if (!response.ok) throw new Error(`Failed to load attendance for month ${month}`);
+        return response.json() as Promise<Array<{
+          employeeId: number;
+          [key: string]: string | number | null;
+        }>>;
+      },
+      enabled: !!selectedClient && activeTab === "calculation",
+    })),
+  });
+  const wageRatesQuery = useQuery<Array<{ skillCategory: string; month: number; year: number; dailyRate: string }>>({
+    queryKey: ["/api/skill-wage-rates", calculationYearNumber],
+    queryFn: async () => {
+      const response = await fetch(`/api/skill-wage-rates?year=${calculationYearNumber}`, { credentials: "include" });
+      if (!response.ok) throw new Error("Failed to load wage rates");
+      return response.json();
+    },
+    enabled: !!selectedClient && activeTab === "calculation",
+  });
+
+  const leaveCalculationRows = employees.map(employee => {
+    const monthlyPresent = attendanceQueries.map((query, index) => {
+      const attendanceRecord = query.data?.find(record => record.employeeId === employee.id);
+      if (!attendanceRecord) return 0;
+      const daysInMonth = new Date(calculationYearNumber, index + 1, 0).getDate();
+      let present = 0;
+      for (let day = 1; day <= daysInMonth; day++) {
+        const code = String(attendanceRecord[`day${day}`] || "").trim().toUpperCase();
+        if (code === "P" || code === "P/HL" || code === "HW") present += 1;
+        else if (code === "HD") present += 0.5;
+      }
+      return present;
+    });
+    const totalPresent = monthlyPresent.reduce((total, days) => total + days, 0);
+    const leaveCalculation = totalPresent / 20;
+    const roundedLeave = Math.floor(leaveCalculation);
+    const rates = (wageRatesQuery.data || []).filter(rate =>
+      rate.skillCategory.trim().toLowerCase() === (employee.skills || "").trim().toLowerCase()
+    );
+    const basicWages = rates.length
+      ? Math.round((rates.reduce((total, rate) => total + Number(rate.dailyRate || 0), 0) / rates.length) * 100) / 100
+      : Number(employee.dailyRate || 0);
+
+    return {
+      employee,
+      monthlyPresent,
+      totalPresent,
+      basicWages,
+      leaveCalculation,
+      roundedLeave,
+      leavePayment: Math.round(roundedLeave * basicWages),
+    };
+  });
+  const selectedPayslipRow = leaveCalculationRows.find(row => String(row.employee.id) === payslipEmployeeId) || leaveCalculationRows[0];
+  const isLoadingCalculation = attendanceQueries.some(query => query.isLoading) || wageRatesQuery.isLoading;
+  const isCalculationError = attendanceQueries.some(query => query.isError) || wageRatesQuery.isError;
 
   const createMutation = useMutation({
     mutationFn: (data: any) => apiRequest("POST", "/api/leave-with-wages", data),
@@ -309,6 +378,145 @@ export default function LeaveWithWagesPage() {
     URL.revokeObjectURL(link.href);
   };
 
+  const downloadWorkbook = async (workbook: import("exceljs").Workbook, fileName: string) => {
+    const buffer = await workbook.xlsx.writeBuffer();
+    const blob = new Blob([buffer], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = fileName;
+    link.click();
+    URL.revokeObjectURL(url);
+  };
+
+  const handleExportLeaveCalculation = async () => {
+    if (isCalculationError) {
+      toast({ title: "Could not export leave calculation", description: "Attendance or wage-rate data failed to load.", variant: "destructive" });
+      return;
+    }
+    const ExcelJS = (await import("exceljs")).default;
+    const workbook = new ExcelJS.Workbook();
+    const worksheet = workbook.addWorksheet("Leave Calculation");
+    const headers = [
+      "Name of Employee", "Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec",
+      "Grand Total", "Basic wages", "Leave Calculation", "Round Off Leave Calculation", "Leave Payment",
+    ];
+    const border: Partial<ExcelJS.Borders> = {
+      top: { style: "thin" }, bottom: { style: "thin" }, left: { style: "thin" }, right: { style: "thin" },
+    };
+
+    worksheet.mergeCells(1, 1, 1, headers.length);
+    worksheet.getCell("A1").value = `Company Name: ${selectedClient}`;
+    worksheet.getCell("A1").font = { bold: true, size: 12 };
+    worksheet.getCell("A1").alignment = { horizontal: "center" };
+    const headerRow = worksheet.getRow(2);
+    headers.forEach((header, index) => {
+      const cell = headerRow.getCell(index + 1);
+      cell.value = header;
+      cell.font = { bold: true };
+      cell.alignment = { horizontal: "center", vertical: "middle", wrapText: true };
+      cell.border = border;
+    });
+    headerRow.height = 36;
+
+    leaveCalculationRows.forEach((row, index) => {
+      const rowNumber = index + 3;
+      const excelRow = worksheet.getRow(rowNumber);
+      excelRow.getCell(1).value = row.employee.name;
+      row.monthlyPresent.forEach((days, monthIndex) => {
+        excelRow.getCell(monthIndex + 2).value = days;
+      });
+      excelRow.getCell(14).value = { formula: `SUM(B${rowNumber}:M${rowNumber})` };
+      excelRow.getCell(15).value = row.basicWages;
+      excelRow.getCell(16).value = { formula: `N${rowNumber}/20` };
+      excelRow.getCell(17).value = { formula: `ROUNDDOWN(P${rowNumber},0)` };
+      excelRow.getCell(18).value = { formula: `Q${rowNumber}*O${rowNumber}` };
+      excelRow.eachCell({ includeEmpty: true }, cell => {
+        cell.border = border;
+        if (index % 2 === 1) cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFF5F5F5" } };
+      });
+      for (let column = 2; column <= headers.length; column++) {
+        excelRow.getCell(column).numFmt = column === 15 || column === 16 ? "#,##0.##" : "#,##0";
+      }
+    });
+
+    const totalsRowNumber = leaveCalculationRows.length + 3;
+    const totalsRow = worksheet.getRow(totalsRowNumber);
+    totalsRow.getCell(1).value = "Total";
+    for (let column = 2; column <= 18; column++) {
+      const col = worksheet.getColumn(column).letter;
+      if (column === 15) continue;
+      totalsRow.getCell(column).value = { formula: `SUM(${col}3:${col}${totalsRowNumber - 1})` };
+    }
+    totalsRow.eachCell({ includeEmpty: true }, cell => {
+      cell.font = { bold: true };
+      cell.border = border;
+    });
+    worksheet.getColumn(1).width = 26;
+    for (let column = 2; column <= 13; column++) worksheet.getColumn(column).width = 10;
+    worksheet.getColumn(14).width = 13;
+    worksheet.getColumn(15).width = 14;
+    worksheet.getColumn(16).width = 17;
+    worksheet.getColumn(17).width = 22;
+    worksheet.getColumn(18).width = 15;
+    worksheet.getColumn(2).numFmt = "#,##0.##";
+    worksheet.getColumn(14).numFmt = "#,##0.##";
+    worksheet.getColumn(15).numFmt = "#,##0.##";
+    worksheet.getColumn(16).numFmt = "#,##0.##";
+    await downloadWorkbook(workbook, `Leave_Calculation_${selectedClient}_${calculationYearNumber}.xlsx`);
+  };
+
+  const handleExportLeavePayslip = async () => {
+    if (!selectedPayslipRow) return;
+    const ExcelJS = (await import("exceljs")).default;
+    const workbook = new ExcelJS.Workbook();
+    const worksheet = workbook.addWorksheet("Leave Payment Slip");
+    const border: Partial<ExcelJS.Borders> = {
+      top: { style: "thin" }, bottom: { style: "thin" }, left: { style: "thin" }, right: { style: "thin" },
+    };
+    const setCell = (address: string, value: string | number | { formula: string }, bold = false) => {
+      const cell = worksheet.getCell(address);
+      cell.value = value;
+      cell.border = border;
+      cell.font = { bold };
+      cell.alignment = { vertical: "middle", horizontal: address.startsWith("A") ? "left" : "center" };
+    };
+
+    worksheet.mergeCells("A1:B1");
+    setCell("A1", "DJ HOSPITALITY & FACILITY MANAGEMENT PVT LTD", true);
+    worksheet.getCell("A1").alignment = { horizontal: "center", vertical: "middle" };
+    worksheet.mergeCells("A2:B2");
+    setCell("A2", `1st Jan ${calculationYearNumber} To 31st Dec ${calculationYearNumber}`, true);
+    worksheet.getCell("A2").alignment = { horizontal: "center" };
+    worksheet.mergeCells("A3:B3");
+    setCell("A3", "Leave Calculation with Payment Slip", true);
+    worksheet.getCell("A3").alignment = { horizontal: "center" };
+    setCell("A4", "Name", true);
+    setCell("B4", selectedPayslipRow.employee.name, true);
+    setCell("A5", "Month", true);
+    setCell("B5", "Present Days", true);
+    for (let monthIndex = 0; monthIndex < 12; monthIndex++) {
+      const rowNumber = monthIndex + 6;
+      setCell(`A${rowNumber}`, `${["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"][monthIndex]}-${String(calculationYearNumber).slice(-2)}`);
+      setCell(`B${rowNumber}`, selectedPayslipRow.monthlyPresent[monthIndex]);
+    }
+    setCell("A18", "Total", true);
+    setCell("B18", { formula: "SUM(B6:B17)" }, true);
+    setCell("A19", "Leave Balance", true);
+    setCell("B19", { formula: "ROUNDDOWN(B18/20,0)" }, true);
+    setCell("A20", "Basic wages", true);
+    setCell("B20", selectedPayslipRow.basicWages, true);
+    setCell("A21", "Leave Encashment Amt.", true);
+    setCell("B21", { formula: "B19*B20" }, true);
+    worksheet.getCell("B20").numFmt = "#,##0.##";
+    worksheet.getCell("B21").numFmt = "#,##0";
+    worksheet.getColumn(1).width = 36;
+    worksheet.getColumn(2).width = 22;
+    worksheet.getColumn(2).numFmt = "#,##0.##";
+    for (let row = 1; row <= 21; row++) worksheet.getRow(row).height = row <= 5 ? 24 : 20;
+    await downloadWorkbook(workbook, `Leave_Payment_Slip_${selectedPayslipRow.employee.name.replace(/[^a-z0-9]+/gi, "_")}_${calculationYearNumber}.xlsx`);
+  };
+
   const currentYear = new Date().getFullYear();
   const displayYears: number[] = [];
   if (leaveRecords.length > 0) {
@@ -340,7 +548,7 @@ export default function LeaveWithWagesPage() {
               <p className="text-muted-foreground text-[10px] sm:text-sm truncate">Form No. 15 - Rule 88, WB Factories Rule, 1958</p>
             </div>
           </div>
-          {selectedEmployee && leaveRecords.length >= 0 && (
+          {activeTab === "register" && selectedEmployee && (
             <div className="flex flex-wrap gap-2">
               <Button
                 variant="outline"
@@ -354,6 +562,28 @@ export default function LeaveWithWagesPage() {
               </Button>
               <Button variant="outline" size="sm" onClick={handlePrint} data-testid="button-print">
                 <Printer className="w-4 h-4 mr-1" /> Print
+              </Button>
+            </div>
+          )}
+          {activeTab === "calculation" && selectedClient && (
+            <div className="flex flex-wrap gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleExportLeaveCalculation}
+                disabled={isLoadingCalculation || isCalculationError || leaveCalculationRows.length === 0}
+                data-testid="button-export-leave-calculation"
+              >
+                <Download className="w-4 h-4 mr-1" /> Export Calculation
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleExportLeavePayslip}
+                disabled={isLoadingCalculation || isCalculationError || !selectedPayslipRow}
+                data-testid="button-export-leave-payslip"
+              >
+                <Download className="w-4 h-4 mr-1" /> Export Payment Slip
               </Button>
             </div>
           )}
@@ -420,6 +650,13 @@ export default function LeaveWithWagesPage() {
           </CardContent>
         </Card>
 
+        {selectedClient && (
+          <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
+            <TabsList className="no-print">
+              <TabsTrigger value="register" data-testid="tab-leave-register">Leave Register</TabsTrigger>
+              <TabsTrigger value="calculation" data-testid="tab-leave-calculation">Leave Calculation</TabsTrigger>
+            </TabsList>
+            <TabsContent value="register" className="space-y-4">
         {selectedEmployee && (
           <>
             <Card className="no-print">
@@ -647,6 +884,140 @@ export default function LeaveWithWagesPage() {
               />
             </div>
           </>
+        )}
+            {!selectedEmployee && (
+              <Card><CardContent className="py-8 text-center text-muted-foreground">Select an employee to view the leave register.</CardContent></Card>
+            )}
+            </TabsContent>
+            <TabsContent value="calculation" className="space-y-4">
+              <Card className="no-print">
+                <CardContent className="p-4 flex flex-col sm:flex-row sm:items-end gap-4">
+                  <div className="space-y-1.5 w-full sm:w-64">
+                    <Label htmlFor="leave-calculation-year">Calendar Year</Label>
+                    <Select value={calculationYear} onValueChange={setCalculationYear}>
+                      <SelectTrigger id="leave-calculation-year" data-testid="select-leave-calculation-year"><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        {Array.from({ length: 9 }, (_, index) => new Date().getFullYear() - 4 + index).map(year => (
+                          <SelectItem key={year} value={String(year)}>{year}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    Leave calculation = total present days ÷ 20; leave balance rounds down. Payment = rounded leave balance × daily basic wage.
+                  </p>
+                </CardContent>
+              </Card>
+
+              {isLoadingCalculation ? (
+                <div className="flex justify-center py-8"><Loader2 className="w-6 h-6 animate-spin" /></div>
+              ) : isCalculationError ? (
+                <Card><CardContent className="py-8 text-center text-destructive">Could not load attendance or wage rates. Please try again.</CardContent></Card>
+              ) : (
+                <>
+                  <Card>
+                    <CardHeader className="pb-2">
+                      <CardTitle className="text-sm">Leave Calculation - {selectedClient} - {calculationYearNumber}</CardTitle>
+                    </CardHeader>
+                    <CardContent className="p-0 sm:p-4 pt-0">
+                      <div className="overflow-x-auto">
+                        <table className="w-full min-w-[1500px] border-collapse text-xs" data-testid="table-leave-calculation">
+                          <thead>
+                            <tr className="bg-muted/50">
+                              <th className="border px-2 py-1.5 text-left">Name of Employee</th>
+                              {["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"].map(month => (
+                                <th key={month} className="border px-2 py-1.5 text-center">{month}</th>
+                              ))}
+                              <th className="border px-2 py-1.5 text-right">Grand Total</th>
+                              <th className="border px-2 py-1.5 text-right">Basic wages</th>
+                              <th className="border px-2 py-1.5 text-right">Leave Calculation</th>
+                              <th className="border px-2 py-1.5 text-right">Round Off Leave Calculation</th>
+                              <th className="border px-2 py-1.5 text-right">Leave Payment</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {leaveCalculationRows.map(row => (
+                              <tr key={row.employee.id}>
+                                <td className="border px-2 py-1.5 font-medium">{row.employee.name}</td>
+                                {row.monthlyPresent.map((days, index) => <td key={index} className="border px-2 py-1.5 text-center">{days || ""}</td>)}
+                                <td className="border px-2 py-1.5 text-right font-semibold">{row.totalPresent}</td>
+                                <td className="border px-2 py-1.5 text-right">{row.basicWages.toLocaleString("en-IN", { maximumFractionDigits: 2 })}</td>
+                                <td className="border px-2 py-1.5 text-right">{row.leaveCalculation.toFixed(2)}</td>
+                                <td className="border px-2 py-1.5 text-right">{row.roundedLeave}</td>
+                                <td className="border px-2 py-1.5 text-right font-semibold">{row.leavePayment.toLocaleString("en-IN")}</td>
+                              </tr>
+                            ))}
+                            {leaveCalculationRows.length === 0 && (
+                              <tr><td colSpan={18} className="border px-2 py-6 text-center text-muted-foreground">No employees found for this client.</td></tr>
+                            )}
+                            {leaveCalculationRows.length > 0 && (
+                              <tr className="bg-yellow-50 font-bold">
+                                <td className="border px-2 py-1.5">Total</td>
+                                {Array.from({ length: 12 }, (_, monthIndex) => (
+                                  <td key={monthIndex} className="border px-2 py-1.5 text-center">
+                                    {leaveCalculationRows.reduce((total, row) => total + row.monthlyPresent[monthIndex], 0)}
+                                  </td>
+                                ))}
+                                <td className="border px-2 py-1.5 text-right">{leaveCalculationRows.reduce((total, row) => total + row.totalPresent, 0)}</td>
+                                <td className="border px-2 py-1.5"></td>
+                                <td className="border px-2 py-1.5 text-right">{leaveCalculationRows.reduce((total, row) => total + row.leaveCalculation, 0).toFixed(2)}</td>
+                                <td className="border px-2 py-1.5 text-right">{leaveCalculationRows.reduce((total, row) => total + row.roundedLeave, 0)}</td>
+                                <td className="border px-2 py-1.5 text-right">{leaveCalculationRows.reduce((total, row) => total + row.leavePayment, 0).toLocaleString("en-IN")}</td>
+                              </tr>
+                            )}
+                          </tbody>
+                        </table>
+                      </div>
+                    </CardContent>
+                  </Card>
+
+                  <Card>
+                    <CardHeader className="pb-2">
+                      <CardTitle className="text-sm">Leave Calculation with Payment Slip</CardTitle>
+                    </CardHeader>
+                    <CardContent className="p-4 space-y-4">
+                      <div className="max-w-sm space-y-1.5">
+                        <Label htmlFor="leave-payslip-employee">Employee</Label>
+                        <Select value={selectedPayslipRow ? String(selectedPayslipRow.employee.id) : ""} onValueChange={setPayslipEmployeeId}>
+                          <SelectTrigger id="leave-payslip-employee" data-testid="select-leave-payslip-employee"><SelectValue placeholder="Select employee" /></SelectTrigger>
+                          <SelectContent>
+                            {leaveCalculationRows.map(row => <SelectItem key={row.employee.id} value={String(row.employee.id)}>{row.employee.name}</SelectItem>)}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      {selectedPayslipRow && (
+                        <div className="mx-auto max-w-lg">
+                          <table className="w-full border-collapse text-sm" data-testid="table-leave-payment-slip">
+                            <thead>
+                              <tr><th colSpan={2} className="border border-slate-700 px-2 py-1 text-center font-bold">DJ HOSPITALITY &amp; FACILITY MANAGEMENT PVT LTD</th></tr>
+                              <tr><th colSpan={2} className="border border-slate-700 px-2 py-1 text-center font-bold">1st Jan {calculationYearNumber} To 31st Dec {calculationYearNumber}</th></tr>
+                              <tr><th colSpan={2} className="border border-slate-700 px-2 py-1 text-center font-bold">Leave Calculation with Payment Slip</th></tr>
+                              <tr><th className="border border-slate-700 px-2 py-1 text-left">Name</th><th className="border border-slate-700 px-2 py-1 text-left font-bold">{selectedPayslipRow.employee.name}</th></tr>
+                              <tr><th className="border border-slate-700 px-2 py-1 text-center">Month</th><th className="border border-slate-700 px-2 py-1 text-center">Present Days</th></tr>
+                            </thead>
+                            <tbody>
+                              {selectedPayslipRow.monthlyPresent.map((days, index) => (
+                                <tr key={index}>
+                                  <td className="border border-slate-500 px-2 py-1 text-center">{["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"][index]}-{String(calculationYearNumber).slice(-2)}</td>
+                                  <td className="border border-slate-500 px-2 py-1 text-center">{days || ""}</td>
+                                </tr>
+                              ))}
+                            </tbody>
+                            <tfoot>
+                              <tr className="font-bold"><td className="border border-slate-700 px-2 py-1 text-right">Total</td><td className="border border-slate-700 px-2 py-1 text-center">{selectedPayslipRow.totalPresent}</td></tr>
+                              <tr><td className="border border-slate-700 px-2 py-1">Leave Balance</td><td className="border border-slate-700 px-2 py-1 text-center font-bold">{selectedPayslipRow.roundedLeave}</td></tr>
+                              <tr><td className="border border-slate-700 px-2 py-1">Basic wages</td><td className="border border-slate-700 px-2 py-1 text-center">{selectedPayslipRow.basicWages.toLocaleString("en-IN", { maximumFractionDigits: 2 })}</td></tr>
+                              <tr className="font-bold"><td className="border border-slate-700 px-2 py-1">Leave Encashment Amt.</td><td className="border border-slate-700 px-2 py-1 text-center">{selectedPayslipRow.leavePayment.toLocaleString("en-IN")}</td></tr>
+                            </tfoot>
+                          </table>
+                        </div>
+                      )}
+                    </CardContent>
+                  </Card>
+                </>
+              )}
+            </TabsContent>
+          </Tabs>
         )}
       </div>
     </Layout>
