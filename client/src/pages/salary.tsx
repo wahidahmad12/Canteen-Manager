@@ -129,9 +129,100 @@ function esc(s: string | undefined | null): string {
   return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
 }
 
+function formatPaymentReceiptDate(date: string | null | undefined): string {
+  if (!date) return "Not recorded";
+  const datePart = date.split("T")[0];
+  const parts = datePart.split("-");
+  return parts.length === 3 ? `${parts[2]} ${MONTHS[Number(parts[1]) - 1]?.slice(0, 3) || parts[1]} ${parts[0]}` : datePart;
+}
+
+function amountInWords(amount: number): string {
+  const paiseTotal = Math.round(Math.abs(amount) * 100);
+  const rupees = Math.floor(paiseTotal / 100);
+  const paise = paiseTotal % 100;
+  const rupeeWords = numberToWords(rupees).replace(/^Rupees /, "").replace(/ Only$/, "");
+  const paiseWords = paise ? ` and ${numberToWords(paise).replace(/^Rupees /, "").replace(/ Only$/, "")} Paise` : "";
+  return `Rupees ${amount < 0 ? "Minus " : ""}${rupeeWords}${paiseWords} Only`;
+}
+
 function formatDateStr(d: string | undefined | null): string {
   if (!d) return "-";
   try { const dt = new Date(d); const dd = String(dt.getDate()).padStart(2, "0"); const mm = String(dt.getMonth() + 1).padStart(2, "0"); return `${dd}-${mm}-${dt.getFullYear()}`; } catch { return d; }
+}
+
+function buildSalaryPaymentReceiptHTML(salary: SalaryRecord, employee: Employee, paymentDate: string): string {
+  const amount = Number(salary.netPay) || 0;
+  const bankName = employee.bankName || "Bank details not recorded";
+  const bankIcon = bankName.toUpperCase().includes("STATE BANK OF INDIA") || bankName.toUpperCase() === "SBI"
+    ? `<svg width="16" height="16" viewBox="0 0 120 120" fill="#1665D8"><path d="M60 0a60 60 0 1 0 60 60A60 60 0 0 0 60 0Zm0 36a13 13 0 1 1-13 13 13 13 0 0 1 13-13Zm-6.5 24h13v60h-13Z"/></svg>`
+    : `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#d97757"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 21h18M3 10h18M3 7l9-4 9 4M4 10h16v11H4V10z"/></svg>`;
+  const dateLabel = esc(formatPaymentReceiptDate(paymentDate));
+  const muted = "color:#8e8e93;font-size:12px;";
+  const label = "color:#a1a1aa;font-size:14px;width:36%;";
+  const value = "color:#3f3f46;text-align:right;width:64%;font-weight:500;";
+  return `<article class="salary-payment-receipt" style="box-sizing:border-box;width:400px;padding:16px;background:#fff;font-family:Arial,sans-serif;color:#3f3f46;border:1px solid #e5e7eb;border-radius:24px;">
+    <header style="text-align:center;margin:8px 0 24px;">
+      <p style="${muted}font-size:13px;font-weight:500;">${dateLabel}</p>
+      <p style="margin-top:16px;color:#8e8e93;font-size:14px;display:flex;justify-content:center;align-items:center;gap:6px;">
+        Salary record no. <strong style="color:#4b4b52;">${salary.id}</strong>
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#d97757"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v2m-6 12h8a2 2 0 0 0 2-2v-8a2 2 0 0 0-2-2h-8a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2Z"/></svg>
+      </p>
+    </header>
+    <section style="background:#fcf7f4;border-radius:20px;padding:20px;">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:24px;">
+        <span style="${label}">Payment to</span>
+        <div style="${value}">
+          <p style="margin:0;font-size:16px;">${esc(employee.name)}</p>
+          <p style="margin:4px 0 0;${muted}display:flex;justify-content:flex-end;align-items:center;gap:5px;">${bankIcon}${esc(bankName)}</p>
+          <p style="margin:4px 0 0;${muted}">A/c: ${esc(employee.accountNo)}</p>
+          <p style="margin:4px 0 0;${muted}">IFSC: ${esc(employee.ifscCode)}</p>
+        </div>
+      </div>
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:24px;">
+        <span style="${label}margin-top:4px;">Amount</span>
+        <div style="${value}">
+          <p style="margin:0;font-size:18px;font-weight:700;">₹${amount.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
+          <p style="margin:4px 0 0;${muted}line-height:1.4;">(${esc(amountInWords(amount))})</p>
+        </div>
+      </div>
+      <div style="display:flex;justify-content:space-between;margin-bottom:24px;">
+        <span style="${label}">Payment mode</span>
+        <span style="${value}">${esc(salary.paymentMode || "Bank Transfer")}</span>
+      </div>
+      <div style="display:flex;justify-content:space-between;margin-bottom:24px;">
+        <span style="${label}">Payment from</span>
+        <div style="${value}">
+          <p style="margin:0;font-size:14px;">DJ HOSPITALITY &amp; FACILITY MANAGEMENT PVT LTD</p>
+          <p style="margin:4px 0 0;${muted}">Account: Not recorded</p>
+        </div>
+      </div>
+      <div style="display:flex;justify-content:space-between;margin-bottom:24px;">
+        <span style="${label}">Payment tags</span>
+        <span style="${value}">Salary</span>
+      </div>
+      <div style="display:flex;justify-content:space-between;">
+        <span style="${label}">Remarks</span>
+        <span style="${value}">Salary ${MONTHS[salary.month - 1]} ${salary.year}</span>
+      </div>
+    </section>
+    <div style="margin-top:20px;background:#fcf7f4;border-radius:12px;padding:12px 20px;display:flex;justify-content:flex-end;align-items:center;gap:12px;">
+      <span style="background:#d32f2f;color:#fff;font-size:8px;font-weight:700;padding:3px 5px;border-radius:3px;">JPEG</span>
+      <span style="font-size:14px;font-weight:600;">Receipt</span>
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#db5a23"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M4 16v1a3 3 0 0 0 3 3h10a3 3 0 0 0 3-3v-1m-4-4-4 4m0 0-4-4m4 4V4"/></svg>
+    </div>
+    <div style="margin-top:20px;border-radius:14px;overflow:hidden;background:#8b3127;display:flex;height:100px;color:#fff;">
+      <div style="width:45%;background:linear-gradient(135deg,#a3392e,#ca6430);"></div>
+      <div style="width:55%;padding:12px 10px;display:flex;flex-direction:column;justify-content:center;">
+        <p style="margin:0;font-size:11px;font-weight:500;line-height:1.3;">Salary payment information for ${MONTHS[salary.month - 1]} ${salary.year}</p>
+        <p style="margin:6px 0 0;background:#f47025;color:#fff;font-size:10px;font-weight:700;padding:4px 8px;width:max-content;border-radius:4px;">Payment mode: ${esc(salary.paymentMode || "Bank Transfer")}</p>
+        <p style="margin:4px 0 0;color:#f0b3aa;font-size:8px;">Payment date: ${dateLabel}</p>
+      </div>
+    </div>
+    <footer style="margin-top:24px;display:flex;justify-content:space-between;gap:12px;">
+      <div style="width:50%;padding:12px 8px;border:1px solid #db5a23;border-radius:12px;text-align:center;color:#db5a23;font-size:14px;font-weight:500;">Salary Register</div>
+      <div style="width:50%;padding:12px 8px;background:#db5a23;border-radius:12px;text-align:center;color:#fff;font-size:14px;font-weight:500;">Salary Receipt</div>
+    </footer>
+  </article>`;
 }
 
 function buildSlipHTML(salary: SalaryRecord, employee: Employee | undefined, attendance: AttendanceRecord | undefined, logoSrc: string, skillBasicRate?: number): string {
@@ -342,7 +433,7 @@ export default function SalaryRegister() {
 
   const queryKey = ["/api/salary", clientName, month, year];
 
-  const { data: salaries, isLoading } = useQuery<SalaryRecord[]>({
+  const { data: salaries, isLoading, isError: salaryError } = useQuery<SalaryRecord[]>({
     queryKey,
     queryFn: async () => {
       const res = await fetch(`/api/salary?clientName=${encodeURIComponent(clientName)}&month=${month}&year=${year}`, { credentials: "include" });
@@ -352,7 +443,7 @@ export default function SalaryRegister() {
     enabled: loaded && !!clientName,
   });
 
-  const { data: employees } = useQuery<Employee[]>({
+  const { data: employees, isLoading: employeesLoading, isError: employeesError } = useQuery<Employee[]>({
     queryKey: ["/api/employees", clientName],
     queryFn: async () => {
       const res = await fetch(`/api/employees?clientName=${encodeURIComponent(clientName)}`, { credentials: "include" });
@@ -403,6 +494,10 @@ export default function SalaryRegister() {
   const [neftSearch, setNeftSearch] = useState("");
   const [neftPrintDialogOpen, setNeftPrintDialogOpen] = useState(false);
   const [neftPrintSelectedIds, setNeftPrintSelectedIds] = useState<Set<number>>(new Set());
+  const [receiptSearch, setReceiptSearch] = useState("");
+  const [receiptPrintDialogOpen, setReceiptPrintDialogOpen] = useState(false);
+  const [receiptPrintSelectedIds, setReceiptPrintSelectedIds] = useState<Set<number>>(new Set());
+  const [receiptDownloading, setReceiptDownloading] = useState(false);
   const [annualMonths, setAnnualMonths] = useState<Set<number>>(new Set());
   const [annualLoaded, setAnnualLoaded] = useState(false);
 
@@ -596,6 +691,104 @@ export default function SalaryRegister() {
       },
     };
   }, [salaries, computeRow]);
+
+  const receiptRows = useMemo(() => validSalaries.flatMap((salary) => {
+    const employee = employeeMap.get(salary.employeeId);
+    return employee ? [{ salary, employee }] : [];
+  }), [validSalaries, employeeMap]);
+
+  const filteredReceiptRows = useMemo(() => {
+    const search = receiptSearch.trim().toLowerCase();
+    if (!search) return receiptRows;
+    return receiptRows.filter(({ employee }) =>
+      [employee.name, employee.bankName, employee.accountNo, employee.ifscCode]
+        .some((value) => (value || "").toLowerCase().includes(search))
+    );
+  }, [receiptRows, receiptSearch]);
+
+  const receiptPrintEmployeeList = useMemo(() => filteredReceiptRows.map(({ salary, employee }) => ({
+    id: employee.id,
+    name: employee.name || `Employee #${employee.id}`,
+    employeeCode: employee.employeeCode,
+  })), [filteredReceiptRows]);
+
+  const openReceiptPrintDialog = () => {
+    setReceiptPrintSelectedIds(new Set(receiptPrintEmployeeList.map((employee) => employee.id)));
+    setReceiptPrintDialogOpen(true);
+  };
+
+  const selectedReceiptRows = useMemo(() => filteredReceiptRows.filter(({ employee }) =>
+    receiptPrintSelectedIds.has(employee.id)
+  ), [filteredReceiptRows, receiptPrintSelectedIds]);
+
+  const handleReceiptPrint = useCallback(() => {
+    if (selectedReceiptRows.length === 0) {
+      toast({ title: "Select Employees", description: "Choose at least one salary receipt to print.", variant: "destructive" });
+      return;
+    }
+    const printWindow = window.open("", "_blank", "width=900,height=700");
+    if (!printWindow) {
+      toast({ title: "Print Blocked", description: "Allow pop-ups to print salary receipts.", variant: "destructive" });
+      return;
+    }
+    const receipts = selectedReceiptRows.map(({ salary, employee }) =>
+      buildSalaryPaymentReceiptHTML(salary, employee, salary.paidOn || salaryPaidDate)
+    ).join("");
+    printWindow.document.write(`<html><head><title>Salary Payment Receipts - ${esc(MONTHS[Number(month) - 1])} ${esc(year)}</title>
+      <style>
+        *{box-sizing:border-box;}body{margin:0;padding:16px;background:#fff;}
+        .salary-payment-receipt{margin:0 auto 24px;page-break-after:always;break-after:page;}
+        .salary-payment-receipt:last-child{page-break-after:auto;break-after:auto;}
+        @media print{@page{size:A4 portrait;margin:10mm;}body{padding:0;}.salary-payment-receipt{border:0!important;margin:0 auto;}}
+      </style></head><body>${receipts}</body></html>`);
+    printWindow.document.close();
+    printWindow.focus();
+    printWindow.print();
+  }, [selectedReceiptRows, salaryPaidDate, month, year, toast]);
+
+  const handleDownloadAllReceiptJpegs = useCallback(async () => {
+    if (receiptRows.length === 0) return;
+    setReceiptDownloading(true);
+    toast({ title: "Generating JPEG files...", description: `Creating ${receiptRows.length} salary receipts.` });
+    const container = document.createElement("div");
+    container.style.position = "fixed";
+    container.style.left = "-10000px";
+    container.style.top = "0";
+    container.style.width = "400px";
+    document.body.appendChild(container);
+    const zip = new JSZip();
+    const monthName = MONTHS[Number(month) - 1];
+    try {
+      for (const { salary, employee } of receiptRows) {
+        container.innerHTML = buildSalaryPaymentReceiptHTML(salary, employee, salary.paidOn || salaryPaidDate);
+        const receipt = container.firstElementChild;
+        if (!(receipt instanceof HTMLElement)) throw new Error("Could not render a salary receipt.");
+        const canvas = await html2canvas(receipt, { scale: 2, useCORS: true, backgroundColor: "#ffffff", logging: false });
+        const blob = await new Promise<Blob>((resolve, reject) => canvas.toBlob(
+          (imageBlob) => imageBlob ? resolve(imageBlob) : reject(new Error("Could not create a JPEG image.")),
+          "image/jpeg",
+          0.95
+        ));
+        const employeeName = employee.name.replace(/[^a-zA-Z0-9 ]/g, "").trim().replace(/\s+/g, "_") || `Employee_${employee.id}`;
+        const employeeCode = (employee.employeeCode || String(employee.id)).replace(/[^a-zA-Z0-9_-]/g, "");
+        zip.file(`${employeeName}_${employeeCode}_${monthName}_${year}.jpeg`, blob);
+      }
+      const zipBlob = await zip.generateAsync({ type: "blob" });
+      const url = URL.createObjectURL(zipBlob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = `Salary_Receipts_${monthName}_${year}.zip`;
+      link.click();
+      URL.revokeObjectURL(url);
+      toast({ title: "Download Complete", description: `${receiptRows.length} receipts packaged as JPEG files.` });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Failed to generate salary receipt JPEGs.";
+      toast({ title: "Error", description: message, variant: "destructive" });
+    } finally {
+      document.body.removeChild(container);
+      setReceiptDownloading(false);
+    }
+  }, [receiptRows, salaryPaidDate, month, year, toast]);
 
   const handleGovPrint = useCallback(() => {
     if (!salaries || salaries.length === 0 || rows.length === 0) return;
@@ -1485,6 +1678,10 @@ export default function SalaryRegister() {
               <Banknote className="w-4 h-4 mr-1" />
               Salary NEFT
             </TabsTrigger>
+            <TabsTrigger value="receipts" data-testid="tab-salary-receipts">
+              <ImageDown className="w-4 h-4 mr-1" />
+              Salary Receipts
+            </TabsTrigger>
             <TabsTrigger value="annual" data-testid="tab-salary-annual">
               <CalendarRange className="w-4 h-4 mr-1" />
               Annual Report
@@ -1971,6 +2168,81 @@ export default function SalaryRegister() {
             </Card>
           </TabsContent>
 
+          <TabsContent value="receipts">
+            <Card data-testid="card-salary-receipts">
+              <CardHeader className="pb-3">
+                <CardTitle className="text-base flex items-center gap-2">
+                  <ImageDown className="w-4 h-4" />
+                  Salary Payment Receipts — {MONTHS[Number(month) - 1]} {year}
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                {!loaded ? (
+                  <div className="text-center py-16 text-muted-foreground">
+                    <Banknote className="w-10 h-10 mx-auto mb-3 opacity-40" />
+                    <p className="text-sm">Select client, month, and year, then click <strong>Load</strong>. Receipts use saved salary and employee bank details; Excel import is not required.</p>
+                  </div>
+                ) : employeesError ? (
+                  <div className="text-center py-16 text-destructive">
+                    <p className="text-sm">Could not load employee bank details. Please retry before printing receipts.</p>
+                  </div>
+                ) : salaryError ? (
+                  <div className="text-center py-16 text-destructive">
+                    <p className="text-sm">Could not load salary records for this period. Please retry.</p>
+                  </div>
+                ) : receiptRows.length === 0 && !isLoading && !employeesLoading ? (
+                  <div className="text-center py-16 text-muted-foreground">
+                    <Banknote className="w-10 h-10 mx-auto mb-3 opacity-40" />
+                    <p className="text-sm">No salary records found for the selected period.</p>
+                  </div>
+                ) : (
+                  <>
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 print:hidden">
+                      <Input
+                        placeholder="Search employee / bank / account..."
+                        value={receiptSearch}
+                        onChange={(event) => setReceiptSearch(event.target.value)}
+                        className="w-full sm:w-80 text-sm"
+                        data-testid="input-salary-receipt-search"
+                      />
+                      <div className="flex flex-wrap gap-2">
+                        <Button variant="outline" size="sm" onClick={openReceiptPrintDialog} disabled={filteredReceiptRows.length === 0} data-testid="button-salary-receipts-print">
+                          <Printer className="w-4 h-4 mr-1" /> Print
+                        </Button>
+                        <Button variant="outline" size="sm" onClick={handleDownloadAllReceiptJpegs} disabled={receiptRows.length === 0 || receiptDownloading} data-testid="button-salary-receipts-jpeg">
+                          {receiptDownloading ? <Loader2 className="w-4 h-4 mr-1 animate-spin" /> : <ImageDown className="w-4 h-4 mr-1" />}
+                          {receiptDownloading ? "Generating..." : "Download All JPEGs"}
+                        </Button>
+                      </div>
+                    </div>
+                    {filteredReceiptRows.length === 0 ? (
+                      <div className="text-center py-12 text-muted-foreground">
+                        <p className="text-sm">No receipts match your search.</p>
+                      </div>
+                    ) : (
+                      <div className="overflow-x-auto rounded-lg border bg-slate-50 p-4">
+                        <div className="flex flex-wrap justify-center gap-6">
+                          {filteredReceiptRows.map(({ salary, employee }) => (
+                            <div
+                              key={salary.id}
+                              data-testid={`salary-receipt-${salary.id}`}
+                              dangerouslySetInnerHTML={{ __html: buildSalaryPaymentReceiptHTML(salary, employee, salary.paidOn || salaryPaidDate) }}
+                            />
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </>
+                )}
+                {loaded && (isLoading || employeesLoading) && (
+                  <div className="flex items-center justify-center py-8">
+                    <Loader2 className="w-6 h-6 animate-spin text-primary" />
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </TabsContent>
+
           <TabsContent value="annual">
             <Card data-testid="card-annual-report">
               <CardHeader className="pb-3">
@@ -2197,6 +2469,15 @@ export default function SalaryRegister() {
         onSelectedEmployeeIdsChange={setNeftPrintSelectedIds}
         onPrint={handleNeftPrint}
         title="Print Salary NEFT - Select Employees"
+      />
+      <PrintSettingsDialog
+        open={receiptPrintDialogOpen}
+        onOpenChange={setReceiptPrintDialogOpen}
+        employees={receiptPrintEmployeeList}
+        selectedEmployeeIds={receiptPrintSelectedIds}
+        onSelectedEmployeeIdsChange={setReceiptPrintSelectedIds}
+        onPrint={handleReceiptPrint}
+        title="Print Salary Receipts - Select Employees"
       />
     </Layout>
   );
