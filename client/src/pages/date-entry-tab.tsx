@@ -4910,10 +4910,10 @@ function CiplaSummaryTab({ month, year }: { month: number; year: number }) {
   });
   const contractSummaryYear = viewMode === 'yearly' ? summaryYear : year;
   const { data: ciplaContractBills = [], isLoading: contractBillsLoading } = useQuery<{ month: number; contractBill: number }[]>({
-    queryKey: ['/api/date-entry/contractor-bills/yearly-summary', contractSummaryYear, 'Cipla Limited'],
+    queryKey: ['/api/date-entry/contractor-invoices/yearly-summary', contractSummaryYear, 'Cipla Limited'],
     queryFn: async () => {
-      const response = await fetch(`/api/date-entry/contractor-bills/yearly-summary?year=${contractSummaryYear}&clientName=${encodeURIComponent('Cipla Limited')}`, { credentials: 'include' });
-      if (!response.ok) throw new Error('Failed to load Cipla contractor bills');
+      const response = await fetch(`/api/date-entry/contractor-invoices/yearly-summary?year=${contractSummaryYear}&clientName=${encodeURIComponent('Cipla Limited')}`, { credentials: 'include' });
+      if (!response.ok) throw new Error('Failed to load Cipla contractor invoice totals');
       return response.json();
     },
   });
