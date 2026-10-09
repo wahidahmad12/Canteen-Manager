@@ -13,6 +13,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Plus, Loader2, Pencil, Trash2, Users, Search, UserCheck, UserX, Building2, IndianRupee, CreditCard, FileText, MapPin, Shield, Calendar, Printer, Fingerprint, QrCode, Download } from "lucide-react";
 import { startRegistration } from "@simplewebauthn/browser";
 import { QRCodeSVG } from "qrcode.react";
@@ -262,6 +263,7 @@ export default function EmployeeMaster() {
   const [filterClient, setFilterClient] = useState<string>("all");
   const [filterActive, setFilterActive] = useState<string>("active");
   const [searchText, setSearchText] = useState("");
+  const [selectedEmployeeIds, setSelectedEmployeeIds] = useState<Set<number>>(new Set());
   const [dialogOpen, setDialogOpen] = useState(false);
   const [deleteId, setDeleteId] = useState<number | null>(null);
   const [registeringFingerprintId, setRegisteringFingerprintId] = useState<number | null>(null);
@@ -479,6 +481,26 @@ export default function EmployeeMaster() {
     }
     return true;
   });
+  const selectedEmployees = filteredEmployees.filter(emp => selectedEmployeeIds.has(emp.id));
+  const allFilteredSelected = filteredEmployees.length > 0 && filteredEmployees.every(emp => selectedEmployeeIds.has(emp.id));
+
+  const toggleEmployeeSelection = (employeeId: number, checked: boolean) => {
+    setSelectedEmployeeIds(current => {
+      const next = new Set(current);
+      if (checked) next.add(employeeId);
+      else next.delete(employeeId);
+      return next;
+    });
+  };
+
+  const toggleFilteredSelection = () => {
+    setSelectedEmployeeIds(current => {
+      const next = new Set(current);
+      if (allFilteredSelected) filteredEmployees.forEach(emp => next.delete(emp.id));
+      else filteredEmployees.forEach(emp => next.add(emp.id));
+      return next;
+    });
+  };
 
   const isSaving = createMutation.isPending || updateMutation.isPending;
 
@@ -610,7 +632,7 @@ export default function EmployeeMaster() {
   };
 
   const handlePrintEmployeeCard = async (emp: Employee) => {
-    const win = window.open("", "_blank", "width=700,height=900");
+    const win = window.open("", "_blank", "width=900,height=900");
     if (!win) {
       toast({ title: "Print window blocked", description: "Allow pop-ups for this site, then try printing the employee card.", variant: "destructive" });
       return;
@@ -629,11 +651,12 @@ export default function EmployeeMaster() {
       win.document.write(`<!DOCTYPE html>
         <html><head><meta charset="utf-8"><title>Employee Card - ${escapeHtml(emp.employeeCode)}</title>
         <style>${employeeCardStyles}
-          @page { size: 54mm 92mm; margin: 0; }
-          html, body { width: 54mm; }
-          .card-side + .card-side { page-break-before: always; }
-          @media screen { body { width: 54mm; margin: 8mm auto; box-shadow: 0 0 4mm #888; } .card-side { margin-bottom: 8mm; } }
-        </style></head><body>${front}${back}</body></html>`);
+          @page { size: A4 portrait; margin: 5mm; }
+          html, body { width: 200mm; height: 287mm; margin: 0; }
+          .card-pair { width: 200mm; height: 287mm; display: flex; align-items: center; justify-content: center; gap: 8mm; break-inside: avoid; }
+          .card-side { flex: none; }
+          @media screen { body { margin: 8mm auto; outline: 1px solid #bbb; } }
+        </style></head><body><main class="card-pair">${front}${back}</main></body></html>`);
       win.document.close();
       win.focus();
       setTimeout(() => win.print(), 500);
@@ -644,8 +667,8 @@ export default function EmployeeMaster() {
   };
 
   const handlePrintCardsA4 = async () => {
-    if (!filteredEmployees.length) {
-      toast({ title: "No employees to print", description: "Adjust your filters or search to select employee cards.", variant: "destructive" });
+    if (!selectedEmployees.length) {
+      toast({ title: "No employees selected", description: "Select one or more employees to print their cards.", variant: "destructive" });
       return;
     }
     const win = window.open("", "_blank", "width=1100,height=800");
@@ -656,8 +679,8 @@ export default function EmployeeMaster() {
     try {
       const logoUrl = new URL(logoPath, window.location.origin).href;
       const cards: Array<{ front: string; back: string }> = [];
-      for (let start = 0; start < filteredEmployees.length; start += 3) {
-        const group = filteredEmployees.slice(start, start + 3);
+      for (let start = 0; start < selectedEmployees.length; start += 4) {
+        const group = selectedEmployees.slice(start, start + 4);
         const rendered = await Promise.all(group.map(async emp => {
           const [photoResponse, qrSvg] = await Promise.all([
             fetch(`/api/employees/${emp.id}/photo`, { credentials: "include" }),
@@ -675,24 +698,30 @@ export default function EmployeeMaster() {
       }
 
       const sheets: string[] = [];
-      for (let start = 0; start < cards.length; start += 3) {
-        const group = cards.slice(start, start + 3);
-        const frontCards = group.map(card => card.front).join("");
-        const backCards = [...group].reverse().map(card => card.back).join("");
+      for (let start = 0; start < cards.length; start += 4) {
+        const group = cards.slice(start, start + 4);
+        const frontCards = [0, 1, 2, 3].map(index =>
+          `<div class="card-slot">${group[index]?.front || ""}</div>`
+        ).join("");
+        const backCards = [1, 0, 3, 2].map(index =>
+          `<div class="card-slot">${group[index]?.back || ""}</div>`
+        ).join("");
         sheets.push(`<section class="sheet fronts">${frontCards}</section>`);
         sheets.push(`<section class="sheet backs">${backCards}</section>`);
       }
-      win.document.write(`<!DOCTYPE html><html><head><meta charset="utf-8"><title>Employee Cards - A4 Landscape</title>
+      win.document.write(`<!DOCTYPE html><html><head><meta charset="utf-8"><title>Employee Cards - A4 Portrait</title>
         <style>
           ${employeeCardStyles}
-          @page { size: A4 landscape; margin: 10mm; }
-          html, body { width: 277mm; }
+          @page { size: A4 portrait; margin: 5mm; }
+          html, body { width: 200mm; margin: 0; }
           .print-help { margin: 0 0 4mm; text-align: center; font: 10pt Arial, sans-serif; }
-          .sheet { width: 277mm; height: 190mm; display: grid; grid-template-columns: repeat(3, 54mm); justify-content: space-between; align-items: center; page-break-after: always; break-after: page; }
+          .sheet { width: 200mm; height: 287mm; display: grid; grid-template-columns: repeat(2, 1fr); grid-template-rows: repeat(2, 1fr); gap: 2mm; page-break-after: always; break-after: page; }
+          .card-slot { display: flex; align-items: center; justify-content: center; min-width: 0; min-height: 0; }
+          .card-slot .card-side { transform: scale(1.54); transform-origin: center; }
           .sheet:last-child { page-break-after: auto; break-after: auto; }
           @media print { .print-help { display: none; } }
-          @media screen { body { margin: 8mm auto; width: 277mm; } .sheet { outline: 1px solid #bbb; margin-bottom: 8mm; } }
-        </style></head><body><div class="print-help">Print A4 landscape, double-sided, flip on short edge. Each back sheet matches the front sheet immediately before it.</div>${sheets.join("")}</body></html>`);
+          @media screen { body { margin: 8mm auto; width: 200mm; } .sheet { outline: 1px solid #bbb; margin-bottom: 8mm; } }
+        </style></head><body><div class="print-help">Print A4 portrait, double-sided, flip on long edge. Each back sheet matches the front sheet immediately before it.</div>${sheets.join("")}</body></html>`);
       win.document.close();
       win.focus();
       setTimeout(() => win.print(), 700);
@@ -711,8 +740,16 @@ export default function EmployeeMaster() {
             <p className="text-muted-foreground text-xs sm:text-sm mt-1">Manage employee records</p>
           </div>
           <div className="flex flex-wrap gap-2">
-            <Button variant="outline" onClick={handlePrintCardsA4} className="gap-2 border-blue-300 text-blue-700 hover:bg-blue-50 dark:border-blue-700 dark:text-blue-400">
-              <Printer className="w-4 h-4" /> Print Cards (3 per A4)
+            <Button variant="outline" onClick={toggleFilteredSelection} disabled={!filteredEmployees.length}>
+              {allFilteredSelected ? "Unselect visible" : "Select visible"}
+            </Button>
+            {selectedEmployeeIds.size > 0 && (
+              <Button variant="ghost" onClick={() => setSelectedEmployeeIds(new Set())}>
+                Clear selection ({selectedEmployeeIds.size})
+              </Button>
+            )}
+            <Button variant="outline" onClick={handlePrintCardsA4} disabled={!selectedEmployees.length} className="gap-2 border-blue-300 text-blue-700 hover:bg-blue-50 dark:border-blue-700 dark:text-blue-400">
+              <Printer className="w-4 h-4" /> Print Selected ({selectedEmployees.length}, 4 per page)
             </Button>
             <Button variant="outline" onClick={handlePrintAllQR} className="gap-2 border-emerald-300 text-emerald-700 hover:bg-emerald-50 dark:border-emerald-700 dark:text-emerald-400">
               <QrCode className="w-4 h-4" /> Print All QR
@@ -794,6 +831,12 @@ export default function EmployeeMaster() {
                 <Card key={emp.id}>
                   <CardContent className="p-4">
                     <div className="flex items-start justify-between gap-2">
+                      <Checkbox
+                        checked={selectedEmployeeIds.has(emp.id)}
+                        onCheckedChange={checked => toggleEmployeeSelection(emp.id, checked === true)}
+                        aria-label={`Select ${emp.name} for card printing`}
+                        className="mt-1"
+                      />
                       <div className="flex-1 min-w-0 space-y-1">
                         <div className="flex items-center gap-2 flex-wrap">
                           <span className="font-semibold text-sm truncate">{emp.name}</span>
@@ -869,6 +912,13 @@ export default function EmployeeMaster() {
                   <table className="w-full text-sm">
                     <thead>
                       <tr className="border-b bg-muted/50">
+                        <th className="px-3 py-2.5 text-center">
+                          <Checkbox
+                            checked={allFilteredSelected}
+                            onCheckedChange={() => toggleFilteredSelection()}
+                            aria-label="Select all visible employees"
+                          />
+                        </th>
                         <th className="px-3 py-2.5 text-left text-xs font-semibold text-muted-foreground">Code</th>
                         <th className="px-3 py-2.5 text-left text-xs font-semibold text-muted-foreground">Name</th>
                         <th className="px-3 py-2.5 text-left text-xs font-semibold text-muted-foreground">Client</th>
@@ -883,6 +933,13 @@ export default function EmployeeMaster() {
                     <tbody>
                       {filteredEmployees.map(emp => (
                         <tr key={emp.id} className="border-b last:border-0 hover:bg-muted/30 transition-colors">
+                          <td className="px-3 py-2.5 text-center">
+                            <Checkbox
+                              checked={selectedEmployeeIds.has(emp.id)}
+                              onCheckedChange={checked => toggleEmployeeSelection(emp.id, checked === true)}
+                              aria-label={`Select ${emp.name} for card printing`}
+                            />
+                          </td>
                           <td className="px-3 py-2.5 font-medium">{emp.employeeCode}</td>
                           <td className="px-3 py-2.5">{emp.name}</td>
                           <td className="px-3 py-2.5 text-muted-foreground">{emp.clientName}</td>
