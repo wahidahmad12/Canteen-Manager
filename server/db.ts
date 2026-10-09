@@ -35,6 +35,12 @@ async function initPool(): Promise<void> {
     `ALTER TABLE employees ADD COLUMN IF NOT EXISTS religion VARCHAR(100) DEFAULT NULL`,
     `ALTER TABLE employees ADD COLUMN IF NOT EXISTS email VARCHAR(255) DEFAULT NULL`,
     `ALTER TABLE employees ADD COLUMN IF NOT EXISTS identification_marks VARCHAR(500) DEFAULT ''`,
+    `CREATE TABLE IF NOT EXISTS employee_photos (
+      employee_id INT PRIMARY KEY,
+      photo_data LONGTEXT NOT NULL,
+      updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+      FOREIGN KEY (employee_id) REFERENCES employees(id) ON DELETE CASCADE
+    )`,
     `ALTER TABLE employees ADD COLUMN IF NOT EXISTS face_descriptor LONGTEXT DEFAULT NULL`,
     `ALTER TABLE client_names ADD COLUMN IF NOT EXISTS attendance_lat DECIMAL(10,7) DEFAULT NULL`,
     `ALTER TABLE client_names ADD COLUMN IF NOT EXISTS attendance_lng DECIMAL(10,7) DEFAULT NULL`,

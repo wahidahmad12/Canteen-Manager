@@ -1200,8 +1200,26 @@ export async function registerRoutes(
     res.json(emp);
   });
 
+  app.get("/api/employees/:id/photo", requireAuth, async (req, res) => {
+    const emp = await storage.getEmployee(Number(req.params.id));
+    if (!emp) return res.status(404).json({ message: "Employee not found" });
+    const clientName = effectiveClientName(req, undefined);
+    if (clientName === false || (clientName && emp.clientName !== clientName)) {
+      return res.status(403).json({ message: "You do not have access to this employee photo" });
+    }
+    res.json({ photoData: await storage.getEmployeePhoto(emp.id) || "" });
+  });
+
   app.post("/api/employees", requireAdmin, async (req, res) => {
     try {
+      const photoData = req.body?.photoData;
+      if (photoData !== undefined && photoData !== null && photoData !== "" && (
+        typeof photoData !== "string" ||
+        photoData.length > 1_400_000 ||
+        !/^data:image\/(?:jpeg|png|webp);base64,[A-Za-z0-9+/]+={0,2}$/i.test(photoData)
+      )) {
+        return res.status(400).json({ message: "Employee photo must be a JPEG, PNG, or WebP image under 1 MB." });
+      }
       const emp = await storage.createEmployee(req.body);
       res.status(201).json(emp);
     } catch (err: any) {
@@ -1212,6 +1230,14 @@ export async function registerRoutes(
 
   app.put("/api/employees/:id", requireAdmin, async (req, res) => {
     try {
+      const photoData = req.body?.photoData;
+      if (photoData !== undefined && photoData !== null && photoData !== "" && (
+        typeof photoData !== "string" ||
+        photoData.length > 1_400_000 ||
+        !/^data:image\/(?:jpeg|png|webp);base64,[A-Za-z0-9+/]+={0,2}$/i.test(photoData)
+      )) {
+        return res.status(400).json({ message: "Employee photo must be a JPEG, PNG, or WebP image under 1 MB." });
+      }
       const emp = await storage.updateEmployee(Number(req.params.id), req.body);
       res.json(emp);
     } catch (err: any) {
