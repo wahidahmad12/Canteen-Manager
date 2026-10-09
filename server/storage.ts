@@ -114,6 +114,7 @@ import {
 } from "@shared/schema";
 import { eq, desc, lt, and, sql, gte, lte, or, asc } from "drizzle-orm";
 import { bananaRateSqlCase } from "@shared/banana-rate";
+import { calculateProfessionalTax } from "@shared/professional-tax";
 import bcrypt from "bcryptjs";
 
 async function getInsertId(dbOrTx: any): Promise<number> {
@@ -2434,7 +2435,7 @@ export class DatabaseStorage implements IStorage {
       const grossWage = basicWage + hra5 + fixedHra + overtimeAmount + da;
       const pfDeduction = Math.round(basicWage * 0.12 * 100) / 100;
       const esicDeduction = grossWage <= 21000 ? Math.round(grossWage * 0.0075 * 100) / 100 : 0;
-      const professionalTax = grossWage > 40000 ? 200 : grossWage > 25000 ? 150 : grossWage > 15000 ? 130 : grossWage > 10000 ? 110 : 0;
+      const professionalTax = calculateProfessionalTax(grossWage, month, year);
       const lwf = (month === 6 || month === 12) ? 3 : 0;
       const totalDeduction = pfDeduction + esicDeduction + professionalTax + lwf;
       const netPay = grossWage - totalDeduction;

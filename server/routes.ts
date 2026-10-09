@@ -3,6 +3,7 @@ import type { Server } from "http";
 import { storage } from "./storage";
 import { pool, db } from "./db";
 import { api } from "@shared/routes";
+import { calculateProfessionalTax } from "@shared/professional-tax";
 import { z } from "zod";
 import bcrypt from "bcryptjs";
 import {
@@ -1657,22 +1658,28 @@ export async function registerRoutes(
           const d = new Date(ot.date);
           return d.getMonth() + 1 === m && d.getFullYear() === y;
         });
-        if (empOt.length === 0) return rec;
-        let otHrs = 0, otAmt = 0;
-        for (const ot of empOt) {
-          otHrs += Number(ot.overtimeHours) || 0;
-          otAmt += Number(ot.overtimeAmount) || 0;
+        let otHrs = Number(rec.overtimeHours) || 0;
+        let otAmt = Number(rec.overtimeAmount) || 0;
+        let grossWage = Number(rec.grossWage) || 0;
+        let esicDeduction = Number(rec.esicDeduction) || 0;
+        if (empOt.length > 0) {
+          otHrs = 0;
+          otAmt = 0;
+          for (const ot of empOt) {
+            otHrs += Number(ot.overtimeHours) || 0;
+            otAmt += Number(ot.overtimeAmount) || 0;
+          }
+          otHrs = Math.round(otHrs * 100) / 100;
+          otAmt = Math.round(otAmt);
+          const basicWage = Number(rec.basicWage) || 0;
+          const hra5 = Number(rec.otherAllowance) || 0;
+          const fixedHra = Number(rec.hra) || 0;
+          const da = Number(rec.da) || 0;
+          grossWage = Math.round((basicWage + hra5 + fixedHra + otAmt + da) * 100) / 100;
+          esicDeduction = grossWage <= 21000 ? Math.round(grossWage * 0.0075 * 100) / 100 : 0;
         }
-        otHrs = Math.round(otHrs * 100) / 100;
-        otAmt = Math.round(otAmt);
-        const basicWage = Number(rec.basicWage) || 0;
-        const hra5 = Number(rec.otherAllowance) || 0;
-        const fixedHra = Number(rec.hra) || 0;
-        const da = Number(rec.da) || 0;
-        const grossWage = Math.round((basicWage + hra5 + fixedHra + otAmt + da) * 100) / 100;
+        const professionalTax = calculateProfessionalTax(grossWage, m, y);
         const pfDeduction = Number(rec.pfDeduction) || 0;
-        const esicDeduction = grossWage <= 21000 ? Math.round(grossWage * 0.0075 * 100) / 100 : 0;
-        const professionalTax = grossWage > 40000 ? 200 : grossWage > 25000 ? 150 : grossWage > 15000 ? 130 : grossWage > 10000 ? 110 : 0;
         const lwf = Number(rec.lwf) || 0;
         const advanceDeduction = Number(rec.advanceDeduction) || 0;
         const fineDeduction = Number(rec.fineDeduction) || 0;
