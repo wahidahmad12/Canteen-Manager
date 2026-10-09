@@ -694,8 +694,8 @@ export default function EmployeeMaster() {
                         <Button size="icon" variant="ghost" className="text-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-900/20" title="Generate QR Code" onClick={() => setQrEmp(emp)}>
                           <QrCode className="w-4 h-4" />
                         </Button>
-                        <Button size="icon" variant="ghost" title="Print Employee Card" aria-label={`Print employee card for ${emp.name}`} onClick={() => handlePrintEmployeeCard(emp)}>
-                          <Printer className="w-4 h-4" />
+                        <Button size="sm" variant="outline" className="h-8 gap-1 px-2 text-xs" title="Print Employee Card" onClick={() => handlePrintEmployeeCard(emp)}>
+                          <Printer className="w-4 h-4" /> Print Card
                         </Button>
                         <Button size="icon" variant="ghost" onClick={() => openEdit(emp)}>
                           <Pencil className="w-4 h-4" />
@@ -756,8 +756,8 @@ export default function EmployeeMaster() {
                               <Button size="icon" variant="ghost" className="text-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-900/20" title="Generate QR Code" onClick={() => setQrEmp(emp)}>
                                 <QrCode className="w-4 h-4" />
                               </Button>
-                              <Button size="icon" variant="ghost" title="Print Employee Card" aria-label={`Print employee card for ${emp.name}`} onClick={() => handlePrintEmployeeCard(emp)}>
-                                <Printer className="w-4 h-4" />
+                              <Button size="sm" variant="outline" className="h-8 gap-1 px-2 text-xs" title="Print Employee Card" onClick={() => handlePrintEmployeeCard(emp)}>
+                                <Printer className="w-4 h-4" /> Print Card
                               </Button>
                               <Button size="icon" variant="ghost" onClick={() => openEdit(emp)}>
                                 <Pencil className="w-4 h-4" />
