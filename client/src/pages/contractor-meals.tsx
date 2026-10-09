@@ -24,20 +24,6 @@ type MealEntry = {
   id: number; entryDate: string; month: number; year: number; contractorId: number;
   mealType: string; qty: number; billNo: string; rate: number | string; vendorCode: string; contractorName: string; clientName: string;
 };
-type ContractBillEntry = {
-  id: number; contractorId: number; month: number; year: number;
-  billPeriod: string; billNo: string; amount: number | string;
-  vendorCode: string; contractorName: string; clientName: string;
-};
-
-function defaultContractBillPeriod(month: number, year: number): string {
-  const from = new Date(year, month - 2, 1);
-  const to = new Date(year, month - 1, 1);
-  const fromLabel = `${MONTH_NAMES[from.getMonth()].slice(0, 3)} ${String(from.getFullYear()).slice(-2)}`;
-  const toLabel = `${MONTH_NAMES[to.getMonth()].slice(0, 3)} ${String(to.getFullYear()).slice(-2)}`;
-  return `${fromLabel}-${toLabel}`;
-}
-
 // ---- Amount in words (Indian system) ----
 const ONES = ["", "One", "Two", "Three", "Four", "Five", "Six", "Seven", "Eight", "Nine", "Ten", "Eleven", "Twelve", "Thirteen", "Fourteen", "Fifteen", "Sixteen", "Seventeen", "Eighteen", "Nineteen"];
 const TENS = ["", "", "Twenty", "Thirty", "Forty", "Fifty", "Sixty", "Seventy", "Eighty", "Ninety"];
@@ -96,15 +82,10 @@ export default function ContractorMealsPage() {
   });
   // edits[contractorId] = { billNo, breakfast, lunch, dinner } (strings so blanks allowed)
   const [edits, setEdits] = useState<Record<number, { billNo: string; breakfast: string; lunch: string; dinner: string }>>({});
-  const [contractBillEdits, setContractBillEdits] = useState<Record<number, { billPeriod: string; billNo: string; amount: string }>>({});
 
   const { data: entries = [], isFetching } = useQuery<MealEntry[]>({
     queryKey: ["/api/contractor-meals", month, year],
     queryFn: async () => (await apiRequest("GET", `/api/contractor-meals?month=${month}&year=${year}`)).json(),
-  });
-  const { data: contractBillEntries = [], isFetching: isContractBillsFetching } = useQuery<ContractBillEntry[]>({
-    queryKey: ["/api/contractor-contract-bills", month, year],
-    queryFn: async () => (await apiRequest("GET", `/api/contractor-contract-bills?month=${month}&year=${year}`)).json(),
   });
 
   const filteredContractors = useMemo(
@@ -166,39 +147,6 @@ export default function ContractorMealsPage() {
       qc.invalidateQueries({ queryKey: ["/api/contractor-dashboard"] });
       qc.invalidateQueries({ queryKey: ["/api/contractor-billing-summary"] });
       toast({ title: "Saved", description: `${MONTHS[month - 1]} ${year} entries saved.` });
-    },
-    onError: (e: any) => toast({ title: "Save failed", description: e?.message || "", variant: "destructive" }),
-  });
-
-  const contractBillValue = (c: Contractor) => {
-    const saved = contractBillEntries.find((entry) => entry.contractorId === c.id);
-    const edit = contractBillEdits[c.id];
-    return {
-      billPeriod: edit?.billPeriod ?? saved?.billPeriod ?? defaultContractBillPeriod(month, year),
-      billNo: edit?.billNo ?? saved?.billNo ?? "",
-      amount: edit?.amount ?? (saved ? String(saved.amount) : ""),
-    };
-  };
-
-  const saveContractBillsMutation = useMutation({
-    mutationFn: async () => {
-      const rows = filteredContractors.map((c) => {
-        const value = contractBillValue(c);
-        return {
-          contractorId: c.id,
-          billPeriod: value.billPeriod,
-          billNo: value.billNo,
-          amount: value.amount === "" ? null : Number(value.amount),
-        };
-      });
-      await apiRequest("POST", "/api/contractor-contract-bills/bulk", { month, year, rows });
-    },
-    onSuccess: () => {
-      setContractBillEdits({});
-      qc.invalidateQueries({ queryKey: ["/api/contractor-contract-bills", month, year] });
-      qc.invalidateQueries({ queryKey: ["/api/contractor-dashboard"] });
-      qc.invalidateQueries({ queryKey: ["/api/contractor-billing-summary"] });
-      toast({ title: "Contract bills saved", description: `${MONTHS[month - 1]} ${year} entries saved.` });
     },
     onError: (e: any) => toast({ title: "Save failed", description: e?.message || "", variant: "destructive" }),
   });
@@ -1036,7 +984,6 @@ ${tbl(`Contractor-wise (${dashPeriodLabel})`, dashContractors.map((c) => ({ labe
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["/api/contractors"] });
       qc.invalidateQueries({ queryKey: ["/api/contractor-meals", month, year] });
-      qc.invalidateQueries({ queryKey: ["/api/contractor-contract-bills", month, year] });
       qc.invalidateQueries({ queryKey: ["/api/contractor-dashboard"] });
       qc.invalidateQueries({ queryKey: ["/api/contractor-billing-summary"] });
       qc.invalidateQueries({ queryKey: ["/api/contractor-payments"] });
@@ -1066,7 +1013,6 @@ ${tbl(`Contractor-wise (${dashPeriodLabel})`, dashContractors.map((c) => ({ labe
       <Tabs defaultValue="entry">
         <TabsList className="h-auto w-full flex-wrap justify-start">
           <TabsTrigger value="entry" data-testid="tab-meal-entry">Meal Entry</TabsTrigger>
-          <TabsTrigger value="contract-bills" data-testid="tab-contract-bills">Contract Bill Entry</TabsTrigger>
           <TabsTrigger value="master" data-testid="tab-contractor-list">Contractor List</TabsTrigger>
           <TabsTrigger value="nongst" data-testid="tab-non-gst">Non GST Invoice</TabsTrigger>
           <TabsTrigger value="payments" data-testid="tab-payments">Payments</TabsTrigger>
@@ -1079,7 +1025,7 @@ ${tbl(`Contractor-wise (${dashPeriodLabel})`, dashContractors.map((c) => ({ labe
             <CardContent className="pt-4 flex flex-wrap items-end gap-3">
               <div>
                 <Label>Month</Label>
-                <Select value={String(month)} onValueChange={(v) => { setMonth(Number(v)); setEdits({}); setContractBillEdits({}); }}>
+                <Select value={String(month)} onValueChange={(v) => { setMonth(Number(v)); setEdits({}); }}>
                   <SelectTrigger className="w-36" data-testid="select-month"><SelectValue /></SelectTrigger>
                   <SelectContent>
                     {MONTHS.map((m, i) => <SelectItem key={m} value={String(i + 1)}>{m}</SelectItem>)}
@@ -1088,7 +1034,7 @@ ${tbl(`Contractor-wise (${dashPeriodLabel})`, dashContractors.map((c) => ({ labe
               </div>
               <div>
                 <Label>Year</Label>
-                <Select value={String(year)} onValueChange={(v) => { setYear(Number(v)); setEdits({}); setContractBillEdits({}); }}>
+                <Select value={String(year)} onValueChange={(v) => { setYear(Number(v)); setEdits({}); }}>
                   <SelectTrigger className="w-28" data-testid="select-year"><SelectValue /></SelectTrigger>
                   <SelectContent>
                     {[year - 2, year - 1, year, year + 1].filter((v, i, a) => a.indexOf(v) === i).map((y) =>
@@ -1218,124 +1164,6 @@ ${tbl(`Contractor-wise (${dashPeriodLabel})`, dashContractors.map((c) => ({ labe
                     </tr>
                   </tfoot>
                 )}
-              </table>
-            </CardContent>
-          </Card>
-        </TabsContent>
-
-        {/* ============ CONTRACT BILL ENTRY ============ */}
-        <TabsContent value="contract-bills" className="space-y-4">
-          <Card>
-            <CardContent className="pt-4 flex flex-wrap items-end gap-3">
-              <div>
-                <Label>Month</Label>
-                <Select value={String(month)} onValueChange={(v) => { setMonth(Number(v)); setContractBillEdits({}); }}>
-                  <SelectTrigger className="w-36" data-testid="select-contract-bill-month"><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    {MONTHS.map((m, i) => <SelectItem key={m} value={String(i + 1)}>{m}</SelectItem>)}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div>
-                <Label>Year</Label>
-                <Select value={String(year)} onValueChange={(v) => { setYear(Number(v)); setContractBillEdits({}); }}>
-                  <SelectTrigger className="w-28" data-testid="select-contract-bill-year"><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    {[year - 2, year - 1, year, year + 1].map((y) => <SelectItem key={y} value={String(y)}>{y}</SelectItem>)}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div>
-                <Label>Client</Label>
-                <Select value={clientFilter} onValueChange={setClientFilter}>
-                  <SelectTrigger className="w-44" data-testid="select-contract-bill-client"><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">All Clients</SelectItem>
-                    {clients.map((c) => <SelectItem key={c.id} value={c.name}>{c.name}</SelectItem>)}
-                  </SelectContent>
-                </Select>
-              </div>
-              <Button onClick={() => saveContractBillsMutation.mutate()} disabled={saveContractBillsMutation.isPending} data-testid="button-save-contract-bills">
-                <Save className="h-4 w-4 mr-1" /> {saveContractBillsMutation.isPending ? "Saving..." : "Save Contract Bills"}
-              </Button>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader className="py-3">
-              <CardTitle className="text-base">
-                Contract Bills — {monthName} {year} {isContractBillsFetching ? "…" : ""}
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="overflow-x-auto p-0">
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="border-b bg-muted/50 text-left">
-                    <th className="p-2">Vendor Code</th>
-                    <th className="p-2">Contractor</th>
-                    <th className="p-2">Client</th>
-                    <th className="p-2">Bill Period</th>
-                    <th className="p-2">Bill No</th>
-                    <th className="p-2 text-right">Contract Bill (₹)</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {filteredContractors.map((c) => {
-                    const value = contractBillValue(c);
-                    return (
-                      <tr key={c.id} className="border-b" data-testid={`row-contract-bill-${c.vendorCode}`}>
-                        <td className="p-2 whitespace-nowrap font-mono text-xs">{c.vendorCode}</td>
-                        <td className="p-2">{c.name}</td>
-                        <td className="p-2">{c.clientName}</td>
-                        <td className="p-1">
-                          <Input
-                            className="w-36 h-8"
-                            placeholder="Aug-Sep 26"
-                            value={value.billPeriod}
-                            onChange={(e) => setContractBillEdits((prev) => ({
-                              ...prev,
-                              [c.id]: { ...contractBillValue(c), ...prev[c.id], billPeriod: e.target.value },
-                            }))}
-                            data-testid={`input-contract-period-${c.vendorCode}`}
-                          />
-                        </td>
-                        <td className="p-1">
-                          <Input
-                            className="w-36 h-8"
-                            placeholder="Bill No"
-                            value={value.billNo}
-                            onChange={(e) => setContractBillEdits((prev) => ({
-                              ...prev,
-                              [c.id]: { ...contractBillValue(c), ...prev[c.id], billNo: e.target.value },
-                            }))}
-                            data-testid={`input-contract-billno-${c.vendorCode}`}
-                          />
-                        </td>
-                        <td className="p-1">
-                          <Input
-                            type="text" inputMode="decimal"
-                            className="w-36 h-8 text-right ml-auto"
-                            placeholder="0.00"
-                            value={value.amount}
-                            onChange={(e) => {
-                              const raw = e.target.value.replace(/[^\d.]/g, "");
-                              const parts = raw.split(".");
-                              const amount = parts.length > 2 ? parts[0] + "." + parts.slice(1).join("") : raw;
-                              setContractBillEdits((prev) => ({
-                                ...prev,
-                                [c.id]: { ...contractBillValue(c), ...prev[c.id], amount },
-                              }));
-                            }}
-                            data-testid={`input-contract-bill-amount-${c.vendorCode}`}
-                          />
-                        </td>
-                      </tr>
-                    );
-                  })}
-                  {filteredContractors.length === 0 && (
-                    <tr><td colSpan={6} className="p-6 text-center text-muted-foreground">No contractors for this client. Add a contractor in the Contractor List tab first.</td></tr>
-                  )}
-                </tbody>
               </table>
             </CardContent>
           </Card>
@@ -1613,7 +1441,7 @@ ${tbl(`Contractor-wise (${dashPeriodLabel})`, dashContractors.map((c) => ({ labe
                     </tr>
                   ))}
                   {billing.filter((b) => b.totalBill > 0 || b.received > 0).length === 0 && (
-                    <tr><td colSpan={7} className="p-6 text-center text-muted-foreground">Abhi koi bill ya payment nahi. Meal bill ke liye invoice me Rate save kijiye, ya Contract Bill Entry tab me amount add kijiye.</td></tr>
+                    <tr><td colSpan={7} className="p-6 text-center text-muted-foreground">Abhi koi bill ya payment nahi. Meal bill ke liye invoice me Rate save kijiye.</td></tr>
                   )}
                 </tbody>
                 <tfoot>

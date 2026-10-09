@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
-import { Printer, CheckSquare, Square } from "lucide-react";
+import { Printer, CheckSquare, Square, X } from "lucide-react";
 import { ScrollArea } from "@/components/ui/scroll-area";
 
 interface PrintEmployee {
@@ -76,11 +76,24 @@ export function PrintSettingsDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-md max-h-[85vh] flex flex-col">
+      <DialogContent className="max-w-md max-h-[85vh] flex flex-col" showCloseButton={false}>
         <DialogHeader>
-          <DialogTitle className="flex items-center gap-2">
-            <Printer className="w-5 h-5" /> {title}
-          </DialogTitle>
+          <div className="flex items-center justify-between gap-3 pr-8">
+            <DialogTitle className="flex items-center gap-2">
+              <Printer className="w-5 h-5" /> {title}
+            </DialogTitle>
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon"
+              className="absolute right-4 top-4 h-8 w-8"
+              onClick={() => onOpenChange(false)}
+              aria-label="Close print settings"
+              data-testid="button-close-print-settings"
+            >
+              <X className="h-4 w-4" />
+            </Button>
+          </div>
         </DialogHeader>
 
         <div className="flex-1 overflow-y-auto space-y-4">
