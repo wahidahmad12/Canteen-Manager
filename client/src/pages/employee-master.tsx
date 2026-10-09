@@ -198,9 +198,9 @@ const employeeCardStyles = `
   .front .cyan-one { z-index: 0; width: 19mm; height: 19mm; top: 21mm; right: -4mm; transform: rotate(45deg); }
   .front .portrait { position: absolute; z-index: 2; left: 50%; top: 20mm; transform: translateX(-50%); width: 27mm; height: 27mm; border-radius: 50%; border: 1.1mm solid #0751ae; background: #dce7f3; display: flex; justify-content: center; align-items: center; color: #0751ae; font-size: 20pt; font-weight: 700; overflow: hidden; }
   .front .portrait img { width: 100%; height: 100%; object-fit: cover; }
-  .front .name { position: absolute; z-index: 2; top: 47mm; width: 100%; padding: 0 2mm; text-align: center; font-size: 12pt; line-height: 1.08; font-weight: 800; text-transform: uppercase; overflow-wrap: anywhere; }
-  .front .designation { position: absolute; z-index: 2; top: 54mm; width: 100%; padding: 0 2mm; text-align: center; font-size: 7pt; letter-spacing: 1.1px; line-height: 1.15; text-transform: uppercase; }
-  .front .details { position: absolute; z-index: 2; top: 60mm; left: 6mm; right: 3mm; font-size: 6.5pt; line-height: 1.25; }
+  .front .name { position: absolute; z-index: 2; top: 47mm; width: 100%; height: 8mm; padding: 0 2mm; display: flex; align-items: center; justify-content: center; text-align: center; font-size: 9pt; line-height: 1.05; font-weight: 800; text-transform: uppercase; overflow-wrap: anywhere; }
+  .front .designation { position: absolute; z-index: 2; top: 55.5mm; width: 100%; padding: 0 2mm; text-align: center; font-size: 7pt; letter-spacing: 1.1px; line-height: 1.15; text-transform: uppercase; }
+  .front .details { position: absolute; z-index: 2; top: 61.5mm; left: 6mm; right: 3mm; font-size: 6.5pt; line-height: 1.25; }
   .detail { display: grid; grid-template-columns: 18mm 2mm 1fr; margin-bottom: .4mm; }
   .detail .label { white-space: nowrap; }
   .detail .value { overflow-wrap: anywhere; }
