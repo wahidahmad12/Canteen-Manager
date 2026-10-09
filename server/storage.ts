@@ -4301,6 +4301,22 @@ export class DatabaseStorage implements IStorage {
     return rows as any[];
   }
 
+  async getContractorContractBillYearlySummary(year: number, clientName: string): Promise<{ month: number; contractBill: number }[]> {
+    const [rows] = await pool.query(
+      `SELECT b.month, COALESCE(SUM(b.amount), 0) AS contractBill
+       FROM contractor_contract_bills b
+       JOIN contractors c ON c.id = b.contractor_id
+       WHERE b.year = ? AND c.client_name = ?
+       GROUP BY b.month
+       ORDER BY b.month`,
+      [year, clientName],
+    );
+    return (rows as any[]).map((row) => ({
+      month: Number(row.month),
+      contractBill: Number(row.contractBill) || 0,
+    }));
+  }
+
   async saveContractorContractBills(input: {
     month: number;
     year: number;

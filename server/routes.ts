@@ -3491,6 +3491,16 @@ export async function registerRoutes(
       res.json(await storage.getContractorContractBills(month, year));
     } catch (err: any) { res.status(500).json({ message: err.message }); }
   });
+  app.get('/api/date-entry/contractor-bills/yearly-summary', requirePermission('salesinvoice'), async (req, res) => {
+    try {
+      const year = Number(req.query.year);
+      const clientName = String(req.query.clientName || '').trim();
+      if (!Number.isInteger(year) || year < 1900 || !clientName) {
+        return res.status(400).json({ message: 'Valid year and clientName are required' });
+      }
+      res.json(await storage.getContractorContractBillYearlySummary(year, clientName));
+    } catch (err: any) { res.status(500).json({ message: err.message }); }
+  });
   app.post('/api/contractor-contract-bills/bulk', requirePermission('salesinvoice'), async (req, res) => {
     try {
       const { month, year, rows } = req.body;
