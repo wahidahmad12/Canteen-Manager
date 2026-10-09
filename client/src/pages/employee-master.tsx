@@ -17,6 +17,7 @@ import { Plus, Loader2, Pencil, Trash2, Users, Search, UserCheck, UserX, Buildin
 import { startRegistration } from "@simplewebauthn/browser";
 import { QRCodeSVG } from "qrcode.react";
 import QRCodeLib from "qrcode";
+import logoPath from "@assets/logo1_1771660912341.png";
 
 const fmtDate = (d: string | null | undefined): string => {
   if (!d) return "-";
@@ -52,6 +53,17 @@ const autoFormatDate = (prev: string, next: string): string => {
   }
   return result;
 };
+
+const htmlEntities: Record<string, string> = {
+  "&": "&amp;",
+  "<": "&lt;",
+  ">": "&gt;",
+  "\"": "&quot;",
+  "'": "&#39;",
+};
+
+const escapeHtml = (value: string | null | undefined): string =>
+  (value || "").replace(/[&<>"']/g, char => htmlEntities[char]);
 
 interface Employee {
   id: number;
@@ -447,6 +459,99 @@ export default function EmployeeMaster() {
     setTimeout(() => win.print(), 500);
   };
 
+  const handlePrintEmployeeCard = async (emp: Employee) => {
+    const win = window.open("", "_blank", "width=700,height=900");
+    if (!win) {
+      toast({ title: "Print window blocked", description: "Allow pop-ups for this site, then try printing the employee card.", variant: "destructive" });
+      return;
+    }
+    try {
+      const qrData = `CODE:${emp.employeeCode}\nNAME:${emp.name}\nCLIENT:${emp.clientName}`;
+      const qrSvg = await QRCodeLib.toString(qrData, { type: "svg", width: 220, margin: 1, errorCorrectionLevel: "M" });
+      const client = (clients || []).find((entry: any) => entry.name === emp.clientName);
+      const workplace = client?.address || emp.localAddress || emp.address || emp.permanentAddress || "";
+      const logoUrl = new URL(logoPath, window.location.origin).href;
+      const initial = escapeHtml(emp.name.trim().charAt(0).toUpperCase() || "?");
+      const sideValue = (value: string | null | undefined) => escapeHtml(value?.trim() || "N/A");
+
+      win.document.write(`<!DOCTYPE html>
+        <html><head><meta charset="utf-8"><title>Employee Card - ${escapeHtml(emp.employeeCode)}</title>
+        <style>
+          @page { size: 54mm 92mm; margin: 0; }
+          * { box-sizing: border-box; }
+          html, body { margin: 0; padding: 0; width: 54mm; font-family: Arial, Helvetica, sans-serif; color: #101820; }
+          body { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
+          .side { width: 54mm; height: 92mm; position: relative; overflow: hidden; page-break-after: always; background: #f8f8f6; }
+          .side:last-child { page-break-after: auto; }
+          .pattern { position: absolute; inset: 0; opacity: .32; background: repeating-linear-gradient(135deg, #e8e8e5 0, #e8e8e5 1px, #f8f8f6 1px, #f8f8f6 5px); }
+          .cyan { position: absolute; background: #35b5ed; }
+          .brand { position: relative; z-index: 1; height: 26mm; padding: 3mm 2.5mm 2mm; display: flex; align-items: flex-start; gap: 2mm; color: #fff; background: #0751ae; clip-path: polygon(0 0,100% 0,100% 75%,91% 100%,9% 100%,0 75%); }
+          .logo { width: 12mm; height: 12mm; border-radius: 50%; object-fit: contain; background: #fff; flex: none; }
+          .brand-copy { font-size: 8pt; line-height: 1.17; font-weight: 700; }
+          .office { font-size: 6pt; line-height: 1.2; margin-top: 1mm; font-weight: 600; }
+          .front .cyan-one { z-index: 0; width: 19mm; height: 19mm; top: 21mm; right: -4mm; transform: rotate(45deg); }
+          .front .portrait { position: absolute; z-index: 2; left: 50%; top: 20mm; transform: translateX(-50%); width: 27mm; height: 27mm; border-radius: 50%; border: 1.1mm solid #0751ae; background: #dce7f3; display: flex; justify-content: center; align-items: center; color: #0751ae; font-size: 20pt; font-weight: 700; }
+          .front .name { position: absolute; z-index: 2; top: 47mm; width: 100%; padding: 0 2mm; text-align: center; font-size: 12pt; line-height: 1.08; font-weight: 800; text-transform: uppercase; overflow-wrap: anywhere; }
+          .front .designation { position: absolute; z-index: 2; top: 54mm; width: 100%; padding: 0 2mm; text-align: center; font-size: 7pt; letter-spacing: 1.1px; line-height: 1.15; text-transform: uppercase; }
+          .front .details { position: absolute; z-index: 2; top: 60mm; left: 6mm; right: 3mm; font-size: 6.5pt; line-height: 1.25; }
+          .detail { display: grid; grid-template-columns: 18mm 2mm 1fr; margin-bottom: .4mm; }
+          .detail .label { white-space: nowrap; }
+          .detail .value { overflow-wrap: anywhere; }
+          .front .workplace { position: absolute; z-index: 2; bottom: 8mm; width: 100%; padding: 0 3mm; text-align: center; font-size: 6pt; line-height: 1.2; }
+          .front .workplace strong { display: block; margin-bottom: 1mm; font-size: 7pt; }
+          .front .bottom, .back .bottom { position: absolute; z-index: 1; left: 0; right: 0; bottom: 0; height: 8mm; background: #0751ae; clip-path: polygon(0 48%,31% 0,63% 35%,100% 0,100% 100%,0 100%); }
+          .front .bottom-cyan, .back .bottom-cyan { position: absolute; z-index: 1; left: 0; right: 0; bottom: 0; height: 9mm; background: #35b5ed; clip-path: polygon(0 0,100% 78%,100% 100%,0 100%); }
+          .back .brand { height: 24mm; padding-top: 3mm; }
+          .back .brand-copy { font-size: 7.5pt; }
+          .back .office { font-size: 5.8pt; }
+          .terms-title { position: absolute; z-index: 2; top: 23mm; left: 11mm; right: 11mm; padding: 1mm; text-align: center; background: #35b5ed; font-size: 7pt; font-weight: 800; }
+          .terms { position: absolute; z-index: 2; top: 27mm; left: 4mm; right: 3mm; text-align: center; font-size: 6.3pt; line-height: 1.25; }
+          .back .details { position: absolute; z-index: 2; top: 39mm; left: 7mm; right: 3mm; font-size: 6.5pt; line-height: 1.25; font-weight: 700; }
+          .back .detail { grid-template-columns: 19mm 2mm 1fr; margin-bottom: .4mm; }
+          .qr { position: absolute; z-index: 2; width: 23mm; height: 23mm; left: 50%; bottom: 8mm; transform: translateX(-50%); background: white; padding: 1mm; }
+          .qr svg { display: block; width: 100%; height: 100%; }
+          @media screen { body { width: 54mm; margin: 8mm auto; box-shadow: 0 0 4mm #888; } .side { margin-bottom: 8mm; } }
+        </style></head><body>
+        <section class="side front">
+          <div class="pattern"></div><div class="cyan cyan-one"></div>
+          <header class="brand"><img class="logo" src="${logoUrl}" alt="DJ Hospitality logo"><div class="brand-copy">DJ Hospitality &amp; Facility Management Pvt Ltd<div class="office">7 Crematorium Street,<br>Kolkata-700014</div></div></header>
+          <div class="portrait" aria-label="Employee photo placeholder">${initial}</div>
+          <div class="name">${sideValue(emp.name)}</div>
+          <div class="designation">${sideValue(emp.designation || emp.department || "Employee")}</div>
+          <div class="details">
+            <div class="detail"><span class="label">ID No</span><span>:</span><span class="value">${sideValue(emp.employeeCode)}</span></div>
+            <div class="detail"><span class="label">Dept</span><span>:</span><span class="value">${sideValue(emp.department || emp.clientName)}</span></div>
+            <div class="detail"><span class="label">EPFO No</span><span>:</span><span class="value">${sideValue(emp.uanNo || emp.pfNo)}</span></div>
+            <div class="detail"><span class="label">ESIC No</span><span>:</span><span class="value">${sideValue(emp.esicNo)}</span></div>
+          </div>
+          <div class="workplace"><strong>Work place Address:</strong>${sideValue(workplace)}</div>
+          <div class="bottom-cyan"></div><div class="bottom"></div>
+        </section>
+        <section class="side back">
+          <div class="pattern"></div>
+          <header class="brand"><img class="logo" src="${logoUrl}" alt="DJ Hospitality logo"><div class="brand-copy">DJ Hospitality &amp; Facility Management Private Limited<div class="office">Jala Kendua, Dhulagori, Kulai,<br>Banharishpur, West Bengal 711322</div></div></header>
+          <div class="terms-title">TERMS &amp; CONDITIONS</div>
+          <div class="terms">This card is not transferable. Show this card when asked. Always co-operate with security checks.</div>
+          <div class="details">
+            <div class="detail"><span class="label">Name</span><span>:</span><span class="value">${sideValue(emp.name)}</span></div>
+            <div class="detail"><span class="label">Father's Name</span><span>:</span><span class="value">${sideValue(emp.fatherName)}</span></div>
+            <div class="detail"><span class="label">DOB</span><span>:</span><span class="value">${escapeHtml(fmtDate(emp.dob))}</span></div>
+            <div class="detail"><span class="label">Date Of Induction</span><span>:</span><span class="value">${escapeHtml(fmtDate(emp.joiningDate))}</span></div>
+            <div class="detail"><span class="label">Status</span><span>:</span><span class="value">${emp.isActive ? "Active" : "Inactive"}</span></div>
+          </div>
+          <div class="qr">${qrSvg}</div>
+          <div class="bottom-cyan"></div><div class="bottom"></div>
+        </section>
+        </body></html>`);
+      win.document.close();
+      win.focus();
+      setTimeout(() => win.print(), 500);
+    } catch (err: any) {
+      win.close();
+      toast({ title: "Could not create employee card", description: err.message || "Please try again.", variant: "destructive" });
+    }
+  };
+
   return (
     <Layout>
       <div className="space-y-4 sm:space-y-6">
@@ -589,6 +694,9 @@ export default function EmployeeMaster() {
                         <Button size="icon" variant="ghost" className="text-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-900/20" title="Generate QR Code" onClick={() => setQrEmp(emp)}>
                           <QrCode className="w-4 h-4" />
                         </Button>
+                        <Button size="icon" variant="ghost" title="Print Employee Card" aria-label={`Print employee card for ${emp.name}`} onClick={() => handlePrintEmployeeCard(emp)}>
+                          <Printer className="w-4 h-4" />
+                        </Button>
                         <Button size="icon" variant="ghost" onClick={() => openEdit(emp)}>
                           <Pencil className="w-4 h-4" />
                         </Button>
@@ -647,6 +755,9 @@ export default function EmployeeMaster() {
                               </Button>
                               <Button size="icon" variant="ghost" className="text-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-900/20" title="Generate QR Code" onClick={() => setQrEmp(emp)}>
                                 <QrCode className="w-4 h-4" />
+                              </Button>
+                              <Button size="icon" variant="ghost" title="Print Employee Card" aria-label={`Print employee card for ${emp.name}`} onClick={() => handlePrintEmployeeCard(emp)}>
+                                <Printer className="w-4 h-4" />
                               </Button>
                               <Button size="icon" variant="ghost" onClick={() => openEdit(emp)}>
                                 <Pencil className="w-4 h-4" />
