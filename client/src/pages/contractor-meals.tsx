@@ -144,6 +144,7 @@ export default function ContractorMealsPage() {
       setEdits({});
       setShowAll(false); // save ke baad sirf data wale contractors dikhao
       qc.invalidateQueries({ queryKey: ["/api/contractor-meals", month, year] });
+      qc.invalidateQueries({ queryKey: ["/api/date-entry/contractor-invoices/yearly-summary", year] });
       qc.invalidateQueries({ queryKey: ["/api/contractor-dashboard"] });
       qc.invalidateQueries({ queryKey: ["/api/contractor-billing-summary"] });
       toast({ title: "Saved", description: `${MONTHS[month - 1]} ${year} entries saved.` });
@@ -309,6 +310,7 @@ export default function ContractorMealsPage() {
         rates: { Breakfast: Number(invRates.Breakfast) || 0, Lunch: Number(invRates.Lunch) || 0, Dinner: Number(invRates.Dinner) || 0 },
       });
       qc.invalidateQueries({ queryKey: ["/api/contractor-meals", month, year] });
+      qc.invalidateQueries({ queryKey: ["/api/date-entry/contractor-invoices/yearly-summary", year] });
       qc.invalidateQueries({ queryKey: ["/api/contractor-dashboard"] });
       qc.invalidateQueries({ queryKey: ["/api/contractor-billing-summary"] });
       return true;
@@ -970,6 +972,7 @@ ${tbl(`Contractor-wise (${dashPeriodLabel})`, dashContractors.map((c) => ({ labe
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["/api/contractors"] });
+      qc.invalidateQueries({ queryKey: ["/api/date-entry/contractor-invoices/yearly-summary"] });
       qc.invalidateQueries({ queryKey: ["/api/contractor-dashboard"] });
       qc.invalidateQueries({ queryKey: ["/api/contractor-billing-summary"] });
       setForm(emptyForm);
@@ -984,6 +987,7 @@ ${tbl(`Contractor-wise (${dashPeriodLabel})`, dashContractors.map((c) => ({ labe
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["/api/contractors"] });
       qc.invalidateQueries({ queryKey: ["/api/contractor-meals", month, year] });
+      qc.invalidateQueries({ queryKey: ["/api/date-entry/contractor-invoices/yearly-summary"] });
       qc.invalidateQueries({ queryKey: ["/api/contractor-dashboard"] });
       qc.invalidateQueries({ queryKey: ["/api/contractor-billing-summary"] });
       qc.invalidateQueries({ queryKey: ["/api/contractor-payments"] });
