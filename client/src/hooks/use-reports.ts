@@ -738,6 +738,9 @@ export function useVerifyAdminPin() {
         credentials: "include",
       });
       const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data.message || "Could not verify admin PIN");
+      }
       return data.valid as boolean;
     },
   });

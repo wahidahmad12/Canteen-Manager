@@ -278,6 +278,34 @@ export async function registerRoutes(
     });
   });
 
+  app.post(api.admin.verifyPin.path, requireAdmin, async (req, res) => {
+    try {
+      const { pin } = api.admin.verifyPin.input.parse(req.body);
+      const valid = await storage.verifyAdminPin(pin);
+      res.json({ valid });
+    } catch (err) {
+      if (err instanceof z.ZodError) {
+        return res.status(400).json({ message: err.errors[0].message });
+      }
+      throw err;
+    }
+  });
+
+  app.post(api.admin.changePin.path, requireAdmin, async (req, res) => {
+    try {
+      const { currentPin, newPin } = api.admin.changePin.input.parse(req.body);
+      const valid = await storage.verifyAdminPin(currentPin);
+      if (!valid) return res.status(400).json({ message: "Current PIN is incorrect" });
+      await storage.setAdminPin(newPin);
+      res.json({ success: true });
+    } catch (err) {
+      if (err instanceof z.ZodError) {
+        return res.status(400).json({ message: err.errors[0].message });
+      }
+      throw err;
+    }
+  });
+
   // === EMPLOYEE SELF-SERVICE ROUTES ===
   app.get("/api/employee/me", requireAuth, async (req, res) => {
     const employeeId = req.session.employeeId;

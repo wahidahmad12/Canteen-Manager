@@ -43,12 +43,16 @@ export default function Admin() {
   const [, navigate] = useLocation();
 
   const handlePinSubmit = async () => {
-    const valid = await verifyPinMutation.mutateAsync(pinInput);
-    if (valid) {
-      setIsAuthenticated(true);
-    } else {
-      toast({ title: "Access Denied", description: "Incorrect PIN. Please try again.", variant: "destructive" });
-      setPinInput("");
+    try {
+      const valid = await verifyPinMutation.mutateAsync(pinInput);
+      if (valid) {
+        setIsAuthenticated(true);
+      } else {
+        toast({ title: "Access Denied", description: "Incorrect PIN. Please try again.", variant: "destructive" });
+        setPinInput("");
+      }
+    } catch (error: any) {
+      toast({ title: "Could not verify PIN", description: error.message || "Please try again.", variant: "destructive" });
     }
   };
 
