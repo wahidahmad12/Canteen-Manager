@@ -63,6 +63,16 @@ export default function LeaveWithWagesPage() {
   });
 
   const calculationYearNumber = Number(calculationYear);
+  const leaveRecordsForCalculationQuery = useQuery<LeaveWithWages[]>({
+    queryKey: ["/api/leave-with-wages", selectedClient, "calculation"],
+    queryFn: async () => {
+      const response = await fetch(`/api/leave-with-wages?clientName=${encodeURIComponent(selectedClient)}`, { credentials: "include" });
+      if (!response.ok) throw new Error("Failed to load leave register records");
+      return response.json();
+    },
+    enabled: !!selectedClient && activeTab === "calculation",
+  });
+  const leaveRecordsForCalculation = leaveRecordsForCalculationQuery.data || [];
   const attendanceQueries = useQueries({
     queries: Array.from({ length: 12 }, (_, index) => index + 1).map(month => ({
       queryKey: ["/api/attendance", selectedClient, month, calculationYearNumber],
@@ -95,23 +105,35 @@ export default function LeaveWithWagesPage() {
       const attendanceRecord = query.data?.find(record => record.employeeId === employee.id);
       if (!attendanceRecord) return 0;
       const daysInMonth = new Date(calculationYearNumber, index + 1, 0).getDate();
-      let present = 0;
+      let daysWorked = 0;
       for (let day = 1; day <= daysInMonth; day++) {
         const code = String(attendanceRecord[`day${day}`] || "").trim().toUpperCase();
-        if (code === "P" || code === "P/HL" || code === "HW") present += 1;
-        else if (code === "HD") present += 0.5;
+        if (!code) continue;
+        if (code === "WO" || code === "PH" || code === "CL" || code === "SL" || code === "EL" || code === "A" ||
+          code === "H" || code.startsWith("P/") || (code.includes("HL") && code !== "PH")) continue;
+        daysWorked += 1;
       }
-      return present;
+      return daysWorked;
     });
-    const totalPresent = monthlyPresent.reduce((total, days) => total + days, 0);
+    const registerRecord = leaveRecordsForCalculation.find(record =>
+      record.employeeId === employee.id && record.calendarYear === calculationYearNumber
+    );
+    const totalPresent = registerRecord
+      ? Number(registerRecord.actualDaysWorked || 0)
+      : monthlyPresent.reduce((total, days) => total + days, 0);
     const leaveCalculation = totalPresent / 20;
-    const roundedLeave = Math.floor(leaveCalculation);
+    const roundedLeave = registerRecord
+      ? Number(registerRecord.daysLeaveEarned || 0)
+      : Math.floor(leaveCalculation);
     const rates = (wageRatesQuery.data || []).filter(rate =>
       rate.skillCategory.trim().toLowerCase() === (employee.skills || "").trim().toLowerCase()
     );
-    const basicWages = rates.length
+    const calculatedRate = rates.length
       ? Math.round((rates.reduce((total, rate) => total + Number(rate.dailyRate || 0), 0) / rates.length) * 100) / 100
       : Number(employee.dailyRate || 0);
+    const basicWages = registerRecord
+      ? Number(registerRecord.rateOfWagesRs || 0)
+      : calculatedRate;
 
     return {
       employee,
@@ -120,17 +142,20 @@ export default function LeaveWithWagesPage() {
       basicWages,
       leaveCalculation,
       roundedLeave,
-      leavePayment: Math.round(roundedLeave * basicWages),
+      leavePayment: registerRecord
+        ? Number(registerRecord.amountOfWagesRs || 0)
+        : Math.round(roundedLeave * basicWages),
     };
   });
   const selectedPayslipRow = leaveCalculationRows.find(row => String(row.employee.id) === payslipEmployeeId) || leaveCalculationRows[0];
-  const isLoadingCalculation = attendanceQueries.some(query => query.isLoading) || wageRatesQuery.isLoading;
-  const isCalculationError = attendanceQueries.some(query => query.isError) || wageRatesQuery.isError;
+  const isLoadingCalculation = attendanceQueries.some(query => query.isLoading) || wageRatesQuery.isLoading || leaveRecordsForCalculationQuery.isLoading;
+  const isCalculationError = attendanceQueries.some(query => query.isError) || wageRatesQuery.isError || leaveRecordsForCalculationQuery.isError;
 
   const createMutation = useMutation({
     mutationFn: (data: any) => apiRequest("POST", "/api/leave-with-wages", data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/leave-with-wages", selectedEmployeeId] });
+      queryClient.invalidateQueries({ queryKey: ["/api/leave-with-wages", selectedClient, "calculation"] });
       setDialogOpen(false);
       toast({ title: "Record added" });
     },
@@ -141,6 +166,7 @@ export default function LeaveWithWagesPage() {
     mutationFn: ({ id, data }: { id: number; data: any }) => apiRequest("PUT", `/api/leave-with-wages/${id}`, data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/leave-with-wages", selectedEmployeeId] });
+      queryClient.invalidateQueries({ queryKey: ["/api/leave-with-wages", selectedClient, "calculation"] });
       setDialogOpen(false);
       setEditingRecord(null);
       toast({ title: "Record updated" });
@@ -152,6 +178,7 @@ export default function LeaveWithWagesPage() {
     mutationFn: (id: number) => apiRequest("DELETE", `/api/leave-with-wages/${id}`),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/leave-with-wages", selectedEmployeeId] });
+      queryClient.invalidateQueries({ queryKey: ["/api/leave-with-wages", selectedClient, "calculation"] });
       toast({ title: "Record deleted" });
     },
   });
@@ -162,6 +189,7 @@ export default function LeaveWithWagesPage() {
     onSuccess: async (res: any) => {
       const result = await res.json();
       queryClient.invalidateQueries({ queryKey: ["/api/leave-with-wages", selectedEmployeeId] });
+      queryClient.invalidateQueries({ queryKey: ["/api/leave-with-wages", selectedClient, "calculation"] });
       toast({ title: result.message || `Generated ${result.generated} year(s)` });
     },
     onError: (e: any) => toast({ title: "Error", description: e.message, variant: "destructive" }),
@@ -184,6 +212,7 @@ export default function LeaveWithWagesPage() {
     },
     onSuccess: (count: number) => {
       queryClient.invalidateQueries({ queryKey: ["/api/leave-with-wages"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/leave-with-wages", selectedClient, "calculation"] });
       if (selectedEmployeeId) {
         queryClient.invalidateQueries({ queryKey: ["/api/leave-with-wages", selectedEmployeeId] });
       }
@@ -391,7 +420,7 @@ export default function LeaveWithWagesPage() {
 
   const handleExportLeaveCalculation = async () => {
     if (isCalculationError) {
-      toast({ title: "Could not export leave calculation", description: "Attendance or wage-rate data failed to load.", variant: "destructive" });
+      toast({ title: "Could not export leave calculation", description: "Attendance, wage-rate, or leave-register data failed to load.", variant: "destructive" });
       return;
     }
     const ExcelJS = (await import("exceljs")).default;
@@ -399,7 +428,7 @@ export default function LeaveWithWagesPage() {
     const worksheet = workbook.addWorksheet("Leave Calculation");
     const headers = [
       "Name of Employee", "Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec",
-      "Grand Total", "Basic wages", "Leave Calculation", "Round Off Leave Calculation", "Leave Payment",
+      "Days Worked", "Rate Rs.", "Leave Calculation (Days/20)", "Leave Earned", "Amount Rs.",
     ];
     const border: Partial<ExcelJS.Borders> = {
       top: { style: "thin" }, bottom: { style: "thin" }, left: { style: "thin" }, right: { style: "thin" },
@@ -426,11 +455,11 @@ export default function LeaveWithWagesPage() {
       row.monthlyPresent.forEach((days, monthIndex) => {
         excelRow.getCell(monthIndex + 2).value = days;
       });
-      excelRow.getCell(14).value = { formula: `SUM(B${rowNumber}:M${rowNumber})` };
+      excelRow.getCell(14).value = row.totalPresent;
       excelRow.getCell(15).value = row.basicWages;
-      excelRow.getCell(16).value = { formula: `N${rowNumber}/20` };
-      excelRow.getCell(17).value = { formula: `ROUNDDOWN(P${rowNumber},0)` };
-      excelRow.getCell(18).value = { formula: `Q${rowNumber}*O${rowNumber}` };
+      excelRow.getCell(16).value = row.leaveCalculation;
+      excelRow.getCell(17).value = row.roundedLeave;
+      excelRow.getCell(18).value = row.leavePayment;
       excelRow.eachCell({ includeEmpty: true }, cell => {
         cell.border = border;
         if (index % 2 === 1) cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFF5F5F5" } };
@@ -494,20 +523,20 @@ export default function LeaveWithWagesPage() {
     setCell("A4", "Name", true);
     setCell("B4", selectedPayslipRow.employee.name, true);
     setCell("A5", "Month", true);
-    setCell("B5", "Present Days", true);
+    setCell("B5", "Days Worked", true);
     for (let monthIndex = 0; monthIndex < 12; monthIndex++) {
       const rowNumber = monthIndex + 6;
       setCell(`A${rowNumber}`, `${["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"][monthIndex]}-${String(calculationYearNumber).slice(-2)}`);
       setCell(`B${rowNumber}`, selectedPayslipRow.monthlyPresent[monthIndex]);
     }
     setCell("A18", "Total", true);
-    setCell("B18", { formula: "SUM(B6:B17)" }, true);
+    setCell("B18", selectedPayslipRow.totalPresent, true);
     setCell("A19", "Leave Balance", true);
-    setCell("B19", { formula: "ROUNDDOWN(B18/20,0)" }, true);
+    setCell("B19", selectedPayslipRow.roundedLeave, true);
     setCell("A20", "Basic wages", true);
     setCell("B20", selectedPayslipRow.basicWages, true);
     setCell("A21", "Leave Encashment Amt.", true);
-    setCell("B21", { formula: "B19*B20" }, true);
+    setCell("B21", selectedPayslipRow.leavePayment, true);
     worksheet.getCell("B20").numFmt = "#,##0.##";
     worksheet.getCell("B21").numFmt = "#,##0";
     worksheet.getColumn(1).width = 36;
@@ -904,7 +933,7 @@ export default function LeaveWithWagesPage() {
                     </Select>
                   </div>
                   <p className="text-xs text-muted-foreground">
-                    Leave calculation = total present days ÷ 20; leave balance rounds down. Payment = rounded leave balance × daily basic wage.
+                    Monthly attendance and annual totals follow the Leave Register. Days worked, leave earned, wage rate, and amount use the saved register values when available.
                   </p>
                 </CardContent>
               </Card>
@@ -912,7 +941,7 @@ export default function LeaveWithWagesPage() {
               {isLoadingCalculation ? (
                 <div className="flex justify-center py-8"><Loader2 className="w-6 h-6 animate-spin" /></div>
               ) : isCalculationError ? (
-                <Card><CardContent className="py-8 text-center text-destructive">Could not load attendance or wage rates. Please try again.</CardContent></Card>
+                <Card><CardContent className="py-8 text-center text-destructive">Could not load attendance, wage rates, or leave-register records. Please try again.</CardContent></Card>
               ) : (
                 <>
                   <Card>
@@ -928,11 +957,11 @@ export default function LeaveWithWagesPage() {
                               {["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"].map(month => (
                                 <th key={month} className="border px-2 py-1.5 text-center">{month}</th>
                               ))}
-                              <th className="border px-2 py-1.5 text-right">Grand Total</th>
-                              <th className="border px-2 py-1.5 text-right">Basic wages</th>
-                              <th className="border px-2 py-1.5 text-right">Leave Calculation</th>
-                              <th className="border px-2 py-1.5 text-right">Round Off Leave Calculation</th>
-                              <th className="border px-2 py-1.5 text-right">Leave Payment</th>
+                              <th className="border px-2 py-1.5 text-right">Days Worked</th>
+                              <th className="border px-2 py-1.5 text-right">Rate Rs.</th>
+                              <th className="border px-2 py-1.5 text-right">Leave Calculation (Days/20)</th>
+                              <th className="border px-2 py-1.5 text-right">Leave Earned</th>
+                              <th className="border px-2 py-1.5 text-right">Amount Rs.</th>
                             </tr>
                           </thead>
                           <tbody>
@@ -993,7 +1022,7 @@ export default function LeaveWithWagesPage() {
                               <tr><th colSpan={2} className="border border-slate-700 px-2 py-1 text-center font-bold">1st Jan {calculationYearNumber} To 31st Dec {calculationYearNumber}</th></tr>
                               <tr><th colSpan={2} className="border border-slate-700 px-2 py-1 text-center font-bold">Leave Calculation with Payment Slip</th></tr>
                               <tr><th className="border border-slate-700 px-2 py-1 text-left">Name</th><th className="border border-slate-700 px-2 py-1 text-left font-bold">{selectedPayslipRow.employee.name}</th></tr>
-                              <tr><th className="border border-slate-700 px-2 py-1 text-center">Month</th><th className="border border-slate-700 px-2 py-1 text-center">Present Days</th></tr>
+                              <tr><th className="border border-slate-700 px-2 py-1 text-center">Month</th><th className="border border-slate-700 px-2 py-1 text-center">Days Worked</th></tr>
                             </thead>
                             <tbody>
                               {selectedPayslipRow.monthlyPresent.map((days, index) => (
