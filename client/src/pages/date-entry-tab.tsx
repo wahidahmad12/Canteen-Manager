@@ -4893,6 +4893,11 @@ function CiplaSummaryTab({ month, year }: { month: number; year: number }) {
     const ny = m === 12 ? summaryYear + 1 : summaryYear;
     return `21 ${MONTHS[m-1].slice(0,3)} – 20 ${MONTHS[nm-1].slice(0,3)} ${ny}`;
   };
+  const getCiplaInvoiceMonthLabel = (m: number, y: number) => {
+    const invoiceMonth = m === 12 ? 1 : m + 1;
+    const invoiceYear = m === 12 ? y + 1 : y;
+    return `${MONTHS[invoiceMonth - 1].slice(0, 3)} ${invoiceYear}`;
+  };
 
   const { data: ciplaRows = [], isLoading: ciplaLoading } = useQuery<CiplaRow[]>({
     queryKey: ['/api/cipla-date-entries', month, year],
@@ -4909,7 +4914,7 @@ function CiplaSummaryTab({ month, year }: { month: number; year: number }) {
     queryFn: () => fetch(`/api/cipla-date-entries/yearly-summary?year=${summaryYear}`, { credentials: 'include' }).then(r => r.json()),
   });
   const contractSummaryYear = viewMode === 'yearly' ? summaryYear : year;
-  const { data: ciplaContractBills = [], isLoading: contractBillsLoading } = useQuery<{ month: number; contractBill: number }[]>({
+  const { data: ciplaInvoiceTotals = [], isLoading: invoiceTotalsLoading } = useQuery<{ month: number; invoiceTotal: number }[]>({
     queryKey: ['/api/date-entry/contractor-invoices/yearly-summary', contractSummaryYear, 'Cipla Limited'],
     queryFn: async () => {
       const response = await fetch(`/api/date-entry/contractor-invoices/yearly-summary?year=${contractSummaryYear}&clientName=${encodeURIComponent('Cipla Limited')}`, { credentials: 'include' });
@@ -4918,10 +4923,10 @@ function CiplaSummaryTab({ month, year }: { month: number; year: number }) {
     },
   });
 
-  const isLoading = viewMode === 'monthly' ? ciplaLoading || contractBillsLoading : yrLoading || contractBillsLoading;
+  const isLoading = viewMode === 'monthly' ? ciplaLoading || invoiceTotalsLoading : yrLoading || invoiceTotalsLoading;
   const sumF = (arr: any[], f: string) => arr.reduce((s: number, r: any) => s + (r[f] || 0), 0);
-  const ciplaContractBill = Number(ciplaContractBills.find(r => r.month === month)?.contractBill || 0);
-  const getContractBillForMonth = (m: number) => Number(ciplaContractBills.find(r => r.month === m)?.contractBill || 0);
+  const ciplaInvoiceTotal = Number(ciplaInvoiceTotals.find(r => r.month === month)?.invoiceTotal || 0);
+  const getInvoiceTotalForPeriod = (m: number) => Number(ciplaInvoiceTotals.find(r => r.month === m)?.invoiceTotal || 0);
   const thI: React.CSSProperties = { background:'#4338ca', color:'#fff', border:'1px solid #333', padding:'4px 6px', textAlign:'center', fontWeight:'bold', fontSize:11 };
   const tdS = (sun?: boolean): React.CSSProperties => ({ background: sun ? '#ffb380' : undefined, border:'1px solid #ddd', padding:'2px 5px', textAlign:'center', fontSize:10 });
   const tdTot: React.CSSProperties = { background:'#e8f0fe', border:'1px solid #333', padding:'3px 6px', textAlign:'center', fontWeight:'bold', fontSize:10 };
@@ -4967,24 +4972,24 @@ function CiplaSummaryTab({ month, year }: { month: number; year: number }) {
           (sumF(ciplaRows, 'lunchCoopen') + sumF(ciplaRows, 'lunchCoin') + sumF(ciplaRows, 'lunchSign') + sumF(ciplaRows, 'lunchMachine')) * 58 +
           (sumF(ciplaRows, 'dinnerCoopen') + sumF(ciplaRows, 'dinnerCoin') + sumF(ciplaRows, 'dinnerSign') + sumF(ciplaRows, 'dinnerMachine')) * 58;
         ws.addRow([]);
-        const amountHeader = ws.addRow(['Billing Period', 'Date Entry Total', 'Contract Bill', 'Grand Total']);
+        const amountHeader = ws.addRow(['Billing Period', 'Date Entry Total', `Non-GST Invoice Total Bill (${getCiplaInvoiceMonthLabel(month, year)})`, 'Grand Total']);
         amountHeader.eachCell((c: any) => { c.font=wFont; c.fill=mkFill('FF4338CA'); c.border=thin; c.alignment={horizontal:'center'}; });
-        const amountSummary = ws.addRow([label, mealAmount, ciplaContractBill, mealAmount + ciplaContractBill]);
+        const amountSummary = ws.addRow([label, mealAmount, ciplaInvoiceTotal, mealAmount + ciplaInvoiceTotal]);
         amountSummary.eachCell((c: any) => { c.border=thin; c.font={bold:true}; c.alignment={horizontal:'center'}; });
       } else {
-        const h = ws.addRow(['Billing Period','Breakfast','Lunch','Dinner','Meal Data Entry Total','Contract Bill','Grand Total']);
+        const h = ws.addRow(['Billing Period','Breakfast','Lunch','Dinner','Meal Data Entry Total','Non-GST Invoice Total Bill','Grand Total']);
         h.eachCell((c: any) => { c.font=wFont; c.fill=mkFill('FF4338CA'); c.border=thin; c.alignment={horizontal:'center'}; });
         ws.columns=[22,12,12,12,20,16,16].map((w: number)=>({width:w}));
         MONTHS.forEach((_mName, mi) => {
           const row = yrCipla.find((r: any) => r.month === mi + 1);
           const mealTotal = (row?.breakfast||0)*23+(row?.lunch||0)*58+(row?.dinner||0)*58;
-          const contractBill = getContractBillForMonth(mi + 1);
-          const dr = ws.addRow([getCiplaBillingRowLabel(mi + 1), row?.breakfast||'', row?.lunch||'', row?.dinner||'', mealTotal||'', contractBill||'', mealTotal+contractBill||'']);
+          const invoiceTotal = getInvoiceTotalForPeriod(mi + 1);
+          const dr = ws.addRow([getCiplaBillingRowLabel(mi + 1), row?.breakfast||'', row?.lunch||'', row?.dinner||'', mealTotal||'', invoiceTotal||'', mealTotal+invoiceTotal||'']);
           dr.eachCell((c: any) => { c.border=thin; c.alignment={horizontal:'center'}; });
         });
         const mealGrand = sumF(yrCipla,'breakfast')*23+sumF(yrCipla,'lunch')*58+sumF(yrCipla,'dinner')*58;
-        const contractGrand = ciplaContractBills.reduce((total, row) => total + Number(row.contractBill || 0), 0);
-        const totRow = ws.addRow(['Grand Total', sumF(yrCipla,'breakfast')||'', sumF(yrCipla,'lunch')||'', sumF(yrCipla,'dinner')||'', mealGrand, contractGrand, mealGrand+contractGrand]);
+        const invoiceGrand = ciplaInvoiceTotals.reduce((total, row) => total + Number(row.invoiceTotal || 0), 0);
+        const totRow = ws.addRow(['Grand Total', sumF(yrCipla,'breakfast')||'', sumF(yrCipla,'lunch')||'', sumF(yrCipla,'dinner')||'', mealGrand, invoiceGrand, mealGrand+invoiceGrand]);
         totRow.eachCell((c: any) => { c.font={bold:true}; c.fill=mkFill('FFE8F0FE'); c.border=thin; c.alignment={horizontal:'center'}; });
       }
       const buf = await wb.xlsx.writeBuffer();
@@ -5077,7 +5082,7 @@ function CiplaSummaryTab({ month, year }: { month: number; year: number }) {
                 { key:'di', name:'Dinner', rate:58, qty: sumF(ciplaRows,'dinnerCoopen')+sumF(ciplaRows,'dinnerCoin')+sumF(ciplaRows,'dinnerSign')+sumF(ciplaRows,'dinnerMachine') },
               ];
               const cipGrand = cipRates.reduce((s, r) => s + r.qty * r.rate, 0);
-              const fmt = (n: number) => n ? `₹${n.toLocaleString('en-IN')}` : '—';
+              const fmt = (n: number) => n ? `₹${n.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : '—';
               return (
                 <div className="border rounded-lg overflow-hidden mb-4 mt-3">
                   <div className="px-3 py-1.5 text-sm font-bold text-center text-white" style={{ background:'#4338ca' }}>
@@ -5090,7 +5095,7 @@ function CiplaSummaryTab({ month, year }: { month: number; year: number }) {
                         <th style={{ ...thI, fontSize:10 }}>Qty</th>
                         <th style={{ ...thI, fontSize:10 }}>Rate (₹)</th>
                         <th style={{ ...thI, fontSize:10 }}>Date Entry Amount (₹)</th>
-                        <th style={{ ...thI, background:'#7c3aed', fontSize:10 }}>Contract Bill (₹)</th>
+                        <th style={{ ...thI, background:'#7c3aed', fontSize:10 }}>Non-GST Invoice (₹)</th>
                         <th style={{ ...thI, background:'#1e3a8a', fontSize:10 }}>Grand Total (₹)</th>
                       </tr>
                     </thead>
@@ -5112,13 +5117,13 @@ function CiplaSummaryTab({ month, year }: { month: number; year: number }) {
                         <td style={tdTot}></td>
                       </tr>
                       <tr>
-                        <td colSpan={4} style={{ ...tdTot, background:'#ede9fe', textAlign:'right' }}>Contract Bill</td>
-                        <td style={{ ...tdTot, background:'#ede9fe', textAlign:'right' }}>{fmt(ciplaContractBill)}</td>
+                        <td colSpan={4} style={{ ...tdTot, background:'#ede9fe', textAlign:'right' }}>Non-GST Invoice Total Bill ({getCiplaInvoiceMonthLabel(month, year)})</td>
+                        <td style={{ ...tdTot, background:'#ede9fe', textAlign:'right' }}>{fmt(ciplaInvoiceTotal)}</td>
                         <td style={tdTot}></td>
                       </tr>
                       <tr>
-                        <td colSpan={5} style={{ ...tdTot, background:'#c7d2fe', textAlign:'right' }}>Grand Total Including Contract Bill</td>
-                        <td style={{ ...tdTot, background:'#c7d2fe', textAlign:'right' }}>{fmt(cipGrand + ciplaContractBill)}</td>
+                        <td colSpan={5} style={{ ...tdTot, background:'#c7d2fe', textAlign:'right' }}>Grand Total Including Non-GST Invoice</td>
+                        <td style={{ ...tdTot, background:'#c7d2fe', textAlign:'right' }}>{fmt(cipGrand + ciplaInvoiceTotal)}</td>
                       </tr>
                     </tbody>
                   </table>
@@ -5165,7 +5170,7 @@ function CiplaSummaryTab({ month, year }: { month: number; year: number }) {
             </div>
             {/* Cipla Yearly Rate Wise Summary */}
             {(() => {
-              const fmt = (n: number) => n ? `₹${n.toLocaleString('en-IN')}` : '—';
+              const fmt = (n: number) => n ? `₹${n.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : '—';
               const cipRates = [
                 { field:'breakfast', name:'Breakfast', rate:23 },
                 { field:'lunch', name:'Lunch', rate:58 },
@@ -5185,7 +5190,7 @@ function CiplaSummaryTab({ month, year }: { month: number; year: number }) {
                           <th colSpan={2} style={{ ...thI, fontSize:10 }}>Lunch (×₹58)</th>
                           <th colSpan={2} style={{ ...thI, fontSize:10 }}>Dinner (×₹58)</th>
                           <th style={{ background:'#374151', color:'#fff', border:'1px solid #333', padding:'3px 5px', textAlign:'center', fontWeight:'bold', fontSize:10 }}>Meal Data Entry Total</th>
-                          <th style={{ ...thI, background:'#7c3aed', fontSize:10 }}>Contract Bill</th>
+                          <th style={{ ...thI, background:'#7c3aed', fontSize:10 }}>Non-GST Invoice Total Bill</th>
                           <th style={{ background:'#1e3a8a', color:'#fff', border:'1px solid #333', padding:'3px 5px', textAlign:'center', fontWeight:'bold', fontSize:10 }}>Grand Total</th>
                         </tr>
                         <tr>
@@ -5201,8 +5206,8 @@ function CiplaSummaryTab({ month, year }: { month: number; year: number }) {
                           const row = yrCipla.find(r => r.month === mi + 1);
                           const bf = row?.breakfast||0, lu = row?.lunch||0, di = row?.dinner||0;
                           const mealTotal = bf*23+lu*58+di*58;
-                          const contractBill = getContractBillForMonth(mi + 1);
-                          const grand = mealTotal + contractBill;
+                          const invoiceTotal = getInvoiceTotalForPeriod(mi + 1);
+                          const grand = mealTotal + invoiceTotal;
                           const bg = mi%2===0 ? '#f9fafb' : '#fff';
                           return (
                             <tr key={mi} style={{ background: bg }}>
@@ -5214,7 +5219,7 @@ function CiplaSummaryTab({ month, year }: { month: number; year: number }) {
                               <td style={{ border:'1px solid #ddd', padding:'2px 4px', textAlign:'center', fontSize:10 }}>{di||''}</td>
                               <td style={{ border:'1px solid #ddd', padding:'2px 4px', textAlign:'right', fontSize:10 }}>{di ? (di*58).toLocaleString('en-IN') : ''}</td>
                               <td style={{ border:'1px solid #ddd', padding:'2px 4px', textAlign:'right', fontSize:10, fontWeight:'bold', background:'#eff6ff' }}>{mealTotal ? fmt(mealTotal) : '—'}</td>
-                              <td style={{ border:'1px solid #ddd', padding:'2px 4px', textAlign:'right', fontSize:10, background:'#f5f3ff' }}>{contractBill ? fmt(contractBill) : '—'}</td>
+                              <td style={{ border:'1px solid #ddd', padding:'2px 4px', textAlign:'right', fontSize:10, background:'#f5f3ff' }}>{invoiceTotal ? fmt(invoiceTotal) : '—'}</td>
                               <td style={{ border:'1px solid #ddd', padding:'2px 4px', textAlign:'right', fontSize:10, fontWeight:'bold', background:'#e0e7ff' }}>{grand ? fmt(grand) : '—'}</td>
                             </tr>
                           );
@@ -5222,8 +5227,8 @@ function CiplaSummaryTab({ month, year }: { month: number; year: number }) {
                         {(() => {
                           const totBf = sumF(yrCipla,'breakfast'), totLu = sumF(yrCipla,'lunch'), totDi = sumF(yrCipla,'dinner');
                           const mealGrand = totBf*23+totLu*58+totDi*58;
-                          const contractGrand = ciplaContractBills.reduce((total, row) => total + Number(row.contractBill || 0), 0);
-                          const grand = mealGrand + contractGrand;
+                          const invoiceGrand = ciplaInvoiceTotals.reduce((total, row) => total + Number(row.invoiceTotal || 0), 0);
+                          const grand = mealGrand + invoiceGrand;
                           return (
                             <tr>
                               <td style={tdTot}>Grand Total</td>
@@ -5231,7 +5236,7 @@ function CiplaSummaryTab({ month, year }: { month: number; year: number }) {
                               <td style={tdTot}>{totLu||'—'}</td><td style={tdTot}>{totLu ? `₹${(totLu*58).toLocaleString('en-IN')}` : '—'}</td>
                               <td style={tdTot}>{totDi||'—'}</td><td style={tdTot}>{totDi ? `₹${(totDi*58).toLocaleString('en-IN')}` : '—'}</td>
                               <td style={{ ...tdTot, background:'#bfdbfe' }}>{mealGrand ? fmt(mealGrand) : '—'}</td>
-                              <td style={{ ...tdTot, background:'#ede9fe' }}>{contractGrand ? fmt(contractGrand) : '—'}</td>
+                              <td style={{ ...tdTot, background:'#ede9fe' }}>{invoiceGrand ? fmt(invoiceGrand) : '—'}</td>
                               <td style={{ ...tdTot, background:'#bfdbfe' }}>{grand ? fmt(grand) : '—'}</td>
                             </tr>
                           );

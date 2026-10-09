@@ -851,19 +851,19 @@ ${forPrint ? "<script>window.onload = function(){ window.print(); };</scr" + "ip
   const exportDashboard = () => {
     const wb = XLSX.utils.book_new();
     const ws1 = XLSX.utils.json_to_sheet(
-      dashMonthlyShown.map((m) => ({ Month: m.name, "Meal Bill": m.billed, "Contract Bill": m.contractBill, "Total Bill": m.totalBill, "Payment Received": m.received, Balance: m.balance })),
+      dashMonthlyShown.map((m) => ({ Month: m.name, "Meal Bill": m.billed, "Total Bill": m.totalBill, "Payment Received": m.received, Balance: m.balance })),
     );
     XLSX.utils.book_append_sheet(wb, ws1, `Monthwise ${dashPeriodLabel}`.slice(0,31));
     const ws2 = XLSX.utils.json_to_sheet(
-      dashYearly.map((y) => ({ Year: y.year, "Meal Bill": y.billed, "Contract Bill": y.contractBill, "Total Bill": y.totalBill, "Payment Received": y.received, Balance: y.balance })),
+      dashYearly.map((y) => ({ Year: y.year, "Meal Bill": y.billed, "Total Bill": y.totalBill, "Payment Received": y.received, Balance: y.balance })),
     );
     XLSX.utils.book_append_sheet(wb, ws2, "Yearwise");
     const ws3 = XLSX.utils.json_to_sheet(
-      dashContractors.map((c) => ({ "Vendor Code": c.vendorCode, Contractor: c.name, "Meal Bill": c.billed, "Contract Bill": c.contractBill, "Total Bill": c.totalBill, "Payment Received": c.received, Balance: c.balance })),
+      dashContractors.map((c) => ({ "Vendor Code": c.vendorCode, Contractor: c.name, "Meal Bill": c.billed, "Total Bill": c.totalBill, "Payment Received": c.received, Balance: c.balance })),
     );
     XLSX.utils.book_append_sheet(wb, ws3, `Contractorwise ${dashPeriodLabel}`.slice(0,31));
     const ws4 = XLSX.utils.json_to_sheet(
-      dashClientTotals.map((c) => ({ Client: c.clientName, "Meal Bill": c.billed, "Contract Bill": c.contractBill, "Total Bill": c.totalBill, "Payment Received": c.received, Balance: c.balance })),
+      dashClientTotals.map((c) => ({ Client: c.clientName, "Meal Bill": c.billed, "Total Bill": c.totalBill, "Payment Received": c.received, Balance: c.balance })),
     );
     XLSX.utils.book_append_sheet(wb, ws4, `Client totals ${dashPeriodLabel}`.slice(0,31));
     XLSX.writeFile(wb, `Contractor-Dashboard-${dashYear}${dashContractor === "all" ? "" : "-" + dashContractorName.replace(/\s+/g, "")}.xlsx`);
@@ -872,20 +872,19 @@ ${forPrint ? "<script>window.onload = function(){ window.print(); };</scr" + "ip
   const printDashboard = () => {
     const esc = (s: string) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
     const money = (n: number) => (Number(n) || 0).toLocaleString("en-IN", { minimumFractionDigits: 2 });
-    const rows = (arr: { label: string; billed: number; contractBill: number; totalBill: number; received: number; balance: number }[]) =>
-      arr.map((r) => `<tr><td>${esc(r.label)}</td><td class="r">${money(r.billed)}</td><td class="r">${money(r.contractBill)}</td><td class="r">${money(r.totalBill)}</td><td class="r">${money(r.received)}</td><td class="r ${r.balance > 0 ? "red" : ""}">${money(r.balance)}</td></tr>`).join("");
-    const tbl = (title: string, arr: { label: string; billed: number; contractBill: number; totalBill: number; received: number; balance: number }[]) => {
+    const rows = (arr: { label: string; billed: number; totalBill: number; received: number; balance: number }[]) =>
+      arr.map((r) => `<tr><td>${esc(r.label)}</td><td class="r">${money(r.billed)}</td><td class="r">${money(r.totalBill)}</td><td class="r">${money(r.received)}</td><td class="r ${r.balance > 0 ? "red" : ""}">${money(r.balance)}</td></tr>`).join("");
+    const tbl = (title: string, arr: { label: string; billed: number; totalBill: number; received: number; balance: number }[]) => {
       const t = arr.reduce((s, r) => ({
         billed: s.billed + r.billed,
-        contractBill: s.contractBill + r.contractBill,
         totalBill: s.totalBill + r.totalBill,
         received: s.received + r.received,
         balance: s.balance + r.balance,
-      }), { billed: 0, contractBill: 0, totalBill: 0, received: 0, balance: 0 });
+      }), { billed: 0, totalBill: 0, received: 0, balance: 0 });
       return `<h3>${esc(title)}</h3>
-      <table><tr class="head"><th></th><th class="r">Meal Bill</th><th class="r">Contract Bill</th><th class="r">Total Bill</th><th class="r">Received</th><th class="r">Balance</th></tr>
+      <table><tr class="head"><th></th><th class="r">Meal Bill</th><th class="r">Total Bill</th><th class="r">Received</th><th class="r">Balance</th></tr>
       ${rows(arr)}
-      <tr class="total"><td>Total</td><td class="r">${money(t.billed)}</td><td class="r">${money(t.contractBill)}</td><td class="r">${money(t.totalBill)}</td><td class="r">${money(t.received)}</td><td class="r">${money(t.balance)}</td></tr></table>`;
+      <tr class="total"><td>Total</td><td class="r">${money(t.billed)}</td><td class="r">${money(t.totalBill)}</td><td class="r">${money(t.received)}</td><td class="r">${money(t.balance)}</td></tr></table>`;
     };
     const html = `<!DOCTYPE html><html><head><meta charset="utf-8"><title>Contractor Dashboard ${dashYear}</title>
 <style>
@@ -900,49 +899,10 @@ ${forPrint ? "<script>window.onload = function(){ window.print(); };</scr" + "ip
 </style></head><body>
 <h2>DJ Hospitality &amp; Facility Management Pvt Ltd</h2>
 <div class="sub">Contractor Meal Dashboard — ${dashPeriodLabel} — ${esc(dashClient === "all" ? "All Clients" : dashClient)} — ${esc(dashContractorName)}</div>
-${tbl(`Month-wise (${dashPeriodLabel})`, dashMonthlyShown.map((m) => ({ label: m.name, billed: m.billed, contractBill: m.contractBill, totalBill: m.totalBill, received: m.received, balance: m.balance })))}
-${tbl("Year-wise", dashYearly.map((y) => ({ label: String(y.year), billed: y.billed, contractBill: y.contractBill, totalBill: y.totalBill, received: y.received, balance: y.balance })))}
-${tbl(`Client-wise company totals (${dashPeriodLabel})`, dashClientTotals.map((c) => ({ label: c.clientName, billed: c.billed, contractBill: c.contractBill, totalBill: c.totalBill, received: c.received, balance: c.balance })))}
-${tbl(`Contractor-wise (${dashPeriodLabel})`, dashContractors.map((c) => ({ label: `${c.vendorCode} — ${c.name}`, billed: c.billed, contractBill: c.contractBill, totalBill: c.totalBill, received: c.received, balance: c.balance })))}
-<script>window.onload = function(){ window.print(); };</scr${""}ipt>
-</body></html>`;
-    const w = window.open("", "_blank");
-    if (!w) { toast({ title: "Popup blocked", description: "Browser me popup allow kijiye.", variant: "destructive" }); return; }
-    w.document.write(html);
-    w.document.close();
-  };
-
-  const printBillReport = () => {
-    const esc = (s: string) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
-    const money = (n: number) => (Number(n) || 0).toLocaleString("en-IN", { maximumFractionDigits: 0 });
-    const list = dashContractors.filter((c) => String(c.billNo || c.contractBillNo || "").trim() !== "" && c.totalBill > 0);
-    if (list.length === 0) {
-      toast({ title: "Koi data nahi", description: "Is month/filter me bill no wale contractor nahi mile.", variant: "destructive" });
-      return;
-    }
-    const totalMealBill = list.reduce((s, c) => s + c.billed, 0);
-    const totalContractBill = list.reduce((s, c) => s + c.contractBill, 0);
-    const total = totalMealBill + totalContractBill;
-    const clientLabel = dashClient === "all" ? "All Clients" : dashClient;
-    const title = `${clientLabel} Contractor Bill Amount Month Of ${dashPeriodLabel}`;
-    const html = `<!DOCTYPE html><html><head><meta charset="utf-8"><title>${esc(title)}</title>
-<style>
-  @page { size: A4; margin: 12mm; }
-  body { font-family: Calibri, Arial, sans-serif; font-size: 13px; color: #000; }
-  table { border-collapse: collapse; width: 100%; }
-  td, th { border: 1px solid #000; padding: 6px 8px; text-align: left; }
-  .r { text-align: right; }
-  .title { background: #ffff00; text-align: center; font-weight: bold; font-size: 15px; }
-  .head th { background: #b8e0a0; }
-  tr:nth-child(even) td { background: #d9efc9; }
-  .total td { font-weight: bold; background: #b8e0a0; }
-</style></head><body>
-<table>
-  <tr><td class="title" colspan="3">${esc(title)}</td></tr>
-  <tr class="head"><th>Contractor</th><th>Bill Period</th><th class="r">Meal Bill</th><th class="r">Contract Bill</th><th class="r">Total</th><th>Bill No</th></tr>
-  ${list.map((c) => `<tr><td><b>${esc(c.name)}</b></td><td>${esc(String(c.contractBillPeriod || ""))}</td><td class="r"><b>${money(c.billed)}</b></td><td class="r"><b>${money(c.contractBill)}</b></td><td class="r"><b>${money(c.totalBill)}</b></td><td><b>${esc([c.billNo, c.contractBillNo].filter(Boolean).join(", "))}</b></td></tr>`).join("")}
-  <tr class="total"><td colspan="2" class="r">Total</td><td class="r">${money(totalMealBill)}</td><td class="r">${money(totalContractBill)}</td><td class="r">${money(total)}</td><td></td></tr>
-</table>
+${tbl(`Month-wise (${dashPeriodLabel})`, dashMonthlyShown.map((m) => ({ label: m.name, billed: m.billed, totalBill: m.totalBill, received: m.received, balance: m.balance })))}
+${tbl("Year-wise", dashYearly.map((y) => ({ label: String(y.year), billed: y.billed, totalBill: y.totalBill, received: y.received, balance: y.balance })))}
+${tbl(`Client-wise company totals (${dashPeriodLabel})`, dashClientTotals.map((c) => ({ label: c.clientName, billed: c.billed, totalBill: c.totalBill, received: c.received, balance: c.balance })))}
+${tbl(`Contractor-wise (${dashPeriodLabel})`, dashContractors.map((c) => ({ label: `${c.vendorCode} — ${c.name}`, billed: c.billed, totalBill: c.totalBill, received: c.received, balance: c.balance })))}
 <script>window.onload = function(){ window.print(); };</scr${""}ipt>
 </body></html>`;
     const w = window.open("", "_blank");
@@ -1426,7 +1386,6 @@ ${tbl(`Contractor-wise (${dashPeriodLabel})`, dashContractors.map((c) => ({ labe
                     <th className="p-2">Vendor Code</th>
                     <th className="p-2">Contractor</th>
                     <th className="p-2 text-right">Meal Bill</th>
-                    <th className="p-2 text-right">Contract Bill</th>
                     <th className="p-2 text-right">Total Bill</th>
                     <th className="p-2 text-right">Received</th>
                     <th className="p-2 text-right">Balance</th>
@@ -1438,21 +1397,19 @@ ${tbl(`Contractor-wise (${dashPeriodLabel})`, dashContractors.map((c) => ({ labe
                       <td className="p-2 font-mono text-xs whitespace-nowrap">{b.vendorCode}</td>
                       <td className="p-2">{b.name}</td>
                       <td className="p-2 text-right">{fmtInr(b.billed)}</td>
-                      <td className="p-2 text-right">{fmtInr(b.contractBill)}</td>
                       <td className="p-2 text-right font-semibold">{fmtInr(b.totalBill)}</td>
                       <td className="p-2 text-right text-green-600">{fmtInr(b.received)}</td>
                       <td className={`p-2 text-right font-semibold ${b.balance > 0 ? "text-red-600" : "text-green-600"}`}>{fmtInr(b.balance)}</td>
                     </tr>
                   ))}
                   {billing.filter((b) => b.totalBill > 0 || b.received > 0).length === 0 && (
-                    <tr><td colSpan={7} className="p-6 text-center text-muted-foreground">Abhi koi bill ya payment nahi. Meal bill ke liye invoice me Rate save kijiye.</td></tr>
+                    <tr><td colSpan={6} className="p-6 text-center text-muted-foreground">Abhi koi bill ya payment nahi. Meal bill ke liye invoice me Rate save kijiye.</td></tr>
                   )}
                 </tbody>
                 <tfoot>
                   <tr className="border-t bg-muted/50 font-semibold">
                     <td className="p-2" colSpan={2}>Total</td>
                     <td className="p-2 text-right">{fmtInr(billing.reduce((s, b) => s + b.billed, 0))}</td>
-                    <td className="p-2 text-right">{fmtInr(billing.reduce((s, b) => s + b.contractBill, 0))}</td>
                     <td className="p-2 text-right">{fmtInr(billing.reduce((s, b) => s + b.totalBill, 0))}</td>
                     <td className="p-2 text-right">{fmtInr(billing.reduce((s, b) => s + b.received, 0))}</td>
                     <td className="p-2 text-right">{fmtInr(billing.reduce((s, b) => s + b.balance, 0))}</td>
@@ -1558,9 +1515,6 @@ ${tbl(`Contractor-wise (${dashPeriodLabel})`, dashContractors.map((c) => ({ labe
               <Button variant="outline" onClick={printDashboard} data-testid="button-dash-print">
                 <Printer className="h-4 w-4 mr-1" /> Print
               </Button>
-              <Button variant="outline" onClick={printBillReport} data-testid="button-dash-bill-report">
-                <Printer className="h-4 w-4 mr-1" /> Bill Report
-              </Button>
             </CardContent>
           </Card>
 
@@ -1592,7 +1546,6 @@ ${tbl(`Contractor-wise (${dashPeriodLabel})`, dashContractors.map((c) => ({ labe
                   <Tooltip formatter={(v: any) => "₹" + Number(v).toLocaleString("en-IN", { minimumFractionDigits: 2 })} />
                   <Legend />
                   <Bar dataKey="billed" name="Meal Bill" fill="#7A1FA2" stackId="bill" />
-                  <Bar dataKey="contractBill" name="Contract Bill" fill="#f59e0b" stackId="bill" />
                   <Bar dataKey="received" name="Received" fill="#16a34a" />
                   <Bar dataKey="balance" name="Balance" fill="#dc2626" />
                 </BarChart>
@@ -1606,21 +1559,20 @@ ${tbl(`Contractor-wise (${dashPeriodLabel})`, dashContractors.map((c) => ({ labe
               <table className="w-full text-sm">
                 <thead><tr className="border-b bg-muted/50 text-left">
                   <th className="p-2">Month</th><th className="p-2 text-right">Meal Bill</th>
-                  <th className="p-2 text-right">Contract Bill</th><th className="p-2 text-right">Total Bill</th>
+                  <th className="p-2 text-right">Total Bill</th>
                   <th className="p-2 text-right">Received</th><th className="p-2 text-right">Balance</th>
                 </tr></thead>
                 <tbody>
                   {dashMonthlyShown.map((m) => (
                     <tr key={m.month} className="border-b" data-testid={`row-monthly-summary-${m.month}`}>
                       <td className="p-2">{m.name}</td><td className="p-2 text-right">{fmtInr(m.billed)}</td>
-                      <td className="p-2 text-right">{fmtInr(m.contractBill)}</td><td className="p-2 text-right font-semibold">{fmtInr(m.totalBill)}</td>
+                      <td className="p-2 text-right font-semibold">{fmtInr(m.totalBill)}</td>
                       <td className="p-2 text-right text-green-600">{fmtInr(m.received)}</td><td className="p-2 text-right">{fmtInr(m.balance)}</td>
                     </tr>
                   ))}
                   <tr className="border-t bg-muted/50 font-semibold">
                     <td className="p-2">Total</td>
                     <td className="p-2 text-right">{fmtInr(dashMonthlyShown.reduce((s, m) => s + m.billed, 0))}</td>
-                    <td className="p-2 text-right">{fmtInr(dashMonthlyShown.reduce((s, m) => s + m.contractBill, 0))}</td>
                     <td className="p-2 text-right">{fmtInr(dashMonthlyShown.reduce((s, m) => s + m.totalBill, 0))}</td>
                     <td className="p-2 text-right">{fmtInr(dashMonthlyShown.reduce((s, m) => s + m.received, 0))}</td>
                     <td className="p-2 text-right">{fmtInr(dashMonthlyShown.reduce((s, m) => s + m.balance, 0))}</td>
@@ -1641,7 +1593,6 @@ ${tbl(`Contractor-wise (${dashPeriodLabel})`, dashContractors.map((c) => ({ labe
                   <Tooltip formatter={(v: any) => "₹" + Number(v).toLocaleString("en-IN", { minimumFractionDigits: 2 })} />
                   <Legend />
                   <Bar dataKey="billed" name="Meal Bill" fill="#7A1FA2" stackId="bill" />
-                  <Bar dataKey="contractBill" name="Contract Bill" fill="#f59e0b" stackId="bill" />
                   <Bar dataKey="received" name="Received" fill="#16a34a" />
                 </BarChart>
               </ResponsiveContainer>
@@ -1654,21 +1605,20 @@ ${tbl(`Contractor-wise (${dashPeriodLabel})`, dashContractors.map((c) => ({ labe
               <table className="w-full text-sm">
                 <thead><tr className="border-b bg-muted/50 text-left">
                   <th className="p-2">Year</th><th className="p-2 text-right">Meal Bill</th>
-                  <th className="p-2 text-right">Contract Bill</th><th className="p-2 text-right">Total Bill</th>
+                  <th className="p-2 text-right">Total Bill</th>
                   <th className="p-2 text-right">Received</th><th className="p-2 text-right">Balance</th>
                 </tr></thead>
                 <tbody>
                   {dashYearly.map((y) => (
                     <tr key={y.year} className="border-b" data-testid={`row-yearly-summary-${y.year}`}>
                       <td className="p-2">{y.year}</td><td className="p-2 text-right">{fmtInr(y.billed)}</td>
-                      <td className="p-2 text-right">{fmtInr(y.contractBill)}</td><td className="p-2 text-right font-semibold">{fmtInr(y.totalBill)}</td>
+                      <td className="p-2 text-right font-semibold">{fmtInr(y.totalBill)}</td>
                       <td className="p-2 text-right text-green-600">{fmtInr(y.received)}</td><td className="p-2 text-right">{fmtInr(y.balance)}</td>
                     </tr>
                   ))}
                   <tr className="border-t bg-muted/50 font-semibold">
                     <td className="p-2">Total</td>
                     <td className="p-2 text-right">{fmtInr(dashYearly.reduce((s, y) => s + y.billed, 0))}</td>
-                    <td className="p-2 text-right">{fmtInr(dashYearly.reduce((s, y) => s + y.contractBill, 0))}</td>
                     <td className="p-2 text-right">{fmtInr(dashYearly.reduce((s, y) => s + y.totalBill, 0))}</td>
                     <td className="p-2 text-right">{fmtInr(dashYearly.reduce((s, y) => s + y.received, 0))}</td>
                     <td className="p-2 text-right">{fmtInr(dashYearly.reduce((s, y) => s + y.balance, 0))}</td>
@@ -1684,24 +1634,23 @@ ${tbl(`Contractor-wise (${dashPeriodLabel})`, dashContractors.map((c) => ({ labe
               <table className="w-full text-sm">
                 <thead><tr className="border-b bg-muted/50 text-left">
                   <th className="p-2">Company / Client</th><th className="p-2 text-right">Meal Bill</th>
-                  <th className="p-2 text-right">Contract Bill</th><th className="p-2 text-right">Total Bill</th>
+                  <th className="p-2 text-right">Total Bill</th>
                   <th className="p-2 text-right">Received</th><th className="p-2 text-right">Balance</th>
                 </tr></thead>
                 <tbody>
                   {dashClientTotals.map((c) => (
                     <tr key={c.clientName} className="border-b" data-testid={`row-client-contract-total-${c.clientName}`}>
                       <td className="p-2">{c.clientName}</td><td className="p-2 text-right">{fmtInr(c.billed)}</td>
-                      <td className="p-2 text-right">{fmtInr(c.contractBill)}</td><td className="p-2 text-right font-semibold">{fmtInr(c.totalBill)}</td>
+                      <td className="p-2 text-right font-semibold">{fmtInr(c.totalBill)}</td>
                       <td className="p-2 text-right text-green-600">{fmtInr(c.received)}</td><td className="p-2 text-right">{fmtInr(c.balance)}</td>
                     </tr>
                   ))}
                   {dashClientTotals.length === 0 && (
-                    <tr><td colSpan={6} className="p-6 text-center text-muted-foreground">No company bills or payments for this period.</td></tr>
+                    <tr><td colSpan={5} className="p-6 text-center text-muted-foreground">No company bills or payments for this period.</td></tr>
                   )}
                   <tr className="border-t bg-muted/50 font-semibold">
                     <td className="p-2">Total</td>
                     <td className="p-2 text-right">{fmtInr(dashClientTotals.reduce((s, c) => s + c.billed, 0))}</td>
-                    <td className="p-2 text-right">{fmtInr(dashClientTotals.reduce((s, c) => s + c.contractBill, 0))}</td>
                     <td className="p-2 text-right">{fmtInr(dashClientTotals.reduce((s, c) => s + c.totalBill, 0))}</td>
                     <td className="p-2 text-right">{fmtInr(dashClientTotals.reduce((s, c) => s + c.received, 0))}</td>
                     <td className="p-2 text-right">{fmtInr(dashClientTotals.reduce((s, c) => s + c.balance, 0))}</td>
@@ -1720,7 +1669,6 @@ ${tbl(`Contractor-wise (${dashPeriodLabel})`, dashContractors.map((c) => ({ labe
                     <th className="p-2">Vendor Code</th>
                     <th className="p-2">Contractor</th>
                     <th className="p-2 text-right">Meal Bill</th>
-                    <th className="p-2 text-right">Contract Bill</th>
                     <th className="p-2 text-right">Total Bill</th>
                     <th className="p-2 text-right">Received</th>
                     <th className="p-2 text-right">Balance</th>
@@ -1732,21 +1680,19 @@ ${tbl(`Contractor-wise (${dashPeriodLabel})`, dashContractors.map((c) => ({ labe
                       <td className="p-2 font-mono text-xs whitespace-nowrap">{c.vendorCode}</td>
                       <td className="p-2">{c.name}</td>
                       <td className="p-2 text-right">{fmtInr(c.billed)}</td>
-                      <td className="p-2 text-right">{fmtInr(c.contractBill)}</td>
                       <td className="p-2 text-right font-semibold">{fmtInr(c.totalBill)}</td>
                       <td className="p-2 text-right text-green-600">{fmtInr(c.received)}</td>
                       <td className={`p-2 text-right font-semibold ${c.balance > 0 ? "text-red-600" : "text-green-600"}`}>{fmtInr(c.balance)}</td>
                     </tr>
                   ))}
                   {dashContractors.length === 0 && (
-                    <tr><td colSpan={7} className="p-6 text-center text-muted-foreground">Is year me koi bill/payment nahi mila.</td></tr>
+                    <tr><td colSpan={6} className="p-6 text-center text-muted-foreground">Is year me koi bill/payment nahi mila.</td></tr>
                   )}
                 </tbody>
                 <tfoot>
                   <tr className="border-t bg-muted/50 font-semibold">
                     <td className="p-2" colSpan={2}>Total</td>
                     <td className="p-2 text-right">{fmtInr(dashContractors.reduce((s, c) => s + c.billed, 0))}</td>
-                    <td className="p-2 text-right">{fmtInr(dashContractors.reduce((s, c) => s + c.contractBill, 0))}</td>
                     <td className="p-2 text-right">{fmtInr(dashContractors.reduce((s, c) => s + c.totalBill, 0))}</td>
                     <td className="p-2 text-right">{fmtInr(dashContractors.reduce((s, c) => s + c.received, 0))}</td>
                     <td className="p-2 text-right">{fmtInr(dashContractors.reduce((s, c) => s + c.balance, 0))}</td>
