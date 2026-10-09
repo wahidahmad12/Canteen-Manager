@@ -59,6 +59,16 @@ async function initPool(): Promise<void> {
       UNIQUE KEY uq_emp_date (employee_id, attendance_date),
       FOREIGN KEY (employee_id) REFERENCES employees(id) ON DELETE CASCADE
     )`,
+    `CREATE TABLE IF NOT EXISTS flash_messages (
+      id INT AUTO_INCREMENT PRIMARY KEY,
+      title VARCHAR(200) NOT NULL,
+      message TEXT NOT NULL,
+      type VARCHAR(20) DEFAULT 'info',
+      is_active BOOLEAN DEFAULT TRUE,
+      created_by VARCHAR(100) DEFAULT NULL,
+      expires_at DATE DEFAULT NULL,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    )`,
     `CREATE TABLE IF NOT EXISTS employee_webauthn_credentials (
       id INT AUTO_INCREMENT PRIMARY KEY,
       employee_id INT NOT NULL,
@@ -263,6 +273,18 @@ async function initPool(): Promise<void> {
       note VARCHAR(300) NOT NULL DEFAULT '',
       created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
       KEY idx_cp_contractor (contractor_id)
+    )`,
+    `CREATE TABLE IF NOT EXISTS contractor_contract_bills (
+      id INT AUTO_INCREMENT PRIMARY KEY,
+      contractor_id INT NOT NULL,
+      month INT NOT NULL,
+      year INT NOT NULL,
+      bill_period VARCHAR(100) NOT NULL DEFAULT '',
+      bill_no VARCHAR(100) NOT NULL DEFAULT '',
+      amount DECIMAL(14,2) NOT NULL DEFAULT 0,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      UNIQUE KEY uq_ccb_contractor_period (contractor_id, month, year),
+      KEY idx_ccb_period (year, month)
     )`,
   ];
   for (const sql of migrations) {

@@ -4269,6 +4269,7 @@ export class DatabaseStorage implements IStorage {
 
   async deleteContractor(id: number): Promise<void> {
     await pool.execute(`DELETE FROM contractor_meal_entries WHERE contractor_id = ?`, [id]);
+    await pool.execute(`DELETE FROM contractor_contract_bills WHERE contractor_id = ?`, [id]);
     await pool.execute(`DELETE FROM contractors WHERE id = ?`, [id]);
   }
 
@@ -4284,6 +4285,75 @@ export class DatabaseStorage implements IStorage {
       [month, year],
     );
     return rows as any[];
+  }
+
+  async getContractorContractBills(month: number, year: number): Promise<any[]> {
+    const [rows] = await pool.query(
+      `SELECT b.id, b.contractor_id AS contractorId, b.month, b.year,
+              b.bill_period AS billPeriod, b.bill_no AS billNo, b.amount,
+              c.vendor_code AS vendorCode, c.name AS contractorName, c.client_name AS clientName
+       FROM contractor_contract_bills b
+       JOIN contractors c ON c.id = b.contractor_id
+       WHERE b.month = ? AND b.year = ?
+       ORDER BY c.vendor_code`,
+      [month, year],
+    );
+    return rows as any[];
+  }
+
+  async saveContractorContractBills(input: {
+    month: number;
+    year: number;
+    rows: { contractorId: number; billPeriod?: string; billNo?: string; amount?: number | string | null }[];
+  }): Promise<void> {
+    const ids = input.rows.map((row) => Number(row.contractorId));
+    if (ids.some((id) => !Number.isInteger(id) || id <= 0)) throw new Error('Invalid contractor in rows');
+    if (ids.length) {
+      const [found]: any = await pool.query(
+        `SELECT id FROM contractors WHERE id IN (${ids.map(() => '?').join(',')})`,
+        ids,
+      );
+      const foundSet = new Set((found as any[]).map((row) => Number(row.id)));
+      for (const id of ids) if (!foundSet.has(id)) throw new Error('Contractor not found');
+    }
+    for (const row of input.rows) {
+      if (row.amount === undefined || row.amount === null || row.amount === '') continue;
+      const amount = Number(row.amount);
+      if (!Number.isFinite(amount) || amount < 0) throw new Error('Contract bill must be a number 0 or more');
+      if (String(row.billPeriod || '').length > 100 || String(row.billNo || '').length > 100) {
+        throw new Error('Bill period and bill number must be 100 characters or fewer');
+      }
+    }
+
+    const conn = await pool.getConnection();
+    try {
+      await conn.beginTransaction();
+      for (const row of input.rows) {
+        const contractorId = Number(row.contractorId);
+        const amount = row.amount === undefined || row.amount === null || row.amount === ''
+          ? null
+          : Number(row.amount);
+        if (amount === null || amount === 0) {
+          await conn.execute(
+            `DELETE FROM contractor_contract_bills WHERE contractor_id = ? AND month = ? AND year = ?`,
+            [contractorId, input.month, input.year],
+          );
+          continue;
+        }
+        await conn.execute(
+          `INSERT INTO contractor_contract_bills (contractor_id, month, year, bill_period, bill_no, amount)
+           VALUES (?,?,?,?,?,?)
+           ON DUPLICATE KEY UPDATE bill_period = VALUES(bill_period), bill_no = VALUES(bill_no), amount = VALUES(amount)`,
+          [contractorId, input.month, input.year, String(row.billPeriod || '').trim(), String(row.billNo || '').trim(), amount],
+        );
+      }
+      await conn.commit();
+    } catch (e) {
+      await conn.rollback();
+      throw e;
+    } finally {
+      conn.release();
+    }
   }
 
   async saveContractorMealEntries(input: {
@@ -4379,10 +4449,13 @@ export class DatabaseStorage implements IStorage {
   async getContractorBillingSummary(): Promise<any[]> {
     const [rows] = await pool.query(
       `SELECT c.id AS contractorId, c.vendor_code AS vendorCode, c.name, c.client_name AS clientName,
-              COALESCE(b.billed, 0) AS billed, COALESCE(p.received, 0) AS received
+              COALESCE(b.billed, 0) AS billed, COALESCE(cb.contractBill, 0) AS contractBill,
+              COALESCE(p.received, 0) AS received
        FROM contractors c
        LEFT JOIN (SELECT contractor_id, SUM(qty * COALESCE(NULLIF(rate, 0), CASE meal_type WHEN 'Breakfast' THEN 4.6 ELSE 11.6 END)) AS billed FROM contractor_meal_entries GROUP BY contractor_id) b
          ON b.contractor_id = c.id
+       LEFT JOIN (SELECT contractor_id, SUM(amount) AS contractBill FROM contractor_contract_bills GROUP BY contractor_id) cb
+         ON cb.contractor_id = c.id
        LEFT JOIN (SELECT contractor_id, SUM(amount) AS received FROM contractor_payments GROUP BY contractor_id) p
          ON p.contractor_id = c.id
        ORDER BY c.vendor_code`,
@@ -4390,8 +4463,10 @@ export class DatabaseStorage implements IStorage {
     return (rows as any[]).map((r) => ({
       ...r,
       billed: Number(r.billed) || 0,
+      contractBill: Number(r.contractBill) || 0,
+      totalBill: (Number(r.billed) || 0) + (Number(r.contractBill) || 0),
       received: Number(r.received) || 0,
-      balance: Math.round(((Number(r.billed) || 0) - (Number(r.received) || 0)) * 100) / 100,
+      balance: Math.round((((Number(r.billed) || 0) + (Number(r.contractBill) || 0)) - (Number(r.received) || 0)) * 100) / 100,
     }));
   }
 
@@ -4410,6 +4485,10 @@ export class DatabaseStorage implements IStorage {
       `SELECT month, SUM(qty * COALESCE(NULLIF(rate, 0), CASE meal_type WHEN 'Breakfast' THEN 4.6 ELSE 11.6 END)) AS billed FROM contractor_meal_entries WHERE year = ?${cFilter}${clFilter} GROUP BY month`,
       [year, ...cArgs, ...clArgs],
     );
+    const [contractBillRows]: any = await pool.query(
+      `SELECT month, SUM(amount) AS contractBill FROM contractor_contract_bills WHERE year = ?${cFilter}${clFilter} GROUP BY month`,
+      [year, ...cArgs, ...clArgs],
+    );
     // month-wise received for the year
     const [payRows]: any = await pool.query(
       `SELECT MONTH(payment_date) AS month, SUM(amount) AS received FROM contractor_payments WHERE YEAR(payment_date) = ?${cFilter}${clFilter} GROUP BY MONTH(payment_date)`,
@@ -4418,8 +4497,17 @@ export class DatabaseStorage implements IStorage {
     const monthly = Array.from({ length: 12 }, (_, i) => {
       const m = i + 1;
       const billed = Number(billRows.find((r: any) => Number(r.month) === m)?.billed) || 0;
+      const contractBill = Number(contractBillRows.find((r: any) => Number(r.month) === m)?.contractBill) || 0;
       const received = Number(payRows.find((r: any) => Number(r.month) === m)?.received) || 0;
-      return { month: m, billed: Math.round(billed * 100) / 100, received: Math.round(received * 100) / 100, balance: Math.round((billed - received) * 100) / 100 };
+      const totalBill = billed + contractBill;
+      return {
+        month: m,
+        billed: Math.round(billed * 100) / 100,
+        contractBill: Math.round(contractBill * 100) / 100,
+        totalBill: Math.round(totalBill * 100) / 100,
+        received: Math.round(received * 100) / 100,
+        balance: Math.round((totalBill - received) * 100) / 100,
+      };
     });
 
     // year-wise totals (all years, for year-over-year graph)
@@ -4427,15 +4515,32 @@ export class DatabaseStorage implements IStorage {
       `SELECT year, SUM(qty * COALESCE(NULLIF(rate, 0), CASE meal_type WHEN 'Breakfast' THEN 4.6 ELSE 11.6 END)) AS billed FROM contractor_meal_entries WHERE 1=1${cFilter}${clFilter} GROUP BY year ORDER BY year`,
       [...cArgs, ...clArgs],
     );
+    const [yContractBill]: any = await pool.query(
+      `SELECT year, SUM(amount) AS contractBill FROM contractor_contract_bills WHERE 1=1${cFilter}${clFilter} GROUP BY year ORDER BY year`,
+      [...cArgs, ...clArgs],
+    );
     const [yPay]: any = await pool.query(
       `SELECT YEAR(payment_date) AS year, SUM(amount) AS received FROM contractor_payments WHERE 1=1${cFilter}${clFilter} GROUP BY YEAR(payment_date) ORDER BY year`,
       [...cArgs, ...clArgs],
     );
-    const yearSet = new Set<number>([...yBill.map((r: any) => Number(r.year)), ...yPay.map((r: any) => Number(r.year))]);
+    const yearSet = new Set<number>([
+      ...yBill.map((r: any) => Number(r.year)),
+      ...yContractBill.map((r: any) => Number(r.year)),
+      ...yPay.map((r: any) => Number(r.year)),
+    ]);
     const yearly = Array.from(yearSet).sort().map((y) => {
       const billed = Number(yBill.find((r: any) => Number(r.year) === y)?.billed) || 0;
+      const contractBill = Number(yContractBill.find((r: any) => Number(r.year) === y)?.contractBill) || 0;
       const received = Number(yPay.find((r: any) => Number(r.year) === y)?.received) || 0;
-      return { year: y, billed: Math.round(billed * 100) / 100, received: Math.round(received * 100) / 100, balance: Math.round((billed - received) * 100) / 100 };
+      const totalBill = billed + contractBill;
+      return {
+        year: y,
+        billed: Math.round(billed * 100) / 100,
+        contractBill: Math.round(contractBill * 100) / 100,
+        totalBill: Math.round(totalBill * 100) / 100,
+        received: Math.round(received * 100) / 100,
+        balance: Math.round((totalBill - received) * 100) / 100,
+      };
     });
 
     // contractor-wise for the selected year
@@ -4446,18 +4551,31 @@ export class DatabaseStorage implements IStorage {
     if (cid > 0) { where.push('c.id = ?'); whereArgs.push(cid); }
     if (clientStr) { where.push('c.client_name = ?'); whereArgs.push(clientStr); }
     const [cRows]: any = await pool.query(
-      `SELECT c.id AS contractorId, c.vendor_code AS vendorCode, c.name, COALESCE(b.billed, 0) AS billed, COALESCE(p.received, 0) AS received, COALESCE(b.billNo, '') AS billNo
+      `SELECT c.id AS contractorId, c.vendor_code AS vendorCode, c.name, c.client_name AS clientName,
+              COALESCE(b.billed, 0) AS billed, COALESCE(cb.contractBill, 0) AS contractBill,
+              COALESCE(p.received, 0) AS received, COALESCE(b.billNo, '') AS billNo,
+              COALESCE(cb.billPeriod, '') AS contractBillPeriod, COALESCE(cb.billNo, '') AS contractBillNo
        FROM contractors c
        LEFT JOIN (SELECT contractor_id, SUM(qty * COALESCE(NULLIF(rate, 0), CASE meal_type WHEN 'Breakfast' THEN 4.6 ELSE 11.6 END)) AS billed, GROUP_CONCAT(DISTINCT NULLIF(bill_no, '') ORDER BY month SEPARATOR ', ') AS billNo FROM contractor_meal_entries WHERE year = ?${mBillFilter} GROUP BY contractor_id) b ON b.contractor_id = c.id
+       LEFT JOIN (SELECT contractor_id, SUM(amount) AS contractBill, GROUP_CONCAT(DISTINCT NULLIF(bill_period, '') ORDER BY month SEPARATOR ', ') AS billPeriod, GROUP_CONCAT(DISTINCT NULLIF(bill_no, '') ORDER BY month SEPARATOR ', ') AS billNo FROM contractor_contract_bills WHERE year = ?${mBillFilter} GROUP BY contractor_id) cb ON cb.contractor_id = c.id
        LEFT JOIN (SELECT contractor_id, SUM(amount) AS received FROM contractor_payments WHERE YEAR(payment_date) = ?${mPayFilter} GROUP BY contractor_id) p ON p.contractor_id = c.id
        ${where.length ? 'WHERE ' + where.join(' AND ') : ''}
        ORDER BY c.vendor_code`,
-      [year, ...(mon > 0 ? [mon] : []), year, ...(mon > 0 ? [mon] : []), ...whereArgs],
+      [year, ...(mon > 0 ? [mon] : []), year, ...(mon > 0 ? [mon] : []), year, ...(mon > 0 ? [mon] : []), ...whereArgs],
     );
     const contractors = (cRows as any[]).map((r) => {
       const billed = Number(r.billed) || 0;
+      const contractBill = Number(r.contractBill) || 0;
       const received = Number(r.received) || 0;
-      return { ...r, billed: Math.round(billed * 100) / 100, received: Math.round(received * 100) / 100, balance: Math.round((billed - received) * 100) / 100 };
+      const totalBill = billed + contractBill;
+      return {
+        ...r,
+        billed: Math.round(billed * 100) / 100,
+        contractBill: Math.round(contractBill * 100) / 100,
+        totalBill: Math.round(totalBill * 100) / 100,
+        received: Math.round(received * 100) / 100,
+        balance: Math.round((totalBill - received) * 100) / 100,
+      };
     });
 
     return { monthly, yearly, contractors };

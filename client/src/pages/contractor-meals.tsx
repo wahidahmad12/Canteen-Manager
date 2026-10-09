@@ -24,6 +24,19 @@ type MealEntry = {
   id: number; entryDate: string; month: number; year: number; contractorId: number;
   mealType: string; qty: number; billNo: string; rate: number | string; vendorCode: string; contractorName: string; clientName: string;
 };
+type ContractBillEntry = {
+  id: number; contractorId: number; month: number; year: number;
+  billPeriod: string; billNo: string; amount: number | string;
+  vendorCode: string; contractorName: string; clientName: string;
+};
+
+function defaultContractBillPeriod(month: number, year: number): string {
+  const from = new Date(year, month - 2, 1);
+  const to = new Date(year, month - 1, 1);
+  const fromLabel = `${MONTH_NAMES[from.getMonth()].slice(0, 3)} ${String(from.getFullYear()).slice(-2)}`;
+  const toLabel = `${MONTH_NAMES[to.getMonth()].slice(0, 3)} ${String(to.getFullYear()).slice(-2)}`;
+  return `${fromLabel}-${toLabel}`;
+}
 
 // ---- Amount in words (Indian system) ----
 const ONES = ["", "One", "Two", "Three", "Four", "Five", "Six", "Seven", "Eight", "Nine", "Ten", "Eleven", "Twelve", "Thirteen", "Fourteen", "Fifteen", "Sixteen", "Seventeen", "Eighteen", "Nineteen"];
@@ -83,10 +96,15 @@ export default function ContractorMealsPage() {
   });
   // edits[contractorId] = { billNo, breakfast, lunch, dinner } (strings so blanks allowed)
   const [edits, setEdits] = useState<Record<number, { billNo: string; breakfast: string; lunch: string; dinner: string }>>({});
+  const [contractBillEdits, setContractBillEdits] = useState<Record<number, { billPeriod: string; billNo: string; amount: string }>>({});
 
   const { data: entries = [], isFetching } = useQuery<MealEntry[]>({
     queryKey: ["/api/contractor-meals", month, year],
     queryFn: async () => (await apiRequest("GET", `/api/contractor-meals?month=${month}&year=${year}`)).json(),
+  });
+  const { data: contractBillEntries = [], isFetching: isContractBillsFetching } = useQuery<ContractBillEntry[]>({
+    queryKey: ["/api/contractor-contract-bills", month, year],
+    queryFn: async () => (await apiRequest("GET", `/api/contractor-contract-bills?month=${month}&year=${year}`)).json(),
   });
 
   const filteredContractors = useMemo(
@@ -146,7 +164,41 @@ export default function ContractorMealsPage() {
       setShowAll(false); // save ke baad sirf data wale contractors dikhao
       qc.invalidateQueries({ queryKey: ["/api/contractor-meals", month, year] });
       qc.invalidateQueries({ queryKey: ["/api/contractor-dashboard"] });
+      qc.invalidateQueries({ queryKey: ["/api/contractor-billing-summary"] });
       toast({ title: "Saved", description: `${MONTHS[month - 1]} ${year} entries saved.` });
+    },
+    onError: (e: any) => toast({ title: "Save failed", description: e?.message || "", variant: "destructive" }),
+  });
+
+  const contractBillValue = (c: Contractor) => {
+    const saved = contractBillEntries.find((entry) => entry.contractorId === c.id);
+    const edit = contractBillEdits[c.id];
+    return {
+      billPeriod: edit?.billPeriod ?? saved?.billPeriod ?? defaultContractBillPeriod(month, year),
+      billNo: edit?.billNo ?? saved?.billNo ?? "",
+      amount: edit?.amount ?? (saved ? String(saved.amount) : ""),
+    };
+  };
+
+  const saveContractBillsMutation = useMutation({
+    mutationFn: async () => {
+      const rows = filteredContractors.map((c) => {
+        const value = contractBillValue(c);
+        return {
+          contractorId: c.id,
+          billPeriod: value.billPeriod,
+          billNo: value.billNo,
+          amount: value.amount === "" ? null : Number(value.amount),
+        };
+      });
+      await apiRequest("POST", "/api/contractor-contract-bills/bulk", { month, year, rows });
+    },
+    onSuccess: () => {
+      setContractBillEdits({});
+      qc.invalidateQueries({ queryKey: ["/api/contractor-contract-bills", month, year] });
+      qc.invalidateQueries({ queryKey: ["/api/contractor-dashboard"] });
+      qc.invalidateQueries({ queryKey: ["/api/contractor-billing-summary"] });
+      toast({ title: "Contract bills saved", description: `${MONTHS[month - 1]} ${year} entries saved.` });
     },
     onError: (e: any) => toast({ title: "Save failed", description: e?.message || "", variant: "destructive" }),
   });
@@ -310,6 +362,7 @@ export default function ContractorMealsPage() {
       });
       qc.invalidateQueries({ queryKey: ["/api/contractor-meals", month, year] });
       qc.invalidateQueries({ queryKey: ["/api/contractor-dashboard"] });
+      qc.invalidateQueries({ queryKey: ["/api/contractor-billing-summary"] });
       return true;
     } catch (e: any) {
       toast({ title: "Rate save failed", description: e?.message || "Dobara try kijiye.", variant: "destructive" });
@@ -740,7 +793,10 @@ ${forPrint ? "<script>window.onload = function(){ window.print(); };</scr" + "ip
 
   // ---- Payments state ----
   type Payment = { id: number; contractorId: number; paymentDate: string; amount: number | string; note: string; vendorCode: string; contractorName: string };
-  type BillingSummary = { contractorId: number; vendorCode: string; name: string; clientName: string; billed: number; received: number; balance: number };
+  type BillingSummary = {
+    contractorId: number; vendorCode: string; name: string; clientName: string;
+    billed: number; contractBill: number; totalBill: number; received: number; balance: number;
+  };
 
   const { data: payments = [] } = useQuery<Payment[]>({
     queryKey: ["/api/contractor-payments"],
@@ -793,9 +849,13 @@ ${forPrint ? "<script>window.onload = function(){ window.print(); };</scr" + "ip
   const [dashMonth, setDashMonth] = useState<string>("all");
   const [dashClient, setDashClient] = useState<string>("all");
   type DashData = {
-    monthly: { month: number; billed: number; received: number; balance: number }[];
-    yearly: { year: number; billed: number; received: number; balance: number }[];
-    contractors: { contractorId: number; vendorCode: string; name: string; billed: number; received: number; balance: number; billNo?: string }[];
+    monthly: { month: number; billed: number; contractBill: number; totalBill: number; received: number; balance: number }[];
+    yearly: { year: number; billed: number; contractBill: number; totalBill: number; received: number; balance: number }[];
+    contractors: {
+      contractorId: number; vendorCode: string; name: string; clientName: string; billed: number; contractBill: number;
+      totalBill: number; received: number; balance: number; billNo?: string;
+      contractBillPeriod?: string; contractBillNo?: string;
+    }[];
   };
   const { data: dash } = useQuery<DashData>({
     queryKey: ["/api/contractor-dashboard", dashYear, dashContractor, dashMonth, dashClient],
@@ -807,11 +867,26 @@ ${forPrint ? "<script>window.onload = function(){ window.print(); };</scr" + "ip
   });
   const dashMonthly = (dash?.monthly ?? []).map((m) => ({ ...m, name: MONTH_NAMES[m.month - 1] }));
   const dashYearly = dash?.yearly ?? [];
-  const dashContractors = (dash?.contractors ?? []).filter((c) => c.billed > 0 || c.received > 0);
+  const dashContractors = (dash?.contractors ?? []).filter((c) => c.totalBill > 0 || c.received > 0);
+  const dashClientTotals = useMemo(() => {
+    const totals = new Map<string, { billed: number; contractBill: number; totalBill: number; received: number; balance: number }>();
+    for (const contractor of dash?.contractors ?? []) {
+      if (contractor.totalBill <= 0 && contractor.received <= 0) continue;
+      const clientName = contractor.clientName || "Unknown";
+      const current = totals.get(clientName) || { billed: 0, contractBill: 0, totalBill: 0, received: 0, balance: 0 };
+      current.billed += contractor.billed;
+      current.contractBill += contractor.contractBill;
+      current.totalBill += contractor.totalBill;
+      current.received += contractor.received;
+      current.balance += contractor.balance;
+      totals.set(clientName, current);
+    }
+    return Array.from(totals, ([clientName, amounts]) => ({ clientName, ...amounts }));
+  }, [dash?.contractors]);
   const dashMonthlyShown = dashMonth === "all" ? dashMonthly : dashMonthly.filter((m) => m.month === Number(dashMonth));
   const dashTotals = dashMonthlyShown.reduce(
-    (s, m) => ({ billed: s.billed + m.billed, received: s.received + m.received }),
-    { billed: 0, received: 0 },
+    (s, m) => ({ totalBill: s.totalBill + m.totalBill, received: s.received + m.received }),
+    { totalBill: 0, received: 0 },
   );
   const dashPeriodLabel = dashMonth === "all" ? String(dashYear) : `${MONTH_NAMES[Number(dashMonth) - 1]} ${dashYear}`;
   const dashYearOptions = useMemo(() => {
@@ -826,31 +901,41 @@ ${forPrint ? "<script>window.onload = function(){ window.print(); };</scr" + "ip
   const exportDashboard = () => {
     const wb = XLSX.utils.book_new();
     const ws1 = XLSX.utils.json_to_sheet(
-      dashMonthlyShown.map((m) => ({ Month: m.name, "Bill Amount": m.billed, "Payment Received": m.received, Balance: m.balance })),
+      dashMonthlyShown.map((m) => ({ Month: m.name, "Meal Bill": m.billed, "Contract Bill": m.contractBill, "Total Bill": m.totalBill, "Payment Received": m.received, Balance: m.balance })),
     );
     XLSX.utils.book_append_sheet(wb, ws1, `Monthwise ${dashPeriodLabel}`.slice(0,31));
     const ws2 = XLSX.utils.json_to_sheet(
-      dashYearly.map((y) => ({ Year: y.year, "Bill Amount": y.billed, "Payment Received": y.received, Balance: y.balance })),
+      dashYearly.map((y) => ({ Year: y.year, "Meal Bill": y.billed, "Contract Bill": y.contractBill, "Total Bill": y.totalBill, "Payment Received": y.received, Balance: y.balance })),
     );
     XLSX.utils.book_append_sheet(wb, ws2, "Yearwise");
     const ws3 = XLSX.utils.json_to_sheet(
-      dashContractors.map((c) => ({ "Vendor Code": c.vendorCode, Contractor: c.name, "Bill Amount": c.billed, "Payment Received": c.received, Balance: c.balance })),
+      dashContractors.map((c) => ({ "Vendor Code": c.vendorCode, Contractor: c.name, "Meal Bill": c.billed, "Contract Bill": c.contractBill, "Total Bill": c.totalBill, "Payment Received": c.received, Balance: c.balance })),
     );
     XLSX.utils.book_append_sheet(wb, ws3, `Contractorwise ${dashPeriodLabel}`.slice(0,31));
+    const ws4 = XLSX.utils.json_to_sheet(
+      dashClientTotals.map((c) => ({ Client: c.clientName, "Meal Bill": c.billed, "Contract Bill": c.contractBill, "Total Bill": c.totalBill, "Payment Received": c.received, Balance: c.balance })),
+    );
+    XLSX.utils.book_append_sheet(wb, ws4, `Client totals ${dashPeriodLabel}`.slice(0,31));
     XLSX.writeFile(wb, `Contractor-Dashboard-${dashYear}${dashContractor === "all" ? "" : "-" + dashContractorName.replace(/\s+/g, "")}.xlsx`);
   };
 
   const printDashboard = () => {
     const esc = (s: string) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
     const money = (n: number) => (Number(n) || 0).toLocaleString("en-IN", { minimumFractionDigits: 2 });
-    const rows = (arr: { label: string; billed: number; received: number; balance: number }[]) =>
-      arr.map((r) => `<tr><td>${esc(r.label)}</td><td class="r">${money(r.billed)}</td><td class="r">${money(r.received)}</td><td class="r ${r.balance > 0 ? "red" : ""}">${money(r.balance)}</td></tr>`).join("");
-    const tbl = (title: string, arr: { label: string; billed: number; received: number; balance: number }[]) => {
-      const t = arr.reduce((s, r) => ({ billed: s.billed + r.billed, received: s.received + r.received, balance: s.balance + r.balance }), { billed: 0, received: 0, balance: 0 });
+    const rows = (arr: { label: string; billed: number; contractBill: number; totalBill: number; received: number; balance: number }[]) =>
+      arr.map((r) => `<tr><td>${esc(r.label)}</td><td class="r">${money(r.billed)}</td><td class="r">${money(r.contractBill)}</td><td class="r">${money(r.totalBill)}</td><td class="r">${money(r.received)}</td><td class="r ${r.balance > 0 ? "red" : ""}">${money(r.balance)}</td></tr>`).join("");
+    const tbl = (title: string, arr: { label: string; billed: number; contractBill: number; totalBill: number; received: number; balance: number }[]) => {
+      const t = arr.reduce((s, r) => ({
+        billed: s.billed + r.billed,
+        contractBill: s.contractBill + r.contractBill,
+        totalBill: s.totalBill + r.totalBill,
+        received: s.received + r.received,
+        balance: s.balance + r.balance,
+      }), { billed: 0, contractBill: 0, totalBill: 0, received: 0, balance: 0 });
       return `<h3>${esc(title)}</h3>
-      <table><tr class="head"><th></th><th class="r">Bill Amount</th><th class="r">Received</th><th class="r">Balance</th></tr>
+      <table><tr class="head"><th></th><th class="r">Meal Bill</th><th class="r">Contract Bill</th><th class="r">Total Bill</th><th class="r">Received</th><th class="r">Balance</th></tr>
       ${rows(arr)}
-      <tr class="total"><td>Total</td><td class="r">${money(t.billed)}</td><td class="r">${money(t.received)}</td><td class="r">${money(t.balance)}</td></tr></table>`;
+      <tr class="total"><td>Total</td><td class="r">${money(t.billed)}</td><td class="r">${money(t.contractBill)}</td><td class="r">${money(t.totalBill)}</td><td class="r">${money(t.received)}</td><td class="r">${money(t.balance)}</td></tr></table>`;
     };
     const html = `<!DOCTYPE html><html><head><meta charset="utf-8"><title>Contractor Dashboard ${dashYear}</title>
 <style>
@@ -865,9 +950,10 @@ ${forPrint ? "<script>window.onload = function(){ window.print(); };</scr" + "ip
 </style></head><body>
 <h2>DJ Hospitality &amp; Facility Management Pvt Ltd</h2>
 <div class="sub">Contractor Meal Dashboard — ${dashPeriodLabel} — ${esc(dashClient === "all" ? "All Clients" : dashClient)} — ${esc(dashContractorName)}</div>
-${tbl(`Month-wise (${dashPeriodLabel})`, dashMonthlyShown.map((m) => ({ label: m.name, billed: m.billed, received: m.received, balance: m.balance })))}
-${tbl("Year-wise", dashYearly.map((y) => ({ label: String(y.year), billed: y.billed, received: y.received, balance: y.balance })))}
-${tbl(`Contractor-wise (${dashPeriodLabel})`, dashContractors.map((c) => ({ label: `${c.vendorCode} — ${c.name}`, billed: c.billed, received: c.received, balance: c.balance })))}
+${tbl(`Month-wise (${dashPeriodLabel})`, dashMonthlyShown.map((m) => ({ label: m.name, billed: m.billed, contractBill: m.contractBill, totalBill: m.totalBill, received: m.received, balance: m.balance })))}
+${tbl("Year-wise", dashYearly.map((y) => ({ label: String(y.year), billed: y.billed, contractBill: y.contractBill, totalBill: y.totalBill, received: y.received, balance: y.balance })))}
+${tbl(`Client-wise company totals (${dashPeriodLabel})`, dashClientTotals.map((c) => ({ label: c.clientName, billed: c.billed, contractBill: c.contractBill, totalBill: c.totalBill, received: c.received, balance: c.balance })))}
+${tbl(`Contractor-wise (${dashPeriodLabel})`, dashContractors.map((c) => ({ label: `${c.vendorCode} — ${c.name}`, billed: c.billed, contractBill: c.contractBill, totalBill: c.totalBill, received: c.received, balance: c.balance })))}
 <script>window.onload = function(){ window.print(); };</scr${""}ipt>
 </body></html>`;
     const w = window.open("", "_blank");
@@ -879,12 +965,14 @@ ${tbl(`Contractor-wise (${dashPeriodLabel})`, dashContractors.map((c) => ({ labe
   const printBillReport = () => {
     const esc = (s: string) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
     const money = (n: number) => (Number(n) || 0).toLocaleString("en-IN", { maximumFractionDigits: 0 });
-    const list = dashContractors.filter((c) => String(c.billNo || "").trim() !== "" && c.billed > 0);
+    const list = dashContractors.filter((c) => String(c.billNo || c.contractBillNo || "").trim() !== "" && c.totalBill > 0);
     if (list.length === 0) {
       toast({ title: "Koi data nahi", description: "Is month/filter me bill no wale contractor nahi mile.", variant: "destructive" });
       return;
     }
-    const total = list.reduce((s, c) => s + c.billed, 0);
+    const totalMealBill = list.reduce((s, c) => s + c.billed, 0);
+    const totalContractBill = list.reduce((s, c) => s + c.contractBill, 0);
+    const total = totalMealBill + totalContractBill;
     const clientLabel = dashClient === "all" ? "All Clients" : dashClient;
     const title = `${clientLabel} Contractor Bill Amount Month Of ${dashPeriodLabel}`;
     const html = `<!DOCTYPE html><html><head><meta charset="utf-8"><title>${esc(title)}</title>
@@ -901,9 +989,9 @@ ${tbl(`Contractor-wise (${dashPeriodLabel})`, dashContractors.map((c) => ({ labe
 </style></head><body>
 <table>
   <tr><td class="title" colspan="3">${esc(title)}</td></tr>
-  <tr class="head"><th>Contractor</th><th class="r">Total</th><th>Bill No</th></tr>
-  ${list.map((c) => `<tr><td><b>${esc(c.name)}</b></td><td class="r"><b>${money(c.billed)}</b></td><td><b>${esc(String(c.billNo))}</b></td></tr>`).join("")}
-  <tr class="total"><td class="r">Total</td><td class="r">${money(total)}</td><td></td></tr>
+  <tr class="head"><th>Contractor</th><th>Bill Period</th><th class="r">Meal Bill</th><th class="r">Contract Bill</th><th class="r">Total</th><th>Bill No</th></tr>
+  ${list.map((c) => `<tr><td><b>${esc(c.name)}</b></td><td>${esc(String(c.contractBillPeriod || ""))}</td><td class="r"><b>${money(c.billed)}</b></td><td class="r"><b>${money(c.contractBill)}</b></td><td class="r"><b>${money(c.totalBill)}</b></td><td><b>${esc([c.billNo, c.contractBillNo].filter(Boolean).join(", "))}</b></td></tr>`).join("")}
+  <tr class="total"><td colspan="2" class="r">Total</td><td class="r">${money(totalMealBill)}</td><td class="r">${money(totalContractBill)}</td><td class="r">${money(total)}</td><td></td></tr>
 </table>
 <script>window.onload = function(){ window.print(); };</scr${""}ipt>
 </body></html>`;
@@ -934,6 +1022,8 @@ ${tbl(`Contractor-wise (${dashPeriodLabel})`, dashContractors.map((c) => ({ labe
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["/api/contractors"] });
+      qc.invalidateQueries({ queryKey: ["/api/contractor-dashboard"] });
+      qc.invalidateQueries({ queryKey: ["/api/contractor-billing-summary"] });
       setForm(emptyForm);
       setEditId(null);
       toast({ title: editId ? "Contractor updated" : "Contractor added" });
@@ -946,7 +1036,10 @@ ${tbl(`Contractor-wise (${dashPeriodLabel})`, dashContractors.map((c) => ({ labe
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["/api/contractors"] });
       qc.invalidateQueries({ queryKey: ["/api/contractor-meals", month, year] });
+      qc.invalidateQueries({ queryKey: ["/api/contractor-contract-bills", month, year] });
       qc.invalidateQueries({ queryKey: ["/api/contractor-dashboard"] });
+      qc.invalidateQueries({ queryKey: ["/api/contractor-billing-summary"] });
+      qc.invalidateQueries({ queryKey: ["/api/contractor-payments"] });
       toast({ title: "Contractor deleted" });
     },
     onError: (e: any) => toast({ title: "Delete failed", description: e?.message || "", variant: "destructive" }),
@@ -971,8 +1064,9 @@ ${tbl(`Contractor-wise (${dashPeriodLabel})`, dashContractors.map((c) => ({ labe
       </div>
 
       <Tabs defaultValue="entry">
-        <TabsList>
+        <TabsList className="h-auto w-full flex-wrap justify-start">
           <TabsTrigger value="entry" data-testid="tab-meal-entry">Meal Entry</TabsTrigger>
+          <TabsTrigger value="contract-bills" data-testid="tab-contract-bills">Contract Bill Entry</TabsTrigger>
           <TabsTrigger value="master" data-testid="tab-contractor-list">Contractor List</TabsTrigger>
           <TabsTrigger value="nongst" data-testid="tab-non-gst">Non GST Invoice</TabsTrigger>
           <TabsTrigger value="payments" data-testid="tab-payments">Payments</TabsTrigger>
@@ -985,7 +1079,7 @@ ${tbl(`Contractor-wise (${dashPeriodLabel})`, dashContractors.map((c) => ({ labe
             <CardContent className="pt-4 flex flex-wrap items-end gap-3">
               <div>
                 <Label>Month</Label>
-                <Select value={String(month)} onValueChange={(v) => { setMonth(Number(v)); setEdits({}); }}>
+                <Select value={String(month)} onValueChange={(v) => { setMonth(Number(v)); setEdits({}); setContractBillEdits({}); }}>
                   <SelectTrigger className="w-36" data-testid="select-month"><SelectValue /></SelectTrigger>
                   <SelectContent>
                     {MONTHS.map((m, i) => <SelectItem key={m} value={String(i + 1)}>{m}</SelectItem>)}
@@ -994,7 +1088,7 @@ ${tbl(`Contractor-wise (${dashPeriodLabel})`, dashContractors.map((c) => ({ labe
               </div>
               <div>
                 <Label>Year</Label>
-                <Select value={String(year)} onValueChange={(v) => { setYear(Number(v)); setEdits({}); }}>
+                <Select value={String(year)} onValueChange={(v) => { setYear(Number(v)); setEdits({}); setContractBillEdits({}); }}>
                   <SelectTrigger className="w-28" data-testid="select-year"><SelectValue /></SelectTrigger>
                   <SelectContent>
                     {[year - 2, year - 1, year, year + 1].filter((v, i, a) => a.indexOf(v) === i).map((y) =>
@@ -1124,6 +1218,124 @@ ${tbl(`Contractor-wise (${dashPeriodLabel})`, dashContractors.map((c) => ({ labe
                     </tr>
                   </tfoot>
                 )}
+              </table>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        {/* ============ CONTRACT BILL ENTRY ============ */}
+        <TabsContent value="contract-bills" className="space-y-4">
+          <Card>
+            <CardContent className="pt-4 flex flex-wrap items-end gap-3">
+              <div>
+                <Label>Month</Label>
+                <Select value={String(month)} onValueChange={(v) => { setMonth(Number(v)); setContractBillEdits({}); }}>
+                  <SelectTrigger className="w-36" data-testid="select-contract-bill-month"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    {MONTHS.map((m, i) => <SelectItem key={m} value={String(i + 1)}>{m}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <Label>Year</Label>
+                <Select value={String(year)} onValueChange={(v) => { setYear(Number(v)); setContractBillEdits({}); }}>
+                  <SelectTrigger className="w-28" data-testid="select-contract-bill-year"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    {[year - 2, year - 1, year, year + 1].map((y) => <SelectItem key={y} value={String(y)}>{y}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <Label>Client</Label>
+                <Select value={clientFilter} onValueChange={setClientFilter}>
+                  <SelectTrigger className="w-44" data-testid="select-contract-bill-client"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Clients</SelectItem>
+                    {clients.map((c) => <SelectItem key={c.id} value={c.name}>{c.name}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </div>
+              <Button onClick={() => saveContractBillsMutation.mutate()} disabled={saveContractBillsMutation.isPending} data-testid="button-save-contract-bills">
+                <Save className="h-4 w-4 mr-1" /> {saveContractBillsMutation.isPending ? "Saving..." : "Save Contract Bills"}
+              </Button>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader className="py-3">
+              <CardTitle className="text-base">
+                Contract Bills — {monthName} {year} {isContractBillsFetching ? "…" : ""}
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="overflow-x-auto p-0">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b bg-muted/50 text-left">
+                    <th className="p-2">Vendor Code</th>
+                    <th className="p-2">Contractor</th>
+                    <th className="p-2">Client</th>
+                    <th className="p-2">Bill Period</th>
+                    <th className="p-2">Bill No</th>
+                    <th className="p-2 text-right">Contract Bill (₹)</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {filteredContractors.map((c) => {
+                    const value = contractBillValue(c);
+                    return (
+                      <tr key={c.id} className="border-b" data-testid={`row-contract-bill-${c.vendorCode}`}>
+                        <td className="p-2 whitespace-nowrap font-mono text-xs">{c.vendorCode}</td>
+                        <td className="p-2">{c.name}</td>
+                        <td className="p-2">{c.clientName}</td>
+                        <td className="p-1">
+                          <Input
+                            className="w-36 h-8"
+                            placeholder="Aug-Sep 26"
+                            value={value.billPeriod}
+                            onChange={(e) => setContractBillEdits((prev) => ({
+                              ...prev,
+                              [c.id]: { ...contractBillValue(c), ...prev[c.id], billPeriod: e.target.value },
+                            }))}
+                            data-testid={`input-contract-period-${c.vendorCode}`}
+                          />
+                        </td>
+                        <td className="p-1">
+                          <Input
+                            className="w-36 h-8"
+                            placeholder="Bill No"
+                            value={value.billNo}
+                            onChange={(e) => setContractBillEdits((prev) => ({
+                              ...prev,
+                              [c.id]: { ...contractBillValue(c), ...prev[c.id], billNo: e.target.value },
+                            }))}
+                            data-testid={`input-contract-billno-${c.vendorCode}`}
+                          />
+                        </td>
+                        <td className="p-1">
+                          <Input
+                            type="text" inputMode="decimal"
+                            className="w-36 h-8 text-right ml-auto"
+                            placeholder="0.00"
+                            value={value.amount}
+                            onChange={(e) => {
+                              const raw = e.target.value.replace(/[^\d.]/g, "");
+                              const parts = raw.split(".");
+                              const amount = parts.length > 2 ? parts[0] + "." + parts.slice(1).join("") : raw;
+                              setContractBillEdits((prev) => ({
+                                ...prev,
+                                [c.id]: { ...contractBillValue(c), ...prev[c.id], amount },
+                              }));
+                            }}
+                            data-testid={`input-contract-bill-amount-${c.vendorCode}`}
+                          />
+                        </td>
+                      </tr>
+                    );
+                  })}
+                  {filteredContractors.length === 0 && (
+                    <tr><td colSpan={6} className="p-6 text-center text-muted-foreground">No contractors for this client. Add a contractor in the Contractor List tab first.</td></tr>
+                  )}
+                </tbody>
               </table>
             </CardContent>
           </Card>
@@ -1381,29 +1593,35 @@ ${tbl(`Contractor-wise (${dashPeriodLabel})`, dashContractors.map((c) => ({ labe
                   <tr className="border-b bg-muted/50 text-left">
                     <th className="p-2">Vendor Code</th>
                     <th className="p-2">Contractor</th>
+                    <th className="p-2 text-right">Meal Bill</th>
+                    <th className="p-2 text-right">Contract Bill</th>
                     <th className="p-2 text-right">Total Bill</th>
                     <th className="p-2 text-right">Received</th>
                     <th className="p-2 text-right">Balance</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {billing.filter((b) => b.billed > 0 || b.received > 0).map((b) => (
+                  {billing.filter((b) => b.totalBill > 0 || b.received > 0).map((b) => (
                     <tr key={b.contractorId} className="border-b" data-testid={`row-balance-${b.vendorCode}`}>
                       <td className="p-2 font-mono text-xs whitespace-nowrap">{b.vendorCode}</td>
                       <td className="p-2">{b.name}</td>
                       <td className="p-2 text-right">{fmtInr(b.billed)}</td>
+                      <td className="p-2 text-right">{fmtInr(b.contractBill)}</td>
+                      <td className="p-2 text-right font-semibold">{fmtInr(b.totalBill)}</td>
                       <td className="p-2 text-right text-green-600">{fmtInr(b.received)}</td>
                       <td className={`p-2 text-right font-semibold ${b.balance > 0 ? "text-red-600" : "text-green-600"}`}>{fmtInr(b.balance)}</td>
                     </tr>
                   ))}
-                  {billing.filter((b) => b.billed > 0 || b.received > 0).length === 0 && (
-                    <tr><td colSpan={5} className="p-6 text-center text-muted-foreground">Abhi koi bill ya payment nahi. Bill amount ke liye invoice me Rate save kijiye.</td></tr>
+                  {billing.filter((b) => b.totalBill > 0 || b.received > 0).length === 0 && (
+                    <tr><td colSpan={7} className="p-6 text-center text-muted-foreground">Abhi koi bill ya payment nahi. Meal bill ke liye invoice me Rate save kijiye, ya Contract Bill Entry tab me amount add kijiye.</td></tr>
                   )}
                 </tbody>
                 <tfoot>
                   <tr className="border-t bg-muted/50 font-semibold">
                     <td className="p-2" colSpan={2}>Total</td>
                     <td className="p-2 text-right">{fmtInr(billing.reduce((s, b) => s + b.billed, 0))}</td>
+                    <td className="p-2 text-right">{fmtInr(billing.reduce((s, b) => s + b.contractBill, 0))}</td>
+                    <td className="p-2 text-right">{fmtInr(billing.reduce((s, b) => s + b.totalBill, 0))}</td>
                     <td className="p-2 text-right">{fmtInr(billing.reduce((s, b) => s + b.received, 0))}</td>
                     <td className="p-2 text-right">{fmtInr(billing.reduce((s, b) => s + b.balance, 0))}</td>
                   </tr>
@@ -1517,7 +1735,7 @@ ${tbl(`Contractor-wise (${dashPeriodLabel})`, dashContractors.map((c) => ({ labe
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             <Card><CardContent className="pt-4">
               <div className="text-sm text-muted-foreground">Total Bill ({dashPeriodLabel})</div>
-              <div className="text-2xl font-bold" data-testid="text-dash-billed">{fmtInr(dashTotals.billed)}</div>
+              <div className="text-2xl font-bold" data-testid="text-dash-billed">{fmtInr(dashTotals.totalBill)}</div>
             </CardContent></Card>
             <Card><CardContent className="pt-4">
               <div className="text-sm text-muted-foreground">Payment Received ({dashPeriodLabel})</div>
@@ -1525,8 +1743,8 @@ ${tbl(`Contractor-wise (${dashPeriodLabel})`, dashContractors.map((c) => ({ labe
             </CardContent></Card>
             <Card><CardContent className="pt-4">
               <div className="text-sm text-muted-foreground">Balance ({dashPeriodLabel})</div>
-              <div className={`text-2xl font-bold ${dashTotals.billed - dashTotals.received > 0 ? "text-red-600" : "text-green-600"}`} data-testid="text-dash-balance">
-                {fmtInr(dashTotals.billed - dashTotals.received)}
+              <div className={`text-2xl font-bold ${dashTotals.totalBill - dashTotals.received > 0 ? "text-red-600" : "text-green-600"}`} data-testid="text-dash-balance">
+                {fmtInr(dashTotals.totalBill - dashTotals.received)}
               </div>
             </CardContent></Card>
           </div>
@@ -1541,11 +1759,42 @@ ${tbl(`Contractor-wise (${dashPeriodLabel})`, dashContractors.map((c) => ({ labe
                   <YAxis fontSize={12} tickFormatter={(v) => "₹" + Number(v).toLocaleString("en-IN")} width={80} />
                   <Tooltip formatter={(v: any) => "₹" + Number(v).toLocaleString("en-IN", { minimumFractionDigits: 2 })} />
                   <Legend />
-                  <Bar dataKey="billed" name="Bill Amount" fill="#7A1FA2" />
+                  <Bar dataKey="billed" name="Meal Bill" fill="#7A1FA2" stackId="bill" />
+                  <Bar dataKey="contractBill" name="Contract Bill" fill="#f59e0b" stackId="bill" />
                   <Bar dataKey="received" name="Received" fill="#16a34a" />
                   <Bar dataKey="balance" name="Balance" fill="#dc2626" />
                 </BarChart>
               </ResponsiveContainer>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader className="py-3"><CardTitle className="text-base">Monthly Summary — {dashYear} ({dashClient === "all" ? "All Clients" : dashClient})</CardTitle></CardHeader>
+            <CardContent className="overflow-x-auto p-0">
+              <table className="w-full text-sm">
+                <thead><tr className="border-b bg-muted/50 text-left">
+                  <th className="p-2">Month</th><th className="p-2 text-right">Meal Bill</th>
+                  <th className="p-2 text-right">Contract Bill</th><th className="p-2 text-right">Total Bill</th>
+                  <th className="p-2 text-right">Received</th><th className="p-2 text-right">Balance</th>
+                </tr></thead>
+                <tbody>
+                  {dashMonthlyShown.map((m) => (
+                    <tr key={m.month} className="border-b" data-testid={`row-monthly-summary-${m.month}`}>
+                      <td className="p-2">{m.name}</td><td className="p-2 text-right">{fmtInr(m.billed)}</td>
+                      <td className="p-2 text-right">{fmtInr(m.contractBill)}</td><td className="p-2 text-right font-semibold">{fmtInr(m.totalBill)}</td>
+                      <td className="p-2 text-right text-green-600">{fmtInr(m.received)}</td><td className="p-2 text-right">{fmtInr(m.balance)}</td>
+                    </tr>
+                  ))}
+                  <tr className="border-t bg-muted/50 font-semibold">
+                    <td className="p-2">Total</td>
+                    <td className="p-2 text-right">{fmtInr(dashMonthlyShown.reduce((s, m) => s + m.billed, 0))}</td>
+                    <td className="p-2 text-right">{fmtInr(dashMonthlyShown.reduce((s, m) => s + m.contractBill, 0))}</td>
+                    <td className="p-2 text-right">{fmtInr(dashMonthlyShown.reduce((s, m) => s + m.totalBill, 0))}</td>
+                    <td className="p-2 text-right">{fmtInr(dashMonthlyShown.reduce((s, m) => s + m.received, 0))}</td>
+                    <td className="p-2 text-right">{fmtInr(dashMonthlyShown.reduce((s, m) => s + m.balance, 0))}</td>
+                  </tr>
+                </tbody>
+              </table>
             </CardContent>
           </Card>
 
@@ -1559,10 +1808,74 @@ ${tbl(`Contractor-wise (${dashPeriodLabel})`, dashContractors.map((c) => ({ labe
                   <YAxis fontSize={12} tickFormatter={(v) => "₹" + Number(v).toLocaleString("en-IN")} width={80} />
                   <Tooltip formatter={(v: any) => "₹" + Number(v).toLocaleString("en-IN", { minimumFractionDigits: 2 })} />
                   <Legend />
-                  <Bar dataKey="billed" name="Bill Amount" fill="#7A1FA2" />
+                  <Bar dataKey="billed" name="Meal Bill" fill="#7A1FA2" stackId="bill" />
+                  <Bar dataKey="contractBill" name="Contract Bill" fill="#f59e0b" stackId="bill" />
                   <Bar dataKey="received" name="Received" fill="#16a34a" />
                 </BarChart>
               </ResponsiveContainer>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader className="py-3"><CardTitle className="text-base">Yearly Summary ({dashClient === "all" ? "All Clients" : dashClient})</CardTitle></CardHeader>
+            <CardContent className="overflow-x-auto p-0">
+              <table className="w-full text-sm">
+                <thead><tr className="border-b bg-muted/50 text-left">
+                  <th className="p-2">Year</th><th className="p-2 text-right">Meal Bill</th>
+                  <th className="p-2 text-right">Contract Bill</th><th className="p-2 text-right">Total Bill</th>
+                  <th className="p-2 text-right">Received</th><th className="p-2 text-right">Balance</th>
+                </tr></thead>
+                <tbody>
+                  {dashYearly.map((y) => (
+                    <tr key={y.year} className="border-b" data-testid={`row-yearly-summary-${y.year}`}>
+                      <td className="p-2">{y.year}</td><td className="p-2 text-right">{fmtInr(y.billed)}</td>
+                      <td className="p-2 text-right">{fmtInr(y.contractBill)}</td><td className="p-2 text-right font-semibold">{fmtInr(y.totalBill)}</td>
+                      <td className="p-2 text-right text-green-600">{fmtInr(y.received)}</td><td className="p-2 text-right">{fmtInr(y.balance)}</td>
+                    </tr>
+                  ))}
+                  <tr className="border-t bg-muted/50 font-semibold">
+                    <td className="p-2">Total</td>
+                    <td className="p-2 text-right">{fmtInr(dashYearly.reduce((s, y) => s + y.billed, 0))}</td>
+                    <td className="p-2 text-right">{fmtInr(dashYearly.reduce((s, y) => s + y.contractBill, 0))}</td>
+                    <td className="p-2 text-right">{fmtInr(dashYearly.reduce((s, y) => s + y.totalBill, 0))}</td>
+                    <td className="p-2 text-right">{fmtInr(dashYearly.reduce((s, y) => s + y.received, 0))}</td>
+                    <td className="p-2 text-right">{fmtInr(dashYearly.reduce((s, y) => s + y.balance, 0))}</td>
+                  </tr>
+                </tbody>
+              </table>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader className="py-3"><CardTitle className="text-base">Client-wise Company Total — {dashPeriodLabel}</CardTitle></CardHeader>
+            <CardContent className="overflow-x-auto p-0">
+              <table className="w-full text-sm">
+                <thead><tr className="border-b bg-muted/50 text-left">
+                  <th className="p-2">Company / Client</th><th className="p-2 text-right">Meal Bill</th>
+                  <th className="p-2 text-right">Contract Bill</th><th className="p-2 text-right">Total Bill</th>
+                  <th className="p-2 text-right">Received</th><th className="p-2 text-right">Balance</th>
+                </tr></thead>
+                <tbody>
+                  {dashClientTotals.map((c) => (
+                    <tr key={c.clientName} className="border-b" data-testid={`row-client-contract-total-${c.clientName}`}>
+                      <td className="p-2">{c.clientName}</td><td className="p-2 text-right">{fmtInr(c.billed)}</td>
+                      <td className="p-2 text-right">{fmtInr(c.contractBill)}</td><td className="p-2 text-right font-semibold">{fmtInr(c.totalBill)}</td>
+                      <td className="p-2 text-right text-green-600">{fmtInr(c.received)}</td><td className="p-2 text-right">{fmtInr(c.balance)}</td>
+                    </tr>
+                  ))}
+                  {dashClientTotals.length === 0 && (
+                    <tr><td colSpan={6} className="p-6 text-center text-muted-foreground">No company bills or payments for this period.</td></tr>
+                  )}
+                  <tr className="border-t bg-muted/50 font-semibold">
+                    <td className="p-2">Total</td>
+                    <td className="p-2 text-right">{fmtInr(dashClientTotals.reduce((s, c) => s + c.billed, 0))}</td>
+                    <td className="p-2 text-right">{fmtInr(dashClientTotals.reduce((s, c) => s + c.contractBill, 0))}</td>
+                    <td className="p-2 text-right">{fmtInr(dashClientTotals.reduce((s, c) => s + c.totalBill, 0))}</td>
+                    <td className="p-2 text-right">{fmtInr(dashClientTotals.reduce((s, c) => s + c.received, 0))}</td>
+                    <td className="p-2 text-right">{fmtInr(dashClientTotals.reduce((s, c) => s + c.balance, 0))}</td>
+                  </tr>
+                </tbody>
+              </table>
             </CardContent>
           </Card>
 
@@ -1574,7 +1887,9 @@ ${tbl(`Contractor-wise (${dashPeriodLabel})`, dashContractors.map((c) => ({ labe
                   <tr className="border-b bg-muted/50 text-left">
                     <th className="p-2">Vendor Code</th>
                     <th className="p-2">Contractor</th>
-                    <th className="p-2 text-right">Bill Amount</th>
+                    <th className="p-2 text-right">Meal Bill</th>
+                    <th className="p-2 text-right">Contract Bill</th>
+                    <th className="p-2 text-right">Total Bill</th>
                     <th className="p-2 text-right">Received</th>
                     <th className="p-2 text-right">Balance</th>
                   </tr>
@@ -1585,18 +1900,22 @@ ${tbl(`Contractor-wise (${dashPeriodLabel})`, dashContractors.map((c) => ({ labe
                       <td className="p-2 font-mono text-xs whitespace-nowrap">{c.vendorCode}</td>
                       <td className="p-2">{c.name}</td>
                       <td className="p-2 text-right">{fmtInr(c.billed)}</td>
+                      <td className="p-2 text-right">{fmtInr(c.contractBill)}</td>
+                      <td className="p-2 text-right font-semibold">{fmtInr(c.totalBill)}</td>
                       <td className="p-2 text-right text-green-600">{fmtInr(c.received)}</td>
                       <td className={`p-2 text-right font-semibold ${c.balance > 0 ? "text-red-600" : "text-green-600"}`}>{fmtInr(c.balance)}</td>
                     </tr>
                   ))}
                   {dashContractors.length === 0 && (
-                    <tr><td colSpan={5} className="p-6 text-center text-muted-foreground">Is year me koi bill/payment nahi mila.</td></tr>
+                    <tr><td colSpan={7} className="p-6 text-center text-muted-foreground">Is year me koi bill/payment nahi mila.</td></tr>
                   )}
                 </tbody>
                 <tfoot>
                   <tr className="border-t bg-muted/50 font-semibold">
                     <td className="p-2" colSpan={2}>Total</td>
                     <td className="p-2 text-right">{fmtInr(dashContractors.reduce((s, c) => s + c.billed, 0))}</td>
+                    <td className="p-2 text-right">{fmtInr(dashContractors.reduce((s, c) => s + c.contractBill, 0))}</td>
+                    <td className="p-2 text-right">{fmtInr(dashContractors.reduce((s, c) => s + c.totalBill, 0))}</td>
                     <td className="p-2 text-right">{fmtInr(dashContractors.reduce((s, c) => s + c.received, 0))}</td>
                     <td className="p-2 text-right">{fmtInr(dashContractors.reduce((s, c) => s + c.balance, 0))}</td>
                   </tr>

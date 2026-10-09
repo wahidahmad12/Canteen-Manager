@@ -205,10 +205,11 @@ export default function Admin() {
 
   // Flash Messages
   const queryClient2 = useQueryClient();
-  const { data: flashMessages = [], isLoading: flashLoading, refetch: refetchFlash } = useQuery<any[]>({
+  const { data: flashMessagesData, isLoading: flashLoading, error: flashError } = useQuery<any[]>({
     queryKey: ['/api/flash-messages'],
-    queryFn: async () => { const r = await fetch('/api/flash-messages', { credentials: 'include' }); return r.json(); },
+    queryFn: async () => (await apiRequest('GET', '/api/flash-messages')).json(),
   });
+  const flashMessages = Array.isArray(flashMessagesData) ? flashMessagesData : [];
   const [flashTitle, setFlashTitle] = useState("");
   const [flashMessage, setFlashMessage] = useState("");
   const [flashType, setFlashType] = useState("info");
@@ -218,8 +219,9 @@ export default function Admin() {
     if (!flashTitle.trim() || !flashMessage.trim()) { toast({ title: "Required fields", description: "Title and message are required.", variant: "destructive" }); return; }
     setFlashCreating(true);
     try {
-      await fetch('/api/flash-messages', { method: 'POST', headers: { 'Content-Type': 'application/json' }, credentials: 'include',
-        body: JSON.stringify({ title: flashTitle, message: flashMessage, type: flashType, expiresAt: flashExpiry || null, isActive: true }) });
+      await apiRequest('POST', '/api/flash-messages', {
+        title: flashTitle, message: flashMessage, type: flashType, expiresAt: flashExpiry || null, isActive: true,
+      });
       setFlashTitle(""); setFlashMessage(""); setFlashType("info"); setFlashExpiry("");
       queryClient2.invalidateQueries({ queryKey: ['/api/flash-messages'] });
       toast({ title: "Flash message created", description: "It will appear on employee dashboards." });
@@ -227,13 +229,17 @@ export default function Admin() {
     finally { setFlashCreating(false); }
   };
   const toggleFlashActive = async (id: number, isActive: boolean) => {
-    await fetch(`/api/flash-messages/${id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, credentials: 'include', body: JSON.stringify({ isActive: !isActive }) });
-    queryClient2.invalidateQueries({ queryKey: ['/api/flash-messages'] });
+    try {
+      await apiRequest('PATCH', `/api/flash-messages/${id}`, { isActive: !isActive });
+      queryClient2.invalidateQueries({ queryKey: ['/api/flash-messages'] });
+    } catch(e: any) { toast({ title: "Update failed", description: e.message, variant: "destructive" }); }
   };
   const deleteFlashMessage = async (id: number) => {
-    await fetch(`/api/flash-messages/${id}`, { method: 'DELETE', credentials: 'include' });
-    queryClient2.invalidateQueries({ queryKey: ['/api/flash-messages'] });
-    toast({ title: "Deleted" });
+    try {
+      await apiRequest('DELETE', `/api/flash-messages/${id}`);
+      queryClient2.invalidateQueries({ queryKey: ['/api/flash-messages'] });
+      toast({ title: "Deleted" });
+    } catch(e: any) { toast({ title: "Delete failed", description: e.message, variant: "destructive" }); }
   };
   const flashTypeIcon = (type: string) => {
     if (type === 'warning') return <AlertTriangle className="w-3.5 h-3.5 text-amber-500" />;
@@ -1946,6 +1952,10 @@ export default function Admin() {
             {/* Existing flash messages */}
             {flashLoading ? (
               <div className="flex items-center justify-center py-6"><Loader2 className="w-5 h-5 animate-spin text-purple-400" /></div>
+            ) : flashError ? (
+              <p className="text-sm text-destructive text-center py-4">
+                Could not load announcements: {flashError instanceof Error ? flashError.message : "Please try again."}
+              </p>
             ) : flashMessages.length === 0 ? (
               <p className="text-sm text-muted-foreground text-center py-4">No announcements yet</p>
             ) : (
