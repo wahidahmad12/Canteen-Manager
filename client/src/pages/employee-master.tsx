@@ -137,9 +137,11 @@ function renderEmployeeCardSides(
   photoData: string,
   logoUrl: string,
   workplace: string,
+  clientAddress: string,
 ) {
   const initial = escapeHtml(emp.name.trim().charAt(0).toUpperCase() || "?");
   const sideValue = (value: string | null | undefined) => escapeHtml(value?.trim() || "N/A");
+  const formattedClientAddress = escapeHtml(clientAddress.trim() || "N/A").replace(/\r?\n/g, "<br>");
   const safePhotoData = photoData.length <= 1_400_000 &&
     /^data:image\/(?:jpeg|png|webp);base64,[A-Za-z0-9+/]+={0,2}$/i.test(photoData)
     ? photoData
@@ -150,7 +152,7 @@ function renderEmployeeCardSides(
   const front = `
     <section class="card-side front">
       <div class="pattern"></div><div class="cyan cyan-one"></div>
-      <header class="brand"><img class="logo" src="${logoUrl}" alt="DJ Hospitality logo"><div class="brand-copy">DJ Hospitality &amp; Facility Management Pvt Ltd<div class="office">7 Crematorium Street,<br>Kolkata-700014</div></div></header>
+      <header class="brand"><img class="logo" src="${logoUrl}" alt="DJ Hospitality logo"><div class="brand-copy">DJ Hospitality &amp; Facility Management Pvt Ltd<div class="office">${formattedClientAddress}</div></div></header>
       ${portrait}
       <div class="name">${sideValue(emp.name)}</div>
       <div class="designation">${sideValue(emp.designation || emp.department || "Employee")}</div>
@@ -166,7 +168,7 @@ function renderEmployeeCardSides(
   const back = `
     <section class="card-side back">
       <div class="pattern"></div>
-      <header class="brand"><img class="logo" src="${logoUrl}" alt="DJ Hospitality logo"><div class="brand-copy">DJ Hospitality &amp; Facility Management Private Limited<div class="office">Jala Kendua, Dhulagori, Kulai,<br>Banharishpur, West Bengal 711322</div></div></header>
+      <header class="brand"><img class="logo" src="${logoUrl}" alt="DJ Hospitality logo"><div class="brand-copy">DJ Hospitality &amp; Facility Management Private Limited<div class="office">Regd. &amp; Head Office:- 730, Tinmade,<br>Sodiem Siolim, Mapusa Bardez,<br>North Goa - 403502</div></div></header>
       <div class="terms-title">TERMS &amp; CONDITIONS</div>
       <div class="terms">This card is not transferable. Show this card when asked. Always co-operate with security checks.</div>
       <div class="details">
@@ -191,7 +193,7 @@ const employeeCardStyles = `
   .brand { position: relative; z-index: 1; height: 26mm; padding: 3mm 2.5mm 2mm; display: flex; align-items: flex-start; gap: 2mm; color: #fff; background: #0751ae; clip-path: polygon(0 0,100% 0,100% 75%,91% 100%,9% 100%,0 75%); }
   .logo { width: 12mm; height: 12mm; border-radius: 50%; object-fit: contain; background: #fff; flex: none; }
   .brand-copy { font-size: 8pt; line-height: 1.17; font-weight: 700; }
-  .office { font-size: 6pt; line-height: 1.2; margin-top: 1mm; font-weight: 600; }
+  .office { font-size: 5.5pt; line-height: 1.1; margin-top: .7mm; font-weight: 600; overflow: hidden; }
   .front .cyan-one { z-index: 0; width: 19mm; height: 19mm; top: 21mm; right: -4mm; transform: rotate(45deg); }
   .front .portrait { position: absolute; z-index: 2; left: 50%; top: 20mm; transform: translateX(-50%); width: 27mm; height: 27mm; border-radius: 50%; border: 1.1mm solid #0751ae; background: #dce7f3; display: flex; justify-content: center; align-items: center; color: #0751ae; font-size: 20pt; font-weight: 700; overflow: hidden; }
   .front .portrait img { width: 100%; height: 100%; object-fit: cover; }
@@ -207,7 +209,7 @@ const employeeCardStyles = `
   .front .bottom-cyan, .back .bottom-cyan { position: absolute; z-index: 1; left: 0; right: 0; bottom: 0; height: 9mm; background: #35b5ed; clip-path: polygon(0 0,100% 78%,100% 100%,0 100%); }
   .back .brand { height: 24mm; padding-top: 3mm; }
   .back .brand-copy { font-size: 7.5pt; }
-  .back .office { font-size: 5.8pt; }
+  .back .office { font-size: 5.2pt; }
   .terms-title { position: absolute; z-index: 2; top: 24.5mm; left: 3mm; right: 3mm; padding: 1mm; text-align: center; background: #35b5ed; font-size: 7pt; line-height: 1.1; font-weight: 800; white-space: nowrap; }
   .terms { position: absolute; z-index: 2; top: 30mm; left: 4mm; right: 3mm; text-align: center; font-size: 6.3pt; line-height: 1.25; }
   .back .details { position: absolute; z-index: 2; top: 41mm; left: 7mm; right: 3mm; font-size: 6.5pt; line-height: 1.25; font-weight: 700; }
@@ -622,7 +624,7 @@ export default function EmployeeMaster() {
       const client = (clients || []).find((entry: any) => entry.name === emp.clientName);
       const workplace = client?.address || emp.localAddress || emp.address || emp.permanentAddress || "";
       const logoUrl = new URL(logoPath, window.location.origin).href;
-      const { front, back } = renderEmployeeCardSides(emp, qrSvg, photoData || "", logoUrl, workplace);
+      const { front, back } = renderEmployeeCardSides(emp, qrSvg, photoData || "", logoUrl, workplace, client?.address || "");
 
       win.document.write(`<!DOCTYPE html>
         <html><head><meta charset="utf-8"><title>Employee Card - ${escapeHtml(emp.employeeCode)}</title>
@@ -667,7 +669,7 @@ export default function EmployeeMaster() {
           const { photoData } = await photoResponse.json() as { photoData?: string };
           const client = (clients || []).find((entry: any) => entry.name === emp.clientName);
           const workplace = client?.address || emp.localAddress || emp.address || emp.permanentAddress || "";
-          return renderEmployeeCardSides(emp, qrSvg, photoData || "", logoUrl, workplace);
+          return renderEmployeeCardSides(emp, qrSvg, photoData || "", logoUrl, workplace, client?.address || "");
         }));
         cards.push(...rendered);
       }
