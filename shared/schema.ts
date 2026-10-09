@@ -358,6 +358,12 @@ export const employees = mysqlTable("employees", {
   createdAt: timestamp("created_at").defaultNow(),
 });
 
+export const employeePhotos = mysqlTable("employee_photos", {
+  employeeId: int("employee_id").primaryKey().references(() => employees.id, { onDelete: "cascade" }),
+  photoData: text("photo_data", { mode: "longtext" }).notNull(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
 // Attendance / Muster Roll (Form XVI)
 export const attendance = mysqlTable("attendance", {
   id: int("id").autoincrement().primaryKey(),

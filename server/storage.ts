@@ -26,6 +26,7 @@ import {
   type InsertTaxInvoiceItem,
   itemMaster,
   employees,
+  employeePhotos,
   attendance,
   salaryRecords,
   fines,
@@ -208,6 +209,7 @@ export interface IStorage {
   renumberDjInvoiceNos(): Promise<{ updated: number }>;
   getEmployees(clientName?: string): Promise<Employee[]>;
   getEmployee(id: number): Promise<Employee | undefined>;
+  getEmployeePhoto(id: number): Promise<string | undefined>;
   createEmployee(data: any): Promise<Employee>;
   updateEmployee(id: number, data: any): Promise<Employee>;
   deleteEmployee(id: number): Promise<void>;
@@ -2097,23 +2099,31 @@ export class DatabaseStorage implements IStorage {
     return emp;
   }
 
+  async getEmployeePhoto(id: number): Promise<string | undefined> {
+    const [photo] = await db.select({ photoData: employeePhotos.photoData })
+      .from(employeePhotos)
+      .where(eq(employeePhotos.employeeId, id));
+    return photo?.photoData;
+  }
+
   async createEmployee(data: any): Promise<Employee> {
+    const { photoData, ...employeeData } = data;
     const [emp] = await db.transaction(async (tx) => {
-
-      await tx.insert(employees).values(data);
-
+      await tx.insert(employees).values(employeeData);
       const __iid = await getInsertId(tx);
-
+      if (photoData) {
+        await tx.insert(employeePhotos).values({ employeeId: __iid, photoData });
+      }
       return await tx.select().from(employees).where(eq(employees.id, __iid));
-
     });
     return emp;
   }
 
   async updateEmployee(id: number, data: any): Promise<Employee> {
+    const { photoData, ...employeeData } = data;
     const updateFields: any = {};
-    for (const key of Object.keys(data)) {
-      if (data[key] !== undefined) updateFields[key] = data[key];
+    for (const key of Object.keys(employeeData)) {
+      if (employeeData[key] !== undefined) updateFields[key] = employeeData[key];
     }
     if (updateFields.leavingDate) {
       const leaveDate = new Date(updateFields.leavingDate);
@@ -2127,10 +2137,22 @@ export class DatabaseStorage implements IStorage {
       updateFields.leavingDate = null;
       updateFields.isActive = true;
     }
-    await db.update(employees).set(updateFields).where(eq(employees.id, id));
-    const [emp] = await db.select().from(employees).where(eq(employees.id, id));
-    if (!emp) throw new Error("Employee not found");
-    return emp;
+    return await db.transaction(async (tx) => {
+      if (Object.keys(updateFields).length > 0) {
+        await tx.update(employees).set(updateFields).where(eq(employees.id, id));
+      }
+      if (photoData !== undefined) {
+        if (photoData) {
+          await tx.insert(employeePhotos).values({ employeeId: id, photoData })
+            .onDuplicateKeyUpdate({ set: { photoData } });
+        } else {
+          await tx.delete(employeePhotos).where(eq(employeePhotos.employeeId, id));
+        }
+      }
+      const [emp] = await tx.select().from(employees).where(eq(employees.id, id));
+      if (!emp) throw new Error("Employee not found");
+      return emp;
+    });
   }
 
   async deleteEmployee(id: number): Promise<void> {

@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 import { Layout } from "@/components/layout";
@@ -65,6 +65,34 @@ const htmlEntities: Record<string, string> = {
 const escapeHtml = (value: string | null | undefined): string =>
   (value || "").replace(/[&<>"']/g, char => htmlEntities[char]);
 
+async function encodeEmployeePhoto(file: File): Promise<string> {
+  if (!["image/jpeg", "image/png", "image/webp"].includes(file.type)) {
+    throw new Error("Choose a JPG, PNG, or WebP photo.");
+  }
+  if (file.size > 8 * 1024 * 1024) {
+    throw new Error("Choose a photo smaller than 8 MB.");
+  }
+
+  const bitmap = await createImageBitmap(file);
+  try {
+    const scale = Math.min(1, 600 / Math.max(bitmap.width, bitmap.height));
+    const canvas = document.createElement("canvas");
+    canvas.width = Math.max(1, Math.round(bitmap.width * scale));
+    canvas.height = Math.max(1, Math.round(bitmap.height * scale));
+    const context = canvas.getContext("2d");
+    if (!context) throw new Error("Could not process the selected photo.");
+    context.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
+
+    for (const quality of [0.82, 0.68, 0.54]) {
+      const dataUrl = canvas.toDataURL("image/jpeg", quality);
+      if (dataUrl.length <= 1_400_000) return dataUrl;
+    }
+    throw new Error("This photo could not be compressed below 1 MB. Choose a smaller image.");
+  } finally {
+    bitmap.close();
+  }
+}
+
 interface Employee {
   id: number;
   employeeCode: string;
@@ -98,9 +126,95 @@ interface Employee {
   mobile: string | null;
   weeklyOffDay: string | null;
   identificationMarks: string | null;
+  photoData?: string | null;
   isActive: boolean;
   createdAt: string | null;
 }
+
+function renderEmployeeCardSides(
+  emp: Employee,
+  qrSvg: string,
+  photoData: string,
+  logoUrl: string,
+  workplace: string,
+) {
+  const initial = escapeHtml(emp.name.trim().charAt(0).toUpperCase() || "?");
+  const sideValue = (value: string | null | undefined) => escapeHtml(value?.trim() || "N/A");
+  const safePhotoData = photoData.length <= 1_400_000 &&
+    /^data:image\/(?:jpeg|png|webp);base64,[A-Za-z0-9+/]+={0,2}$/i.test(photoData)
+    ? photoData
+    : "";
+  const portrait = safePhotoData
+    ? `<div class="portrait"><img src="${escapeHtml(safePhotoData)}" alt="Employee photo"></div>`
+    : `<div class="portrait" aria-label="Employee photo placeholder">${initial}</div>`;
+  const front = `
+    <section class="card-side front">
+      <div class="pattern"></div><div class="cyan cyan-one"></div>
+      <header class="brand"><img class="logo" src="${logoUrl}" alt="DJ Hospitality logo"><div class="brand-copy">DJ Hospitality &amp; Facility Management Pvt Ltd<div class="office">7 Crematorium Street,<br>Kolkata-700014</div></div></header>
+      ${portrait}
+      <div class="name">${sideValue(emp.name)}</div>
+      <div class="designation">${sideValue(emp.designation || emp.department || "Employee")}</div>
+      <div class="details">
+        <div class="detail"><span class="label">ID No</span><span>:</span><span class="value">${sideValue(emp.employeeCode)}</span></div>
+        <div class="detail"><span class="label">Dept</span><span>:</span><span class="value">${sideValue(emp.department || emp.clientName)}</span></div>
+        <div class="detail"><span class="label">EPFO No</span><span>:</span><span class="value">${sideValue(emp.uanNo || emp.pfNo)}</span></div>
+        <div class="detail"><span class="label">ESIC No</span><span>:</span><span class="value">${sideValue(emp.esicNo)}</span></div>
+      </div>
+      <div class="workplace"><strong>Work place Address:</strong>${sideValue(workplace)}</div>
+      <div class="bottom-cyan"></div><div class="bottom"></div>
+    </section>`;
+  const back = `
+    <section class="card-side back">
+      <div class="pattern"></div>
+      <header class="brand"><img class="logo" src="${logoUrl}" alt="DJ Hospitality logo"><div class="brand-copy">DJ Hospitality &amp; Facility Management Private Limited<div class="office">Jala Kendua, Dhulagori, Kulai,<br>Banharishpur, West Bengal 711322</div></div></header>
+      <div class="terms-title">TERMS &amp; CONDITIONS</div>
+      <div class="terms">This card is not transferable. Show this card when asked. Always co-operate with security checks.</div>
+      <div class="details">
+        <div class="detail"><span class="label">Name</span><span>:</span><span class="value">${sideValue(emp.name)}</span></div>
+        <div class="detail"><span class="label">Father's Name</span><span>:</span><span class="value">${sideValue(emp.fatherName)}</span></div>
+        <div class="detail"><span class="label">DOB</span><span>:</span><span class="value">${escapeHtml(fmtDate(emp.dob))}</span></div>
+        <div class="detail"><span class="label">Date Of Induction</span><span>:</span><span class="value">${escapeHtml(fmtDate(emp.joiningDate))}</span></div>
+        <div class="detail"><span class="label">Status</span><span>:</span><span class="value">${emp.isActive ? "Active" : "Inactive"}</span></div>
+      </div>
+      <div class="qr">${qrSvg}</div>
+      <div class="bottom-cyan"></div><div class="bottom"></div>
+    </section>`;
+  return { front, back };
+}
+
+const employeeCardStyles = `
+  * { box-sizing: border-box; }
+  body { margin: 0; font-family: Arial, Helvetica, sans-serif; color: #101820; -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
+  .card-side { width: 54mm; height: 92mm; position: relative; overflow: hidden; background: #f8f8f6; break-inside: avoid; }
+  .pattern { position: absolute; inset: 0; opacity: .32; background: repeating-linear-gradient(135deg, #e8e8e5 0, #e8e8e5 1px, #f8f8f6 1px, #f8f8f6 5px); }
+  .cyan { position: absolute; background: #35b5ed; }
+  .brand { position: relative; z-index: 1; height: 26mm; padding: 3mm 2.5mm 2mm; display: flex; align-items: flex-start; gap: 2mm; color: #fff; background: #0751ae; clip-path: polygon(0 0,100% 0,100% 75%,91% 100%,9% 100%,0 75%); }
+  .logo { width: 12mm; height: 12mm; border-radius: 50%; object-fit: contain; background: #fff; flex: none; }
+  .brand-copy { font-size: 8pt; line-height: 1.17; font-weight: 700; }
+  .office { font-size: 6pt; line-height: 1.2; margin-top: 1mm; font-weight: 600; }
+  .front .cyan-one { z-index: 0; width: 19mm; height: 19mm; top: 21mm; right: -4mm; transform: rotate(45deg); }
+  .front .portrait { position: absolute; z-index: 2; left: 50%; top: 20mm; transform: translateX(-50%); width: 27mm; height: 27mm; border-radius: 50%; border: 1.1mm solid #0751ae; background: #dce7f3; display: flex; justify-content: center; align-items: center; color: #0751ae; font-size: 20pt; font-weight: 700; overflow: hidden; }
+  .front .portrait img { width: 100%; height: 100%; object-fit: cover; }
+  .front .name { position: absolute; z-index: 2; top: 47mm; width: 100%; padding: 0 2mm; text-align: center; font-size: 12pt; line-height: 1.08; font-weight: 800; text-transform: uppercase; overflow-wrap: anywhere; }
+  .front .designation { position: absolute; z-index: 2; top: 54mm; width: 100%; padding: 0 2mm; text-align: center; font-size: 7pt; letter-spacing: 1.1px; line-height: 1.15; text-transform: uppercase; }
+  .front .details { position: absolute; z-index: 2; top: 60mm; left: 6mm; right: 3mm; font-size: 6.5pt; line-height: 1.25; }
+  .detail { display: grid; grid-template-columns: 18mm 2mm 1fr; margin-bottom: .4mm; }
+  .detail .label { white-space: nowrap; }
+  .detail .value { overflow-wrap: anywhere; }
+  .front .workplace { position: absolute; z-index: 2; bottom: 8mm; width: 100%; padding: 0 3mm; text-align: center; font-size: 6pt; line-height: 1.2; }
+  .front .workplace strong { display: block; margin-bottom: 1mm; font-size: 7pt; }
+  .front .bottom, .back .bottom { position: absolute; z-index: 1; left: 0; right: 0; bottom: 0; height: 8mm; background: #0751ae; clip-path: polygon(0 48%,31% 0,63% 35%,100% 0,100% 100%,0 100%); }
+  .front .bottom-cyan, .back .bottom-cyan { position: absolute; z-index: 1; left: 0; right: 0; bottom: 0; height: 9mm; background: #35b5ed; clip-path: polygon(0 0,100% 78%,100% 100%,0 100%); }
+  .back .brand { height: 24mm; padding-top: 3mm; }
+  .back .brand-copy { font-size: 7.5pt; }
+  .back .office { font-size: 5.8pt; }
+  .terms-title { position: absolute; z-index: 2; top: 24.5mm; left: 3mm; right: 3mm; padding: 1mm; text-align: center; background: #35b5ed; font-size: 7pt; line-height: 1.1; font-weight: 800; white-space: nowrap; }
+  .terms { position: absolute; z-index: 2; top: 30mm; left: 4mm; right: 3mm; text-align: center; font-size: 6.3pt; line-height: 1.25; }
+  .back .details { position: absolute; z-index: 2; top: 41mm; left: 7mm; right: 3mm; font-size: 6.5pt; line-height: 1.25; font-weight: 700; }
+  .back .detail { grid-template-columns: 19mm 2mm 1fr; margin-bottom: .4mm; }
+  .qr { position: absolute; z-index: 2; width: 23mm; height: 23mm; left: 50%; bottom: 8mm; transform: translateX(-50%); background: white; padding: 1mm; }
+  .qr svg { display: block; width: 100%; height: 100%; }
+`;
 
 const emptyForm = {
   employeeCode: "",
@@ -134,6 +248,7 @@ const emptyForm = {
   mobile: "",
   weeklyOffDay: "",
   identificationMarks: "",
+  photoData: "",
   isActive: true,
 };
 
@@ -151,6 +266,9 @@ export default function EmployeeMaster() {
   const [qrEmp, setQrEmp] = useState<any>(null);
   const [editingId, setEditingId] = useState<number | null>(null);
   const [form, setForm] = useState({ ...emptyForm });
+  const photoLoadToken = useRef(0);
+  const [photoLoading, setPhotoLoading] = useState(false);
+  const [photoLoadFailed, setPhotoLoadFailed] = useState(false);
 
   const queryKey = filterClient && filterClient !== "all"
     ? ["/api/employees", filterClient]
@@ -213,9 +331,12 @@ export default function EmployeeMaster() {
   });
 
   const closeDialog = () => {
+    photoLoadToken.current++;
     setDialogOpen(false);
     setEditingId(null);
     setForm({ ...emptyForm });
+    setPhotoLoading(false);
+    setPhotoLoadFailed(false);
   };
 
   const handleRegisterFingerprint = async (emp: any) => {
@@ -249,13 +370,19 @@ export default function EmployeeMaster() {
   };
 
   const openAdd = () => {
+    photoLoadToken.current++;
     setEditingId(null);
     setForm({ ...emptyForm });
+    setPhotoLoading(false);
+    setPhotoLoadFailed(false);
     setDialogOpen(true);
   };
 
   const openEdit = (emp: Employee) => {
+    const requestToken = ++photoLoadToken.current;
     setEditingId(emp.id);
+    setPhotoLoading(true);
+    setPhotoLoadFailed(false);
     setForm({
       employeeCode: emp.employeeCode || "",
       name: emp.name || "",
@@ -288,9 +415,29 @@ export default function EmployeeMaster() {
       mobile: emp.mobile || "",
       weeklyOffDay: emp.weeklyOffDay || "",
       identificationMarks: emp.identificationMarks || "",
+      photoData: "",
       isActive: emp.isActive,
     });
     setDialogOpen(true);
+    fetch(`/api/employees/${emp.id}/photo`, { credentials: "include" })
+      .then(async response => {
+        if (!response.ok) throw new Error(`Could not load employee photo (${response.status})`);
+        return response.json();
+      })
+      .then(data => {
+        if (photoLoadToken.current === requestToken) {
+          setForm(prev => ({ ...prev, photoData: data.photoData || "" }));
+        }
+      })
+      .catch(error => {
+        if (photoLoadToken.current === requestToken) {
+          setPhotoLoadFailed(true);
+          toast({ title: "Could not load employee photo", description: error.message, variant: "destructive" });
+        }
+      })
+      .finally(() => {
+        if (photoLoadToken.current === requestToken) setPhotoLoading(false);
+      });
   };
 
   const handleSubmit = () => {
@@ -300,6 +447,7 @@ export default function EmployeeMaster() {
     }
     const payload = {
       ...form,
+      ...(editingId && photoLoadFailed ? { photoData: undefined } : {}),
       dob: form.dob ? displayToStore(form.dob) || null : null,
       joiningDate: form.joiningDate ? displayToStore(form.joiningDate) || null : null,
       leavingDate: form.leavingDate ? displayToStore(form.leavingDate) || null : null,
@@ -466,89 +614,89 @@ export default function EmployeeMaster() {
       return;
     }
     try {
+      const photoResponse = await fetch(`/api/employees/${emp.id}/photo`, { credentials: "include" });
+      if (!photoResponse.ok) throw new Error(`Could not load employee photo (${photoResponse.status})`);
+      const { photoData } = await photoResponse.json() as { photoData?: string };
       const qrData = `CODE:${emp.employeeCode}\nNAME:${emp.name}\nCLIENT:${emp.clientName}`;
       const qrSvg = await QRCodeLib.toString(qrData, { type: "svg", width: 220, margin: 1, errorCorrectionLevel: "M" });
       const client = (clients || []).find((entry: any) => entry.name === emp.clientName);
       const workplace = client?.address || emp.localAddress || emp.address || emp.permanentAddress || "";
       const logoUrl = new URL(logoPath, window.location.origin).href;
-      const initial = escapeHtml(emp.name.trim().charAt(0).toUpperCase() || "?");
-      const sideValue = (value: string | null | undefined) => escapeHtml(value?.trim() || "N/A");
+      const { front, back } = renderEmployeeCardSides(emp, qrSvg, photoData || "", logoUrl, workplace);
 
       win.document.write(`<!DOCTYPE html>
         <html><head><meta charset="utf-8"><title>Employee Card - ${escapeHtml(emp.employeeCode)}</title>
-        <style>
+        <style>${employeeCardStyles}
           @page { size: 54mm 92mm; margin: 0; }
-          * { box-sizing: border-box; }
-          html, body { margin: 0; padding: 0; width: 54mm; font-family: Arial, Helvetica, sans-serif; color: #101820; }
-          body { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
-          .side { width: 54mm; height: 92mm; position: relative; overflow: hidden; page-break-after: always; background: #f8f8f6; }
-          .side:last-child { page-break-after: auto; }
-          .pattern { position: absolute; inset: 0; opacity: .32; background: repeating-linear-gradient(135deg, #e8e8e5 0, #e8e8e5 1px, #f8f8f6 1px, #f8f8f6 5px); }
-          .cyan { position: absolute; background: #35b5ed; }
-          .brand { position: relative; z-index: 1; height: 26mm; padding: 3mm 2.5mm 2mm; display: flex; align-items: flex-start; gap: 2mm; color: #fff; background: #0751ae; clip-path: polygon(0 0,100% 0,100% 75%,91% 100%,9% 100%,0 75%); }
-          .logo { width: 12mm; height: 12mm; border-radius: 50%; object-fit: contain; background: #fff; flex: none; }
-          .brand-copy { font-size: 8pt; line-height: 1.17; font-weight: 700; }
-          .office { font-size: 6pt; line-height: 1.2; margin-top: 1mm; font-weight: 600; }
-          .front .cyan-one { z-index: 0; width: 19mm; height: 19mm; top: 21mm; right: -4mm; transform: rotate(45deg); }
-          .front .portrait { position: absolute; z-index: 2; left: 50%; top: 20mm; transform: translateX(-50%); width: 27mm; height: 27mm; border-radius: 50%; border: 1.1mm solid #0751ae; background: #dce7f3; display: flex; justify-content: center; align-items: center; color: #0751ae; font-size: 20pt; font-weight: 700; }
-          .front .name { position: absolute; z-index: 2; top: 47mm; width: 100%; padding: 0 2mm; text-align: center; font-size: 12pt; line-height: 1.08; font-weight: 800; text-transform: uppercase; overflow-wrap: anywhere; }
-          .front .designation { position: absolute; z-index: 2; top: 54mm; width: 100%; padding: 0 2mm; text-align: center; font-size: 7pt; letter-spacing: 1.1px; line-height: 1.15; text-transform: uppercase; }
-          .front .details { position: absolute; z-index: 2; top: 60mm; left: 6mm; right: 3mm; font-size: 6.5pt; line-height: 1.25; }
-          .detail { display: grid; grid-template-columns: 18mm 2mm 1fr; margin-bottom: .4mm; }
-          .detail .label { white-space: nowrap; }
-          .detail .value { overflow-wrap: anywhere; }
-          .front .workplace { position: absolute; z-index: 2; bottom: 8mm; width: 100%; padding: 0 3mm; text-align: center; font-size: 6pt; line-height: 1.2; }
-          .front .workplace strong { display: block; margin-bottom: 1mm; font-size: 7pt; }
-          .front .bottom, .back .bottom { position: absolute; z-index: 1; left: 0; right: 0; bottom: 0; height: 8mm; background: #0751ae; clip-path: polygon(0 48%,31% 0,63% 35%,100% 0,100% 100%,0 100%); }
-          .front .bottom-cyan, .back .bottom-cyan { position: absolute; z-index: 1; left: 0; right: 0; bottom: 0; height: 9mm; background: #35b5ed; clip-path: polygon(0 0,100% 78%,100% 100%,0 100%); }
-          .back .brand { height: 24mm; padding-top: 3mm; }
-          .back .brand-copy { font-size: 7.5pt; }
-          .back .office { font-size: 5.8pt; }
-          .terms-title { position: absolute; z-index: 2; top: 23mm; left: 11mm; right: 11mm; padding: 1mm; text-align: center; background: #35b5ed; font-size: 7pt; font-weight: 800; }
-          .terms { position: absolute; z-index: 2; top: 27mm; left: 4mm; right: 3mm; text-align: center; font-size: 6.3pt; line-height: 1.25; }
-          .back .details { position: absolute; z-index: 2; top: 39mm; left: 7mm; right: 3mm; font-size: 6.5pt; line-height: 1.25; font-weight: 700; }
-          .back .detail { grid-template-columns: 19mm 2mm 1fr; margin-bottom: .4mm; }
-          .qr { position: absolute; z-index: 2; width: 23mm; height: 23mm; left: 50%; bottom: 8mm; transform: translateX(-50%); background: white; padding: 1mm; }
-          .qr svg { display: block; width: 100%; height: 100%; }
-          @media screen { body { width: 54mm; margin: 8mm auto; box-shadow: 0 0 4mm #888; } .side { margin-bottom: 8mm; } }
-        </style></head><body>
-        <section class="side front">
-          <div class="pattern"></div><div class="cyan cyan-one"></div>
-          <header class="brand"><img class="logo" src="${logoUrl}" alt="DJ Hospitality logo"><div class="brand-copy">DJ Hospitality &amp; Facility Management Pvt Ltd<div class="office">7 Crematorium Street,<br>Kolkata-700014</div></div></header>
-          <div class="portrait" aria-label="Employee photo placeholder">${initial}</div>
-          <div class="name">${sideValue(emp.name)}</div>
-          <div class="designation">${sideValue(emp.designation || emp.department || "Employee")}</div>
-          <div class="details">
-            <div class="detail"><span class="label">ID No</span><span>:</span><span class="value">${sideValue(emp.employeeCode)}</span></div>
-            <div class="detail"><span class="label">Dept</span><span>:</span><span class="value">${sideValue(emp.department || emp.clientName)}</span></div>
-            <div class="detail"><span class="label">EPFO No</span><span>:</span><span class="value">${sideValue(emp.uanNo || emp.pfNo)}</span></div>
-            <div class="detail"><span class="label">ESIC No</span><span>:</span><span class="value">${sideValue(emp.esicNo)}</span></div>
-          </div>
-          <div class="workplace"><strong>Work place Address:</strong>${sideValue(workplace)}</div>
-          <div class="bottom-cyan"></div><div class="bottom"></div>
-        </section>
-        <section class="side back">
-          <div class="pattern"></div>
-          <header class="brand"><img class="logo" src="${logoUrl}" alt="DJ Hospitality logo"><div class="brand-copy">DJ Hospitality &amp; Facility Management Private Limited<div class="office">Jala Kendua, Dhulagori, Kulai,<br>Banharishpur, West Bengal 711322</div></div></header>
-          <div class="terms-title">TERMS &amp; CONDITIONS</div>
-          <div class="terms">This card is not transferable. Show this card when asked. Always co-operate with security checks.</div>
-          <div class="details">
-            <div class="detail"><span class="label">Name</span><span>:</span><span class="value">${sideValue(emp.name)}</span></div>
-            <div class="detail"><span class="label">Father's Name</span><span>:</span><span class="value">${sideValue(emp.fatherName)}</span></div>
-            <div class="detail"><span class="label">DOB</span><span>:</span><span class="value">${escapeHtml(fmtDate(emp.dob))}</span></div>
-            <div class="detail"><span class="label">Date Of Induction</span><span>:</span><span class="value">${escapeHtml(fmtDate(emp.joiningDate))}</span></div>
-            <div class="detail"><span class="label">Status</span><span>:</span><span class="value">${emp.isActive ? "Active" : "Inactive"}</span></div>
-          </div>
-          <div class="qr">${qrSvg}</div>
-          <div class="bottom-cyan"></div><div class="bottom"></div>
-        </section>
-        </body></html>`);
+          html, body { width: 54mm; }
+          .card-side + .card-side { page-break-before: always; }
+          @media screen { body { width: 54mm; margin: 8mm auto; box-shadow: 0 0 4mm #888; } .card-side { margin-bottom: 8mm; } }
+        </style></head><body>${front}${back}</body></html>`);
       win.document.close();
       win.focus();
       setTimeout(() => win.print(), 500);
     } catch (err: any) {
       win.close();
       toast({ title: "Could not create employee card", description: err.message || "Please try again.", variant: "destructive" });
+    }
+  };
+
+  const handlePrintCardsA4 = async () => {
+    if (!filteredEmployees.length) {
+      toast({ title: "No employees to print", description: "Adjust your filters or search to select employee cards.", variant: "destructive" });
+      return;
+    }
+    const win = window.open("", "_blank", "width=1100,height=800");
+    if (!win) {
+      toast({ title: "Print window blocked", description: "Allow pop-ups for this site, then try printing employee cards.", variant: "destructive" });
+      return;
+    }
+    try {
+      const logoUrl = new URL(logoPath, window.location.origin).href;
+      const cards: Array<{ front: string; back: string }> = [];
+      for (let start = 0; start < filteredEmployees.length; start += 3) {
+        const group = filteredEmployees.slice(start, start + 3);
+        const rendered = await Promise.all(group.map(async emp => {
+          const [photoResponse, qrSvg] = await Promise.all([
+            fetch(`/api/employees/${emp.id}/photo`, { credentials: "include" }),
+            QRCodeLib.toString(`CODE:${emp.employeeCode}\nNAME:${emp.name}\nCLIENT:${emp.clientName}`, {
+              type: "svg", width: 220, margin: 1, errorCorrectionLevel: "M",
+            }),
+          ]);
+          if (!photoResponse.ok) throw new Error(`Could not load photo for ${emp.name} (${photoResponse.status})`);
+          const { photoData } = await photoResponse.json() as { photoData?: string };
+          const client = (clients || []).find((entry: any) => entry.name === emp.clientName);
+          const workplace = client?.address || emp.localAddress || emp.address || emp.permanentAddress || "";
+          return renderEmployeeCardSides(emp, qrSvg, photoData || "", logoUrl, workplace);
+        }));
+        cards.push(...rendered);
+      }
+
+      const sheets: string[] = [];
+      for (let start = 0; start < cards.length; start += 3) {
+        const group = cards.slice(start, start + 3);
+        const frontCards = group.map(card => card.front).join("");
+        const backCards = [...group].reverse().map(card => card.back).join("");
+        sheets.push(`<section class="sheet fronts">${frontCards}</section>`);
+        sheets.push(`<section class="sheet backs">${backCards}</section>`);
+      }
+      win.document.write(`<!DOCTYPE html><html><head><meta charset="utf-8"><title>Employee Cards - A4 Landscape</title>
+        <style>
+          ${employeeCardStyles}
+          @page { size: A4 landscape; margin: 10mm; }
+          html, body { width: 277mm; }
+          .print-help { margin: 0 0 4mm; text-align: center; font: 10pt Arial, sans-serif; }
+          .sheet { width: 277mm; height: 190mm; display: grid; grid-template-columns: repeat(3, 54mm); justify-content: space-between; align-items: center; page-break-after: always; break-after: page; }
+          .sheet:last-child { page-break-after: auto; break-after: auto; }
+          @media print { .print-help { display: none; } }
+          @media screen { body { margin: 8mm auto; width: 277mm; } .sheet { outline: 1px solid #bbb; margin-bottom: 8mm; } }
+        </style></head><body><div class="print-help">Print A4 landscape, double-sided, flip on short edge. Each back sheet matches the front sheet immediately before it.</div>${sheets.join("")}</body></html>`);
+      win.document.close();
+      win.focus();
+      setTimeout(() => win.print(), 700);
+    } catch (error: any) {
+      win.close();
+      toast({ title: "Could not prepare employee cards", description: error.message || "Please try again.", variant: "destructive" });
     }
   };
 
@@ -561,6 +709,9 @@ export default function EmployeeMaster() {
             <p className="text-muted-foreground text-xs sm:text-sm mt-1">Manage employee records</p>
           </div>
           <div className="flex flex-wrap gap-2">
+            <Button variant="outline" onClick={handlePrintCardsA4} className="gap-2 border-blue-300 text-blue-700 hover:bg-blue-50 dark:border-blue-700 dark:text-blue-400">
+              <Printer className="w-4 h-4" /> Print Cards (3 per A4)
+            </Button>
             <Button variant="outline" onClick={handlePrintAllQR} className="gap-2 border-emerald-300 text-emerald-700 hover:bg-emerald-50 dark:border-emerald-700 dark:text-emerald-400">
               <QrCode className="w-4 h-4" /> Print All QR
             </Button>
@@ -795,6 +946,47 @@ export default function EmployeeMaster() {
               <h3 className="text-sm font-semibold mb-3 flex items-center gap-2">
                 <Users className="w-4 h-4" /> Basic Info
               </h3>
+              <div className="flex flex-wrap items-center gap-3 mb-4">
+                {form.photoData ? (
+                  <img src={form.photoData} alt="Employee preview" className="h-20 w-20 rounded-full border object-cover" />
+                ) : (
+                  <div className="h-20 w-20 rounded-full border bg-muted flex items-center justify-center text-muted-foreground text-xs">No photo</div>
+                )}
+                <div className="space-y-1">
+                  <Label htmlFor="employeePhoto">Employee Photo</Label>
+                  <Input
+                    id="employeePhoto"
+                    type="file"
+                    accept="image/jpeg,image/png,image/webp"
+                    className="max-w-xs"
+                    disabled={photoLoading}
+                    onChange={async event => {
+                      const file = event.target.files?.[0];
+                      if (!file) return;
+                      try {
+                        setField("photoData", await encodeEmployeePhoto(file));
+                        setPhotoLoadFailed(false);
+                      } catch (error: any) {
+                        toast({ title: "Photo upload failed", description: error.message || "Choose another photo.", variant: "destructive" });
+                      } finally {
+                        event.target.value = "";
+                      }
+                    }}
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    {photoLoading
+                      ? "Loading saved photo..."
+                      : photoLoadFailed
+                        ? "Saved photo could not be loaded; saving will keep the existing photo."
+                        : "JPG, PNG, or WebP. Photo is resized before saving."}
+                  </p>
+                </div>
+                {form.photoData && (
+                  <Button type="button" variant="outline" size="sm" onClick={() => { setField("photoData", ""); setPhotoLoadFailed(false); }}>
+                    Remove Photo
+                  </Button>
+                )}
+              </div>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
                   <Label htmlFor="employeeCode">Employee Code *</Label>
@@ -1039,7 +1231,7 @@ export default function EmployeeMaster() {
 
           <DialogFooter className="gap-2">
             <Button variant="outline" onClick={closeDialog}>Cancel</Button>
-            <Button onClick={handleSubmit} disabled={isSaving}>
+            <Button onClick={handleSubmit} disabled={isSaving || photoLoading}>
               {isSaving && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
               {editingId ? "Update" : "Create"}
             </Button>
