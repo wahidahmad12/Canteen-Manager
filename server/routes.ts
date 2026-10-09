@@ -3381,23 +3381,38 @@ export async function registerRoutes(
       res.json(await storage.getFlashMessages(activeOnly));
     } catch (err: any) { res.status(500).json({ message: err.message }); }
   });
-  app.post('/api/flash-messages', requireAuth, async (req, res) => {
+  app.post('/api/flash-messages', requireAdmin, async (req, res) => {
     try {
-      if ((req as any).session?.user?.role !== 'admin') return res.status(403).json({ message: 'Admin only' });
-      const data = { ...req.body, createdBy: (req as any).session?.user?.displayName || 'Admin' };
+      const { title, message, type, expiresAt, isActive } = req.body;
+      if (!String(title || '').trim() || !String(message || '').trim()) {
+        return res.status(400).json({ message: 'Title and message are required' });
+      }
+      const data = {
+        title: String(title).trim(),
+        message: String(message).trim(),
+        type: ['info', 'warning', 'success', 'error'].includes(type) ? type : 'info',
+        expiresAt: expiresAt || null,
+        isActive: isActive !== false,
+        createdBy: req.session.displayName || req.session.username || 'Admin',
+      };
       res.status(201).json(await storage.createFlashMessage(data));
     } catch (err: any) { res.status(500).json({ message: err.message }); }
   });
-  app.patch('/api/flash-messages/:id', requireAuth, async (req, res) => {
+  app.patch('/api/flash-messages/:id', requireAdmin, async (req, res) => {
     try {
-      if ((req as any).session?.user?.role !== 'admin') return res.status(403).json({ message: 'Admin only' });
-      res.json(await storage.updateFlashMessage(Number(req.params.id), req.body));
+      const id = Number(req.params.id);
+      if (!Number.isInteger(id) || id <= 0) return res.status(400).json({ message: 'Invalid flash message id' });
+      if (typeof req.body.isActive !== 'boolean') return res.status(400).json({ message: 'isActive must be true or false' });
+      const updated = await storage.updateFlashMessage(id, { isActive: req.body.isActive });
+      if (!updated) return res.status(404).json({ message: 'Flash message not found' });
+      res.json(updated);
     } catch (err: any) { res.status(500).json({ message: err.message }); }
   });
-  app.delete('/api/flash-messages/:id', requireAuth, async (req, res) => {
+  app.delete('/api/flash-messages/:id', requireAdmin, async (req, res) => {
     try {
-      if ((req as any).session?.user?.role !== 'admin') return res.status(403).json({ message: 'Admin only' });
-      await storage.deleteFlashMessage(Number(req.params.id)); res.status(204).send();
+      const id = Number(req.params.id);
+      if (!Number.isInteger(id) || id <= 0) return res.status(400).json({ message: 'Invalid flash message id' });
+      await storage.deleteFlashMessage(id); res.status(204).send();
     } catch (err: any) { res.status(500).json({ message: err.message }); }
   });
 
@@ -3408,6 +3423,120 @@ export async function registerRoutes(
     "United Breweries Limited": ["United Breweries Limited", "UBL"],
     "UBL": ["UBL", "United Breweries Limited"],
   };
+
+  app.get('/api/contractors', requirePermission('salesinvoice'), async (_req, res) => {
+    try { res.json(await storage.getContractors()); }
+    catch (err: any) { res.status(500).json({ message: err.message }); }
+  });
+  app.post('/api/contractors', requirePermission('salesinvoice'), async (req, res) => {
+    try { res.status(201).json(await storage.createContractor(req.body)); }
+    catch (err: any) { res.status(400).json({ message: err.message }); }
+  });
+  app.put('/api/contractors/:id', requirePermission('salesinvoice'), async (req, res) => {
+    try {
+      const id = Number(req.params.id);
+      if (!Number.isInteger(id) || id <= 0) return res.status(400).json({ message: 'Invalid contractor id' });
+      res.json(await storage.updateContractor(id, req.body));
+    } catch (err: any) { res.status(400).json({ message: err.message }); }
+  });
+  app.delete('/api/contractors/:id', requirePermission('salesinvoice'), async (req, res) => {
+    try {
+      const id = Number(req.params.id);
+      if (!Number.isInteger(id) || id <= 0) return res.status(400).json({ message: 'Invalid contractor id' });
+      await storage.deleteContractor(id);
+      res.status(204).send();
+    } catch (err: any) { res.status(500).json({ message: err.message }); }
+  });
+  app.get('/api/contractor-meals', requirePermission('salesinvoice'), async (req, res) => {
+    try {
+      const month = Number(req.query.month) || new Date().getMonth() + 1;
+      const year = Number(req.query.year) || new Date().getFullYear();
+      if (!Number.isInteger(month) || month < 1 || month > 12 || !Number.isInteger(year) || year < 1900) {
+        return res.status(400).json({ message: 'Valid month and year are required' });
+      }
+      res.json(await storage.getContractorMealEntries(month, year));
+    } catch (err: any) { res.status(500).json({ message: err.message }); }
+  });
+  app.post('/api/contractor-meals/bulk', requirePermission('salesinvoice'), async (req, res) => {
+    try {
+      const { entryDate, month, year, rows } = req.body;
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(String(entryDate || '')) ||
+          !Number.isInteger(Number(month)) || Number(month) < 1 || Number(month) > 12 ||
+          !Number.isInteger(Number(year)) || Number(year) < 1900 || !Array.isArray(rows)) {
+        return res.status(400).json({ message: 'Valid entryDate, month, year, and rows are required' });
+      }
+      await storage.saveContractorMealEntries({ entryDate, month: Number(month), year: Number(year), rows });
+      res.json({ success: true });
+    } catch (err: any) { res.status(400).json({ message: err.message }); }
+  });
+  app.post('/api/contractor-meals/rates', requirePermission('salesinvoice'), async (req, res) => {
+    try {
+      const { contractorId, month, year, rates } = req.body;
+      if (!Number.isInteger(Number(contractorId)) || Number(contractorId) <= 0 ||
+          !Number.isInteger(Number(month)) || Number(month) < 1 || Number(month) > 12 ||
+          !Number.isInteger(Number(year)) || Number(year) < 1900 || !rates || typeof rates !== 'object') {
+        return res.status(400).json({ message: 'Valid contractor, month, year, and rates are required' });
+      }
+      await storage.setContractorMealRates(Number(contractorId), Number(month), Number(year), rates);
+      res.json({ success: true });
+    } catch (err: any) { res.status(400).json({ message: err.message }); }
+  });
+  app.get('/api/contractor-contract-bills', requirePermission('salesinvoice'), async (req, res) => {
+    try {
+      const month = Number(req.query.month) || new Date().getMonth() + 1;
+      const year = Number(req.query.year) || new Date().getFullYear();
+      if (!Number.isInteger(month) || month < 1 || month > 12 || !Number.isInteger(year) || year < 1900) {
+        return res.status(400).json({ message: 'Valid month and year are required' });
+      }
+      res.json(await storage.getContractorContractBills(month, year));
+    } catch (err: any) { res.status(500).json({ message: err.message }); }
+  });
+  app.post('/api/contractor-contract-bills/bulk', requirePermission('salesinvoice'), async (req, res) => {
+    try {
+      const { month, year, rows } = req.body;
+      if (!Number.isInteger(Number(month)) || Number(month) < 1 || Number(month) > 12 ||
+          !Number.isInteger(Number(year)) || Number(year) < 1900 || !Array.isArray(rows)) {
+        return res.status(400).json({ message: 'Valid month, year, and rows are required' });
+      }
+      await storage.saveContractorContractBills({ month: Number(month), year: Number(year), rows });
+      res.json({ success: true });
+    } catch (err: any) { res.status(400).json({ message: err.message }); }
+  });
+  app.get('/api/contractor-payments', requirePermission('salesinvoice'), async (_req, res) => {
+    try { res.json(await storage.getContractorPayments()); }
+    catch (err: any) { res.status(500).json({ message: err.message }); }
+  });
+  app.post('/api/contractor-payments', requirePermission('salesinvoice'), async (req, res) => {
+    try {
+      await storage.createContractorPayment(req.body);
+      res.status(201).json({ success: true });
+    } catch (err: any) { res.status(400).json({ message: err.message }); }
+  });
+  app.delete('/api/contractor-payments/:id', requirePermission('salesinvoice'), async (req, res) => {
+    try {
+      const id = Number(req.params.id);
+      if (!Number.isInteger(id) || id <= 0) return res.status(400).json({ message: 'Invalid payment id' });
+      await storage.deleteContractorPayment(id);
+      res.status(204).send();
+    } catch (err: any) { res.status(500).json({ message: err.message }); }
+  });
+  app.get('/api/contractor-billing-summary', requirePermission('salesinvoice'), async (_req, res) => {
+    try { res.json(await storage.getContractorBillingSummary()); }
+    catch (err: any) { res.status(500).json({ message: err.message }); }
+  });
+  app.get('/api/contractor-dashboard', requirePermission('salesinvoice'), async (req, res) => {
+    try {
+      const year = Number(req.query.year) || new Date().getFullYear();
+      const contractorId = Number(req.query.contractorId) || 0;
+      const month = Number(req.query.month) || 0;
+      if (!Number.isInteger(year) || year < 1900 ||
+          !Number.isInteger(contractorId) || contractorId < 0 ||
+          !Number.isInteger(month) || month < 0 || month > 12) {
+        return res.status(400).json({ message: 'Invalid dashboard filters' });
+      }
+      res.json(await storage.getContractorDashboard(year, contractorId, month, String(req.query.client || '')));
+    } catch (err: any) { res.status(500).json({ message: err.message }); }
+  });
 
   app.get('/api/bom-items', requireAuth, async (req, res) => {
     try {
