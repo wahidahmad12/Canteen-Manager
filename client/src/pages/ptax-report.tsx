@@ -11,6 +11,7 @@ import { Input } from "@/components/ui/input";
 import { ArrowLeft, Printer, FileSpreadsheet, IndianRupee, FileText, ChevronDown, Check } from "lucide-react";
 import { Link } from "wouter";
 import type { Employee, SalaryRecord } from "@shared/schema";
+import { getProfessionalTaxSlabs } from "@shared/professional-tax";
 
 const MONTHS = ["January","February","March","April","May","June","July","August","September","October","November","December"];
 
@@ -251,24 +252,21 @@ export default function PtaxReport() {
     URL.revokeObjectURL(url);
   };
 
-  const PTAX_SLABS = [
-    { label: "Do Not Exceed INR 10000/-", min: 0, max: 10000, rate: 0 },
-    { label: "Exceeds INR 10001/- but does not exceed INR 15000/-", min: 10001, max: 15000, rate: 110 },
-    { label: "Exceeds INR 15001/- but does not exceed INR 25000/-", min: 15001, max: 25000, rate: 130 },
-    { label: "Exceeds INR 25001/- but does not exceed INR 40000/-", min: 25001, max: 40000, rate: 150 },
-    { label: "Exceeds INR 40001/- but does not exceed INR 100000/-", min: 40001, max: 100000, rate: 200 },
-  ];
+  const ptaxSlabs = getProfessionalTaxSlabs(month, year);
 
   const slabData = useMemo(() => {
-    return PTAX_SLABS.map(slab => {
-      let count = 0;
-      for (const sal of allSalaryRecords) {
-        const gross = Math.round(Number(sal.grossWage) || 0);
-        if (gross >= slab.min && gross <= slab.max) count++;
-      }
-      return { ...slab, count, tax: count * slab.rate };
-    });
-  }, [allSalaryRecords]);
+    const counts = ptaxSlabs.map(() => 0);
+    for (const sal of allSalaryRecords) {
+      const gross = Number(sal.grossWage) || 0;
+      const index = ptaxSlabs.findIndex(s => s.max === null || gross <= s.max);
+      if (index >= 0) counts[index]++;
+    }
+    return ptaxSlabs.map((slab, index) => ({
+      ...slab,
+      count: counts[index],
+      tax: counts[index] * slab.rate,
+    }));
+  }, [allSalaryRecords, ptaxSlabs]);
 
   const slabTotal = useMemo(() => {
     return slabData.reduce((s, d) => ({ count: s.count + d.count, tax: s.tax + d.tax }), { count: 0, tax: 0 });
