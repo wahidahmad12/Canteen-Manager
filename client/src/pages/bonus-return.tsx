@@ -28,6 +28,8 @@ interface SalaryRecord {
 }
 
 const BONUS_RATE = 8.33;
+const calculateMonthlyBonus = (basicWages: string | number | undefined) =>
+  Math.round(Number(basicWages || 0) * BONUS_RATE / 100);
 const BONUS_MONTHS = [
   { month: 1, yearOffset: 1 }, { month: 2, yearOffset: 1 }, { month: 3, yearOffset: 1 },
   { month: 4, yearOffset: 0 }, { month: 5, yearOffset: 0 }, { month: 6, yearOffset: 0 },
@@ -169,8 +171,14 @@ export default function BonusReturn() {
   const bonusRows = fyEmployees.map((emp, idx) => {
     const empSalaries = annualSalary.filter(s => s.employeeId === emp.id);
     const totalDaysWorked = empSalaries.reduce((sum, s) => sum + Number(s.daysWorked || 0), 0);
-    const totalSalary = empSalaries.reduce((sum, s) => sum + Number(s.grossWage || 0), 0);
-    const bonusAmount = Math.round(totalSalary * BONUS_RATE / 100);
+    const bonusWages = BONUS_MONTHS.reduce((sum, { month, yearOffset }) => {
+      const salary = empSalaries.find(record => record.month === month && record.year === fyStart + yearOffset);
+      return sum + Number(salary?.basicWage || 0);
+    }, 0);
+    const bonusAmount = BONUS_MONTHS.reduce((sum, { month, yearOffset }) => {
+      const salary = empSalaries.find(record => record.month === month && record.year === fyStart + yearOffset);
+      return sum + calculateMonthlyBonus(salary?.basicWage);
+    }, 0);
     const skillLevel = getSkillLevel(emp.designation || '');
 
     return {
@@ -180,7 +188,7 @@ export default function BonusReturn() {
       under15: 'No',
       designation: skillLevel,
       daysWorked: Math.round(totalDaysWorked),
-      totalSalary: Math.round(totalSalary),
+      bonusWages: Math.round(bonusWages),
       bonusPayable: bonusAmount,
       pujaBonus: 'No',
       interimBonus: 'No',
@@ -191,7 +199,7 @@ export default function BonusReturn() {
       actualPaid: bonusAmount,
       datePaid: bonusDate ? bonusDate.split('-').reverse().join('-') : '-',
     };
-  }).filter(r => r.totalSalary > 0);
+  }).filter(r => r.bonusWages > 0);
 
   const totalBonus = bonusRows.reduce((s, r) => s + r.netAmount, 0);
   const payslipEmployees = fyEmployees.filter(emp => annualSalary.some(salary => salary.employeeId === emp.id));
@@ -214,7 +222,7 @@ export default function BonusReturn() {
       present,
       basicRate: dailyRate,
       basicWages,
-      payBonus: Math.round(basicWages * BONUS_RATE / 100),
+      payBonus: calculateMonthlyBonus(basicWages),
     };
   }) : [];
   const payslipTotals = payslipRows.reduce((totals, row) => ({
@@ -330,7 +338,7 @@ export default function BonusReturn() {
     const colHeaders = [
       "Sl. No.", "Name of the employee", "Father's name",
       "Whether completed 15 yrs", "Designation", "No. of days worked",
-      "Total salary/wage", "Bonus payable (8.33%)",
+      "Basic wages", "Bonus payable (8.33%)",
       "Puja bonus", "Interim bonus", "[10A] Income tax", "Misconduct deduction",
       "Total deductions", "Net Amount Payable", "Amount actually paid",
       "Date on which paid"
@@ -361,7 +369,7 @@ export default function BonusReturn() {
       const r = ws.getRow(9 + idx);
       const vals = [
         row.slNo, row.name, row.fatherName, row.under15, row.designation,
-        row.daysWorked, row.totalSalary, row.bonusPayable,
+        row.daysWorked, row.bonusWages, row.bonusPayable,
         row.pujaBonus, row.interimBonus, row.incomeTax, row.misconduct,
         row.totalDeductions, row.netAmount, row.actualPaid, row.datePaid,
       ];
@@ -686,8 +694,8 @@ export default function BonusReturn() {
                         <div className="grid grid-cols-2 gap-1.5 text-xs">
                           <span className="text-muted-foreground">Days Worked:</span>
                           <span className="font-medium">{row.daysWorked}</span>
-                          <span className="text-muted-foreground">Total Salary:</span>
-                          <span className="font-medium">₹{row.totalSalary.toLocaleString('en-IN')}</span>
+                          <span className="text-muted-foreground">Basic wages:</span>
+                          <span className="font-medium">₹{row.bonusWages.toLocaleString('en-IN')}</span>
                           <span className="text-muted-foreground">Bonus (8.33%):</span>
                           <span className="font-bold text-emerald-700 dark:text-emerald-400">₹{row.bonusPayable.toLocaleString('en-IN')}</span>
                           <span className="text-muted-foreground">Date Paid:</span>
@@ -719,7 +727,7 @@ export default function BonusReturn() {
                             <th className="px-2 py-2 text-left font-bold border border-amber-200 bg-amber-100 dark:bg-amber-900 text-amber-700 dark:text-amber-300">15yr</th>
                             <th className="px-2 py-2 text-left font-bold border border-amber-200 bg-amber-100 dark:bg-amber-900 text-amber-700 dark:text-amber-300">Designation</th>
                             <th className="px-2 py-2 text-left font-bold border border-emerald-200 bg-emerald-100 dark:bg-emerald-900 text-emerald-700 dark:text-emerald-300">Days</th>
-                            <th className="px-2 py-2 text-left font-bold border border-emerald-200 bg-emerald-100 dark:bg-emerald-900 text-emerald-700 dark:text-emerald-300">Total Salary</th>
+                            <th className="px-2 py-2 text-left font-bold border border-emerald-200 bg-emerald-100 dark:bg-emerald-900 text-emerald-700 dark:text-emerald-300">Basic wages</th>
                             <th className="px-2 py-2 text-left font-bold border border-emerald-200 bg-emerald-100 dark:bg-emerald-900 text-emerald-700 dark:text-emerald-300">Bonus 8.33%</th>
                             <th className="px-2 py-2 text-left font-bold border border-rose-200 bg-rose-100 dark:bg-rose-900 text-rose-700 dark:text-rose-300">Puja</th>
                             <th className="px-2 py-2 text-left font-bold border border-rose-200 bg-rose-100 dark:bg-rose-900 text-rose-700 dark:text-rose-300">Interim</th>
@@ -742,7 +750,7 @@ export default function BonusReturn() {
                                 <td className="px-2 py-2 text-left border border-slate-200">{row.under15}</td>
                                 <td className="px-2 py-2 text-left border border-slate-200">{row.designation}</td>
                                 <td className="px-2 py-2 text-left border border-slate-200 font-semibold text-sky-700 dark:text-sky-400">{row.daysWorked}</td>
-                                <td className="px-2 py-2 text-left border border-slate-200 font-semibold">{row.totalSalary.toLocaleString('en-IN')}</td>
+                                <td className="px-2 py-2 text-left border border-slate-200 font-semibold">{row.bonusWages.toLocaleString('en-IN')}</td>
                                 <td className="px-2 py-2 text-left border border-slate-200 font-bold text-emerald-700 dark:text-emerald-400">{row.bonusPayable.toLocaleString('en-IN')}</td>
                                 <td className="px-2 py-2 text-left border border-slate-200 text-slate-400">No</td>
                                 <td className="px-2 py-2 text-left border border-slate-200 text-slate-400">No</td>
@@ -759,7 +767,7 @@ export default function BonusReturn() {
                         <tfoot>
                           <tr className="bg-gradient-to-r from-slate-100 to-slate-200 dark:from-slate-700 dark:to-slate-800 font-bold border-t-2 border-amber-400">
                             <td colSpan={6} className="px-3 py-2 border border-slate-300 text-left text-amber-700 dark:text-amber-300">Total ({bonusRows.length} employees)</td>
-                            <td className="px-2 py-2 text-left border border-slate-300">{bonusRows.reduce((s, r) => s + r.totalSalary, 0).toLocaleString('en-IN')}</td>
+                            <td className="px-2 py-2 text-left border border-slate-300">{bonusRows.reduce((s, r) => s + r.bonusWages, 0).toLocaleString('en-IN')}</td>
                             <td className="px-2 py-2 text-left border border-slate-300 text-emerald-700 dark:text-emerald-400">{totalBonus.toLocaleString('en-IN')}</td>
                             <td colSpan={5} className="px-2 py-2 border border-slate-300"></td>
                             <td className="px-2 py-2 text-left border border-slate-300 text-indigo-700 dark:text-indigo-400">{totalBonus.toLocaleString('en-IN')}</td>
@@ -819,7 +827,7 @@ export default function BonusReturn() {
                         <th colSpan={3} style={{ background: "#e8eaf6", color: "#1a237e", fontWeight: 700, border: "1px solid #999", padding: "2px", fontSize: "7px" }}>Payment</th>
                       </tr>
                       <tr>
-                        {["Sl.No", "Name", "Father's Name", "15yr", "Designation", "Days", "Total Salary", "Bonus 8.33%", "Puja", "Interim", "[10A]", "Misc.", "Total Ded.", "Net Payable", "Amt Paid", "Date Paid"].map((h, i) => (
+                        {["Sl.No", "Name", "Father's Name", "15yr", "Designation", "Days", "Basic wages", "Bonus 8.33%", "Puja", "Interim", "[10A]", "Misc.", "Total Ded.", "Net Payable", "Amt Paid", "Date Paid"].map((h, i) => (
                           <th key={i} style={{ border: "1px solid #999", padding: "1px 2px", fontWeight: 600, fontSize: "7px", background: i < 5 ? "#ffe0b2" : i < 8 ? "#c8e6c9" : i < 13 ? "#f8bbd0" : "#c5cae9", textAlign: "left" }}>{h}</th>
                         ))}
                       </tr>
@@ -838,7 +846,7 @@ export default function BonusReturn() {
                           <td style={{ border: "1px solid #bbb", padding: "1px 2px", textAlign: "left" }}>No</td>
                           <td style={{ border: "1px solid #bbb", padding: "1px 2px", textAlign: "left" }}>{row.designation}</td>
                           <td style={{ border: "1px solid #bbb", padding: "1px 2px", textAlign: "left", fontWeight: 600 }}>{row.daysWorked}</td>
-                          <td style={{ border: "1px solid #bbb", padding: "1px 2px", textAlign: "left" }}>{row.totalSalary.toLocaleString('en-IN')}</td>
+                          <td style={{ border: "1px solid #bbb", padding: "1px 2px", textAlign: "left" }}>{row.bonusWages.toLocaleString('en-IN')}</td>
                           <td style={{ border: "1px solid #bbb", padding: "1px 2px", textAlign: "left", fontWeight: 700, color: "#2e7d32" }}>{row.bonusPayable.toLocaleString('en-IN')}</td>
                           <td style={{ border: "1px solid #bbb", padding: "1px 2px", textAlign: "left", color: "#999" }}>No</td>
                           <td style={{ border: "1px solid #bbb", padding: "1px 2px", textAlign: "left", color: "#999" }}>No</td>
@@ -854,7 +862,7 @@ export default function BonusReturn() {
                     <tfoot>
                       <tr style={{ background: "#e0e0e0", fontWeight: "bold" }}>
                         <td colSpan={6} style={{ border: "1px solid #999", padding: "1px 2px", textAlign: "left", color: "#e65100" }}>Total ({bonusRows.length} employees)</td>
-                        <td style={{ border: "1px solid #999", padding: "1px 2px", textAlign: "left" }}>{bonusRows.reduce((s, r) => s + r.totalSalary, 0).toLocaleString('en-IN')}</td>
+                        <td style={{ border: "1px solid #999", padding: "1px 2px", textAlign: "left" }}>{bonusRows.reduce((s, r) => s + r.bonusWages, 0).toLocaleString('en-IN')}</td>
                         <td style={{ border: "1px solid #999", padding: "1px 2px", textAlign: "left", color: "#2e7d32" }}>{totalBonus.toLocaleString('en-IN')}</td>
                         <td colSpan={5} style={{ border: "1px solid #999", padding: "1px" }}></td>
                         <td style={{ border: "1px solid #999", padding: "1px 2px", textAlign: "left", color: "#1a237e" }}>{totalBonus.toLocaleString('en-IN')}</td>
