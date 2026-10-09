@@ -4317,26 +4317,22 @@ export class DatabaseStorage implements IStorage {
     }));
   }
 
-  async getContractorInvoiceYearlySummary(year: number, clientName: string): Promise<{ month: number; contractBill: number }[]> {
-    const startDate = `${year}-01-21`;
-    const endDate = `${year + 1}-01-20`;
+  async getContractorInvoiceYearlySummary(year: number, clientName: string): Promise<{ month: number; invoiceTotal: number }[]> {
     const [rows] = await pool.query(
-      `SELECT CASE
-                WHEN DAY(e.entry_date) >= 21 THEN MONTH(e.entry_date)
-                ELSE IF(MONTH(e.entry_date) = 1, 12, MONTH(e.entry_date) - 1)
-              END AS month,
+      `SELECT CASE WHEN e.month = 1 THEN 12 ELSE e.month - 1 END AS month,
               ROUND(SUM(e.qty * COALESCE(NULLIF(e.rate, 0),
-                CASE e.meal_type WHEN 'Breakfast' THEN 4.6 ELSE 11.6 END)), 2) AS contractBill
+                CASE e.meal_type WHEN 'Breakfast' THEN 4.6 ELSE 11.6 END)), 2) AS invoiceTotal
        FROM contractor_meal_entries e
        JOIN contractors c ON c.id = e.contractor_id
-       WHERE e.entry_date >= ? AND e.entry_date <= ? AND c.client_name = ?
-       GROUP BY month
-       ORDER BY month`,
-      [startDate, endDate, clientName],
+       WHERE ((e.year = ? AND e.month BETWEEN 2 AND 12) OR (e.year = ? AND e.month = 1))
+         AND c.client_name = ?
+       GROUP BY CASE WHEN e.month = 1 THEN 12 ELSE e.month - 1 END
+       ORDER BY CASE WHEN e.month = 1 THEN 12 ELSE e.month - 1 END`,
+      [year, year + 1, clientName],
     );
     return (rows as any[]).map((row) => ({
       month: Number(row.month),
-      contractBill: Number(row.contractBill) || 0,
+      invoiceTotal: Number(row.invoiceTotal) || 0,
     }));
   }
 

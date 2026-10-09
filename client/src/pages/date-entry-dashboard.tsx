@@ -144,7 +144,7 @@ export function DateEntryDashboard({ year }: { year: number }) {
     queryKey: ['/api/cipla-date-entries/yearly-summary', year],
     queryFn: () => fetch(`/api/cipla-date-entries/yearly-summary?year=${year}`, { credentials: 'include' }).then(r => r.json()),
   });
-  const { data: ciplaContractBills = [] } = useQuery<{ month: number; contractBill: number }[]>({
+  const { data: ciplaInvoiceTotals = [] } = useQuery<{ month: number; invoiceTotal: number }[]>({
     queryKey: ['/api/date-entry/contractor-invoices/yearly-summary', year, 'Cipla Limited'],
     queryFn: async () => {
       const response = await fetch(`/api/date-entry/contractor-invoices/yearly-summary?year=${year}&clientName=${encodeURIComponent('Cipla Limited')}`, { credentials: 'include' });
@@ -573,17 +573,17 @@ export function DateEntryDashboard({ year }: { year: number }) {
           </ResponsiveContainer>
         </ChartCard>
       </div>
-      <ChartCard title={`Cipla — Monthly Contractor Contract Bills (₹) — ${year}`}>
+      <ChartCard title={`Cipla — Contractor Non-GST Invoice Total by Billing Period (₹) — ${year}`}>
         <ResponsiveContainer width="100%" height={CHART_H}>
           <BarChart data={MONTHS_SHORT.map((name, i) => ({
             name,
-            contractBill: Number(ciplaContractBills.find(row => row.month === i + 1)?.contractBill || 0),
+            invoiceTotal: Number(ciplaInvoiceTotals.find(row => row.month === i + 1)?.invoiceTotal || 0),
           }))} margin={{ top: 5, right: 10, left: -10, bottom: 5 }}>
             <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
             <XAxis dataKey="name" tick={{ fontSize: 10 }} />
             <YAxis tick={{ fontSize: 10 }} />
             <Tooltip formatter={(value: any) => `₹${Number(value).toLocaleString('en-IN')}`} />
-            <Bar dataKey="contractBill" name="Contract Bill" fill="#7c3aed" radius={[2,2,0,0]} />
+            <Bar dataKey="invoiceTotal" name="Non-GST Invoice Total" fill="#7c3aed" radius={[2,2,0,0]} />
           </BarChart>
         </ResponsiveContainer>
       </ChartCard>
