@@ -204,18 +204,18 @@ export default function BonusReturn() {
   const totalBonus = bonusRows.reduce((s, r) => s + r.netAmount, 0);
   const payslipEmployees = fyEmployees.filter(emp => annualSalary.some(salary => salary.employeeId === emp.id));
   const payslipEmployee = payslipEmployees.find(emp => String(emp.id) === selectedPayslipEmployeeId) || payslipEmployees[0];
-  const payslipRows = payslipEmployee ? BONUS_MONTHS.map(({ month, yearOffset }) => {
+  const buildPayslipRows = (employee: Employee) => BONUS_MONTHS.map(({ month, yearOffset }) => {
     const year = fyStart + yearOffset;
-    const salary = annualSalary.find(record => record.employeeId === payslipEmployee.id && record.month === month && record.year === year);
+    const salary = annualSalary.find(record => record.employeeId === employee.id && record.month === month && record.year === year);
     const present = Number(salary?.daysWorked || 0);
     const basicWages = Number(salary?.basicWage || 0);
-    const skillCategory = (payslipEmployee.skills || '').trim();
+    const skillCategory = (employee.skills || '').trim();
     const skillRate = skillWageRates.find(rate =>
       rate.skillCategory.trim() === skillCategory && rate.month === month && rate.year === year
     );
     const dailyRate = Number(skillRate?.dailyRate) ||
       (present > 0 ? basicWages / present : 0) ||
-      Number(payslipEmployee.dailyRate);
+      Number(employee.dailyRate);
 
     return {
       month: `${MONTH_NAMES[month - 1]}-${String(year).slice(-2)}`,
@@ -224,12 +224,59 @@ export default function BonusReturn() {
       basicWages,
       payBonus: calculateMonthlyBonus(basicWages),
     };
-  }) : [];
+  });
+  const payslipRows = payslipEmployee ? buildPayslipRows(payslipEmployee) : [];
   const payslipTotals = payslipRows.reduce((totals, row) => ({
     present: totals.present + row.present,
     basicWages: totals.basicWages + row.basicWages,
     payBonus: totals.payBonus + row.payBonus,
   }), { present: 0, basicWages: 0, payBonus: 0 });
+
+  const [printPayslipIds, setPrintPayslipIds] = useState<string[]>([]);
+  const allPayslipsSelected = payslipEmployees.length > 0 && payslipEmployees.every(emp => printPayslipIds.includes(String(emp.id)));
+  const togglePrintPayslip = (id: string) =>
+    setPrintPayslipIds(ids => ids.includes(id) ? ids.filter(x => x !== id) : [...ids, id]);
+  const handlePrintBonusPayslips = () => {
+    const selected = payslipEmployees.filter(emp => printPayslipIds.includes(String(emp.id)));
+    if (selected.length === 0) {
+      toast({ title: 'Select at least one employee', variant: 'destructive' });
+      return;
+    }
+    const esc = (s: string) => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+    const num = (n: number) => (n ? Math.round(n).toLocaleString('en-IN') : '');
+    const slips = selected.map(emp => {
+      const rows = buildPayslipRows(emp);
+      const totals = rows.reduce((t, r) => ({
+        present: t.present + r.present,
+        basicWages: t.basicWages + r.basicWages,
+        payBonus: t.payBonus + r.payBonus,
+      }), { present: 0, basicWages: 0, payBonus: 0 });
+      return `<div class="slip"><table>
+<tr><th colspan="5">DJ HOSPITALITY &amp; FACILITY MANAGEMENT PVT</th></tr>
+<tr><th colspan="5">1st April ${fyStart} To 31st March ${fyEnd}</th></tr>
+<tr><th class="l">Name</th><th class="l" colspan="4">${esc(emp.name)}</th></tr>
+<tr class="head"><th>Month</th><th>Present</th><th>Basic Rate</th><th>Basic wages</th><th>Pay Bonus ${BONUS_RATE}%</th></tr>
+${rows.map(r => `<tr><td>${r.month}</td><td class="c">${r.present || ''}</td><td class="r">${num(r.basicRate)}</td><td class="r">${num(r.basicWages)}</td><td class="r">${r.payBonus ? r.payBonus.toLocaleString('en-IN') : ''}</td></tr>`).join('')}
+<tr class="b"><td>Total</td><td class="c">${totals.present.toLocaleString('en-IN')}</td><td></td><td class="r">${num(totals.basicWages)}</td><td class="r">${totals.payBonus.toLocaleString('en-IN')}</td></tr>
+<tr class="b"><td colspan="4" class="c">To Pay Bonus ${BONUS_RATE}%</td><td class="r">${totals.payBonus.toLocaleString('en-IN')}</td></tr>
+</table></div>`;
+    }).join('');
+    const html = `<!DOCTYPE html><html><head><meta charset="utf-8"><title>Bonus Payslips FY ${fyStart}-${fyEnd}</title>
+<style>
+  @page { size: A4; margin: 12mm; }
+  body { font-family: Calibri, Arial, sans-serif; font-size: 13px; color: #000; }
+  .slip { page-break-after: always; }
+  .slip:last-child { page-break-after: auto; }
+  table { border-collapse: collapse; width: 100%; }
+  td, th { border: 1px solid #000; padding: 4px 8px; }
+  .head th { background: #fef3c7; }
+  .c { text-align: center; } .r { text-align: right; } .l { text-align: left; } .b { font-weight: bold; }
+</style></head><body>${slips}<script>window.onload = function(){ window.print(); };</scr${''}ipt></body></html>`;
+    const w = window.open('', '_blank');
+    if (!w) { toast({ title: 'Popup blocked', description: 'Allow popups in your browser.', variant: 'destructive' }); return; }
+    w.document.write(html);
+    w.document.close();
+  };
 
   const handlePrintCover = () => {
     const coverArea = document.getElementById('bonus-cover-print');
@@ -1096,6 +1143,36 @@ export default function BonusReturn() {
                       </div>
                       <div className="text-sm font-semibold text-center sm:text-right">
                         {`1st April ${fyStart} To 31st March ${fyEnd}`}
+                      </div>
+                    </div>
+
+                    <div className="space-y-2 rounded-md border border-amber-200 p-3" data-testid="bonus-payslip-print-selection">
+                      <div className="flex flex-wrap items-center justify-between gap-2">
+                        <label className="flex items-center gap-2 text-sm font-medium">
+                          <input
+                            type="checkbox"
+                            checked={allPayslipsSelected}
+                            onChange={() => setPrintPayslipIds(allPayslipsSelected ? [] : payslipEmployees.map(emp => String(emp.id)))}
+                            data-testid="checkbox-bonus-payslip-select-all"
+                          />
+                          Select all ({printPayslipIds.length}/{payslipEmployees.length})
+                        </label>
+                        <Button size="sm" variant="outline" className="gap-2" onClick={handlePrintBonusPayslips} disabled={printPayslipIds.length === 0} data-testid="button-print-bonus-payslips">
+                          <Printer className="w-4 h-4" /> Print Selected
+                        </Button>
+                      </div>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-1 max-h-48 overflow-y-auto">
+                        {payslipEmployees.map(emp => (
+                          <label key={emp.id} className="flex items-center gap-2 text-sm">
+                            <input
+                              type="checkbox"
+                              checked={printPayslipIds.includes(String(emp.id))}
+                              onChange={() => togglePrintPayslip(String(emp.id))}
+                              data-testid={`checkbox-bonus-payslip-${emp.id}`}
+                            />
+                            {emp.name}
+                          </label>
+                        ))}
                       </div>
                     </div>
 
