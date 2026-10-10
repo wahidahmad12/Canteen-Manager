@@ -25,6 +25,7 @@ export default function LeaveWithWagesPage() {
   const [activeTab, setActiveTab] = useState("register");
   const [calculationYear, setCalculationYear] = useState(String(new Date().getFullYear()));
   const [payslipEmployeeId, setPayslipEmployeeId] = useState("");
+  const [printSlipIds, setPrintSlipIds] = useState<string[]>([]);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingRecord, setEditingRecord] = useState<LeaveWithWages | null>(null);
 
@@ -148,6 +149,45 @@ export default function LeaveWithWagesPage() {
     };
   });
   const selectedPayslipRow = leaveCalculationRows.find(row => String(row.employee.id) === payslipEmployeeId) || leaveCalculationRows[0];
+  const togglePrintSlip = (id: string) =>
+    setPrintSlipIds(ids => ids.includes(id) ? ids.filter(x => x !== id) : [...ids, id]);
+  const allPrintSlipsSelected = leaveCalculationRows.length > 0 && leaveCalculationRows.every(row => printSlipIds.includes(String(row.employee.id)));
+  const handlePrintLeavePayslips = () => {
+    const rows = leaveCalculationRows.filter(row => printSlipIds.includes(String(row.employee.id)));
+    if (rows.length === 0) {
+      toast({ title: "Select at least one employee", variant: "destructive" });
+      return;
+    }
+    const esc = (s: string) => String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+    const months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+    const yy = String(calculationYearNumber).slice(-2);
+    const slips = rows.map(row => `<div class="slip"><table>
+<tr><th colspan="2">DJ HOSPITALITY &amp; FACILITY MANAGEMENT PVT LTD</th></tr>
+<tr><th colspan="2">1st Jan ${calculationYearNumber} To 31st Dec ${calculationYearNumber}</th></tr>
+<tr><th colspan="2">Leave Calculation with Payment Slip</th></tr>
+<tr><td class="l">Name</td><td class="l b">${esc(row.employee.name)}</td></tr>
+<tr><th>Month</th><th>Days Worked</th></tr>
+${row.monthlyPresent.map((d, i) => `<tr><td class="c">${months[i]}-${yy}</td><td class="c">${d || ""}</td></tr>`).join("")}
+<tr class="b"><td class="r">Total</td><td class="c">${row.totalPresent}</td></tr>
+<tr><td>Leave Balance</td><td class="c b">${row.roundedLeave}</td></tr>
+<tr><td>Basic wages</td><td class="c">${row.basicWages.toLocaleString("en-IN", { maximumFractionDigits: 2 })}</td></tr>
+<tr class="b"><td>Leave Encashment Amt.</td><td class="c">${row.leavePayment.toLocaleString("en-IN")}</td></tr>
+</table></div>`).join("");
+    const html = `<!DOCTYPE html><html><head><meta charset="utf-8"><title>Leave Payment Slips ${calculationYearNumber}</title>
+<style>
+  @page { size: A4; margin: 12mm; }
+  body { font-family: Calibri, Arial, sans-serif; font-size: 13px; color: #000; }
+  .slip { max-width: 480px; margin: 0 auto; page-break-after: always; }
+  .slip:last-child { page-break-after: auto; }
+  table { border-collapse: collapse; width: 100%; }
+  td, th { border: 1px solid #000; padding: 4px 8px; }
+  .c { text-align: center; } .r { text-align: right; } .l { text-align: left; } .b { font-weight: bold; }
+</style></head><body>${slips}<script>window.onload = function(){ window.print(); };</scr${""}ipt></body></html>`;
+    const w = window.open("", "_blank");
+    if (!w) { toast({ title: "Popup blocked", description: "Allow popups in your browser.", variant: "destructive" }); return; }
+    w.document.write(html);
+    w.document.close();
+  };
   const isLoadingCalculation = attendanceQueries.some(query => query.isLoading) || wageRatesQuery.isLoading || leaveRecordsForCalculationQuery.isLoading;
   const isCalculationError = attendanceQueries.some(query => query.isError) || wageRatesQuery.isError || leaveRecordsForCalculationQuery.isError;
 
@@ -1013,6 +1053,35 @@ export default function LeaveWithWagesPage() {
                             {leaveCalculationRows.map(row => <SelectItem key={row.employee.id} value={String(row.employee.id)}>{row.employee.name}</SelectItem>)}
                           </SelectContent>
                         </Select>
+                      </div>
+                      <div className="space-y-2 rounded-md border p-3" data-testid="leave-payslip-print-selection">
+                        <div className="flex flex-wrap items-center justify-between gap-2">
+                          <label className="flex items-center gap-2 text-sm font-medium">
+                            <input
+                              type="checkbox"
+                              checked={allPrintSlipsSelected}
+                              onChange={() => setPrintSlipIds(allPrintSlipsSelected ? [] : leaveCalculationRows.map(row => String(row.employee.id)))}
+                              data-testid="checkbox-leave-payslip-select-all"
+                            />
+                            Select all ({printSlipIds.length}/{leaveCalculationRows.length})
+                          </label>
+                          <Button size="sm" variant="outline" onClick={handlePrintLeavePayslips} disabled={printSlipIds.length === 0} data-testid="button-print-leave-payslips">
+                            <Printer className="w-4 h-4 mr-1" /> Print Selected
+                          </Button>
+                        </div>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-1 max-h-48 overflow-y-auto">
+                          {leaveCalculationRows.map(row => (
+                            <label key={row.employee.id} className="flex items-center gap-2 text-sm">
+                              <input
+                                type="checkbox"
+                                checked={printSlipIds.includes(String(row.employee.id))}
+                                onChange={() => togglePrintSlip(String(row.employee.id))}
+                                data-testid={`checkbox-leave-payslip-${row.employee.id}`}
+                              />
+                              {row.employee.name}
+                            </label>
+                          ))}
+                        </div>
                       </div>
                       {selectedPayslipRow && (
                         <div className="mx-auto max-w-lg">
