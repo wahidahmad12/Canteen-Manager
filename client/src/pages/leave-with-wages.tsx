@@ -535,11 +535,24 @@ ${row.monthlyPresent.map((d, i) => `<tr><td class="c">${months[i]}-${yy}</td><td
     await downloadWorkbook(workbook, `Leave_Calculation_${selectedClient}_${calculationYearNumber}.xlsx`);
   };
 
-  const handleExportLeavePayslip = async () => {
-    if (!selectedPayslipRow) return;
+  const safeSheetName = (name: string, used: Set<string>) => {
+    const base = (name.replace(/[\\/?*[\]:]/g, " ").trim() || "Employee").slice(0, 28);
+    let candidate = base;
+    for (let n = 2; used.has(candidate.toLowerCase()); n++) candidate = `${base.slice(0, 26)} ${n}`;
+    used.add(candidate.toLowerCase());
+    return candidate;
+  };
+
+  const handleExportLeavePayslip = () => exportLeavePayslips(selectedPayslipRow ? [selectedPayslipRow] : []);
+  const handleExportAllLeavePayslips = () => exportLeavePayslips(leaveCalculationRows);
+
+  const exportLeavePayslips = async (slipRows: typeof leaveCalculationRows) => {
+    if (slipRows.length === 0) return;
     const ExcelJS = (await import("exceljs")).default;
     const workbook = new ExcelJS.Workbook();
-    const worksheet = workbook.addWorksheet("Leave Payment Slip");
+    const usedNames = new Set<string>();
+    for (const selectedPayslipRow of slipRows) {
+    const worksheet = workbook.addWorksheet(safeSheetName(selectedPayslipRow.employee.name, usedNames));
     const border: Partial<ExcelJS.Borders> = {
       top: { style: "thin" }, bottom: { style: "thin" }, left: { style: "thin" }, right: { style: "thin" },
     };
@@ -583,7 +596,11 @@ ${row.monthlyPresent.map((d, i) => `<tr><td class="c">${months[i]}-${yy}</td><td
     worksheet.getColumn(2).width = 22;
     worksheet.getColumn(2).numFmt = "#,##0.##";
     for (let row = 1; row <= 21; row++) worksheet.getRow(row).height = row <= 5 ? 24 : 20;
-    await downloadWorkbook(workbook, `Leave_Payment_Slip_${selectedPayslipRow.employee.name.replace(/[^a-z0-9]+/gi, "_")}_${calculationYearNumber}.xlsx`);
+    }
+    const fileLabel = slipRows.length === 1
+      ? slipRows[0].employee.name.replace(/[^a-z0-9]+/gi, "_")
+      : `All_Employees_${selectedClient.replace(/[^a-z0-9]+/gi, "_")}`;
+    await downloadWorkbook(workbook, `Leave_Payment_Slip_${fileLabel}_${calculationYearNumber}.xlsx`);
   };
 
   const currentYear = new Date().getFullYear();
@@ -653,6 +670,15 @@ ${row.monthlyPresent.map((d, i) => `<tr><td class="c">${months[i]}-${yy}</td><td
                 data-testid="button-export-leave-payslip"
               >
                 <Download className="w-4 h-4 mr-1" /> Export Payment Slip
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleExportAllLeavePayslips}
+                disabled={isLoadingCalculation || isCalculationError || leaveCalculationRows.length === 0}
+                data-testid="button-export-all-leave-payslips"
+              >
+                <Download className="w-4 h-4 mr-1" /> Export All Payment Slips
               </Button>
             </div>
           )}

@@ -447,11 +447,26 @@ ${rows.map(r => `<tr><td>${r.month}</td><td class="c">${r.present || ''}</td><td
     URL.revokeObjectURL(url);
   };
 
-  const handleExportBonusPayslip = async () => {
-    if (!payslipEmployee) return;
+  const handleExportBonusPayslip = () => exportBonusPayslips(payslipEmployee ? [payslipEmployee] : []);
+  const handleExportAllBonusPayslips = () => exportBonusPayslips(payslipEmployees);
+
+  const exportBonusPayslips = async (employees: Employee[]) => {
+    if (employees.length === 0) return;
     const ExcelJS = (await import("exceljs")).default;
     const workbook = new ExcelJS.Workbook();
-    const worksheet = workbook.addWorksheet("Bonus Pay Slip");
+    const usedNames = new Set<string>();
+    for (const payslipEmployee of employees) {
+    const payslipRows = buildPayslipRows(payslipEmployee);
+    const payslipTotals = payslipRows.reduce((totals, row) => ({
+      present: totals.present + row.present,
+      basicWages: totals.basicWages + row.basicWages,
+      payBonus: totals.payBonus + row.payBonus,
+    }), { present: 0, basicWages: 0, payBonus: 0 });
+    const sheetBase = (payslipEmployee.name.replace(/[\\/?*[\]:]/g, " ").trim() || "Employee").slice(0, 28);
+    let sheetName = sheetBase;
+    for (let n = 2; usedNames.has(sheetName.toLowerCase()); n++) sheetName = `${sheetBase.slice(0, 26)} ${n}`;
+    usedNames.add(sheetName.toLowerCase());
+    const worksheet = workbook.addWorksheet(sheetName);
     const border: Partial<ExcelJS.Borders> = {
       top: { style: "thin" }, bottom: { style: "thin" }, left: { style: "thin" }, right: { style: "thin" },
     };
@@ -522,13 +537,17 @@ ${rows.map(r => `<tr><td>${r.month}</td><td class="c">${r.present || ''}</td><td
     worksheet.getColumn(4).width = 17;
     worksheet.getColumn(5).width = 19;
     worksheet.views = [{ state: "frozen", ySplit: 4 }];
+    }
 
     const buffer = await workbook.xlsx.writeBuffer();
     const blob = new Blob([buffer], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
     const url = URL.createObjectURL(blob);
     const link = document.createElement("a");
     link.href = url;
-    link.download = `Bonus_Payslip_${payslipEmployee.name.replace(/[^a-z0-9]+/gi, "_")}_${selectedClient}_${fyStart}-${fyEnd}.xlsx`;
+    const fileLabel = employees.length === 1
+      ? employees[0].name.replace(/[^a-z0-9]+/gi, "_")
+      : "All_Employees";
+    link.download = `Bonus_Payslip_${fileLabel}_${selectedClient}_${fyStart}-${fyEnd}.xlsx`;
     link.click();
     URL.revokeObjectURL(url);
   };
@@ -584,9 +603,14 @@ ${rows.map(r => `<tr><td>${r.month}</td><td class="c">${r.present || ''}</td><td
                     </Button>
                   )}
                   {activeTab === 'payslip' && payslipEmployee && (
-                    <Button onClick={handleExportBonusPayslip} disabled={isLoadingWageRates} variant="outline" size="sm" className="gap-2" data-testid="button-export-bonus-payslip">
-                      <Download className="w-4 h-4" /> Bonus Payslip Excel
-                    </Button>
+                    <>
+                      <Button onClick={handleExportBonusPayslip} disabled={isLoadingWageRates} variant="outline" size="sm" className="gap-2" data-testid="button-export-bonus-payslip">
+                        <Download className="w-4 h-4" /> Bonus Payslip Excel
+                      </Button>
+                      <Button onClick={handleExportAllBonusPayslips} disabled={isLoadingWageRates} variant="outline" size="sm" className="gap-2" data-testid="button-export-all-bonus-payslips">
+                        <Download className="w-4 h-4" /> All Employees Excel
+                      </Button>
+                    </>
                   )}
                 </>
               )}
