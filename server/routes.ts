@@ -13,7 +13,8 @@ import {
   employeeNominations,
   nominationNominees,
   employees,
-  canteenSales
+  canteenSales,
+  salesInvoicePoIds
 } from "@shared/schema";
 import { generateRegistrationOptions, verifyRegistrationResponse, generateAuthenticationOptions, verifyAuthenticationResponse } from '@simplewebauthn/server';
 import { isoBase64URL, isoUint8Array } from '@simplewebauthn/server/helpers';
@@ -2286,7 +2287,7 @@ export async function registerRoutes(
       const po = await storage.getPurchaseOrder(Number(req.params.id));
       if (!po) return res.status(404).json({ message: "Purchase order not found" });
       const allInvoices = await storage.getSalesInvoices();
-      const linkedInvoices = allInvoices.filter(inv => inv.poId === po.id);
+      const linkedInvoices = allInvoices.filter(inv => salesInvoicePoIds(inv).includes(po.id));
       const usedAmount = linkedInvoices.reduce((sum, inv) => sum + Number(inv.billAmount), 0);
       const balance = Math.round((Number(po.poAmount) - usedAmount) * 100) / 100;
       res.json({ poId: po.id, poAmount: Number(po.poAmount), usedAmount, balance, invoiceCount: linkedInvoices.length });
@@ -2343,12 +2344,43 @@ export async function registerRoutes(
   app.delete("/api/purchase-orders/:id", requireAdmin, async (req, res) => {
     try {
       const allInvoices = await storage.getSalesInvoices();
-      const linked = allInvoices.filter(inv => inv.poId === Number(req.params.id));
+      const linked = allInvoices.filter(inv => salesInvoicePoIds(inv).includes(Number(req.params.id)));
       if (linked.length > 0) {
         return res.status(400).json({ message: `Cannot delete PO — ${linked.length} invoice(s) are linked to it` });
       }
       await storage.deletePurchaseOrder(Number(req.params.id));
       res.status(204).send();
+    } catch (err: any) {
+      res.status(500).json({ message: err.message });
+    }
+  });
+
+  app.post("/api/purchase-orders/:id/close", requireAdmin, async (req, res) => {
+    try {
+      const existing = await storage.getPurchaseOrder(Number(req.params.id));
+      if (!existing) return res.status(404).json({ message: "Purchase order not found" });
+      const remarks = String(req.body?.remarks || "").trim();
+      if (!remarks) return res.status(400).json({ message: "Remarks are required to close a PO" });
+      const po = await storage.updatePurchaseOrder(existing.id, {
+        closed: true,
+        closeRemarks: remarks,
+        closedAt: new Date(),
+        closedBy: req.session.displayName || req.session.username || '',
+      });
+      res.json(po);
+    } catch (err: any) {
+      res.status(500).json({ message: err.message });
+    }
+  });
+
+  app.post("/api/purchase-orders/:id/reopen", requireAdmin, async (req, res) => {
+    try {
+      const existing = await storage.getPurchaseOrder(Number(req.params.id));
+      if (!existing) return res.status(404).json({ message: "Purchase order not found" });
+      const po = await storage.updatePurchaseOrder(existing.id, {
+        closed: false, closeRemarks: null, closedAt: null, closedBy: null,
+      });
+      res.json(po);
     } catch (err: any) {
       res.status(500).json({ message: err.message });
     }
@@ -2392,7 +2424,7 @@ export async function registerRoutes(
 
   app.post("/api/sales-invoices", requirePermission("salesinvoice"), async (req, res) => {
     try {
-      const { clientName, billDate, billNumber, billAmount, gstPercent, gstAmount, totalBillAmount, tdsPercent, tdsAmount, paymentReceivedDate, paymentReceivedAmount, utrNo, poId, bypassPO } = req.body;
+      const { clientName, billDate, billNumber, billAmount, gstPercent, gstAmount, totalBillAmount, tdsPercent, tdsAmount, paymentReceivedDate,       paymentReceivedAmount, utrNo, poId, poIds, bypassPO } = req.body;
       if (!clientName || !billDate || !billNumber) {
         return res.status(400).json({ message: "Client name, bill date, and bill number are required" });
       }
@@ -2401,15 +2433,28 @@ export async function registerRoutes(
       if (duplicateBill) {
         return res.status(400).json({ message: `Bill Number "${billNumber.trim()}" already exists (Sl# ${duplicateBill.slNo}, Client: ${duplicateBill.clientName})` });
       }
-      if (poId) {
-        const po = await storage.getPurchaseOrder(Number(poId));
-        if (!po) return res.status(400).json({ message: "Selected PO not found" });
-        if (po.clientName !== clientName) {
-          return res.status(400).json({ message: "PO does not belong to the selected client" });
+      const poIdList: number[] = (() => {
+        const fromList = String(poIds || "").split(",").map(s => Number(s.trim())).filter(n => Number.isInteger(n) && n > 0);
+        if (fromList.length > 0) return Array.from(new Set(fromList));
+        return poId ? [Number(poId)] : [];
+      })();
+      if (poIdList.length > 0) {
+        const pos = [];
+        for (const id of poIdList) {
+          const po = await storage.getPurchaseOrder(id);
+          if (!po) return res.status(400).json({ message: "Selected PO not found" });
+          if (po.clientName !== clientName) {
+            return res.status(400).json({ message: "PO does not belong to the selected client" });
+          }
+          if (po.closed && !bypassPO) {
+            return res.status(400).json({ message: `PO "${po.poNumber}" is closed` });
+          }
+          pos.push(po);
         }
         if (!bypassPO) {
-          const usedAmount = allInvoices.filter(inv => inv.poId === po.id).reduce((sum, inv) => sum + Number(inv.billAmount), 0);
-          const balance = Math.round((Number(po.poAmount) - usedAmount) * 100) / 100;
+          const usedAmount = allInvoices.filter(inv => salesInvoicePoIds(inv).some(i => poIdList.includes(i))).reduce((sum, inv) => sum + Number(inv.billAmount), 0);
+          const totalPo = pos.reduce((s, p) => s + Number(p.poAmount), 0);
+          const balance = Math.round((totalPo - usedAmount) * 100) / 100;
           if (Number(billAmount) > balance) {
             return res.status(400).json({ message: `Bill Amount (₹${Number(billAmount).toFixed(2)}) exceeds PO remaining balance (₹${balance.toFixed(2)})` });
           }
@@ -2426,7 +2471,8 @@ export async function registerRoutes(
         paymentReceivedDate: paymentReceivedDate || null,
         paymentReceivedAmount: String(paymentReceivedAmount || 0),
         utrNo: utrNo?.trim() || null,
-        poId: poId ? Number(poId) : null,
+        poId: poIdList[0] ?? null,
+        poIds: poIdList.length > 0 ? poIdList.join(",") : null,
         createdBy: req.session.displayName || req.session.username || '',
       });
       res.status(201).json(invoice);
@@ -2439,7 +2485,7 @@ export async function registerRoutes(
     try {
       const existing = await storage.getSalesInvoice(Number(req.params.id));
       if (!existing) return res.status(404).json({ message: "Sales invoice not found" });
-      const { clientName, billDate, billNumber, billAmount, gstPercent, gstAmount, totalBillAmount, tdsPercent, tdsAmount, paymentReceivedDate, paymentReceivedAmount, utrNo, poId, bypassPO } = req.body;
+      const { clientName, billDate, billNumber, billAmount, gstPercent, gstAmount, totalBillAmount, tdsPercent, tdsAmount, paymentReceivedDate,       paymentReceivedAmount, utrNo, poId, poIds, bypassPO } = req.body;
       if (billNumber !== undefined) {
         const allInvForDup = await storage.getSalesInvoices();
         const duplicateBill = allInvForDup.find(inv => inv.billNumber === billNumber.trim() && inv.id !== existing.id);
@@ -2447,19 +2493,35 @@ export async function registerRoutes(
           return res.status(400).json({ message: `Bill Number "${billNumber.trim()}" already exists (Sl# ${duplicateBill.slNo}, Client: ${duplicateBill.clientName})` });
         }
       }
-      const targetPoId = poId !== undefined ? (poId ? Number(poId) : null) : existing.poId;
+      const poTouched = poId !== undefined || poIds !== undefined;
+      const targetPoIds: number[] = poTouched
+        ? (() => {
+            const fromList = String(poIds || "").split(",").map(s => Number(s.trim())).filter(n => Number.isInteger(n) && n > 0);
+            if (fromList.length > 0) return Array.from(new Set(fromList));
+            return poId ? [Number(poId)] : [];
+          })()
+        : salesInvoicePoIds(existing);
       const effectiveBillAmount = billAmount !== undefined ? Number(billAmount) : Number(existing.billAmount);
       const effectiveClientName = clientName !== undefined ? clientName : existing.clientName;
-      if (targetPoId) {
-        const po = await storage.getPurchaseOrder(targetPoId);
-        if (!po) return res.status(400).json({ message: "Selected PO not found" });
-        if (po.clientName !== effectiveClientName) {
-          return res.status(400).json({ message: "PO does not belong to the selected client" });
+      if (targetPoIds.length > 0) {
+        const pos = [];
+        const alreadyLinked = salesInvoicePoIds(existing);
+        for (const id of targetPoIds) {
+          const po = await storage.getPurchaseOrder(id);
+          if (!po) return res.status(400).json({ message: "Selected PO not found" });
+          if (po.clientName !== effectiveClientName) {
+            return res.status(400).json({ message: "PO does not belong to the selected client" });
+          }
+          if (po.closed && !bypassPO && !alreadyLinked.includes(id)) {
+            return res.status(400).json({ message: `PO "${po.poNumber}" is closed` });
+          }
+          pos.push(po);
         }
         if (!bypassPO) {
           const allInvoices = await storage.getSalesInvoices();
-          const usedAmount = allInvoices.filter(inv => inv.poId === po.id && inv.id !== existing.id).reduce((sum, inv) => sum + Number(inv.billAmount), 0);
-          const balance = Math.round((Number(po.poAmount) - usedAmount) * 100) / 100;
+          const usedAmount = allInvoices.filter(inv => inv.id !== existing.id && salesInvoicePoIds(inv).some(i => targetPoIds.includes(i))).reduce((sum, inv) => sum + Number(inv.billAmount), 0);
+          const totalPo = pos.reduce((s, p) => s + Number(p.poAmount), 0);
+          const balance = Math.round((totalPo - usedAmount) * 100) / 100;
           if (effectiveBillAmount > balance) {
             return res.status(400).json({ message: `Bill Amount (₹${effectiveBillAmount.toFixed(2)}) exceeds PO remaining balance (₹${balance.toFixed(2)})` });
           }
@@ -2478,7 +2540,7 @@ export async function registerRoutes(
         ...(paymentReceivedDate !== undefined && { paymentReceivedDate: paymentReceivedDate || null }),
         ...(paymentReceivedAmount !== undefined && { paymentReceivedAmount: String(paymentReceivedAmount) }),
         ...(utrNo !== undefined && { utrNo: utrNo?.trim() || null }),
-        ...(poId !== undefined && { poId: poId ? Number(poId) : null }),
+        ...(poTouched && { poId: targetPoIds[0] ?? null, poIds: targetPoIds.length > 0 ? targetPoIds.join(",") : null }),
       });
       res.json(invoice);
     } catch (err: any) {
