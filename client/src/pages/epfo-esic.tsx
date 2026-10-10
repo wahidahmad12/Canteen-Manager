@@ -19,6 +19,22 @@ function getDaysInMonth(month: number, year: number) {
   return new Date(year, month, 0).getDate();
 }
 
+// EPF/EPS/EDLI wage ceiling: Rs 15,000 up to 16 Sep 2026, Rs 25,000 from 17 Sep 2026 (pro-rata in Sep 2026)
+const OLD_WAGE_CEILING = 15000;
+const NEW_WAGE_CEILING = 25000;
+const NEW_CEILING_START = { year: 2026, month: 9, day: 17 };
+
+function getEpfWageCeiling(month: number, year: number) {
+  const { year: sy, month: sm, day: sd } = NEW_CEILING_START;
+  const key = year * 100 + month;
+  const startKey = sy * 100 + sm;
+  if (key < startKey) return OLD_WAGE_CEILING;
+  if (key > startKey) return NEW_WAGE_CEILING;
+  const total = getDaysInMonth(month, year);
+  const oldDays = sd - 1;
+  return Math.round((oldDays * OLD_WAGE_CEILING + (total - oldDays) * NEW_WAGE_CEILING) / total);
+}
+
 export default function EpfoEsicPage() {
   const { toast } = useToast();
   const { data: user } = useCurrentUser();
@@ -79,8 +95,9 @@ export default function EpfoEsicPage() {
       const da = sal ? Math.round(Number(sal.da)) : 0;
       const epfWages = basicWage + da;
       const ncpDays = grossWages > 0 ? 0 : totalDays;
-      const epsWages = epfWages > 15000 ? 15000 : epfWages;
-      const edliWages = epsWages > 15000 ? 15000 : epsWages;
+      const wageCeiling = getEpfWageCeiling(month, year);
+      const epsWages = epfWages > wageCeiling ? wageCeiling : epfWages;
+      const edliWages = epsWages;
       const epfContri = Math.round(epfWages * 0.12);
       const epsContri = Math.round(epsWages * 0.0833);
       const epfEpsDiff = epfContri - epsContri;
