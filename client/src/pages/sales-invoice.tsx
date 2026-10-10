@@ -33,6 +33,10 @@ interface PurchaseOrderType {
   poDate: string;
   poAmount: string;
   clientName: string;
+  closed?: boolean;
+  closeRemarks?: string | null;
+  closedAt?: string | null;
+  closedBy?: string | null;
   createdBy: string | null;
 }
 
@@ -40,6 +44,7 @@ interface SalesInvoice {
   id: number;
   slNo: number;
   poId: number | null;
+  poIds?: string | null;
   clientName: string;
   billDate: string;
   billNumber: string;
@@ -56,6 +61,12 @@ interface SalesInvoice {
 }
 
 const MONTHS = ["January","February","March","April","May","June","July","August","September","October","November","December"];
+
+function invPoIds(inv: { poId?: number | null; poIds?: string | null }): number[] {
+  const ids = (inv.poIds || "").split(",").map(s => Number(s.trim())).filter(n => Number.isInteger(n) && n > 0);
+  if (ids.length > 0) return ids;
+  return inv.poId ? [inv.poId] : [];
+}
 
 function fmtDate(d: string | null | undefined) {
   if (!d) return "—";
@@ -195,7 +206,7 @@ function InvoiceFormDialog({ invoice, onClose, clients, purchaseOrders, allInvoi
   const [billDate, setBillDate] = useState<Date>(invoice?.billDate ? new Date(invoice.billDate) : new Date());
   const [billNumber, setBillNumber] = useState(invoice?.billNumber || "");
   const [billNumberAuto, setBillNumberAuto] = useState(false);
-  const [selectedPoId, setSelectedPoId] = useState<string>(invoice?.poId ? String(invoice.poId) : "none");
+  const [selectedPoIds, setSelectedPoIds] = useState<number[]>(invoice ? invPoIds(invoice) : []);
   const [bypassPO, setBypassPO] = useState(false);
   const [billAmount, setBillAmount] = useState(invoice ? Number(invoice.billAmount) : 0);
   const [gstPercent, setGstPercent] = useState(invoice ? Number(invoice.gstPercent) : 5);
@@ -210,25 +221,29 @@ function InvoiceFormDialog({ invoice, onClose, clients, purchaseOrders, allInvoi
   const totalBillAmount = Math.round((billAmount + gstAmount) * 100) / 100;
   const tdsAmount = Math.round(billAmount * tdsPercent / 100 * 100) / 100;
 
+  const linkedPoIds = invoice ? invPoIds(invoice) : [];
   const clientPOs = purchaseOrders.filter(po => {
     if (po.clientName !== clientName) return false;
     // Always keep the currently linked PO (so edit mode doesn't lose its selection)
-    if (invoice?.poId && po.id === invoice.poId) return true;
+    if (linkedPoIds.includes(po.id)) return true;
+    if (po.closed) return false;
     // Exclude POs that are fully consumed (balance ≤ 0)
     const used = allInvoices
-      .filter(inv => inv.poId === po.id && inv.id !== invoice?.id)
+      .filter(inv => invPoIds(inv).includes(po.id) && inv.id !== invoice?.id)
       .reduce((sum, inv) => sum + Number(inv.billAmount), 0);
     const balance = Math.round((Number(po.poAmount) - used) * 100) / 100;
     return balance > 0;
   }).sort((a, b) => new Date(b.poDate).getTime() - new Date(a.poDate).getTime());
 
-  const selectedPO = selectedPoId !== "none" ? purchaseOrders.find(po => po.id === Number(selectedPoId)) : null;
-  const poUsedAmount = selectedPO
+  const selectedPOs = purchaseOrders.filter(po => selectedPoIds.includes(po.id));
+  const selectedPO = selectedPOs.length > 0 ? selectedPOs[0] : null;
+  const poTotalAmount = selectedPOs.reduce((s, p) => s + Number(p.poAmount), 0);
+  const poUsedAmount = selectedPOs.length > 0
     ? allInvoices
-        .filter(inv => inv.poId === selectedPO.id && inv.id !== invoice?.id)
+        .filter(inv => inv.id !== invoice?.id && invPoIds(inv).some(i => selectedPoIds.includes(i)))
         .reduce((sum, inv) => sum + Number(inv.billAmount), 0)
     : 0;
-  const poBalance = selectedPO ? Math.round((Number(selectedPO.poAmount) - poUsedAmount) * 100) / 100 : 0;
+  const poBalance = selectedPOs.length > 0 ? Math.round((poTotalAmount - poUsedAmount) * 100) / 100 : 0;
   const isBillExceedsPO = selectedPO && !bypassPO ? billAmount > poBalance : false;
 
   useEffect(() => {
@@ -249,7 +264,7 @@ function InvoiceFormDialog({ invoice, onClose, clients, purchaseOrders, allInvoi
   }, [clientName, billDate, isEdit, clients]);
 
   useEffect(() => {
-    setSelectedPoId(invoice?.poId ? String(invoice.poId) : "none");
+    setSelectedPoIds(invoice ? invPoIds(invoice) : []);
   }, [clientName]);
 
   const billNumberPattern = /^DJ-[A-Z]{2,5}-\d{2}-\d{3,}$/;
@@ -340,7 +355,8 @@ function InvoiceFormDialog({ invoice, onClose, clients, purchaseOrders, allInvoi
       paymentReceivedDate: paymentReceivedDate ? format(paymentReceivedDate, "yyyy-MM-dd") : null,
       paymentReceivedAmount,
       utrNo: utrNo.trim() || null,
-      poId: selectedPoId !== "none" ? Number(selectedPoId) : null,
+      poId: selectedPoIds[0] ?? null,
+      poIds: selectedPoIds.join(","),
       bypassPO,
     };
     if (isEdit) {
@@ -434,30 +450,44 @@ function InvoiceFormDialog({ invoice, onClose, clients, purchaseOrders, allInvoi
           )}
         </div>
         <div className="space-y-2">
-          <Select value={selectedPoId} onValueChange={setSelectedPoId} data-testid="select-po">
-            <SelectTrigger className="h-9 border-cyan-200 dark:border-cyan-800" data-testid="select-po-trigger">
-              <SelectValue placeholder="Select PO (optional)" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="none">No PO</SelectItem>
+          <Popover>
+            <PopoverTrigger asChild>
+              <Button type="button" variant="outline" className="w-full h-9 justify-between font-normal border-cyan-200 dark:border-cyan-800" data-testid="select-po-trigger">
+                <span className="truncate">{selectedPOs.length ? selectedPOs.map(p => p.poNumber).join(", ") : "Select PO(s) (optional, multiple allowed)"}</span>
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent className="w-[420px] max-w-[90vw] p-2 max-h-72 overflow-y-auto" align="start">
+              {clientPOs.length === 0 && <div className="p-2 text-sm text-muted-foreground">No POs available</div>}
               {clientPOs.map(po => {
                 const usedAmt = allInvoices
-                  .filter(inv => inv.poId === po.id && inv.id !== invoice?.id)
+                  .filter(inv => invPoIds(inv).includes(po.id) && inv.id !== invoice?.id)
                   .reduce((sum, inv) => sum + Number(inv.billAmount), 0);
                 const balAmt = Math.round((Number(po.poAmount) - usedAmt) * 100) / 100;
                 return (
-                  <SelectItem key={po.id} value={String(po.id)}>
-                    {po.poNumber} — {fmtDate(po.poDate)} &nbsp;|&nbsp; Amt: {fmtCurrency(po.poAmount)} &nbsp;|&nbsp; Bal: {fmtCurrency(balAmt)}
-                  </SelectItem>
+                  <label key={po.id} className="flex items-start gap-2 p-1.5 text-sm cursor-pointer rounded hover:bg-muted" data-testid={`option-po-${po.id}`}>
+                    <Checkbox
+                      checked={selectedPoIds.includes(po.id)}
+                      onCheckedChange={() => setSelectedPoIds(prev => prev.includes(po.id) ? prev.filter(i => i !== po.id) : [...prev, po.id])}
+                    />
+                    <span>
+                      {po.poNumber} — {fmtDate(po.poDate)} | Amt: {fmtCurrency(po.poAmount)} | Bal: {fmtCurrency(balAmt)}
+                      {po.closed ? " [CLOSED]" : ""}
+                    </span>
+                  </label>
                 );
               })}
-            </SelectContent>
-          </Select>
+            </PopoverContent>
+          </Popover>
+          {selectedPOs.length > 0 && (
+            <div className="text-xs text-cyan-800 dark:text-cyan-200 space-y-0.5">
+              {selectedPOs.map(p => <div key={p.id}>PO No: <b>{p.poNumber}</b> · PO Date: <b>{fmtDate(p.poDate)}</b></div>)}
+            </div>
+          )}
           {selectedPO && (
             <div className="grid grid-cols-3 gap-2 text-xs">
               <div className="bg-cyan-100 dark:bg-cyan-900/30 rounded-md p-2 text-center">
                 <p className="text-[10px] text-cyan-600 dark:text-cyan-400">PO Amount</p>
-                <p className="font-mono font-bold text-cyan-800 dark:text-cyan-200">{fmtCurrency(selectedPO.poAmount)}</p>
+                <p className="font-mono font-bold text-cyan-800 dark:text-cyan-200">{fmtCurrency(poTotalAmount)}</p>
               </div>
               <div className="bg-amber-100 dark:bg-amber-900/30 rounded-md p-2 text-center">
                 <p className="text-[10px] text-amber-600 dark:text-amber-400">Used</p>
@@ -766,6 +796,42 @@ export default function SalesInvoicePage() {
     },
   });
 
+  const closePoMutation = useMutation({
+    mutationFn: async ({ id, remarks }: { id: number; remarks: string }) => {
+      await apiRequest("POST", `/api/purchase-orders/${id}/close`, { remarks });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/purchase-orders"] });
+      toast({ title: "PO Closed", description: "Purchase Order closed manually" });
+    },
+    onError: (err: any) => {
+      toast({ title: "Error", description: err.message, variant: "destructive" });
+    },
+  });
+
+  const reopenPoMutation = useMutation({
+    mutationFn: async (id: number) => {
+      await apiRequest("POST", `/api/purchase-orders/${id}/reopen`);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/purchase-orders"] });
+      toast({ title: "PO Reopened", description: "Purchase Order reopened" });
+    },
+    onError: (err: any) => {
+      toast({ title: "Error", description: err.message, variant: "destructive" });
+    },
+  });
+
+  const handleClosePo = (po: PurchaseOrderType) => {
+    const remarks = window.prompt(`Close PO ${po.poNumber}? Enter remarks (required):`, "");
+    if (remarks === null) return;
+    if (!remarks.trim()) {
+      toast({ title: "Remarks required", description: "Please enter remarks to close the PO", variant: "destructive" });
+      return;
+    }
+    closePoMutation.mutate({ id: po.id, remarks: remarks.trim() });
+  };
+
   const years = Array.from(new Set(invoices.map(i => {
     try { return new Date(i.billDate).getFullYear(); } catch { return new Date().getFullYear(); }
   }))).sort((a, b) => b - a);
@@ -813,16 +879,16 @@ export default function SalesInvoicePage() {
   const closePoDialog = () => { setPoDialogOpen(false); setEditingPO(null); };
 
   const getPoBalance = (po: PurchaseOrderType) => {
-    const used = invoices.filter(inv => inv.poId === po.id).reduce((sum, inv) => sum + Number(inv.billAmount), 0);
+    const used = invoices.filter(inv => invPoIds(inv).includes(po.id)).reduce((sum, inv) => sum + Number(inv.billAmount), 0);
     return Math.round((Number(po.poAmount) - used) * 100) / 100;
   };
 
   const getPoUsed = (po: PurchaseOrderType) => {
-    return invoices.filter(inv => inv.poId === po.id).reduce((sum, inv) => sum + Number(inv.billAmount), 0);
+    return invoices.filter(inv => invPoIds(inv).includes(po.id)).reduce((sum, inv) => sum + Number(inv.billAmount), 0);
   };
 
   const getPoLinkedCount = (po: PurchaseOrderType) => {
-    return invoices.filter(inv => inv.poId === po.id).length;
+    return invoices.filter(inv => invPoIds(inv).includes(po.id)).length;
   };
 
   const filteredPOs = [...purchaseOrders]
@@ -890,10 +956,10 @@ export default function SalesInvoicePage() {
     pw.document.close();
   };
 
-  const getPoName = (poId: number | null) => {
-    if (!poId) return null;
-    const po = purchaseOrders.find(p => p.id === poId);
-    return po?.poNumber || null;
+  const getPoName = (inv: { poId?: number | null; poIds?: string | null }) => {
+    const names = invPoIds(inv).map(id => purchaseOrders.find(p => p.id === id)).filter(Boolean)
+      .map(p => `${p!.poNumber} (${fmtDate(p!.poDate)})`);
+    return names.length ? names.join(", ") : null;
   };
 
   return (
@@ -929,7 +995,7 @@ export default function SalesInvoicePage() {
             </DialogContent>
           </Dialog>
 
-          {viewingInvoice && <ViewInvoiceDialog invoice={viewingInvoice} onClose={() => setViewingInvoice(null)} poName={getPoName(viewingInvoice.poId)} onEdit={() => openEdit(viewingInvoice)} />}
+          {viewingInvoice && <ViewInvoiceDialog invoice={viewingInvoice} onClose={() => setViewingInvoice(null)} poName={getPoName(viewingInvoice)} onEdit={() => openEdit(viewingInvoice)} />}
 
           <Dialog open={poDialogOpen} onOpenChange={(o) => { if (!o) closePoDialog(); }}>
             <DialogContent className="max-w-lg">
@@ -954,7 +1020,7 @@ export default function SalesInvoicePage() {
                 <p className="text-xs text-muted-foreground mt-0.5">{viewingPo?.clientName} &nbsp;•&nbsp; PO Amount: <span className="font-mono font-semibold">{fmtCurrency(viewingPo?.poAmount ?? 0)}</span> &nbsp;•&nbsp; Date: {fmtDate(viewingPo?.poDate)}</p>
               </DialogHeader>
               {viewingPo && (() => {
-                const linked = invoices.filter(inv => inv.poId === viewingPo.id);
+                const linked = invoices.filter(inv => invPoIds(inv).includes(viewingPo.id));
                 const totalBill = linked.reduce((s, i) => s + Number(i.billAmount), 0);
                 const totalReceived = linked.reduce((s, i) => s + Number(i.paymentReceivedAmount), 0);
                 const balance = Number(viewingPo.poAmount) - totalBill;
@@ -1166,11 +1232,21 @@ export default function SalesInvoicePage() {
                               <ClipboardList className="w-5 h-5" />
                             </div>
                             <div>
-                              <p className="font-bold text-sm">{po.poNumber}</p>
+                              <p className="font-bold text-sm">{po.poNumber} {po.closed && <Badge variant="outline" className="ml-1 text-[10px] border-red-300 text-red-600">Closed</Badge>}</p>
                               <p className="text-xs text-muted-foreground">{po.clientName} • {fmtDate(po.poDate)}</p>
+                              {po.closed && po.closeRemarks && <p className="text-[11px] text-red-600 dark:text-red-400">Remarks: {po.closeRemarks}{po.closedBy ? ` (by ${po.closedBy})` : ""}</p>}
                             </div>
                           </div>
                           <div className="flex items-center gap-2">
+                            {po.closed ? (
+                              <Button size="sm" variant="outline" className="h-7 text-xs border-green-200 text-green-600" onClick={() => reopenPoMutation.mutate(po.id)} data-testid={`button-reopen-po-${po.id}`}>
+                                Reopen
+                              </Button>
+                            ) : (
+                              <Button size="sm" variant="outline" className="h-7 text-xs border-orange-200 text-orange-600" onClick={() => handleClosePo(po)} data-testid={`button-close-po-${po.id}`}>
+                                Close PO
+                              </Button>
+                            )}
                             <Button size="sm" variant="outline" className="h-7 text-xs border-blue-200 text-blue-600" onClick={() => openEditPO(po)} data-testid={`button-edit-po-${po.id}`}>
                               <Pencil className="w-3 h-3 mr-1" /> Edit
                             </Button>
@@ -1237,8 +1313,8 @@ export default function SalesInvoicePage() {
                 if (waRows.length === 0) return;
                 const fmtAmt = (v: any) => "\u20B9" + Number(v).toLocaleString("en-IN", { minimumFractionDigits: 2 });
                 const lines = waRows.map((inv, idx) => {
-                  const po = inv.poId ? purchaseOrders.find(p => p.id === inv.poId) : null;
-                  return `${idx + 1}. Bill No: ${inv.billNumber}\n   Bill Date: ${fmtDate(inv.billDate)}\n   PO No: ${po ? po.poNumber : "-"}\n   With GST Amount: ${fmtAmt(inv.totalBillAmount)}`;
+                  const poList = invPoIds(inv).map(id => purchaseOrders.find(p => p.id === id)).filter(Boolean) as PurchaseOrderType[];
+                  return `${idx + 1}. Bill No: ${inv.billNumber}\n   Bill Date: ${fmtDate(inv.billDate)}\n   PO No: ${poList.length ? poList.map(p => p.poNumber).join(", ") : "-"}\n   With GST Amount: ${fmtAmt(inv.totalBillAmount)}`;
                 });
                 const total = waRows.reduce((sum, i) => sum + Number(i.totalBillAmount), 0);
                 const uniqueClients = Array.from(new Set(waRows.map(i => i.clientName)));
@@ -1340,13 +1416,13 @@ export default function SalesInvoicePage() {
                       ${mode !== "gst" ? "<th>TDS</th><th>To Receive</th>" : ""}
                     </tr></thead>
                     <tbody>${printRows.map((inv, idx) => {
-                      const po = inv.poId ? purchaseOrders.find(p => p.id === inv.poId) : null;
+                      const poList = invPoIds(inv).map(id => purchaseOrders.find(p => p.id === id)).filter(Boolean) as PurchaseOrderType[];
                       const toRec = Number(inv.totalBillAmount) - Number(inv.tdsAmount);
                       return `<tr>
                         <td class="center">${idx + 1}</td>
                         ${isSingleClient ? "" : `<td>${inv.clientName}</td>`}
-                        <td>${po ? po.poNumber : "-"}</td>
-                        <td class="center">${po ? fmtDate(po.poDate) : "-"}</td>
+                        <td>${poList.length ? poList.map(p => p.poNumber).join("<br>") : "-"}</td>
+                        <td class="center">${poList.length ? poList.map(p => fmtDate(p.poDate)).join("<br>") : "-"}</td>
                         <td>${inv.billNumber}</td>
                         <td class="center">${fmtDate(inv.billDate)}</td>
                         <td class="right">${Number(inv.billAmount).toLocaleString("en-IN", {minimumFractionDigits:2})}</td>
@@ -1645,7 +1721,7 @@ export default function SalesInvoicePage() {
                               <span className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-violet-100 dark:bg-violet-900 text-violet-700 dark:text-violet-300 text-xs font-bold">{inv.slNo}</span>
                             </td>
                             <td className="py-2.5 px-3 font-medium text-xs">{inv.clientName}</td>
-                            <td className="py-2.5 px-3 text-xs">{getPoName(inv.poId) ? <Badge variant="outline" className="text-[10px] border-cyan-300 text-cyan-700 dark:border-cyan-700 dark:text-cyan-400">{getPoName(inv.poId)}</Badge> : <span className="text-muted-foreground">—</span>}</td>
+                            <td className="py-2.5 px-3 text-xs">{getPoName(inv) ? <Badge variant="outline" className="text-[10px] border-cyan-300 text-cyan-700 dark:border-cyan-700 dark:text-cyan-400 whitespace-normal">{getPoName(inv)}</Badge> : <span className="text-muted-foreground">—</span>}</td>
                             <td className="py-2.5 px-3 text-xs">{fmtDate(inv.billDate)}</td>
                             <td className="py-2.5 px-3 font-mono text-xs">{inv.billNumber}</td>
                             <td className="py-2.5 px-3 text-right font-mono text-xs">{fmtCurrency(inv.billAmount)}</td>

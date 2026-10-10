@@ -34,6 +34,10 @@ function toDisplayDate(d: string): string {
   return d;
 }
 
+function splitList(s: string): string[] {
+  return (s || "").split(",").map(x => x.trim()).filter(Boolean);
+}
+
 function toInputDate(d: string): string {
   if (/^\d{2}-\d{2}-\d{4}$/.test(d)) {
     const [day, m, y] = d.split("-");
@@ -228,8 +232,8 @@ function buildPrintHtml(inv: {
             <td class="b" colspan="2" style="text-align:center;font-weight:700;padding:4px;">Vendor Code</td>
           </tr>
           <tr>
-            <td class="b" colspan="2" style="text-align:center;font-weight:700;padding:4px;">${esc(inv.poNumber)}</td>
-            <td class="b" colspan="2" style="text-align:center;font-weight:700;padding:4px;">${esc(inv.poDate)}</td>
+            <td class="b" colspan="2" style="text-align:center;font-weight:700;padding:4px;">${esc(inv.poNumber).split(/\s*,\s*/).join("<br>")}</td>
+            <td class="b" colspan="2" style="text-align:center;font-weight:700;padding:4px;">${esc(inv.poDate).split(/\s*,\s*/).join("<br>")}</td>
             <td class="b" colspan="2" style="text-align:center;font-weight:700;padding:4px;">${esc(inv.vendorCode)}</td>
           </tr>
         </table>
@@ -370,7 +374,7 @@ export function TaxInvoiceTab({ clients }: { clients: ClientOption[] }) {
   const queryClient = useQueryClient();
   const { data: invoices = [], isLoading } = useQuery<TaxInvoice[]>({ queryKey: ["/api/tax-invoices"] });
   const { data: allMasterItems = [] } = useQuery<ItemMasterOption[]>({ queryKey: ["/api/item-master"] });
-  const { data: purchaseOrders = [] } = useQuery<{ id: number; poNumber: string; poDate: string; poAmount: string; clientName: string }[]>({ queryKey: ["/api/purchase-orders"] });
+  const { data: purchaseOrders = [] } = useQuery<{ id: number; poNumber: string; poDate: string; poAmount: string; clientName: string; closed?: boolean; closeRemarks?: string | null }[]>({ queryKey: ["/api/purchase-orders"] });
   const masterItems = allMasterItems.filter(mi => mi.itemType === "sales" || mi.itemType === "both");
 
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -390,6 +394,21 @@ export function TaxInvoiceTab({ clients }: { clients: ClientOption[] }) {
   const [notes, setNotes] = useState("");
   const [items, setItems] = useState<TaxInvoiceItem[]>([emptyItem()]);
 
+  function togglePo(po: { poNumber: string; poDate: string }) {
+    const numbers = splitList(poNumber);
+    const dates = splitList(poDate);
+    const idx = numbers.indexOf(po.poNumber);
+    if (idx >= 0) {
+      numbers.splice(idx, 1);
+      if (dates.length > idx) dates.splice(idx, 1);
+    } else {
+      numbers.push(po.poNumber);
+      dates.push(toDisplayDate(po.poDate));
+    }
+    setPoNumber(numbers.join(", "));
+    setPoDate(dates.join(", "));
+  }
+
   function resetForm() {
     setInvoiceNumber(""); setInvoiceDate(""); setPoNumber(""); setPoDate(""); setVendorCode("");
     setBillToName(""); setBillToAddress(""); setPlaceOfSupply(""); setBillToGstin("");
@@ -407,7 +426,7 @@ export function TaxInvoiceTab({ clients }: { clients: ClientOption[] }) {
     setInvoiceNumber(inv.invoiceNumber);
     setInvoiceDate(toInputDate(inv.invoiceDate));
     setPoNumber(inv.poNumber || "");
-    setPoDate(toInputDate(inv.poDate || ""));
+    setPoDate(splitList(inv.poDate || "").map(toDisplayDate).join(", "));
     setVendorCode(inv.vendorCode || "");
     setBillToName(inv.billToName);
     setBillToAddress(inv.billToAddress || "");
@@ -425,7 +444,7 @@ export function TaxInvoiceTab({ clients }: { clients: ClientOption[] }) {
     setInvoiceNumber("");
     setInvoiceDate(toInputDate(inv.invoiceDate));
     setPoNumber(inv.poNumber || "");
-    setPoDate(toInputDate(inv.poDate || ""));
+    setPoDate(splitList(inv.poDate || "").map(toDisplayDate).join(", "));
     setVendorCode(inv.vendorCode || "");
     setBillToName(inv.billToName);
     setBillToAddress(inv.billToAddress || "");
@@ -506,8 +525,8 @@ export function TaxInvoiceTab({ clients }: { clients: ClientOption[] }) {
       const payload = {
         invoiceNumber: invoiceNumber.trim(),
         invoiceDate: toDisplayDate(invoiceDate),
-        poNumber,
-        poDate: toDisplayDate(poDate),
+        poNumber: splitList(poNumber).join(", "),
+        poDate: splitList(poDate).map(toDisplayDate).join(", "),
         vendorCode,
         billToName: billToName.trim(),
         billToAddress, placeOfSupply, billToGstin,
@@ -527,7 +546,9 @@ export function TaxInvoiceTab({ clients }: { clients: ClientOption[] }) {
       const gstAmount = Math.round(validItems.reduce((s, it) => s + itemIgst(it), 0) * 100) / 100;
       const totalBillAmount = Math.round((billAmount + gstAmount) * 100) / 100;
       const gstPercent = billAmount > 0 ? Math.round((gstAmount / billAmount) * 10000) / 100 : 0;
-      const matchedPo = poNumber.trim() ? purchaseOrders.find(p => p.poNumber === poNumber.trim()) : undefined;
+      const matchedPoList = splitList(poNumber).map(n => purchaseOrders.find(p => p.poNumber === n)).filter(Boolean) as typeof purchaseOrders;
+      const matchedPo = matchedPoList[0];
+      const matchedPoIds = matchedPoList.map(p => p.id).join(",");
 
       if (editing) {
         await apiRequest("PUT", `/api/tax-invoices/${editing.id}`, payload);
@@ -553,6 +574,7 @@ export function TaxInvoiceTab({ clients }: { clients: ClientOption[] }) {
                 tdsPercent: tdsPct,
                 tdsAmount: Math.round(billAmount * tdsPct) / 100,
                 poId: matchedPo ? matchedPo.id : null,
+                poIds: matchedPoIds,
                 bypassPO: true,
               };
               const res = await fetch(`/api/sales-invoices/${match.id}`, {
@@ -592,6 +614,7 @@ export function TaxInvoiceTab({ clients }: { clients: ClientOption[] }) {
           paymentReceivedAmount: 0,
           utrNo: null,
           poId: matchedPo ? matchedPo.id : null,
+          poIds: matchedPoIds,
           bypassPO: true,
         };
         const res = await fetch("/api/sales-invoices", {
@@ -656,20 +679,25 @@ export function TaxInvoiceTab({ clients }: { clients: ClientOption[] }) {
     if (!invoiceDate) { toast({ title: "Missing", description: "Invoice Date is required", variant: "destructive" }); return; }
     if (!billToName.trim()) { toast({ title: "Missing", description: "Bill To name is required", variant: "destructive" }); return; }
     if (!items.some(it => it.itemName.trim())) { toast({ title: "Missing", description: "Add at least one line item", variant: "destructive" }); return; }
-    const matchedPo = poNumber.trim() ? purchaseOrders.find(p => p.poNumber === poNumber.trim()) : undefined;
+    const matchedPos = splitList(poNumber)
+      .map(n => purchaseOrders.find(p => p.poNumber === n))
+      .filter((p): p is NonNullable<typeof p> => !!p);
+    const matchedPo = matchedPos.length > 0 ? matchedPos[0] : undefined;
     setPoChecking(true);
     try {
       if (matchedPo) {
         const taxableTotal = Math.round(items.filter(it => it.itemName.trim()).reduce((s, it) => s + itemTotal(it), 0) * 100) / 100;
-        const poAmt = Number(matchedPo.poAmount) || 0;
+        // With several POs the invoice is checked against their combined amount
+        const poAmt = matchedPos.reduce((sum, p) => sum + (Number(p.poAmount) || 0), 0);
+        const matchedIds = new Set(matchedPos.map(p => p.id));
         // Cumulative check: one PO can hold multiple invoices, but all invoices together must not exceed the PO amount
         let usedAmount = 0;
         try {
           const res = await fetch("/api/sales-invoices", { credentials: "include" });
           if (res.ok) {
-            const salesList: { id: number; billNumber: string; billAmount: string; poId: number | null }[] = await res.json();
+            const salesList: { id: number; billNumber: string; billAmount: string; poId: number | null; poIds?: string | null }[] = await res.json();
             usedAmount = salesList
-              .filter(s => s.poId === matchedPo.id && (!editing || s.billNumber !== editing.invoiceNumber))
+              .filter(s => (!editing || s.billNumber !== editing.invoiceNumber) && (s.poIds ? s.poIds.split(",").map(Number) : (s.poId != null ? [s.poId] : [])).some(i => matchedIds.has(i)))
               .reduce((sum, s) => sum + (Number(s.billAmount) || 0), 0);
           }
         } catch { /* if fetch fails, fall back to single-invoice check */ }
@@ -927,33 +955,32 @@ export function TaxInvoiceTab({ clients }: { clients: ClientOption[] }) {
                 <Input value={vendorCode} onChange={e => setVendorCode(e.target.value)} data-testid="input-tax-vendor-code" />
               </div>
               <div>
-                <Label>Choose from PO</Label>
-                <Select
-                  value=""
-                  onValueChange={(v) => {
-                    const po = purchaseOrders.find(p => String(p.id) === v);
-                    if (po) {
-                      setPoNumber(po.poNumber);
-                      setPoDate(toInputDate(po.poDate));
-                    }
-                  }}
-                >
-                  <SelectTrigger data-testid="select-tax-po"><SelectValue placeholder="Select PO" /></SelectTrigger>
-                  <SelectContent>
-                    {(() => {
-                      const pool = billToName && purchaseOrders.some(p => p.clientName === billToName)
-                        ? purchaseOrders.filter(p => p.clientName === billToName)
-                        : purchaseOrders;
-                      const sorted = [...pool].sort((a, b) => new Date(b.poDate).getTime() - new Date(a.poDate).getTime());
-                      if (sorted.length === 0) return <SelectItem value="none" disabled>No purchase orders</SelectItem>;
-                      return sorted.map(p => (
-                        <SelectItem key={p.id} value={String(p.id)} data-testid={`option-tax-po-${p.id}`}>
-                          {p.poNumber} — {toDisplayDate(p.poDate)} — ₹{Number(p.poAmount).toLocaleString("en-IN", { minimumFractionDigits: 2 })} ({p.clientName})
-                        </SelectItem>
-                      ));
-                    })()}
-                  </SelectContent>
-                </Select>
+                <Label>Choose from PO (multiple allowed)</Label>
+                {(() => {
+                  const pool = billToName && purchaseOrders.some(p => p.clientName === billToName)
+                    ? purchaseOrders.filter(p => p.clientName === billToName)
+                    : purchaseOrders;
+                  const chosen = splitList(poNumber);
+                  const sorted = [...pool].filter(p => !p.closed || chosen.includes(p.poNumber)).sort((a, b) => new Date(b.poDate).getTime() - new Date(a.poDate).getTime());
+                  return (
+                    <Popover>
+                      <PopoverTrigger asChild>
+                        <Button type="button" variant="outline" className="w-full justify-between font-normal" data-testid="select-tax-po">
+                          <span className="truncate">{chosen.length ? `${chosen.length} PO selected` : "Select PO"}</span>
+                        </Button>
+                      </PopoverTrigger>
+                      <PopoverContent className="w-[420px] max-w-[90vw] p-2 max-h-72 overflow-y-auto" align="start">
+                        {sorted.length === 0 && <div className="p-2 text-sm text-muted-foreground">No purchase orders</div>}
+                        {sorted.map(p => (
+                          <label key={p.id} className="flex items-start gap-2 p-1.5 text-sm cursor-pointer rounded hover:bg-muted" data-testid={`option-tax-po-${p.id}`}>
+                            <Checkbox checked={chosen.includes(p.poNumber)} onCheckedChange={() => togglePo(p)} />
+                            <span>{p.poNumber} — {toDisplayDate(p.poDate)} — ₹{Number(p.poAmount).toLocaleString("en-IN", { minimumFractionDigits: 2 })} ({p.clientName}){p.closed ? " [CLOSED]" : ""}</span>
+                          </label>
+                        ))}
+                      </PopoverContent>
+                    </Popover>
+                  );
+                })()}
               </div>
               <div>
                 <Label>PO Number</Label>
@@ -961,7 +988,7 @@ export function TaxInvoiceTab({ clients }: { clients: ClientOption[] }) {
               </div>
               <div>
                 <Label>PO Date</Label>
-                <Input type="date" value={poDate} onChange={e => setPoDate(e.target.value)} data-testid="input-tax-po-date" />
+                <Input value={poDate} onChange={e => setPoDate(e.target.value)} placeholder="DD-MM-YYYY" data-testid="input-tax-po-date" />
               </div>
             </div>
 

@@ -274,8 +274,8 @@ export const taxInvoices = mysqlTable("tax_invoices", {
   id: int("id").autoincrement().primaryKey(),
   invoiceNumber: varchar("invoice_number", { length: 50 }).notNull(),
   invoiceDate: varchar("invoice_date", { length: 10 }).notNull(),
-  poNumber: varchar("po_number", { length: 100 }).default(""),
-  poDate: varchar("po_date", { length: 10 }).default(""),
+  poNumber: varchar("po_number", { length: 500 }).default(""),
+  poDate: varchar("po_date", { length: 255 }).default(""),
   vendorCode: varchar("vendor_code", { length: 50 }).default(""),
   billToName: varchar("bill_to_name", { length: 255 }).notNull(),
   billToAddress: text("bill_to_address"),
@@ -621,6 +621,10 @@ export const purchaseOrders = mysqlTable("purchase_orders", {
   poDate: text("po_date").notNull(),
   poAmount: decimal("po_amount", { precision: 14, scale: 2 }).default("0").notNull(),
   clientName: text("client_name").notNull(),
+  closed: boolean("closed").default(false).notNull(),
+  closeRemarks: text("close_remarks"),
+  closedAt: timestamp("closed_at"),
+  closedBy: text("closed_by"),
   createdBy: text("created_by"),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
@@ -633,6 +637,7 @@ export const salesInvoices = mysqlTable("sales_invoices", {
   id: int("id").autoincrement().primaryKey(),
   slNo: int("sl_no"),
   poId: int("po_id"),
+  poIds: varchar("po_ids", { length: 255 }),
   clientName: text("client_name").notNull(),
   billDate: text("bill_date").notNull(),
   billNumber: varchar("bill_number", { length: 100 }).notNull(),
@@ -891,6 +896,11 @@ export const selectSkillWageRateSchema = createSelectSchema(skillWageRates, { cr
 export const SKILL_CATEGORIES = ["Unskilled", "Semi Skilled", "Skilled", "High Skilled", "Partner"] as const;
 
 export type SalesInvoice = typeof salesInvoices.$inferSelect;
+export function salesInvoicePoIds(inv: { poId?: number | null; poIds?: string | null }): number[] {
+  const ids = (inv.poIds || "").split(",").map(s => Number(s.trim())).filter(n => Number.isInteger(n) && n > 0);
+  if (ids.length > 0) return ids;
+  return inv.poId ? [inv.poId] : [];
+}
 export const insertSalesInvoiceSchema = createInsertSchema(salesInvoices).omit({ id: true, slNo: true, createdAt: true, updatedAt: true });
 export const selectSalesInvoiceSchema = createSelectSchema(salesInvoices, {
   createdAt: z.string().or(z.date()),
