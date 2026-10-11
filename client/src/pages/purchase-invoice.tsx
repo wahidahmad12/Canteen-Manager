@@ -180,6 +180,15 @@ export default function PurchaseInvoice() {
   ]);
   const { toast } = useToast();
   const [, navigate] = useLocation();
+  const [lastSavedId, setLastSavedId] = useState<number | null>(() => {
+    const v = Number(localStorage.getItem("lastPurchaseInvoiceId"));
+    return v > 0 ? v : null;
+  });
+  const rememberSaved = (id?: number | null) => {
+    if (!id) return;
+    localStorage.setItem("lastPurchaseInvoiceId", String(id));
+    setLastSavedId(id);
+  };
   const createMutation = useCreatePurchaseInvoice();
   const updateMutation = useUpdatePurchaseInvoice();
   const { data: clients } = useClientNames();
@@ -444,12 +453,13 @@ export default function PurchaseInvoice() {
 
     if (editId) {
       updateMutation.mutate({ id: editId, ...payload }, {
-        onSuccess: () => { toast({ title: "Invoice updated successfully" }); },
+        onSuccess: () => { rememberSaved(editId); toast({ title: "Invoice updated successfully" }); },
         onError: (err) => toast({ title: "Error", description: err.message, variant: "destructive" }),
       });
     } else {
       createMutation.mutate(payload, {
         onSuccess: async (inv: any) => {
+          rememberSaved(inv?.id);
           toast({ title: `Invoice ${djInvoiceNo} created successfully` });
           // Stay on the form for quick entry: keep Date, Client and Vendor;
           // clear items and move DJ Invoice No to the next number automatically
@@ -515,9 +525,9 @@ export default function PurchaseInvoice() {
       <div className="max-w-5xl mx-auto space-y-4">
         {/* Header */}
         <div className="flex items-center gap-3">
-          <Link href="/purchase-invoice">
+          <Link href={lastSavedId ? `/purchase-invoice/${lastSavedId}/pdf` : "/"}>
             <Button variant="ghost" size="sm" className="gap-1.5 text-muted-foreground hover:text-foreground" data-testid="button-back">
-              <ArrowLeft className="w-4 h-4" /> Back
+              <ArrowLeft className="w-4 h-4" /> Back{lastSavedId ? " (Last Invoice)" : ""}
             </Button>
           </Link>
         </div>

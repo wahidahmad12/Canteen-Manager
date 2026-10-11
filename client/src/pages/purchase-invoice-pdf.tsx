@@ -55,6 +55,11 @@ export default function PurchaseInvoicePDF() {
   const balance = grandTotal - totalPaid;
 
   const fmt = (n: number) => n.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  const fmtDate = (d?: string | null) => {
+    if (!d) return "-";
+    const dt = new Date(d);
+    return isNaN(dt.getTime()) ? d : format(dt, "dd-MM-yyyy");
+  };
 
   return (
     <Layout>
@@ -121,6 +126,12 @@ export default function PurchaseInvoicePDF() {
                   <span>GST {Number(item.gstRate)}%</span>
                   <span className="text-right">+{fmt(Number(item.gstAmount))}</span>
                 </div>
+                {(item.mfgDate || item.expiryDate) && (
+                  <div className="flex justify-between text-[10px] text-muted-foreground print:text-gray-600 mt-1">
+                    <span>Mfg: {fmtDate(item.mfgDate)}</span>
+                    <span>Exp: {fmtDate(item.expiryDate)}</span>
+                  </div>
+                )}
               </div>
             ))}
           </div>
@@ -132,6 +143,8 @@ export default function PurchaseInvoicePDF() {
                   <th className="border border-border print:border-gray-300 px-2 py-1.5 text-center font-semibold">#</th>
                   <th className="border border-border print:border-gray-300 px-2 py-1.5 text-left font-semibold">Item Name</th>
                   <th className="border border-border print:border-gray-300 px-2 py-1.5 text-center font-semibold">UOM</th>
+                  <th className="border border-border print:border-gray-300 px-2 py-1.5 text-center font-semibold">Mfg Date</th>
+                  <th className="border border-border print:border-gray-300 px-2 py-1.5 text-center font-semibold">Expiry Date</th>
                   <th className="border border-border print:border-gray-300 px-2 py-1.5 text-right font-semibold">Qty</th>
                   <th className="border border-border print:border-gray-300 px-2 py-1.5 text-right font-semibold">Unit Price</th>
                   <th className="border border-border print:border-gray-300 px-2 py-1.5 text-right font-semibold">Total</th>
@@ -146,6 +159,8 @@ export default function PurchaseInvoicePDF() {
                     <td className="border border-border print:border-gray-300 px-2 py-1 text-center text-muted-foreground print:text-gray-600">{index + 1}</td>
                     <td className="border border-border print:border-gray-300 px-2 py-1 font-medium print:text-black">{item.itemName}</td>
                     <td className="border border-border print:border-gray-300 px-2 py-1 text-center print:text-gray-700">{item.uom}</td>
+                    <td className="border border-border print:border-gray-300 px-2 py-1 text-center print:text-black">{fmtDate(item.mfgDate)}</td>
+                    <td className="border border-border print:border-gray-300 px-2 py-1 text-center print:text-black">{fmtDate(item.expiryDate)}</td>
                     <td className="border border-border print:border-gray-300 px-2 py-1 text-right font-mono print:text-black">{Number(item.qty)}</td>
                     <td className="border border-border print:border-gray-300 px-2 py-1 text-right font-mono print:text-black">{fmt(Number(item.unitPrice))}</td>
                     <td className="border border-border print:border-gray-300 px-2 py-1 text-right font-mono print:text-black">{fmt(Number(item.totalPrice))}</td>
@@ -157,7 +172,7 @@ export default function PurchaseInvoicePDF() {
               </tbody>
               <tfoot>
                 <tr className="bg-gray-50 dark:bg-muted/30 print:bg-gray-50 font-semibold">
-                  <td colSpan={5} className="border border-border print:border-gray-300 px-2 py-1.5 text-right print:text-black">Totals:</td>
+                  <td colSpan={7} className="border border-border print:border-gray-300 px-2 py-1.5 text-right print:text-black">Totals:</td>
                   <td className="border border-border print:border-gray-300 px-2 py-1.5 text-right font-mono print:text-black">{fmt(totalAmount)}</td>
                   <td className="border border-border print:border-gray-300 px-2 py-1.5"></td>
                   <td className="border border-border print:border-gray-300 px-2 py-1.5 text-right font-mono print:text-black">{fmt(totalGst)}</td>
