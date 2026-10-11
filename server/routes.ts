@@ -1207,6 +1207,73 @@ export async function registerRoutes(
     }
   });
 
+  // === ITEM MASTER ROUTES ===
+  app.get(api.itemMaster.list.path, requireAuth, async (req, res) => {
+    try {
+      const itemType = req.query.type as string | undefined;
+      const items = await storage.getItemMasterItems(itemType);
+      res.json(items);
+    } catch (err: any) {
+      console.error("GET /api/item-master Error:", err);
+      res.status(500).json({ message: err.message });
+    }
+  });
+
+  const itemMasterDuplicate = (err: any) => {
+    const msg = String(err?.message || "");
+    return err?.code === "23505" || err?.code === "ER_DUP_ENTRY" || err?.errno === 1062 ||
+      msg.includes("already exists") || msg.toLowerCase().includes("duplicate");
+  };
+
+  app.post(api.itemMaster.create.path, requireAdmin, async (req, res) => {
+    try {
+      const input = api.itemMaster.create.input.parse(req.body);
+      const item = await storage.createItemMasterItem(input);
+      res.status(201).json(item);
+    } catch (err: any) {
+      if (err instanceof z.ZodError) {
+        return res.status(400).json({ message: err.errors[0].message, field: err.errors[0].path.join(".") });
+      }
+      if (itemMasterDuplicate(err)) {
+        return res.status(400).json({ message: String(err.message || "").includes("already exists") ? err.message : "This item name already exists." });
+      }
+      res.status(500).json({ message: err.message });
+    }
+  });
+
+  app.put(api.itemMaster.update.path, requireAdmin, async (req, res) => {
+    try {
+      const input = api.itemMaster.update.input.parse(req.body);
+      const item = await storage.updateItemMasterItem(Number(req.params.id), input);
+      res.json(item);
+    } catch (err: any) {
+      if (err instanceof z.ZodError) {
+        return res.status(400).json({ message: err.errors[0].message, field: err.errors[0].path.join(".") });
+      }
+      if (err?.message === "Item not found") return res.status(404).json({ message: "Item not found" });
+      if (itemMasterDuplicate(err)) return res.status(400).json({ message: "This item name already exists." });
+      res.status(500).json({ message: err.message });
+    }
+  });
+
+  app.delete(api.itemMaster.delete.path, requireAdmin, async (req, res) => {
+    try {
+      await storage.deleteItemMasterItem(Number(req.params.id));
+      res.status(204).send();
+    } catch (err: any) {
+      res.status(500).json({ message: err.message });
+    }
+  });
+
+  app.post('/api/item-master/sync-rates', requireAdmin, async (req, res) => {
+    try {
+      const result = await storage.syncItemMasterRates();
+      res.json(result);
+    } catch (e: any) {
+      res.status(500).json({ error: e.message });
+    }
+  });
+
   // ==========================================
   // EMPLOYEE MASTER API (GET ALL EMPLOYEES)
   // ==========================================
