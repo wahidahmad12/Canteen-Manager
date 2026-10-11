@@ -33,6 +33,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Checkbox } from "@/components/ui/checkbox";
 import { Loader2, Plus, Pencil, Trash2, Save, X, Lock, KeyRound, Building2, Users, UserPlus, Store, Package, Search, Shield, ShieldCheck, ArrowLeft, Settings, Phone, MapPin, Crown, User, ShoppingCart, Coins, RefreshCw, Link2, MessageSquare, Bell, AlertCircle, Info, CheckCircle, AlertTriangle } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
+import { ItemIdCards } from "@/components/item-id-cards";
 import { useToast } from "@/hooks/use-toast";
 import { useLocation } from "wouter";
 
@@ -1820,6 +1821,8 @@ export default function Admin() {
             )}
           </CardContent>
         </Card>
+
+        <ItemIdCards />
 
         {/* Banana Expense Rate Schedule */}
         <Card className="border border-amber-200 dark:border-amber-800/50" data-testid="card-banana-rates">

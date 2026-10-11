@@ -267,6 +267,8 @@ export const purchaseInvoiceItems = mysqlTable("purchase_invoice_items", {
   gstRate: decimal("gst_rate", { precision: 5, scale: 2 }).default("0"),
   gstAmount: decimal("gst_amount", { precision: 12, scale: 2 }).default("0"),
   netAmount: decimal("net_amount", { precision: 12, scale: 2 }).default("0"),
+  mfgDate: varchar("mfg_date", { length: 10 }),
+  expiryDate: varchar("expiry_date", { length: 10 }),
 });
 
 // Tax invoices (GST format)

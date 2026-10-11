@@ -542,6 +542,8 @@ export const api = {
           gstRate: z.coerce.number().default(0),
           gstAmount: z.coerce.number().default(0),
           netAmount: z.coerce.number().default(0),
+          mfgDate: z.string().nullable().optional(),
+          expiryDate: z.string().nullable().optional(),
         })),
       }),
       responses: {
@@ -570,10 +572,9 @@ export const api = {
           gstRate: z.coerce.number().default(0),
           gstAmount: z.coerce.number().default(0),
           netAmount: z.coerce.number().default(0),
+          mfgDate: z.string().nullable().optional(),
+          expiryDate: z.string().nullable().optional(),
         })).optional(),
-      }),
-      responses: {
-        200: purchaseInvoiceWithItemsSchema,
         404: errorSchemas.notFound,
       },
     },

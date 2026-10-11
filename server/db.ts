@@ -205,6 +205,8 @@ async function initPool(): Promise<void> {
       created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     )`,
     `ALTER TABLE purchase_invoice_payments ADD COLUMN IF NOT EXISTS payment_out_id INT NULL`,
+    `ALTER TABLE purchase_invoice_items ADD COLUMN IF NOT EXISTS mfg_date VARCHAR(10) NULL`,
+    `ALTER TABLE purchase_invoice_items ADD COLUMN IF NOT EXISTS expiry_date VARCHAR(10) NULL`,
     `ALTER TABLE payment_outs ADD COLUMN IF NOT EXISTS client_name VARCHAR(200) DEFAULT ''`,
     `CREATE TABLE IF NOT EXISTS tax_invoices (
       id INT AUTO_INCREMENT PRIMARY KEY,
