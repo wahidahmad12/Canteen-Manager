@@ -3118,6 +3118,12 @@ export async function registerRoutes(
       });
     } catch (err: any) { res.status(500).json({ message: err.message }); }
   });
+  app.get('/api/hul-snack-supply/yearly', requirePermission('salesinvoice'), async (req, res) => {
+    try {
+      const year = Number(req.query.year) || new Date().getFullYear();
+      res.json(await storage.getHulSnackSupplyYearly(year));
+    } catch (err: any) { res.status(500).json({ message: err.message }); }
+  });
   app.put('/api/hul-snack-supply', requirePermission('salesinvoice'), async (req, res) => {
     try {
       const month = Number(req.body?.month);
