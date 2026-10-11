@@ -10,7 +10,7 @@ import { Printer, Plus, Upload, Trash2, Pencil, Package } from "lucide-react";
 
 type DateOverride = { PurchaseDate?: string; MfgDate?: string; ExpDate?: string };
 type LocalItem = { ItemCode: string; ItemName: string } & DateOverride;
-type Row = { key: string; ItemCode: string; ItemName: string; local: boolean } & DateOverride;
+type Row = { key: string; ItemCode: string; ItemName: string; Category: string; local: boolean } & DateOverride;
 
 const LOCAL_KEY = "idCardLocalItems";
 const DATES_KEY = "idCardDates";
@@ -77,6 +77,7 @@ export function ItemIdCards() {
   const [dates, setDates] = useState<Record<string, DateOverride>>(() => load(DATES_KEY, {}));
   const [board, setBoard] = useState<Row[]>([]);
   const [search, setSearch] = useState("");
+  const [categoryFilter, setCategoryFilter] = useState("all");
   const [editing, setEditing] = useState<{ row: Row | null; isNew: boolean } | null>(null);
   const [form, setForm] = useState({ ItemCode: "", ItemName: "", PurchaseDate: "", MfgDate: "", ExpDate: "" });
 
@@ -94,16 +95,26 @@ export function ItemIdCards() {
       key: `db-${it.id}`,
       ItemCode: `P${String(it.id).padStart(4, "0")}`,
       ItemName: it.itemName,
+      Category: it.itemCategory || "General",
       local: false,
       ...(dates[`db-${it.id}`] || {}),
     }));
-    const loc: Row[] = localItems.map((it, i) => ({ key: `local-${i}`, local: true, ...it }));
+    const loc: Row[] = localItems.map((it, i) => ({ key: `local-${i}`, local: true, Category: "", ...it }));
     return [...db, ...loc];
   }, [masterItems, localItems, dates]);
 
+  const categories = useMemo(
+    () => Array.from(new Set(rows.map((r) => r.Category).filter(Boolean))).sort(),
+    [rows],
+  );
+
   const filtered = rows.filter((r) => {
     const q = search.toLowerCase();
-    return r.ItemCode.toLowerCase().includes(q) || r.ItemName.toLowerCase().includes(q);
+    const matchText =
+      r.ItemCode.toLowerCase().includes(q) ||
+      r.ItemName.toLowerCase().includes(q) ||
+      r.Category.toLowerCase().includes(q);
+    return matchText && (categoryFilter === "all" || r.Category === categoryFilter);
   });
 
   const nextCode = () => {
@@ -235,7 +246,11 @@ export function ItemIdCards() {
         <div className="flex flex-wrap items-center gap-3 justify-between">
           <h3 className="font-bold">Item Master (Database)</h3>
           <div className="flex gap-2 items-center">
-            <Input className="w-64" placeholder="Search by Name or Code..." value={search} onChange={(e) => setSearch(e.target.value)} />
+            <select className="h-9 rounded-md border bg-background px-2 text-sm" value={categoryFilter} onChange={(e) => setCategoryFilter(e.target.value)}>
+              <option value="all">All Categories</option>
+              {categories.map((c) => <option key={c} value={c}>{c}</option>)}
+            </select>
+            <Input className="w-64" placeholder="Search by Name, Code or Category..." value={search} onChange={(e) => setSearch(e.target.value)} />
             <Button variant="secondary" onClick={addAll}>Add All to Board</Button>
           </div>
         </div>
@@ -246,6 +261,7 @@ export function ItemIdCards() {
               <tr>
                 <th className="p-2 text-left">Item Code</th>
                 <th className="p-2 text-left">Item Name</th>
+                <th className="p-2 text-left">Category</th>
                 <th className="p-2 text-left">Purchase Date</th>
                 <th className="p-2 text-left">Mfg Date</th>
                 <th className="p-2 text-left">Exp Date</th>
@@ -257,6 +273,7 @@ export function ItemIdCards() {
                 <tr key={r.key} className="border-t">
                   <td className="p-2">{r.ItemCode}</td>
                   <td className="p-2">{r.ItemName}</td>
+                  <td className="p-2">{r.Category}</td>
                   <td className="p-2">{r.PurchaseDate}</td>
                   <td className="p-2">{r.MfgDate}</td>
                   <td className="p-2">{r.ExpDate}</td>
@@ -289,6 +306,7 @@ export function ItemIdCards() {
                 <div className="idc-body">
                   <p><span className="idc-label">ID:</span> <b>{item.ItemCode}</b></p>
                   <p className="idc-name">{item.ItemName}</p>
+                  {item.Category && <p style={{ textAlign: "center", fontWeight: "bold", color: "#555", fontSize: "7pt", margin: 0 }}>({item.Category})</p>}
                   <p className="idc-date"><span className="idc-label" style={{ color: "#0055ff" }}>Pur. Date:</span> <DateSpan value={item.PurchaseDate} color="#0055ff" /></p>
                   <p className="idc-date"><span className="idc-label" style={{ color: "#00b050" }}>MFG Date:</span> <DateSpan value={item.MfgDate} color="#00b050" /></p>
                   <p className="idc-date"><span className="idc-label" style={{ color: "#ff0000" }}>EXP Date:</span> <DateSpan value={item.ExpDate} color="#ff0000" /></p>
