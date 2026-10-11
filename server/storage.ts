@@ -3304,6 +3304,24 @@ export class DatabaseStorage implements IStorage {
       sugar: Number(r.sugar) || 0,
     }));
   }
+  async getHulSnackSupplyYearly(year: number): Promise<any[]> {
+    const [rows] = await db.execute(sql`
+      SELECT s.\`month\` AS month, SUM(s.chips) AS chips, SUM(s.biscuit) AS biscuit, SUM(s.sugar) AS sugar,
+             COALESCE(MAX(r.sugar_rate), 0) AS sugarRate
+      FROM hul_snack_supply s
+      LEFT JOIN hul_snack_rates r ON r.\`month\` = s.\`month\` AND r.\`year\` = s.\`year\`
+      WHERE s.\`year\` = ${year}
+      GROUP BY s.\`month\`
+      ORDER BY s.\`month\`
+    `);
+    return (rows as any[]).map(r => ({
+      month: Number(r.month),
+      chips: Number(r.chips) || 0,
+      biscuit: Number(r.biscuit) || 0,
+      sugar: Number(r.sugar) || 0,
+      sugarRate: Number(r.sugarRate) || 0,
+    }));
+  }
   async getHulSnackSugarRate(month: number, year: number): Promise<number> {
     const [rows] = await db.execute(sql`SELECT sugar_rate AS r FROM hul_snack_rates WHERE \`month\` = ${month} AND \`year\` = ${year}`);
     return Number((rows as any[])[0]?.r) || 0;

@@ -177,8 +177,12 @@ export function DateEntryDashboard({ year }: { year: number }) {
     queryFn: () => fetch(`/api/hul-kpf-exec-snacks/yearly-summary?year=${year}`, { credentials: 'include' }).then(r => r.json()),
   });
 
-  // PEC Ventures
-  const { data: pecCanteen = [] } = useQuery<any[]>({
+  const { data: hulSnackSupply = [] } = useQuery<any[]>({
+    queryKey: ['/api/hul-snack-supply/yearly', year],
+    queryFn: () => fetch(`/api/hul-snack-supply/yearly?year=${year}`, { credentials: 'include' }).then(r => r.ok ? r.json() : []),
+  });
+
+  // PEC Ventures  const { data: pecCanteen = [] } = useQuery<any[]>({
     queryKey: ['/api/pec-ventures-entries/yearly-summary', year],
     queryFn: () => fetch(`/api/pec-ventures-entries/yearly-summary?year=${year}`, { credentials: 'include' }).then(r => r.json()),
   });
@@ -278,6 +282,15 @@ export function DateEntryDashboard({ year }: { year: number }) {
   const hulKpfChart = buildMonthChart(hulKpf, ['breakfast','lunch','eveningSnacks','nightSnacks']);
   const hulTecChart = buildMonthChart(hulTec, ['breakfast','lunch','eveningSnacks','nightSnacks']);
   const hulExecChart = buildMonthChart(hulExec, ['snacks','biscuit','chips','coldDrinkWater','shiftOfficerBreakfast']);
+  const hulSnackChart = MONTHS_SHORT.map((name, i) => {
+    const r = (hulSnackSupply as any[]).find(x => Number(x.month) === i + 1) || {};
+    return { name, chips: Number(r.chips) || 0, biscuit: Number(r.biscuit) || 0, sugar: Number(r.sugar) || 0 };
+  });
+  const hulSnackTotals = {
+    chips: hulSnackChart.reduce((s, r) => s + r.chips, 0),
+    biscuit: hulSnackChart.reduce((s, r) => s + r.biscuit, 0),
+    sugar: hulSnackChart.reduce((s, r) => s + r.sugar, 0),
+  };
 
   // Combined HUL monthly (KPF+TEC combined)
   const hulCombinedChart = MONTHS_SHORT.map((name, i) => {
@@ -720,6 +733,21 @@ export function DateEntryDashboard({ year }: { year: number }) {
             <Bar dataKey="chips" name="Chips" fill={COLORS.chips} radius={[2,2,0,0]} />
             <Bar dataKey="coldDrinkWater" name="Cold Drink & Water" fill={COLORS.coldDrinkWater} radius={[2,2,0,0]} />
             <Bar dataKey="shiftOfficerBreakfast" name="SO Breakfast" fill="#ea580c" radius={[2,2,0,0]} />
+          </BarChart>
+        </ResponsiveContainer>
+      </ChartCard>
+
+      <ChartCard title={`HUL TEC Special Order — Snacks Supply (Chips ${hulSnackTotals.chips} / Biscuit ${hulSnackTotals.biscuit} / Sugar ${hulSnackTotals.sugar})`}>
+        <ResponsiveContainer width="100%" height={CHART_H}>
+          <BarChart data={hulSnackChart} margin={{ top: 5, right: 10, left: -10, bottom: 5 }}>
+            <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
+            <XAxis dataKey="name" tick={{ fontSize: 10 }} />
+            <YAxis tick={{ fontSize: 10 }} />
+            <Tooltip />
+            <Legend wrapperStyle={{ fontSize: 11 }} />
+            <Bar dataKey="chips" name="Chips" fill={COLORS.chips} radius={[2,2,0,0]} />
+            <Bar dataKey="biscuit" name="Biscuit" fill={COLORS.biscuit} radius={[2,2,0,0]} />
+            <Bar dataKey="sugar" name="Sugar" fill="#0f766e" radius={[2,2,0,0]} />
           </BarChart>
         </ResponsiveContainer>
       </ChartCard>

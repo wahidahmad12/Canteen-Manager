@@ -4105,6 +4105,17 @@ function HulSnackSupplyTab({ month, year }: { month: number; year: number }) {
                     {(['chips', 'biscuit', 'sugar'] as const).map(f => (
                       <td key={f} className="border border-slate-300 px-1 py-0.5">
                         <input type="number" min={0} className={inp} value={r[f]}
+                          id={`snack-${f}-${i}`}
+                          onKeyDown={e => {
+                            if (e.key === 'Enter' || e.key === 'ArrowDown') {
+                              e.preventDefault();
+                              const nx = document.getElementById(`snack-${f}-${i + 1}`) as HTMLInputElement | null;
+                              nx?.focus(); nx?.select();
+                            } else if (e.key === 'ArrowUp') {
+                              e.preventDefault();
+                              (document.getElementById(`snack-${f}-${i - 1}`) as HTMLInputElement | null)?.focus();
+                            }
+                          }}
                           onChange={e => setCell(i, f, e.target.value)}
                           data-testid={`input-snack-${f}-${i}`} />
                       </td>
@@ -5974,6 +5985,15 @@ function HulSummaryTab({ month, year }: { month: number; year: number }) {
     },
   });
 
+  const { data: yrSnackSupply = [] } = useQuery<any[]>({
+    queryKey: ['/api/hul-snack-supply/yearly', summaryYear],
+    enabled: viewMode === 'yearly',
+    queryFn: async () => {
+      const res = await fetch(`/api/hul-snack-supply/yearly?year=${summaryYear}`, { credentials: 'include' });
+      return res.ok ? res.json() : [];
+    },
+  });
+
   const isLoading = viewMode === 'monthly'
     ? (kpfLoading || tecLoading || execLoading || specialLoading)
     : (yrKpfLoading || yrTecLoading || yrExecLoading || yrSpecialLoading);
@@ -6666,6 +6686,54 @@ function HulSummaryTab({ month, year }: { month: number; year: number }) {
                           <td style={{ border:'1px solid #4c1d95', padding:'3px 8px', textAlign:'right', fontWeight:'bold', fontSize:11, color:'#fff' }}>
                             {yrSpecialGrand > 0 ? fmtINR(yrSpecialGrand) : '—'}
                           </td>
+                        </tr>
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              );
+            })()}
+
+            {/* TEC Special Order Snacks Supply — Yearly */}
+            {(() => {
+              const rowsY = yrSnackSupply.filter(r => selectedMonths.has(Number(r.month)));
+              const calc = (r: any) => r.chips * 5 + r.biscuit * 5 + r.sugar * r.sugarRate;
+              const gt = (f: 'chips'|'biscuit'|'sugar') => rowsY.reduce((s, r) => s + r[f], 0);
+              const grand = rowsY.reduce((s, r) => s + calc(r), 0);
+              const teal: React.CSSProperties = { ...thPurple, background:'#0f766e', fontSize:10 };
+              const totSt: React.CSSProperties = { border:'1px solid #115e59', padding:'3px 6px', textAlign:'center', fontWeight:'bold', fontSize:11, color:'#fff', background:'#0f766e' };
+              return (
+                <div className="border rounded-lg overflow-hidden mb-4">
+                  <div className="px-3 py-1.5 text-sm font-bold text-center text-white" style={{ background:'#0f766e' }}>
+                    TEC Special Order — Snacks For Sugar Supply — {yearLabel}
+                  </div>
+                  <div className="overflow-x-auto">
+                    <table className="w-full border-collapse" style={{ fontSize:10 }}>
+                      <thead>
+                        <tr>
+                          {['Month','Chips','Biscuit','Sugar','Sugar Rate (₹)','Amount (₹)'].map(h => <th key={h} style={teal}>{h}</th>)}
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {rowsY.length === 0 ? (
+                          <tr><td colSpan={6} style={{ border:'1px solid #ddd', padding:'6px', textAlign:'center', color:'#888', fontSize:10 }}>No snacks supply data for {yearLabel}</td></tr>
+                        ) : rowsY.map(r => (
+                          <tr key={r.month}>
+                            <td style={tdL}>{MONTHS[r.month-1]}</td>
+                            <td style={tdC}>{r.chips || '—'}</td>
+                            <td style={tdC}>{r.biscuit || '—'}</td>
+                            <td style={tdC}>{r.sugar || '—'}</td>
+                            <td style={tdC}>{r.sugarRate || '—'}</td>
+                            <td style={tdR}>{fmtINR(calc(r))}</td>
+                          </tr>
+                        ))}
+                        <tr>
+                          <td style={{ ...totSt, textAlign:'left' }}>Total</td>
+                          <td style={totSt}>{gt('chips')}</td>
+                          <td style={totSt}>{gt('biscuit')}</td>
+                          <td style={totSt}>{gt('sugar')}</td>
+                          <td style={totSt}></td>
+                          <td style={{ ...totSt, textAlign:'right' }}>{fmtINR(grand)}</td>
                         </tr>
                       </tbody>
                     </table>
