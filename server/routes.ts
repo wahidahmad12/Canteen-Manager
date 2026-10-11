@@ -3108,6 +3108,29 @@ export async function registerRoutes(
     await storage.deleteHulSpecialOrder(Number(req.params.id)); res.status(204).send();
   });
 
+  app.get('/api/hul-snack-supply', requirePermission('salesinvoice'), async (req, res) => {
+    try {
+      const month = Number(req.query.month) || new Date().getMonth() + 1;
+      const year = Number(req.query.year) || new Date().getFullYear();
+      res.json({
+        rows: await storage.getHulSnackSupply(month, year),
+        sugarRate: await storage.getHulSnackSugarRate(month, year),
+      });
+    } catch (err: any) { res.status(500).json({ message: err.message }); }
+  });
+  app.put('/api/hul-snack-supply', requirePermission('salesinvoice'), async (req, res) => {
+    try {
+      const month = Number(req.body?.month);
+      const year = Number(req.body?.year);
+      if (!month || !year || !Array.isArray(req.body?.rows)) {
+        return res.status(400).json({ message: "month, year and rows are required" });
+      }
+      await storage.saveHulSnackSupply(month, year, req.body.rows);
+      await storage.saveHulSnackSugarRate(month, year, Number(req.body.sugarRate) || 0);
+      res.json({ ok: true });
+    } catch (err: any) { res.status(500).json({ message: err.message }); }
+  });
+
   const quotationScope = (req: Request): { scope?: string; forbidden: boolean } => {
     if (req.session.role === 'admin') return { forbidden: false };
     const c = req.session.clientName;

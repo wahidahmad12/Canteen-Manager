@@ -3289,6 +3289,47 @@ export class DatabaseStorage implements IStorage {
     await db.delete(hulSpecialOrders).where(eq(hulSpecialOrders.id, id));
   }
 
+  // === HUL SNACK SUPPLY (TEC Special Order: Chips / Biscuit / Sugar per day) ===
+  async getHulSnackSupply(month: number, year: number): Promise<any[]> {
+    const [rows] = await db.execute(sql`
+      SELECT entry_date AS entryDate, chips, biscuit, sugar
+      FROM hul_snack_supply
+      WHERE \`month\` = ${month} AND \`year\` = ${year}
+      ORDER BY entry_date
+    `);
+    return (rows as any[]).map(r => ({
+      entryDate: r.entryDate,
+      chips: Number(r.chips) || 0,
+      biscuit: Number(r.biscuit) || 0,
+      sugar: Number(r.sugar) || 0,
+    }));
+  }
+  async getHulSnackSugarRate(month: number, year: number): Promise<number> {
+    const [rows] = await db.execute(sql`SELECT sugar_rate AS r FROM hul_snack_rates WHERE \`month\` = ${month} AND \`year\` = ${year}`);
+    return Number((rows as any[])[0]?.r) || 0;
+  }
+  async saveHulSnackSugarRate(month: number, year: number, rate: number): Promise<void> {
+    await db.execute(sql`
+      INSERT INTO hul_snack_rates (\`month\`, \`year\`, sugar_rate) VALUES (${month}, ${year}, ${rate})
+      ON DUPLICATE KEY UPDATE sugar_rate = VALUES(sugar_rate)
+    `);
+  }
+  async saveHulSnackSupply(month: number, year: number, rows: any[]): Promise<void> {
+    await db.execute(sql`DELETE FROM hul_snack_supply WHERE \`month\` = ${month} AND \`year\` = ${year}`);
+    for (const r of rows) {
+      const chips = Number(r.chips) || 0;
+      const biscuit = Number(r.biscuit) || 0;
+      const sugar = Number(r.sugar) || 0;
+      if (!r.entryDate || (!chips && !biscuit && !sugar)) continue;
+      await db.execute(sql`
+        INSERT INTO hul_snack_supply (\`month\`, \`year\`, entry_date, chips, biscuit, sugar)
+        VALUES (${month}, ${year}, ${String(r.entryDate)}, ${chips}, ${biscuit}, ${sugar})
+        ON DUPLICATE KEY UPDATE chips = VALUES(chips), biscuit = VALUES(biscuit), sugar = VALUES(sugar),
+          \`month\` = VALUES(\`month\`), \`year\` = VALUES(\`year\`)
+      `);
+    }
+  }
+
   // === QUOTATIONS (Open Quotation tracking) ===
   async getQuotations(clientScope?: string): Promise<any[]> {
     const [qRows] = await db.execute(sql`
