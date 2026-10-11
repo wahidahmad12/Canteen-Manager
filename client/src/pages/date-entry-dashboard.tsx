@@ -192,6 +192,24 @@ export function DateEntryDashboard({ year }: { year: number }) {
     queryFn: () => fetch(`/api/pec-ventures-entries/lunch-yearly-summary?year=${year}`, { credentials: 'include' }).then(r => r.json()),
   });
 
+  const { data: pecCustomYr = [] } = useQuery<any[]>({
+    queryKey: ['/api/pec-custom-items/yearly', year],
+    queryFn: () => fetch(`/api/pec-custom-items/yearly?year=${year}`, { credentials: 'include' }).then(r => r.ok ? r.json() : []),
+  });
+  const pecCustomNames: string[] = Array.from(new Set((pecCustomYr as any[]).map((c: any) => c.name as string)));
+  const pecCustomChart = MONTHS_SHORT.map((name, i) => {
+    const o: any = { name };
+    (pecCustomYr as any[]).filter((c: any) => c.month === i + 1).forEach((c: any) => { o[c.name] = c.amount; });
+    return o;
+  });
+  const CUSTOM_COLORS = ['#16a34a', '#ea580c', '#7c3aed', '#0891b2', '#be123c', '#4d7c0f'];
+
+  const { data: customForms = [] } = useQuery<any[]>({
+    queryKey: ['/api/client-forms/yearly', year],
+    queryFn: () => fetch(`/api/client-forms/yearly?year=${year}`, { credentials: 'include' }).then(r => r.ok ? r.json() : []),
+  });
+  const customClientNames: string[] = Array.from(new Set((customForms as any[]).map((r: any) => r.clientName as string)));
+
   // Previous year (for comparison)
   const prevYear = year - 1;
   const { data: pUblDate = [] } = useQuery<any[]>({
@@ -805,6 +823,50 @@ export function DateEntryDashboard({ year }: { year: number }) {
           </ResponsiveContainer>
         </ChartCard>
       </div>
+      {pecCustomNames.length > 0 && (
+        <ChartCard title="PEC Ventures — Additional Items (Monthly Amount ₹)">
+          <ResponsiveContainer width="100%" height={CHART_H}>
+            <BarChart data={pecCustomChart} margin={{ top: 5, right: 10, left: -10, bottom: 5 }}>
+              <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
+              <XAxis dataKey="name" tick={{ fontSize: 10 }} />
+              <YAxis tick={{ fontSize: 10 }} />
+              <Tooltip />
+              <Legend wrapperStyle={{ fontSize: 11 }} />
+              {pecCustomNames.map((nm, i) => (
+                <Bar key={nm} dataKey={nm} fill={CUSTOM_COLORS[i % CUSTOM_COLORS.length]} radius={[2,2,0,0]} />
+              ))}
+            </BarChart>
+          </ResponsiveContainer>
+        </ChartCard>
+      )}
+
+      {customClientNames.map(cn => {
+        const items = Array.from(new Set(customForms.filter((r: any) => r.clientName === cn).map((r: any) => r.label as string)));
+        const chart = MONTHS_SHORT.map((name, i) => {
+          const o: any = { name };
+          customForms.filter((r: any) => r.clientName === cn && r.month === i + 1).forEach((r: any) => { o[r.label] = r.amount; });
+          return o;
+        });
+        return (
+          <div key={cn}>
+            <SectionHeader title={cn} subtitle="Custom form — Monthly Amount (₹)" color="#0d9488" />
+            <ChartCard title={`${cn} — Monthly Amount ₹`}>
+              <ResponsiveContainer width="100%" height={CHART_H}>
+                <BarChart data={chart} margin={{ top: 5, right: 10, left: -10, bottom: 5 }}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
+                  <XAxis dataKey="name" tick={{ fontSize: 10 }} />
+                  <YAxis tick={{ fontSize: 10 }} />
+                  <Tooltip />
+                  <Legend wrapperStyle={{ fontSize: 11 }} />
+                  {items.map((nm, i) => (
+                    <Bar key={nm} dataKey={nm} fill={CUSTOM_COLORS[i % CUSTOM_COLORS.length]} radius={[2,2,0,0]} />
+                  ))}
+                </BarChart>
+              </ResponsiveContainer>
+            </ChartCard>
+          </div>
+        );
+      })}
 
       {/* ========== YEAR VS YEAR ========== */}
       <SectionHeader title={`${year} vs ${prevYear} — Year Comparison`} subtitle="This year compared with last year" color="#0ea5e9" />

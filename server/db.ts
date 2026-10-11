@@ -123,6 +123,39 @@ async function initPool(): Promise<void> {
       sugar_rate DECIMAL(10,2) NOT NULL DEFAULT 0,
       UNIQUE KEY uq_hul_snack_rates_month (year, month)
     )`,
+    `CREATE TABLE IF NOT EXISTS pec_custom_items (
+      id INT AUTO_INCREMENT PRIMARY KEY,
+      name VARCHAR(100) NOT NULL,
+      unit VARCHAR(20) NOT NULL DEFAULT 'pcs',
+      rate DECIMAL(12,3) NOT NULL DEFAULT 0,
+      active TINYINT(1) NOT NULL DEFAULT 1,
+      UNIQUE KEY uq_pec_custom_items_name (name)
+    )`,
+    `CREATE TABLE IF NOT EXISTS pec_custom_item_qty (
+      id INT AUTO_INCREMENT PRIMARY KEY,
+      item_id INT NOT NULL,
+      entry_date VARCHAR(10) NOT NULL,
+      qty DECIMAL(12,3) NOT NULL DEFAULT 0,
+      rate DECIMAL(12,3) NOT NULL DEFAULT 0,
+      UNIQUE KEY uq_pec_custom_item_qty (item_id, entry_date)
+    )`,
+    `CREATE TABLE IF NOT EXISTS client_form_fields (
+      id INT AUTO_INCREMENT PRIMARY KEY,
+      client_id INT NOT NULL,
+      label VARCHAR(100) NOT NULL,
+      rate DECIMAL(12,3) NOT NULL DEFAULT 0,
+      sort_order INT NOT NULL DEFAULT 0,
+      active TINYINT(1) NOT NULL DEFAULT 1,
+      UNIQUE KEY uq_client_form_fields (client_id, label)
+    )`,
+    `CREATE TABLE IF NOT EXISTS client_form_entries (
+      id INT AUTO_INCREMENT PRIMARY KEY,
+      field_id INT NOT NULL,
+      entry_date VARCHAR(10) NOT NULL,
+      qty DECIMAL(12,3) NOT NULL DEFAULT 0,
+      rate DECIMAL(12,3) NOT NULL DEFAULT 0,
+      UNIQUE KEY uq_client_form_entries (field_id, entry_date)
+    )`,
     `CREATE TABLE IF NOT EXISTS menu_category_items (
       id INT AUTO_INCREMENT PRIMARY KEY,
       category_name VARCHAR(100) NOT NULL,

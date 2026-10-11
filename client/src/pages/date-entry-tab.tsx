@@ -1,7 +1,8 @@
-import { useState, useRef, useEffect, useMemo } from "react";
+import { useState, useRef, useEffect, useMemo, Fragment } from "react";
 import { DateEntryDashboard } from "./date-entry-dashboard";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { useCurrentUser } from "@/hooks/use-reports";
+import { useCurrentUser, useClientNames } from "@/hooks/use-reports";
+import { CustomClientFormTab } from "./custom-client-form";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
@@ -7454,6 +7455,78 @@ function PecVenturesTab({ month, year, loadKey = 0 }: { month: number; year: num
   // the saved rates for this month. Reset whenever the loaded month/rates change.
   const [editRatesUnlocked, setEditRatesUnlocked] = useState(false);
 
+  // Custom (user-added) expense items, stored in their own DB tables
+  type PecCustomItem = { id: number; name: string; unit: string; rate: number; active: boolean };
+  const { data: customData, refetch: refetchCustom } = useQuery<{ items: PecCustomItem[]; qty: { itemId: number; entryDate: string; qty: number; rate: number }[] }>({
+    queryKey: ['/api/pec-custom-items', month, year],
+    queryFn: async () => {
+      const res = await fetch(`/api/pec-custom-items?month=${month}&year=${year}`, { credentials: 'include' });
+      if (!res.ok) throw new Error('Failed to load custom items');
+      return res.json();
+    },
+  });
+  const customItems = customData?.items ?? [];
+  const [customQty, setCustomQty] = useState<Record<string, string>>({});
+  const [newItem, setNewItem] = useState({ name: '', unit: 'pcs', rate: '' });
+  const ckey = (itemId: number, date: string) => `${itemId}|${date}`;
+  const savedCustomRate = useMemo(() => {
+    const m: Record<string, number> = {};
+    (customData?.qty ?? []).forEach(q => { m[ckey(q.itemId, q.entryDate)] = q.rate; });
+    return m;
+  }, [customData]);
+  useEffect(() => {
+    const m: Record<string, string> = {};
+    (customData?.qty ?? []).forEach(q => { if (q.qty > 0) m[ckey(q.itemId, q.entryDate)] = String(q.qty); });
+    setCustomQty(m);
+  }, [customData, month, year, loadKey]);
+  const cQty = (itemId: number, date: string) => parseFloat(customQty[ckey(itemId, date)]) || 0;
+  const cRate = (it: PecCustomItem, date: string) => savedCustomRate[ckey(it.id, date)] ?? it.rate;
+  const customTotals = (it: PecCustomItem, list: { entryDate: string }[]) =>
+    list.reduce((s, r) => ({ qty: s.qty + cQty(it.id, r.entryDate), amt: s.amt + cQty(it.id, r.entryDate) * cRate(it, r.entryDate) }), { qty: 0, amt: 0 });
+
+  const addCustomItem = async () => {
+    const name = newItem.name.trim();
+    const rate = parseFloat(newItem.rate);
+    if (!name || !Number.isFinite(rate) || rate < 0) {
+      toast({ title: 'Item name aur rate daalein', variant: 'destructive' });
+      return;
+    }
+    try {
+      const res = await fetch('/api/pec-custom-items', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' }, credentials: 'include',
+        body: JSON.stringify({ name, unit: newItem.unit.trim() || 'pcs', rate }),
+      });
+      if (!res.ok) throw new Error((await res.json().catch(() => ({}))).message || 'Failed to add item');
+      setNewItem({ name: '', unit: 'pcs', rate: '' });
+      await refetchCustom();
+      toast({ title: 'Item added', description: `${name} column add ho gaya.` });
+    } catch (err: any) { toast({ title: 'Error', description: err.message, variant: 'destructive' }); }
+  };
+
+  const removeCustomItem = async (it: PecCustomItem) => {
+    if (!window.confirm(`"${it.name}" column hataana hai? Purani months ka saved data safe rahega.`)) return;
+    try {
+      const res = await fetch(`/api/pec-custom-items/${it.id}`, { method: 'DELETE', credentials: 'include' });
+      if (!res.ok) throw new Error('Failed to remove item');
+      await refetchCustom();
+    } catch (err: any) { toast({ title: 'Error', description: err.message, variant: 'destructive' }); }
+  };
+
+  const saveCustomQty = async () => {
+    const entries: any[] = [];
+    customItems.filter(it => it.active).forEach(it => {
+      rows.forEach(r => entries.push({ itemId: it.id, entryDate: r.entryDate, qty: cQty(it.id, r.entryDate), rate: cRate(it, r.entryDate) }));
+    });
+    if (!entries.length) return;
+    const res = await fetch('/api/pec-custom-items/qty', {
+      method: 'PUT', headers: { 'Content-Type': 'application/json' }, credentials: 'include',
+      body: JSON.stringify({ entries }),
+    });
+    if (!res.ok) throw new Error('Failed to save custom items');
+    await qc.invalidateQueries({ queryKey: ['/api/pec-custom-items', month, year] });
+    await qc.invalidateQueries({ queryKey: ['/api/pec-custom-items/yearly'] });
+  };
+
   useEffect(() => {
     if (!isLoading) setRows(generatePecMonthRows(month, year, savedRows));
   }, [isLoading, savedRows, month, year, loadKey]);
@@ -7525,6 +7598,7 @@ function PecVenturesTab({ month, year, loadKey = 0 }: { month: number; year: num
         if (!res.ok) throw new Error('Failed to update rates');
       }
       // Lock this month if not already locked (idempotent; snapshots default rates if needed)
+      await saveCustomQty();
       await fetch('/api/pec-ventures-rates/ensure', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ month, year }), credentials: 'include',
@@ -7566,32 +7640,40 @@ function PecVenturesTab({ month, year, loadKey = 0 }: { month: number; year: num
     const wb = new ExcelJS.Workbook();
     const ws = wb.addWorksheet('PEC Ventures Canteen');
     const thin = { top:{style:'thin' as const}, bottom:{style:'thin' as const}, left:{style:'thin' as const}, right:{style:'thin' as const} };
+    const activeCustom = customItems.filter(it => rows.some(r => cQty(it.id, r.entryDate) > 0));
+    const customHeaders = activeCustom.flatMap(it => [`${it.name} Qty (${it.unit})`, `${it.name} Rate`, `${it.name} Amt (₹)`]);
+    const totalCols = PEC_COLS.length + customHeaders.length;
     // Title row
-    ws.mergeCells(1, 1, 1, PEC_COLS.length);
+    ws.mergeCells(1, 1, 1, totalCols);
     const title = ws.getCell('A1');
     title.value = `DJ Hospitality — PEC Ventures Canteen — ${MONTHS[month-1]} ${year}`;
     title.font={bold:true,color:{argb:'FFFFFFFF'}}; title.fill={type:'pattern',pattern:'solid',fgColor:{argb:'FF4F2B91'}}; title.alignment={horizontal:'center'}; title.border=thin;
     // Header row
-    const hdr = ws.addRow(PEC_COLS.map(c => c.header));
+    const hdr = ws.addRow([...PEC_COLS.map(c => c.header), ...customHeaders]);
     hdr.eachCell(cell => { cell.font={bold:true,color:{argb:'FFFFFFFF'}}; cell.fill={type:'pattern',pattern:'solid',fgColor:{argb:'FF1A3A5A'}}; cell.border=thin; cell.alignment={horizontal:'center'}; });
-    ws.columns = PEC_COLS.map((c,i) => ({ width: i<=1?14:18 }));
+    ws.columns = [...PEC_COLS, ...customHeaders].map((c,i) => ({ width: i<=1?14:18 }));
     // Data rows
     rows.forEach(r => {
-      const row = ws.addRow(PEC_COLS.map(c => {
+      const row = ws.addRow([...PEC_COLS.map(c => {
         if (c.isDate) return pecDateDisplay(r.entryDate);
         if (c.isDay) return r.weekDay;
         return n(r[c.field]) || '';
-      }));
+      }), ...activeCustom.flatMap(it => {
+        const q = cQty(it.id, r.entryDate); const rt = cRate(it, r.entryDate);
+        return [q || '', q ? rt : '', q ? q * rt : ''];
+      })]);
       if (r.weekDay === 'Sun') row.eachCell(cell => { cell.fill={type:'pattern',pattern:'solid',fgColor:{argb:'FFFFF3CD'}}; });
       row.eachCell(cell => { cell.border=thin; cell.alignment={horizontal:'center'}; });
     });
     // Totals row
-    const totRow = ws.addRow(['', 'TOTAL', ...PEC_COLS.slice(2).map(c => rows.reduce((s,r)=>s+n(r[c.field]),0)||'')]);
+    const totRow = ws.addRow(['', 'TOTAL', ...PEC_COLS.slice(2).map(c => rows.reduce((s,r)=>s+n(r[c.field]),0)||''),
+      ...activeCustom.flatMap(it => { const t = customTotals(it, rows); return [t.qty || '', '', t.amt || '']; })]);
     totRow.eachCell(cell => { cell.font={bold:true}; cell.fill={type:'pattern',pattern:'solid',fgColor:{argb:'FFFFF2CC'}}; cell.border=thin; cell.alignment={horizontal:'center'}; });
-    const buf = await wb.xlsx.writeBuffer();
-    const blob = new Blob([buf],{type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'});
-    const a = document.createElement('a'); a.href=URL.createObjectURL(blob);
-    a.download=`PEC_Ventures_${MONTHS[month-1]}_${year}.xlsx`; a.click();
+    if (activeCustom.length) {
+      const extra = activeCustom.reduce((s, it) => s + customTotals(it, rows).amt, 0);
+      const gr = ws.addRow(['', 'Additional Items Total (₹)', extra]);
+      gr.eachCell(cell => { cell.font={bold:true}; cell.border=thin; cell.alignment={horizontal:'center'}; });
+    }
   };
 
   const handleDownloadPecTemplate = async () => {
@@ -7781,7 +7863,17 @@ function PecVenturesTab({ month, year, loadKey = 0 }: { month: number; year: num
       },
     ];
 
-    const visCols = COLS.filter(c => c.show);
+    const customCols = customItems.filter(it => rows.some(r => cQty(it.id, r.entryDate) > 0)).map(it => {
+      const tt = customTotals(it, rows);
+      return {
+        show: true, label: it.name, colspan: 3,
+        h2: `<th style="${th}">Qty in ${it.unit}</th><th style="${th}">Rate</th><th style="${th}">Total</th>`,
+        cell: (r: PecRow) => { const q = cQty(it.id, r.entryDate); const rt = cRate(it, r.entryDate); return `<td style="${tdr}">${fq(q)}</td><td style="${tdr}">${q ? rt : ''}</td><td style="${tdr}">${fa(q * rt)}</td>`; },
+        totCell: () => `<td style="${tdr}">${fq(tt.qty)}</td><td style="${td}"></td><td style="${tdr}">${fa(tt.amt)}</td>`,
+        amount: () => tt.amt,
+      };
+    });
+    const visCols = [...COLS.filter(c => c.show), ...customCols];
     const totalColspan = 2 + visCols.reduce((s, c) => s + c.colspan, 0);
     const grandTotal = visCols.reduce((s, c) => s + c.amount(), 0);
 
@@ -8044,6 +8136,90 @@ function PecVenturesTab({ month, year, loadKey = 0 }: { month: number; year: num
           </tfoot>
         </table>
       </div>
+
+      {/* Additional items (user-added columns) */}
+      <div className="rounded-lg border border-gray-200 dark:border-gray-700 p-3 space-y-3" data-testid="panel-pec-custom-items">
+        <div className="flex items-end gap-2 flex-wrap">
+          <span className="text-sm font-medium mr-2">Additional Items (Lemon etc.)</span>
+          <input className="border rounded px-2 py-1 text-xs bg-background w-36" placeholder="Item name" value={newItem.name}
+            onChange={e => setNewItem(p => ({ ...p, name: e.target.value }))} disabled={!canEditMonth} data-testid="input-pec-new-item-name" />
+          <input className="border rounded px-2 py-1 text-xs bg-background w-20" placeholder="Unit" value={newItem.unit}
+            onChange={e => setNewItem(p => ({ ...p, unit: e.target.value }))} disabled={!canEditMonth} data-testid="input-pec-new-item-unit" />
+          <input type="number" min="0" step="0.001" className="border rounded px-2 py-1 text-xs bg-background w-24" placeholder="Rate (₹)" value={newItem.rate}
+            onChange={e => setNewItem(p => ({ ...p, rate: e.target.value }))} disabled={!canEditMonth} data-testid="input-pec-new-item-rate" />
+          <Button size="sm" onClick={addCustomItem} disabled={!canEditMonth} className="h-7 px-3 text-xs gap-1" data-testid="btn-pec-add-item">
+            <Plus className="w-3 h-3" /> Add Item
+          </Button>
+          <span className="text-xs text-muted-foreground">Naya column automatically database me save hota hai. Qty bharke Save dabayein.</span>
+        </div>
+        {customItems.length > 0 && (
+          <div className="overflow-x-auto">
+            <table className="border-collapse min-w-max">
+              <thead>
+                <tr>
+                  <th className={thSx} rowSpan={2}>Date</th>
+                  {customItems.map(it => (
+                    <th key={it.id} className={thSx} colSpan={3}>
+                      {it.name} · ₹{it.rate}/{it.unit}
+                      {it.active && canEditMonth && (
+                        <button type="button" className="ml-2 text-red-600 hover:text-red-800" title="Remove column" onClick={() => removeCustomItem(it)} data-testid={`btn-pec-remove-item-${it.id}`}>
+                          <Trash2 className="w-3 h-3 inline" />
+                        </button>
+                      )}
+                    </th>
+                  ))}
+                </tr>
+                <tr>{customItems.map(it => (<Fragment key={it.id}><th className={thSx}>Qty</th><th className={thSx}>Rate</th><th className={thSx}>Amt</th></Fragment>))}</tr>
+              </thead>
+              <tbody>
+                {rows.map((r, i) => (
+                  <tr key={r.entryDate}>
+                    <td className={`${tdSx} text-left whitespace-nowrap`}>{safeFormat(r.entryDate)} {r.weekDay}</td>
+                    {customItems.map(it => {
+                      const q = cQty(it.id, r.entryDate);
+                      const rt = cRate(it, r.entryDate);
+                      return (
+                        <Fragment key={it.id}>
+                          <td className={tdSx}>
+                            <input type="number" min="0" step="0.001" className={inputSx} value={customQty[ckey(it.id, r.entryDate)] ?? ''}
+                              disabled={!canEditMonth || (!it.active && q === 0)}
+                              onChange={e => setCustomQty(p => ({ ...p, [ckey(it.id, r.entryDate)]: e.target.value }))}
+                              data-testid={`pec-custom-${it.id}-${i}`} />
+                          </td>
+                          <td className={tdRSx}>{q ? rt : ''}</td>
+                          <td className={`${tdRSx} font-medium`}>{fa(q * rt)}</td>
+                        </Fragment>
+                      );
+                    })}
+                  </tr>
+                ))}
+              </tbody>
+              <tfoot>
+                <tr>
+                  <td className={`${totSx} text-left`}>TOTAL</td>
+                  {customItems.map(it => { const t = customTotals(it, rows); return (
+                    <Fragment key={it.id}><td className={totSx}>{fq(t.qty)}</td><td className={totSx}></td><td className={totRSx}>{fa(t.amt)}</td></Fragment>
+                  ); })}
+                </tr>
+              </tfoot>
+            </table>
+          </div>
+        )}
+      </div>
+
+      {(() => {
+        const mainAmt = totals.redLabel*rates.redLabel + totals.tataTea*rates.tataTea + totals.coffee*rates.coffee + totals.sugar*rates.sugar
+          + totals.ginger*rates.ginger + totals.biscuit*rates.biscuit + totals.teaCup*rates.teaCup + totals.greenElaychi*rates.greenElaychi
+          + totals.greenTea*rates.greenTea + totals.blackSalt*rates.blackSalt + (totals.milkMorning+totals.milkEvening)*rates.milk;
+        const extraAmt = customItems.reduce((s, it) => s + customTotals(it, rows).amt, 0);
+        return (
+          <div className="rounded-lg border border-emerald-300 bg-emerald-50 dark:bg-emerald-950/20 px-3 py-2 text-sm font-semibold flex gap-6 flex-wrap" data-testid="pec-grand-total">
+            <span>Main Items: ₹{mainAmt.toFixed(2)}</span>
+            <span>Additional Items: ₹{extraAmt.toFixed(2)}</span>
+            <span className="text-emerald-700 dark:text-emerald-400">Grand Total: ₹{(mainAmt + extraAmt).toFixed(2)}</span>
+          </div>
+        );
+      })()}
     </div>
   );
 }
@@ -8093,6 +8269,14 @@ function PecVentureSummaryTab({ currentYear }: { currentYear: number }) {
   const defaultRate: PecRateMap = yearRates?.default ? pecRowToRateMap(yearRates.default) : { ...PEC_RATES };
   const rateForMonth = (m: number): PecRateMap => rateMonthMap.get(m) ?? defaultRate;
 
+  const { data: customYr = [] } = useQuery<{ itemId: number; name: string; unit: string; month: number; qty: number; amount: number }[]>({
+    queryKey: ['/api/pec-custom-items/yearly', summaryYear],
+    queryFn: () => fetch(`/api/pec-custom-items/yearly?year=${summaryYear}`,{credentials:'include'}).then(r=>r.ok?r.json():[]),
+  });
+  const customList = Array.from(new Map(customYr.map(c => [c.itemId, c])).values());
+  const customCell = (itemId: number, m: number) => customYr.find(c => c.itemId === itemId && c.month === m);
+  const extraAmtMonth = (m: number) => customYr.filter(c => c.month === m).reduce((s, c) => s + c.amount, 0);
+
   const toggleMonth = (m: number) => setSelectedMonths(prev => {
     const s = new Set(prev); s.has(m) ? s.delete(m) : s.add(m); return s;
   });
@@ -8108,7 +8292,7 @@ function PecVentureSummaryTab({ currentYear }: { currentYear: number }) {
   const getMilkQty = (r: PecYearRow) => (r.milkMorning||0) + (r.milkEvening||0);
   const getMilkAmt = (r: PecYearRow) => getMilkQty(r) * rateForMonth(r.month).milk;
   const getRowTotal = (r: PecYearRow) =>
-    PEC_ITEMS.reduce((s,c)=>s+(r[c.key]||0)*rateForMonth(r.month)[c.key as keyof PecRateMap], 0) + getMilkAmt(r);
+    PEC_ITEMS.reduce((s,c)=>s+(r[c.key]||0)*rateForMonth(r.month)[c.key as keyof PecRateMap], 0) + getMilkAmt(r) + extraAmtMonth(r.month);
 
   const grandTotQty = (key: keyof PecYearRow) =>
     filteredMonths.reduce((s,m) => s + ((rowsMap.get(m)?.[key] as number)||0), 0);
@@ -8116,7 +8300,9 @@ function PecVentureSummaryTab({ currentYear }: { currentYear: number }) {
     filteredMonths.reduce((s,m) => { const r=rowsMap.get(m); return s + (r?((r[key] as number)||0)*rateForMonth(m)[key as keyof PecRateMap]:0); }, 0);
   const grandMilkQty = () => filteredMonths.reduce((s,m) => { const r=rowsMap.get(m); return s+(r?(getMilkQty(r)):0); }, 0);
   const grandMilkAmt = () => filteredMonths.reduce((s,m) => { const r=rowsMap.get(m); return s+(r?getMilkQty(r)*rateForMonth(m).milk:0); }, 0);
-  const grandTotal = () => filteredMonths.reduce((s,m) => { const r=rowsMap.get(m); return s+(r?getRowTotal(r):0); }, 0);
+  const grandTotal = () => filteredMonths.reduce((s,m) => { const r=rowsMap.get(m); return s+(r?getRowTotal(r):extraAmtMonth(m)); }, 0);
+  const grandCustomQty = (id: number) => filteredMonths.reduce((s,m) => s + (customCell(id,m)?.qty||0), 0);
+  const grandCustomAmt = (id: number) => filteredMonths.reduce((s,m) => s + (customCell(id,m)?.amount||0), 0);
   const grandLunchOrder  = () => filteredMonths.reduce((s,m) => s + (lunchMap.get(m)?.lunchOrder||0), 0);
   const grandLunchBill   = () => filteredMonths.reduce((s,m) => s + (lunchMap.get(m)?.lunchBill||0), 0);
   const grandLunchTotal  = () => filteredMonths.reduce((s,m) => s + (lunchMap.get(m)?.lunchTotal||0), 0);
@@ -8151,6 +8337,7 @@ function PecVentureSummaryTab({ currentYear }: { currentYear: number }) {
         'Dinner Bill Qty Total', 'Amount (Dinner Bill Qty Total *70)',
         ...PEC_ITEMS.map(c=>c.label+' Qty'), 'Milk Qty (L)',
         ...PEC_ITEMS.map(c=>c.label+' Amt (₹)'), 'Milk Amt (₹)',
+        ...customList.flatMap(c=>[`${c.name} Qty (${c.unit})`, `${c.name} Amt (₹)`]),
         'Grand Total (₹)',
       ];
 
@@ -8180,6 +8367,7 @@ function PecVentureSummaryTab({ currentYear }: { currentYear: number }) {
           dBill||'', dBill ? dBill*70 : '',
           ...PEC_ITEMS.map(c=>(r[c.key]||0)||''), milkQ||'',
           ...PEC_ITEMS.map(c=>((r[c.key]||0)*rateForMonth(m)[c.key as keyof PecRateMap])||''), (milkQ*rateForMonth(m).milk)||'',
+          ...customList.flatMap(c=>[customCell(c.itemId,m)?.qty||'', customCell(c.itemId,m)?.amount||'']),
           getRowTotal(r)||'',
         ];
         const dr = ws.addRow(vals);
@@ -8199,6 +8387,7 @@ function PecVentureSummaryTab({ currentYear }: { currentYear: number }) {
         gdb||'-', gdb ? gdb*70 : '-',
         ...PEC_ITEMS.map(c=>grandTotQty(c.key)||''), grandMilkQty()||'',
         ...PEC_ITEMS.map(c=>grandTotAmt(c.key)||''), grandMilkAmt()||'',
+        ...customList.flatMap(c=>[grandCustomQty(c.itemId)||'', grandCustomAmt(c.itemId)||'']),
         grandTotal()||'',
       ];
       const totRow = ws.addRow(totVals);
@@ -8254,6 +8443,7 @@ function PecVentureSummaryTab({ currentYear }: { currentYear: number }) {
                 <th className={thLunch} colSpan={4}>🍱 Lunch &amp; Dinner (₹70 / plate)</th>
                 <th className={thS} colSpan={11}>Qty (Items)</th>
                 <th className={thAmt} colSpan={11}>Amount (₹) (Items)</th>
+                {customList.length > 0 && <th className={thLunch} colSpan={customList.length * 2}>Additional Items</th>}
                 <th className={thS} rowSpan={2}>Grand Total (Items ₹)</th>
               </tr>
               <tr>
@@ -8263,7 +8453,7 @@ function PecVentureSummaryTab({ currentYear }: { currentYear: number }) {
                 <th className={thS}>Milk (L)</th>
                 {PEC_ITEMS.flatMap(c=>[<th key={c.key+'a'} className={thAmt}>{c.label}</th>])}
                 <th className={thAmt}>Milk</th>
-              </tr>
+                {customList.flatMap(c=>[<th key={c.itemId+'cq'} className={thLunch}>{c.name} Qty ({c.unit})</th>, <th key={c.itemId+'ca'} className={thLunch}>{c.name} Amt</th>])}
             </thead>
             <tbody>
               {filteredMonths.map(m => {
@@ -8285,6 +8475,7 @@ function PecVentureSummaryTab({ currentYear }: { currentYear: number }) {
                       <td key={c.key+'a'} className={tdAmt}>{fa((r[c.key] as number)*rateForMonth(m)[c.key as keyof PecRateMap])}</td>
                     ])}
                     <td className={tdAmt}>{fa(milkQ*rateForMonth(m).milk)}</td>
+                    {customList.flatMap(c=>[<td key={c.itemId+'cq'} className={tdS}>{fq(customCell(c.itemId,m)?.qty||0)}</td>, <td key={c.itemId+'ca'} className={tdAmt}>{fa(customCell(c.itemId,m)?.amount||0)}</td>])}
                     <td className={`${tdAmt} font-bold`}>{fa(getRowTotal(r))}</td>
                   </tr>
                 );
@@ -8305,6 +8496,7 @@ function PecVentureSummaryTab({ currentYear }: { currentYear: number }) {
                   <td key={c.key+'a'} className={totAmt}>{fa(grandTotAmt(c.key)) || '-'}</td>
                 ])}
                 <td className={totAmt}>{fa(grandMilkAmt()) || '-'}</td>
+                {customList.flatMap(c=>[<td key={c.itemId+'cq'} className={totS}>{fq(grandCustomQty(c.itemId)) || '-'}</td>, <td key={c.itemId+'ca'} className={totAmt}>{fa(grandCustomAmt(c.itemId)) || '-'}</td>])}
                 <td className={`${totAmt} text-sm font-bold`}>{fa(grandTotal()) || '-'}</td>
               </tr>
             </tfoot>
@@ -8359,12 +8551,22 @@ export function DateEntryTab() {
   const now = new Date();
   const { data: currentUser } = useCurrentUser();
 
+  const { data: managedClients = [] } = useClientNames();
+  const customClientOptions = useMemo(() => {
+    const builtIn = /united breweries|\bubl\b|unichem|cipla|hindustan unilever|\bhul\b|pec ventures/i;
+    return managedClients
+      .filter(c => !builtIn.test(c.name))
+      .map(c => ({ value: `custom_${c.id}`, label: c.name }));
+  }, [managedClients]);
+
   const allowedClients = useMemo(() => {
     if (!currentUser) return [];
-    if (currentUser.role === "admin") return CLIENT_OPTIONS;
+    const allOptions = [...CLIENT_OPTIONS, ...customClientOptions];
+    if (currentUser.role === "admin") return allOptions;
     const perms = currentUser.permissions || [];
     const hasAny = perms.includes("dateentry_ubl") || perms.includes("dateentry_cipla") || perms.includes("dateentry_hul");
-    return CLIENT_OPTIONS.filter(o => {
+    return allOptions.filter(o => {
+      if (o.value.startsWith("custom_")) return hasAny;
       if (o.value === "dashboard") return hasAny;
       if (o.value === "ubl") return perms.includes("dateentry_ubl");
       if (o.value === "unichem") return perms.includes("dateentry_ubl");
@@ -8373,7 +8575,7 @@ export function DateEntryTab() {
       if (o.value === "pec_ventures") return perms.includes("dateentry_ubl") || perms.includes("dateentry_cipla") || perms.includes("dateentry_hul");
       return false;
     });
-  }, [currentUser]);
+  }, [currentUser, customClientOptions]);
 
   const [selectedClient, setSelectedClient] = useState("");
   const [month, setMonth] = useState(String(now.getMonth() + 1));
@@ -8398,7 +8600,7 @@ export function DateEntryTab() {
   const years = Array.from({ length: 6 }, (_, i) => String(now.getFullYear() - 2 + i));
   const { label: billingLabel } = getBillingRange(parseInt(month), parseInt(year));
   const periodLabel = useMemo(() => {
-    if (selectedClient === "unichem" || selectedClient === "hul" || selectedClient === "pec_ventures") {
+    if (selectedClient === "unichem" || selectedClient === "hul" || selectedClient === "pec_ventures" || selectedClient.startsWith("custom_")) {
       const m = parseInt(month); const y = parseInt(year);
       const lastDay = getDaysInMonth(m, y);
       return `1 ${MONTHS[m-1].slice(0,3)} ${y} – ${lastDay} ${MONTHS[m-1].slice(0,3)} ${y}`;
@@ -8554,6 +8756,21 @@ export function DateEntryTab() {
           </TabsContent>
         </Tabs>
       )}
+      {selectedClient.startsWith("custom_") && (() => {
+        const opt = customClientOptions.find(o => o.value === selectedClient);
+        if (!opt) return null;
+        const isCurrent = parseInt(year) === now.getFullYear() && parseInt(month) === now.getMonth() + 1;
+        return (
+          <CustomClientFormTab
+            key={`${selectedClient}-${month}-${year}-${loadKey}`}
+            clientId={Number(selectedClient.slice(7))}
+            clientName={opt.label}
+            month={parseInt(month)}
+            year={parseInt(year)}
+            canEdit={currentUser?.role === "admin" || isCurrent}
+          />
+        );
+      })()}
       {selectedClient === "pec_ventures" && (
         <Tabs defaultValue="pec_form1">
           <TabsList className="mb-4 flex-wrap h-auto">
