@@ -182,7 +182,8 @@ export function DateEntryDashboard({ year }: { year: number }) {
     queryFn: () => fetch(`/api/hul-snack-supply/yearly?year=${year}`, { credentials: 'include' }).then(r => r.ok ? r.json() : []),
   });
 
-  // PEC Ventures  const { data: pecCanteen = [] } = useQuery<any[]>({
+  // PEC Ventures
+  const { data: pecCanteen = [] } = useQuery<any[]>({
     queryKey: ['/api/pec-ventures-entries/yearly-summary', year],
     queryFn: () => fetch(`/api/pec-ventures-entries/yearly-summary?year=${year}`, { credentials: 'include' }).then(r => r.json()),
   });
