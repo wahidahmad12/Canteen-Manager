@@ -4065,20 +4065,145 @@ function HulSnackSupplyTab({ month, year }: { month: number; year: number }) {
     win?.document.close(); win?.print();
   };
 
+  const importRef = useRef<HTMLInputElement>(null);
+
+  const autoFillMonth = () => {
+    const input = window.prompt('Chips & Biscuit qty per working day (Mon–Sat)? Sirf khali cells fill honge.', '60');
+    if (input === null) return;
+    const qty = parseFloat(input);
+    if (!qty || qty < 0) { toast({ title: 'Invalid qty', variant: 'destructive' }); return; }
+    setRows(prev => prev.map((r, i) => {
+      if (dayName(i + 1) === 'Sun') return r;
+      return { ...r, chips: r.chips || String(qty), biscuit: r.biscuit || String(qty) };
+    }));
+    toast({ title: 'Auto-filled', description: 'Ab Save All dabayein.' });
+  };
+
+  const resetRows = () => {
+    setRows(() => {
+      const next = blank();
+      dbRows.forEach(r => {
+        const d = parseInt(String(r.entryDate).slice(8, 10), 10);
+        if (d >= 1 && d <= daysInMonth) {
+          next[d - 1] = { chips: r.chips ? String(r.chips) : '', biscuit: r.biscuit ? String(r.biscuit) : '', sugar: r.sugar ? String(r.sugar) : '' };
+        }
+      });
+      return next;
+    });
+    setSugarRate(snackData?.sugarRate ? String(snackData.sugarRate) : '');
+    toast({ title: 'Reset', description: 'Saved data wapas load ho gaya.' });
+  };
+
+  const deleteAll = async () => {
+    if (!window.confirm(`${MONTHS[month-1]} ${year} ka saara Special Order TEC data delete karna hai?`)) return;
+    setSaving(true);
+    try {
+      const payload = Array.from({ length: daysInMonth }, (_, i) => ({ entryDate: dateKey(i + 1), chips: 0, biscuit: 0, sugar: 0 }));
+      const res = await fetch('/api/hul-snack-supply', {
+        method: 'PUT', headers: { 'Content-Type': 'application/json' }, credentials: 'include',
+        body: JSON.stringify({ month, year, rows: payload, sugarRate: 0 }),
+      });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error(data.message || `Delete failed (error ${res.status})`);
+      }
+      setRows(blank());
+      setSugarRate('');
+      await qc.invalidateQueries({ queryKey: ['/api/hul-snack-supply'] });
+      toast({ title: 'Deleted', description: 'Month ka data delete ho gaya.' });
+    } catch (err: any) {
+      toast({ title: 'Delete failed', description: err.message, variant: 'destructive' });
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const downloadTemplate = async () => {
+    try {
+      const ExcelJS = (await import('exceljs')).default;
+      const wb = new ExcelJS.Workbook();
+      const ws = wb.addWorksheet('TEC Snacks Template');
+      const thin = { top:{style:'thin' as const}, bottom:{style:'thin' as const}, left:{style:'thin' as const}, right:{style:'thin' as const} };
+      const hdr = ws.addRow(['Date', 'Days', 'Chips', 'Biscuit', 'Sugar']);
+      hdr.eachCell((c: any) => { c.font = { bold: true }; c.border = thin; c.alignment = { horizontal: 'center' };
+        c.fill = { type:'pattern' as const, pattern:'solid' as const, fgColor:{ argb:'FFA9C8EE' } }; });
+      for (let d = 1; d <= daysInMonth; d++) {
+        const dr = ws.addRow([dispDate(d), dayName(d), '', '', '']);
+        dr.eachCell((c: any) => { c.border = thin; c.alignment = { horizontal: 'center' }; });
+      }
+      ws.columns = [{ width: 14 }, { width: 8 }, { width: 12 }, { width: 12 }, { width: 12 }];
+      const buf = await wb.xlsx.writeBuffer();
+      const blob = new Blob([buf], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+      const a = document.createElement('a'); a.href = URL.createObjectURL(blob);
+      a.download = `HUL_TEC_SnacksSupply_Template_${MONTHS[month-1]}_${year}.xlsx`; a.click();
+    } catch (err: any) { toast({ title: 'Template failed', description: err.message, variant: 'destructive' }); }
+  };
+
+  const importExcel = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]; if (!file) return;
+    e.target.value = '';
+    try {
+      const ExcelJS = (await import('exceljs')).default;
+      const wb = new ExcelJS.Workbook();
+      await wb.xlsx.load(await file.arrayBuffer());
+      const ws = wb.worksheets[0];
+      const num = (v: any) => {
+        if (v && typeof v === 'object' && 'result' in v) v = (v as any).result;
+        const n = parseFloat(String(v ?? '').replace(/,/g, ''));
+        return n > 0 ? String(n) : '';
+      };
+      const dayOf = (v: any): number | null => {
+        if (v instanceof Date) {
+          return v.getUTCMonth() + 1 === month && v.getUTCFullYear() === year ? v.getUTCDate() : null;
+        }
+        const m = String(v ?? '').trim().match(/^(\d{1,2})[-\/](\d{1,2})[-\/](\d{4})$/);
+        if (m && parseInt(m[2], 10) === month && parseInt(m[3], 10) === year) return parseInt(m[1], 10);
+        return null;
+      };
+      const next = rows.map(r => ({ ...r }));
+      let count = 0;
+      ws.eachRow(row => {
+        const d = dayOf(row.getCell(1).value);
+        if (!d || d > daysInMonth) return;
+        next[d - 1] = { chips: num(row.getCell(3).value), biscuit: num(row.getCell(4).value), sugar: num(row.getCell(5).value) };
+        count++;
+      });
+      if (!count) throw new Error(`File me ${MONTHS[month-1]} ${year} ki koi date nahi mili (Date column dd-mm-yyyy)`);
+      setRows(next);
+      toast({ title: 'Imported', description: `${count} rows load hui. Save All dabayein.` });
+    } catch (err: any) { toast({ title: 'Import failed', description: err.message, variant: 'destructive' }); }
+  };
+
   const inp = 'w-full border-0 bg-transparent focus:outline-none focus:ring-1 focus:ring-blue-400 rounded px-1 text-center text-sm';
 
   return (
     <div className="space-y-3">
+      <input ref={importRef} type="file" accept=".xlsx,.xls" className="hidden" onChange={importExcel} />
       <div className="flex flex-wrap items-center gap-2 justify-between">
         <div>
           <h3 className="font-semibold text-base text-blue-900">HUL TEC — Special Order: Snacks For Sugar Supply</h3>
           <p className="text-xs text-muted-foreground">{MONTHS[month-1]} {year}</p>
         </div>
         <div className="flex gap-2 flex-wrap">
-          <Button size="sm" variant="outline" onClick={print} className="h-8 text-xs">🖨️ Print</Button>
-          <Button size="sm" variant="outline" onClick={exportExcel} className="h-8 text-xs text-green-700 border-green-300 hover:bg-green-50">📊 Excel</Button>
+          <Button size="sm" variant="outline" onClick={autoFillMonth} className="h-8 text-xs" data-testid="btn-snack-autofill">
+            <Plus className="w-3.5 h-3.5 mr-1"/>Auto-Fill Month
+          </Button>
           <Button size="sm" onClick={save} disabled={saving} className="h-8 text-xs bg-blue-700 hover:bg-blue-800" data-testid="btn-save-snack-supply">
             {saving ? '⏳ Saving…' : '💾 Save All'}
+          </Button>
+          <Button size="sm" variant="outline" onClick={print} className="h-8 text-xs">🖨️ Print</Button>
+          <Button size="sm" variant="outline" onClick={exportExcel} className="h-8 text-xs text-green-700 border-green-300 hover:bg-green-50">📊 Export Excel</Button>
+          <Button size="sm" variant="outline" onClick={downloadTemplate} className="h-8 text-xs text-purple-700 border-purple-300 hover:bg-purple-50" data-testid="btn-snack-template">
+            <FileDown className="w-3.5 h-3.5 mr-1"/>Template
+          </Button>
+          <Button size="sm" variant="outline" onClick={() => importRef.current?.click()} className="h-8 text-xs text-blue-700 border-blue-300 hover:bg-blue-50" data-testid="btn-snack-import">
+            <FileUp className="w-3.5 h-3.5 mr-1"/>Import Excel
+          </Button>
+          <Button size="sm" variant="outline" onClick={resetRows} className="h-8 text-xs" data-testid="btn-snack-reset">
+            <RefreshCw className="w-3.5 h-3.5 mr-1"/>Reset
+          </Button>
+          <Button size="sm" variant="outline" onClick={deleteAll} disabled={saving} className="h-8 text-xs text-red-700 border-red-500 hover:bg-red-100" data-testid="btn-snack-delete-all">
+            <Trash2 className="w-3.5 h-3.5 mr-1"/>Delete All
           </Button>
         </div>
       </div>
