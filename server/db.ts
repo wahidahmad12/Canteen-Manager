@@ -105,6 +105,24 @@ async function initPool(): Promise<void> {
       rate DECIMAL(10,2) NOT NULL,
       UNIQUE KEY uq_banana_effective_date (effective_date)
     )`,
+    `CREATE TABLE IF NOT EXISTS hul_snack_supply (
+      id INT AUTO_INCREMENT PRIMARY KEY,
+      month INT NOT NULL,
+      year INT NOT NULL,
+      entry_date VARCHAR(10) NOT NULL,
+      chips DECIMAL(10,2) NOT NULL DEFAULT 0,
+      biscuit DECIMAL(10,2) NOT NULL DEFAULT 0,
+      sugar DECIMAL(10,2) NOT NULL DEFAULT 0,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      UNIQUE KEY uq_hul_snack_supply_date (entry_date)
+    )`,
+    `CREATE TABLE IF NOT EXISTS hul_snack_rates (
+      id INT AUTO_INCREMENT PRIMARY KEY,
+      month INT NOT NULL,
+      year INT NOT NULL,
+      sugar_rate DECIMAL(10,2) NOT NULL DEFAULT 0,
+      UNIQUE KEY uq_hul_snack_rates_month (year, month)
+    )`,
     `CREATE TABLE IF NOT EXISTS menu_category_items (
       id INT AUTO_INCREMENT PRIMARY KEY,
       category_name VARCHAR(100) NOT NULL,

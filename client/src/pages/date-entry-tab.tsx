@@ -3922,6 +3922,231 @@ function HulSpecialOrderTab({ month, year, loadKey = 0 }: { month: number; year:
   );
 }
 
+function HulSnackSupplyTab({ month, year }: { month: number; year: number }) {
+  const qc = useQueryClient();
+  const { toast } = useToast();
+  const MONTHS = ["January","February","March","April","May","June","July","August","September","October","November","December"];
+  const DAYS = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+  const daysInMonth = new Date(year, month, 0).getDate();
+  const dateKey = (d: number) => `${year}-${String(month).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+  const dispDate = (d: number) => `${String(d).padStart(2,'0')}-${String(month).padStart(2,'0')}-${year}`;
+  const dayName = (d: number) => DAYS[new Date(year, month - 1, d).getDay()];
+
+  type SnackRow = { chips: string; biscuit: string; sugar: string };
+  const blank = (): SnackRow[] => Array.from({ length: daysInMonth }, () => ({ chips: '', biscuit: '', sugar: '' }));
+  const [rows, setRows] = useState<SnackRow[]>(blank());
+  const [saving, setSaving] = useState(false);
+
+  const [sugarRate, setSugarRate] = useState('');
+  const FIXED_RATE = 5;
+
+  const { data: snackData, isLoading } = useQuery<{ rows: any[]; sugarRate: number }>({
+    queryKey: ['/api/hul-snack-supply', month, year],
+    queryFn: async () => {
+      const res = await fetch(`/api/hul-snack-supply?month=${month}&year=${year}`, { credentials: 'include' });
+      if (!res.ok) throw new Error('Could not load snack supply data');
+      return res.json();
+    },
+    refetchInterval: false,
+  });
+  const dbRows = snackData?.rows ?? [];
+
+  useEffect(() => {
+    setSugarRate(snackData?.sugarRate ? String(snackData.sugarRate) : '');
+  }, [snackData, month, year]);
+
+  useEffect(() => {
+    const next = blank();
+    dbRows.forEach(r => {
+      const d = parseInt(String(r.entryDate).slice(8, 10), 10);
+      if (d >= 1 && d <= daysInMonth) {
+        next[d - 1] = {
+          chips: r.chips ? String(r.chips) : '',
+          biscuit: r.biscuit ? String(r.biscuit) : '',
+          sugar: r.sugar ? String(r.sugar) : '',
+        };
+      }
+    });
+    setRows(next);
+  }, [dbRows, month, year]);
+
+  const setCell = (idx: number, f: keyof SnackRow, v: string) =>
+    setRows(prev => prev.map((r, i) => (i === idx ? { ...r, [f]: v } : r)));
+  const tot = (f: keyof SnackRow) => rows.reduce((s, r) => s + (parseFloat(r[f]) || 0), 0);
+  const sugarRateNum = parseFloat(sugarRate) || 0;
+  const chipsAmt = tot('chips') * FIXED_RATE;
+  const biscuitAmt = tot('biscuit') * FIXED_RATE;
+  const sugarAmt = tot('sugar') * sugarRateNum;
+  const grandAmt = chipsAmt + biscuitAmt + sugarAmt;
+  const money = (n: number) => n.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+
+  const save = async () => {
+    setSaving(true);
+    try {
+      const payload = rows.map((r, i) => ({
+        entryDate: dateKey(i + 1),
+        chips: parseFloat(r.chips) || 0,
+        biscuit: parseFloat(r.biscuit) || 0,
+        sugar: parseFloat(r.sugar) || 0,
+      }));
+      const res = await fetch('/api/hul-snack-supply', {
+        method: 'PUT', headers: { 'Content-Type': 'application/json' }, credentials: 'include',
+        body: JSON.stringify({ month, year, rows: payload, sugarRate: sugarRateNum }),
+      });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error(data.message || `Save failed (error ${res.status})`);
+      }
+      await qc.invalidateQueries({ queryKey: ['/api/hul-snack-supply', month, year] });
+      toast({ title: 'Saved', description: 'Snacks supply data saved.' });
+    } catch (err: any) {
+      toast({ title: 'Save failed', description: err.message, variant: 'destructive' });
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const exportExcel = async () => {
+    try {
+      const ExcelJS = (await import('exceljs')).default;
+      const wb = new ExcelJS.Workbook();
+      const ws = wb.addWorksheet('TEC Snacks Supply');
+      const thin = { top:{style:'thin' as const}, bottom:{style:'thin' as const}, left:{style:'thin' as const}, right:{style:'thin' as const} };
+      ws.mergeCells('A1:E1');
+      ws.getCell('A1').value = 'DJ Hospitality & Facility Management Pvt. Ltd.';
+      ws.getCell('A1').font = { bold: true, size: 14 };
+      ws.getCell('A1').alignment = { horizontal: 'center' };
+      ws.mergeCells('A2:E2');
+      ws.getCell('A2').value = `Snacks For Sugar Supply — ${MONTHS[month-1]} ${year}`;
+      ws.getCell('A2').alignment = { horizontal: 'center' };
+      const hdr = ws.addRow(['Date', 'Days', 'Chips', 'Biscuit', 'Sugar']);
+      hdr.eachCell((c: any) => { c.font = { bold: true }; c.border = thin; c.alignment = { horizontal: 'center' };
+        c.fill = { type:'pattern' as const, pattern:'solid' as const, fgColor:{ argb:'FFA9C8EE' } }; });
+      rows.forEach((r, i) => {
+        const dr = ws.addRow([dispDate(i + 1), dayName(i + 1), parseFloat(r.chips) || '', parseFloat(r.biscuit) || '', parseFloat(r.sugar) || '']);
+        dr.eachCell((c: any) => { c.border = thin; c.alignment = { horizontal: 'center' }; });
+      });
+      const tr = ws.addRow(['Total', '', tot('chips'), tot('biscuit'), tot('sugar')]);
+      tr.eachCell((c: any) => { c.font = { bold: true }; c.border = thin; c.alignment = { horizontal: 'center' }; });
+      const addSummary = (label: string, a: any, b: any, c2: any, bold = false) => {
+        const sr = ws.addRow([label, '', a, b, c2]);
+        sr.eachCell((c: any) => { c.font = { bold }; c.border = thin; c.alignment = { horizontal: 'center' }; });
+      };
+      addSummary('Rate (₹)', FIXED_RATE, FIXED_RATE, sugarRateNum);
+      addSummary('Amount (₹)', chipsAmt, biscuitAmt, sugarAmt);
+      addSummary('Grand Total (₹)', '', '', grandAmt, true);
+      ws.columns = [{ width: 14 }, { width: 8 }, { width: 12 }, { width: 12 }, { width: 12 }];
+      const buf = await wb.xlsx.writeBuffer();
+      const blob = new Blob([buf], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+      const a = document.createElement('a'); a.href = URL.createObjectURL(blob);
+      a.download = `HUL_TEC_SnacksSupply_${MONTHS[month-1]}_${year}.xlsx`; a.click();
+    } catch (err: any) { toast({ title: 'Export failed', description: err.message, variant: 'destructive' }); }
+  };
+
+  const print = () => {
+    const cell = 'border:1px solid #333;padding:3px 8px;text-align:center;font-size:11px;';
+    const body = rows.map((r, i) => {
+      const dn = dayName(i + 1);
+      const bg = dn === 'Sun' ? 'background:#f4b084;' : dn === 'Sat' ? 'background:#fce4d6;' : '';
+      return `<tr style="${bg}"><td style="${cell}">${dispDate(i + 1)}</td><td style="${cell}">${dn}</td><td style="${cell}">${r.chips}</td><td style="${cell}">${r.biscuit}</td><td style="${cell}">${r.sugar}</td></tr>`;
+    }).join('');
+    const win = window.open('', '_blank');
+    win?.document.write(`<html><head><title>TEC Snacks Supply</title></head><body style="font-family:Arial,sans-serif;margin:16px;">
+      <h3 style="text-align:center;margin:0;border:1px solid #333;padding:6px;">DJ Hospitality &amp; Facility Management Pvt. Ltd.</h3>
+      <p style="text-align:center;margin:0;border:1px solid #333;border-top:0;padding:3px;font-size:11px;font-weight:bold;">Snacks For Sugar Supply — ${MONTHS[month-1]} ${year}</p>
+      <table style="border-collapse:collapse;width:100%;">
+        <thead><tr style="background:#a9c8ee;"><th style="${cell}">Date</th><th style="${cell}">Days</th><th style="${cell}">Chips</th><th style="${cell}">Biscuit</th><th style="${cell}">Sugar</th></tr></thead>
+        <tbody>${body}</tbody>
+        <tfoot><tr style="font-weight:bold;"><td style="${cell}" colspan="2">Total</td><td style="${cell}">${tot('chips')}</td><td style="${cell}">${tot('biscuit')}</td><td style="${cell}">${tot('sugar')}</td></tr>
+          <tr><td style="${cell}" colspan="2">Rate (₹)</td><td style="${cell}">${FIXED_RATE}</td><td style="${cell}">${FIXED_RATE}</td><td style="${cell}">${sugarRateNum}</td></tr>
+          <tr><td style="${cell}" colspan="2">Amount (₹)</td><td style="${cell}">${money(chipsAmt)}</td><td style="${cell}">${money(biscuitAmt)}</td><td style="${cell}">${money(sugarAmt)}</td></tr>
+          <tr style="font-weight:bold;"><td style="${cell}" colspan="4">Grand Total (₹)</td><td style="${cell}">${money(grandAmt)}</td></tr></tfoot>
+      </table></body></html>`);
+    win?.document.close(); win?.print();
+  };
+
+  const inp = 'w-full border-0 bg-transparent focus:outline-none focus:ring-1 focus:ring-blue-400 rounded px-1 text-center text-sm';
+
+  return (
+    <div className="space-y-3">
+      <div className="flex flex-wrap items-center gap-2 justify-between">
+        <div>
+          <h3 className="font-semibold text-base text-blue-900">HUL TEC — Special Order: Snacks For Sugar Supply</h3>
+          <p className="text-xs text-muted-foreground">{MONTHS[month-1]} {year}</p>
+        </div>
+        <div className="flex gap-2 flex-wrap">
+          <Button size="sm" variant="outline" onClick={print} className="h-8 text-xs">🖨️ Print</Button>
+          <Button size="sm" variant="outline" onClick={exportExcel} className="h-8 text-xs text-green-700 border-green-300 hover:bg-green-50">📊 Excel</Button>
+          <Button size="sm" onClick={save} disabled={saving} className="h-8 text-xs bg-blue-700 hover:bg-blue-800" data-testid="btn-save-snack-supply">
+            {saving ? '⏳ Saving…' : '💾 Save All'}
+          </Button>
+        </div>
+      </div>
+      {isLoading ? (
+        <div className="flex items-center justify-center py-16"><Loader2 className="w-7 h-7 animate-spin text-blue-500" /></div>
+      ) : (
+        <div className="overflow-x-auto rounded-lg border border-slate-200 max-w-xl">
+          <table className="border-collapse w-full text-sm">
+            <thead>
+              <tr style={{ background: '#a9c8ee' }}>
+                {['Date', 'Days', 'Chips', 'Biscuit', 'Sugar'].map(h => (
+                  <th key={h} className="border border-slate-300 px-3 py-2 text-center font-bold">{h}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {rows.map((r, i) => {
+                const dn = dayName(i + 1);
+                const bg = dn === 'Sun' ? '#f4b084' : dn === 'Sat' ? '#fce4d6' : undefined;
+                return (
+                  <tr key={i} style={{ background: bg }}>
+                    <td className="border border-slate-300 px-2 py-1 text-center">{dispDate(i + 1)}</td>
+                    <td className="border border-slate-300 px-2 py-1 text-center">{dn}</td>
+                    {(['chips', 'biscuit', 'sugar'] as const).map(f => (
+                      <td key={f} className="border border-slate-300 px-1 py-0.5">
+                        <input type="number" min={0} className={inp} value={r[f]}
+                          onChange={e => setCell(i, f, e.target.value)}
+                          data-testid={`input-snack-${f}-${i}`} />
+                      </td>
+                    ))}
+                  </tr>
+                );
+              })}
+            </tbody>
+            <tfoot>
+              <tr className="font-bold bg-slate-100">
+                <td colSpan={2} className="border border-slate-300 px-3 py-2 text-center">Total</td>
+                <td className="border border-slate-300 px-2 py-2 text-center">{tot('chips')}</td>
+                <td className="border border-slate-300 px-2 py-2 text-center">{tot('biscuit')}</td>
+                <td className="border border-slate-300 px-2 py-2 text-center">{tot('sugar')}</td>
+              </tr>
+              <tr className="bg-white">
+                <td colSpan={2} className="border border-slate-300 px-3 py-1 text-center">Rate (₹)</td>
+                <td className="border border-slate-300 px-2 py-1 text-center">{FIXED_RATE}</td>
+                <td className="border border-slate-300 px-2 py-1 text-center">{FIXED_RATE}</td>
+                <td className="border border-slate-300 px-1 py-0.5">
+                  <input type="number" min={0} step={0.01} className={inp} placeholder="Sugar rate"
+                    value={sugarRate} onChange={e => setSugarRate(e.target.value)} data-testid="input-sugar-rate" />
+                </td>
+              </tr>
+              <tr className="bg-white">
+                <td colSpan={2} className="border border-slate-300 px-3 py-1 text-center">Amount (₹)</td>
+                <td className="border border-slate-300 px-2 py-1 text-center">{money(chipsAmt)}</td>
+                <td className="border border-slate-300 px-2 py-1 text-center">{money(biscuitAmt)}</td>
+                <td className="border border-slate-300 px-2 py-1 text-center">{money(sugarAmt)}</td>
+              </tr>
+              <tr className="font-bold bg-blue-50">
+                <td colSpan={4} className="border border-slate-300 px-3 py-2 text-center">Grand Total (₹)</td>
+                <td className="border border-slate-300 px-2 py-2 text-center">{money(grandAmt)}</td>
+              </tr>
+            </tfoot>
+          </table>
+        </div>
+      )}
+    </div>
+  );
+}
+
 function HulLocationTab({ month, year, location, loadKey = 0 }: { month: number; year: number; location: string; loadKey?: number }) {
   const qc = useQueryClient();
   const { toast } = useToast();
@@ -5703,6 +5928,17 @@ function HulSummaryTab({ month, year }: { month: number; year: number }) {
     },
   });
 
+  const { data: snackSupplyData } = useQuery<{ rows: any[]; sugarRate: number }>({
+    queryKey: ['/api/hul-snack-supply', month, year],
+    enabled: viewMode === 'monthly',
+    queryFn: async () => {
+      const res = await fetch(`/api/hul-snack-supply?month=${month}&year=${year}`, { credentials: 'include' });
+      return res.ok ? res.json() : { rows: [], sugarRate: 0 };
+    },
+  });
+  const snackSupplyRows = snackSupplyData?.rows ?? [];
+  const snackSugarRate = Number(snackSupplyData?.sugarRate) || 0;
+
   // Yearly data
   const { data: yrKpf = [], isLoading: yrKpfLoading } = useQuery<YearlyMealRow[]>({
     queryKey: ['/api/hul-date-entries/yearly-summary', summaryYear, 'KPF'],
@@ -6719,6 +6955,55 @@ function HulSummaryTab({ month, year }: { month: number; year: number }) {
                   {specialTotal > 0 ? fmtINR(specialTotal) : '—'}
                 </td>
               </tr>
+            </tbody>
+          </table>
+        </div>
+
+        {/* TEC Special Order — Snacks For Sugar Supply */}
+        <div className="overflow-x-auto border-t">
+          <div className="px-3 py-1 font-bold text-white text-xs" style={{ background:'#0f766e' }}>
+            TEC Special Order — Snacks For Sugar Supply — {monthLabel}
+          </div>
+          <table className="border-collapse" style={{ fontSize:10, minWidth:360 }}>
+            <thead>
+              <tr>
+                {['Date','Chips','Biscuit','Sugar'].map(h => (
+                  <th key={h} style={{ ...thPurple, background:'#0f766e', fontSize:10 }}>{h}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {snackSupplyRows.length === 0 ? (
+                <tr>
+                  <td colSpan={4} style={{ border:'1px solid #ddd', padding:'6px', textAlign:'center', color:'#888', fontSize:10 }}>
+                    No snacks supply data for {monthLabel}
+                  </td>
+                </tr>
+              ) : snackSupplyRows.map((r, i) => (
+                <tr key={i}>
+                  <td style={tdC}>{safeFormat(r.entryDate)}</td>
+                  <td style={tdC}>{r.chips || ''}</td>
+                  <td style={tdC}>{r.biscuit || ''}</td>
+                  <td style={tdC}>{r.sugar || ''}</td>
+                </tr>
+              ))}
+              <tr style={{ background:'#0f766e' }}>
+                {[ 'Total', ...(['chips','biscuit','sugar'] as const).map(f => snackSupplyRows.reduce((s, r) => s + (Number(r[f]) || 0), 0)) ].map((v, i) => (
+                  <td key={i} style={{ border:'1px solid #115e59', padding:'3px 6px', textAlign:'center', fontWeight:'bold', fontSize:11, color:'#fff' }}>{v}</td>
+                ))}
+              </tr>
+              {(() => {
+                const q = (f: string) => snackSupplyRows.reduce((s, r) => s + (Number(r[f]) || 0), 0);
+                const amts = [q('chips') * 5, q('biscuit') * 5, q('sugar') * snackSugarRate];
+                const bt = { ...tdTot };
+                return (
+                  <>
+                    <tr><td style={bt}>Rate (₹)</td><td style={bt}>5</td><td style={bt}>5</td><td style={bt}>{snackSugarRate || '—'}</td></tr>
+                    <tr><td style={bt}>Amount (₹)</td>{amts.map((a, i) => <td key={i} style={bt}>{fmtINR(a)}</td>)}</tr>
+                    <tr><td style={bt} colSpan={3}>Grand Total (₹)</td><td style={bt}>{fmtINR(amts[0] + amts[1] + amts[2])}</td></tr>
+                  </>
+                );
+              })()}
             </tbody>
           </table>
         </div>
@@ -8118,6 +8403,9 @@ export function DateEntryTab() {
             <TabsTrigger value="hul_special_order" className="text-xs sm:text-sm" data-testid="tab-hul-special-order">
               Special Order
             </TabsTrigger>
+            <TabsTrigger value="hul_snack_supply" className="text-xs sm:text-sm" data-testid="tab-hul-snack-supply">
+              Special Order TEC
+            </TabsTrigger>
             <TabsTrigger value="hul_summary" className="text-xs sm:text-sm" data-testid="tab-hul-summary">
               Summary
             </TabsTrigger>
@@ -8137,6 +8425,9 @@ export function DateEntryTab() {
           <TabsContent value="hul_special_order">
             <div className="mb-2 text-sm text-muted-foreground font-medium">HUL — Special Order Entry (Sl. No., Particulars, Qty, Rate Per Plate, Total)</div>
             <HulSpecialOrderTab month={parseInt(month)} year={parseInt(year)} loadKey={loadKey}/>
+          </TabsContent>
+          <TabsContent value="hul_snack_supply">
+            <HulSnackSupplyTab month={parseInt(month)} year={parseInt(year)}/>
           </TabsContent>
           <TabsContent value="hul_summary">
             <div className="mb-2 text-sm text-muted-foreground font-medium">HUL Combined Summary — KPF, TEC, KPF Exec Snacks (full month data + combined totals)</div>
