@@ -1,7 +1,8 @@
 import { useState, useRef, useEffect, useMemo, Fragment } from "react";
 import { DateEntryDashboard } from "./date-entry-dashboard";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { useCurrentUser } from "@/hooks/use-reports";
+import { useCurrentUser, useClientNames } from "@/hooks/use-reports";
+import { CustomClientFormTab } from "./custom-client-form";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
@@ -8550,12 +8551,22 @@ export function DateEntryTab() {
   const now = new Date();
   const { data: currentUser } = useCurrentUser();
 
+  const { data: managedClients = [] } = useClientNames();
+  const customClientOptions = useMemo(() => {
+    const builtIn = /united breweries|\bubl\b|unichem|cipla|hindustan unilever|\bhul\b|pec ventures/i;
+    return managedClients
+      .filter(c => !builtIn.test(c.name))
+      .map(c => ({ value: `custom_${c.id}`, label: c.name }));
+  }, [managedClients]);
+
   const allowedClients = useMemo(() => {
     if (!currentUser) return [];
-    if (currentUser.role === "admin") return CLIENT_OPTIONS;
+    const allOptions = [...CLIENT_OPTIONS, ...customClientOptions];
+    if (currentUser.role === "admin") return allOptions;
     const perms = currentUser.permissions || [];
     const hasAny = perms.includes("dateentry_ubl") || perms.includes("dateentry_cipla") || perms.includes("dateentry_hul");
-    return CLIENT_OPTIONS.filter(o => {
+    return allOptions.filter(o => {
+      if (o.value.startsWith("custom_")) return hasAny;
       if (o.value === "dashboard") return hasAny;
       if (o.value === "ubl") return perms.includes("dateentry_ubl");
       if (o.value === "unichem") return perms.includes("dateentry_ubl");
@@ -8564,7 +8575,7 @@ export function DateEntryTab() {
       if (o.value === "pec_ventures") return perms.includes("dateentry_ubl") || perms.includes("dateentry_cipla") || perms.includes("dateentry_hul");
       return false;
     });
-  }, [currentUser]);
+  }, [currentUser, customClientOptions]);
 
   const [selectedClient, setSelectedClient] = useState("");
   const [month, setMonth] = useState(String(now.getMonth() + 1));
@@ -8589,7 +8600,7 @@ export function DateEntryTab() {
   const years = Array.from({ length: 6 }, (_, i) => String(now.getFullYear() - 2 + i));
   const { label: billingLabel } = getBillingRange(parseInt(month), parseInt(year));
   const periodLabel = useMemo(() => {
-    if (selectedClient === "unichem" || selectedClient === "hul" || selectedClient === "pec_ventures") {
+    if (selectedClient === "unichem" || selectedClient === "hul" || selectedClient === "pec_ventures" || selectedClient.startsWith("custom_")) {
       const m = parseInt(month); const y = parseInt(year);
       const lastDay = getDaysInMonth(m, y);
       return `1 ${MONTHS[m-1].slice(0,3)} ${y} – ${lastDay} ${MONTHS[m-1].slice(0,3)} ${y}`;
@@ -8745,6 +8756,21 @@ export function DateEntryTab() {
           </TabsContent>
         </Tabs>
       )}
+      {selectedClient.startsWith("custom_") && (() => {
+        const opt = customClientOptions.find(o => o.value === selectedClient);
+        if (!opt) return null;
+        const isCurrent = parseInt(year) === now.getFullYear() && parseInt(month) === now.getMonth() + 1;
+        return (
+          <CustomClientFormTab
+            key={`${selectedClient}-${month}-${year}-${loadKey}`}
+            clientId={Number(selectedClient.slice(7))}
+            clientName={opt.label}
+            month={parseInt(month)}
+            year={parseInt(year)}
+            canEdit={currentUser?.role === "admin" || isCurrent}
+          />
+        );
+      })()}
       {selectedClient === "pec_ventures" && (
         <Tabs defaultValue="pec_form1">
           <TabsList className="mb-4 flex-wrap h-auto">

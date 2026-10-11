@@ -3406,6 +3406,72 @@ export class DatabaseStorage implements IStorage {
     }
   }
 
+  // === CLIENT FORM BUILDER (user-defined date entry forms for any client) ===
+  async getClientForm(clientId: number, month: number, year: number): Promise<{ fields: any[]; entries: any[] }> {
+    const prefix = `${year}-${String(month).padStart(2, '0')}-%`;
+    const [entryRows] = await db.execute(sql`
+      SELECT e.field_id AS fieldId, e.entry_date AS entryDate, e.qty, e.rate
+      FROM client_form_entries e JOIN client_form_fields f ON f.id = e.field_id
+      WHERE f.client_id = ${clientId} AND e.entry_date LIKE ${prefix} AND e.qty > 0
+    `);
+    const entries = (entryRows as any[]).map(r => ({
+      fieldId: Number(r.fieldId), entryDate: r.entryDate, qty: Number(r.qty) || 0, rate: Number(r.rate) || 0,
+    }));
+    const usedIds = Array.from(new Set(entries.map(q => q.fieldId)));
+    const [fieldRows] = await db.execute(sql`
+      SELECT id, label, rate, active FROM client_form_fields WHERE client_id = ${clientId} ORDER BY sort_order, id
+    `);
+    const fields = (fieldRows as any[])
+      .filter(r => Number(r.active) === 1 || usedIds.includes(Number(r.id)))
+      .map(r => ({ id: Number(r.id), label: r.label, rate: Number(r.rate) || 0, active: Number(r.active) === 1 }));
+    return { fields, entries };
+  }
+  async getClientFormsYearly(year: number): Promise<any[]> {
+    const prefix = `${year}-%`;
+    const [rows] = await db.execute(sql`
+      SELECT f.client_id AS clientId, c.name AS clientName, f.id AS fieldId, f.label AS label,
+             CAST(SUBSTRING(e.entry_date, 6, 2) AS UNSIGNED) AS month,
+             SUM(e.qty) AS qty, SUM(e.qty * e.rate) AS amount
+      FROM client_form_entries e
+      JOIN client_form_fields f ON f.id = e.field_id
+      JOIN client_names c ON c.id = f.client_id
+      WHERE e.entry_date LIKE ${prefix} AND e.qty > 0
+      GROUP BY f.client_id, c.name, f.id, f.label, month
+      ORDER BY f.client_id, f.sort_order, f.id, month
+    `);
+    return (rows as any[]).map(r => ({
+      clientId: Number(r.clientId), clientName: r.clientName, fieldId: Number(r.fieldId), label: r.label,
+      month: Number(r.month), qty: Number(r.qty) || 0, amount: Number(r.amount) || 0,
+    }));
+  }
+  async saveClientFormField(clientId: number, label: string, rate: number): Promise<void> {
+    const [mx] = await db.execute(sql`SELECT COALESCE(MAX(sort_order), 0) + 1 AS n FROM client_form_fields WHERE client_id = ${clientId}`);
+    const next = Number((mx as any[])[0]?.n) || 1;
+    await db.execute(sql`
+      INSERT INTO client_form_fields (client_id, label, rate, sort_order, active) VALUES (${clientId}, ${label}, ${rate}, ${next}, 1)
+      ON DUPLICATE KEY UPDATE rate = VALUES(rate), active = 1
+    `);
+  }
+  async updateClientFormFieldRate(id: number, rate: number): Promise<void> {
+    await db.execute(sql`UPDATE client_form_fields SET rate = ${rate} WHERE id = ${id}`);
+  }
+  async deactivateClientFormField(id: number): Promise<void> {
+    await db.execute(sql`UPDATE client_form_fields SET active = 0 WHERE id = ${id}`);
+  }
+  async saveClientFormEntries(entries: { fieldId: number; entryDate: string; qty: number; rate: number }[]): Promise<void> {
+    for (const e of entries) {
+      if (e.qty > 0) {
+        await db.execute(sql`
+          INSERT INTO client_form_entries (field_id, entry_date, qty, rate)
+          VALUES (${e.fieldId}, ${e.entryDate}, ${e.qty}, ${e.rate})
+          ON DUPLICATE KEY UPDATE qty = VALUES(qty), rate = VALUES(rate)
+        `);
+      } else {
+        await db.execute(sql`DELETE FROM client_form_entries WHERE field_id = ${e.fieldId} AND entry_date = ${e.entryDate}`);
+      }
+    }
+  }
+
   // === QUOTATIONS (Open Quotation tracking) ===
   async getQuotations(clientScope?: string): Promise<any[]> {
     const [qRows] = await db.execute(sql`
