@@ -8454,7 +8454,8 @@ function PecVentureSummaryTab({ currentYear }: { currentYear: number }) {
                 {PEC_ITEMS.flatMap(c=>[<th key={c.key+'a'} className={thAmt}>{c.label}</th>])}
                 <th className={thAmt}>Milk</th>
                 {customList.flatMap(c=>[<th key={c.itemId+'cq'} className={thLunch}>{c.name} Qty ({c.unit})</th>, <th key={c.itemId+'ca'} className={thLunch}>{c.name} Amt</th>])}
-            </thead>
+                             </tr>
+                           </thead>
             <tbody>
               {filteredMonths.map(m => {
                 const r: PecYearRow = rowsMap.get(m) ?? { month:m, redLabel:0,tataTea:0,coffee:0,sugar:0,ginger:0,biscuit:0,teaCup:0,greenElaychi:0,greenTea:0,blackSalt:0,milkMorning:0,milkEvening:0 };
