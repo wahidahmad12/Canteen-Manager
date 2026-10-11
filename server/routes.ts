@@ -3137,6 +3137,13 @@ export async function registerRoutes(
     } catch (err: any) { res.status(500).json({ message: err.message }); }
   });
 
+  app.get('/api/pec-custom-items/yearly', requirePermission('salesinvoice'), async (req, res) => {
+    try {
+      const year = Number(req.query.year);
+      if (!year) return res.status(400).json({ message: "year is required" });
+      res.json(await storage.getPecCustomItemsYearly(year));
+    } catch (err: any) { res.status(500).json({ message: err.message }); }
+  });
   app.get('/api/pec-custom-items', requirePermission('salesinvoice'), async (req, res) => {
     try {
       const month = Number(req.query.month), year = Number(req.query.year);

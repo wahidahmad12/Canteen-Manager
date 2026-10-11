@@ -3366,6 +3366,23 @@ export class DatabaseStorage implements IStorage {
       .map(r => ({ id: Number(r.id), name: r.name, unit: r.unit, rate: Number(r.rate) || 0, active: Number(r.active) === 1 }));
     return { items, qty };
   }
+  async getPecCustomItemsYearly(year: number): Promise<any[]> {
+    const prefix = `${year}-%`;
+    const [rows] = await db.execute(sql`
+      SELECT q.item_id AS itemId, i.name AS name, i.unit AS unit,
+             CAST(SUBSTRING(q.entry_date, 6, 2) AS UNSIGNED) AS month,
+             SUM(q.qty) AS qty, SUM(q.qty * q.rate) AS amount
+      FROM pec_custom_item_qty q
+      JOIN pec_custom_items i ON i.id = q.item_id
+      WHERE q.entry_date LIKE ${prefix} AND q.qty > 0
+      GROUP BY q.item_id, i.name, i.unit, month
+      ORDER BY q.item_id, month
+    `);
+    return (rows as any[]).map(r => ({
+      itemId: Number(r.itemId), name: r.name, unit: r.unit, month: Number(r.month),
+      qty: Number(r.qty) || 0, amount: Number(r.amount) || 0,
+    }));
+  }
   async savePecCustomItem(name: string, unit: string, rate: number): Promise<void> {
     await db.execute(sql`
       INSERT INTO pec_custom_items (name, unit, rate, active) VALUES (${name}, ${unit}, ${rate}, 1)
