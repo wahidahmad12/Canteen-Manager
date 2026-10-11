@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect, useMemo } from "react";
+import { useState, useRef, useEffect, useMemo, Fragment } from "react";
 import { DateEntryDashboard } from "./date-entry-dashboard";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useCurrentUser } from "@/hooks/use-reports";
@@ -7454,6 +7454,77 @@ function PecVenturesTab({ month, year, loadKey = 0 }: { month: number; year: num
   // the saved rates for this month. Reset whenever the loaded month/rates change.
   const [editRatesUnlocked, setEditRatesUnlocked] = useState(false);
 
+  // Custom (user-added) expense items, stored in their own DB tables
+  type PecCustomItem = { id: number; name: string; unit: string; rate: number; active: boolean };
+  const { data: customData, refetch: refetchCustom } = useQuery<{ items: PecCustomItem[]; qty: { itemId: number; entryDate: string; qty: number; rate: number }[] }>({
+    queryKey: ['/api/pec-custom-items', month, year],
+    queryFn: async () => {
+      const res = await fetch(`/api/pec-custom-items?month=${month}&year=${year}`, { credentials: 'include' });
+      if (!res.ok) throw new Error('Failed to load custom items');
+      return res.json();
+    },
+  });
+  const customItems = customData?.items ?? [];
+  const [customQty, setCustomQty] = useState<Record<string, string>>({});
+  const [newItem, setNewItem] = useState({ name: '', unit: 'pcs', rate: '' });
+  const ckey = (itemId: number, date: string) => `${itemId}|${date}`;
+  const savedCustomRate = useMemo(() => {
+    const m: Record<string, number> = {};
+    (customData?.qty ?? []).forEach(q => { m[ckey(q.itemId, q.entryDate)] = q.rate; });
+    return m;
+  }, [customData]);
+  useEffect(() => {
+    const m: Record<string, string> = {};
+    (customData?.qty ?? []).forEach(q => { if (q.qty > 0) m[ckey(q.itemId, q.entryDate)] = String(q.qty); });
+    setCustomQty(m);
+  }, [customData, month, year, loadKey]);
+  const cQty = (itemId: number, date: string) => parseFloat(customQty[ckey(itemId, date)]) || 0;
+  const cRate = (it: PecCustomItem, date: string) => savedCustomRate[ckey(it.id, date)] ?? it.rate;
+  const customTotals = (it: PecCustomItem, list: { entryDate: string }[]) =>
+    list.reduce((s, r) => ({ qty: s.qty + cQty(it.id, r.entryDate), amt: s.amt + cQty(it.id, r.entryDate) * cRate(it, r.entryDate) }), { qty: 0, amt: 0 });
+
+  const addCustomItem = async () => {
+    const name = newItem.name.trim();
+    const rate = parseFloat(newItem.rate);
+    if (!name || !Number.isFinite(rate) || rate < 0) {
+      toast({ title: 'Item name aur rate daalein', variant: 'destructive' });
+      return;
+    }
+    try {
+      const res = await fetch('/api/pec-custom-items', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' }, credentials: 'include',
+        body: JSON.stringify({ name, unit: newItem.unit.trim() || 'pcs', rate }),
+      });
+      if (!res.ok) throw new Error((await res.json().catch(() => ({}))).message || 'Failed to add item');
+      setNewItem({ name: '', unit: 'pcs', rate: '' });
+      await refetchCustom();
+      toast({ title: 'Item added', description: `${name} column add ho gaya.` });
+    } catch (err: any) { toast({ title: 'Error', description: err.message, variant: 'destructive' }); }
+  };
+
+  const removeCustomItem = async (it: PecCustomItem) => {
+    if (!window.confirm(`"${it.name}" column hataana hai? Purani months ka saved data safe rahega.`)) return;
+    try {
+      const res = await fetch(`/api/pec-custom-items/${it.id}`, { method: 'DELETE', credentials: 'include' });
+      if (!res.ok) throw new Error('Failed to remove item');
+      await refetchCustom();
+    } catch (err: any) { toast({ title: 'Error', description: err.message, variant: 'destructive' }); }
+  };
+
+  const saveCustomQty = async () => {
+    const entries: any[] = [];
+    customItems.filter(it => it.active).forEach(it => {
+      rows.forEach(r => entries.push({ itemId: it.id, entryDate: r.entryDate, qty: cQty(it.id, r.entryDate), rate: cRate(it, r.entryDate) }));
+    });
+    if (!entries.length) return;
+    const res = await fetch('/api/pec-custom-items/qty', {
+      method: 'PUT', headers: { 'Content-Type': 'application/json' }, credentials: 'include',
+      body: JSON.stringify({ entries }),
+    });
+    if (!res.ok) throw new Error('Failed to save custom items');
+    await qc.invalidateQueries({ queryKey: ['/api/pec-custom-items', month, year] });
+  };
+
   useEffect(() => {
     if (!isLoading) setRows(generatePecMonthRows(month, year, savedRows));
   }, [isLoading, savedRows, month, year, loadKey]);
@@ -7525,6 +7596,7 @@ function PecVenturesTab({ month, year, loadKey = 0 }: { month: number; year: num
         if (!res.ok) throw new Error('Failed to update rates');
       }
       // Lock this month if not already locked (idempotent; snapshots default rates if needed)
+      await saveCustomQty();
       await fetch('/api/pec-ventures-rates/ensure', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ month, year }), credentials: 'include',
@@ -7781,7 +7853,17 @@ function PecVenturesTab({ month, year, loadKey = 0 }: { month: number; year: num
       },
     ];
 
-    const visCols = COLS.filter(c => c.show);
+    const customCols = customItems.filter(it => rows.some(r => cQty(it.id, r.entryDate) > 0)).map(it => {
+      const tt = customTotals(it, rows);
+      return {
+        show: true, label: it.name, colspan: 3,
+        h2: `<th style="${th}">Qty in ${it.unit}</th><th style="${th}">Rate</th><th style="${th}">Total</th>`,
+        cell: (r: PecRow) => { const q = cQty(it.id, r.entryDate); const rt = cRate(it, r.entryDate); return `<td style="${tdr}">${fq(q)}</td><td style="${tdr}">${q ? rt : ''}</td><td style="${tdr}">${fa(q * rt)}</td>`; },
+        totCell: () => `<td style="${tdr}">${fq(tt.qty)}</td><td style="${td}"></td><td style="${tdr}">${fa(tt.amt)}</td>`,
+        amount: () => tt.amt,
+      };
+    });
+    const visCols = [...COLS.filter(c => c.show), ...customCols];
     const totalColspan = 2 + visCols.reduce((s, c) => s + c.colspan, 0);
     const grandTotal = visCols.reduce((s, c) => s + c.amount(), 0);
 
@@ -8044,6 +8126,90 @@ function PecVenturesTab({ month, year, loadKey = 0 }: { month: number; year: num
           </tfoot>
         </table>
       </div>
+
+      {/* Additional items (user-added columns) */}
+      <div className="rounded-lg border border-gray-200 dark:border-gray-700 p-3 space-y-3" data-testid="panel-pec-custom-items">
+        <div className="flex items-end gap-2 flex-wrap">
+          <span className="text-sm font-medium mr-2">Additional Items (Lemon etc.)</span>
+          <input className="border rounded px-2 py-1 text-xs bg-background w-36" placeholder="Item name" value={newItem.name}
+            onChange={e => setNewItem(p => ({ ...p, name: e.target.value }))} disabled={!canEditMonth} data-testid="input-pec-new-item-name" />
+          <input className="border rounded px-2 py-1 text-xs bg-background w-20" placeholder="Unit" value={newItem.unit}
+            onChange={e => setNewItem(p => ({ ...p, unit: e.target.value }))} disabled={!canEditMonth} data-testid="input-pec-new-item-unit" />
+          <input type="number" min="0" step="0.001" className="border rounded px-2 py-1 text-xs bg-background w-24" placeholder="Rate (₹)" value={newItem.rate}
+            onChange={e => setNewItem(p => ({ ...p, rate: e.target.value }))} disabled={!canEditMonth} data-testid="input-pec-new-item-rate" />
+          <Button size="sm" onClick={addCustomItem} disabled={!canEditMonth} className="h-7 px-3 text-xs gap-1" data-testid="btn-pec-add-item">
+            <Plus className="w-3 h-3" /> Add Item
+          </Button>
+          <span className="text-xs text-muted-foreground">Naya column automatically database me save hota hai. Qty bharke Save dabayein.</span>
+        </div>
+        {customItems.length > 0 && (
+          <div className="overflow-x-auto">
+            <table className="border-collapse min-w-max">
+              <thead>
+                <tr>
+                  <th className={thSx} rowSpan={2}>Date</th>
+                  {customItems.map(it => (
+                    <th key={it.id} className={thSx} colSpan={3}>
+                      {it.name} · ₹{it.rate}/{it.unit}
+                      {it.active && canEditMonth && (
+                        <button type="button" className="ml-2 text-red-600 hover:text-red-800" title="Remove column" onClick={() => removeCustomItem(it)} data-testid={`btn-pec-remove-item-${it.id}`}>
+                          <Trash2 className="w-3 h-3 inline" />
+                        </button>
+                      )}
+                    </th>
+                  ))}
+                </tr>
+                <tr>{customItems.map(it => (<Fragment key={it.id}><th className={thSx}>Qty</th><th className={thSx}>Rate</th><th className={thSx}>Amt</th></Fragment>))}</tr>
+              </thead>
+              <tbody>
+                {rows.map((r, i) => (
+                  <tr key={r.entryDate}>
+                    <td className={`${tdSx} text-left whitespace-nowrap`}>{safeFormat(r.entryDate)} {r.weekDay}</td>
+                    {customItems.map(it => {
+                      const q = cQty(it.id, r.entryDate);
+                      const rt = cRate(it, r.entryDate);
+                      return (
+                        <Fragment key={it.id}>
+                          <td className={tdSx}>
+                            <input type="number" min="0" step="0.001" className={inputSx} value={customQty[ckey(it.id, r.entryDate)] ?? ''}
+                              disabled={!canEditMonth || (!it.active && q === 0)}
+                              onChange={e => setCustomQty(p => ({ ...p, [ckey(it.id, r.entryDate)]: e.target.value }))}
+                              data-testid={`pec-custom-${it.id}-${i}`} />
+                          </td>
+                          <td className={tdRSx}>{q ? rt : ''}</td>
+                          <td className={`${tdRSx} font-medium`}>{fa(q * rt)}</td>
+                        </Fragment>
+                      );
+                    })}
+                  </tr>
+                ))}
+              </tbody>
+              <tfoot>
+                <tr>
+                  <td className={`${totSx} text-left`}>TOTAL</td>
+                  {customItems.map(it => { const t = customTotals(it, rows); return (
+                    <Fragment key={it.id}><td className={totSx}>{fq(t.qty)}</td><td className={totSx}></td><td className={totRSx}>{fa(t.amt)}</td></Fragment>
+                  ); })}
+                </tr>
+              </tfoot>
+            </table>
+          </div>
+        )}
+      </div>
+
+      {(() => {
+        const mainAmt = totals.redLabel*rates.redLabel + totals.tataTea*rates.tataTea + totals.coffee*rates.coffee + totals.sugar*rates.sugar
+          + totals.ginger*rates.ginger + totals.biscuit*rates.biscuit + totals.teaCup*rates.teaCup + totals.greenElaychi*rates.greenElaychi
+          + totals.greenTea*rates.greenTea + totals.blackSalt*rates.blackSalt + (totals.milkMorning+totals.milkEvening)*rates.milk;
+        const extraAmt = customItems.reduce((s, it) => s + customTotals(it, rows).amt, 0);
+        return (
+          <div className="rounded-lg border border-emerald-300 bg-emerald-50 dark:bg-emerald-950/20 px-3 py-2 text-sm font-semibold flex gap-6 flex-wrap" data-testid="pec-grand-total">
+            <span>Main Items: ₹{mainAmt.toFixed(2)}</span>
+            <span>Additional Items: ₹{extraAmt.toFixed(2)}</span>
+            <span className="text-emerald-700 dark:text-emerald-400">Grand Total: ₹{(mainAmt + extraAmt).toFixed(2)}</span>
+          </div>
+        );
+      })()}
     </div>
   );
 }

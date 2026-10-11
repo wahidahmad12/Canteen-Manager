@@ -3348,6 +3348,47 @@ export class DatabaseStorage implements IStorage {
     }
   }
 
+  // === PEC CUSTOM ITEMS (user-added canteen expense columns) ===
+  async getPecCustomItems(month: number, year: number): Promise<{ items: any[]; qty: any[] }> {
+    const prefix = `${year}-${String(month).padStart(2, '0')}-%`;
+    const [qtyRows] = await db.execute(sql`
+      SELECT item_id AS itemId, entry_date AS entryDate, qty, rate
+      FROM pec_custom_item_qty
+      WHERE entry_date LIKE ${prefix} AND qty > 0
+    `);
+    const qty = (qtyRows as any[]).map(r => ({
+      itemId: Number(r.itemId), entryDate: r.entryDate, qty: Number(r.qty) || 0, rate: Number(r.rate) || 0,
+    }));
+    const usedIds = Array.from(new Set(qty.map(q => q.itemId)));
+    const [itemRows] = await db.execute(sql`SELECT id, name, unit, rate, active FROM pec_custom_items ORDER BY id`);
+    const items = (itemRows as any[])
+      .filter(r => Number(r.active) === 1 || usedIds.includes(Number(r.id)))
+      .map(r => ({ id: Number(r.id), name: r.name, unit: r.unit, rate: Number(r.rate) || 0, active: Number(r.active) === 1 }));
+    return { items, qty };
+  }
+  async savePecCustomItem(name: string, unit: string, rate: number): Promise<void> {
+    await db.execute(sql`
+      INSERT INTO pec_custom_items (name, unit, rate, active) VALUES (${name}, ${unit}, ${rate}, 1)
+      ON DUPLICATE KEY UPDATE unit = VALUES(unit), rate = VALUES(rate), active = 1
+    `);
+  }
+  async deactivatePecCustomItem(id: number): Promise<void> {
+    await db.execute(sql`UPDATE pec_custom_items SET active = 0 WHERE id = ${id}`);
+  }
+  async savePecCustomItemQty(entries: { itemId: number; entryDate: string; qty: number; rate: number }[]): Promise<void> {
+    for (const e of entries) {
+      if (e.qty > 0) {
+        await db.execute(sql`
+          INSERT INTO pec_custom_item_qty (item_id, entry_date, qty, rate)
+          VALUES (${e.itemId}, ${e.entryDate}, ${e.qty}, ${e.rate})
+          ON DUPLICATE KEY UPDATE qty = VALUES(qty), rate = VALUES(rate)
+        `);
+      } else {
+        await db.execute(sql`DELETE FROM pec_custom_item_qty WHERE item_id = ${e.itemId} AND entry_date = ${e.entryDate}`);
+      }
+    }
+  }
+
   // === QUOTATIONS (Open Quotation tracking) ===
   async getQuotations(clientScope?: string): Promise<any[]> {
     const [qRows] = await db.execute(sql`

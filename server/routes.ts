@@ -3137,6 +3137,41 @@ export async function registerRoutes(
     } catch (err: any) { res.status(500).json({ message: err.message }); }
   });
 
+  app.get('/api/pec-custom-items', requirePermission('salesinvoice'), async (req, res) => {
+    try {
+      const month = Number(req.query.month), year = Number(req.query.year);
+      if (!month || !year) return res.status(400).json({ message: "month and year are required" });
+      res.json(await storage.getPecCustomItems(month, year));
+    } catch (err: any) { res.status(500).json({ message: err.message }); }
+  });
+  app.post('/api/pec-custom-items', requirePermission('salesinvoice'), async (req, res) => {
+    try {
+      const name = String(req.body?.name || '').trim().slice(0, 100);
+      const unit = String(req.body?.unit || 'pcs').trim().slice(0, 20) || 'pcs';
+      const rate = Number(req.body?.rate);
+      if (!name || !Number.isFinite(rate) || rate < 0) return res.status(400).json({ message: "Valid item name and rate are required" });
+      await storage.savePecCustomItem(name, unit, rate);
+      res.json({ ok: true });
+    } catch (err: any) { res.status(500).json({ message: err.message }); }
+  });
+  app.delete('/api/pec-custom-items/:id', requirePermission('salesinvoice'), async (req, res) => {
+    try {
+      await storage.deactivatePecCustomItem(Number(req.params.id));
+      res.json({ ok: true });
+    } catch (err: any) { res.status(500).json({ message: err.message }); }
+  });
+  app.put('/api/pec-custom-items/qty', requirePermission('salesinvoice'), async (req, res) => {
+    try {
+      if (!Array.isArray(req.body?.entries)) return res.status(400).json({ message: "entries are required" });
+      const entries = req.body.entries.map((e: any) => ({
+        itemId: Number(e.itemId), entryDate: String(e.entryDate || '').slice(0, 10),
+        qty: Number(e.qty) || 0, rate: Number(e.rate) || 0,
+      })).filter((e: any) => e.itemId && /^\d{4}-\d{2}-\d{2}$/.test(e.entryDate));
+      await storage.savePecCustomItemQty(entries);
+      res.json({ ok: true });
+    } catch (err: any) { res.status(500).json({ message: err.message }); }
+  });
+
   const quotationScope = (req: Request): { scope?: string; forbidden: boolean } => {
     if (req.session.role === 'admin') return { forbidden: false };
     const c = req.session.clientName;
