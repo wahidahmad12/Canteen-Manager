@@ -1318,6 +1318,8 @@ export class DatabaseStorage implements IStorage {
             gstRate: item.gstRate.toString(),
             gstAmount: item.gstAmount.toString(),
             netAmount: item.netAmount.toString(),
+            mfgDate: (item as any).mfgDate || null,
+            expiryDate: (item as any).expiryDate || null,
           }))
         );
       }
@@ -1447,6 +1449,8 @@ export class DatabaseStorage implements IStorage {
               gstRate: item.gstRate.toString(),
               gstAmount: item.gstAmount.toString(),
               netAmount: item.netAmount.toString(),
+              mfgDate: (item as any).mfgDate || null,
+              expiryDate: (item as any).expiryDate || null,
             }))
           );
         }

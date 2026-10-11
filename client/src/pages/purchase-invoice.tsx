@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, Fragment } from "react";
 import { Layout } from "@/components/layout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -141,8 +141,11 @@ interface InvoiceItem {
   netAmount: number;
   lastEdited?: "unitPrice" | "netAmount";
   prDate?: string;
+  mfgDate?: string;
+  expiryDate?: string;
 }
 
+const DATE_REQUIRED_CATEGORIES = ["Grocery", "Spice & Masala", "Dry Fruit", "Sauce & Condiment"];
 const UOM_OPTIONS = ["Kg", "Gm", "Ltr", "Ml", "Pcs", "Pkt", "Box", "Dz", "Nos", "Bag", "Tin", "Cyl", "Plats", "Cup", "Set"];
 const GST_RATES = [0, 5, 12, 18, 28];
 
@@ -273,6 +276,8 @@ export default function PurchaseInvoice() {
           gstRate: Number(item.gstRate),
           gstAmount: Number(item.gstAmount),
           netAmount: Number(item.netAmount),
+          mfgDate: item.mfgDate || "",
+          expiryDate: item.expiryDate || "",
         })));
       }
     }
@@ -404,11 +409,27 @@ export default function PurchaseInvoice() {
     });
   };
 
+  const itemCategory = (name: string): string => {
+    const m = (purchaseItemMaster || []).find((p: any) => p.itemName.toLowerCase() === name.trim().toLowerCase());
+    return m?.itemCategory || "";
+  };
+  const needsDates = (name: string) => DATE_REQUIRED_CATEGORIES.includes(itemCategory(name));
+
   const handleSave = () => {
     if (!clientName) { toast({ title: "Error", description: "Please select a client name", variant: "destructive" }); return; }
     if (!vendorName) { toast({ title: "Error", description: "Please select a vendor", variant: "destructive" }); return; }
     const validItems = items.filter(item => item.itemName.trim() !== "");
     if (validItems.length === 0) { toast({ title: "Error", description: "Please add at least one item", variant: "destructive" }); return; }
+    for (const it of validItems) {
+      if (needsDates(it.itemName) && (!it.mfgDate || !it.expiryDate)) {
+        toast({ title: "Mfg / Expiry Date required", description: `"${it.itemName}" (${itemCategory(it.itemName)}) ke liye Manufacturing aur Expiry Date bharein`, variant: "destructive" });
+        return;
+      }
+      if (it.mfgDate && it.expiryDate && it.expiryDate < it.mfgDate) {
+        toast({ title: "Invalid dates", description: `"${it.itemName}": Expiry Date Mfg Date se pehle nahi ho sakti`, variant: "destructive" });
+        return;
+      }
+    }
 
     const payload = {
       purchaseRequestId: purchaseRequestId || null,
@@ -754,7 +775,8 @@ export default function PurchaseInvoice() {
                 </thead>
                 <tbody>
                   {items.map((item, index) => (
-                    <tr key={index} className="border-b last:border-0 hover:bg-slate-50/50 dark:hover:bg-slate-800/20 transition-colors">
+                    <Fragment key={index}>
+                    <tr className={`${item.itemName.trim() ? "" : "border-b "}last:border-0 hover:bg-slate-50/50 dark:hover:bg-slate-800/20 transition-colors`}>
                       <td className="py-2 px-3 text-muted-foreground text-xs">{index + 1}</td>
                       <td className="py-2 px-2">
                         <Input value={item.itemName} onChange={(e) => updateItem(index, "itemName", e.target.value)} list="invoice-item-suggestions" placeholder="Item name" className="h-8" data-testid={`input-item-name-${index}`} />
@@ -798,6 +820,27 @@ export default function PurchaseInvoice() {
                         </Button>
                       </td>
                     </tr>
+                    {item.itemName.trim() !== "" && (
+                      <tr className="border-b bg-slate-50/40 dark:bg-slate-800/10">
+                        <td></td>
+                        <td colSpan={9} className="pb-2 px-2">
+                          <div className="flex flex-wrap items-center gap-3 text-xs">
+                            <span className="text-muted-foreground">
+                              {needsDates(item.itemName)
+                                ? <>Mfg / Expiry Date <span className="text-red-500 font-semibold">* required ({itemCategory(item.itemName)})</span></>
+                                : <>Mfg / Expiry Date <span className="text-muted-foreground/70">(optional)</span></>}
+                            </span>
+                            <label className="flex items-center gap-1">Mfg
+                              <Input type="date" value={item.mfgDate || ""} onChange={(e) => updateItem(index, "mfgDate", e.target.value)} className="h-7 w-36 text-xs" data-testid={`input-mfg-date-${index}`} />
+                            </label>
+                            <label className="flex items-center gap-1">Expiry
+                              <Input type="date" value={item.expiryDate || ""} min={item.mfgDate || undefined} onChange={(e) => updateItem(index, "expiryDate", e.target.value)} className="h-7 w-36 text-xs" data-testid={`input-expiry-date-${index}`} />
+                            </label>
+                          </div>
+                        </td>
+                      </tr>
+                    )}
+                    </Fragment>
                   ))}
                 </tbody>
                 <tfoot>
@@ -832,6 +875,18 @@ export default function PurchaseInvoice() {
                       <div className="text-[10px] text-rose-500 dark:text-rose-400 font-medium mt-1 pl-0.5">PR Date: {format(new Date(item.prDate), "dd-MM-yyyy")}</div>
                     )}
                   </div>
+                  {item.itemName.trim() !== "" && (
+                    <div className="grid grid-cols-2 gap-2">
+                      <div>
+                        <Label className="text-xs text-muted-foreground">Mfg Date{needsDates(item.itemName) && <span className="text-red-500"> *</span>}</Label>
+                        <Input type="date" value={item.mfgDate || ""} onChange={(e) => updateItem(index, "mfgDate", e.target.value)} className="h-9 mt-1" />
+                      </div>
+                      <div>
+                        <Label className="text-xs text-muted-foreground">Expiry Date{needsDates(item.itemName) && <span className="text-red-500"> *</span>}</Label>
+                        <Input type="date" value={item.expiryDate || ""} min={item.mfgDate || undefined} onChange={(e) => updateItem(index, "expiryDate", e.target.value)} className="h-9 mt-1" />
+                      </div>
+                    </div>
+                  )}
                   <div className="grid grid-cols-3 gap-2">
                     <div>
                       <Label className="text-xs text-muted-foreground">UOM</Label>
