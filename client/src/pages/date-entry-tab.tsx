@@ -3949,7 +3949,7 @@ function HulSnackSupplyTab({ month, year }: { month: number; year: number }) {
     },
     refetchInterval: false,
   });
-  const dbRows = snackData?.rows ?? [];
+  const dbRows = useMemo(() => snackData?.rows ?? [], [snackData]);
 
   useEffect(() => {
     setSugarRate(snackData?.sugarRate ? String(snackData.sugarRate) : '');
