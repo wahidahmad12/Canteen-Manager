@@ -575,6 +575,9 @@ export const api = {
           mfgDate: z.string().nullable().optional(),
           expiryDate: z.string().nullable().optional(),
         })).optional(),
+      }),
+      responses: {
+        200: purchaseInvoiceWithItemsSchema,
         404: errorSchemas.notFound,
       },
     },
