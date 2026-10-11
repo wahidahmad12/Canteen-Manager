@@ -12,8 +12,8 @@ type DateOverride = { PurchaseDate?: string; MfgDate?: string; ExpDate?: string 
 type LocalItem = { ItemCode: string; ItemName: string } & DateOverride;
 type Row = { key: string; ItemCode: string; ItemName: string; local: boolean } & DateOverride;
 
-const LOCAL_KEY = "PackageLocalItems";
-const DATES_KEY = "PackageDates";
+const LOCAL_KEY = "idCardLocalItems";
+const DATES_KEY = "idCardDates";
 
 function load<T>(key: string, fallback: T): T {
   try {
@@ -68,7 +68,7 @@ function DateSpan({ value, color }: { value?: string; color: string }) {
   return <span className="idc-blank" style={{ borderBottomColor: color }}>&nbsp;</span>;
 }
 
-export function ItemPackages() {
+export function ItemIdCards() {
   const { toast } = useToast();
   const { data: masterItems = [] } = useItemMaster();
   const createItem = useCreateItemMasterItem();
