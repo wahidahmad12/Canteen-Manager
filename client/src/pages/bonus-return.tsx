@@ -285,7 +285,10 @@ ${rows.map(r => `<tr><td>${r.month}</td><td class="c">${r.present || ''}</td><td
     const printWindow = window.open('', '_blank');
     if (!printWindow) return;
     printWindow.document.write(`<!DOCTYPE html><html><head><title>${title}</title>
-      <style>${getCoverLetterPrintStyles()}</style>
+      <style>${getCoverLetterPrintStyles()}
+        body { font-size: 17px !important; line-height: 1.75 !important; }
+        p, .ref-line, .ref-line span, .subject, .subject p { font-size: 17px !important; }
+      </style>
     </head><body>${coverArea.innerHTML}</body></html>`);
     printWindow.document.close();
     printWindow.onload = () => {
@@ -303,10 +306,13 @@ ${rows.map(r => `<tr><td>${r.month}</td><td class="c">${r.present || ''}</td><td
     printWindow.document.write(`<!DOCTYPE html><html><head><title>${title}</title>
       <style>
         @page { size: A4 landscape; margin: 6mm; }
-        body { margin: 0; padding: 0; font-family: Arial, sans-serif; font-size: 8px; }
-        table { width: 100%; table-layout: fixed; font-size: 7px; border-collapse: collapse; }
-        table th, table td { padding: 1px 2px; line-height: 1.2; overflow: hidden; word-wrap: break-word; }
+        body { margin: 0; padding: 0; font-family: Arial, sans-serif; font-size: 12px !important; }
+        table { width: 100%; table-layout: fixed; font-size: 10px !important; border-collapse: collapse; }
+        table th, table td { padding: 2px 3px !important; line-height: 1.25; overflow: hidden; word-wrap: break-word; font-size: 10px !important; }
+        table th { font-size: 9.5px !important; }
+        div { font-size: 11px !important; }
         table thead { display: table-header-group; }
+        tr { page-break-inside: avoid; }
         p { margin: 2px 0; }
       </style>
     </head><body>${formArea.innerHTML}</body></html>`);
