@@ -286,8 +286,12 @@ ${rows.map(r => `<tr><td>${r.month}</td><td class="c">${r.present || ''}</td><td
     if (!printWindow) return;
     printWindow.document.write(`<!DOCTYPE html><html><head><title>${title}</title>
       <style>${getCoverLetterPrintStyles()}
-        body { font-size: 17px !important; line-height: 1.75 !important; }
-        p, .ref-line, .ref-line span, .subject, .subject p { font-size: 17px !important; }
+        .bonus-cover-body { font-size: 17px !important; line-height: 1.75 !important; }
+        .bonus-cover-body p,
+        .bonus-cover-body .ref-line,
+        .bonus-cover-body .ref-line span,
+        .bonus-cover-body .subject,
+        .bonus-cover-body .subject p { font-size: 17px !important; line-height: 1.75 !important; }
       </style>
     </head><body>${coverArea.innerHTML}</body></html>`);
     printWindow.document.close();
@@ -859,6 +863,7 @@ ${rows.map(r => `<tr><td>${r.month}</td><td class="c">${r.present || ''}</td><td
 
                 <div id="bonus-cover-print" className="hidden">
                   <div dangerouslySetInnerHTML={{ __html: LETTERHEAD_HTML }} />
+                  <div className="bonus-cover-body">
                   <div className="ref-line">
                     <span>Ref. {refNumber || '___________'}</span>
                     <span>Date: {letterDate ? letterDate.split('-').reverse().join('-') : '___/___/______'}</span>
@@ -884,6 +889,7 @@ ${rows.map(r => `<tr><td>${r.month}</td><td class="c">${r.present || ''}</td><td
                     <p style={{ marginTop: "25px", fontWeight: "bold" }}>Wahid Ahmad</p>
                     <p>Zonal Manager & Partner</p>
                     <p style={{ fontWeight: "bold" }}>DJ Hospitality & Facility Management Pvt Ltd</p>
+                  </div>
                   </div>
                 </div>
 
