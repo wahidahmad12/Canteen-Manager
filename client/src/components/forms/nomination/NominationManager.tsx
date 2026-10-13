@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -27,6 +27,30 @@ export default function NominationManager() {
   });
 
   const selectedEmployee = employees?.find((e: any) => e.id.toString() === selectedEmployeeId);
+
+  // Load saved nominees of the selected employee (latest saved nomination)
+  useEffect(() => {
+    setEditIndex(null);
+    setNewNominee(emptyNominee);
+    if (!selectedEmployeeId) { setNominees([]); return; }
+    let cancelled = false;
+    (async () => {
+      try {
+        const listRes = await apiRequest("GET", `/api/nominations?employeeId=${selectedEmployeeId}`);
+        const list: any[] = await listRes.json();
+        const latest = list.map((r) => r.nomination).sort((a, b) => b.id - a.id)[0];
+        if (!latest) { if (!cancelled) setNominees([]); return; }
+        const detRes = await apiRequest("GET", `/api/nominations/${latest.id}`);
+        const det = await detRes.json();
+        if (!cancelled) {
+          setNominees((det.nominees || []).map((n: any) => ({ ...n, dateOfBirth: n.dateOfBirth ? String(n.dateOfBirth).split("T")[0] : "", sharePercentage: Number(n.sharePercentage) })));
+        }
+      } catch {
+        if (!cancelled) setNominees([]);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [selectedEmployeeId]);
 
   const emptyNominee = { name: "", address: "", relationship: "", dateOfBirth: "", sharePercentage: "", guardianName: "" };
   const isoToDmy = (s?: string | null) => {
