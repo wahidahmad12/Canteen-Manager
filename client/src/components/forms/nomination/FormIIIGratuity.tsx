@@ -106,24 +106,24 @@ export default function FormIIIGratuity({ data }: { data: any }) {
         </table>
 
         <h3 className="nomination-form-heading">DECLARATION</h3>
-        <p>
-          I hereby declare that the particulars given above are true and correct and that the
-          person(s) nominated is/are entitled to receive the gratuity in accordance with the
-          provisions of the Code on Social Security, 2020.
+        <p>1.	I hereby certify that the person(s) mentioned is/are a member(s) of my family within the meaning of clause (33) of section 2 of the Code on Social Security, 2020 (36 of 2020).</p>
+         <p>2. I hereby declare that I have no family within the meaning of clause (33) of section 2 of the said Code.</p>
+        <p>3. (a) My father /mother /parents is/are not dependent on me.</p>
+           <p>(b) My husband's father /mother /parents is/are not dependent on my husband.
         </p>
         <p className="nomination-form-page-number">Page 2 of 3</p>
       </section>
 
       <section className="nomination-form-page">
         <div className="nomination-form-details">
-          <p>4. I have excluded my husband from my family by a notice dated the __________ to the competent authority of the establishment.</p>
+          <p>4. I have excluded my husband from my family by a notice dated the____________________to the competent authority in terms of clause (33) of section 2 of the said Code.</p>
           <p>5. Nomination made herein invalidates my previous nomination.</p>
         </div>
 
         <h3>Manner of acquiring a “Family”</h3>
         <p>
-          Here give details as to how a family was acquired, i.e., whether by marriage or parents
-          being rendered dependent or through other process like adoption.
+          (Here give details as to how a family was acquired, i.e., whether by marriage or parents being 
+          rendered dependent or through other process like adoption)
         </p>
         <span className="nomination-form-wide-line" />
         <span className="nomination-form-wide-line" />
