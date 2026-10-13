@@ -28,18 +28,65 @@ export default function NominationManager() {
 
   const selectedEmployee = employees?.find((e: any) => e.id.toString() === selectedEmployeeId);
 
+  const emptyNominee = { name: "", address: "", relationship: "", dateOfBirth: "", sharePercentage: "", guardianName: "" };
+  const [editIndex, setEditIndex] = useState<number | null>(null);
+
+  const isAuto = (n: any) => n.sharePercentage === "" || n.sharePercentage === null || n.sharePercentage === undefined;
+
+  // Nominees without an explicit share split the remaining percentage equally
+  const withEffectiveShares = (list: any[]) => {
+    const fixedSum = list.filter(n => !isAuto(n)).reduce((s, n) => s + Number(n.sharePercentage), 0);
+    const autoCount = list.filter(isAuto).length;
+    const remaining = Math.max(0, 100 - fixedSum);
+    let given = 0;
+    let seen = 0;
+    return list.map(n => {
+      if (!isAuto(n)) return { ...n, sharePercentage: Number(n.sharePercentage) };
+      seen++;
+      const share = seen === autoCount
+        ? Math.round((remaining - given) * 100) / 100
+        : Math.floor((remaining / autoCount) * 100) / 100;
+      given += share;
+      return { ...n, sharePercentage: share };
+    });
+  };
+
+  const effectiveNominees = withEffectiveShares(nominees);
+  const totalShare = Math.round(effectiveNominees.reduce((s, n) => s + Number(n.sharePercentage || 0), 0) * 100) / 100;
+
+  const validateList = (list: any[]): string | null => {
+    const fixedSum = list.filter(n => !isAuto(n)).reduce((s, n) => s + Number(n.sharePercentage), 0);
+    if (list.some(n => !isAuto(n) && (isNaN(Number(n.sharePercentage)) || Number(n.sharePercentage) <= 0))) return "Share % must be greater than 0";
+    if (fixedSum > 100) return `Total share cannot exceed 100% (currently ${fixedSum}%)`;
+    if (list.some(isAuto) && fixedSum >= 100) return "No share left (100% already given) for nominees without share %";
+    return null;
+  };
+
   const handleAddNominee = () => {
-    if (!newNominee.name || !newNominee.sharePercentage) return;
-    setNominees([...nominees, { ...newNominee, sharePercentage: Number(newNominee.sharePercentage) }]);
-    setNewNominee({ name: "", address: "", relationship: "", dateOfBirth: "", sharePercentage: "", guardianName: "" }); // reset
+    if (!newNominee.name.trim()) return;
+    const entry = { ...newNominee, sharePercentage: newNominee.sharePercentage === "" ? "" : Number(newNominee.sharePercentage) };
+    const next = editIndex === null ? [...nominees, entry] : nominees.map((n, i) => (i === editIndex ? entry : n));
+    const err = validateList(next);
+    if (err) { toast({ title: "Invalid share", description: err, variant: "destructive" }); return; }
+    setNominees(next);
+    setNewNominee(emptyNominee);
+    setEditIndex(null);
+  };
+
+  const handleEditNominee = (index: number) => {
+    const n = nominees[index];
+    setNewNominee({
+      name: n.name || "", address: n.address || "", relationship: n.relationship || "",
+      dateOfBirth: n.dateOfBirth || "", guardianName: n.guardianName || "",
+      sharePercentage: isAuto(n) ? "" : String(n.sharePercentage),
+    });
+    setEditIndex(index);
   };
 
   const handleRemoveNominee = (index: number) => {
-    const updated = [...nominees];
-    updated.splice(index, 1);
-    setNominees(updated);
+    setNominees(nominees.filter((_, i) => i !== index));
+    if (editIndex === index) { setEditIndex(null); setNewNominee(emptyNominee); }
   };
-
   const saveNomination = useMutation({
     mutationFn: async () => {
       const payload = {
@@ -50,7 +97,7 @@ export default function NominationManager() {
           place: "Kolkata",
           // Add other defaults as needed
         },
-        nominees: nominees
+        nominees: effectiveNominees
       };
       await apiRequest("POST", "/api/nominations", payload);
     },
@@ -70,7 +117,7 @@ export default function NominationManager() {
       religion: selectedEmployee?.religion || "",
       place: "Kolkata",
     },
-    nominees: nominees
+    nominees: effectiveNominees
   };
 
   return (
@@ -110,12 +157,15 @@ export default function NominationManager() {
           <div className="grid grid-cols-3 gap-3">
             <Input placeholder="Name" value={newNominee.name} onChange={e => setNewNominee({...newNominee, name: e.target.value})} />
             <Input placeholder="Relationship" value={newNominee.relationship} onChange={e => setNewNominee({...newNominee, relationship: e.target.value})} />
-            <Input placeholder="Share % (e.g. 100)" type="number" value={newNominee.sharePercentage} onChange={e => setNewNominee({...newNominee, sharePercentage: e.target.value})} />
+            <Input placeholder="Share % (blank = auto equal split)" type="number" value={newNominee.sharePercentage} onChange={e => setNewNominee({...newNominee, sharePercentage: e.target.value})} />
             <Input placeholder="DOB (YYYY-MM-DD)" value={newNominee.dateOfBirth} onChange={e => setNewNominee({...newNominee, dateOfBirth: e.target.value})} />
             <Input placeholder="Address" value={newNominee.address} onChange={e => setNewNominee({...newNominee, address: e.target.value})} />
             <Input placeholder="Guardian (if minor)" value={newNominee.guardianName} onChange={e => setNewNominee({...newNominee, guardianName: e.target.value})} />
           </div>
-          <Button type="button" onClick={handleAddNominee} variant="secondary">Add to List</Button>
+          <div className="flex gap-2">
+            <Button type="button" onClick={handleAddNominee} variant="secondary">{editIndex === null ? "Add to List" : "Update Nominee"}</Button>
+            {editIndex !== null && <Button type="button" variant="outline" onClick={() => { setEditIndex(null); setNewNominee(emptyNominee); }}>Cancel Edit</Button>}
+          </div>
         </div>
 
         {/* Show added nominees list */}
@@ -123,13 +173,15 @@ export default function NominationManager() {
           <div className="text-sm">
             <strong>Added Nominees:</strong>
             <ul className="list-disc pl-5 mt-2">
-              {nominees.map((n, idx) => (
+              {effectiveNominees.map((n, idx) => (
                 <li key={idx}>
-                  {n.name} ({n.relationship}) - {n.sharePercentage}% 
-                  <button onClick={() => handleRemoveNominee(idx)} className="text-red-500 ml-4 text-xs font-bold">[X] Remove</button>
+                  {n.name} ({n.relationship}) - {n.sharePercentage}%{isAuto(nominees[idx]) ? " (auto)" : ""}
+                  <button onClick={() => handleEditNominee(idx)} className="text-blue-600 ml-4 text-xs font-bold">[Edit]</button>
+                  <button onClick={() => handleRemoveNominee(idx)} className="text-red-500 ml-3 text-xs font-bold">[X] Remove</button>
                 </li>
               ))}
             </ul>
+            <p className={`mt-2 font-semibold ${totalShare > 100 ? "text-red-600" : totalShare === 100 ? "text-green-600" : "text-amber-600"}`}>Total share: {totalShare}% / 100%</p>
           </div>
         )}
 
