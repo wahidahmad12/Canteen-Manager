@@ -29,6 +29,22 @@ export default function NominationManager() {
   const selectedEmployee = employees?.find((e: any) => e.id.toString() === selectedEmployeeId);
 
   const emptyNominee = { name: "", address: "", relationship: "", dateOfBirth: "", sharePercentage: "", guardianName: "" };
+  const isoToDmy = (s?: string | null) => {
+    if (!s) return "";
+    const [y, m, d] = String(s).split("T")[0].split("-");
+    return y && m && d ? `${d}-${m}-${y}` : String(s);
+  };
+  // Returns "" for blank, ISO date for valid DD-MM-YYYY, null if invalid
+  const dmyToIso = (s: string): string | null => {
+    const v = (s || "").trim();
+    if (!v) return "";
+    const mt = v.match(/^(\d{1,2})[-\/.](\d{1,2})[-\/.](\d{4})$/);
+    if (!mt) return null;
+    const [d, m, y] = [Number(mt[1]), Number(mt[2]), Number(mt[3])];
+    const dt = new Date(Date.UTC(y, m - 1, d));
+    if (dt.getUTCFullYear() !== y || dt.getUTCMonth() !== m - 1 || dt.getUTCDate() !== d) return null;
+    return `${y}-${String(m).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
+  };
   const [editIndex, setEditIndex] = useState<number | null>(null);
 
   const isAuto = (n: any) => n.sharePercentage === "" || n.sharePercentage === null || n.sharePercentage === undefined;
@@ -64,7 +80,9 @@ export default function NominationManager() {
 
   const handleAddNominee = () => {
     if (!newNominee.name.trim()) return;
-    const entry = { ...newNominee, sharePercentage: newNominee.sharePercentage === "" ? "" : Number(newNominee.sharePercentage) };
+    const dobIso = dmyToIso(newNominee.dateOfBirth);
+    if (dobIso === null) { toast({ title: "Invalid date", description: "Date of Birth DD-MM-YYYY format mein likho", variant: "destructive" }); return; }
+    const entry = { ...newNominee, dateOfBirth: dobIso, sharePercentage: newNominee.sharePercentage === "" ? "" : Number(newNominee.sharePercentage) };
     const next = editIndex === null ? [...nominees, entry] : nominees.map((n, i) => (i === editIndex ? entry : n));
     const err = validateList(next);
     if (err) { toast({ title: "Invalid share", description: err, variant: "destructive" }); return; }
@@ -77,7 +95,7 @@ export default function NominationManager() {
     const n = nominees[index];
     setNewNominee({
       name: n.name || "", address: n.address || "", relationship: n.relationship || "",
-      dateOfBirth: n.dateOfBirth || "", guardianName: n.guardianName || "",
+      dateOfBirth: isoToDmy(n.dateOfBirth), guardianName: n.guardianName || "",
       sharePercentage: isAuto(n) ? "" : String(n.sharePercentage),
     });
     setEditIndex(index);
@@ -158,7 +176,7 @@ export default function NominationManager() {
             <Input placeholder="Name" value={newNominee.name} onChange={e => setNewNominee({...newNominee, name: e.target.value})} />
             <Input placeholder="Relationship" value={newNominee.relationship} onChange={e => setNewNominee({...newNominee, relationship: e.target.value})} />
             <Input placeholder="Share % (blank = auto equal split)" type="number" value={newNominee.sharePercentage} onChange={e => setNewNominee({...newNominee, sharePercentage: e.target.value})} />
-            <Input placeholder="DOB (YYYY-MM-DD)" value={newNominee.dateOfBirth} onChange={e => setNewNominee({...newNominee, dateOfBirth: e.target.value})} />
+            <Input placeholder="DOB (DD-MM-YYYY)" value={newNominee.dateOfBirth} onChange={e => setNewNominee({...newNominee, dateOfBirth: e.target.value})} />
             <Input placeholder="Address" value={newNominee.address} onChange={e => setNewNominee({...newNominee, address: e.target.value})} />
             <Input placeholder="Guardian (if minor)" value={newNominee.guardianName} onChange={e => setNewNominee({...newNominee, guardianName: e.target.value})} />
           </div>

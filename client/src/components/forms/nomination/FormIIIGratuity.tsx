@@ -6,7 +6,7 @@ export default function FormIIIGratuity({ data }: { data: any }) {
   const formatDate = (dateStr?: string | null) => {
     if (!dateStr) return "";
     const [year, month, day] = dateStr.split("T")[0].split("-");
-    return year && month && day ? `${day}/${month}/${year}` : dateStr;
+    return year && month && day ? `${day}-${month}-${year}` : dateStr;
   };
   const employee = data?.employee || {};
   const nominees = data?.nominees || [];
