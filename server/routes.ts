@@ -1180,9 +1180,17 @@ export async function registerRoutes(
 
       if (nominees && Array.isArray(nominees) && nominees.length > 0) {
         const nomineesData = nominees.map((n: any) => ({
-          ...n,
           nominationId: nominationId,
-          sharePercentage: String(n.sharePercentage) 
+          nomineeCategory: n.nomineeCategory || "GENERAL",
+          name: String(n.name || ""),
+          address: String(n.address || ""),
+          relationship: String(n.relationship || ""),
+          dateOfBirth: n.dateOfBirth ? String(n.dateOfBirth) : null,
+          age: n.age ? Number(n.age) : null,
+          sharePercentage: String(n.sharePercentage ?? 0),
+          guardianName: n.guardianName || null,
+          guardianRelationship: n.guardianRelationship || null,
+          guardianAddress: n.guardianAddress || null,
         }));
         await db.insert(nominationNominees).values(nomineesData);
       }
