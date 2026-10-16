@@ -444,8 +444,8 @@ ${rows.map(r => `<tr><td>${r.month}</td><td class="c">${r.present || ''}</td><td
 
     ws.columns = [
       { width: 8 }, { width: 25 }, { width: 25 }, { width: 12 }, { width: 14 },
-      { width: 12 }, { width: 14 }, { width: 14 }, { width: 10 }, { width: 10 },
-      { width: 10 }, { width: 10 }, { width: 10 }, { width: 14 }, { width: 14 }, { width: 14 }, { width: 22 },
+      { width: 12 }, { width: 14 }, { width: 14 }, { width: 6 }, { width: 6 },
+      { width: 6 }, { width: 6 }, { width: 6 }, { width: 14 }, { width: 14 }, { width: 14 }, { width: 22 },
     ];
 
     const buf = await wb.xlsx.writeBuffer();
@@ -905,7 +905,7 @@ ${rows.map(r => `<tr><td>${r.month}</td><td class="c">${r.present || ''}</td><td
                     <div style={{ fontSize: "8px", fontWeight: 600 }}>Name of the establishment: DJ Hospitality & Facility Management Pvt Ltd, 7 Crematorium Street, Kolkata-700014</div>
                     <div style={{ fontSize: "8px" }}>Client: {selectedClient} | No. of working days: <u>{workingDays || '____'}</u></div>
                   </div>
-                  <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "7px", fontFamily: "Arial, sans-serif" }}>
+                  <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "7px", fontFamily: "Arial, sans-serif" }}><colgroup>{[3,10,10,3.5,8,3.5,6,6,3.2,3.2,3.2,3.2,3.2,6,6,7,13].map((w, i) => <col key={i} style={{ width: `${w}%` }} />)}</colgroup>
                     <thead>
                       <tr>
                         <th colSpan={5} style={{ background: "#fff3e0", color: "#e65100", fontWeight: 700, border: "1px solid #999", padding: "2px", fontSize: "7px" }}>Employee Details</th>
