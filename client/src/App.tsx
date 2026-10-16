@@ -50,6 +50,7 @@ import PriceHistoryPage from "./pages/price-history";
 import ItemStockReportPage from "./pages/item-stock-report";
 import EmployeeDashboard from "./pages/employee-dashboard";
 import LicenceAgreementsPage from "./pages/licence-agreements";
+import CanteenCouponsPage from "./pages/canteen-coupons";
 import QrScannerPage from "./pages/qr-scanner";
 import DailyAttendancePage from "./pages/daily-attendance";
 import AttendanceReportPage from "./pages/attendance-report";
@@ -137,6 +138,7 @@ function AuthenticatedRouter() {
       <Route path="/vendor-report">{() => <AdminOnlyRoute><VendorReport /></AdminOnlyRoute>}</Route>
       <Route path="/employee-master">{() => <AdminOnlyRoute><EmployeeMaster /></AdminOnlyRoute>}</Route>
       <Route path="/licence-agreements">{() => <AdminOnlyRoute><LicenceAgreementsPage /></AdminOnlyRoute>}</Route>
+      <Route path="/canteen-coupons">{() => <AdminOnlyRoute><CanteenCouponsPage /></AdminOnlyRoute>}</Route>
       <Route path="/muster-roll" component={MusterRoll} />
       <Route path="/salary" component={Salary} />
       <Route path="/salary/:id/slip" component={WageSlip} />
