@@ -91,6 +91,149 @@ export async function registerRoutes(
   app: Express
 ): Promise<Server> {
 
+  const validIsoDate = (value: unknown): value is string => {
+    if (typeof value !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(value)) return false;
+    const date = new Date(`${value}T00:00:00.000Z`);
+    return !Number.isNaN(date.getTime()) && date.toISOString().slice(0, 10) === value;
+  };
+  const recordDays = (issueDate: string, expiryDate: string) =>
+    Math.floor((Date.parse(`${expiryDate}T00:00:00Z`) - Date.parse(`${issueDate}T00:00:00Z`)) / 86400000);
+
+  app.get("/api/licence-agreements", requireAdmin, async (_req, res) => {
+    try {
+      const [rows] = await pool.execute(
+        `SELECT id, record_type AS recordType, client_name AS clientName,
+          licence_name AS licenceName, licence_number AS licenceNumber,
+          DATE_FORMAT(date_of_issue, '%Y-%m-%d') AS dateOfIssue,
+          DATE_FORMAT(expiry_date, '%Y-%m-%d') AS expiryDate,
+          DATE_FORMAT(renewal_date, '%Y-%m-%d') AS renewalDate,
+          validity_days AS validityDays, attachment_name AS attachmentName
+         FROM licence_agreements ORDER BY renewal_date ASC, id DESC`,
+      );
+      res.json(rows);
+    } catch (error) {
+      console.error("GET /api/licence-agreements failed:", error);
+      res.status(500).json({ message: "Could not load licence and agreement records" });
+    }
+  });
+
+  app.post("/api/licence-agreements", requireAdmin, async (req, res) => {
+    try {
+      const {
+        recordType, clientName, licenceName, licenceNumber, dateOfIssue,
+        expiryDate, renewalDate, attachmentBase64, attachmentName,
+      } = req.body ?? {};
+      if (!["LICENCE", "AGREEMENT"].includes(recordType)) {
+        return res.status(400).json({ message: "Choose Licence or Agreement" });
+      }
+      if (![clientName, licenceName, licenceNumber].every((v) => typeof v === "string" && v.trim())) {
+        return res.status(400).json({ message: "Client name, record name and number are required" });
+      }
+      if (![dateOfIssue, expiryDate, renewalDate].every(validIsoDate)) {
+        return res.status(400).json({ message: "Issue, expiry and renewal dates must be valid dates" });
+      }
+      const validityDays = recordDays(dateOfIssue, expiryDate);
+      if (validityDays < 0) return res.status(400).json({ message: "Expiry date cannot be before issue date" });
+      let attachment: Buffer | null = null;
+      if (attachmentBase64) {
+        const encoded = String(attachmentBase64).replace(/^data:application\/pdf;base64,/, "");
+        attachment = Buffer.from(encoded, "base64");
+        if (attachment.length > 10 * 1024 * 1024) return res.status(400).json({ message: "PDF must be 10 MB or smaller" });
+        if (attachment.subarray(0, 5).toString("ascii") !== "%PDF-") return res.status(400).json({ message: "Attachment must be a valid PDF file" });
+      }
+      const [result]: any = await pool.execute(
+        `INSERT INTO licence_agreements
+          (record_type, client_name, licence_name, licence_number, date_of_issue, expiry_date,
+           renewal_date, validity_days, attachment_name, attachment)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        [recordType, clientName.trim(), licenceName.trim(), licenceNumber.trim(), dateOfIssue,
+          expiryDate, renewalDate, validityDays, attachment ? String(attachmentName || "document.pdf").slice(0, 255) : null, attachment],
+      );
+      res.status(201).json({ id: result.insertId });
+    } catch (error) {
+      console.error("POST /api/licence-agreements failed:", error);
+      res.status(500).json({ message: "Could not save licence or agreement record" });
+    }
+  });
+
+  app.put("/api/licence-agreements/:id", requireAdmin, async (req, res) => {
+    try {
+      const id = Number(req.params.id);
+      const {
+        recordType, clientName, licenceName, licenceNumber, dateOfIssue,
+        expiryDate, renewalDate, attachmentBase64, attachmentName,
+      } = req.body ?? {};
+      if (!Number.isInteger(id) || id < 1) return res.status(400).json({ message: "Invalid record ID" });
+      if (!["LICENCE", "AGREEMENT"].includes(recordType)) return res.status(400).json({ message: "Choose Licence or Agreement" });
+      if (![clientName, licenceName, licenceNumber].every((v) => typeof v === "string" && v.trim())) {
+        return res.status(400).json({ message: "Client name, record name and number are required" });
+      }
+      if (![dateOfIssue, expiryDate, renewalDate].every(validIsoDate)) {
+        return res.status(400).json({ message: "Issue, expiry and renewal dates must be valid dates" });
+      }
+      const validityDays = recordDays(dateOfIssue, expiryDate);
+      if (validityDays < 0) return res.status(400).json({ message: "Expiry date cannot be before issue date" });
+
+      let attachmentUpdate = "";
+      const values: any[] = [
+        recordType, clientName.trim(), licenceName.trim(), licenceNumber.trim(),
+        dateOfIssue, expiryDate, renewalDate, validityDays,
+      ];
+      if (attachmentBase64 === null) {
+        attachmentUpdate = ", attachment_name = NULL, attachment = NULL";
+      } else if (attachmentBase64) {
+        const encoded = String(attachmentBase64).replace(/^data:application\/pdf;base64,/, "");
+        const attachment = Buffer.from(encoded, "base64");
+        if (attachment.length > 10 * 1024 * 1024) return res.status(400).json({ message: "PDF must be 10 MB or smaller" });
+        if (attachment.subarray(0, 5).toString("ascii") !== "%PDF-") return res.status(400).json({ message: "Attachment must be a valid PDF file" });
+        attachmentUpdate = ", attachment_name = ?, attachment = ?";
+        values.push(String(attachmentName || "document.pdf").slice(0, 255), attachment);
+      }
+      values.push(id);
+      const [result]: any = await pool.execute(
+        `UPDATE licence_agreements SET record_type = ?, client_name = ?, licence_name = ?,
+          licence_number = ?, date_of_issue = ?, expiry_date = ?, renewal_date = ?, validity_days = ?
+          ${attachmentUpdate} WHERE id = ?`,
+        values,
+      );
+      if (!result.affectedRows) return res.status(404).json({ message: "Record not found" });
+      res.json({ success: true });
+    } catch (error) {
+      console.error("PUT /api/licence-agreements/:id failed:", error);
+      res.status(500).json({ message: "Could not update licence or agreement record" });
+    }
+  });
+
+  app.get("/api/licence-agreements/:id/attachment", requireAdmin, async (req, res) => {
+    try {
+      const [rows]: any = await pool.execute(
+        "SELECT attachment, attachment_name FROM licence_agreements WHERE id = ? AND attachment IS NOT NULL",
+        [Number(req.params.id)],
+      );
+      if (!rows.length) return res.status(404).json({ message: "PDF attachment not found" });
+      const filename = String(rows[0].attachment_name || "document.pdf").replace(/[^\w.-]/g, "_");
+      res.setHeader("Content-Type", "application/pdf");
+      res.setHeader("Content-Disposition", `attachment; filename="${filename}"`);
+      res.send(rows[0].attachment);
+    } catch (error) {
+      console.error("GET licence agreement attachment failed:", error);
+      res.status(500).json({ message: "Could not download attachment" });
+    }
+  });
+
+  app.delete("/api/licence-agreements/:id", requireAdmin, async (req, res) => {
+    try {
+      const id = Number(req.params.id);
+      if (!Number.isInteger(id) || id < 1) return res.status(400).json({ message: "Invalid record ID" });
+      const [result]: any = await pool.execute("DELETE FROM licence_agreements WHERE id = ?", [id]);
+      if (!result.affectedRows) return res.status(404).json({ message: "Record not found" });
+      res.json({ success: true });
+    } catch (error) {
+      console.error("DELETE /api/licence-agreements/:id failed:", error);
+      res.status(500).json({ message: "Could not delete record" });
+    }
+  });
+
   // --- CANTEEN POS SAVE DATA API ---
   app.post('/api/save-sales', async (req: Request, res: Response) => {
     try {

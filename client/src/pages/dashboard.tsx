@@ -1,9 +1,9 @@
 import { Link } from "wouter";
 import { useMemo, useState } from "react";
-import { useMutation } from "@tanstack/react-query";
+import { useMutation, useQuery } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
-import { Plus, Loader2, FileText, ArrowRight, Calculator, ClipboardList, UtensilsCrossed, ShoppingCart, Trash2, Check, CheckCircle2, FileDown, Pencil, Receipt, BarChart3, IndianRupee, TrendingUp, TrendingDown, Wallet, CreditCard, DollarSign, Store, FileSpreadsheet, Search, X, ScanLine } from "lucide-react";
+import { Plus, Loader2, FileText, ArrowRight, Calculator, ClipboardList, UtensilsCrossed, ShoppingCart, Trash2, Check, CheckCircle2, FileDown, Pencil, Receipt, BarChart3, IndianRupee, TrendingUp, TrendingDown, Wallet, CreditCard, DollarSign, Store, FileSpreadsheet, Search, X, ScanLine, AlertTriangle } from "lucide-react";
 import GroceryScanTab from "@/components/grocery-scan-tab";
 import { SiWhatsapp } from "react-icons/si";
 import { useReports, useDeleteReport, useInventories, useDeleteInventory, useCashSeals, useSavedMenus, useDeleteSavedMenu, usePurchaseRequests, useDeletePurchaseRequest, useUpdatePurchaseRequest, useCurrentUser, usePurchaseInvoices, useDeletePurchaseInvoice, useBananaRates } from "@/hooks/use-reports";
@@ -71,6 +71,15 @@ function SummaryCard({ title, value, icon: Icon, color, subtitle }: { title: str
 }
 
 const fmt = (n: number) => "₹" + n.toLocaleString("en-IN", { minimumFractionDigits: 0, maximumFractionDigits: 0 });
+const renewalDaysUntil = (date: string) => {
+  const today = new Date();
+  const todayUtc = Date.UTC(today.getFullYear(), today.getMonth(), today.getDate());
+  return Math.ceil((Date.parse(`${date}T00:00:00Z`) - todayUtc) / 86400000);
+};
+const renewalAlertClass = (days: number) => days <= 15
+  ? "border-red-800 bg-red-700 text-white"
+  : days <= 30 ? "border-red-300 bg-red-100 text-red-900"
+  : "border-yellow-300 bg-yellow-100 text-yellow-900";
 
 export default function Dashboard() {
   const { data: user } = useCurrentUser();
@@ -90,6 +99,14 @@ export default function Dashboard() {
   const { data: purchaseRequests, isLoading: prLoading } = usePurchaseRequests({ enabled: hasPurchase });
   const { data: purchaseInvoices, isLoading: piLoading } = usePurchaseInvoices({ enabled: hasPurchase });
   const isAdmin = user?.role === 'admin';
+  const { data: licenceRecords = [], isError: licenceRecordsError } = useQuery<any[]>({
+    queryKey: ["/api/licence-agreements"],
+    enabled: isAdmin,
+  });
+  const nearRenewalRecords = licenceRecords
+    .map((record: any) => ({ ...record, daysToRenewal: renewalDaysUntil(String(record.renewalDate || "").slice(0, 10)) }))
+    .filter((record: any) => record.daysToRenewal <= 60)
+    .sort((a: any, b: any) => a.daysToRenewal - b.daysToRenewal);
   const deleteInventoryMutation = useDeleteInventory();
   const deleteMutation = useDeleteReport();
   const deleteMenuMutation = useDeleteSavedMenu();
@@ -381,6 +398,27 @@ export default function Dashboard() {
             )}
           </div>
         </div>
+
+        {isAdmin && (
+          <Card className="border-amber-200 dark:border-amber-900">
+            <CardHeader className="flex flex-row items-center justify-between gap-3 pb-3">
+              <CardTitle className="flex items-center gap-2 text-base"><AlertTriangle className="h-5 w-5 text-amber-600" />Licence &amp; Agreement Renewals</CardTitle>
+              <Link href="/licence-agreements"><Button variant="outline" size="sm">Manage Records <ArrowRight className="ml-2 h-4 w-4" /></Button></Link>
+            </CardHeader>
+            <CardContent>
+              {licenceRecordsError ? <p className="text-sm text-destructive">Could not load renewal alerts.</p>
+                : nearRenewalRecords.length === 0 ? <p className="text-sm text-muted-foreground">No licence or agreement renewals due within 60 days.</p>
+                : <div className="max-h-80 space-y-2 overflow-y-auto">
+                  {nearRenewalRecords.map((record: any) => (
+                    <div key={record.id} className={`flex flex-wrap items-center justify-between gap-x-4 gap-y-1 rounded-md border px-3 py-2 text-sm ${renewalAlertClass(record.daysToRenewal)}`}>
+                      <span><strong>{record.recordType === "AGREEMENT" ? "Agreement" : "Licence"}:</strong> {record.licenceName} — {record.clientName}</span>
+                      <span className="font-semibold">{record.daysToRenewal < 0 ? `${Math.abs(record.daysToRenewal)} days overdue` : `Renewal ${record.renewalDate} · ${record.daysToRenewal} days`}</span>
+                    </div>
+                  ))}
+                </div>}
+            </CardContent>
+          </Card>
+        )}
 
         {hasExpense && reports && reports.length > 0 && (
           <div className="space-y-4">
