@@ -89,6 +89,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
     { href: '/item-stock-report', label: 'Item Stock Report', icon: BarChart3, perm: 'purchase' },
     { href: '/sales-invoice', label: tr('salesInvoiceLedger'), icon: FileText, perm: 'salesinvoice' },
     { href: '/contractor-meals', label: 'Contractor Meal Entry', icon: Users, perm: 'salesinvoice' },
+    ...(user?.role === 'admin' ? [{ href: '/canteen-coupons', label: 'Canteen Coupons', icon: Receipt, perm: null as string | null }] : []),
     { href: '/daily-pnl', label: tr('dailyPnl'), icon: BarChart3, perm: null },
     { href: '/monthly-pnl', label: tr('monthlyPnl'), icon: IndianRupee, perm: null },
     { href: '/fixed-assets', label: 'Fixed Assets', icon: Package, perm: null },

@@ -99,6 +99,48 @@ export async function registerRoutes(
   const recordDays = (issueDate: string, expiryDate: string) =>
     Math.floor((Date.parse(`${expiryDate}T00:00:00Z`) - Date.parse(`${issueDate}T00:00:00Z`)) / 86400000);
 
+  app.get("/api/canteen-coupons", requireAdmin, async (req, res) => {
+    try {
+      const { date, month, year, client } = req.query as Record<string, string | undefined>;
+      const where: string[] = [];
+      const params: any[] = [];
+      if (date && validIsoDate(date)) { where.push("coupon_date = ?"); params.push(date); }
+      else if (month && /^\d{4}-\d{2}$/.test(month)) { where.push("DATE_FORMAT(coupon_date, '%Y-%m') = ?"); params.push(month); }
+      else if (year && /^\d{4}$/.test(year)) { where.push("YEAR(coupon_date) = ?"); params.push(Number(year)); }
+      if (client && client.trim()) { where.push("client_name = ?"); params.push(client.trim()); }
+      const [rows] = await pool.query(
+        `SELECT id, client_name AS clientName, meal_category AS mealCategory, variant,
+          DATE_FORMAT(coupon_date, '%Y-%m-%d') AS date, coupon_time AS time
+         FROM canteen_coupons ${where.length ? `WHERE ${where.join(" AND ")}` : ""}
+         ORDER BY coupon_date DESC, id DESC LIMIT 20000`,
+        params,
+      );
+      res.json(rows);
+    } catch (error) {
+      console.error("GET /api/canteen-coupons failed:", error);
+      res.status(500).json({ message: "Could not load coupons" });
+    }
+  });
+
+  app.post("/api/canteen-coupons", requireAdmin, async (req, res) => {
+    try {
+      const { clientName, mealCategory, variant, date, time } = req.body ?? {};
+      if (typeof clientName !== "string" || !clientName.trim()) return res.status(400).json({ message: "Client name is required" });
+      if (!["Breakfast", "Lunch", "Evening Snacks", "Night Snacks"].includes(mealCategory)) return res.status(400).json({ message: "Invalid meal category" });
+      if (!["Veg", "Non-Veg", "N/A"].includes(variant)) return res.status(400).json({ message: "Invalid coupon type" });
+      if (!validIsoDate(date) || typeof time !== "string" || !/^\d{1,2}:\d{2}$/.test(time)) return res.status(400).json({ message: "Invalid date or time" });
+      const [result]: any = await pool.query(
+        `INSERT INTO canteen_coupons (client_name, meal_category, variant, coupon_date, coupon_time, issued_by)
+         VALUES (?, ?, ?, ?, ?, ?)`,
+        [clientName.trim(), mealCategory, variant, date, time, req.session.userId ?? null],
+      );
+      res.status(201).json({ id: result.insertId });
+    } catch (error) {
+      console.error("POST /api/canteen-coupons failed:", error);
+      res.status(500).json({ message: "Could not issue coupon" });
+    }
+  });
+
   app.get("/api/licence-agreements", requireAdmin, async (_req, res) => {
     try {
       const [rows] = await pool.execute(

@@ -31,6 +31,18 @@ async function initPool(): Promise<void> {
   db = drizzle(pool, { schema, mode: "default" });
 
   const migrations = [
+    `CREATE TABLE IF NOT EXISTS canteen_coupons (
+      id INT AUTO_INCREMENT PRIMARY KEY,
+      client_name VARCHAR(255) NOT NULL,
+      meal_category VARCHAR(50) NOT NULL,
+      variant VARCHAR(20) NOT NULL DEFAULT 'N/A',
+      coupon_date DATE NOT NULL,
+      coupon_time VARCHAR(10) NOT NULL,
+      issued_by INT DEFAULT NULL,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      KEY idx_canteen_coupons_date (coupon_date),
+      KEY idx_canteen_coupons_client (client_name)
+    )`,
     `CREATE TABLE IF NOT EXISTS licence_agreements (
       id INT AUTO_INCREMENT PRIMARY KEY,
       record_type VARCHAR(20) NOT NULL,
