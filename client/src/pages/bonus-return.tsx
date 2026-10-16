@@ -364,7 +364,7 @@ ${rows.map(r => `<tr><td>${r.month}</td><td class="c">${r.present || ''}</td><td
       top: { style: "thin" }, bottom: { style: "thin" }, left: { style: "thin" }, right: { style: "thin" },
     };
 
-    const totalCols = 16;
+    const totalCols = 17;
 
     ws.mergeCells(1, 1, 1, totalCols);
     const r1 = ws.getRow(1);
@@ -398,7 +398,7 @@ ${rows.map(r => `<tr><td>${r.month}</td><td class="c">${r.present || ''}</td><td
       "Basic wages", "Bonus payable (8.33%)",
       "Puja bonus", "Interim bonus", "[10A] Income tax", "Misconduct deduction",
       "Total deductions", "Net Amount Payable", "Amount actually paid",
-      "Date on which paid"
+      "Date on which paid", "Signature of employee"
     ];
 
     const headerRow = ws.getRow(7);
@@ -413,7 +413,7 @@ ${rows.map(r => `<tr><td>${r.month}</td><td class="c">${r.present || ''}</td><td
     headerRow.height = 50;
 
     const colNumRow = ws.getRow(8);
-    for (let i = 1; i <= 16; i++) {
+    for (let i = 1; i <= 17; i++) {
       const cell = colNumRow.getCell(i);
       cell.value = i;
       cell.fill = subHeaderFill;
@@ -428,8 +428,9 @@ ${rows.map(r => `<tr><td>${r.month}</td><td class="c">${r.present || ''}</td><td
         row.slNo, row.name, row.fatherName, row.under15, row.designation,
         row.daysWorked, row.bonusWages, row.bonusPayable,
         row.pujaBonus, row.interimBonus, row.incomeTax, row.misconduct,
-        row.totalDeductions, row.netAmount, row.actualPaid, row.datePaid,
+        row.totalDeductions, row.netAmount, row.actualPaid, row.datePaid, "",
       ];
+      r.height = 28;
       vals.forEach((v, i) => {
         const cell = r.getCell(i + 1);
         cell.value = v;
@@ -444,7 +445,7 @@ ${rows.map(r => `<tr><td>${r.month}</td><td class="c">${r.present || ''}</td><td
     ws.columns = [
       { width: 8 }, { width: 25 }, { width: 25 }, { width: 12 }, { width: 14 },
       { width: 12 }, { width: 14 }, { width: 14 }, { width: 10 }, { width: 10 },
-      { width: 10 }, { width: 10 }, { width: 10 }, { width: 14 }, { width: 14 }, { width: 14 },
+      { width: 10 }, { width: 10 }, { width: 10 }, { width: 14 }, { width: 14 }, { width: 14 }, { width: 22 },
     ];
 
     const buf = await wb.xlsx.writeBuffer();
@@ -799,7 +800,7 @@ ${rows.map(r => `<tr><td>${r.month}</td><td class="c">${r.present || ''}</td><td
                             <th colSpan={5} className="px-2 py-1.5 text-center font-bold border border-amber-200 bg-amber-50 dark:bg-amber-950 text-amber-800 dark:text-amber-200">Employee Details</th>
                             <th colSpan={3} className="px-2 py-1.5 text-center font-bold border border-emerald-200 bg-emerald-50 dark:bg-emerald-950 text-emerald-800 dark:text-emerald-200">Salary & Bonus</th>
                             <th colSpan={5} className="px-2 py-1.5 text-center font-bold border border-rose-200 bg-rose-50 dark:bg-rose-950 text-rose-800 dark:text-rose-200">Deductions</th>
-                            <th colSpan={3} className="px-2 py-1.5 text-center font-bold border border-indigo-200 bg-indigo-50 dark:bg-indigo-950 text-indigo-800 dark:text-indigo-200">Payment</th>
+                            <th colSpan={4} className="px-2 py-1.5 text-center font-bold border border-indigo-200 bg-indigo-50 dark:bg-indigo-950 text-indigo-800 dark:text-indigo-200">Payment</th>
                           </tr>
                           <tr className="border-b-2 border-amber-300">
                             <th className="px-2 py-2 text-left font-bold border border-amber-200 bg-amber-100 dark:bg-amber-900 text-amber-700 dark:text-amber-300 w-[40px]">S.No</th>
@@ -818,6 +819,7 @@ ${rows.map(r => `<tr><td>${r.month}</td><td class="c">${r.present || ''}</td><td
                             <th className="px-2 py-2 text-left font-bold border border-indigo-200 bg-indigo-100 dark:bg-indigo-900 text-indigo-700 dark:text-indigo-300">Net Payable</th>
                             <th className="px-2 py-2 text-left font-bold border border-indigo-200 bg-indigo-100 dark:bg-indigo-900 text-indigo-700 dark:text-indigo-300">Paid</th>
                             <th className="px-2 py-2 text-left font-bold border border-indigo-200 bg-indigo-100 dark:bg-indigo-900 text-indigo-700 dark:text-indigo-300">Date Paid</th>
+                            <th className="px-2 py-2 text-left font-bold border border-indigo-200 bg-indigo-100 dark:bg-indigo-900 text-indigo-700 dark:text-indigo-300 min-w-[110px]">Signature</th>
                           </tr>
                         </thead>
                         <tbody>
@@ -841,6 +843,7 @@ ${rows.map(r => `<tr><td>${r.month}</td><td class="c">${r.present || ''}</td><td
                                 <td className="px-2 py-2 text-left border border-slate-200 font-bold text-indigo-700 dark:text-indigo-400">{row.netAmount.toLocaleString('en-IN')}</td>
                                 <td className="px-2 py-2 text-left border border-slate-200 font-bold text-indigo-700 dark:text-indigo-400">{row.actualPaid.toLocaleString('en-IN')}</td>
                                 <td className="px-2 py-2 text-left border border-slate-200">{row.datePaid}</td>
+                                <td className="px-2 py-2 text-left border border-slate-200"></td>
                               </tr>
                             );
                           })}
@@ -853,6 +856,7 @@ ${rows.map(r => `<tr><td>${r.month}</td><td class="c">${r.present || ''}</td><td
                             <td colSpan={5} className="px-2 py-2 border border-slate-300"></td>
                             <td className="px-2 py-2 text-left border border-slate-300 text-indigo-700 dark:text-indigo-400">{totalBonus.toLocaleString('en-IN')}</td>
                             <td className="px-2 py-2 text-left border border-slate-300 text-indigo-700 dark:text-indigo-400">{totalBonus.toLocaleString('en-IN')}</td>
+                            <td className="px-2 py-2 border border-slate-300"></td>
                             <td className="px-2 py-2 border border-slate-300"></td>
                           </tr>
                         </tfoot>
@@ -907,15 +911,15 @@ ${rows.map(r => `<tr><td>${r.month}</td><td class="c">${r.present || ''}</td><td
                         <th colSpan={5} style={{ background: "#fff3e0", color: "#e65100", fontWeight: 700, border: "1px solid #999", padding: "2px", fontSize: "7px" }}>Employee Details</th>
                         <th colSpan={3} style={{ background: "#e8f5e9", color: "#1b5e20", fontWeight: 700, border: "1px solid #999", padding: "2px", fontSize: "7px" }}>Salary & Bonus</th>
                         <th colSpan={5} style={{ background: "#fce4ec", color: "#b71c1c", fontWeight: 700, border: "1px solid #999", padding: "2px", fontSize: "7px" }}>Deductions</th>
-                        <th colSpan={3} style={{ background: "#e8eaf6", color: "#1a237e", fontWeight: 700, border: "1px solid #999", padding: "2px", fontSize: "7px" }}>Payment</th>
+                        <th colSpan={4} style={{ background: "#e8eaf6", color: "#1a237e", fontWeight: 700, border: "1px solid #999", padding: "2px", fontSize: "7px" }}>Payment</th>
                       </tr>
                       <tr>
-                        {["Sl.No", "Name", "Father's Name", "15yr", "Designation", "Days", "Basic wages", "Bonus 8.33%", "Puja", "Interim", "[10A]", "Misc.", "Total Ded.", "Net Payable", "Amt Paid", "Date Paid"].map((h, i) => (
+                        {["Sl.No", "Name", "Father's Name", "15yr", "Designation", "Days", "Basic wages", "Bonus 8.33%", "Puja", "Interim", "[10A]", "Misc.", "Total Ded.", "Net Payable", "Amt Paid", "Date Paid", "Signature"].map((h, i) => (
                           <th key={i} style={{ border: "1px solid #999", padding: "1px 2px", fontWeight: 600, fontSize: "7px", background: i < 5 ? "#ffe0b2" : i < 8 ? "#c8e6c9" : i < 13 ? "#f8bbd0" : "#c5cae9", textAlign: "left" }}>{h}</th>
                         ))}
                       </tr>
                       <tr>
-                        {Array.from({ length: 16 }, (_, i) => (
+                        {Array.from({ length: 17 }, (_, i) => (
                           <th key={i} style={{ border: "1px solid #999", padding: "1px", fontSize: "6px", background: "#f5f5f5", textAlign: "left" }}>{i + 1}</th>
                         ))}
                       </tr>
@@ -939,6 +943,7 @@ ${rows.map(r => `<tr><td>${r.month}</td><td class="c">${r.present || ''}</td><td
                           <td style={{ border: "1px solid #bbb", padding: "1px 2px", textAlign: "left", fontWeight: 700, color: "#1a237e" }}>{row.netAmount.toLocaleString('en-IN')}</td>
                           <td style={{ border: "1px solid #bbb", padding: "1px 2px", textAlign: "left", fontWeight: 700, color: "#1a237e" }}>{row.actualPaid.toLocaleString('en-IN')}</td>
                           <td style={{ border: "1px solid #bbb", padding: "1px 2px", textAlign: "left" }}>{row.datePaid}</td>
+                          <td style={{ border: "1px solid #bbb", padding: "1px 2px", height: "22px", minWidth: "60px" }}></td>
                         </tr>
                       ))}
                     </tbody>
@@ -950,6 +955,7 @@ ${rows.map(r => `<tr><td>${r.month}</td><td class="c">${r.present || ''}</td><td
                         <td colSpan={5} style={{ border: "1px solid #999", padding: "1px" }}></td>
                         <td style={{ border: "1px solid #999", padding: "1px 2px", textAlign: "left", color: "#1a237e" }}>{totalBonus.toLocaleString('en-IN')}</td>
                         <td style={{ border: "1px solid #999", padding: "1px 2px", textAlign: "left", color: "#1a237e" }}>{totalBonus.toLocaleString('en-IN')}</td>
+                        <td style={{ border: "1px solid #999" }}></td>
                         <td style={{ border: "1px solid #999" }}></td>
                       </tr>
                     </tfoot>
