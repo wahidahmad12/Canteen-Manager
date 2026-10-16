@@ -672,9 +672,14 @@ export default function Admin() {
             </div>
           </div>
           <div className="ml-12 sm:ml-0">
-            <div className="flex items-center gap-2 text-xs text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-900/20 px-3 py-1.5 rounded-full border border-emerald-200 dark:border-emerald-800">
-              <ShieldCheck className="w-3.5 h-3.5" />
-              <span className="font-semibold">Authenticated</span>
+            <div className="flex flex-wrap items-center gap-2">
+              <Button variant="outline" size="sm" onClick={() => navigate("/licence-agreements")}>
+                <FileText className="mr-2 h-4 w-4" />Licence &amp; Agreement
+              </Button>
+              <div className="flex items-center gap-2 text-xs text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-900/20 px-3 py-1.5 rounded-full border border-emerald-200 dark:border-emerald-800">
+                <ShieldCheck className="w-3.5 h-3.5" />
+                <span className="font-semibold">Authenticated</span>
+              </div>
             </div>
           </div>
         </div>

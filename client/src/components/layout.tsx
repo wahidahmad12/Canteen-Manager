@@ -8,7 +8,7 @@ import { useLang } from '@/contexts/language-context';
 import type { Lang } from '@/lib/translations';
 
 // 'nomination-forms' added here so the menu stays open when you are on that page
-const labourWorksPaths = ['/employee-master', '/muster-roll', '/salary', '/skill-wage-rates', '/shift-duty', '/registers', '/form-xiii', '/form-vi-a', '/bonus-return', '/half-yearly-return', '/leave-with-wages', '/epfo-esic', '/letterhead', '/ptax-report', '/nomination-forms'];
+const labourWorksPaths = ['/employee-master', '/licence-agreements', '/muster-roll', '/salary', '/skill-wage-rates', '/shift-duty', '/registers', '/form-xiii', '/form-vi-a', '/bonus-return', '/half-yearly-return', '/leave-with-wages', '/epfo-esic', '/letterhead', '/ptax-report', '/nomination-forms'];
 
 export function Layout({ children }: { children: React.ReactNode }) {
   const [location] = useLocation();
@@ -99,6 +99,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
 
   const labourSubItems = [
     ...(user?.role === 'admin' ? [{ href: '/employee-master', label: tr('employeeMaster'), icon: Users }] : []),
+    ...(user?.role === 'admin' ? [{ href: '/licence-agreements', label: 'Licence & Agreement', icon: FileText }] : []),
     { href: '/muster-roll', label: tr('musterRoll'), icon: CalendarDays },
     { href: '/salary', label: tr('salaryRegister'), icon: Wallet },
     ...(user?.role === 'admin' ? [{ href: '/skill-wage-rates', label: tr('baseWageRates'), icon: IndianRupee }] : []),
