@@ -141,7 +141,7 @@ export async function registerRoutes(
         if (attachment.length > 10 * 1024 * 1024) return res.status(400).json({ message: "PDF must be 10 MB or smaller" });
         if (attachment.subarray(0, 5).toString("ascii") !== "%PDF-") return res.status(400).json({ message: "Attachment must be a valid PDF file" });
       }
-      const [result]: any = await pool.execute(
+      const [result]: any = await pool.query(
         `INSERT INTO licence_agreements
           (record_type, client_name, licence_name, licence_number, date_of_issue, expiry_date,
            renewal_date, validity_days, attachment_name, attachment)
@@ -152,7 +152,8 @@ export async function registerRoutes(
       res.status(201).json({ id: result.insertId });
     } catch (error) {
       console.error("POST /api/licence-agreements failed:", error);
-      res.status(500).json({ message: "Could not save licence or agreement record" });
+      const detail = (error as any)?.sqlMessage || (error as any)?.message || "";
+      res.status(500).json({ message: `Could not save licence or agreement record${detail ? `: ${String(detail).slice(0, 160)}` : ""}` });
     }
   });
 
@@ -190,7 +191,7 @@ export async function registerRoutes(
         values.push(String(attachmentName || "document.pdf").slice(0, 255), attachment);
       }
       values.push(id);
-      const [result]: any = await pool.execute(
+      const [result]: any = await pool.query(
         `UPDATE licence_agreements SET record_type = ?, client_name = ?, licence_name = ?,
           licence_number = ?, date_of_issue = ?, expiry_date = ?, renewal_date = ?, validity_days = ?
           ${attachmentUpdate} WHERE id = ?`,
@@ -200,7 +201,8 @@ export async function registerRoutes(
       res.json({ success: true });
     } catch (error) {
       console.error("PUT /api/licence-agreements/:id failed:", error);
-      res.status(500).json({ message: "Could not update licence or agreement record" });
+      const detail = (error as any)?.sqlMessage || (error as any)?.message || "";
+      res.status(500).json({ message: `Could not update licence or agreement record${detail ? `: ${String(detail).slice(0, 160)}` : ""}` });
     }
   });
 
