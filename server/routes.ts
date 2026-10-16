@@ -139,7 +139,7 @@ export async function registerRoutes(
         const encoded = String(attachmentBase64).replace(/^data:application\/pdf;base64,/, "");
         attachment = Buffer.from(encoded, "base64");
         if (attachment.length > 10 * 1024 * 1024) return res.status(400).json({ message: "PDF must be 10 MB or smaller" });
-        if (attachment.subarray(0, 5).toString("ascii") !== "%PDF-") return res.status(400).json({ message: "Attachment must be a valid PDF file" });
+        if (!attachment.subarray(0, 1024).toString("latin1").includes("%PDF-")) return res.status(400).json({ message: "Attachment must be a valid PDF file" });
       }
       const [result]: any = await pool.query(
         `INSERT INTO licence_agreements
@@ -186,7 +186,7 @@ export async function registerRoutes(
         const encoded = String(attachmentBase64).replace(/^data:application\/pdf;base64,/, "");
         const attachment = Buffer.from(encoded, "base64");
         if (attachment.length > 10 * 1024 * 1024) return res.status(400).json({ message: "PDF must be 10 MB or smaller" });
-        if (attachment.subarray(0, 5).toString("ascii") !== "%PDF-") return res.status(400).json({ message: "Attachment must be a valid PDF file" });
+        if (!attachment.subarray(0, 1024).toString("latin1").includes("%PDF-")) return res.status(400).json({ message: "Attachment must be a valid PDF file" });
         attachmentUpdate = ", attachment_name = ?, attachment = ?";
         values.push(String(attachmentName || "document.pdf").slice(0, 255), attachment);
       }
