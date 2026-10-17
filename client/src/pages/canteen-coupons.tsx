@@ -8,21 +8,12 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
+import { CANTEEN_MEALS, isMealActive, mealWiseTotals, runningSlotTotal } from "@shared/canteen-meals";
 import { Download, Loader2, Printer, Ticket } from "lucide-react";
 
 type Coupon = { id: number; clientName: string; mealCategory: string; variant: string; date: string; time: string };
 
-const MEALS = [
-  { name: "Breakfast", time: "7:00 AM - 9:30 AM", start: 7, end: 9.5, variants: ["N/A"] },
-  { name: "Lunch", time: "11:30 AM - 3:30 PM", start: 11.5, end: 15.5, variants: ["Veg", "Non-Veg"] },
-  { name: "Evening Snacks", time: "5:00 PM - 7:00 PM", start: 17, end: 19, variants: ["N/A"] },
-  { name: "Night Snacks", time: "10:00 PM - 3:00 AM", start: 22, end: 3, variants: ["N/A"] },
-];
-
-function isMealActive(meal: (typeof MEALS)[number], now: Date) {
-  const t = now.getHours() + now.getMinutes() / 60;
-  return meal.start > meal.end ? t >= meal.start || t <= meal.end : t >= meal.start && t <= meal.end;
-}
+const MEALS = CANTEEN_MEALS;
 
 function localDate(d: Date) {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
@@ -70,10 +61,8 @@ export default function CanteenCouponsPage() {
     queryKey: [todayUrl],
     queryFn: async () => (await apiRequest("GET", todayUrl)).json(),
   });
-  const activeMeal = MEALS.find((meal) => isMealActive(meal, now));
-  const activeMealCount = activeMeal
-    ? today.filter((coupon) => coupon.mealCategory === activeMeal.name).length
-    : 0;
+  const running = useMemo(() => runningSlotTotal(today, todayDate, now), [today, todayDate, now]);
+  const reportSummary = useMemo(() => mealWiseTotals(report), [report]);
 
   const issue = useMutation({
     mutationFn: async (v: { mealCategory: string; variant: string }) => {
@@ -103,21 +92,6 @@ export default function CanteenCouponsPage() {
 
   const periodLabel = fDate ? `Date: ${dmy(fDate)}` : fMonth ? `Month: ${fMonth}` : fYear ? `Year: ${fYear}` : "Complete Report (All Time)";
 
-  const summaryRows = useMemo(() => {
-    const grouped = new Map<string, { date: string; meal: string; veg: number; nonVeg: number; total: number }>();
-    report.forEach((coupon) => {
-      const key = `${coupon.date}|${coupon.mealCategory}`;
-      const row = grouped.get(key) ?? { date: coupon.date, meal: coupon.mealCategory, veg: 0, nonVeg: 0, total: 0 };
-      if (coupon.variant === "Veg") row.veg++;
-      if (coupon.variant === "Non-Veg") row.nonVeg++;
-      row.total++;
-      grouped.set(key, row);
-    });
-    return Array.from(grouped.values()).sort((a, b) =>
-      a.date.localeCompare(b.date) || MEALS.findIndex((meal) => meal.name === a.meal) - MEALS.findIndex((meal) => meal.name === b.meal),
-    );
-  }, [report]);
-
   const printReport = (kind: "full" | "summary") => {
     const entities: Record<string, string> = {
       "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;",
@@ -131,7 +105,7 @@ export default function CanteenCouponsPage() {
           : `<tr><td colspan="${headers.length}">No coupons found for the selected filters.</td></tr>`
       }</tbody></table>`;
     const content = kind === "summary"
-      ? table(["Date", "Meal", "Veg", "Non-Veg", "Total"], summaryRows.map((row) => [dmy(row.date), row.meal, String(row.veg), String(row.nonVeg), String(row.total)]))
+      ? table(["Date", "Meal", "Veg", "Non-Veg", "Total"], reportSummary.map((row) => [dmy(row.date), row.meal, String(row.veg), String(row.nonVeg), String(row.total)]))
       : table(
         ["Date & Time", "Client Name", "Meal Category", "Type"],
         report.map((coupon) => [`${dmy(coupon.date)} ${coupon.time}`, coupon.clientName, coupon.mealCategory, coupon.variant]),
@@ -159,7 +133,7 @@ export default function CanteenCouponsPage() {
     const detailSheet = XLSX.utils.json_to_sheet(report.map((c) => ({
       Date: dmy(c.date), Time: c.time, "Client Name": c.clientName, "Meal Category": c.mealCategory, "Type (Veg/Non-Veg)": c.variant,
     })));
-    const summarySheet = XLSX.utils.json_to_sheet(summaryRows.map((row) => ({
+    const summarySheet = XLSX.utils.json_to_sheet(reportSummary.map((row) => ({
       Date: dmy(row.date), Meal: row.meal, Veg: row.veg, "Non-Veg": row.nonVeg, Total: row.total,
     })));
     const wb = XLSX.utils.book_new();
@@ -185,16 +159,16 @@ export default function CanteenCouponsPage() {
           <p className="text-sm text-muted-foreground">Issue meal coupons client-wise and view reports.</p>
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 no-print">
-          {activeMeal ? (
-            <Card className="border-l-4 border-l-green-500 sm:col-span-2">
+        <div className="grid grid-cols-1 gap-4 no-print">
+          {running.meal ? (
+            <Card className="border-l-4 border-l-green-500">
               <CardContent className="p-5">
-                <p className="text-xs uppercase text-muted-foreground">Today's {activeMeal.name}</p>
-                <p className="text-3xl font-bold">{activeMealCount}</p>
+                <p className="text-xs uppercase text-muted-foreground">Today's {running.meal}</p>
+                <p className="text-3xl font-bold" data-testid="text-running-total">{running.total}</p>
               </CardContent>
             </Card>
           ) : (
-            <Card className="border-l-4 border-l-blue-500 sm:col-span-2">
+            <Card className="border-l-4 border-l-blue-500">
               <CardContent className="p-5">
                 <p className="text-xs uppercase text-muted-foreground">No Active Meal</p>
                 <p className="text-3xl font-bold">0</p>
@@ -298,7 +272,7 @@ export default function CanteenCouponsPage() {
                       </tr>
                     </thead>
                     <tbody>
-                      {summaryRows.map((row) => (
+                      {reportSummary.map((row) => (
                         <tr key={`${row.date}-${row.meal}`} className="border-t">
                           <td className="px-4 py-2">{dmy(row.date)}</td>
                           <td className="px-4 py-2">{row.meal}</td>
