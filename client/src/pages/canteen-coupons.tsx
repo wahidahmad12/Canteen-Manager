@@ -8,21 +8,12 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
+import { CANTEEN_MEALS, isMealActive, mealWiseTotals, runningSlotTotal } from "@shared/canteen-meals";
 import { Download, Loader2, Printer, Ticket } from "lucide-react";
 
 type Coupon = { id: number; clientName: string; mealCategory: string; variant: string; date: string; time: string };
 
-const MEALS = [
-  { name: "Breakfast", time: "7:00 AM - 9:30 AM", start: 7, end: 9.5, variants: ["N/A"] },
-  { name: "Lunch", time: "11:30 AM - 3:30 PM", start: 11.5, end: 15.5, variants: ["Veg", "Non-Veg"] },
-  { name: "Evening Snacks", time: "5:00 PM - 7:00 PM", start: 17, end: 19, variants: ["N/A"] },
-  { name: "Night Snacks", time: "10:00 PM - 3:00 AM", start: 22, end: 3, variants: ["N/A"] },
-];
-
-function isMealActive(meal: (typeof MEALS)[number], now: Date) {
-  const t = now.getHours() + now.getMinutes() / 60;
-  return meal.start > meal.end ? t >= meal.start || t <= meal.end : t >= meal.start && t <= meal.end;
-}
+const MEALS = CANTEEN_MEALS;
 
 function localDate(d: Date) {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
@@ -70,11 +61,10 @@ export default function CanteenCouponsPage() {
     queryKey: [todayUrl],
     queryFn: async () => (await apiRequest("GET", todayUrl)).json(),
   });
-  const counts = useMemo(() => ({
-    total: today.length,
-    veg: today.filter((c) => c.variant === "Veg").length,
-    nonVeg: today.filter((c) => c.variant === "Non-Veg").length,
-  }), [today]);
+  // Per-meal totals for today (each meal counted independently) + running total of the active slot only
+  const mealTotals = useMemo(() => MEALS.map((m) => ({ ...m, count: today.filter((c) => c.mealCategory === m.name).length })), [today]);
+  const running = useMemo(() => runningSlotTotal(today, todayDate, now), [today, todayDate, now]);
+  const reportSummary = useMemo(() => mealWiseTotals(report), [report]);
 
   const issue = useMutation({
     mutationFn: async (v: { mealCategory: string; variant: string }) => {
@@ -134,10 +124,11 @@ export default function CanteenCouponsPage() {
           <p className="text-sm text-muted-foreground">Issue meal coupons client-wise and view reports.</p>
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 no-print">
-          <Card className="border-l-4 border-l-blue-500"><CardContent className="p-5"><p className="text-xs uppercase text-muted-foreground">Today's Total Meals</p><p className="text-3xl font-bold">{counts.total}</p></CardContent></Card>
-          <Card className="border-l-4 border-l-green-500"><CardContent className="p-5"><p className="text-xs uppercase text-muted-foreground">Today's Veg Meals</p><p className="text-3xl font-bold">{counts.veg}</p></CardContent></Card>
-          <Card className="border-l-4 border-l-red-500"><CardContent className="p-5"><p className="text-xs uppercase text-muted-foreground">Today's Non-Veg</p><p className="text-3xl font-bold">{counts.nonVeg}</p></CardContent></Card>
+        <div className="grid grid-cols-2 lg:grid-cols-5 gap-4 no-print">
+          <Card className="border-l-4 border-l-blue-500"><CardContent className="p-5"><p className="text-xs uppercase text-muted-foreground">{running.meal ? `Current: ${running.meal}` : "No active meal"}</p><p className="text-3xl font-bold" data-testid="text-running-total">{running.total}</p></CardContent></Card>
+          {mealTotals.map((m) => (
+            <Card key={m.name} className="border-l-4 border-l-green-500"><CardContent className="p-5"><p className="text-xs uppercase text-muted-foreground">Today's {m.name}</p><p className="text-3xl font-bold">{m.count}</p></CardContent></Card>
+          ))}
         </div>
 
         <nav className="flex gap-8 border-b no-print">
@@ -246,6 +237,18 @@ export default function CanteenCouponsPage() {
                     </tbody>
                   </table>
                 </div>
+                {reportSummary.length > 0 && (
+                  <div className="mt-4 overflow-x-auto border rounded-lg">
+                    <table className="min-w-full text-sm">
+                      <thead className="bg-muted/50"><tr><th className="px-4 py-2 text-left">Date</th><th className="px-4 py-2 text-left">Meal</th><th className="px-4 py-2 text-left">Veg</th><th className="px-4 py-2 text-left">Non-Veg</th><th className="px-4 py-2 text-left">Total</th></tr></thead>
+                      <tbody>
+                        {reportSummary.map((r) => (
+                          <tr key={`${r.date}|${r.meal}`} className="border-t"><td className="px-4 py-2">{dmy(r.date)}</td><td className="px-4 py-2">{r.meal}</td><td className="px-4 py-2">{r.veg}</td><td className="px-4 py-2">{r.nonVeg}</td><td className="px-4 py-2 font-bold">{r.total}</td></tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
                 <p className="mt-4 text-sm font-medium">Total Filtered Records: <span className="font-bold text-blue-600">{report.length}</span></p>
               </div>
             </CardContent>
