@@ -26,6 +26,7 @@ export default function CanteenCouponsPage() {
   const queryClient = useQueryClient();
   const [tab, setTab] = useState<"issue" | "reports">("issue");
   const [clientName, setClientName] = useState("");
+  const [dashboardClient, setDashboardClient] = useState("");
   const [fDate, setFDate] = useState(localDate(new Date()));
   const [fMonth, setFMonth] = useState("");
   const [fYear, setFYear] = useState("");
@@ -52,14 +53,17 @@ export default function CanteenCouponsPage() {
   const { data: report = [], isLoading: reportLoading, isError: reportError } = useQuery<Coupon[]>({
     queryKey: [reportUrl],
     queryFn: async () => (await apiRequest("GET", reportUrl)).json(),
-    enabled: tab === "reports",
+    enabled: tab === "reports" && !!fClient,
   });
 
   const todayDate = localDate(now);
-  const todayUrl = `/api/canteen-coupons?date=${todayDate}`;
+  const todayParams = new URLSearchParams({ date: todayDate });
+  if (dashboardClient) todayParams.set("client", dashboardClient);
+  const todayUrl = `/api/canteen-coupons?${todayParams.toString()}`;
   const { data: today = [] } = useQuery<Coupon[]>({
     queryKey: [todayUrl],
     queryFn: async () => (await apiRequest("GET", todayUrl)).json(),
+    enabled: !!dashboardClient,
   });
   const running = useMemo(() => runningSlotTotal(today, todayDate, now), [today, todayDate, now]);
   const reportSummary = useMemo(() => mealWiseTotals(report), [report]);
@@ -93,6 +97,10 @@ export default function CanteenCouponsPage() {
   const periodLabel = fDate ? `Date: ${dmy(fDate)}` : fMonth ? `Month: ${fMonth}` : fYear ? `Year: ${fYear}` : "Complete Report (All Time)";
 
   const printReport = (kind: "full" | "summary") => {
+    if (!fClient) {
+      toast({ title: "Select a client first", variant: "destructive" });
+      return;
+    }
     const entities: Record<string, string> = {
       "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;",
     };
@@ -126,6 +134,10 @@ export default function CanteenCouponsPage() {
   };
 
   const exportExcel = () => {
+    if (!fClient) {
+      toast({ title: "Select a client first", variant: "destructive" });
+      return;
+    }
     if (report.length === 0) {
       toast({ title: "No data to export", variant: "destructive" });
       return;
@@ -159,21 +171,35 @@ export default function CanteenCouponsPage() {
           <p className="text-sm text-muted-foreground">Issue meal coupons client-wise and view reports.</p>
         </div>
 
-        <div className="grid grid-cols-1 gap-4 no-print">
-          {running.meal ? (
-            <Card className="border-l-4 border-l-green-500">
-              <CardContent className="p-5">
-                <p className="text-xs uppercase text-muted-foreground">Today's {running.meal}</p>
-                <p className="text-3xl font-bold" data-testid="text-running-total">{running.total}</p>
-              </CardContent>
-            </Card>
-          ) : (
-            <Card className="border-l-4 border-l-blue-500">
-              <CardContent className="p-5">
-                <p className="text-xs uppercase text-muted-foreground">No Active Meal</p>
-                <p className="text-3xl font-bold">0</p>
-              </CardContent>
-            </Card>
+        <div className="space-y-4 no-print">
+          <div className="max-w-md space-y-2">
+            <Label htmlFor="dashboard-client">Dashboard Client</Label>
+            <select
+              id="dashboard-client"
+              className="w-full h-10 rounded-md border bg-background px-3 text-sm"
+              value={dashboardClient}
+              onChange={(e) => setDashboardClient(e.target.value)}
+            >
+              <option value="">Select client to view dashboard count</option>
+              {clients.map((client) => <option key={client.id} value={client.name}>{client.name}</option>)}
+            </select>
+          </div>
+          {dashboardClient && (
+            running.meal ? (
+              <Card className="border-l-4 border-l-green-500">
+                <CardContent className="p-5">
+                  <p className="text-xs uppercase text-muted-foreground">Today's {running.meal} - {dashboardClient}</p>
+                  <p className="text-3xl font-bold" data-testid="text-running-total">{running.total}</p>
+                </CardContent>
+              </Card>
+            ) : (
+              <Card className="border-l-4 border-l-blue-500">
+                <CardContent className="p-5">
+                  <p className="text-xs uppercase text-muted-foreground">{dashboardClient} - No Active Meal</p>
+                  <p className="text-3xl font-bold">0</p>
+                </CardContent>
+              </Card>
+            )
           )}
         </div>
 
@@ -233,9 +259,9 @@ export default function CanteenCouponsPage() {
               <div className="flex flex-wrap items-center justify-between gap-3">
                 <CardTitle>Coupon Reports</CardTitle>
                 <div className="flex flex-wrap gap-2">
-                  <Button variant="outline" onClick={exportExcel}><Download className="w-4 h-4 mr-2" /> Export Excel</Button>
-                  <Button variant="outline" onClick={() => printReport("summary")}><Printer className="w-4 h-4 mr-2" /> Print Summary</Button>
-                  <Button onClick={() => printReport("full")}><Printer className="w-4 h-4 mr-2" /> Print Full Report</Button>
+                  <Button variant="outline" onClick={exportExcel} disabled={!fClient}><Download className="w-4 h-4 mr-2" /> Export Excel</Button>
+                  <Button variant="outline" onClick={() => printReport("summary")} disabled={!fClient}><Printer className="w-4 h-4 mr-2" /> Print Summary</Button>
+                  <Button onClick={() => printReport("full")} disabled={!fClient}><Printer className="w-4 h-4 mr-2" /> Print Full Report</Button>
                 </div>
               </div>
             </CardHeader>
@@ -247,14 +273,16 @@ export default function CanteenCouponsPage() {
                 <div className="space-y-1">
                   <Label>Client Name</Label>
                   <select className="w-full h-10 rounded-md border bg-background px-3 text-sm" value={fClient} onChange={(e) => setFClient(e.target.value)}>
-                    <option value="">All clients</option>
+                    <option value="">Select client</option>
                     {clients.map((c) => <option key={c.id} value={c.name}>{c.name}</option>)}
                   </select>
                 </div>
               </div>
               <Button variant="link" className="px-0 no-print" onClick={() => { setFDate(localDate(new Date())); setFMonth(""); setFYear(""); setFClient(""); }}>Reset to Today</Button>
 
-              <div id="coupon-print-area">
+              {!fClient ? (
+                <p className="py-8 text-center text-muted-foreground">Select a client to view the report.</p>
+              ) : <div id="coupon-print-area">
                 <div className="hidden print:block text-center mb-4">
                   <h2 className="text-2xl font-bold">Canteen Coupon Report</h2>
                   <p className="text-sm">{periodLabel}{fClient ? ` | Client: ${fClient}` : ""}</p>
