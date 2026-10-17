@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import * as XLSX from "xlsx";
 import { Layout } from "@/components/layout";
@@ -32,10 +32,10 @@ export default function CanteenCouponsPage() {
   const [fClient, setFClient] = useState("");
   const [now, setNow] = useState(new Date());
 
-  useState(() => {
+  useEffect(() => {
     const id = setInterval(() => setNow(new Date()), 60000);
     return () => clearInterval(id);
-  });
+  }, []);
 
   const { data: clients = [] } = useQuery<{ id: number; name: string }[]>({
     queryKey: ["/api/clients"],
@@ -61,8 +61,6 @@ export default function CanteenCouponsPage() {
     queryKey: [todayUrl],
     queryFn: async () => (await apiRequest("GET", todayUrl)).json(),
   });
-  // Per-meal totals for today (each meal counted independently) + running total of the active slot only
-  const mealTotals = useMemo(() => MEALS.map((m) => ({ ...m, count: today.filter((c) => c.mealCategory === m.name).length })), [today]);
   const running = useMemo(() => runningSlotTotal(today, todayDate, now), [today, todayDate, now]);
   const reportSummary = useMemo(() => mealWiseTotals(report), [report]);
 
@@ -94,16 +92,53 @@ export default function CanteenCouponsPage() {
 
   const periodLabel = fDate ? `Date: ${dmy(fDate)}` : fMonth ? `Month: ${fMonth}` : fYear ? `Year: ${fYear}` : "Complete Report (All Time)";
 
+  const printReport = (kind: "full" | "summary") => {
+    const entities: Record<string, string> = {
+      "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;",
+    };
+    const escapeHtml = (value: string) => value.replace(/[&<>"']/g, (character) => entities[character] ?? character);
+    const heading = `<h1>Canteen Coupon Report</h1><p>${escapeHtml(periodLabel)}${fClient ? ` | Client: ${escapeHtml(fClient)}` : ""}</p>`;
+    const table = (headers: string[], rows: string[][]) =>
+      `<table><thead><tr>${headers.map((header) => `<th>${escapeHtml(header)}</th>`).join("")}</tr></thead><tbody>${
+        rows.length
+          ? rows.map((row) => `<tr>${row.map((cell) => `<td>${escapeHtml(cell)}</td>`).join("")}</tr>`).join("")
+          : `<tr><td colspan="${headers.length}">No coupons found for the selected filters.</td></tr>`
+      }</tbody></table>`;
+    const content = kind === "summary"
+      ? table(["Date", "Meal", "Veg", "Non-Veg", "Total"], reportSummary.map((row) => [dmy(row.date), row.meal, String(row.veg), String(row.nonVeg), String(row.total)]))
+      : table(
+        ["Date & Time", "Client Name", "Meal Category", "Type"],
+        report.map((coupon) => [`${dmy(coupon.date)} ${coupon.time}`, coupon.clientName, coupon.mealCategory, coupon.variant]),
+      );
+    const printWindow = window.open("", "_blank");
+    if (!printWindow) {
+      toast({ title: "Print window blocked", description: "Allow pop-ups to print this report.", variant: "destructive" });
+      return;
+    }
+    printWindow.document.write(`<!doctype html><html><head><title>Canteen Coupon ${kind === "summary" ? "Summary" : "Report"}</title>
+      <style>body{font:14px Arial,sans-serif;margin:24px}h1{text-align:center;font-size:20px}p{text-align:center}table{width:100%;border-collapse:collapse;margin-top:20px}th,td{border:1px solid #555;padding:7px;text-align:left}th{background:#eee}@page{size:A4;margin:15mm}</style>
+      </head><body>${heading}${content}</body></html>`);
+    printWindow.document.close();
+    printWindow.onload = () => {
+      printWindow.print();
+      printWindow.onafterprint = () => printWindow.close();
+    };
+  };
+
   const exportExcel = () => {
     if (report.length === 0) {
       toast({ title: "No data to export", variant: "destructive" });
       return;
     }
-    const ws = XLSX.utils.json_to_sheet(report.map((c) => ({
+    const detailSheet = XLSX.utils.json_to_sheet(report.map((c) => ({
       Date: dmy(c.date), Time: c.time, "Client Name": c.clientName, "Meal Category": c.mealCategory, "Type (Veg/Non-Veg)": c.variant,
     })));
+    const summarySheet = XLSX.utils.json_to_sheet(reportSummary.map((row) => ({
+      Date: dmy(row.date), Meal: row.meal, Veg: row.veg, "Non-Veg": row.nonVeg, Total: row.total,
+    })));
     const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, "Coupons");
+    XLSX.utils.book_append_sheet(wb, detailSheet, "Full Report");
+    XLSX.utils.book_append_sheet(wb, summarySheet, "Meal Summary");
     XLSX.writeFile(wb, `Canteen_Report_${fDate || fMonth || fYear || "All"}${fClient ? `_${fClient}` : ""}.xlsx`);
   };
 
@@ -124,11 +159,22 @@ export default function CanteenCouponsPage() {
           <p className="text-sm text-muted-foreground">Issue meal coupons client-wise and view reports.</p>
         </div>
 
-        <div className="grid grid-cols-2 lg:grid-cols-5 gap-4 no-print">
-          <Card className="border-l-4 border-l-blue-500"><CardContent className="p-5"><p className="text-xs uppercase text-muted-foreground">{running.meal ? `Current: ${running.meal}` : "No active meal"}</p><p className="text-3xl font-bold" data-testid="text-running-total">{running.total}</p></CardContent></Card>
-          {mealTotals.map((m) => (
-            <Card key={m.name} className="border-l-4 border-l-green-500"><CardContent className="p-5"><p className="text-xs uppercase text-muted-foreground">Today's {m.name}</p><p className="text-3xl font-bold">{m.count}</p></CardContent></Card>
-          ))}
+        <div className="grid grid-cols-1 gap-4 no-print">
+          {running.meal ? (
+            <Card className="border-l-4 border-l-green-500">
+              <CardContent className="p-5">
+                <p className="text-xs uppercase text-muted-foreground">Today's {running.meal}</p>
+                <p className="text-3xl font-bold" data-testid="text-running-total">{running.total}</p>
+              </CardContent>
+            </Card>
+          ) : (
+            <Card className="border-l-4 border-l-blue-500">
+              <CardContent className="p-5">
+                <p className="text-xs uppercase text-muted-foreground">No Active Meal</p>
+                <p className="text-3xl font-bold">0</p>
+              </CardContent>
+            </Card>
+          )}
         </div>
 
         <nav className="flex gap-8 border-b no-print">
@@ -186,9 +232,10 @@ export default function CanteenCouponsPage() {
             <CardHeader className="no-print">
               <div className="flex flex-wrap items-center justify-between gap-3">
                 <CardTitle>Coupon Reports</CardTitle>
-                <div className="flex gap-2">
+                <div className="flex flex-wrap gap-2">
                   <Button variant="outline" onClick={exportExcel}><Download className="w-4 h-4 mr-2" /> Export Excel</Button>
-                  <Button onClick={() => window.print()}><Printer className="w-4 h-4 mr-2" /> Print</Button>
+                  <Button variant="outline" onClick={() => printReport("summary")}><Printer className="w-4 h-4 mr-2" /> Print Summary</Button>
+                  <Button onClick={() => printReport("full")}><Printer className="w-4 h-4 mr-2" /> Print Full Report</Button>
                 </div>
               </div>
             </CardHeader>
@@ -205,7 +252,7 @@ export default function CanteenCouponsPage() {
                   </select>
                 </div>
               </div>
-              <Button variant="link" className="px-0 no-print" onClick={() => { setFDate(""); setFMonth(""); setFYear(""); setFClient(""); }}>Clear Filters</Button>
+              <Button variant="link" className="px-0 no-print" onClick={() => { setFDate(localDate(new Date())); setFMonth(""); setFYear(""); setFClient(""); }}>Reset to Today</Button>
 
               <div id="coupon-print-area">
                 <div className="hidden print:block text-center mb-4">
@@ -213,6 +260,30 @@ export default function CanteenCouponsPage() {
                   <p className="text-sm">{periodLabel}{fClient ? ` | Client: ${fClient}` : ""}</p>
                 </div>
                 {reportError && <p className="text-red-600 text-sm">Could not load report.</p>}
+                <div className="overflow-x-auto border rounded-lg mb-4">
+                  <table className="min-w-full text-sm">
+                    <thead className="bg-muted/50">
+                      <tr>
+                        <th className="px-4 py-2 text-left">Date</th>
+                        <th className="px-4 py-2 text-left">Meal</th>
+                        <th className="px-4 py-2 text-left">Veg</th>
+                        <th className="px-4 py-2 text-left">Non-Veg</th>
+                        <th className="px-4 py-2 text-left">Total</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {reportSummary.map((row) => (
+                        <tr key={`${row.date}-${row.meal}`} className="border-t">
+                          <td className="px-4 py-2">{dmy(row.date)}</td>
+                          <td className="px-4 py-2">{row.meal}</td>
+                          <td className="px-4 py-2">{row.veg}</td>
+                          <td className="px-4 py-2">{row.nonVeg}</td>
+                          <td className="px-4 py-2 font-bold">{row.total}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
                 <div className="overflow-x-auto border rounded-lg">
                   <table className="min-w-full text-sm">
                     <thead className="bg-muted/50">
@@ -237,18 +308,6 @@ export default function CanteenCouponsPage() {
                     </tbody>
                   </table>
                 </div>
-                {reportSummary.length > 0 && (
-                  <div className="mt-4 overflow-x-auto border rounded-lg">
-                    <table className="min-w-full text-sm">
-                      <thead className="bg-muted/50"><tr><th className="px-4 py-2 text-left">Date</th><th className="px-4 py-2 text-left">Meal</th><th className="px-4 py-2 text-left">Veg</th><th className="px-4 py-2 text-left">Non-Veg</th><th className="px-4 py-2 text-left">Total</th></tr></thead>
-                      <tbody>
-                        {reportSummary.map((r) => (
-                          <tr key={`${r.date}|${r.meal}`} className="border-t"><td className="px-4 py-2">{dmy(r.date)}</td><td className="px-4 py-2">{r.meal}</td><td className="px-4 py-2">{r.veg}</td><td className="px-4 py-2">{r.nonVeg}</td><td className="px-4 py-2 font-bold">{r.total}</td></tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                )}
                 <p className="mt-4 text-sm font-medium">Total Filtered Records: <span className="font-bold text-blue-600">{report.length}</span></p>
               </div>
             </CardContent>
