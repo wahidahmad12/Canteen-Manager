@@ -1,3 +1,4 @@
+import { CiplaStatementPanel } from "./cipla-statement";
 import { useState, useRef, useEffect, useMemo, Fragment } from "react";
 import { DateEntryDashboard } from "./date-entry-dashboard";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -2672,6 +2673,7 @@ function CiplaDateEntryTab({ month, year, loadKey = 0 }: { month: number; year: 
       th{background:#1a3a5a!important;color:white!important;font-size:10pt;font-weight:bold;}
       .total-row{font-weight:bold;background:#e8f0fe!important;}
       .orange-row{background:#ffa500!important;}
+      .cipla-summary{display:none!important;}
       @media print{@page{margin:5mm;size:A4 portrait;}body{margin:0;}table{page-break-inside:auto;}tr{page-break-inside:avoid;}}
     </style></head><body>${content}</body></html>`);
     win.document.close();
@@ -2777,6 +2779,42 @@ function CiplaDateEntryTab({ month, year, loadKey = 0 }: { month: number; year: 
   );
 
   const { label: ciplaBillingLabel } = getBillingRange(month, year);
+  const handlePrintSummary = () => {
+    const tbl = printRef.current?.querySelector('table[data-summary="1"]');
+    if (!tbl) return;
+    const win = window.open('','_blank');
+    if (!win) return;
+    win.document.write(`<html><head><title>Cipla Manual vs Machine Summary</title><style>
+      body{font-family:"Times New Roman",Times,serif;margin:10mm;font-size:12pt;-webkit-print-color-adjust:exact;print-color-adjust:exact;}
+      h3,h4,p{text-align:center;margin:2px 0;}
+      table{width:70%!important;margin:12px auto 0 auto!important;border-collapse:collapse;}
+      @media print{@page{size:A4 portrait;margin:10mm;}}
+    </style></head><body><h3>DJ Hospitality &amp; Facility Management Pvt Ltd</h3><h4>Cipla Limited Unit 1</h4><p>Manual vs Machine Summary — ${ciplaBillingLabel}</p>${tbl.outerHTML}</body></html>`);
+    win.document.close();
+    win.onload = () => win.print();
+  };
+
+  const handleExportSummary = async () => {
+    const ExcelJS = (await import("exceljs")).default;
+    const wb = new ExcelJS.Workbook();
+    const ws = wb.addWorksheet("Summary");
+    ws.addRow(["Cipla Limited Unit 1 - Manual vs Machine Summary", ciplaBillingLabel]).font = { bold: true };
+    const hdr = ws.addRow(["Particulars","Coopen","Coin","Manual Total","Machine Data","Difference"]);
+    hdr.font = { bold: true };
+    const mk = (label: string, cp: number, cn: number, mc: number) => ws.addRow([label, cp, cn, cp+cn, mc, cp-mc]);
+    mk("Breakfast", totBfCoopen, totBfCoin, mBf);
+    mk("Lunch", totLuCoopen, totLuCoin, mLu);
+    mk("Dinner", totDiCoopen, totDiCoin, mDi);
+    const tot = ws.addRow(["Total", totBfCoopen+totLuCoopen+totDiCoopen, totBfCoin+totLuCoin+totDiCoin, totBfCoopen+totLuCoopen+totDiCoopen+totBfCoin+totLuCoin+totDiCoin, mBf+mLu+mDi, (totBfCoopen-mBf)+(totLuCoopen-mLu)+(totDiCoopen-mDi)]);
+    tot.font = { bold: true };
+    ws.columns = [{width:16},{width:12},{width:12},{width:14},{width:14},{width:12}];
+    const buf = await wb.xlsx.writeBuffer();
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(new Blob([buf]));
+    a.download = `Cipla_Summary_${MONTHS[month-1]}_${year}.xlsx`;
+    a.click();
+  };
+
 
   const printTable = (
     <div ref={printRef}>
@@ -2841,7 +2879,7 @@ function CiplaDateEntryTab({ month, year, loadKey = 0 }: { month: number; year: 
         const td:React.CSSProperties={border:"1px solid #333",padding:"3px 6px",textAlign:"center"};
         const tdBold:React.CSSProperties={...td,fontWeight:"bold",background:"#e8f0fe"};
         return (
-          <table style={{width:"60%",borderCollapse:"collapse",marginTop:14,marginLeft:"auto",marginRight:0}}>
+          <table className="cipla-summary" data-summary="1" style={{width:"60%",borderCollapse:"collapse",marginTop:14,marginLeft:"auto",marginRight:0}}>
             <thead>
               <tr>
                 <th style={th}>Particulars</th>
@@ -2909,6 +2947,8 @@ function CiplaDateEntryTab({ month, year, loadKey = 0 }: { month: number; year: 
         <Button size="sm" onClick={handleSaveAll} className="bg-green-600 text-white h-10 px-4 text-sm" disabled={createMutation.isPending||updateMutation.isPending}><Save className="w-4 h-4 mr-1.5"/>Save All</Button>
         <Button size="sm" variant="outline" onClick={handlePrint} className="h-10 px-4 text-sm"><Printer className="w-4 h-4 mr-1.5"/>Print</Button>
         <Button size="sm" variant="outline" onClick={handleExportExcel3} className="h-10 px-4 text-sm text-green-700 border-green-300 hover:bg-green-50" disabled={rows.length===0}><FileDown className="w-4 h-4 mr-1.5"/>Export Excel</Button>
+        <Button size="sm" variant="outline" onClick={handlePrintSummary} className="h-10 px-4 text-sm"><Printer className="w-4 h-4 mr-1.5"/>Print Summary</Button>
+        <Button size="sm" variant="outline" onClick={handleExportSummary} className="h-10 px-4 text-sm text-green-700 border-green-300 hover:bg-green-50"><FileDown className="w-4 h-4 mr-1.5"/>Summary Excel</Button>
         <Button size="sm" variant="outline" onClick={()=>importRef3.current?.click()} className="h-10 px-4 text-sm text-blue-700 border-blue-300 hover:bg-blue-50"><FileUp className="w-4 h-4 mr-1.5"/>Import Excel</Button>
         <input ref={importRef3} type="file" accept=".xlsx,.xls" className="hidden" onChange={handleImportExcel3}/>
         <Button size="sm" variant="outline" onClick={handleReset3} className="h-10 px-4 text-sm text-red-600 border-red-300 hover:bg-red-50"><RefreshCw className="w-4 h-4 mr-1.5"/>Reset</Button>
@@ -3150,6 +3190,7 @@ function CiplaDateEntryTab({ month, year, loadKey = 0 }: { month: number; year: 
         </div>
       </div>
       <div style={{display:"none"}}>{printTable}</div>
+      <CiplaStatementPanel month={month} year={year}/>
     </div>
   );
 }
