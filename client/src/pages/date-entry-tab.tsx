@@ -2789,7 +2789,7 @@ function CiplaDateEntryTab({ month, year, loadKey = 0 }: { month: number; year: 
       h3,h4,p{text-align:center;margin:2px 0;}
       table{width:70%!important;margin:12px auto 0 auto!important;border-collapse:collapse;}
       @media print{@page{size:A4 portrait;margin:10mm;}}
-    </style></head><body><h3>DJ Hospitality &amp; Facility Management Pvt Ltd</h3><h4>Cipla Limited Unit 1</h4><p>Manual vs Machine Summary — ${ciplaBillingLabel}</p>${tbl.outerHTML}</body></html>`);
+    </style></head><body><h3>DJ Hospitality &amp; Facility Management Pvt Ltd</h3><h4>Cipla Limited Unit 1</h4><p>Manual vs Machine Summary ï¿½ ${ciplaBillingLabel}</p>${tbl.outerHTML.replace("cipla-summary","")}</body></html>`);
     win.document.close();
     win.onload = () => win.print();
   };
