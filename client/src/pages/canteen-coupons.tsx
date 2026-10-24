@@ -337,7 +337,7 @@ export default function CanteenCouponsPage() {
                   </table>
                 </div>
                 <p className="mt-4 text-sm font-medium">Total Filtered Records: <span className="font-bold text-blue-600">{report.length}</span></p>
-              </div>
+                              </div>}
             </CardContent>
           </Card>
         )}
