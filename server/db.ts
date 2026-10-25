@@ -413,6 +413,7 @@ async function initPool(): Promise<void> {
       UNIQUE KEY uq_ccb_contractor_period (contractor_id, month, year),
       KEY idx_ccb_period (year, month)
     )`,
+    `ALTER TABLE ubl_date_entries ADD COLUMN IF NOT EXISTS contractor_breakfast INT NOT NULL DEFAULT 0`,
     `CREATE TABLE IF NOT EXISTS ubl_f3_contractors (
       id INT AUTO_INCREMENT PRIMARY KEY,
       name VARCHAR(100) NOT NULL,
