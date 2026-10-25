@@ -122,7 +122,9 @@ function UblDateEntryTab({ month, year, loadKey = 0 }: { month: number; year: nu
   const createMutation = useMutation({
     mutationFn: async (data: UblRow) => {
       const res = await fetch('/api/ubl-date-entries', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(data), credentials: "include" });
-      return res.json();
+      const result = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(result.message || `Save failed (${res.status})`);
+      return result;
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['/api/ubl-date-entries', month, year] });
@@ -133,7 +135,9 @@ function UblDateEntryTab({ month, year, loadKey = 0 }: { month: number; year: nu
   const updateMutation = useMutation({
     mutationFn: async ({ id, data }: { id: number; data: any }) => {
       const res = await fetch(`/api/ubl-date-entries/${id}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(data), credentials: "include" });
-      return res.json();
+      const result = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(result.message || `Save failed (${res.status})`);
+      return result;
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['/api/ubl-date-entries', month, year] });
@@ -194,8 +198,12 @@ function UblDateEntryTab({ month, year, loadKey = 0 }: { month: number; year: nu
     if (!row.id && !row._dirty) { toast({ title: "No changes to save" }); return; }
     try {
       const { _dirty, id, ...data } = row;
-      if (id) await updateMutation.mutateAsync({ id, data });
-      else await createMutation.mutateAsync(row);
+      const saved = id
+        ? await updateMutation.mutateAsync({ id, data })
+        : await createMutation.mutateAsync(data);
+      setLocalRows(prev => prev.map((r, i) => i === idx
+        ? { ...r, ...(saved && typeof saved === "object" ? saved : {}), entryDate: row.entryDate, weekDay: row.weekDay, _dirty: false }
+        : r));
       toast({ title: "Saved" });
     } catch (e: any) {
       toast({ title: "Error", description: e.message, variant: "destructive" });
