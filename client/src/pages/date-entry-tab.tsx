@@ -1,6 +1,7 @@
 import { CiplaStatementPanel } from "./cipla-statement";
 import { useState, useRef, useEffect, useMemo, Fragment } from "react";
 import { DateEntryDashboard } from "./date-entry-dashboard";
+import { UblFormat3Tab } from "./ubl-format3";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useCurrentUser, useClientNames } from "@/hooks/use-reports";
 import { CustomClientFormTab } from "./custom-client-form";
@@ -8733,6 +8734,9 @@ export function DateEntryTab() {
             <TabsTrigger value="format2" className="text-xs sm:text-sm" data-testid="tab-ubl-format2">
               Format 2 — Lunch Per Day
             </TabsTrigger>
+            <TabsTrigger value="format3" className="text-xs sm:text-sm" data-testid="tab-ubl-format3">
+              Format 3 — Bill Data Sheet
+            </TabsTrigger>
             <TabsTrigger value="ubl_summary" className="text-xs sm:text-sm" data-testid="tab-ubl-summary">
               Summary
             </TabsTrigger>
@@ -8744,6 +8748,10 @@ export function DateEntryTab() {
           <TabsContent value="format2">
             <div className="mb-2 text-sm text-muted-foreground font-medium">United Breweries Ltd — Number of Lunch Per Day (Permanent / Casual / Contractual / Canteen)</div>
             <UblLunchEntryTab month={parseInt(month)} year={parseInt(year)} loadKey={loadKey}/>
+          </TabsContent>
+          <TabsContent value="format3">
+            <div className="mb-2 text-sm text-muted-foreground font-medium">United Breweries Ltd — Contractor Meals Bill Data Sheet (Contractor Breakfast total feeds Format 1 Cont. Brkft)</div>
+            <UblFormat3Tab month={parseInt(month)} year={parseInt(year)} loadKey={loadKey}/>
           </TabsContent>
           <TabsContent value="ubl_summary">
             <div className="mb-2 text-sm text-muted-foreground font-medium">UBL — Combined Summary — Format 1 (Bill Data) + Format 2 (Lunch Per Day) — Monthly &amp; Yearly view</div>

@@ -413,6 +413,30 @@ async function initPool(): Promise<void> {
       UNIQUE KEY uq_ccb_contractor_period (contractor_id, month, year),
       KEY idx_ccb_period (year, month)
     )`,
+    `CREATE TABLE IF NOT EXISTS ubl_f3_contractors (
+      id INT AUTO_INCREMENT PRIMARY KEY,
+      name VARCHAR(100) NOT NULL,
+      sort_order INT NOT NULL DEFAULT 0,
+      is_active TINYINT(1) NOT NULL DEFAULT 1,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      UNIQUE KEY uq_ubl_f3_contractor_name (name)
+    )`,
+    `CREATE TABLE IF NOT EXISTS ubl_f3_meal_entries (
+      id INT AUTO_INCREMENT PRIMARY KEY,
+      entry_date VARCHAR(10) NOT NULL,
+      contractor_id INT NOT NULL,
+      meal_type VARCHAR(20) NOT NULL,
+      qty INT NOT NULL DEFAULT 0,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      UNIQUE KEY uq_ubl_f3_entry (entry_date, contractor_id, meal_type),
+      KEY idx_ubl_f3_date (entry_date)
+    )`,
+    `CREATE TABLE IF NOT EXISTS ubl_f3_meal_types (
+      meal_type VARCHAR(20) NOT NULL PRIMARY KEY,
+      enabled TINYINT(1) NOT NULL DEFAULT 0
+    )`,
+    `INSERT IGNORE INTO ubl_f3_meal_types (meal_type, enabled) VALUES
+      ('breakfast',1),('lunch',0),('evening_snacks',0),('dinner',0)`,
   ];
   for (const sql of migrations) {
     try { await pool.execute(sql); } catch (e: any) { console.log('[db] migration note:', e.message?.slice(0, 80)); }

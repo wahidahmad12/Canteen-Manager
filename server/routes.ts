@@ -2960,16 +2960,136 @@ export async function registerRoutes(
     const entries = await storage.getUblDateEntries(month, year);
     res.json(entries);
   });
+  // Format 3 contractor breakfast is the source of truth for Format 1 "Cont. Brkft" on dates that have Format 3 data
+  const applyUblF3Breakfast = async (body: any) => {
+    const d = typeof body?.entryDate === 'string' ? body.entryDate.split('T')[0] : '';
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(d)) return body;
+    try {
+      const [rows]: any = await pool.execute(
+        `SELECT COUNT(*) AS c, COALESCE(SUM(qty),0) AS t FROM ubl_f3_meal_entries WHERE entry_date = ? AND meal_type = 'breakfast'`, [d]);
+      if (Number(rows[0]?.c) > 0) return { ...body, contractorBreakfast: Number(rows[0].t) };
+    } catch { /* Format 3 tables not available yet */ }
+    return body;
+  };
   app.post('/api/ubl-date-entries', requirePermission('salesinvoice'), async (req, res) => {
     try {
-      const entry = await storage.createUblDateEntry(req.body);
+      const entry = await storage.createUblDateEntry(await applyUblF3Breakfast(req.body));
       res.status(201).json(entry);
     } catch (err: any) { res.status(500).json({ message: err.message }); }
   });
   app.put('/api/ubl-date-entries/:id', requirePermission('salesinvoice'), async (req, res) => {
     try {
-      const entry = await storage.updateUblDateEntry(Number(req.params.id), req.body);
+      const entry = await storage.updateUblDateEntry(Number(req.params.id), await applyUblF3Breakfast(req.body));
       res.json(entry);
+    } catch (err: any) { res.status(500).json({ message: err.message }); }
+  });
+
+  // ── UBL Format 3 — Contractor meals (Bill Data Sheet) ──
+  const UBL_F3_MEALS = ['breakfast', 'lunch', 'evening_snacks', 'dinner'];
+  app.get('/api/ubl-f3/contractors', requirePermission('salesinvoice'), async (_req, res) => {
+    try {
+      const [rows]: any = await pool.execute(
+        `SELECT id, name, sort_order AS sortOrder, is_active AS isActive FROM ubl_f3_contractors ORDER BY sort_order, id`);
+      res.json(rows.map((r: any) => ({ ...r, isActive: !!r.isActive })));
+    } catch (err: any) { res.status(500).json({ message: err.message }); }
+  });
+  app.post('/api/ubl-f3/contractors', requirePermission('salesinvoice'), async (req, res) => {
+    try {
+      const name = String(req.body?.name ?? '').trim().slice(0, 100);
+      if (!name) return res.status(400).json({ message: 'Contractor name is required' });
+      const [mx]: any = await pool.execute(`SELECT COALESCE(MAX(sort_order),0)+1 AS n FROM ubl_f3_contractors`);
+      const [result]: any = await pool.execute(
+        `INSERT INTO ubl_f3_contractors (name, sort_order, is_active) VALUES (?, ?, 1)`, [name, Number(mx[0].n)]);
+      res.status(201).json({ id: result.insertId, name, sortOrder: Number(mx[0].n), isActive: true });
+    } catch (err: any) {
+      if (err.code === 'ER_DUP_ENTRY') return res.status(409).json({ message: 'Contractor already exists' });
+      res.status(500).json({ message: err.message });
+    }
+  });
+  app.put('/api/ubl-f3/contractors/:id', requirePermission('salesinvoice'), async (req, res) => {
+    try {
+      const id = Number(req.params.id);
+      const sets: string[] = []; const vals: any[] = [];
+      if (req.body?.name !== undefined) {
+        const name = String(req.body.name).trim().slice(0, 100);
+        if (!name) return res.status(400).json({ message: 'Contractor name is required' });
+        sets.push('name = ?'); vals.push(name);
+      }
+      if (req.body?.isActive !== undefined) { sets.push('is_active = ?'); vals.push(req.body.isActive ? 1 : 0); }
+      if (!sets.length) return res.status(400).json({ message: 'Nothing to update' });
+      await pool.execute(`UPDATE ubl_f3_contractors SET ${sets.join(', ')} WHERE id = ?`, [...vals, id]);
+      res.json({ ok: true });
+    } catch (err: any) {
+      if (err.code === 'ER_DUP_ENTRY') return res.status(409).json({ message: 'Contractor already exists' });
+      res.status(500).json({ message: err.message });
+    }
+  });
+  app.get('/api/ubl-f3/meal-types', requirePermission('salesinvoice'), async (_req, res) => {
+    try {
+      const [rows]: any = await pool.execute(`SELECT meal_type AS mealType, enabled FROM ubl_f3_meal_types`);
+      res.json(rows.map((r: any) => ({ mealType: r.mealType, enabled: !!r.enabled })));
+    } catch (err: any) { res.status(500).json({ message: err.message }); }
+  });
+  app.put('/api/ubl-f3/meal-types/:mealType', requirePermission('salesinvoice'), async (req, res) => {
+    try {
+      const mealType = String(req.params.mealType);
+      if (!UBL_F3_MEALS.includes(mealType) || mealType === 'breakfast') return res.status(400).json({ message: 'Invalid meal type' });
+      await pool.execute(
+        `INSERT INTO ubl_f3_meal_types (meal_type, enabled) VALUES (?, ?) ON DUPLICATE KEY UPDATE enabled = VALUES(enabled)`,
+        [mealType, req.body?.enabled ? 1 : 0]);
+      res.json({ ok: true });
+    } catch (err: any) { res.status(500).json({ message: err.message }); }
+  });
+  app.get('/api/ubl-f3/entries', requirePermission('salesinvoice'), async (req, res) => {
+    try {
+      const month = Number(req.query.month) || new Date().getMonth() + 1;
+      const year = Number(req.query.year) || new Date().getFullYear();
+      const nm = month === 12 ? 1 : month + 1;
+      const ny = month === 12 ? year + 1 : year;
+      const start = `${year}-${String(month).padStart(2, '0')}-21`;
+      const end = `${ny}-${String(nm).padStart(2, '0')}-20`;
+      const [rows]: any = await pool.execute(
+        `SELECT entry_date AS entryDate, contractor_id AS contractorId, meal_type AS mealType, qty
+         FROM ubl_f3_meal_entries WHERE entry_date >= ? AND entry_date <= ?`, [start, end]);
+      res.json(rows);
+    } catch (err: any) { res.status(500).json({ message: err.message }); }
+  });
+  app.post('/api/ubl-f3/entries/bulk', requirePermission('salesinvoice'), async (req, res) => {
+    try {
+      const entries: any[] = Array.isArray(req.body?.entries) ? req.body.entries : [];
+      const touchedBreakfast = new Set<string>();
+      for (const e of entries) {
+        const d = String(e.entryDate ?? '').split('T')[0];
+        const cid = Number(e.contractorId);
+        const mt = String(e.mealType ?? '');
+        const qty = Math.max(0, Math.floor(Number(e.qty) || 0));
+        if (!/^\d{4}-\d{2}-\d{2}$/.test(d) || !cid || !UBL_F3_MEALS.includes(mt)) continue;
+        if (qty > 0) {
+          await pool.execute(
+            `INSERT INTO ubl_f3_meal_entries (entry_date, contractor_id, meal_type, qty) VALUES (?, ?, ?, ?)
+             ON DUPLICATE KEY UPDATE qty = VALUES(qty)`, [d, cid, mt, qty]);
+        } else {
+          await pool.execute(
+            `DELETE FROM ubl_f3_meal_entries WHERE entry_date = ? AND contractor_id = ? AND meal_type = ?`, [d, cid, mt]);
+        }
+        if (mt === 'breakfast') touchedBreakfast.add(d);
+      }
+      // Push contractor breakfast totals into Format 1 (Cont. Brkft)
+      for (const d of Array.from(touchedBreakfast)) {
+        const [t]: any = await pool.execute(
+          `SELECT COALESCE(SUM(qty),0) AS t FROM ubl_f3_meal_entries WHERE entry_date = ? AND meal_type = 'breakfast'`, [d]);
+        const total = Number(t[0].t) || 0;
+        const [ex]: any = await pool.execute(`SELECT id FROM ubl_date_entries WHERE entry_date = ? LIMIT 1`, [d]);
+        if (ex.length) {
+          await pool.execute(`UPDATE ubl_date_entries SET contractor_breakfast = ?, updated_at = NOW() WHERE id = ?`, [total, ex[0].id]);
+        } else if (total > 0) {
+          const dt = new Date(d + 'T00:00:00');
+          await pool.execute(
+            `INSERT INTO ubl_date_entries (entry_date, month, year, week_day, contractor_breakfast) VALUES (?, ?, ?, ?, ?)`,
+            [d, dt.getMonth() + 1, dt.getFullYear(), ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'][dt.getDay()], total]);
+        }
+      }
+      res.json({ ok: true, saved: entries.length });
     } catch (err: any) { res.status(500).json({ message: err.message }); }
   });
   app.delete('/api/ubl-date-entries/:id', requirePermission('salesinvoice'), async (req, res) => {
