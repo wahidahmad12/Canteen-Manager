@@ -307,6 +307,13 @@ export function UblFormat3Tab({ month, year, loadKey = 0 }: { month: number; yea
                     {active.map(c => (
                       <td key={c.id} className="border text-center">
                         <input type="number" min={0} value={val(d, c.id) || ""} onChange={e => setCell(d, c.id, e.target.value)}
+                          data-f3-col={c.id} data-f3-row={i}
+                          onKeyDown={e => {
+                            if (e.key !== "Enter") return;
+                            e.preventDefault();
+                            const next = document.querySelector(`input[data-f3-col="${c.id}"][data-f3-row="${i + 1}"]`) as HTMLInputElement | null;
+                            if (next) { next.focus(); next.select(); }
+                          }}
                           style={{ width: 56, border: "none", background: "transparent", textAlign: "center", outline: "none" }} />
                       </td>
                     ))}
