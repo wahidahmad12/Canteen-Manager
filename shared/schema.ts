@@ -974,6 +974,27 @@ export const selectUblDateEntrySchema = createSelectSchema(ublDateEntries, {
   weekDay: z.string().nullable(),
 });
 
+// === UBL FORMAT 3 — Contractor meals (Bill Data Sheet) ===
+export const ublF3Contractors = mysqlTable("ubl_f3_contractors", {
+  id: int("id").autoincrement().primaryKey(),
+  name: varchar("name", { length: 100 }).notNull(),
+  sortOrder: int("sort_order").notNull().default(0),
+  isActive: boolean("is_active").notNull().default(true),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+export const ublF3MealEntries = mysqlTable("ubl_f3_meal_entries", {
+  id: int("id").autoincrement().primaryKey(),
+  entryDate: varchar("entry_date", { length: 10 }).notNull(),
+  contractorId: int("contractor_id").notNull(),
+  mealType: varchar("meal_type", { length: 20 }).notNull(),
+  qty: int("qty").notNull().default(0),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+export const ublF3MealTypes = mysqlTable("ubl_f3_meal_types", {
+  mealType: varchar("meal_type", { length: 20 }).primaryKey(),
+  enabled: boolean("enabled").notNull().default(false),
+});
+
 // === CIPLA DATE ENTRIES (Cipla Limited format) ===
 export const ciplaDateEntries = mysqlTable("cipla_date_entries", {
   id: int("id").autoincrement().primaryKey(),
