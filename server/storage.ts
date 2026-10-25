@@ -2888,10 +2888,12 @@ export class DatabaseStorage implements IStorage {
       .orderBy(ublDateEntries.entryDate);
   }
   async createUblDateEntry(data: any): Promise<UblDateEntry> {
-    return await insertAndGet<UblDateEntry>(ublDateEntries, data);
+    const { id: _id, createdAt, updatedAt, ...values } = data ?? {};
+    return await insertAndGet<UblDateEntry>(ublDateEntries, values);
   }
   async updateUblDateEntry(id: number, data: any): Promise<UblDateEntry> {
-    await db.update(ublDateEntries).set({ ...data, updatedAt: new Date() }).where(eq(ublDateEntries.id, id));
+    const { id: _id, createdAt, updatedAt, ...values } = data ?? {};
+    await db.update(ublDateEntries).set({ ...values, updatedAt: new Date() }).where(eq(ublDateEntries.id, id));
     const [updated] = await db.select().from(ublDateEntries).where(eq(ublDateEntries.id, id));
     return updated;
   }
