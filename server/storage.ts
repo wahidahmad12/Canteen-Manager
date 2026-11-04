@@ -75,6 +75,8 @@ import {
   type HulKpfExecSnack,
   type HulSpecialOrder,
   hulSpecialOrders,
+  type TecSpecialOrder,
+  tecSpecialOrders,
   type DailyReport, 
   type ExpenseItem,
   type CreateReportRequest,
@@ -3293,6 +3295,37 @@ export class DatabaseStorage implements IStorage {
   }
   async deleteHulSpecialOrder(id: number): Promise<void> {
     await db.delete(hulSpecialOrders).where(eq(hulSpecialOrders.id, id));
+  }
+
+  // === TEC SPECIAL ORDERS ===
+  async getTecSpecialOrders(month: number, year: number): Promise<TecSpecialOrder[]> {
+    return await db.select().from(tecSpecialOrders)
+      .where(and(eq(tecSpecialOrders.month, month), eq(tecSpecialOrders.year, year)))
+      .orderBy(tecSpecialOrders.slNo);
+  }
+  async getTecSpecialOrdersByYear(year: number): Promise<TecSpecialOrder[]> {
+    return await db.select().from(tecSpecialOrders)
+      .where(eq(tecSpecialOrders.year, year))
+      .orderBy(tecSpecialOrders.month, tecSpecialOrders.slNo);
+  }
+  async createTecSpecialOrder(data: any): Promise<TecSpecialOrder> {
+    const { month, year, slNo, dateOfSupply, particulars, qty, ratePerPlate, total } = data;
+    const [result] = await db.execute(sql`
+      INSERT INTO tec_special_orders (month, year, sl_no, date_of_supply, particulars, qty, rate_per_plate, total)
+      VALUES (${month}, ${year}, ${slNo}, ${dateOfSupply || ''}, ${particulars || ''}, ${qty || 0}, ${ratePerPlate || 0}, ${total || 0})
+    `);
+    const id = (result as any).insertId;
+    const rows = await db.select().from(tecSpecialOrders).where(eq(tecSpecialOrders.id, id));
+    return rows[0];
+  }
+  async updateTecSpecialOrder(id: number, data: any): Promise<TecSpecialOrder> {
+    const { id: _id, createdAt, ...safeData } = data;
+    await db.update(tecSpecialOrders).set({ ...safeData, updatedAt: new Date() }).where(eq(tecSpecialOrders.id, id));
+    const rows = await db.select().from(tecSpecialOrders).where(eq(tecSpecialOrders.id, id));
+    return rows[0];
+  }
+  async deleteTecSpecialOrder(id: number): Promise<void> {
+    await db.delete(tecSpecialOrders).where(eq(tecSpecialOrders.id, id));
   }
 
   // === HUL SNACK SUPPLY (TEC Special Order: Chips / Biscuit / Sugar per day) ===

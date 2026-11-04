@@ -3423,6 +3423,26 @@ export async function registerRoutes(
     await storage.deleteHulSpecialOrder(Number(req.params.id)); res.status(204).send();
   });
 
+  app.get('/api/tec-special-orders', requirePermission('salesinvoice'), async (req, res) => {
+    const year = Number(req.query.year) || new Date().getFullYear();
+    if (req.query.month === undefined || req.query.month === '') {
+      return res.json(await storage.getTecSpecialOrdersByYear(year));
+    }
+    const month = Number(req.query.month) || new Date().getMonth() + 1;
+    res.json(await storage.getTecSpecialOrders(month, year));
+  });
+  app.post('/api/tec-special-orders', requirePermission('salesinvoice'), async (req, res) => {
+    try { res.status(201).json(await storage.createTecSpecialOrder(req.body)); }
+    catch (err: any) { res.status(500).json({ message: err.message }); }
+  });
+  app.put('/api/tec-special-orders/:id', requirePermission('salesinvoice'), async (req, res) => {
+    try { res.json(await storage.updateTecSpecialOrder(Number(req.params.id), req.body)); }
+    catch (err: any) { res.status(500).json({ message: err.message }); }
+  });
+  app.delete('/api/tec-special-orders/:id', requirePermission('salesinvoice'), async (req, res) => {
+    await storage.deleteTecSpecialOrder(Number(req.params.id)); res.status(204).send();
+  });
+
   app.get('/api/hul-snack-supply', requirePermission('salesinvoice'), async (req, res) => {
     try {
       const month = Number(req.query.month) || new Date().getMonth() + 1;

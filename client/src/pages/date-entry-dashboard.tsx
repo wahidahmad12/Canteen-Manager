@@ -185,6 +185,10 @@ export function DateEntryDashboard({ year }: { year: number }) {
     queryKey: ['/api/hul-special-orders', year],
     queryFn: () => fetch(`/api/hul-special-orders?year=${year}`, { credentials: 'include' }).then(r => r.json()),
   });
+  const { data: tecSpecialOrders = [] } = useQuery<any[]>({
+    queryKey: ['/api/tec-special-orders', year],
+    queryFn: () => fetch(`/api/tec-special-orders?year=${year}`, { credentials: 'include' }).then(r => r.json()),
+  });
 
   // PEC Ventures
   const { data: pecCanteen = [] } = useQuery<any[]>({
@@ -243,6 +247,10 @@ export function DateEntryDashboard({ year }: { year: number }) {
   const { data: pHulSpecialOrders = [] } = useQuery<any[]>({
     queryKey: ['/api/hul-special-orders', prevYear],
     queryFn: () => fetch(`/api/hul-special-orders?year=${prevYear}`, { credentials: 'include' }).then(r => r.json()),
+  });
+  const { data: pTecSpecialOrders = [] } = useQuery<any[]>({
+    queryKey: ['/api/tec-special-orders', prevYear],
+    queryFn: () => fetch(`/api/tec-special-orders?year=${prevYear}`, { credentials: 'include' }).then(r => r.json()),
   });
   const { data: pPecLunch = [] } = useQuery<any[]>({
     queryKey: ['/api/pec-ventures-entries/lunch-yearly-summary', prevYear],
@@ -325,6 +333,13 @@ export function DateEntryDashboard({ year }: { year: number }) {
     pHulSpecialOrders.filter(r => Number(r.month) === i + 1).reduce((s, r) => s + Number(r.total || 0), 0));
   const pHulSpecialOrderTotal = pHulSpecialOrderMonthly.reduce((s, amount) => s + amount, 0);
   const hulSpecialOrderChart = MONTHS_SHORT.map((name, i) => ({ name, amount: hulSpecialOrderMonthly[i] }));
+  const tecSpecialOrderMonthly = MONTHS_SHORT.map((_, i) =>
+    tecSpecialOrders.filter(r => Number(r.month) === i + 1).reduce((s, r) => s + Number(r.total || 0), 0));
+  const tecSpecialOrderTotal = tecSpecialOrderMonthly.reduce((s, amount) => s + amount, 0);
+  const pTecSpecialOrderMonthly = MONTHS_SHORT.map((_, i) =>
+    pTecSpecialOrders.filter(r => Number(r.month) === i + 1).reduce((s, r) => s + Number(r.total || 0), 0));
+  const pTecSpecialOrderTotal = pTecSpecialOrderMonthly.reduce((s, amount) => s + amount, 0);
+  const tecSpecialOrderChart = MONTHS_SHORT.map((name, i) => ({ name, amount: tecSpecialOrderMonthly[i] }));
 
   // Combined HUL monthly (KPF+TEC combined)
   const hulCombinedChart = MONTHS_SHORT.map((name, i) => {
@@ -683,6 +698,11 @@ export function DateEntryDashboard({ year }: { year: number }) {
         <div className="text-2xl font-bold text-purple-800 dark:text-purple-200">₹{hulSpecialOrderTotal.toLocaleString('en-IN')}</div>
         <div className="text-xs text-purple-600">Separate amount total; not combined with meal counts</div>
       </div>
+      <div className="rounded-xl border bg-blue-50 dark:bg-blue-900/20 p-4 mb-4 shadow-sm">
+        <div className="text-xs font-semibold text-blue-700 dark:text-blue-300">TEC Special Orders — {year}</div>
+        <div className="text-2xl font-bold text-blue-800 dark:text-blue-200">₹{tecSpecialOrderTotal.toLocaleString('en-IN')}</div>
+        <div className="text-xs text-blue-600">Separate amount total; not combined with meal counts</div>
+      </div>
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mb-2">
         <div className="border rounded-lg p-3 bg-green-50 dark:bg-green-900/20 shadow-sm">
           <div className="text-xs font-semibold text-green-700 mb-1">KPF — Total Meals</div>
@@ -802,6 +822,17 @@ export function DateEntryDashboard({ year }: { year: number }) {
           </BarChart>
         </ResponsiveContainer>
       </ChartCard>
+      <ChartCard title={`TEC Special Orders — Monthly Amount (₹) — ${year}`}>
+        <ResponsiveContainer width="100%" height={CHART_H}>
+          <BarChart data={tecSpecialOrderChart} margin={{ top: 5, right: 10, left: -10, bottom: 5 }}>
+            <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
+            <XAxis dataKey="name" tick={{ fontSize: 10 }} />
+            <YAxis tick={{ fontSize: 10 }} tickFormatter={(value: number) => `₹${Number(value).toLocaleString('en-IN')}`} />
+            <Tooltip formatter={(value: any) => `₹${Number(value).toLocaleString('en-IN')}`} />
+            <Bar dataKey="amount" name="TEC Special Order Amount (₹)" fill="#1d4ed8" radius={[2,2,0,0]} />
+          </BarChart>
+        </ResponsiveContainer>
+      </ChartCard>
 
       {/* ========== PEC VENTURES SECTION ========== */}
       <SectionHeader title="PEC Ventures Private Limited" subtitle="Lunch & Dinner (Bill Qty) + Canteen Expense Items" color="#db2777" />
@@ -903,7 +934,12 @@ export function DateEntryDashboard({ year }: { year: number }) {
       {/* ========== YEAR VS YEAR ========== */}
       <SectionHeader title={`${year} vs ${prevYear} — Year Comparison`} subtitle="This year compared with last year" color="#0ea5e9" />
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-4">
-        {[{ label: `${year} HUL Special Orders`, amount: hulSpecialOrderTotal }, { label: `${prevYear} HUL Special Orders`, amount: pHulSpecialOrderTotal }].map(item => (
+        {[
+          { label: `${year} HUL Special Orders`, amount: hulSpecialOrderTotal },
+          { label: `${prevYear} HUL Special Orders`, amount: pHulSpecialOrderTotal },
+          { label: `${year} TEC Special Orders`, amount: tecSpecialOrderTotal },
+          { label: `${prevYear} TEC Special Orders`, amount: pTecSpecialOrderTotal },
+        ].map(item => (
           <div key={item.label} className="rounded-xl border p-3 bg-purple-50 dark:bg-purple-900/20 shadow-sm">
             <div className="text-xs font-semibold text-purple-700 dark:text-purple-300">{item.label}</div>
             <div className="text-lg font-bold text-purple-800 dark:text-purple-200">₹{item.amount.toLocaleString('en-IN')}</div>
@@ -920,6 +956,19 @@ export function DateEntryDashboard({ year }: { year: number }) {
             <Legend wrapperStyle={{ fontSize: 11 }} />
             <Bar dataKey={String(prevYear)} fill="#94a3b8" radius={[2,2,0,0]} />
             <Bar dataKey={String(year)} fill="#7c3aed" radius={[2,2,0,0]} />
+          </BarChart>
+        </ResponsiveContainer>
+      </ChartCard>
+      <ChartCard title={`TEC Special Orders — ${year} vs ${prevYear} Monthly Amount (₹)`}>
+        <ResponsiveContainer width="100%" height={CHART_H}>
+          <BarChart data={MONTHS_SHORT.map((name, i) => ({ name, [String(year)]: tecSpecialOrderMonthly[i], [String(prevYear)]: pTecSpecialOrderMonthly[i] }))} margin={{ top: 5, right: 10, left: -10, bottom: 5 }}>
+            <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
+            <XAxis dataKey="name" tick={{ fontSize: 10 }} />
+            <YAxis tick={{ fontSize: 10 }} tickFormatter={(value: number) => `₹${Number(value).toLocaleString('en-IN')}`} />
+            <Tooltip formatter={(value: any) => `₹${Number(value).toLocaleString('en-IN')}`} />
+            <Legend wrapperStyle={{ fontSize: 11 }} />
+            <Bar dataKey={String(prevYear)} fill="#94a3b8" radius={[2,2,0,0]} />
+            <Bar dataKey={String(year)} fill="#1d4ed8" radius={[2,2,0,0]} />
           </BarChart>
         </ResponsiveContainer>
       </ChartCard>
