@@ -3683,52 +3683,20 @@ type SpecialOrderRow = {
   _dirty?: boolean;
 };
 
-function emptySpecialRow(slNo: number, month: number, year: number, dateOfSupply = ''): SpecialOrderRow {
-  return { month, year, slNo, dateOfSupply, particulars: '', qty: 0, ratePerPlate: 0, total: 0, _dirty: false };
+function emptySpecialRow(slNo: number, month: number, year: number): SpecialOrderRow {
+  return { month, year, slNo, dateOfSupply: '', particulars: '', qty: 0, ratePerPlate: 0, total: 0, _dirty: false };
 }
 
-function HulSpecialOrderTab({ month, year, loadKey = 0 }: { month: number; year: number; loadKey?: number }) {
+function SpecialOrderTab({ month, year, apiPath, title }: { month: number; year: number; apiPath: string; title: string }) {
   const qc = useQueryClient();
   const { toast } = useToast();
-  const [rows, setRows] = useState<SpecialOrderRow[]>([]);
+  const [rows, setRows] = useState<SpecialOrderRow[]>([emptySpecialRow(1, month, year)]);
   const [saving, setSaving] = useState(false);
-  const daysInMonth = new Date(year, month, 0).getDate();
-
-  const buildMonthRows = (savedRows: SpecialOrderRow[]) => {
-    const savedByDate = new Map<string, SpecialOrderRow[]>();
-    const unassignedRows: SpecialOrderRow[] = [];
-    savedRows.forEach(row => {
-      const dateOfSupply = normDate(row.dateOfSupply || '');
-      if (dateOfSupply.startsWith(`${year}-${String(month).padStart(2, '0')}-`)) {
-        const dateRows = savedByDate.get(dateOfSupply) ?? [];
-        dateRows.push({ ...row, dateOfSupply, _dirty: false });
-        savedByDate.set(dateOfSupply, dateRows);
-      } else {
-        unassignedRows.push({ ...row, dateOfSupply, _dirty: false });
-      }
-    });
-
-    const monthRows: SpecialOrderRow[] = [];
-    for (let day = 1; day <= daysInMonth; day++) {
-      const date = `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
-      const dateRows = savedByDate.get(date);
-      if (dateRows?.length) monthRows.push(...dateRows);
-      else monthRows.push(emptySpecialRow(monthRows.length + 1, month, year, date));
-    }
-    monthRows.push(...unassignedRows);
-    return monthRows.map((row, idx) => ({
-      ...row,
-      slNo: idx + 1,
-      qty: Number(row.qty),
-      ratePerPlate: Number(row.ratePerPlate),
-      total: Number(row.total),
-    }));
-  };
 
   const { data: dbRows = [], isLoading } = useQuery<SpecialOrderRow[]>({
-    queryKey: ['/api/hul-special-orders', month, year],
+    queryKey: [apiPath, month, year],
     queryFn: async () => {
-      const res = await fetch(`/api/hul-special-orders?month=${month}&year=${year}`, { credentials: 'include' });
+      const res = await fetch(`${apiPath}?month=${month}&year=${year}`, { credentials: 'include' });
       return res.json();
     },
     // No auto-polling: this query hydrates an editable form; a background
@@ -3737,7 +3705,11 @@ function HulSpecialOrderTab({ month, year, loadKey = 0 }: { month: number; year:
   });
 
   useEffect(() => {
-    setRows(buildMonthRows(dbRows));
+    if (dbRows.length > 0) {
+      setRows(dbRows.map(r => ({ ...r, dateOfSupply: r.dateOfSupply || '', qty: Number(r.qty), ratePerPlate: Number(r.ratePerPlate), total: Number(r.total), _dirty: false })));
+    } else {
+      setRows([emptySpecialRow(1, month, year)]);
+    }
   }, [dbRows, month, year]);
 
   const updateRow = (idx: number, field: keyof SpecialOrderRow, value: string | number) => {
@@ -3755,19 +3727,15 @@ function HulSpecialOrderTab({ month, year, loadKey = 0 }: { month: number; year:
   };
 
   const addRow = () => {
-    const today = new Date();
-    const defaultDate = today.getFullYear() === year && today.getMonth() + 1 === month
-      ? localDateStr(today)
-      : `${year}-${String(month).padStart(2, '0')}-01`;
-    setRows(prev => [...prev, emptySpecialRow(prev.length + 1, month, year, defaultDate)]);
+    setRows(prev => [...prev, emptySpecialRow(prev.length + 1, month, year)]);
   };
 
   const deleteRow = async (idx: number) => {
     const row = rows[idx];
     if (row.id) {
-      await fetch(`/api/hul-special-orders/${row.id}`, { method: 'DELETE', credentials: 'include' });
-      qc.invalidateQueries({ queryKey: ['/api/hul-special-orders', month, year] });
-      qc.invalidateQueries({ queryKey: ['/api/hul-special-orders'] });
+      await fetch(`${apiPath}/${row.id}`, { method: 'DELETE', credentials: 'include' });
+      qc.invalidateQueries({ queryKey: [apiPath, month, year] });
+      qc.invalidateQueries({ queryKey: [apiPath] });
     }
     setRows(prev => prev.filter((_, i) => i !== idx).map((r, i) => ({ ...r, slNo: i + 1 })));
   };
@@ -3780,17 +3748,17 @@ function HulSpecialOrderTab({ month, year, loadKey = 0 }: { month: number; year:
         const payload = { month, year, slNo: row.slNo, dateOfSupply: row.dateOfSupply || '', particulars: row.particulars, qty: row.qty, ratePerPlate: row.ratePerPlate, total: row.total };
         let res: Response;
         if (row.id) {
-          res = await fetch(`/api/hul-special-orders/${row.id}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload), credentials: 'include' });
+          res = await fetch(`${apiPath}/${row.id}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload), credentials: 'include' });
         } else {
-          res = await fetch('/api/hul-special-orders', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload), credentials: 'include' });
+          res = await fetch(apiPath, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload), credentials: 'include' });
         }
         if (!res.ok) {
           const data = await res.json().catch(() => ({}));
           throw new Error(data.message || `Could not save row ${row.slNo} (error ${res.status}) — please log in again if needed.`);
         }
       }
-      await qc.invalidateQueries({ queryKey: ['/api/hul-special-orders', month, year] });
-      await qc.invalidateQueries({ queryKey: ['/api/hul-special-orders'] });
+      await qc.invalidateQueries({ queryKey: [apiPath, month, year] });
+      await qc.invalidateQueries({ queryKey: [apiPath] });
       toast({ title: 'Saved', description: 'Special orders saved successfully.' });
     } catch (err: any) {
       toast({ title: 'Save failed', description: err.message, variant: 'destructive' });
@@ -3803,14 +3771,14 @@ function HulSpecialOrderTab({ month, year, loadKey = 0 }: { month: number; year:
     try {
       const ExcelJS = (await import('exceljs')).default;
       const wb = new ExcelJS.Workbook();
-      const ws = wb.addWorksheet('HUL Special Orders');
+      const ws = wb.addWorksheet(title.slice(0, 31));
       const thin = { top:{style:'thin' as const}, bottom:{style:'thin' as const}, left:{style:'thin' as const}, right:{style:'thin' as const} };
       const mkFill = (argb: string) => ({ type:'pattern' as const, pattern:'solid' as const, fgColor:{argb} });
       const MONTHS = ["January","February","March","April","May","June","July","August","September","October","November","December"];
 
       ws.mergeCells('A1:F1');
       const titleCell = ws.getCell('A1');
-      titleCell.value = `HUL Special Order — ${MONTHS[month-1]} ${year}`;
+      titleCell.value = `${title} — ${MONTHS[month-1]} ${year}`;
       titleCell.font = { bold: true, size: 13, color: { argb: 'FFFFFFFF' } };
       titleCell.fill = mkFill('FF1e3a5f');
       titleCell.alignment = { horizontal: 'center', vertical: 'middle' };
@@ -3845,7 +3813,7 @@ function HulSpecialOrderTab({ month, year, loadKey = 0 }: { month: number; year:
       const buf = await wb.xlsx.writeBuffer();
       const blob = new Blob([buf], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
       const a = document.createElement('a'); a.href = URL.createObjectURL(blob);
-      a.download = `HUL_SpecialOrder_${MONTHS[month-1]}_${year}.xlsx`; a.click();
+      a.download = `${title.replace(/[^a-z0-9]+/gi, '_')}_${MONTHS[month-1]}_${year}.xlsx`; a.click();
     } catch (err: any) { toast({ title: 'Export failed', description: err.message, variant: 'destructive' }); }
   };
 
@@ -3864,10 +3832,10 @@ function HulSpecialOrderTab({ month, year, loadKey = 0 }: { month: number; year:
         <td style="${td(idx)}text-align:center;font-weight:600;">${row.total || ''}</td>
       </tr>`).join('');
     const win = window.open('', '_blank');
-    win?.document.write(`<html><head><title>HUL Special Order</title><style>body{font-family:Arial,sans-serif;margin:16px;}table{border-collapse:collapse;width:100%;}</style></head>
+    win?.document.write(`<html><head><title>${title}</title><style>body{font-family:Arial,sans-serif;margin:16px;}table{border-collapse:collapse;width:100%;}</style></head>
     <body>
-      <h3 style="text-align:center;color:#1e3a5f;margin-bottom:4px;">Hindustan Unilever Limited</h3>
-      <h4 style="text-align:center;color:#374151;margin-bottom:12px;">Special Order — ${MONTHS[month-1]} ${year}</h4>
+      <h3 style="text-align:center;color:#1e3a5f;margin-bottom:4px;">${title}</h3>
+      <h4 style="text-align:center;color:#374151;margin-bottom:12px;">${title} — ${MONTHS[month-1]} ${year}</h4>
       <table>
         <thead><tr>
           <th style="${th}width:60px;">Sl. No.</th>
@@ -3895,7 +3863,7 @@ function HulSpecialOrderTab({ month, year, loadKey = 0 }: { month: number; year:
       {/* Header */}
       <div className="flex flex-wrap items-center gap-2 justify-between">
         <div>
-          <h3 className="font-semibold text-base text-blue-900">HUL — Special Order</h3>
+          <h3 className="font-semibold text-base text-blue-900">{title}</h3>
           <p className="text-xs text-muted-foreground">{MONTHS[month-1]} {year}</p>
         </div>
         <div className="flex gap-2 flex-wrap">
@@ -3929,16 +3897,9 @@ function HulSpecialOrderTab({ month, year, loadKey = 0 }: { month: number; year:
               </tr>
             </thead>
             <tbody>
-              {rows.map((row, idx) => {
-                const day = row.dateOfSupply ? new Date(`${row.dateOfSupply}T00:00:00`).getDay() : -1;
-                const rowStyle = row._dirty
-                  ? undefined
-                  : day === 0 ? { background: '#f4b084' }
-                  : day === 6 ? { background: '#fce4d6' }
-                  : idx % 2 === 0 ? { background: '#fff' } : { background: '#f8fafc' };
-                return (
-                <tr key={row.id ?? `new-${idx}`} style={rowStyle} className={row._dirty ? 'ring-1 ring-inset ring-yellow-400' : ''}>
-                  <td className="border border-slate-200 px-2 py-1 text-center text-slate-500 font-mono text-xs">{idx + 1}</td>
+              {rows.map((row, idx) => (
+                <tr key={idx} className={row._dirty ? 'ring-1 ring-inset ring-yellow-400' : idx % 2 === 0 ? 'bg-white' : 'bg-slate-50'}>
+                  <td className="border border-slate-200 px-2 py-1 text-center text-slate-500 font-mono text-xs">{row.slNo}</td>
                   <td className="border border-slate-200 px-2 py-1">
                     <input
                       type="date"
@@ -3991,7 +3952,7 @@ function HulSpecialOrderTab({ month, year, loadKey = 0 }: { month: number; year:
                     >✕</button>
                   </td>
                 </tr>
-              )})}
+              ))}
             </tbody>
             <tfoot>
               <tr style={{ background: '#1e3a5f' }}>
@@ -4008,7 +3969,7 @@ function HulSpecialOrderTab({ month, year, loadKey = 0 }: { month: number; year:
 
       {/* Add Row button */}
       <Button size="sm" variant="outline" onClick={addRow} className="h-8 text-xs gap-1 border-dashed border-blue-300 text-blue-700 hover:bg-blue-50" data-testid="btn-add-special-row">
-        + Add Another Order
+        + Add Row
       </Button>
     </div>
   );
@@ -6155,6 +6116,14 @@ function HulSummaryTab({ month, year }: { month: number; year: number }) {
       return res.json();
     },
   });
+  const { data: tecSpecialOrderRows = [], isLoading: tecSpecialLoading } = useQuery<SpecialOrderRow[]>({
+    queryKey: ['/api/tec-special-orders', month, year],
+    enabled: viewMode === 'monthly',
+    queryFn: async () => {
+      const res = await fetch(`/api/tec-special-orders?month=${month}&year=${year}`, { credentials: 'include' });
+      return res.json();
+    },
+  });
 
   const { data: snackSupplyData } = useQuery<{ rows: any[]; sugarRate: number }>({
     queryKey: ['/api/hul-snack-supply', month, year],
@@ -6201,6 +6170,14 @@ function HulSummaryTab({ month, year }: { month: number; year: number }) {
       return res.json();
     },
   });
+  const { data: yrTecSpecialOrders = [], isLoading: yrTecSpecialLoading } = useQuery<any[]>({
+    queryKey: ['/api/tec-special-orders', summaryYear],
+    enabled: viewMode === 'yearly',
+    queryFn: async () => {
+      const res = await fetch(`/api/tec-special-orders?year=${summaryYear}`, { credentials: 'include' });
+      return res.json();
+    },
+  });
 
   const { data: yrSnackSupply = [] } = useQuery<any[]>({
     queryKey: ['/api/hul-snack-supply/yearly', summaryYear],
@@ -6212,14 +6189,15 @@ function HulSummaryTab({ month, year }: { month: number; year: number }) {
   });
 
   const isLoading = viewMode === 'monthly'
-    ? (kpfLoading || tecLoading || execLoading || specialLoading)
-    : (yrKpfLoading || yrTecLoading || yrExecLoading || yrSpecialLoading);
+    ? (kpfLoading || tecLoading || execLoading || specialLoading || tecSpecialLoading)
+    : (yrKpfLoading || yrTecLoading || yrExecLoading || yrSpecialLoading || yrTecSpecialLoading);
 
   const sum = (arr: any[], field: string) => arr.reduce((s, r) => s + (r[field] || 0), 0);
   const kpfT = { breakfast: sum(kpfRows,'breakfast'), lunch: sum(kpfRows,'lunch'), eveningSnacks: sum(kpfRows,'eveningSnacks'), nightSnacks: sum(kpfRows,'nightSnacks'), guestBreakfast: sum(kpfRows,'guestBreakfast'), guestLunch: sum(kpfRows,'guestLunch'), guestEveningSnacks: sum(kpfRows,'guestEveningSnacks'), guestNightSnacks: sum(kpfRows,'guestNightSnacks') };
   const tecT = { breakfast: sum(tecRows,'breakfast'), lunch: sum(tecRows,'lunch'), eveningSnacks: sum(tecRows,'eveningSnacks'), nightSnacks: sum(tecRows,'nightSnacks'), guestBreakfast: sum(tecRows,'guestBreakfast'), guestLunch: sum(tecRows,'guestLunch'), guestEveningSnacks: sum(tecRows,'guestEveningSnacks'), guestNightSnacks: sum(tecRows,'guestNightSnacks') };
   const exT = { snacks: sum(execRows,'snacks'), biscuit: sum(execRows,'biscuit'), chips: sum(execRows,'chips'), coldDrinkWater: sum(execRows,'coldDrinkWater'), shiftOfficerBreakfast: sum(execRows,'shiftOfficerBreakfast') };
   const specialTotal = specialOrderRows.reduce((s, r) => s + Number(r.total || 0), 0);
+  const tecSpecialTotal = tecSpecialOrderRows.reduce((s, r) => s + Number(r.total || 0), 0);
 
   const thG: React.CSSProperties = { background:'#1a6b2e', color:'#fff', border:'1px solid #333', padding:'4px 6px', textAlign:'center', fontWeight:'bold', fontSize:11 };
   const thB: React.CSSProperties = { background:'#1a3a8a', color:'#fff', border:'1px solid #333', padding:'4px 6px', textAlign:'center', fontWeight:'bold', fontSize:11 };
@@ -6388,7 +6366,8 @@ function HulSummaryTab({ month, year }: { month: number; year: number }) {
           'TEC Breakfast','TEC Lunch','TEC Evng Snacks','TEC Night Snacks','TEC Meal Sub (₹)',
           'TEC G.Bfast','TEC G.Lunch','TEC G.Evng','TEC G.Night','TEC Guest Sub (₹)','TEC Total (₹)',
           'Exec Snacks','Exec Biscuit','Exec Chips','Exec Cold Drink & Water','Exec Shift Officer Breakfast','Exec Total (₹)',
-          'Special Orders (₹)',
+          'HUL Special Orders (₹)',
+          'TEC Special Orders (₹)',
           'Grand Total (₹)',
         ];
         wsSumm.mergeCells(1,1,1,summCols.length);
@@ -6397,20 +6376,20 @@ function HulSummaryTab({ month, year }: { month: number; year: number }) {
         sTit.font={bold:true,size:13,color:{argb:'FFFFFFFF'}}; sTit.fill=mkFill('FF374151'); sTit.alignment={horizontal:'center'}; sTit.border=thin;
         // Sub-header groups
         wsSumm.mergeCells(2,1,2,1);
-        [[2,12,'FF1A6B2E','KPF — Meal & Guest'],[13,23,'FF1A3A8A','TEC — Meal & Guest'],[24,29,'FFB45309','KPF Exec Snacks'],[30,30,'FF7C3AED','Special Orders'],[31,31,'FF374151','']].forEach(([s,e,c,label])=>{
+        [[2,12,'FF1A6B2E','KPF — Meal & Guest'],[13,23,'FF1A3A8A','TEC — Meal & Guest'],[24,29,'FFB45309','KPF Exec Snacks'],[30,31,'FF7C3AED','Special Orders'],[32,32,'FF374151','']].forEach(([s,e,c,label])=>{
           if (label) { wsSumm.mergeCells(2,Number(s),2,Number(e)); const cell=wsSumm.getCell(2,Number(s)); cell.value=label; cell.font=wFont; cell.fill=mkFill(c as string); cell.alignment={horizontal:'center'}; cell.border=thin; }
           else { const cell=wsSumm.getCell(2,Number(s)); cell.fill=mkFill(c as string); cell.border=thin; }
         });
         const summHdr = wsSumm.addRow(summCols);
         summHdr.eachCell((c:any,ci:number)=>{
-          const argb = ci<=12?'FF1A6B2E':ci<=23?'FF1A3A8A':ci<=29?'FFB45309':ci===30?'FF7C3AED':'FF374151';
+          const argb = ci<=12?'FF1A6B2E':ci<=23?'FF1A3A8A':ci<=29?'FFB45309':ci<=31?'FF7C3AED':'FF374151';
           c.font=wFont; c.fill=mkFill(argb); c.border=thin; c.alignment={horizontal:'center',wrapText:true};
         });
         wsSumm.getRow(3).height=32;
         wsSumm.columns = summCols.map((_,i)=>({width:i===0?14:16}));
 
         // Grand totals accumulators
-        let gKpfMeal=0,gKpfGuest=0,gTecMeal=0,gTecGuest=0,gExec=0,gSpecial=0;
+        let gKpfMeal=0,gKpfGuest=0,gTecMeal=0,gTecGuest=0,gExec=0,gSpecial=0,gTecSpecial=0;
         visMths.forEach(m=>{
           const kpf=filtKpfEx.find(r=>r.month===m);
           const tec=filtTecEx.find(r=>r.month===m);
@@ -6424,8 +6403,9 @@ function HulSummaryTab({ month, year }: { month: number; year: number }) {
           const esn=exc?.snacks||0,ebi=exc?.biscuit||0,ech=exc?.chips||0,ecw=exc?.coldDrinkWater||0,esob=exc?.shiftOfficerBreakfast||0;
           const eTotal=esn*25+ebi*10+ech*10+ecw*10+esob*40;
           const specialTotal=filtSpecialEx.filter(r=>Number(r.month)===m).reduce((s,r)=>s+Number(r.total||0),0);
-          const grand=kMeal+kGuest+tMeal+tGuest+eTotal+specialTotal;
-          gKpfMeal+=kMeal; gKpfGuest+=kGuest; gTecMeal+=tMeal; gTecGuest+=tGuest; gExec+=eTotal; gSpecial+=specialTotal;
+          const tecSpecialTotal=yrTecSpecialOrders.filter(r=>Number(r.month)===m && selectedMonths.has(Number(r.month))).reduce((s,r)=>s+Number(r.total||0),0);
+          const grand=kMeal+kGuest+tMeal+tGuest+eTotal+specialTotal+tecSpecialTotal;
+          gKpfMeal+=kMeal; gKpfGuest+=kGuest; gTecMeal+=tMeal; gTecGuest+=tGuest; gExec+=eTotal; gSpecial+=specialTotal; gTecSpecial+=tecSpecialTotal;
           const dr=wsSumm.addRow([
             MONTHS[m-1],
             kbf||'',kln||'',kes||'',kns||'',kMeal||'',
@@ -6434,12 +6414,13 @@ function HulSummaryTab({ month, year }: { month: number; year: number }) {
             tgbf||'',tgln||'',tges||'',tgns||'',tGuest||'',tMeal+tGuest||'',
             esn||'',ebi||'',ech||'',ecw||'',esob||'',eTotal||'',
             specialTotal||'',
+            tecSpecialTotal||'',
             grand||'',
           ]);
           dr.eachCell((c:any)=>{c.border=thin;c.alignment={horizontal:'center'};});
         });
-        const gKpf=gKpfMeal+gKpfGuest, gTec=gTecMeal+gTecGuest, gGrand=gKpf+gTec+gExec+gSpecial;
-        const totR=wsSumm.addRow(['GRAND TOTAL','','','','',gKpfMeal||'','','','','',gKpfGuest||'',gKpf||'','','','','',gTecMeal||'','','','','',gTecGuest||'',gTec||'','','','','','',gExec||'',gSpecial||'',gGrand||'']);
+        const gKpf=gKpfMeal+gKpfGuest, gTec=gTecMeal+gTecGuest, gGrand=gKpf+gTec+gExec+gSpecial+gTecSpecial;
+        const totR=wsSumm.addRow(['GRAND TOTAL','','','','',gKpfMeal||'','','','','',gKpfGuest||'',gKpf||'','','','','',gTecMeal||'','','','','',gTecGuest||'',gTec||'','','','','','',gExec||'',gSpecial||'',gTecSpecial||'',gGrand||'']);
         totR.eachCell((c:any)=>{c.font={bold:true};c.fill=mkFill('FFFFF2CC');c.border=thin;c.alignment={horizontal:'center'};});
 
         const buf = await wb.xlsx.writeBuffer();
@@ -6490,25 +6471,26 @@ function HulSummaryTab({ month, year }: { month: number; year: number }) {
       etot.eachCell((c: any) => { c.font={bold:true}; c.fill=mkFill('FFE8F0FE'); c.border=thin; c.alignment={horizontal:'center'}; });
 
       const wsSumm = wb.addWorksheet('Summary');
-      wsSumm.mergeCells('A1:N1');
+      wsSumm.mergeCells('A1:O1');
       const st = wsSumm.getCell('A1');
       st.value = `HUL Combined Summary Report — ${monthLabel}`;
       st.font={bold:true,size:13,color:{argb:'FFFFFFFF'}}; st.fill=mkFill('FF1A6B2E'); st.alignment={horizontal:'center'}; st.border=thin;
-      const sHdr = wsSumm.addRow(['Section','Breakfast','Lunch','Evng Snacks','Night Snacks','G.Breakfast','G.Lunch','G.Evng Snacks','G.Night Snacks','Snacks','Biscuit','Chips','Cold Drink & Water','Special Orders (₹)']);
-      sHdr.eachCell((c: any, ci: number) => { c.font=wFont; c.fill=mkFill(ci<=5?'FF1A6B2E':ci<=9?'FF1A3A8A':ci===14?'FF7C3AED':'FFB45309'); c.border=thin; c.alignment={horizontal:'center'}; });
+      const sHdr = wsSumm.addRow(['Section','Breakfast','Lunch','Evng Snacks','Night Snacks','G.Breakfast','G.Lunch','G.Evng Snacks','G.Night Snacks','Snacks','Biscuit','Chips','Cold Drink & Water','HUL Special Orders (₹)','TEC Special Orders (₹)']);
+      sHdr.eachCell((c: any, ci: number) => { c.font=wFont; c.fill=mkFill(ci<=5?'FF1A6B2E':ci<=9?'FF1A3A8A':ci>=14?'FF7C3AED':'FFB45309'); c.border=thin; c.alignment={horizontal:'center'}; });
       const sRows = [
-        ['KPF',kpfT.breakfast||'',kpfT.lunch||'',kpfT.eveningSnacks||'',kpfT.nightSnacks||'',kpfT.guestBreakfast||'',kpfT.guestLunch||'',kpfT.guestEveningSnacks||'',kpfT.guestNightSnacks||'','—','—','—','—','—'],
-        ['TEC',tecT.breakfast||'',tecT.lunch||'',tecT.eveningSnacks||'',tecT.nightSnacks||'',tecT.guestBreakfast||'',tecT.guestLunch||'',tecT.guestEveningSnacks||'',tecT.guestNightSnacks||'','—','—','—','—','—'],
-        ['KPF Exec Snacks','—','—','—','—','—','—','—','—',exT.snacks||'',exT.biscuit||'',exT.chips||'',exT.coldDrinkWater||'','—'],
-        ['HUL Special Orders (₹)','','','','','','','','','','','','',specialTotal||''],
+        ['KPF',kpfT.breakfast||'',kpfT.lunch||'',kpfT.eveningSnacks||'',kpfT.nightSnacks||'',kpfT.guestBreakfast||'',kpfT.guestLunch||'',kpfT.guestEveningSnacks||'',kpfT.guestNightSnacks||'','—','—','—','—','—','—'],
+        ['TEC',tecT.breakfast||'',tecT.lunch||'',tecT.eveningSnacks||'',tecT.nightSnacks||'',tecT.guestBreakfast||'',tecT.guestLunch||'',tecT.guestEveningSnacks||'',tecT.guestNightSnacks||'','—','—','—','—','—','—'],
+        ['KPF Exec Snacks','—','—','—','—','—','—','—','—',exT.snacks||'',exT.biscuit||'',exT.chips||'',exT.coldDrinkWater||'','—','—'],
+        ['HUL Special Orders (₹)','','','','','','','','','','','','',specialTotal||'','—'],
+        ['TEC Special Orders (₹)','','','','','','','','','','','','','—',tecSpecialTotal||''],
       ];
-      const sFills = ['FFD1FAE5','FFDBEAFE','FFFEF9C3','FFF3E8FF'];
+      const sFills = ['FFD1FAE5','FFDBEAFE','FFFEF9C3','FFF3E8FF','FFF3E8FF'];
       sRows.forEach((r, i) => {
         const row = wsSumm.addRow(r);
         row.eachCell((c: any) => { c.fill=mkFill(sFills[i]); c.border=thin; c.alignment={horizontal:'center'}; });
         wsSumm.getCell(row.number,1).font={bold:true};
       });
-      wsSumm.columns=[18,12,12,13,13,14,12,15,15,12,12,10,16,20].map((w: number)=>({width:w}));
+      wsSumm.columns=[18,12,12,13,13,14,12,15,15,12,12,10,16,20,20].map((w: number)=>({width:w}));
 
       const buf = await wb.xlsx.writeBuffer();
       const blob = new Blob([buf],{type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'});
@@ -6928,6 +6910,41 @@ function HulSummaryTab({ month, year }: { month: number; year: number }) {
               );
             })()}
 
+            {/* TEC Special Order Yearly Summary */}
+            {(() => {
+              const monthlyTecSpecial = Array.from({length:12},(_,i)=>i+1).map(m => ({
+                month: m,
+                amount: yrTecSpecialOrders.filter(r=>Number(r.month)===m).reduce((s,r)=>s+Number(r.total||0),0),
+              })).filter(r => selectedMonths.has(r.month));
+              const total = monthlyTecSpecial.reduce((s,r)=>s+r.amount,0);
+              return (
+                <div className="border rounded-lg overflow-hidden mb-4">
+                  <div className="px-3 py-1.5 text-sm font-bold text-center text-white" style={{ background:'#1d4ed8' }}>
+                    TEC Special Order — Amount Summary — {yearLabel}
+                  </div>
+                  <div className="overflow-x-auto">
+                    <table className="w-full border-collapse" style={{ fontSize:10 }}>
+                      <thead><tr>
+                        <th style={{ ...thB, width:40, fontSize:10 }}>Sl.</th>
+                        <th style={{ ...thB, textAlign:'left', paddingLeft:8, fontSize:10 }}>Month</th>
+                        <th style={{ ...thB, textAlign:'right', paddingRight:8, fontSize:10 }}>Amount (₹)</th>
+                      </tr></thead>
+                      <tbody>
+                        {monthlyTecSpecial.map((r, i) => <tr key={r.month} style={{ background:i%2===0?'#eff6ff':'#fff' }}>
+                          <td style={tdC}>{i+1}</td><td style={tdL}>{MONTHS[r.month-1]}</td><td style={tdR}>{r.amount ? fmtINR(r.amount) : '—'}</td>
+                        </tr>)}
+                        {!monthlyTecSpecial.length && <tr><td colSpan={3} style={{ ...tdC, color:'#888' }}>No TEC special orders for {yearLabel}</td></tr>}
+                        <tr style={{ background:'#1d4ed8' }}>
+                          <td colSpan={2} style={{ border:'1px solid #1e3a8a', padding:'3px 8px', fontWeight:'bold', textAlign:'right', color:'#fff' }}>Grand Total</td>
+                          <td style={{ border:'1px solid #1e3a8a', padding:'3px 8px', textAlign:'right', fontWeight:'bold', color:'#fff' }}>{fmtINR(total)}</td>
+                        </tr>
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              );
+            })()}
+
             {/* TEC Special Order Snacks Supply — Yearly */}
             {(() => {
               const rowsY = yrSnackSupply.filter(r => selectedMonths.has(Number(r.month)));
@@ -7078,6 +7095,15 @@ function HulSummaryTab({ month, year }: { month: number; year: number }) {
         <div className="flex items-center justify-between px-4 py-3 text-sm">
           <span>Special orders total (not mixed with meal counts)</span>
           <strong>{fmtINR(specialTotal)}</strong>
+        </div>
+      </div>
+      <div className="border rounded-lg overflow-hidden mb-4 bg-blue-50">
+        <div className="px-3 py-2 text-sm font-bold text-white text-center" style={{ background:'#1d4ed8' }}>
+          TEC Special Order Amount — {monthLabel}
+        </div>
+        <div className="flex items-center justify-between px-4 py-3 text-sm">
+          <span>TEC special orders total (not mixed with meal counts)</span>
+          <strong>{fmtINR(tecSpecialTotal)}</strong>
         </div>
       </div>
 
@@ -7420,6 +7446,9 @@ function HulSummaryTab({ month, year }: { month: number; year: number }) {
         </table>
         <p style={{ textAlign:'right', fontWeight:'bold', margin:'6px 0', padding:6, background:'#f3e8ff', color:'#4c1d95' }}>
           HUL Special Order Amount: {fmtINR(specialTotal)}
+        </p>
+        <p style={{ textAlign:'right', fontWeight:'bold', margin:'6px 0', padding:6, background:'#dbeafe', color:'#1e3a8a' }}>
+          TEC Special Order Amount: {fmtINR(tecSpecialTotal)}
         </p>
       </div>
     </div>
@@ -8941,8 +8970,11 @@ export function DateEntryTab() {
             <TabsTrigger value="hul_special_order" className="text-xs sm:text-sm" data-testid="tab-hul-special-order">
               Special Order
             </TabsTrigger>
+            <TabsTrigger value="hul_tec_special_order" className="text-xs sm:text-sm" data-testid="tab-hul-tec-special-order">
+              TEC Special Order
+            </TabsTrigger>
             <TabsTrigger value="hul_snack_supply" className="text-xs sm:text-sm" data-testid="tab-hul-snack-supply">
-              Special Order TEC
+              TEC Snacks Supply
             </TabsTrigger>
             <TabsTrigger value="hul_summary" className="text-xs sm:text-sm" data-testid="tab-hul-summary">
               Summary
@@ -8962,7 +8994,11 @@ export function DateEntryTab() {
           </TabsContent>
           <TabsContent value="hul_special_order">
             <div className="mb-2 text-sm text-muted-foreground font-medium">HUL — Special Order Entry (Sl. No., Particulars, Qty, Rate Per Plate, Total)</div>
-            <HulSpecialOrderTab month={parseInt(month)} year={parseInt(year)} loadKey={loadKey}/>
+            <SpecialOrderTab month={parseInt(month)} year={parseInt(year)} apiPath="/api/hul-special-orders" title="HUL — Special Order" />
+          </TabsContent>
+          <TabsContent value="hul_tec_special_order">
+            <div className="mb-2 text-sm text-muted-foreground font-medium">TEC — Special Order Entry (Sl. No., Date of Supply, Particulars, Qty, Rate Per Plate, Total)</div>
+            <SpecialOrderTab month={parseInt(month)} year={parseInt(year)} apiPath="/api/tec-special-orders" title="TEC — Special Order" />
           </TabsContent>
           <TabsContent value="hul_snack_supply">
             <HulSnackSupplyTab month={parseInt(month)} year={parseInt(year)}/>
