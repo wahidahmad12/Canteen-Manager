@@ -3443,6 +3443,26 @@ export async function registerRoutes(
     await storage.deleteTecSpecialOrder(Number(req.params.id)); res.status(204).send();
   });
 
+  app.get('/api/kpf-sugar-supply', requirePermission('salesinvoice'), async (req, res) => {
+    const year = Number(req.query.year) || new Date().getFullYear();
+    if (req.query.month === undefined || req.query.month === '') {
+      return res.json(await storage.getKpfSugarSupplysByYear(year));
+    }
+    const month = Number(req.query.month) || new Date().getMonth() + 1;
+    res.json(await storage.getKpfSugarSupplys(month, year));
+  });
+  app.post('/api/kpf-sugar-supply', requirePermission('salesinvoice'), async (req, res) => {
+    try { res.status(201).json(await storage.createKpfSugarSupply(req.body)); }
+    catch (err: any) { res.status(500).json({ message: err.message }); }
+  });
+  app.put('/api/kpf-sugar-supply/:id', requirePermission('salesinvoice'), async (req, res) => {
+    try { res.json(await storage.updateKpfSugarSupply(Number(req.params.id), req.body)); }
+    catch (err: any) { res.status(500).json({ message: err.message }); }
+  });
+  app.delete('/api/kpf-sugar-supply/:id', requirePermission('salesinvoice'), async (req, res) => {
+    await storage.deleteKpfSugarSupply(Number(req.params.id)); res.status(204).send();
+  });
+
   app.get('/api/hul-snack-supply', requirePermission('salesinvoice'), async (req, res) => {
     try {
       const month = Number(req.query.month) || new Date().getMonth() + 1;
