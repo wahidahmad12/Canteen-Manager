@@ -3683,15 +3683,47 @@ type SpecialOrderRow = {
   _dirty?: boolean;
 };
 
-function emptySpecialRow(slNo: number, month: number, year: number): SpecialOrderRow {
-  return { month, year, slNo, dateOfSupply: '', particulars: '', qty: 0, ratePerPlate: 0, total: 0, _dirty: false };
+function emptySpecialRow(slNo: number, month: number, year: number, dateOfSupply = ''): SpecialOrderRow {
+  return { month, year, slNo, dateOfSupply, particulars: '', qty: 0, ratePerPlate: 0, total: 0, _dirty: false };
 }
 
 function HulSpecialOrderTab({ month, year, loadKey = 0 }: { month: number; year: number; loadKey?: number }) {
   const qc = useQueryClient();
   const { toast } = useToast();
-  const [rows, setRows] = useState<SpecialOrderRow[]>([emptySpecialRow(1, month, year)]);
+  const [rows, setRows] = useState<SpecialOrderRow[]>([]);
   const [saving, setSaving] = useState(false);
+  const daysInMonth = new Date(year, month, 0).getDate();
+
+  const buildMonthRows = (savedRows: SpecialOrderRow[]) => {
+    const savedByDate = new Map<string, SpecialOrderRow[]>();
+    const unassignedRows: SpecialOrderRow[] = [];
+    savedRows.forEach(row => {
+      const dateOfSupply = normDate(row.dateOfSupply || '');
+      if (dateOfSupply.startsWith(`${year}-${String(month).padStart(2, '0')}-`)) {
+        const dateRows = savedByDate.get(dateOfSupply) ?? [];
+        dateRows.push({ ...row, dateOfSupply, _dirty: false });
+        savedByDate.set(dateOfSupply, dateRows);
+      } else {
+        unassignedRows.push({ ...row, dateOfSupply, _dirty: false });
+      }
+    });
+
+    const monthRows: SpecialOrderRow[] = [];
+    for (let day = 1; day <= daysInMonth; day++) {
+      const date = `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+      const dateRows = savedByDate.get(date);
+      if (dateRows?.length) monthRows.push(...dateRows);
+      else monthRows.push(emptySpecialRow(monthRows.length + 1, month, year, date));
+    }
+    monthRows.push(...unassignedRows);
+    return monthRows.map((row, idx) => ({
+      ...row,
+      slNo: idx + 1,
+      qty: Number(row.qty),
+      ratePerPlate: Number(row.ratePerPlate),
+      total: Number(row.total),
+    }));
+  };
 
   const { data: dbRows = [], isLoading } = useQuery<SpecialOrderRow[]>({
     queryKey: ['/api/hul-special-orders', month, year],
@@ -3705,11 +3737,7 @@ function HulSpecialOrderTab({ month, year, loadKey = 0 }: { month: number; year:
   });
 
   useEffect(() => {
-    if (dbRows.length > 0) {
-      setRows(dbRows.map(r => ({ ...r, dateOfSupply: r.dateOfSupply || '', qty: Number(r.qty), ratePerPlate: Number(r.ratePerPlate), total: Number(r.total), _dirty: false })));
-    } else {
-      setRows([emptySpecialRow(1, month, year)]);
-    }
+    setRows(buildMonthRows(dbRows));
   }, [dbRows, month, year]);
 
   const updateRow = (idx: number, field: keyof SpecialOrderRow, value: string | number) => {
@@ -3727,7 +3755,11 @@ function HulSpecialOrderTab({ month, year, loadKey = 0 }: { month: number; year:
   };
 
   const addRow = () => {
-    setRows(prev => [...prev, emptySpecialRow(prev.length + 1, month, year)]);
+    const today = new Date();
+    const defaultDate = today.getFullYear() === year && today.getMonth() + 1 === month
+      ? localDateStr(today)
+      : `${year}-${String(month).padStart(2, '0')}-01`;
+    setRows(prev => [...prev, emptySpecialRow(prev.length + 1, month, year, defaultDate)]);
   };
 
   const deleteRow = async (idx: number) => {
@@ -3897,9 +3929,16 @@ function HulSpecialOrderTab({ month, year, loadKey = 0 }: { month: number; year:
               </tr>
             </thead>
             <tbody>
-              {rows.map((row, idx) => (
-                <tr key={idx} className={row._dirty ? 'ring-1 ring-inset ring-yellow-400' : idx % 2 === 0 ? 'bg-white' : 'bg-slate-50'}>
-                  <td className="border border-slate-200 px-2 py-1 text-center text-slate-500 font-mono text-xs">{row.slNo}</td>
+              {rows.map((row, idx) => {
+                const day = row.dateOfSupply ? new Date(`${row.dateOfSupply}T00:00:00`).getDay() : -1;
+                const rowStyle = row._dirty
+                  ? undefined
+                  : day === 0 ? { background: '#f4b084' }
+                  : day === 6 ? { background: '#fce4d6' }
+                  : idx % 2 === 0 ? { background: '#fff' } : { background: '#f8fafc' };
+                return (
+                <tr key={row.id ?? `new-${idx}`} style={rowStyle} className={row._dirty ? 'ring-1 ring-inset ring-yellow-400' : ''}>
+                  <td className="border border-slate-200 px-2 py-1 text-center text-slate-500 font-mono text-xs">{idx + 1}</td>
                   <td className="border border-slate-200 px-2 py-1">
                     <input
                       type="date"
@@ -3952,7 +3991,7 @@ function HulSpecialOrderTab({ month, year, loadKey = 0 }: { month: number; year:
                     >✕</button>
                   </td>
                 </tr>
-              ))}
+              )})}
             </tbody>
             <tfoot>
               <tr style={{ background: '#1e3a5f' }}>
@@ -3969,7 +4008,7 @@ function HulSpecialOrderTab({ month, year, loadKey = 0 }: { month: number; year:
 
       {/* Add Row button */}
       <Button size="sm" variant="outline" onClick={addRow} className="h-8 text-xs gap-1 border-dashed border-blue-300 text-blue-700 hover:bg-blue-50" data-testid="btn-add-special-row">
-        + Add Row
+        + Add Another Order
       </Button>
     </div>
   );
