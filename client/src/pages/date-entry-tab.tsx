@@ -3067,7 +3067,7 @@ function CiplaDateEntryTab({ month, year, loadKey = 0 }: { month: number; year: 
 
       {/* ── Desktop Table View ── */}
       <div id="ubl3-desk" className="hidden md:block overflow-x-auto rounded-xl border shadow-sm">
-        <table style={{borderCollapse:"collapse",minWidth:1000,fontFamily:"Arial,sans-serif",fontSize:12}}>
+        <table style={{borderCollapse:"collapse",minWidth:1100,fontFamily:"Arial,sans-serif",fontSize:12}}>
           <thead>
             <tr style={{background:"#1a3a5a",color:"white"}}>
               <th rowSpan={2} style={{padding:"6px 4px",border:"1px solid #334",width:32}}>Sl</th>
@@ -6667,8 +6667,8 @@ function HulSummaryTab({ month, year }: { month: number; year: number }) {
           const kpfAmount = mealAmount(kpf);
           const tecAmount = mealAmount(tec);
           const execAmount = Number(exec?.snacks || 0) * 25 + Number(exec?.biscuit || 0) * 10 +
-            Number(exec?.chips || 0) * 10 + Number(exec?.coldDrinkWater || 0) * 10 +
-            Number(exec?.shiftOfficerBreakfast || 0) * 40;
+            Number(exec?.chips || 0) * 10 + Number(exec?.coldDrinkWater || 0) * 10;
+          const shiftOfficerAmount = Number(exec?.shiftOfficerBreakfast || 0) * 40;
           const hulSpecialAmount = yrSpecialOrders
             .filter(r => Number(r.month) === m)
             .reduce((s, r) => s + Number(r.total || 0), 0);
@@ -6687,23 +6687,25 @@ function HulSummaryTab({ month, year }: { month: number; year: number }) {
             kpfAmount,
             tecAmount,
             execAmount,
+            shiftOfficerAmount,
             hulSpecialAmount,
             tecSpecialAmount,
             snackSupplyAmount,
             kpfSugarAmount,
-            grandTotal: kpfAmount + tecAmount + execAmount + hulSpecialAmount + tecSpecialAmount + snackSupplyAmount + kpfSugarAmount,
+            grandTotal: kpfAmount + tecAmount + execAmount + shiftOfficerAmount + hulSpecialAmount + tecSpecialAmount + snackSupplyAmount + kpfSugarAmount,
           };
         });
         const monthlyAmountTotals = monthlyAmountRows.reduce((totals, row) => ({
           kpfAmount: totals.kpfAmount + row.kpfAmount,
           tecAmount: totals.tecAmount + row.tecAmount,
           execAmount: totals.execAmount + row.execAmount,
+          shiftOfficerAmount: totals.shiftOfficerAmount + row.shiftOfficerAmount,
           hulSpecialAmount: totals.hulSpecialAmount + row.hulSpecialAmount,
           tecSpecialAmount: totals.tecSpecialAmount + row.tecSpecialAmount,
           snackSupplyAmount: totals.snackSupplyAmount + row.snackSupplyAmount,
           kpfSugarAmount: totals.kpfSugarAmount + row.kpfSugarAmount,
           grandTotal: totals.grandTotal + row.grandTotal,
-        }), { kpfAmount:0, tecAmount:0, execAmount:0, hulSpecialAmount:0, tecSpecialAmount:0, snackSupplyAmount:0, kpfSugarAmount:0, grandTotal:0 });
+        }), { kpfAmount:0, tecAmount:0, execAmount:0, shiftOfficerAmount:0, hulSpecialAmount:0, tecSpecialAmount:0, snackSupplyAmount:0, kpfSugarAmount:0, grandTotal:0 });
         const selectedSpecialOrderTotal = yrSpecialOrders
           .filter(r => selectedMonths.has(Number(r.month)))
           .reduce((s, r) => s + Number(r.total || 0), 0);
@@ -6763,6 +6765,7 @@ function HulSummaryTab({ month, year }: { month: number; year: number }) {
                       <th style={thG}>KPF (₹)</th>
                       <th style={thB}>TEC (₹)</th>
                       <th style={thBr}>KPF Exec Snacks (₹)</th>
+                      <th style={thBr}>Shift Officer Bfast ×₹40 (₹)</th>
                       <th style={thPurple}>HUL Special Order (₹)</th>
                       <th style={thB}>TEC Special Order (₹)</th>
                       <th style={{ ...thPurple, background:'#0f766e' }}>TEC Snacks/Sugar Supply (₹)</th>
@@ -6777,6 +6780,7 @@ function HulSummaryTab({ month, year }: { month: number; year: number }) {
                         <td style={tdR}>{fmtINR(row.kpfAmount)}</td>
                         <td style={tdR}>{fmtINR(row.tecAmount)}</td>
                         <td style={tdR}>{fmtINR(row.execAmount)}</td>
+                        <td style={tdR}>{fmtINR(row.shiftOfficerAmount)}</td>
                         <td style={tdR}>{fmtINR(row.hulSpecialAmount)}</td>
                         <td style={tdR}>{fmtINR(row.tecSpecialAmount)}</td>
                         <td style={tdR}>{fmtINR(row.snackSupplyAmount)}</td>
@@ -6789,6 +6793,7 @@ function HulSummaryTab({ month, year }: { month: number; year: number }) {
                       <td style={tdTot}>{fmtINR(monthlyAmountTotals.kpfAmount)}</td>
                       <td style={tdTot}>{fmtINR(monthlyAmountTotals.tecAmount)}</td>
                       <td style={tdTot}>{fmtINR(monthlyAmountTotals.execAmount)}</td>
+                      <td style={tdTot}>{fmtINR(monthlyAmountTotals.shiftOfficerAmount)}</td>
                       <td style={tdTot}>{fmtINR(monthlyAmountTotals.hulSpecialAmount)}</td>
                       <td style={tdTot}>{fmtINR(monthlyAmountTotals.tecSpecialAmount)}</td>
                       <td style={tdTot}>{fmtINR(monthlyAmountTotals.snackSupplyAmount)}</td>
