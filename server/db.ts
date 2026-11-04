@@ -203,6 +203,19 @@ async function initPool(): Promise<void> {
       created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
       updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
       KEY idx_tec_special_orders_month_year (year, month)
+    )`,    `CREATE TABLE IF NOT EXISTS kpf_sugar_supply (
+      id INT AUTO_INCREMENT PRIMARY KEY,
+      month INT NOT NULL,
+      year INT NOT NULL,
+      sl_no INT NOT NULL,
+      date_of_supply VARCHAR(20) DEFAULT '',
+      particulars VARCHAR(500) NOT NULL DEFAULT '',
+      qty DECIMAL(10,2) DEFAULT 0,
+      rate_per_plate DECIMAL(10,2) DEFAULT 0,
+      total DECIMAL(10,2) DEFAULT 0,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+      KEY idx_kpf_sugar_supply_month_year (year, month)
     )`,
     `CREATE TABLE IF NOT EXISTS pec_custom_items (
       id INT AUTO_INCREMENT PRIMARY KEY,

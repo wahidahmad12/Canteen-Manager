@@ -77,6 +77,8 @@ import {
   hulSpecialOrders,
   type TecSpecialOrder,
   tecSpecialOrders,
+  type KpfSugarSupply,
+  kpfSugarSupplies,
   type DailyReport, 
   type ExpenseItem,
   type CreateReportRequest,
@@ -3326,6 +3328,37 @@ export class DatabaseStorage implements IStorage {
   }
   async deleteTecSpecialOrder(id: number): Promise<void> {
     await db.delete(tecSpecialOrders).where(eq(tecSpecialOrders.id, id));
+  }
+
+  // === KPF SUGAR SUPPLY ===
+  async getKpfSugarSupplys(month: number, year: number): Promise<KpfSugarSupply[]> {
+    return await db.select().from(kpfSugarSupplies)
+      .where(and(eq(kpfSugarSupplies.month, month), eq(kpfSugarSupplies.year, year)))
+      .orderBy(kpfSugarSupplies.slNo);
+  }
+  async getKpfSugarSupplysByYear(year: number): Promise<KpfSugarSupply[]> {
+    return await db.select().from(kpfSugarSupplies)
+      .where(eq(kpfSugarSupplies.year, year))
+      .orderBy(kpfSugarSupplies.month, kpfSugarSupplies.slNo);
+  }
+  async createKpfSugarSupply(data: any): Promise<KpfSugarSupply> {
+    const { month, year, slNo, dateOfSupply, particulars, qty, ratePerPlate, total } = data;
+    const [result] = await db.execute(sql`
+      INSERT INTO kpf_sugar_supply (month, year, sl_no, date_of_supply, particulars, qty, rate_per_plate, total)
+      VALUES (${month}, ${year}, ${slNo}, ${dateOfSupply || ''}, ${particulars || ''}, ${qty || 0}, ${ratePerPlate || 0}, ${total || 0})
+    `);
+    const id = (result as any).insertId;
+    const rows = await db.select().from(kpfSugarSupplies).where(eq(kpfSugarSupplies.id, id));
+    return rows[0];
+  }
+  async updateKpfSugarSupply(id: number, data: any): Promise<KpfSugarSupply> {
+    const { id: _id, createdAt, ...safeData } = data;
+    await db.update(kpfSugarSupplies).set({ ...safeData, updatedAt: new Date() }).where(eq(kpfSugarSupplies.id, id));
+    const rows = await db.select().from(kpfSugarSupplies).where(eq(kpfSugarSupplies.id, id));
+    return rows[0];
+  }
+  async deleteKpfSugarSupply(id: number): Promise<void> {
+    await db.delete(kpfSugarSupplies).where(eq(kpfSugarSupplies.id, id));
   }
 
   // === HUL SNACK SUPPLY (TEC Special Order: Chips / Biscuit / Sugar per day) ===

@@ -189,6 +189,10 @@ export function DateEntryDashboard({ year }: { year: number }) {
     queryKey: ['/api/tec-special-orders', year],
     queryFn: () => fetch(`/api/tec-special-orders?year=${year}`, { credentials: 'include' }).then(r => r.json()),
   });
+  const { data: kpfSugarSupply = [] } = useQuery<any[]>({
+    queryKey: ['/api/kpf-sugar-supply', year],
+    queryFn: () => fetch(`/api/kpf-sugar-supply?year=${year}`, { credentials: 'include' }).then(r => r.json()),
+  });
 
   // PEC Ventures
   const { data: pecCanteen = [] } = useQuery<any[]>({
@@ -251,6 +255,10 @@ export function DateEntryDashboard({ year }: { year: number }) {
   const { data: pTecSpecialOrders = [] } = useQuery<any[]>({
     queryKey: ['/api/tec-special-orders', prevYear],
     queryFn: () => fetch(`/api/tec-special-orders?year=${prevYear}`, { credentials: 'include' }).then(r => r.json()),
+  });
+  const { data: pKpfSugarSupply = [] } = useQuery<any[]>({
+    queryKey: ['/api/kpf-sugar-supply', prevYear],
+    queryFn: () => fetch(`/api/kpf-sugar-supply?year=${prevYear}`, { credentials: 'include' }).then(r => r.json()),
   });
   const { data: pPecLunch = [] } = useQuery<any[]>({
     queryKey: ['/api/pec-ventures-entries/lunch-yearly-summary', prevYear],
@@ -340,6 +348,13 @@ export function DateEntryDashboard({ year }: { year: number }) {
     pTecSpecialOrders.filter(r => Number(r.month) === i + 1).reduce((s, r) => s + Number(r.total || 0), 0));
   const pTecSpecialOrderTotal = pTecSpecialOrderMonthly.reduce((s, amount) => s + amount, 0);
   const tecSpecialOrderChart = MONTHS_SHORT.map((name, i) => ({ name, amount: tecSpecialOrderMonthly[i] }));
+  const kpfSugarMonthly = MONTHS_SHORT.map((_, i) =>
+    kpfSugarSupply.filter(r => Number(r.month) === i + 1).reduce((s, r) => s + Number(r.total || 0), 0));
+  const kpfSugarTotal = kpfSugarMonthly.reduce((s, amount) => s + amount, 0);
+  const pKpfSugarMonthly = MONTHS_SHORT.map((_, i) =>
+    pKpfSugarSupply.filter(r => Number(r.month) === i + 1).reduce((s, r) => s + Number(r.total || 0), 0));
+  const pKpfSugarTotal = pKpfSugarMonthly.reduce((s, amount) => s + amount, 0);
+  const kpfSugarChart = MONTHS_SHORT.map((name, i) => ({ name, amount: kpfSugarMonthly[i] }));
 
   // Combined HUL monthly (KPF+TEC combined)
   const hulCombinedChart = MONTHS_SHORT.map((name, i) => {
@@ -703,6 +718,11 @@ export function DateEntryDashboard({ year }: { year: number }) {
         <div className="text-2xl font-bold text-blue-800 dark:text-blue-200">₹{tecSpecialOrderTotal.toLocaleString('en-IN')}</div>
         <div className="text-xs text-blue-600">Separate amount total; not combined with meal counts</div>
       </div>
+      <div className="rounded-xl border bg-sky-50 dark:bg-sky-900/20 p-4 mb-4 shadow-sm">
+        <div className="text-xs font-semibold text-sky-700 dark:text-sky-300">KPF Sugar Supply — {year}</div>
+        <div className="text-2xl font-bold text-sky-800 dark:text-sky-200">₹{kpfSugarTotal.toLocaleString('en-IN')}</div>
+        <div className="text-xs text-sky-600">Separate amount total; not combined with meal counts</div>
+      </div>
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mb-2">
         <div className="border rounded-lg p-3 bg-green-50 dark:bg-green-900/20 shadow-sm">
           <div className="text-xs font-semibold text-green-700 mb-1">KPF — Total Meals</div>
@@ -833,6 +853,17 @@ export function DateEntryDashboard({ year }: { year: number }) {
           </BarChart>
         </ResponsiveContainer>
       </ChartCard>
+      <ChartCard title={`KPF Sugar Supply — Monthly Amount (₹) — ${year}`}>
+        <ResponsiveContainer width="100%" height={CHART_H}>
+          <BarChart data={kpfSugarChart} margin={{ top: 5, right: 10, left: -10, bottom: 5 }}>
+            <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
+            <XAxis dataKey="name" tick={{ fontSize: 10 }} />
+            <YAxis tick={{ fontSize: 10 }} tickFormatter={(value: number) => `₹${Number(value).toLocaleString('en-IN')}`} />
+            <Tooltip formatter={(value: any) => `₹${Number(value).toLocaleString('en-IN')}`} />
+            <Bar dataKey="amount" name="KPF Sugar Supply Amount (₹)" fill="#0369a1" radius={[2,2,0,0]} />
+          </BarChart>
+        </ResponsiveContainer>
+      </ChartCard>
 
       {/* ========== PEC VENTURES SECTION ========== */}
       <SectionHeader title="PEC Ventures Private Limited" subtitle="Lunch & Dinner (Bill Qty) + Canteen Expense Items" color="#db2777" />
@@ -939,6 +970,8 @@ export function DateEntryDashboard({ year }: { year: number }) {
           { label: `${prevYear} HUL Special Orders`, amount: pHulSpecialOrderTotal },
           { label: `${year} TEC Special Orders`, amount: tecSpecialOrderTotal },
           { label: `${prevYear} TEC Special Orders`, amount: pTecSpecialOrderTotal },
+          { label: `${year} KPF Sugar Supply`, amount: kpfSugarTotal },
+          { label: `${prevYear} KPF Sugar Supply`, amount: pKpfSugarTotal },
         ].map(item => (
           <div key={item.label} className="rounded-xl border p-3 bg-purple-50 dark:bg-purple-900/20 shadow-sm">
             <div className="text-xs font-semibold text-purple-700 dark:text-purple-300">{item.label}</div>
@@ -969,6 +1002,19 @@ export function DateEntryDashboard({ year }: { year: number }) {
             <Legend wrapperStyle={{ fontSize: 11 }} />
             <Bar dataKey={String(prevYear)} fill="#94a3b8" radius={[2,2,0,0]} />
             <Bar dataKey={String(year)} fill="#1d4ed8" radius={[2,2,0,0]} />
+          </BarChart>
+        </ResponsiveContainer>
+      </ChartCard>
+      <ChartCard title={`KPF Sugar Supply — ${year} vs ${prevYear} Monthly Amount (₹)`}>
+        <ResponsiveContainer width="100%" height={CHART_H}>
+          <BarChart data={MONTHS_SHORT.map((name, i) => ({ name, [String(year)]: kpfSugarMonthly[i], [String(prevYear)]: pKpfSugarMonthly[i] }))} margin={{ top: 5, right: 10, left: -10, bottom: 5 }}>
+            <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
+            <XAxis dataKey="name" tick={{ fontSize: 10 }} />
+            <YAxis tick={{ fontSize: 10 }} tickFormatter={(value: number) => `₹${Number(value).toLocaleString('en-IN')}`} />
+            <Tooltip formatter={(value: any) => `₹${Number(value).toLocaleString('en-IN')}`} />
+            <Legend wrapperStyle={{ fontSize: 11 }} />
+            <Bar dataKey={String(prevYear)} fill="#94a3b8" radius={[2,2,0,0]} />
+            <Bar dataKey={String(year)} fill="#0369a1" radius={[2,2,0,0]} />
           </BarChart>
         </ResponsiveContainer>
       </ChartCard>

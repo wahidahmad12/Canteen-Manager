@@ -3067,7 +3067,7 @@ function CiplaDateEntryTab({ month, year, loadKey = 0 }: { month: number; year: 
 
       {/* ── Desktop Table View ── */}
       <div id="ubl3-desk" className="hidden md:block overflow-x-auto rounded-xl border shadow-sm">
-        <table style={{borderCollapse:"collapse",minWidth:900,fontFamily:"Arial,sans-serif",fontSize:12}}>
+        <table style={{borderCollapse:"collapse",minWidth:1000,fontFamily:"Arial,sans-serif",fontSize:12}}>
           <thead>
             <tr style={{background:"#1a3a5a",color:"white"}}>
               <th rowSpan={2} style={{padding:"6px 4px",border:"1px solid #334",width:32}}>Sl</th>
@@ -6125,6 +6125,15 @@ function HulSummaryTab({ month, year }: { month: number; year: number }) {
     },
   });
 
+  const { data: kpfSugarRows = [], isLoading: kpfSugarLoading } = useQuery<SpecialOrderRow[]>({
+    queryKey: ['/api/kpf-sugar-supply', month, year],
+    enabled: viewMode === 'monthly',
+    queryFn: async () => {
+      const res = await fetch(`/api/kpf-sugar-supply?month=${month}&year=${year}`, { credentials: 'include' });
+      return res.json();
+    },
+  });
+
   const { data: snackSupplyData } = useQuery<{ rows: any[]; sugarRate: number }>({
     queryKey: ['/api/hul-snack-supply', month, year],
     enabled: viewMode === 'monthly',
@@ -6179,6 +6188,15 @@ function HulSummaryTab({ month, year }: { month: number; year: number }) {
     },
   });
 
+  const { data: yrKpfSugar = [], isLoading: yrKpfSugarLoading } = useQuery<any[]>({
+    queryKey: ['/api/kpf-sugar-supply', summaryYear],
+    enabled: viewMode === 'yearly',
+    queryFn: async () => {
+      const res = await fetch(`/api/kpf-sugar-supply?year=${summaryYear}`, { credentials: 'include' });
+      return res.json();
+    },
+  });
+
   const { data: yrSnackSupply = [] } = useQuery<any[]>({
     queryKey: ['/api/hul-snack-supply/yearly', summaryYear],
     enabled: viewMode === 'yearly',
@@ -6189,8 +6207,8 @@ function HulSummaryTab({ month, year }: { month: number; year: number }) {
   });
 
   const isLoading = viewMode === 'monthly'
-    ? (kpfLoading || tecLoading || execLoading || specialLoading || tecSpecialLoading)
-    : (yrKpfLoading || yrTecLoading || yrExecLoading || yrSpecialLoading || yrTecSpecialLoading);
+    ? (kpfLoading || tecLoading || execLoading || specialLoading || tecSpecialLoading || kpfSugarLoading)
+    : (yrKpfLoading || yrTecLoading || yrExecLoading || yrSpecialLoading || yrTecSpecialLoading || yrKpfSugarLoading);
 
   const sum = (arr: any[], field: string) => arr.reduce((s, r) => s + (r[field] || 0), 0);
   const kpfT = { breakfast: sum(kpfRows,'breakfast'), lunch: sum(kpfRows,'lunch'), eveningSnacks: sum(kpfRows,'eveningSnacks'), nightSnacks: sum(kpfRows,'nightSnacks'), guestBreakfast: sum(kpfRows,'guestBreakfast'), guestLunch: sum(kpfRows,'guestLunch'), guestEveningSnacks: sum(kpfRows,'guestEveningSnacks'), guestNightSnacks: sum(kpfRows,'guestNightSnacks') };
@@ -6198,6 +6216,7 @@ function HulSummaryTab({ month, year }: { month: number; year: number }) {
   const exT = { snacks: sum(execRows,'snacks'), biscuit: sum(execRows,'biscuit'), chips: sum(execRows,'chips'), coldDrinkWater: sum(execRows,'coldDrinkWater'), shiftOfficerBreakfast: sum(execRows,'shiftOfficerBreakfast') };
   const specialTotal = specialOrderRows.reduce((s, r) => s + Number(r.total || 0), 0);
   const tecSpecialTotal = tecSpecialOrderRows.reduce((s, r) => s + Number(r.total || 0), 0);
+  const kpfSugarTotal = kpfSugarRows.reduce((s, r) => s + Number(r.total || 0), 0);
 
   const thG: React.CSSProperties = { background:'#1a6b2e', color:'#fff', border:'1px solid #333', padding:'4px 6px', textAlign:'center', fontWeight:'bold', fontSize:11 };
   const thB: React.CSSProperties = { background:'#1a3a8a', color:'#fff', border:'1px solid #333', padding:'4px 6px', textAlign:'center', fontWeight:'bold', fontSize:11 };
@@ -6370,6 +6389,7 @@ function HulSummaryTab({ month, year }: { month: number; year: number }) {
           'HUL Special Orders (₹)',
           'TEC Special Orders (₹)',
           'TEC Snacks For Sugar Supply (₹)',
+          'KPF Sugar Supply (₹)',
           'Grand Total (₹)',
         ];
         wsSumm.mergeCells(1,1,1,summCols.length);
@@ -6378,20 +6398,20 @@ function HulSummaryTab({ month, year }: { month: number; year: number }) {
         sTit.font={bold:true,size:13,color:{argb:'FFFFFFFF'}}; sTit.fill=mkFill('FF374151'); sTit.alignment={horizontal:'center'}; sTit.border=thin;
         // Sub-header groups
         wsSumm.mergeCells(2,1,2,1);
-        [[2,12,'FF1A6B2E','KPF — Meal & Guest'],[13,23,'FF1A3A8A','TEC — Meal & Guest'],[24,29,'FFB45309','KPF Exec Snacks'],[30,31,'FF7C3AED','Special Orders'],[32,32,'FF0F766E','TEC Snacks Supply'],[33,33,'FF374151','']].forEach(([s,e,c,label])=>{
+        [[2,12,'FF1A6B2E','KPF — Meal & Guest'],[13,23,'FF1A3A8A','TEC — Meal & Guest'],[24,29,'FFB45309','KPF Exec Snacks'],[30,31,'FF7C3AED','Special Orders'],[32,32,'FF0F766E','TEC Snacks Supply'],[33,33,'FF0369A1','KPF Sugar Supply'],[34,34,'FF374151','']].forEach(([s,e,c,label])=>{
           if (label) { wsSumm.mergeCells(2,Number(s),2,Number(e)); const cell=wsSumm.getCell(2,Number(s)); cell.value=label; cell.font=wFont; cell.fill=mkFill(c as string); cell.alignment={horizontal:'center'}; cell.border=thin; }
           else { const cell=wsSumm.getCell(2,Number(s)); cell.fill=mkFill(c as string); cell.border=thin; }
         });
         const summHdr = wsSumm.addRow(summCols);
         summHdr.eachCell((c:any,ci:number)=>{
-          const argb = ci<=12?'FF1A6B2E':ci<=23?'FF1A3A8A':ci<=29?'FFB45309':ci<=31?'FF7C3AED':ci===32?'FF0F766E':'FF374151';
+          const argb = ci<=12?'FF1A6B2E':ci<=23?'FF1A3A8A':ci<=29?'FFB45309':ci<=31?'FF7C3AED':ci===32?'FF0F766E':ci===33?'FF0369A1':'FF374151';
           c.font=wFont; c.fill=mkFill(argb); c.border=thin; c.alignment={horizontal:'center',wrapText:true};
         });
         wsSumm.getRow(3).height=32;
         wsSumm.columns = summCols.map((_,i)=>({width:i===0?14:16}));
 
         // Grand totals accumulators
-        let gKpfMeal=0,gKpfGuest=0,gTecMeal=0,gTecGuest=0,gExec=0,gSpecial=0,gTecSpecial=0,gSnackSupply=0;
+        let gKpfMeal=0,gKpfGuest=0,gTecMeal=0,gTecGuest=0,gExec=0,gSpecial=0,gTecSpecial=0,gSnackSupply=0,gKpfSugar=0;
         visMths.forEach(m=>{
           const kpf=filtKpfEx.find(r=>r.month===m);
           const tec=filtTecEx.find(r=>r.month===m);
@@ -6408,8 +6428,9 @@ function HulSummaryTab({ month, year }: { month: number; year: number }) {
           const tecSpecialTotal=yrTecSpecialOrders.filter(r=>Number(r.month)===m && selectedMonths.has(Number(r.month))).reduce((s,r)=>s+Number(r.total||0),0);
           const snackSupply=filtSnackSupplyEx.find(r=>Number(r.month)===m);
           const snackSupplyTotal=Number(snackSupply?.chips||0)*5+Number(snackSupply?.biscuit||0)*5+Number(snackSupply?.sugar||0)*Number(snackSupply?.sugarRate||0);
-          const grand=kMeal+kGuest+tMeal+tGuest+eTotal+specialTotal+tecSpecialTotal+snackSupplyTotal;
-          gKpfMeal+=kMeal; gKpfGuest+=kGuest; gTecMeal+=tMeal; gTecGuest+=tGuest; gExec+=eTotal; gSpecial+=specialTotal; gTecSpecial+=tecSpecialTotal; gSnackSupply+=snackSupplyTotal;
+          const kpfSugarTotal=yrKpfSugar.filter(r=>Number(r.month)===m && selectedMonths.has(Number(r.month))).reduce((s,r)=>s+Number(r.total||0),0);
+          const grand=kMeal+kGuest+tMeal+tGuest+eTotal+specialTotal+tecSpecialTotal+snackSupplyTotal+kpfSugarTotal;
+          gKpfMeal+=kMeal; gKpfGuest+=kGuest; gTecMeal+=tMeal; gTecGuest+=tGuest; gExec+=eTotal; gSpecial+=specialTotal; gTecSpecial+=tecSpecialTotal; gSnackSupply+=snackSupplyTotal; gKpfSugar+=kpfSugarTotal;
           const dr=wsSumm.addRow([
             MONTHS[m-1],
             kbf||'',kln||'',kes||'',kns||'',kMeal||'',
@@ -6420,12 +6441,13 @@ function HulSummaryTab({ month, year }: { month: number; year: number }) {
             specialTotal||'',
             tecSpecialTotal||'',
             snackSupplyTotal||'',
+            kpfSugarTotal||'',
             grand||'',
           ]);
           dr.eachCell((c:any)=>{c.border=thin;c.alignment={horizontal:'center'};});
         });
-        const gKpf=gKpfMeal+gKpfGuest, gTec=gTecMeal+gTecGuest, gGrand=gKpf+gTec+gExec+gSpecial+gTecSpecial+gSnackSupply;
-        const totR=wsSumm.addRow(['GRAND TOTAL','','','','',gKpfMeal||'','','','','',gKpfGuest||'',gKpf||'','','','','',gTecMeal||'','','','','',gTecGuest||'',gTec||'','','','','','',gExec||'',gSpecial||'',gTecSpecial||'',gSnackSupply||'',gGrand||'']);
+        const gKpf=gKpfMeal+gKpfGuest, gTec=gTecMeal+gTecGuest, gGrand=gKpf+gTec+gExec+gSpecial+gTecSpecial+gSnackSupply+gKpfSugar;
+        const totR=wsSumm.addRow(['GRAND TOTAL','','','','',gKpfMeal||'','','','','',gKpfGuest||'',gKpf||'','','','','',gTecMeal||'','','','','',gTecGuest||'',gTec||'','','','','','',gExec||'',gSpecial||'',gTecSpecial||'',gSnackSupply||'',gKpfSugar||'',gGrand||'']);
         totR.eachCell((c:any)=>{c.font={bold:true};c.fill=mkFill('FFFFF2CC');c.border=thin;c.alignment={horizontal:'center'};});
 
         const buf = await wb.xlsx.writeBuffer();
@@ -6480,16 +6502,17 @@ function HulSummaryTab({ month, year }: { month: number; year: number }) {
       const st = wsSumm.getCell('A1');
       st.value = `HUL Combined Summary Report — ${monthLabel}`;
       st.font={bold:true,size:13,color:{argb:'FFFFFFFF'}}; st.fill=mkFill('FF1A6B2E'); st.alignment={horizontal:'center'}; st.border=thin;
-      const sHdr = wsSumm.addRow(['Section','Breakfast','Lunch','Evng Snacks','Night Snacks','G.Breakfast','G.Lunch','G.Evng Snacks','G.Night Snacks','Snacks','Biscuit','Chips','Cold Drink & Water','HUL Special Orders (₹)','TEC Special Orders (₹)']);
+      const sHdr = wsSumm.addRow(['Section','Breakfast','Lunch','Evng Snacks','Night Snacks','G.Breakfast','G.Lunch','G.Evng Snacks','G.Night Snacks','Snacks','Biscuit','Chips','Cold Drink & Water','HUL Special Orders (₹)','TEC Special Orders (₹)','KPF Sugar Supply (₹)']);
       sHdr.eachCell((c: any, ci: number) => { c.font=wFont; c.fill=mkFill(ci<=5?'FF1A6B2E':ci<=9?'FF1A3A8A':ci>=14?'FF7C3AED':'FFB45309'); c.border=thin; c.alignment={horizontal:'center'}; });
       const sRows = [
-        ['KPF',kpfT.breakfast||'',kpfT.lunch||'',kpfT.eveningSnacks||'',kpfT.nightSnacks||'',kpfT.guestBreakfast||'',kpfT.guestLunch||'',kpfT.guestEveningSnacks||'',kpfT.guestNightSnacks||'','—','—','—','—','—','—'],
-        ['TEC',tecT.breakfast||'',tecT.lunch||'',tecT.eveningSnacks||'',tecT.nightSnacks||'',tecT.guestBreakfast||'',tecT.guestLunch||'',tecT.guestEveningSnacks||'',tecT.guestNightSnacks||'','—','—','—','—','—','—'],
-        ['KPF Exec Snacks','—','—','—','—','—','—','—','—',exT.snacks||'',exT.biscuit||'',exT.chips||'',exT.coldDrinkWater||'','—','—'],
-        ['HUL Special Orders (₹)','','','','','','','','','','','','',specialTotal||'','—'],
-        ['TEC Special Orders (₹)','','','','','','','','','','','','','—',tecSpecialTotal||''],
+        ['KPF',kpfT.breakfast||'',kpfT.lunch||'',kpfT.eveningSnacks||'',kpfT.nightSnacks||'',kpfT.guestBreakfast||'',kpfT.guestLunch||'',kpfT.guestEveningSnacks||'',kpfT.guestNightSnacks||'','—','—','—','—','—','—','—'],
+        ['TEC',tecT.breakfast||'',tecT.lunch||'',tecT.eveningSnacks||'',tecT.nightSnacks||'',tecT.guestBreakfast||'',tecT.guestLunch||'',tecT.guestEveningSnacks||'',tecT.guestNightSnacks||'','—','—','—','—','—','—','—'],
+        ['KPF Exec Snacks','—','—','—','—','—','—','—','—',exT.snacks||'',exT.biscuit||'',exT.chips||'',exT.coldDrinkWater||'','—','—','—'],
+        ['HUL Special Orders (₹)','','','','','','','','','','','','',specialTotal||'','—','—'],
+        ['TEC Special Orders (₹)','','','','','','','','','','','','','—',tecSpecialTotal||'','—'],
+        ['KPF Sugar Supply (₹)','','','','','','','','','','','','','—','—',kpfSugarTotal||''],
       ];
-      const sFills = ['FFD1FAE5','FFDBEAFE','FFFEF9C3','FFF3E8FF','FFF3E8FF'];
+      const sFills = ['FFD1FAE5','FFDBEAFE','FFFEF9C3','FFF3E8FF','FFF3E8FF','FFE0F2FE'];
       sRows.forEach((r, i) => {
         const row = wsSumm.addRow(r);
         row.eachCell((c: any) => { c.fill=mkFill(sFills[i]); c.border=thin; c.alignment={horizontal:'center'}; });
@@ -6652,6 +6675,9 @@ function HulSummaryTab({ month, year }: { month: number; year: number }) {
           const tecSpecialAmount = yrTecSpecialOrders
             .filter(r => Number(r.month) === m)
             .reduce((s, r) => s + Number(r.total || 0), 0);
+          const kpfSugarAmount = yrKpfSugar
+            .filter(r => Number(r.month) === m)
+            .reduce((s, r) => s + Number(r.total || 0), 0);
           const snackSupply = yrSnackSupply.find(r => Number(r.month) === m);
           const snackSupplyAmount = Number(snackSupply?.chips || 0) * 5 +
             Number(snackSupply?.biscuit || 0) * 5 +
@@ -6664,7 +6690,8 @@ function HulSummaryTab({ month, year }: { month: number; year: number }) {
             hulSpecialAmount,
             tecSpecialAmount,
             snackSupplyAmount,
-            grandTotal: kpfAmount + tecAmount + execAmount + hulSpecialAmount + tecSpecialAmount + snackSupplyAmount,
+            kpfSugarAmount,
+            grandTotal: kpfAmount + tecAmount + execAmount + hulSpecialAmount + tecSpecialAmount + snackSupplyAmount + kpfSugarAmount,
           };
         });
         const monthlyAmountTotals = monthlyAmountRows.reduce((totals, row) => ({
@@ -6674,8 +6701,9 @@ function HulSummaryTab({ month, year }: { month: number; year: number }) {
           hulSpecialAmount: totals.hulSpecialAmount + row.hulSpecialAmount,
           tecSpecialAmount: totals.tecSpecialAmount + row.tecSpecialAmount,
           snackSupplyAmount: totals.snackSupplyAmount + row.snackSupplyAmount,
+          kpfSugarAmount: totals.kpfSugarAmount + row.kpfSugarAmount,
           grandTotal: totals.grandTotal + row.grandTotal,
-        }), { kpfAmount:0, tecAmount:0, execAmount:0, hulSpecialAmount:0, tecSpecialAmount:0, snackSupplyAmount:0, grandTotal:0 });
+        }), { kpfAmount:0, tecAmount:0, execAmount:0, hulSpecialAmount:0, tecSpecialAmount:0, snackSupplyAmount:0, kpfSugarAmount:0, grandTotal:0 });
         const selectedSpecialOrderTotal = yrSpecialOrders
           .filter(r => selectedMonths.has(Number(r.month)))
           .reduce((s, r) => s + Number(r.total || 0), 0);
@@ -6738,6 +6766,7 @@ function HulSummaryTab({ month, year }: { month: number; year: number }) {
                       <th style={thPurple}>HUL Special Order (₹)</th>
                       <th style={thB}>TEC Special Order (₹)</th>
                       <th style={{ ...thPurple, background:'#0f766e' }}>TEC Snacks/Sugar Supply (₹)</th>
+                      <th style={{ ...thPurple, background:'#0369a1' }}>KPF Sugar Supply (₹)</th>
                       <th style={{ ...thG, background:'#374151' }}>Monthly Total (₹)</th>
                     </tr>
                   </thead>
@@ -6751,6 +6780,7 @@ function HulSummaryTab({ month, year }: { month: number; year: number }) {
                         <td style={tdR}>{fmtINR(row.hulSpecialAmount)}</td>
                         <td style={tdR}>{fmtINR(row.tecSpecialAmount)}</td>
                         <td style={tdR}>{fmtINR(row.snackSupplyAmount)}</td>
+                        <td style={tdR}>{fmtINR(row.kpfSugarAmount)}</td>
                         <td style={{ ...tdR, fontWeight:'bold', background:'#f0fdf4' }}>{fmtINR(row.grandTotal)}</td>
                       </tr>
                     ))}
@@ -6762,6 +6792,7 @@ function HulSummaryTab({ month, year }: { month: number; year: number }) {
                       <td style={tdTot}>{fmtINR(monthlyAmountTotals.hulSpecialAmount)}</td>
                       <td style={tdTot}>{fmtINR(monthlyAmountTotals.tecSpecialAmount)}</td>
                       <td style={tdTot}>{fmtINR(monthlyAmountTotals.snackSupplyAmount)}</td>
+                      <td style={tdTot}>{fmtINR(monthlyAmountTotals.kpfSugarAmount)}</td>
                       <td style={{ ...tdTot, background:'#bbf7d0' }}>{fmtINR(monthlyAmountTotals.grandTotal)}</td>
                     </tr>
                   </tbody>
@@ -7039,6 +7070,40 @@ function HulSummaryTab({ month, year }: { month: number; year: number }) {
               );
             })()}
 
+            {/* KPF Sugar Supply Yearly Summary */}
+            {(() => {
+              const monthlyKpfSugar = Array.from({length:12},(_,i)=>i+1).map(m => ({
+                month: m,
+                amount: yrKpfSugar.filter(r=>Number(r.month)===m).reduce((s,r)=>s+Number(r.total||0),0),
+              })).filter(r => selectedMonths.has(r.month));
+              const total = monthlyKpfSugar.reduce((s,r)=>s+r.amount,0);
+              return (
+                <div className="border rounded-lg overflow-hidden mb-4">
+                  <div className="px-3 py-1.5 text-sm font-bold text-center text-white" style={{ background:'#0369a1' }}>
+                    KPF Sugar Supply — Amount Summary — {yearLabel}
+                  </div>
+                  <div className="overflow-x-auto">
+                    <table className="w-full border-collapse" style={{ fontSize:10 }}>
+                      <thead><tr>
+                        <th style={{ ...thB, background:'#0369a1', width:40, fontSize:10 }}>Sl.</th>
+                        <th style={{ ...thB, background:'#0369a1', textAlign:'left', paddingLeft:8, fontSize:10 }}>Month</th>
+                        <th style={{ ...thB, background:'#0369a1', textAlign:'right', paddingRight:8, fontSize:10 }}>Amount (₹)</th>
+                      </tr></thead>
+                      <tbody>
+                        {monthlyKpfSugar.map((r, i) => <tr key={r.month} style={{ background:i%2===0?'#f0f9ff':'#fff' }}>
+                          <td style={tdC}>{i+1}</td><td style={tdL}>{MONTHS[r.month-1]}</td><td style={tdR}>{r.amount ? fmtINR(r.amount) : '—'}</td>
+                        </tr>)}
+                        <tr style={{ background:'#0369a1' }}>
+                          <td colSpan={2} style={{ border:'1px solid #075985', padding:'3px 8px', fontWeight:'bold', textAlign:'right', color:'#fff' }}>Grand Total</td>
+                          <td style={{ border:'1px solid #075985', padding:'3px 8px', textAlign:'right', fontWeight:'bold', color:'#fff' }}>{fmtINR(total)}</td>
+                        </tr>
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              );
+            })()}
+
             {/* TEC Special Order Snacks Supply — Yearly */}
             {(() => {
               const rowsY = yrSnackSupply.filter(r => selectedMonths.has(Number(r.month)));
@@ -7198,6 +7263,15 @@ function HulSummaryTab({ month, year }: { month: number; year: number }) {
         <div className="flex items-center justify-between px-4 py-3 text-sm">
           <span>TEC special orders total (not mixed with meal counts)</span>
           <strong>{fmtINR(tecSpecialTotal)}</strong>
+        </div>
+      </div>
+      <div className="border rounded-lg overflow-hidden mb-4 bg-sky-50">
+        <div className="px-3 py-2 text-sm font-bold text-white text-center" style={{ background:'#0369a1' }}>
+          KPF Sugar Supply Amount — {monthLabel}
+        </div>
+        <div className="flex items-center justify-between px-4 py-3 text-sm">
+          <span>KPF sugar supply total (not mixed with meal counts)</span>
+          <strong>{fmtINR(kpfSugarTotal)}</strong>
         </div>
       </div>
 
@@ -7543,6 +7617,9 @@ function HulSummaryTab({ month, year }: { month: number; year: number }) {
         </p>
         <p style={{ textAlign:'right', fontWeight:'bold', margin:'6px 0', padding:6, background:'#dbeafe', color:'#1e3a8a' }}>
           TEC Special Order Amount: {fmtINR(tecSpecialTotal)}
+        </p>
+        <p style={{ textAlign:'right', fontWeight:'bold', margin:'6px 0', padding:6, background:'#e0f2fe', color:'#075985' }}>
+          KPF Sugar Supply Amount: {fmtINR(kpfSugarTotal)}
         </p>
       </div>
     </div>
@@ -9067,6 +9144,9 @@ export function DateEntryTab() {
             <TabsTrigger value="hul_tec_special_order" className="text-xs sm:text-sm" data-testid="tab-hul-tec-special-order">
               TEC Special Order
             </TabsTrigger>
+            <TabsTrigger value="hul_kpf_sugar_supply" className="text-xs sm:text-sm" data-testid="tab-hul-kpf-sugar-supply">
+              KPF Sugar Supply
+            </TabsTrigger>
             <TabsTrigger value="hul_snack_supply" className="text-xs sm:text-sm" data-testid="tab-hul-snack-supply">
               TEC Snacks Supply
             </TabsTrigger>
@@ -9093,6 +9173,10 @@ export function DateEntryTab() {
           <TabsContent value="hul_tec_special_order">
             <div className="mb-2 text-sm text-muted-foreground font-medium">TEC — Special Order Entry (Sl. No., Date of Supply, Particulars, Qty, Rate Per Plate, Total)</div>
             <SpecialOrderTab month={parseInt(month)} year={parseInt(year)} apiPath="/api/tec-special-orders" title="TEC — Special Order" />
+          </TabsContent>
+          <TabsContent value="hul_kpf_sugar_supply">
+            <div className="mb-2 text-sm text-muted-foreground font-medium">KPF Sugar Supply Entry (Sl. No., Date of Supply, Particulars, Qty, Rate Per Plate, Total)</div>
+            <SpecialOrderTab month={parseInt(month)} year={parseInt(year)} apiPath="/api/kpf-sugar-supply" title="KPF Sugar Supply" />
           </TabsContent>
           <TabsContent value="hul_snack_supply">
             <HulSnackSupplyTab month={parseInt(month)} year={parseInt(year)}/>
