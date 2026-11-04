@@ -6307,6 +6307,7 @@ function HulSummaryTab({ month, year }: { month: number; year: number }) {
         const filtTecEx = yrTec.filter(r => selectedMonths.has(r.month));
         const filtExecEx = yrExec.filter(r => selectedMonths.has(r.month));
         const filtSpecialEx = yrSpecialOrders.filter(r => selectedMonths.has(Number(r.month)));
+        const filtSnackSupplyEx = yrSnackSupply.filter(r => selectedMonths.has(Number(r.month)));
         const visMths = Array.from({length:12},(_,i)=>i+1).filter(m => selectedMonths.has(m));
 
         const makeMealYrSheet = (ws: any, loc: string, filtData: YearlyMealRow[], hArgb: string) => {
@@ -6368,6 +6369,7 @@ function HulSummaryTab({ month, year }: { month: number; year: number }) {
           'Exec Snacks','Exec Biscuit','Exec Chips','Exec Cold Drink & Water','Exec Shift Officer Breakfast','Exec Total (₹)',
           'HUL Special Orders (₹)',
           'TEC Special Orders (₹)',
+          'TEC Snacks For Sugar Supply (₹)',
           'Grand Total (₹)',
         ];
         wsSumm.mergeCells(1,1,1,summCols.length);
@@ -6376,20 +6378,20 @@ function HulSummaryTab({ month, year }: { month: number; year: number }) {
         sTit.font={bold:true,size:13,color:{argb:'FFFFFFFF'}}; sTit.fill=mkFill('FF374151'); sTit.alignment={horizontal:'center'}; sTit.border=thin;
         // Sub-header groups
         wsSumm.mergeCells(2,1,2,1);
-        [[2,12,'FF1A6B2E','KPF — Meal & Guest'],[13,23,'FF1A3A8A','TEC — Meal & Guest'],[24,29,'FFB45309','KPF Exec Snacks'],[30,31,'FF7C3AED','Special Orders'],[32,32,'FF374151','']].forEach(([s,e,c,label])=>{
+        [[2,12,'FF1A6B2E','KPF — Meal & Guest'],[13,23,'FF1A3A8A','TEC — Meal & Guest'],[24,29,'FFB45309','KPF Exec Snacks'],[30,31,'FF7C3AED','Special Orders'],[32,32,'FF0F766E','TEC Snacks Supply'],[33,33,'FF374151','']].forEach(([s,e,c,label])=>{
           if (label) { wsSumm.mergeCells(2,Number(s),2,Number(e)); const cell=wsSumm.getCell(2,Number(s)); cell.value=label; cell.font=wFont; cell.fill=mkFill(c as string); cell.alignment={horizontal:'center'}; cell.border=thin; }
           else { const cell=wsSumm.getCell(2,Number(s)); cell.fill=mkFill(c as string); cell.border=thin; }
         });
         const summHdr = wsSumm.addRow(summCols);
         summHdr.eachCell((c:any,ci:number)=>{
-          const argb = ci<=12?'FF1A6B2E':ci<=23?'FF1A3A8A':ci<=29?'FFB45309':ci<=31?'FF7C3AED':'FF374151';
+          const argb = ci<=12?'FF1A6B2E':ci<=23?'FF1A3A8A':ci<=29?'FFB45309':ci<=31?'FF7C3AED':ci===32?'FF0F766E':'FF374151';
           c.font=wFont; c.fill=mkFill(argb); c.border=thin; c.alignment={horizontal:'center',wrapText:true};
         });
         wsSumm.getRow(3).height=32;
         wsSumm.columns = summCols.map((_,i)=>({width:i===0?14:16}));
 
         // Grand totals accumulators
-        let gKpfMeal=0,gKpfGuest=0,gTecMeal=0,gTecGuest=0,gExec=0,gSpecial=0,gTecSpecial=0;
+        let gKpfMeal=0,gKpfGuest=0,gTecMeal=0,gTecGuest=0,gExec=0,gSpecial=0,gTecSpecial=0,gSnackSupply=0;
         visMths.forEach(m=>{
           const kpf=filtKpfEx.find(r=>r.month===m);
           const tec=filtTecEx.find(r=>r.month===m);
@@ -6404,8 +6406,10 @@ function HulSummaryTab({ month, year }: { month: number; year: number }) {
           const eTotal=esn*25+ebi*10+ech*10+ecw*10+esob*40;
           const specialTotal=filtSpecialEx.filter(r=>Number(r.month)===m).reduce((s,r)=>s+Number(r.total||0),0);
           const tecSpecialTotal=yrTecSpecialOrders.filter(r=>Number(r.month)===m && selectedMonths.has(Number(r.month))).reduce((s,r)=>s+Number(r.total||0),0);
-          const grand=kMeal+kGuest+tMeal+tGuest+eTotal+specialTotal+tecSpecialTotal;
-          gKpfMeal+=kMeal; gKpfGuest+=kGuest; gTecMeal+=tMeal; gTecGuest+=tGuest; gExec+=eTotal; gSpecial+=specialTotal; gTecSpecial+=tecSpecialTotal;
+          const snackSupply=filtSnackSupplyEx.find(r=>Number(r.month)===m);
+          const snackSupplyTotal=Number(snackSupply?.chips||0)*5+Number(snackSupply?.biscuit||0)*5+Number(snackSupply?.sugar||0)*Number(snackSupply?.sugarRate||0);
+          const grand=kMeal+kGuest+tMeal+tGuest+eTotal+specialTotal+tecSpecialTotal+snackSupplyTotal;
+          gKpfMeal+=kMeal; gKpfGuest+=kGuest; gTecMeal+=tMeal; gTecGuest+=tGuest; gExec+=eTotal; gSpecial+=specialTotal; gTecSpecial+=tecSpecialTotal; gSnackSupply+=snackSupplyTotal;
           const dr=wsSumm.addRow([
             MONTHS[m-1],
             kbf||'',kln||'',kes||'',kns||'',kMeal||'',
@@ -6415,12 +6419,13 @@ function HulSummaryTab({ month, year }: { month: number; year: number }) {
             esn||'',ebi||'',ech||'',ecw||'',esob||'',eTotal||'',
             specialTotal||'',
             tecSpecialTotal||'',
+            snackSupplyTotal||'',
             grand||'',
           ]);
           dr.eachCell((c:any)=>{c.border=thin;c.alignment={horizontal:'center'};});
         });
-        const gKpf=gKpfMeal+gKpfGuest, gTec=gTecMeal+gTecGuest, gGrand=gKpf+gTec+gExec+gSpecial+gTecSpecial;
-        const totR=wsSumm.addRow(['GRAND TOTAL','','','','',gKpfMeal||'','','','','',gKpfGuest||'',gKpf||'','','','','',gTecMeal||'','','','','',gTecGuest||'',gTec||'','','','','','',gExec||'',gSpecial||'',gTecSpecial||'',gGrand||'']);
+        const gKpf=gKpfMeal+gKpfGuest, gTec=gTecMeal+gTecGuest, gGrand=gKpf+gTec+gExec+gSpecial+gTecSpecial+gSnackSupply;
+        const totR=wsSumm.addRow(['GRAND TOTAL','','','','',gKpfMeal||'','','','','',gKpfGuest||'',gKpf||'','','','','',gTecMeal||'','','','','',gTecGuest||'',gTec||'','','','','','',gExec||'',gSpecial||'',gTecSpecial||'',gSnackSupply||'',gGrand||'']);
         totR.eachCell((c:any)=>{c.font={bold:true};c.fill=mkFill('FFFFF2CC');c.border=thin;c.alignment={horizontal:'center'};});
 
         const buf = await wb.xlsx.writeBuffer();
@@ -6627,6 +6632,50 @@ function HulSummaryTab({ month, year }: { month: number; year: number }) {
         const yrTecT = mealFields.reduce((a, f) => ({ ...a, [f]: filtTec.reduce((s, r) => s + (r[f] || 0), 0) }), {} as Record<string,number>);
         const yrExT = execFields.reduce((a, f) => ({ ...a, [f]: filtExec.reduce((s, r) => s + (r[f] || 0), 0) }), {} as Record<string,number>);
         const visibleMonthsList = Array.from({length:12},(_,i)=>i+1).filter(m => selectedMonths.has(m));
+        const monthlyAmountRows = visibleMonthsList.map(m => {
+          const kpf = yrKpf.find(r => Number(r.month) === m);
+          const tec = yrTec.find(r => Number(r.month) === m);
+          const exec = yrExec.find(r => Number(r.month) === m);
+          const mealAmount = (r?: YearlyMealRow) =>
+            Number(r?.breakfast || 0) * 35 + Number(r?.lunch || 0) * 50 +
+            Number(r?.eveningSnacks || 0) * 30 + Number(r?.nightSnacks || 0) * 17 +
+            Number(r?.guestBreakfast || 0) * 40 + Number(r?.guestLunch || 0) * 70 +
+            Number(r?.guestEveningSnacks || 0) * 40 + Number(r?.guestNightSnacks || 0) * 27;
+          const kpfAmount = mealAmount(kpf);
+          const tecAmount = mealAmount(tec);
+          const execAmount = Number(exec?.snacks || 0) * 25 + Number(exec?.biscuit || 0) * 10 +
+            Number(exec?.chips || 0) * 10 + Number(exec?.coldDrinkWater || 0) * 10 +
+            Number(exec?.shiftOfficerBreakfast || 0) * 40;
+          const hulSpecialAmount = yrSpecialOrders
+            .filter(r => Number(r.month) === m)
+            .reduce((s, r) => s + Number(r.total || 0), 0);
+          const tecSpecialAmount = yrTecSpecialOrders
+            .filter(r => Number(r.month) === m)
+            .reduce((s, r) => s + Number(r.total || 0), 0);
+          const snackSupply = yrSnackSupply.find(r => Number(r.month) === m);
+          const snackSupplyAmount = Number(snackSupply?.chips || 0) * 5 +
+            Number(snackSupply?.biscuit || 0) * 5 +
+            Number(snackSupply?.sugar || 0) * Number(snackSupply?.sugarRate || 0);
+          return {
+            month: m,
+            kpfAmount,
+            tecAmount,
+            execAmount,
+            hulSpecialAmount,
+            tecSpecialAmount,
+            snackSupplyAmount,
+            grandTotal: kpfAmount + tecAmount + execAmount + hulSpecialAmount + tecSpecialAmount + snackSupplyAmount,
+          };
+        });
+        const monthlyAmountTotals = monthlyAmountRows.reduce((totals, row) => ({
+          kpfAmount: totals.kpfAmount + row.kpfAmount,
+          tecAmount: totals.tecAmount + row.tecAmount,
+          execAmount: totals.execAmount + row.execAmount,
+          hulSpecialAmount: totals.hulSpecialAmount + row.hulSpecialAmount,
+          tecSpecialAmount: totals.tecSpecialAmount + row.tecSpecialAmount,
+          snackSupplyAmount: totals.snackSupplyAmount + row.snackSupplyAmount,
+          grandTotal: totals.grandTotal + row.grandTotal,
+        }), { kpfAmount:0, tecAmount:0, execAmount:0, hulSpecialAmount:0, tecSpecialAmount:0, snackSupplyAmount:0, grandTotal:0 });
         const selectedSpecialOrderTotal = yrSpecialOrders
           .filter(r => selectedMonths.has(Number(r.month)))
           .reduce((s, r) => s + Number(r.total || 0), 0);
@@ -6669,6 +6718,51 @@ function HulSummaryTab({ month, year }: { month: number; year: number }) {
                       {mealFields.map(f=><td key={f as string} style={tdTot}>—</td>)}
                       {execFields.map(f=><td key={f as string} style={tdTot}>{yrExT[f as string]||'—'}</td>)}
                       <td style={{ ...tdTot, fontWeight:'bold' }}>{Object.values(yrExT).reduce((s,v)=>s+v,0)||'—'}</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+            <div className="border rounded-lg overflow-hidden mb-4">
+              <div className="bg-gray-800 text-white px-3 py-2 text-sm font-bold text-center">
+                Monthly Amount Summary — {yearLabel}
+              </div>
+              <div className="overflow-x-auto">
+                <table className="w-full border-collapse" style={{ fontSize:10, minWidth:900 }}>
+                  <thead>
+                    <tr>
+                      <th style={{ ...thG, minWidth:90 }}>Month</th>
+                      <th style={thG}>KPF (₹)</th>
+                      <th style={thB}>TEC (₹)</th>
+                      <th style={thBr}>KPF Exec Snacks (₹)</th>
+                      <th style={thPurple}>HUL Special Order (₹)</th>
+                      <th style={thB}>TEC Special Order (₹)</th>
+                      <th style={{ ...thPurple, background:'#0f766e' }}>TEC Snacks/Sugar Supply (₹)</th>
+                      <th style={{ ...thG, background:'#374151' }}>Monthly Total (₹)</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {monthlyAmountRows.map((row, i) => (
+                      <tr key={row.month} style={{ background:i%2===0?'#f9fafb':'#fff' }}>
+                        <td style={tdL}>{MONTHS[row.month-1]}</td>
+                        <td style={tdR}>{fmtINR(row.kpfAmount)}</td>
+                        <td style={tdR}>{fmtINR(row.tecAmount)}</td>
+                        <td style={tdR}>{fmtINR(row.execAmount)}</td>
+                        <td style={tdR}>{fmtINR(row.hulSpecialAmount)}</td>
+                        <td style={tdR}>{fmtINR(row.tecSpecialAmount)}</td>
+                        <td style={tdR}>{fmtINR(row.snackSupplyAmount)}</td>
+                        <td style={{ ...tdR, fontWeight:'bold', background:'#f0fdf4' }}>{fmtINR(row.grandTotal)}</td>
+                      </tr>
+                    ))}
+                    <tr>
+                      <td style={tdTot}>{selectedMonths.size === 12 ? 'Year Total' : 'Selected Months Total'}</td>
+                      <td style={tdTot}>{fmtINR(monthlyAmountTotals.kpfAmount)}</td>
+                      <td style={tdTot}>{fmtINR(monthlyAmountTotals.tecAmount)}</td>
+                      <td style={tdTot}>{fmtINR(monthlyAmountTotals.execAmount)}</td>
+                      <td style={tdTot}>{fmtINR(monthlyAmountTotals.hulSpecialAmount)}</td>
+                      <td style={tdTot}>{fmtINR(monthlyAmountTotals.tecSpecialAmount)}</td>
+                      <td style={tdTot}>{fmtINR(monthlyAmountTotals.snackSupplyAmount)}</td>
+                      <td style={{ ...tdTot, background:'#bbf7d0' }}>{fmtINR(monthlyAmountTotals.grandTotal)}</td>
                     </tr>
                   </tbody>
                 </table>
