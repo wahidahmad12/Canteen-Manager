@@ -3735,6 +3735,7 @@ function HulSpecialOrderTab({ month, year, loadKey = 0 }: { month: number; year:
     if (row.id) {
       await fetch(`/api/hul-special-orders/${row.id}`, { method: 'DELETE', credentials: 'include' });
       qc.invalidateQueries({ queryKey: ['/api/hul-special-orders', month, year] });
+      qc.invalidateQueries({ queryKey: ['/api/hul-special-orders'] });
     }
     setRows(prev => prev.filter((_, i) => i !== idx).map((r, i) => ({ ...r, slNo: i + 1 })));
   };
@@ -3757,6 +3758,7 @@ function HulSpecialOrderTab({ month, year, loadKey = 0 }: { month: number; year:
         }
       }
       await qc.invalidateQueries({ queryKey: ['/api/hul-special-orders', month, year] });
+      await qc.invalidateQueries({ queryKey: ['/api/hul-special-orders'] });
       toast({ title: 'Saved', description: 'Special orders saved successfully.' });
     } catch (err: any) {
       toast({ title: 'Save failed', description: err.message, variant: 'destructive' });
@@ -6287,6 +6289,7 @@ function HulSummaryTab({ month, year }: { month: number; year: number }) {
         const filtKpfEx = yrKpf.filter(r => selectedMonths.has(r.month));
         const filtTecEx = yrTec.filter(r => selectedMonths.has(r.month));
         const filtExecEx = yrExec.filter(r => selectedMonths.has(r.month));
+        const filtSpecialEx = yrSpecialOrders.filter(r => selectedMonths.has(Number(r.month)));
         const visMths = Array.from({length:12},(_,i)=>i+1).filter(m => selectedMonths.has(m));
 
         const makeMealYrSheet = (ws: any, loc: string, filtData: YearlyMealRow[], hArgb: string) => {
@@ -6346,6 +6349,7 @@ function HulSummaryTab({ month, year }: { month: number; year: number }) {
           'TEC Breakfast','TEC Lunch','TEC Evng Snacks','TEC Night Snacks','TEC Meal Sub (₹)',
           'TEC G.Bfast','TEC G.Lunch','TEC G.Evng','TEC G.Night','TEC Guest Sub (₹)','TEC Total (₹)',
           'Exec Snacks','Exec Biscuit','Exec Chips','Exec Cold Drink & Water','Exec Shift Officer Breakfast','Exec Total (₹)',
+          'Special Orders (₹)',
           'Grand Total (₹)',
         ];
         wsSumm.mergeCells(1,1,1,summCols.length);
@@ -6354,20 +6358,20 @@ function HulSummaryTab({ month, year }: { month: number; year: number }) {
         sTit.font={bold:true,size:13,color:{argb:'FFFFFFFF'}}; sTit.fill=mkFill('FF374151'); sTit.alignment={horizontal:'center'}; sTit.border=thin;
         // Sub-header groups
         wsSumm.mergeCells(2,1,2,1);
-        [[2,12,'FF1A6B2E','KPF — Meal & Guest'],[13,23,'FF1A3A8A','TEC — Meal & Guest'],[24,29,'FFB45309','KPF Exec Snacks'],[30,30,'FF374151','']].forEach(([s,e,c,label])=>{
+        [[2,12,'FF1A6B2E','KPF — Meal & Guest'],[13,23,'FF1A3A8A','TEC — Meal & Guest'],[24,29,'FFB45309','KPF Exec Snacks'],[30,30,'FF7C3AED','Special Orders'],[31,31,'FF374151','']].forEach(([s,e,c,label])=>{
           if (label) { wsSumm.mergeCells(2,Number(s),2,Number(e)); const cell=wsSumm.getCell(2,Number(s)); cell.value=label; cell.font=wFont; cell.fill=mkFill(c as string); cell.alignment={horizontal:'center'}; cell.border=thin; }
           else { const cell=wsSumm.getCell(2,Number(s)); cell.fill=mkFill(c as string); cell.border=thin; }
         });
         const summHdr = wsSumm.addRow(summCols);
         summHdr.eachCell((c:any,ci:number)=>{
-          const argb = ci<=12?'FF1A6B2E':ci<=23?'FF1A3A8A':ci<=29?'FFB45309':'FF374151';
+          const argb = ci<=12?'FF1A6B2E':ci<=23?'FF1A3A8A':ci<=29?'FFB45309':ci===30?'FF7C3AED':'FF374151';
           c.font=wFont; c.fill=mkFill(argb); c.border=thin; c.alignment={horizontal:'center',wrapText:true};
         });
         wsSumm.getRow(3).height=32;
         wsSumm.columns = summCols.map((_,i)=>({width:i===0?14:16}));
 
         // Grand totals accumulators
-        let gKpfMeal=0,gKpfGuest=0,gTecMeal=0,gTecGuest=0,gExec=0;
+        let gKpfMeal=0,gKpfGuest=0,gTecMeal=0,gTecGuest=0,gExec=0,gSpecial=0;
         visMths.forEach(m=>{
           const kpf=filtKpfEx.find(r=>r.month===m);
           const tec=filtTecEx.find(r=>r.month===m);
@@ -6380,8 +6384,9 @@ function HulSummaryTab({ month, year }: { month: number; year: number }) {
           const tMeal=tbf*35+tln*50+tes*30+tns*17, tGuest=tgbf*40+tgln*70+tges*40+tgns*27;
           const esn=exc?.snacks||0,ebi=exc?.biscuit||0,ech=exc?.chips||0,ecw=exc?.coldDrinkWater||0,esob=exc?.shiftOfficerBreakfast||0;
           const eTotal=esn*25+ebi*10+ech*10+ecw*10+esob*40;
-          const grand=kMeal+kGuest+tMeal+tGuest+eTotal;
-          gKpfMeal+=kMeal; gKpfGuest+=kGuest; gTecMeal+=tMeal; gTecGuest+=tGuest; gExec+=eTotal;
+          const specialTotal=filtSpecialEx.filter(r=>Number(r.month)===m).reduce((s,r)=>s+Number(r.total||0),0);
+          const grand=kMeal+kGuest+tMeal+tGuest+eTotal+specialTotal;
+          gKpfMeal+=kMeal; gKpfGuest+=kGuest; gTecMeal+=tMeal; gTecGuest+=tGuest; gExec+=eTotal; gSpecial+=specialTotal;
           const dr=wsSumm.addRow([
             MONTHS[m-1],
             kbf||'',kln||'',kes||'',kns||'',kMeal||'',
@@ -6389,12 +6394,13 @@ function HulSummaryTab({ month, year }: { month: number; year: number }) {
             tbf||'',tln||'',tes||'',tns||'',tMeal||'',
             tgbf||'',tgln||'',tges||'',tgns||'',tGuest||'',tMeal+tGuest||'',
             esn||'',ebi||'',ech||'',ecw||'',esob||'',eTotal||'',
+            specialTotal||'',
             grand||'',
           ]);
           dr.eachCell((c:any)=>{c.border=thin;c.alignment={horizontal:'center'};});
         });
-        const gKpf=gKpfMeal+gKpfGuest, gTec=gTecMeal+gTecGuest, gGrand=gKpf+gTec+gExec;
-        const totR=wsSumm.addRow(['GRAND TOTAL','','','','',gKpfMeal||'','','','','',gKpfGuest||'',gKpf||'','','','','',gTecMeal||'','','','','',gTecGuest||'',gTec||'','','','','','',gExec||'',gGrand||'']);
+        const gKpf=gKpfMeal+gKpfGuest, gTec=gTecMeal+gTecGuest, gGrand=gKpf+gTec+gExec+gSpecial;
+        const totR=wsSumm.addRow(['GRAND TOTAL','','','','',gKpfMeal||'','','','','',gKpfGuest||'',gKpf||'','','','','',gTecMeal||'','','','','',gTecGuest||'',gTec||'','','','','','',gExec||'',gSpecial||'',gGrand||'']);
         totR.eachCell((c:any)=>{c.font={bold:true};c.fill=mkFill('FFFFF2CC');c.border=thin;c.alignment={horizontal:'center'};});
 
         const buf = await wb.xlsx.writeBuffer();
@@ -6445,24 +6451,25 @@ function HulSummaryTab({ month, year }: { month: number; year: number }) {
       etot.eachCell((c: any) => { c.font={bold:true}; c.fill=mkFill('FFE8F0FE'); c.border=thin; c.alignment={horizontal:'center'}; });
 
       const wsSumm = wb.addWorksheet('Summary');
-      wsSumm.mergeCells('A1:M1');
+      wsSumm.mergeCells('A1:N1');
       const st = wsSumm.getCell('A1');
       st.value = `HUL Combined Summary Report — ${monthLabel}`;
       st.font={bold:true,size:13,color:{argb:'FFFFFFFF'}}; st.fill=mkFill('FF1A6B2E'); st.alignment={horizontal:'center'}; st.border=thin;
-      const sHdr = wsSumm.addRow(['Section','Breakfast','Lunch','Evng Snacks','Night Snacks','G.Breakfast','G.Lunch','G.Evng Snacks','G.Night Snacks','Snacks','Biscuit','Chips','Cold Drink & Water']);
-      sHdr.eachCell((c: any, ci: number) => { c.font=wFont; c.fill=mkFill(ci<=5?'FF1A6B2E':ci<=9?'FF1A3A8A':'FFB45309'); c.border=thin; c.alignment={horizontal:'center'}; });
+      const sHdr = wsSumm.addRow(['Section','Breakfast','Lunch','Evng Snacks','Night Snacks','G.Breakfast','G.Lunch','G.Evng Snacks','G.Night Snacks','Snacks','Biscuit','Chips','Cold Drink & Water','Special Orders (₹)']);
+      sHdr.eachCell((c: any, ci: number) => { c.font=wFont; c.fill=mkFill(ci<=5?'FF1A6B2E':ci<=9?'FF1A3A8A':ci===14?'FF7C3AED':'FFB45309'); c.border=thin; c.alignment={horizontal:'center'}; });
       const sRows = [
-        ['KPF',kpfT.breakfast||'',kpfT.lunch||'',kpfT.eveningSnacks||'',kpfT.nightSnacks||'',kpfT.guestBreakfast||'',kpfT.guestLunch||'',kpfT.guestEveningSnacks||'',kpfT.guestNightSnacks||'','—','—','—','—'],
-        ['TEC',tecT.breakfast||'',tecT.lunch||'',tecT.eveningSnacks||'',tecT.nightSnacks||'',tecT.guestBreakfast||'',tecT.guestLunch||'',tecT.guestEveningSnacks||'',tecT.guestNightSnacks||'','—','—','—','—'],
-        ['KPF Exec Snacks','—','—','—','—','—','—','—','—',exT.snacks||'',exT.biscuit||'',exT.chips||'',exT.coldDrinkWater||''],
+        ['KPF',kpfT.breakfast||'',kpfT.lunch||'',kpfT.eveningSnacks||'',kpfT.nightSnacks||'',kpfT.guestBreakfast||'',kpfT.guestLunch||'',kpfT.guestEveningSnacks||'',kpfT.guestNightSnacks||'','—','—','—','—','—'],
+        ['TEC',tecT.breakfast||'',tecT.lunch||'',tecT.eveningSnacks||'',tecT.nightSnacks||'',tecT.guestBreakfast||'',tecT.guestLunch||'',tecT.guestEveningSnacks||'',tecT.guestNightSnacks||'','—','—','—','—','—'],
+        ['KPF Exec Snacks','—','—','—','—','—','—','—','—',exT.snacks||'',exT.biscuit||'',exT.chips||'',exT.coldDrinkWater||'','—'],
+        ['HUL Special Orders (₹)','','','','','','','','','','','','',specialTotal||''],
       ];
-      const sFills = ['FFD1FAE5','FFDBEAFE','FFFEF9C3'];
+      const sFills = ['FFD1FAE5','FFDBEAFE','FFFEF9C3','FFF3E8FF'];
       sRows.forEach((r, i) => {
         const row = wsSumm.addRow(r);
         row.eachCell((c: any) => { c.fill=mkFill(sFills[i]); c.border=thin; c.alignment={horizontal:'center'}; });
         wsSumm.getCell(row.number,1).font={bold:true};
       });
-      wsSumm.columns=[18,12,12,13,13,14,12,15,15,12,12,10,16].map((w: number)=>({width:w}));
+      wsSumm.columns=[18,12,12,13,13,14,12,15,15,12,12,10,16,20].map((w: number)=>({width:w}));
 
       const buf = await wb.xlsx.writeBuffer();
       const blob = new Blob([buf],{type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'});
@@ -6599,6 +6606,9 @@ function HulSummaryTab({ month, year }: { month: number; year: number }) {
         const yrTecT = mealFields.reduce((a, f) => ({ ...a, [f]: filtTec.reduce((s, r) => s + (r[f] || 0), 0) }), {} as Record<string,number>);
         const yrExT = execFields.reduce((a, f) => ({ ...a, [f]: filtExec.reduce((s, r) => s + (r[f] || 0), 0) }), {} as Record<string,number>);
         const visibleMonthsList = Array.from({length:12},(_,i)=>i+1).filter(m => selectedMonths.has(m));
+        const selectedSpecialOrderTotal = yrSpecialOrders
+          .filter(r => selectedMonths.has(Number(r.month)))
+          .reduce((s, r) => s + Number(r.total || 0), 0);
 
         return (
           <>
@@ -6641,6 +6651,15 @@ function HulSummaryTab({ month, year }: { month: number; year: number }) {
                     </tr>
                   </tbody>
                 </table>
+              </div>
+            </div>
+            <div className="border rounded-lg overflow-hidden mb-4 bg-purple-50">
+              <div className="px-3 py-2 text-sm font-bold text-white text-center" style={{ background:'#7c3aed' }}>
+                HUL Special Order Amount — {yearLabel}
+              </div>
+              <div className="flex items-center justify-between px-4 py-3 text-sm">
+                <span>Selected months total (not mixed with meal counts)</span>
+                <strong>{fmtINR(selectedSpecialOrderTotal)}</strong>
               </div>
             </div>
 
@@ -7013,6 +7032,15 @@ function HulSummaryTab({ month, year }: { month: number; year: number }) {
           </table>
         </div>
       </div>
+      <div className="border rounded-lg overflow-hidden mb-4 bg-purple-50">
+        <div className="px-3 py-2 text-sm font-bold text-white text-center" style={{ background:'#7c3aed' }}>
+          HUL Special Order Amount — {monthLabel}
+        </div>
+        <div className="flex items-center justify-between px-4 py-3 text-sm">
+          <span>Special orders total (not mixed with meal counts)</span>
+          <strong>{fmtINR(specialTotal)}</strong>
+        </div>
+      </div>
 
       {/* ===== MONTHLY RATE WISE SUMMARY ===== */}
       <div className="border rounded-lg overflow-hidden mb-4">
@@ -7351,6 +7379,9 @@ function HulSummaryTab({ month, year }: { month: number; year: number }) {
             <tr><td style={{ ...tdTot, textAlign:'left' }}>KPF Exec Snacks</td><td style={tdTot}>—</td><td style={tdTot}>—</td><td style={tdTot}>—</td><td style={tdTot}>—</td><td style={tdTot}>—</td><td style={tdTot}>—</td><td style={tdTot}>—</td><td style={tdTot}>—</td><td style={tdTot}>{exT.snacks||'—'}</td><td style={tdTot}>{exT.biscuit||'—'}</td><td style={tdTot}>{exT.chips||'—'}</td><td style={tdTot}>{exT.coldDrinkWater||'—'}</td><td style={tdTot}>{exT.shiftOfficerBreakfast||'—'}</td></tr>
           </tbody>
         </table>
+        <p style={{ textAlign:'right', fontWeight:'bold', margin:'6px 0', padding:6, background:'#f3e8ff', color:'#4c1d95' }}>
+          HUL Special Order Amount: {fmtINR(specialTotal)}
+        </p>
       </div>
     </div>
   );
