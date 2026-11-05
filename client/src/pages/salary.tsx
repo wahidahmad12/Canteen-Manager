@@ -150,7 +150,22 @@ function formatDateStr(d: string | undefined | null): string {
   try { const dt = new Date(d); const dd = String(dt.getDate()).padStart(2, "0"); const mm = String(dt.getMonth() + 1).padStart(2, "0"); return `${dd}-${mm}-${dt.getFullYear()}`; } catch { return d; }
 }
 
-function buildSalaryPaymentReceiptHTML(salary: SalaryRecord, employee: Employee, paymentDate: string): string {
+const REF_INCREMENTS = [50, 75, 25, 100, 60, 85, 40, 95, 30, 70];
+
+function generateTransactionRefs(start: string, count: number): string[] {
+  const digits = start.replace(/\D/g, "");
+  if (!digits) return Array(count).fill("");
+  const width = digits.length;
+  const refs: string[] = [];
+  let current = Number(digits);
+  for (let i = 0; i < count; i++) {
+    if (i > 0) current += REF_INCREMENTS[(i - 1) % REF_INCREMENTS.length];
+    refs.push(String(current).padStart(width, "0"));
+  }
+  return refs;
+}
+
+function buildSalaryPaymentReceiptHTML(salary: SalaryRecord, employee: Employee, paymentDate: string, transactionRef: string): string {
   const amount = Number(salary.netPay) || 0;
   const bankName = employee.bankName || "Bank details not recorded";
   const bankIcon = bankName.toUpperCase().includes("STATE BANK OF INDIA") || bankName.toUpperCase() === "SBI"
@@ -164,7 +179,7 @@ function buildSalaryPaymentReceiptHTML(salary: SalaryRecord, employee: Employee,
     <header style="text-align:center;margin:8px 0 24px;">
       <p style="${muted}font-size:13px;font-weight:500;">${dateLabel}</p>
       <p style="margin-top:16px;color:#8e8e93;font-size:14px;display:flex;justify-content:center;align-items:center;gap:6px;">
-        Salary record no. <strong style="color:#4b4b52;">${salary.id}</strong>
+        Transaction reference no.- <strong style="color:#4b4b52;">${esc(transactionRef)}</strong>
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#d97757"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v2m-6 12h8a2 2 0 0 0 2-2v-8a2 2 0 0 0-2-2h-8a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2Z"/></svg>
       </p>
     </header>
@@ -498,6 +513,8 @@ export default function SalaryRegister() {
   const [receiptPrintDialogOpen, setReceiptPrintDialogOpen] = useState(false);
   const [receiptPrintSelectedIds, setReceiptPrintSelectedIds] = useState<Set<number>>(new Set());
   const [receiptDownloading, setReceiptDownloading] = useState(false);
+  const [receiptRefStart, setReceiptRefStart] = useState("2598992345");
+  const [receiptRefOverrides, setReceiptRefOverrides] = useState<Record<number, string>>({});
   const [annualMonths, setAnnualMonths] = useState<Set<number>>(new Set());
   const [annualLoaded, setAnnualLoaded] = useState(false);
 
@@ -697,6 +714,15 @@ export default function SalaryRegister() {
     return employee ? [{ salary, employee }] : [];
   }), [validSalaries, employeeMap]);
 
+  const receiptRefs = useMemo(() => {
+    const generated = generateTransactionRefs(receiptRefStart, receiptRows.length);
+    const map = new Map<number, string>();
+    receiptRows.forEach(({ salary }, i) => {
+      map.set(salary.id, receiptRefOverrides[salary.id] ?? generated[i]);
+    });
+    return map;
+  }, [receiptRows, receiptRefStart, receiptRefOverrides]);
+
   const filteredReceiptRows = useMemo(() => {
     const search = receiptSearch.trim().toLowerCase();
     if (!search) return receiptRows;
@@ -732,7 +758,7 @@ export default function SalaryRegister() {
       return;
     }
     const receipts = selectedReceiptRows.map(({ salary, employee }) =>
-      buildSalaryPaymentReceiptHTML(salary, employee, salary.paidOn || salaryPaidDate)
+      buildSalaryPaymentReceiptHTML(salary, employee, salary.paidOn || salaryPaidDate, receiptRefs.get(salary.id) || "")
     ).join("");
     printWindow.document.write(`<html><head><title>Salary Payment Receipts - ${esc(MONTHS[Number(month) - 1])} ${esc(year)}</title>
       <style>
@@ -744,7 +770,7 @@ export default function SalaryRegister() {
     printWindow.document.close();
     printWindow.focus();
     printWindow.print();
-  }, [selectedReceiptRows, salaryPaidDate, month, year, toast]);
+  }, [selectedReceiptRows, receiptRefs, salaryPaidDate, month, year, toast]);
 
   const handleDownloadAllReceiptJpegs = useCallback(async () => {
     if (receiptRows.length === 0) return;
@@ -760,7 +786,7 @@ export default function SalaryRegister() {
     const monthName = MONTHS[Number(month) - 1];
     try {
       for (const { salary, employee } of receiptRows) {
-        container.innerHTML = buildSalaryPaymentReceiptHTML(salary, employee, salary.paidOn || salaryPaidDate);
+        container.innerHTML = buildSalaryPaymentReceiptHTML(salary, employee, salary.paidOn || salaryPaidDate, receiptRefs.get(salary.id) || "");
         const receipt = container.firstElementChild;
         if (!(receipt instanceof HTMLElement)) throw new Error("Could not render a salary receipt.");
         const canvas = await html2canvas(receipt, { scale: 2, useCORS: true, backgroundColor: "#ffffff", logging: false });
@@ -788,7 +814,7 @@ export default function SalaryRegister() {
       document.body.removeChild(container);
       setReceiptDownloading(false);
     }
-  }, [receiptRows, salaryPaidDate, month, year, toast]);
+  }, [receiptRows, receiptRefs, salaryPaidDate, month, year, toast]);
 
   const handleGovPrint = useCallback(() => {
     if (!salaries || salaries.length === 0 || rows.length === 0) return;
@@ -2205,7 +2231,14 @@ export default function SalaryRegister() {
                         className="w-full sm:w-80 text-sm"
                         data-testid="input-salary-receipt-search"
                       />
-                      <div className="flex flex-wrap gap-2">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <Input
+                          placeholder="First Transaction reference no."
+                          value={receiptRefStart}
+                          onChange={(event) => { setReceiptRefStart(event.target.value); setReceiptRefOverrides({}); }}
+                          className="w-52 text-sm"
+                          data-testid="input-transaction-ref-start"
+                        />
                         <Button variant="outline" size="sm" onClick={openReceiptPrintDialog} disabled={filteredReceiptRows.length === 0} data-testid="button-salary-receipts-print">
                           <Printer className="w-4 h-4 mr-1" /> Print
                         </Button>
@@ -2223,11 +2256,19 @@ export default function SalaryRegister() {
                       <div className="overflow-x-auto rounded-lg border bg-slate-50 p-4">
                         <div className="flex flex-wrap justify-center gap-6">
                           {filteredReceiptRows.map(({ salary, employee }) => (
-                            <div
-                              key={salary.id}
-                              data-testid={`salary-receipt-${salary.id}`}
-                              dangerouslySetInnerHTML={{ __html: buildSalaryPaymentReceiptHTML(salary, employee, salary.paidOn || salaryPaidDate) }}
-                            />
+                            <div key={salary.id}>
+                              <Input
+                                value={receiptRefs.get(salary.id) || ""}
+                                onChange={(event) => setReceiptRefOverrides((prev) => ({ ...prev, [salary.id]: event.target.value }))}
+                                placeholder="Transaction reference no."
+                                className="mb-2 h-8 w-[400px] bg-white text-sm"
+                                data-testid={`input-transaction-ref-${salary.id}`}
+                              />
+                              <div
+                                data-testid={`salary-receipt-${salary.id}`}
+                                dangerouslySetInnerHTML={{ __html: buildSalaryPaymentReceiptHTML(salary, employee, salary.paidOn || salaryPaidDate, receiptRefs.get(salary.id) || "") }}
+                              />
+                            </div>
                           ))}
                         </div>
                       </div>
