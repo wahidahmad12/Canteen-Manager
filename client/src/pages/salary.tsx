@@ -166,7 +166,7 @@ function generateTransactionRefs(start: string, count: number): string[] {
 }
 
 function buildSalaryPaymentReceiptHTML(salary: SalaryRecord, employee: Employee, paymentDate: string, transactionRef: string): string {
-  const amount = Number(salary.netPay) || 0;
+  const amount = Math.round(Number(salary.netPay) || 0);
   const bankName = employee.bankName || "Bank details not recorded";
   const bankIcon = bankName.toUpperCase().includes("STATE BANK OF INDIA") || bankName.toUpperCase() === "SBI"
     ? `<svg width="16" height="16" viewBox="0 0 120 120" fill="#1665D8"><path d="M60 0a60 60 0 1 0 60 60A60 60 0 0 0 60 0Zm0 36a13 13 0 1 1-13 13 13 13 0 0 1 13-13Zm-6.5 24h13v60h-13Z"/></svg>`
@@ -1171,7 +1171,7 @@ export default function SalaryRegister() {
   const formatPaymentDate = (d: string) => {
     if (!d) return "";
     const parts = d.split("-");
-    if (parts.length === 3) return `${parts[2]}/${parts[1]}/${parts[0]}`;
+    if (parts.length === 3) return `${parts[2]}-${parts[1]}-${parts[0]}`;
     return d;
   };
 
