@@ -1170,7 +1170,7 @@ export default function SalaryRegister() {
 
   const formatPaymentDate = (d: string) => {
     if (!d) return "";
-    const parts = d.split("-");
+    const parts = d.split("T")[0].split("-");
     if (parts.length === 3) return `${parts[2]}-${parts[1]}-${parts[0]}`;
     return d;
   };
