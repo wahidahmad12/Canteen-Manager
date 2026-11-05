@@ -172,12 +172,27 @@ function buildSalaryPaymentReceiptHTML(salary: SalaryRecord, employee: Employee,
     ? `<svg width="16" height="16" viewBox="0 0 120 120" fill="#1665D8"><path d="M60 0a60 60 0 1 0 60 60A60 60 0 0 0 60 0Zm0 36a13 13 0 1 1-13 13 13 13 0 0 1 13-13Zm-6.5 24h13v60h-13Z"/></svg>`
     : `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#d97757"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 21h18M3 10h18M3 7l9-4 9 4M4 10h16v11H4V10z"/></svg>`;
   const dateLabel = esc(formatPaymentReceiptDate(paymentDate));
+  const headerDateLabel = (() => {
+    const [y, m, d] = (paymentDate || "").split("T")[0].split("-");
+    if (!y || !m || !d) return dateLabel;
+    const now = new Date();
+    const time = now.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", hour12: true });
+    return esc(`${Number(d)} ${MONTHS[Number(m) - 1]?.slice(0, 3) || m} '${y.slice(2)}, ${time}`);
+  })();
   const muted = "color:#8e8e93;font-size:12px;";
   const label = "color:#a1a1aa;font-size:14px;width:36%;";
   const value = "color:#3f3f46;text-align:right;width:64%;font-weight:500;";
   return `<article class="salary-payment-receipt" style="box-sizing:border-box;width:400px;padding:16px;background:#fff;font-family:Arial,sans-serif;color:#3f3f46;border:1px solid #e5e7eb;border-radius:24px;">
     <header style="text-align:center;margin:8px 0 24px;">
-      <p style="${muted}font-size:13px;font-weight:500;">${dateLabel}</p>
+      <div style="width:84px;height:84px;margin:8px auto 0;border-radius:50%;background:#cfe0d6;display:flex;align-items:center;justify-content:center;">
+        <div style="width:66px;height:66px;border-radius:50%;background:#6fa383;display:flex;align-items:center;justify-content:center;">
+          <div style="width:50px;height:50px;border-radius:50%;background:#0f5f2a;display:flex;align-items:center;justify-content:center;">
+            <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>
+          </div>
+        </div>
+      </div>
+      <p style="margin:20px 0 0;font-size:22px;font-weight:500;color:#3f3f46;">Payment successful</p>
+      <p style="${muted}font-size:13px;font-weight:500;margin-top:28px;">${headerDateLabel}</p>
       <p style="margin-top:16px;color:#8e8e93;font-size:14px;display:flex;justify-content:center;align-items:center;gap:6px;">
         Transaction reference no.- <strong style="color:#4b4b52;">${esc(transactionRef)}</strong>
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#d97757"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v2m-6 12h8a2 2 0 0 0 2-2v-8a2 2 0 0 0-2-2h-8a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2Z"/></svg>
