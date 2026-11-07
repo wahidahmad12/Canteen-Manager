@@ -1,4 +1,4 @@
-import { mysqlTable, varchar, text, int, decimal, date, timestamp, boolean, json } from "drizzle-orm/mysql-core";
+import { mysqlTable, varchar, text, longtext, int, decimal, date, timestamp, boolean, json } from "drizzle-orm/mysql-core";
 import { createInsertSchema, createSelectSchema } from "drizzle-zod";
 import { z } from "zod";
 import { relations, sql } from "drizzle-orm";
@@ -225,6 +225,16 @@ export const vendors = mysqlTable("vendors", {
   gstNo: varchar("gst_no", { length: 500 }).default(""),
   linkedClients: text("linked_clients"),
   createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const vendorPaymentDetails = mysqlTable("vendor_payment_details", {
+  vendorId: int("vendor_id").primaryKey().references(() => vendors.id, { onDelete: "cascade" }),
+  bankName: varchar("bank_name", { length: 255 }).notNull().default(""),
+  accountNo: varchar("account_no", { length: 100 }).notNull().default(""),
+  ifscCode: varchar("ifsc_code", { length: 20 }).notNull().default(""),
+  branch: varchar("branch", { length: 255 }).notNull().default(""),
+  upiId: varchar("upi_id", { length: 255 }).notNull().default(""),
+  qrImage: longtext("qr_image").notNull(),
 });
 
 // Purchase invoices

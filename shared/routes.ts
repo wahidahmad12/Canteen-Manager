@@ -3,6 +3,7 @@ import { z } from 'zod';
 import { insertDailyReportSchema, insertExpenseItemSchema, selectDailyReportSchema, selectExpenseItemSchema, selectVegetableItemSchema, inventoryWithItemsSchema, selectClientNameSchema, selectSavedMenuSchema, purchaseRequestWithItemsSchema, selectSavedItemNameSchema, selectVendorSchema, purchaseInvoiceWithItemsSchema, selectItemMasterSchema } from './schema';
 import { eq } from "drizzle-orm";
 import { canteenSales } from "../shared/schema";
+import { vendorPaymentSchema } from "./vendor-payment";
 export const errorSchemas = {
   validation: z.object({
     message: z.string(),
@@ -471,6 +472,14 @@ export const api = {
     },
   },
   vendors: {
+    payment: {
+      method: 'GET' as const,
+      path: '/api/vendors/:id/payment' as const,
+      responses: {
+        200: vendorPaymentSchema,
+        404: errorSchemas.notFound,
+      },
+    },
     list: {
       method: 'GET' as const,
       path: '/api/vendors' as const,
@@ -490,9 +499,10 @@ export const api = {
     update: {
       method: 'PUT' as const,
       path: '/api/vendors/:id' as const,
-      input: z.object({ name: z.string().min(1), phone: z.string().optional(), address: z.string().optional(), gstNo: z.string().optional(), linkedClients: z.array(z.string()).optional() }),
+      input: z.object({ name: z.string().min(1), phone: z.string().optional(), address: z.string().optional(), gstNo: z.string().optional(), linkedClients: z.array(z.string()).optional(), payment: vendorPaymentSchema.optional() }),
       responses: {
         200: selectVendorSchema,
+        400: errorSchemas.validation,
         404: errorSchemas.notFound,
       },
     },

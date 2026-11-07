@@ -36,6 +36,8 @@ import { Badge } from "@/components/ui/badge";
 import { ItemIdCards } from "@/components/item-id-cards";
 import { useToast } from "@/hooks/use-toast";
 import { useLocation } from "wouter";
+import { api, buildUrl } from "@shared/routes";
+import { emptyVendorPayment, isValidPaymentQr, MAX_PAYMENT_QR_BYTES, type VendorPayment } from "@shared/vendor-payment";
 
 export default function Admin() {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
@@ -170,6 +172,10 @@ export default function Admin() {
   const [editingVendorAddress, setEditingVendorAddress] = useState("");
   const [editingVendorGstNo, setEditingVendorGstNo] = useState("");
   const [editingVendorLinkedClients, setEditingVendorLinkedClients] = useState<string[]>([]);
+  const [vendorPayment, setVendorPayment] = useState<VendorPayment>({ ...emptyVendorPayment });
+  const [viewingVendorId, setViewingVendorId] = useState<number | null>(null);
+  const [loadingVendorPayment, setLoadingVendorPayment] = useState(false);
+  const [readingVendorQr, setReadingVendorQr] = useState(false);
 
   const parseLinkedClients = (raw: string | null | undefined): string[] => {
     if (!raw) return [];
@@ -457,11 +463,66 @@ export default function Admin() {
   const handleUpdateVendor = async (id: number) => {
     if (!editingVendorName.trim()) return;
     try {
-      await updateVendorMutation.mutateAsync({ id, name: editingVendorName.trim(), phone: editingVendorPhone.trim(), address: editingVendorAddress.trim(), gstNo: editingVendorGstNo.trim(), linkedClients: editingVendorLinkedClients });
+      await updateVendorMutation.mutateAsync({ id, name: editingVendorName.trim(), phone: editingVendorPhone.trim(), address: editingVendorAddress.trim(), gstNo: editingVendorGstNo.trim(), linkedClients: editingVendorLinkedClients, payment: {
+        ...vendorPayment,
+        bankName: vendorPayment.bankName.trim(),
+        accountNo: vendorPayment.accountNo.trim(),
+        ifscCode: vendorPayment.ifscCode.trim(),
+        branch: vendorPayment.branch.trim(),
+        upiId: vendorPayment.upiId.trim(),
+      } });
       setEditingVendorId(null);
       toast({ title: "Success", description: "Vendor updated" });
     } catch (e: any) {
       toast({ title: "Error", description: e.message || "Failed to update vendor", variant: "destructive" });
+    }
+  };
+
+  const openVendorPayment = async (vendor: NonNullable<typeof vendorsList>[number], edit: boolean) => {
+    setLoadingVendorPayment(true);
+    try {
+      const res = await fetch(buildUrl(api.vendors.payment.path, { id: vendor.id }), { credentials: "include", cache: "no-store" });
+      if (!res.ok) throw new Error("Could not load vendor payment details.");
+      const payment = await res.json() as VendorPayment;
+      setVendorPayment(payment);
+      setViewingVendorId(edit ? null : vendor.id);
+      if (edit) {
+        setEditingVendorId(vendor.id);
+        setEditingVendorName(vendor.name);
+        setEditingVendorPhone(vendor.phone || "");
+        setEditingVendorAddress(vendor.address || "");
+        setEditingVendorGstNo(vendor.gstNo || "");
+        setEditingVendorLinkedClients(parseLinkedClients(vendor.linkedClients));
+      } else {
+        setEditingVendorId(null);
+      }
+    } catch (e: any) {
+      toast({ title: "Error", description: e.message || "Could not load vendor payment details.", variant: "destructive" });
+    } finally {
+      setLoadingVendorPayment(false);
+    }
+  };
+
+  const handleVendorQr = async (file: File) => {
+    setReadingVendorQr(true);
+    try {
+      if (!["image/jpeg", "image/png", "image/webp"].includes(file.type) || file.size > MAX_PAYMENT_QR_BYTES) {
+        throw new Error("Choose a JPEG, PNG, or WebP image no larger than 1 MB.");
+      }
+      const bitmap = await createImageBitmap(file);
+      bitmap.close();
+      const data = await new Promise<string>((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => typeof reader.result === "string" ? resolve(reader.result) : reject(new Error("Could not read the image."));
+        reader.onerror = () => reject(new Error("Could not read the image."));
+        reader.readAsDataURL(file);
+      });
+      if (!isValidPaymentQr(data)) throw new Error("Choose a valid JPEG, PNG, or WebP image.");
+      setVendorPayment(prev => ({ ...prev, qrImage: data }));
+    } catch (e: any) {
+      toast({ title: "QR upload failed", description: e.message || "Choose another image.", variant: "destructive" });
+    } finally {
+      setReadingVendorQr(false);
     }
   };
 
@@ -995,6 +1056,32 @@ export default function Admin() {
                             className="h-9 border-orange-300"
                             data-testid={`input-edit-vendor-gstno-${vendor.id}`}
                           />
+                          {([
+                            ["bankName", "Bank name", 255],
+                            ["accountNo", "Account number", 100],
+                            ["ifscCode", "IFSC code", 20],
+                            ["branch", "Bank branch", 255],
+                            ["upiId", "UPI ID", 255],
+                          ] as const).map(([field, label, maxLength]) => (
+                            <label key={field} className="space-y-1 text-sm">
+                              <span>{label}</span>
+                              <Input value={vendorPayment[field]} maxLength={maxLength} onChange={(e) => setVendorPayment(prev => ({ ...prev, [field]: e.target.value }))} placeholder={label} data-testid={`input-vendor-${field}-${vendor.id}`} />
+                            </label>
+                          ))}
+                          <div className="sm:col-span-2 space-y-2">
+                            <Label htmlFor={`vendor-qr-${vendor.id}`}>Payment QR image (JPEG, PNG or WebP, max 1 MB)</Label>
+                            <Input id={`vendor-qr-${vendor.id}`} type="file" accept="image/jpeg,image/png,image/webp" disabled={readingVendorQr} onChange={(e) => {
+                              const file = e.target.files?.[0];
+                              e.target.value = "";
+                              if (file) void handleVendorQr(file);
+                            }} />
+                            {vendorPayment.qrImage && (
+                              <div className="space-y-2">
+                                <img src={vendorPayment.qrImage} alt={`Payment QR for ${vendor.name}`} className="w-48 h-48 object-contain bg-white" />
+                                <Button type="button" variant="outline" size="sm" onClick={() => setVendorPayment(prev => ({ ...prev, qrImage: "" }))} disabled={readingVendorQr}>Remove QR</Button>
+                              </div>
+                            )}
+                          </div>
                           <div className="sm:col-span-2">
                             <Popover>
                               <PopoverTrigger asChild>
@@ -1025,6 +1112,7 @@ export default function Admin() {
                             size="sm"
                             className="bg-gradient-to-r from-emerald-500 to-green-500 hover:from-emerald-600 hover:to-green-600 border-0 text-white"
                             onClick={() => handleUpdateVendor(vendor.id)}
+                            disabled={updateVendorMutation.isPending || readingVendorQr}
                             data-testid={`button-save-vendor-${vendor.id}`}
                           >
                             <Save className="w-4 h-4 mr-1" /> Save
@@ -1033,6 +1121,7 @@ export default function Admin() {
                             size="sm"
                             variant="outline"
                             onClick={() => setEditingVendorId(null)}
+                            disabled={updateVendorMutation.isPending || readingVendorQr}
                           >
                             <X className="w-4 h-4 mr-1" /> Cancel
                           </Button>
@@ -1058,6 +1147,22 @@ export default function Admin() {
                               )}
                               {!vendor.phone && !vendor.address && !vendor.gstNo && !vendor.linkedClients && <div className="italic text-xs">No details added</div>}
                             </div>
+                            <Button type="button" size="sm" variant="outline" className="mt-2" disabled={loadingVendorPayment || editingVendorId !== null} onClick={() => {
+                              if (viewingVendorId === vendor.id) setViewingVendorId(null);
+                              else void openVendorPayment(vendor, false);
+                            }}>
+                              {viewingVendorId === vendor.id ? "Hide payment details" : "View payment details"}
+                            </Button>
+                            {viewingVendorId === vendor.id && (
+                              <div className="mt-3 space-y-1 text-sm break-words" data-testid={`vendor-payment-${vendor.id}`}>
+                                <div><strong>Bank name:</strong> {vendorPayment.bankName || "—"}</div>
+                                <div><strong>Account number:</strong> {vendorPayment.accountNo || "—"}</div>
+                                <div><strong>IFSC code:</strong> {vendorPayment.ifscCode || "—"}</div>
+                                <div><strong>Branch:</strong> {vendorPayment.branch || "—"}</div>
+                                <div><strong>UPI ID:</strong> {vendorPayment.upiId || "—"}</div>
+                                {vendorPayment.qrImage && <img src={vendorPayment.qrImage} alt={`Payment QR for ${vendor.name}`} className="w-64 h-64 max-w-full object-contain bg-white pt-2" />}
+                              </div>
+                            )}
                           </div>
                         </div>
                         <div className="flex gap-1 shrink-0">
@@ -1065,14 +1170,8 @@ export default function Admin() {
                             size="icon"
                             variant="ghost"
                             className="h-8 w-8 text-orange-600 hover:bg-orange-50 dark:hover:bg-orange-900/20"
-                            onClick={() => {
-                              setEditingVendorId(vendor.id);
-                              setEditingVendorName(vendor.name);
-                              setEditingVendorPhone(vendor.phone || "");
-                              setEditingVendorAddress(vendor.address || "");
-                              setEditingVendorGstNo(vendor.gstNo || "");
-                              setEditingVendorLinkedClients(parseLinkedClients(vendor.linkedClients));
-                            }}
+                            onClick={() => void openVendorPayment(vendor, true)}
+                            disabled={loadingVendorPayment || editingVendorId !== null || updateVendorMutation.isPending || readingVendorQr}
                             data-testid={`button-edit-vendor-${vendor.id}`}
                           >
                             <Pencil className="w-4 h-4" />
