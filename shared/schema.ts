@@ -347,6 +347,7 @@ export const employees = mysqlTable("employees", {
   ifscCode: varchar("ifsc_code", { length: 500 }).default(""),
   dailyRate: decimal("daily_rate", { precision: 10, scale: 2 }).default("0"),
   fixedHra: decimal("fixed_hra", { precision: 10, scale: 2 }).default("0"),
+  daAmount: decimal("da_amount", { precision: 10, scale: 2 }).default("0"),
   gender: varchar("gender", { length: 500 }).default("Male"),
   
   // -- NAYE COLUMNS --
