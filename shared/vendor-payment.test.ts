@@ -10,6 +10,8 @@ test("vendor updates remain compatible with older clients", () => {
   const parsed = api.vendors.update.input.parse({ name: "Vendor", phone: "123" });
   assert.equal(parsed.payment, undefined);
   assert.deepEqual(vendorPaymentSchema.parse(emptyVendorPayment), emptyVendorPayment);
+  assert.equal(api.vendors.create.input.parse({ name: "Vendor" }).payment, undefined);
+  assert.deepEqual(api.vendors.create.input.parse({ name: "Vendor", payment: emptyVendorPayment }).payment, emptyVendorPayment);
 });
 
 test("payment details retain account numbers as strings and validate field lengths", () => {
