@@ -1,5 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { api, buildUrl } from "@shared/routes";
+import type { VendorPayment } from "@shared/vendor-payment";
 import { 
   type CreateReportRequest, 
   type UpdateReportRequest, 
@@ -874,7 +875,7 @@ export function useVendors() {
     queryFn: async () => {
       const res = await fetch(api.vendors.list.path, { credentials: "include" });
       if (!res.ok) throw new Error("Failed to fetch vendors");
-      return res.json() as Promise<{ id: number; name: string; createdAt: string }[]>;
+      return res.json() as Promise<{ id: number; name: string; phone: string | null; address: string | null; gstNo: string | null; linkedClients: string | null; createdAt: string | null }[]>;
     },
   });
 }
@@ -904,12 +905,12 @@ export function useCreateVendor() {
 export function useUpdateVendor() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: async ({ id, name, phone, address, gstNo, linkedClients }: { id: number; name: string; phone?: string; address?: string; gstNo?: string; linkedClients?: string[] }) => {
+    mutationFn: async ({ id, ...data }: { id: number; name: string; phone?: string; address?: string; gstNo?: string; linkedClients?: string[]; payment?: VendorPayment }) => {
       const url = buildUrl(api.vendors.update.path, { id });
       const res = await fetch(url, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name, phone, address, gstNo, linkedClients }),
+        body: JSON.stringify(data),
         credentials: "include",
       });
       if (!res.ok) {

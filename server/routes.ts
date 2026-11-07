@@ -4,6 +4,7 @@ import { storage } from "./storage";
 import { pool, db } from "./db";
 import { api } from "@shared/routes";
 import { calculateProfessionalTax } from "@shared/professional-tax";
+import { registerVendorRoutes } from "./vendor-routes";
 import { z } from "zod";
 import bcrypt from "bcryptjs";
 import {
@@ -942,45 +943,7 @@ export async function registerRoutes(
     res.status(204).send();
   });
 
-  // === VENDOR ROUTES ===
-  app.get(api.vendors.list.path, requireAuth, async (req, res) => {
-    const vendorsList = await storage.getVendors();
-    res.json(vendorsList);
-  });
-
-  app.post(api.vendors.create.path, requireAuth, async (req, res) => {
-    try {
-      const input = api.vendors.create.input.parse(req.body);
-      const vendor = await storage.createVendor(input);
-      res.status(201).json(vendor);
-    } catch (err) {
-      if (err instanceof z.ZodError) {
-        return res.status(400).json({ message: err.errors[0].message, field: err.errors[0].path.join('.') });
-      }
-      if (err instanceof Error && 'code' in (err as any) && (err as any).code === '23505') {
-        return res.status(400).json({ message: 'This vendor already exists.' });
-      }
-      throw err;
-    }
-  });
-
-  app.put(api.vendors.update.path, requireAdmin, async (req, res) => {
-    try {
-      const input = api.vendors.update.input.parse(req.body);
-      const vendor = await storage.updateVendor(Number(req.params.id), input);
-      res.json(vendor);
-    } catch (err) {
-      if (err instanceof Error && err.message === "Vendor not found") {
-        return res.status(404).json({ message: "Vendor not found" });
-      }
-      throw err;
-    }
-  });
-
-  app.delete(api.vendors.delete.path, requireAdmin, async (req, res) => {
-    await storage.deleteVendor(Number(req.params.id));
-    res.status(204).send();
-  });
+  registerVendorRoutes(app, storage, requireAuth, requireAdmin);
 
   // === PURCHASE INVOICE ROUTES ===
   app.get(api.purchaseInvoices.lastPrices.path, requireAuth, async (req, res) => {

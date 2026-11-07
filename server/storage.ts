@@ -16,6 +16,7 @@ import {
   purchaseRequestItems,
   savedItemNames,
   vendors,
+  vendorPaymentDetails,
   purchaseInvoices,
   purchaseInvoiceItems,
   purchaseInvoicePayments,
@@ -116,6 +117,7 @@ import {
   type PankajReport,
   pankajReports,
 } from "@shared/schema";
+import { emptyVendorPayment, type VendorPayment } from "@shared/vendor-payment";
 import { eq, desc, lt, and, sql, gte, lte, or, asc } from "drizzle-orm";
 import { bananaRateSqlCase } from "@shared/banana-rate";
 import { calculateProfessionalTax } from "@shared/professional-tax";
@@ -187,7 +189,8 @@ export interface IStorage {
   saveItemNames(names: string[], source: string, categoryId?: number): Promise<void>;
   getVendors(): Promise<Vendor[]>;
   createVendor(data: { name: string; phone?: string; address?: string; gstNo?: string; linkedClients?: string[] }): Promise<Vendor>;
-  updateVendor(id: number, data: { name: string; phone?: string; address?: string; gstNo?: string; linkedClients?: string[] }): Promise<Vendor>;
+  getVendorPayment(id: number): Promise<VendorPayment | undefined>;
+  updateVendor(id: number, data: { name: string; phone?: string; address?: string; gstNo?: string; linkedClients?: string[]; payment?: VendorPayment }): Promise<Vendor>;
   deleteVendor(id: number): Promise<void>;
   getPurchaseInvoices(): Promise<PurchaseInvoiceWithItems[]>;
   getPurchaseInvoice(id: number): Promise<PurchaseInvoiceWithItems | undefined>;
@@ -1184,16 +1187,31 @@ export class DatabaseStorage implements IStorage {
     return vendor;
   }
 
-  async updateVendor(id: number, data: { name: string; phone?: string; address?: string; gstNo?: string; linkedClients?: string[] }): Promise<Vendor> {
+  async getVendorPayment(id: number): Promise<VendorPayment | undefined> {
+    const [vendor] = await db.select({ id: vendors.id }).from(vendors).where(eq(vendors.id, id));
+    if (!vendor) return undefined;
+    const [payment] = await db.select().from(vendorPaymentDetails).where(eq(vendorPaymentDetails.vendorId, id));
+    if (!payment) return { ...emptyVendorPayment };
+    const { vendorId, ...details } = payment;
+    return details;
+  }
+
+  async updateVendor(id: number, data: { name: string; phone?: string; address?: string; gstNo?: string; linkedClients?: string[]; payment?: VendorPayment }): Promise<Vendor> {
     const updateData: Record<string, any> = { name: data.name };
     if (data.phone !== undefined) updateData.phone = data.phone;
     if (data.address !== undefined) updateData.address = data.address;
     if (data.gstNo !== undefined) updateData.gstNo = data.gstNo;
     updateData.linkedClients = data.linkedClients && data.linkedClients.length > 0 ? JSON.stringify(data.linkedClients) : null;
-    await db.update(vendors).set(updateData).where(eq(vendors.id, id));
-    const [vendor] = await db.select().from(vendors).where(eq(vendors.id, id));
-    if (!vendor) throw new Error("Vendor not found");
-    return vendor;
+    return await db.transaction(async (tx) => {
+      await tx.update(vendors).set(updateData).where(eq(vendors.id, id));
+      const [vendor] = await tx.select().from(vendors).where(eq(vendors.id, id));
+      if (!vendor) throw new Error("Vendor not found");
+      if (data.payment !== undefined) {
+        await tx.insert(vendorPaymentDetails).values({ vendorId: id, ...data.payment })
+          .onDuplicateKeyUpdate({ set: data.payment });
+      }
+      return vendor;
+    });
   }
 
   async deleteVendor(id: number): Promise<void> {
