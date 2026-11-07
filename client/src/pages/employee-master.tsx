@@ -265,6 +265,7 @@ export default function EmployeeMaster() {
   const [searchText, setSearchText] = useState("");
   const [selectedEmployeeIds, setSelectedEmployeeIds] = useState<Set<number>>(new Set());
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [confirmCloseOpen, setConfirmCloseOpen] = useState(false);
   const [deleteId, setDeleteId] = useState<number | null>(null);
   const [registeringFingerprintId, setRegisteringFingerprintId] = useState<number | null>(null);
   const [qrEmp, setQrEmp] = useState<any>(null);
@@ -334,7 +335,10 @@ export default function EmployeeMaster() {
     },
   });
 
+  const requestCloseDialog = () => setConfirmCloseOpen(true);
+
   const closeDialog = () => {
+    setConfirmCloseOpen(false);
     photoLoadToken.current++;
     setDialogOpen(false);
     setEditingId(null);
@@ -992,8 +996,12 @@ export default function EmployeeMaster() {
         )}
       </div>
 
-      <Dialog open={dialogOpen} onOpenChange={open => { if (!open) closeDialog(); }}>
-        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+      <Dialog open={dialogOpen} onOpenChange={open => { if (!open) requestCloseDialog(); }}>
+        <DialogContent
+          className="max-w-2xl max-h-[90vh] overflow-y-auto"
+          onInteractOutside={e => e.preventDefault()}
+          onPointerDownOutside={e => e.preventDefault()}
+        >
           <DialogHeader>
             <DialogTitle>
               {editingId ? "Edit Employee" : "Add Employee"}
@@ -1289,7 +1297,7 @@ export default function EmployeeMaster() {
           </div>
 
           <DialogFooter className="gap-2">
-            <Button variant="outline" onClick={closeDialog}>Cancel</Button>
+            <Button variant="outline"             onClick={requestCloseDialog}>Cancel</Button>
             <Button onClick={handleSubmit} disabled={isSaving || photoLoading}>
               {isSaving && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
               {editingId ? "Update" : "Create"}
@@ -1298,6 +1306,21 @@ export default function EmployeeMaster() {
         </DialogContent>
       </Dialog>
 
+
+      <AlertDialog open={confirmCloseOpen} onOpenChange={setConfirmCloseOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Close without saving?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to close? Unsaved data will be lost.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Keep Editing</AlertDialogCancel>
+            <AlertDialogAction onClick={closeDialog}>Close</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       {/* QR Code Dialog */}
       <Dialog open={!!qrEmp} onOpenChange={open => { if (!open) setQrEmp(null); }}>
