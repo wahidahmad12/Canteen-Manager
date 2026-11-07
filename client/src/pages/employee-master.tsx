@@ -112,6 +112,7 @@ interface Employee {
   ifscCode: string | null;
   dailyRate: string | null;
   fixedHra: string | null;
+  daAmount: string | null;
   gender: string | null;
   religion: string | null; // Naya addition
   maritalStatus: string | null;
@@ -236,6 +237,7 @@ const emptyForm = {
   ifscCode: "",
   dailyRate: "",
   fixedHra: "",
+  daAmount: "",
   gender: "Male",
   religion: "",
   maritalStatus: "Unmarried",
@@ -408,6 +410,7 @@ export default function EmployeeMaster() {
       ifscCode: emp.ifscCode || "",
       dailyRate: emp.dailyRate || "",
       fixedHra: emp.fixedHra || "",
+      daAmount: emp.daAmount || "",
       gender: emp.gender || "Male",
       religion: emp.religion || "",
       maritalStatus: emp.maritalStatus || "Unmarried",
@@ -1149,6 +1152,10 @@ export default function EmployeeMaster() {
                 <div>
                   <Label htmlFor="fixedHra">Fixed HRA (Monthly)</Label>
                   <Input id="fixedHra" value={form.fixedHra} onChange={e => setField("fixedHra", e.target.value)} inputMode="decimal" placeholder="0" />
+                </div>
+                <div>
+                  <Label htmlFor="daAmount">DA Amount (Monthly)</Label>
+                  <Input id="daAmount" value={form.daAmount} onChange={e => setField("daAmount", e.target.value)} inputMode="decimal" placeholder="0" />
                 </div>
                 <div>
                   <Label htmlFor="weeklyOffDay">Weekly Off Day</Label>

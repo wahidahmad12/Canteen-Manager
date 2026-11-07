@@ -2439,7 +2439,8 @@ export class DatabaseStorage implements IStorage {
       const skillRate = await this.getSkillWageRate((emp.skills || "").trim(), month, year);
       const dailyRate = skillRate ? Number(skillRate.dailyRate) : (Number(emp.dailyRate) || 0);
       const basicWage = daysWorked * dailyRate;
-      const da = 0;
+      const daAmount = Number(emp.daAmount) || 0;
+      const da = daAmount > 0 ? Math.round((daAmount / 26) * daysWorked * 100) / 100 : 0;
       const hra5 = Math.round(basicWage * 0.05 * 100) / 100;
       const fixedHraAmount = Number(emp.fixedHra) || 0;
       const fixedHra = fixedHraAmount > 0 ? Math.round((fixedHraAmount / 26) * daysWorked * 100) / 100 : 0;

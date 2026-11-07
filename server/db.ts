@@ -108,6 +108,7 @@ async function initPool(): Promise<void> {
       guardian_relationship VARCHAR(50) DEFAULT NULL,
       guardian_address TEXT DEFAULT NULL
     )`,
+    `ALTER TABLE employees ADD COLUMN IF NOT EXISTS da_amount DECIMAL(10,2) DEFAULT 0`,
     `ALTER TABLE employees ADD COLUMN IF NOT EXISTS marital_status VARCHAR(50) DEFAULT NULL`,
     `ALTER TABLE employees ADD COLUMN IF NOT EXISTS religion VARCHAR(100) DEFAULT NULL`,
     `ALTER TABLE employees ADD COLUMN IF NOT EXISTS email VARCHAR(255) DEFAULT NULL`,
