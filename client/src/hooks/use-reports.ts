@@ -883,7 +883,7 @@ export function useVendors() {
 export function useCreateVendor() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: async (data: { name: string; phone?: string; address?: string; gstNo?: string; linkedClients?: string[] }) => {
+    mutationFn: async (data: { name: string; phone?: string; address?: string; gstNo?: string; linkedClients?: string[]; payment?: VendorPayment }) => {
       const res = await fetch(api.vendors.create.path, {
         method: "POST",
         headers: { "Content-Type": "application/json" },

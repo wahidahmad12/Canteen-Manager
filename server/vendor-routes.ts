@@ -17,7 +17,10 @@ export function registerVendorRoutes(app: Express, storage: VendorStorage, requi
     res.json(payment);
   });
 
-  app.post(api.vendors.create.path, requireAuth, async (req, res) => {
+  app.post(api.vendors.create.path, requireAuth, (req, res, next) => {
+    if (req.body?.payment !== undefined) return requireAdmin(req, res, next);
+    next();
+  }, async (req, res) => {
     try {
       const input = api.vendors.create.input.parse(req.body);
       const vendor = await storage.createVendor(input);

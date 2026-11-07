@@ -39,6 +39,23 @@ import { useLocation } from "wouter";
 import { api, buildUrl } from "@shared/routes";
 import { emptyVendorPayment, isValidPaymentQr, MAX_PAYMENT_QR_BYTES, type VendorPayment } from "@shared/vendor-payment";
 
+const vendorPaymentFields = [
+  ["bankName", "Bank name", 255],
+  ["accountNo", "Account number", 100],
+  ["ifscCode", "IFSC code", 20],
+  ["branch", "Bank branch", 255],
+  ["upiId", "UPI ID", 255],
+] as const;
+
+const trimVendorPayment = (payment: VendorPayment): VendorPayment => ({
+  ...payment,
+  bankName: payment.bankName.trim(),
+  accountNo: payment.accountNo.trim(),
+  ifscCode: payment.ifscCode.trim(),
+  branch: payment.branch.trim(),
+  upiId: payment.upiId.trim(),
+});
+
 export default function Admin() {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [pinInput, setPinInput] = useState("");
@@ -166,6 +183,8 @@ export default function Admin() {
   const [newVendorAddress, setNewVendorAddress] = useState("");
   const [newVendorGstNo, setNewVendorGstNo] = useState("");
   const [newVendorLinkedClients, setNewVendorLinkedClients] = useState<string[]>([]);
+  const [newVendorPayment, setNewVendorPayment] = useState<VendorPayment>({ ...emptyVendorPayment });
+  const [readingNewVendorQr, setReadingNewVendorQr] = useState(false);
   const [editingVendorId, setEditingVendorId] = useState<number | null>(null);
   const [editingVendorName, setEditingVendorName] = useState("");
   const [editingVendorPhone, setEditingVendorPhone] = useState("");
@@ -448,12 +467,13 @@ export default function Admin() {
   const handleCreateVendor = async () => {
     if (!newVendorName.trim()) return;
     try {
-      await createVendorMutation.mutateAsync({ name: newVendorName.trim(), phone: newVendorPhone.trim(), address: newVendorAddress.trim(), gstNo: newVendorGstNo.trim(), linkedClients: newVendorLinkedClients });
+      await createVendorMutation.mutateAsync({ name: newVendorName.trim(), phone: newVendorPhone.trim(), address: newVendorAddress.trim(), gstNo: newVendorGstNo.trim(), linkedClients: newVendorLinkedClients, payment: trimVendorPayment(newVendorPayment) });
       setNewVendorName("");
       setNewVendorPhone("");
       setNewVendorAddress("");
       setNewVendorGstNo("");
       setNewVendorLinkedClients([]);
+      setNewVendorPayment({ ...emptyVendorPayment });
       toast({ title: "Success", description: "Vendor added" });
     } catch (e: any) {
       toast({ title: "Error", description: e.message || "Failed to add vendor", variant: "destructive" });
@@ -463,14 +483,7 @@ export default function Admin() {
   const handleUpdateVendor = async (id: number) => {
     if (!editingVendorName.trim()) return;
     try {
-      await updateVendorMutation.mutateAsync({ id, name: editingVendorName.trim(), phone: editingVendorPhone.trim(), address: editingVendorAddress.trim(), gstNo: editingVendorGstNo.trim(), linkedClients: editingVendorLinkedClients, payment: {
-        ...vendorPayment,
-        bankName: vendorPayment.bankName.trim(),
-        accountNo: vendorPayment.accountNo.trim(),
-        ifscCode: vendorPayment.ifscCode.trim(),
-        branch: vendorPayment.branch.trim(),
-        upiId: vendorPayment.upiId.trim(),
-      } });
+      await updateVendorMutation.mutateAsync({ id, name: editingVendorName.trim(), phone: editingVendorPhone.trim(), address: editingVendorAddress.trim(), gstNo: editingVendorGstNo.trim(), linkedClients: editingVendorLinkedClients, payment: trimVendorPayment(vendorPayment) });
       setEditingVendorId(null);
       toast({ title: "Success", description: "Vendor updated" });
     } catch (e: any) {
@@ -503,8 +516,10 @@ export default function Admin() {
     }
   };
 
-  const handleVendorQr = async (file: File) => {
-    setReadingVendorQr(true);
+  const handleVendorQr = async (file: File, target: "new" | "edit") => {
+    const setReading = target === "new" ? setReadingNewVendorQr : setReadingVendorQr;
+    const setPayment = target === "new" ? setNewVendorPayment : setVendorPayment;
+    setReading(true);
     try {
       if (!["image/jpeg", "image/png", "image/webp"].includes(file.type) || file.size > MAX_PAYMENT_QR_BYTES) {
         throw new Error("Choose a JPEG, PNG, or WebP image no larger than 1 MB.");
@@ -518,11 +533,11 @@ export default function Admin() {
         reader.readAsDataURL(file);
       });
       if (!isValidPaymentQr(data)) throw new Error("Choose a valid JPEG, PNG, or WebP image.");
-      setVendorPayment(prev => ({ ...prev, qrImage: data }));
+      setPayment(prev => ({ ...prev, qrImage: data }));
     } catch (e: any) {
       toast({ title: "QR upload failed", description: e.message || "Choose another image.", variant: "destructive" });
     } finally {
-      setReadingVendorQr(false);
+      setReading(false);
     }
   };
 
@@ -985,6 +1000,26 @@ export default function Admin() {
                   className="border-orange-200 dark:border-orange-800 focus-visible:ring-orange-400"
                   data-testid="input-new-vendor-gstno"
                 />
+                {vendorPaymentFields.map(([field, label, maxLength]) => (
+                  <label key={field} className="space-y-1 text-sm">
+                    <span>{label}</span>
+                    <Input value={newVendorPayment[field]} maxLength={maxLength} onChange={(e) => setNewVendorPayment(prev => ({ ...prev, [field]: e.target.value }))} placeholder={label} data-testid={`input-new-vendor-${field}`} />
+                  </label>
+                ))}
+                <div className="sm:col-span-2 space-y-2">
+                  <Label htmlFor="new-vendor-qr">Payment QR image (JPEG, PNG or WebP, max 1 MB)</Label>
+                  <Input id="new-vendor-qr" type="file" accept="image/jpeg,image/png,image/webp" disabled={readingNewVendorQr || createVendorMutation.isPending} onChange={(e) => {
+                    const file = e.target.files?.[0];
+                    e.target.value = "";
+                    if (file) void handleVendorQr(file, "new");
+                  }} />
+                  {newVendorPayment.qrImage && (
+                    <div className="space-y-2">
+                      <img src={newVendorPayment.qrImage} alt="New vendor payment QR preview" className="w-48 h-48 object-contain bg-white" />
+                      <Button type="button" variant="outline" size="sm" onClick={() => setNewVendorPayment(prev => ({ ...prev, qrImage: "" }))} disabled={readingNewVendorQr || createVendorMutation.isPending}>Remove QR</Button>
+                    </div>
+                  )}
+                </div>
                 <div className="sm:col-span-2">
                   <Popover>
                     <PopoverTrigger asChild>
@@ -1010,7 +1045,7 @@ export default function Admin() {
                   </Popover>
                 </div>
               </div>
-              <Button onClick={handleCreateVendor} disabled={createVendorMutation.isPending} className="w-full sm:w-auto bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-600 hover:to-amber-600 border-0 shadow-md" data-testid="button-add-vendor">
+              <Button onClick={handleCreateVendor} disabled={createVendorMutation.isPending || readingNewVendorQr} className="w-full sm:w-auto bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-600 hover:to-amber-600 border-0 shadow-md" data-testid="button-add-vendor">
                 {createVendorMutation.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4 mr-2" />}
                 Add Vendor
               </Button>
@@ -1056,13 +1091,7 @@ export default function Admin() {
                             className="h-9 border-orange-300"
                             data-testid={`input-edit-vendor-gstno-${vendor.id}`}
                           />
-                          {([
-                            ["bankName", "Bank name", 255],
-                            ["accountNo", "Account number", 100],
-                            ["ifscCode", "IFSC code", 20],
-                            ["branch", "Bank branch", 255],
-                            ["upiId", "UPI ID", 255],
-                          ] as const).map(([field, label, maxLength]) => (
+                          {vendorPaymentFields.map(([field, label, maxLength]) => (
                             <label key={field} className="space-y-1 text-sm">
                               <span>{label}</span>
                               <Input value={vendorPayment[field]} maxLength={maxLength} onChange={(e) => setVendorPayment(prev => ({ ...prev, [field]: e.target.value }))} placeholder={label} data-testid={`input-vendor-${field}-${vendor.id}`} />
@@ -1073,7 +1102,7 @@ export default function Admin() {
                             <Input id={`vendor-qr-${vendor.id}`} type="file" accept="image/jpeg,image/png,image/webp" disabled={readingVendorQr} onChange={(e) => {
                               const file = e.target.files?.[0];
                               e.target.value = "";
-                              if (file) void handleVendorQr(file);
+                              if (file) void handleVendorQr(file, "edit");
                             }} />
                             {vendorPayment.qrImage && (
                               <div className="space-y-2">

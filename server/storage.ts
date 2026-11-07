@@ -188,7 +188,7 @@ export interface IStorage {
   getSavedItemNames(source?: string): Promise<SavedItemName[]>;
   saveItemNames(names: string[], source: string, categoryId?: number): Promise<void>;
   getVendors(): Promise<Vendor[]>;
-  createVendor(data: { name: string; phone?: string; address?: string; gstNo?: string; linkedClients?: string[] }): Promise<Vendor>;
+  createVendor(data: { name: string; phone?: string; address?: string; gstNo?: string; linkedClients?: string[]; payment?: VendorPayment }): Promise<Vendor>;
   getVendorPayment(id: number): Promise<VendorPayment | undefined>;
   updateVendor(id: number, data: { name: string; phone?: string; address?: string; gstNo?: string; linkedClients?: string[]; payment?: VendorPayment }): Promise<Vendor>;
   deleteVendor(id: number): Promise<void>;
@@ -1171,9 +1171,9 @@ export class DatabaseStorage implements IStorage {
     return await db.select().from(vendors).orderBy(vendors.name);
   }
 
-  async createVendor(data: { name: string; phone?: string; address?: string; gstNo?: string; linkedClients?: string[] }): Promise<Vendor> {
+  async createVendor(data: { name: string; phone?: string; address?: string; gstNo?: string; linkedClients?: string[]; payment?: VendorPayment }): Promise<Vendor> {
     const [vendor] = await db.transaction(async (tx) => {
-      const insertData: Record<string, any> = {
+      const insertData = {
         name: data.name,
         phone: data.phone ?? "",
         address: data.address ?? "",
@@ -1182,6 +1182,9 @@ export class DatabaseStorage implements IStorage {
       };
       await tx.insert(vendors).values(insertData);
       const __iid = await getInsertId(tx);
+      if (data.payment !== undefined) {
+        await tx.insert(vendorPaymentDetails).values({ vendorId: __iid, ...data.payment });
+      }
       return await tx.select().from(vendors).where(eq(vendors.id, __iid));
     });
     return vendor;

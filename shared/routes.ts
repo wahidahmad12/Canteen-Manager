@@ -490,7 +490,7 @@ export const api = {
     create: {
       method: 'POST' as const,
       path: '/api/vendors' as const,
-      input: z.object({ name: z.string().min(1), phone: z.string().default(""), address: z.string().default(""), gstNo: z.string().default(""), linkedClients: z.array(z.string()).optional() }),
+      input: z.object({ name: z.string().min(1), phone: z.string().default(""), address: z.string().default(""), gstNo: z.string().default(""), linkedClients: z.array(z.string()).optional(), payment: vendorPaymentSchema.optional() }),
       responses: {
         201: selectVendorSchema,
         400: errorSchemas.validation,

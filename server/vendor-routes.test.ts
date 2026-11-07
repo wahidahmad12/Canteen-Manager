@@ -5,13 +5,17 @@ import { registerVendorRoutes } from "./vendor-routes";
 import type { IStorage } from "./storage";
 import { emptyVendorPayment, type VendorPayment } from "@shared/vendor-payment";
 
-test("admin vendor payment save, reload, legacy edit, and QR removal", async () => {
+test("vendor payment creation, save, reload, legacy compatibility, and QR removal", async () => {
   let vendor = { id: 1, name: "Vendor", phone: "", address: "", gstNo: "", linkedClients: null as string | null, createdAt: null };
   let payment: VendorPayment = { ...emptyVendorPayment };
   const storage: Pick<IStorage, "getVendors" | "getVendorPayment" | "createVendor" | "updateVendor" | "deleteVendor"> = {
     async getVendors() { return [vendor]; },
     async getVendorPayment(id) { return id === vendor.id ? { ...payment } : undefined; },
-    async createVendor() { return vendor; },
+    async createVendor(data) {
+      vendor = { ...vendor, name: data.name };
+      payment = data.payment ? { ...data.payment } : { ...emptyVendorPayment };
+      return vendor;
+    },
     async updateVendor(id, data) {
       if (id !== vendor.id) throw new Error("Vendor not found");
       vendor = { ...vendor, name: data.name };
@@ -41,6 +45,16 @@ test("admin vendor payment save, reload, legacy edit, and QR removal", async () 
     assert.deepEqual(await (await request("/api/vendors/1/payment", "admin")).json(), emptyVendorPayment);
     const qr = "data:image/png;base64,iVBORw0KGgoAAAAA";
     const details = { bankName: "Bank", accountNo: "001234", ifscCode: "ABCD0123456", branch: "Main", upiId: "vendor@bank", qrImage: qr };
+    assert.equal((await request("/api/vendors", undefined, "POST", { name: "Denied" })).status, 401);
+    assert.equal((await request("/api/vendors", "user", "POST", { name: "Legacy vendor" })).status, 201);
+    assert.equal((await request("/api/vendors", "user", "POST", { name: "Denied", payment: details })).status, 403);
+    assert.equal(vendor.name, "Legacy vendor");
+    assert.equal((await request("/api/vendors", "admin", "POST", { name: "Invalid", payment: { ...details, qrImage: "bad" } })).status, 400);
+    assert.equal(vendor.name, "Legacy vendor");
+    assert.equal((await request("/api/vendors", "admin", "POST", { name: "Vendor", payment: details })).status, 201);
+    assert.deepEqual(await (await request("/api/vendors/1/payment", "admin")).json(), details);
+    assert.equal((await request("/api/vendors", "admin", "POST", { name: "No payment" })).status, 201);
+    assert.deepEqual(await (await request("/api/vendors/1/payment", "admin")).json(), emptyVendorPayment);
     assert.equal((await request("/api/vendors/1", "admin", "PUT", { name: "Vendor", payment: details })).status, 200);
     const reload = await request("/api/vendors/1/payment", "admin");
     assert.equal(reload.headers.get("cache-control"), "no-store");
