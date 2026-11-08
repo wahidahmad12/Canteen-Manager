@@ -18,6 +18,8 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, Legend, CartesianGrid } from "recharts";
 
 const MONTH_NAMES = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+const escapeHtml = (value: string) => value.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#39;");
+const formatReportAmount = (value: number) => value.toLocaleString("en-IN", { maximumFractionDigits: 2 });
 
 type Contractor = { id: number; vendorCode: string; name: string; clientName: string; mobile?: string; address?: string };
 type MealEntry = {
@@ -76,6 +78,9 @@ export default function ContractorMealsPage() {
   const [month, setMonth] = useState(now.getMonth() + 1);
   const [year, setYear] = useState(now.getFullYear());
   const [clientFilter, setClientFilter] = useState<string>("all");
+  const [reportMonth, setReportMonth] = useState(now.getMonth() + 1);
+  const [reportYear, setReportYear] = useState(now.getFullYear());
+  const [reportClient, setReportClient] = useState<string>("Cipla Limited");
   const [entryDate, setEntryDate] = useState(() => {
     const y = now.getFullYear(), m = String(now.getMonth() + 1).padStart(2, "0");
     return `${y}-${m}-01`;
@@ -86,6 +91,10 @@ export default function ContractorMealsPage() {
   const { data: entries = [], isFetching } = useQuery<MealEntry[]>({
     queryKey: ["/api/contractor-meals", month, year],
     queryFn: async () => (await apiRequest("GET", `/api/contractor-meals?month=${month}&year=${year}`)).json(),
+  });
+  const { data: reportEntries = [], isFetching: reportFetching } = useQuery<MealEntry[]>({
+    queryKey: ["/api/contractor-meals", reportMonth, reportYear],
+    queryFn: async () => (await apiRequest("GET", `/api/contractor-meals?month=${reportMonth}&year=${reportYear}`)).json(),
   });
 
   const filteredContractors = useMemo(
@@ -164,6 +173,66 @@ export default function ContractorMealsPage() {
     return { b, l, d, all: b + l + d };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [filteredContractors, entries, edits]);
+
+  const reportRows = useMemo(() => {
+    const grouped = new Map<number, { contractorName: string; clientName: string; billNo: string; total: number }>();
+    for (const entry of reportEntries) {
+      if (reportClient !== "all" && entry.clientName !== reportClient) continue;
+      const current = grouped.get(entry.contractorId) || {
+        contractorName: entry.contractorName,
+        clientName: entry.clientName,
+        billNo: "",
+        total: 0,
+      };
+      if (entry.billNo) current.billNo = entry.billNo;
+      const qty = Number(entry.qty) || 0;
+      const rate = Number(entry.rate) > 0 ? Number(entry.rate) : entry.mealType === "Breakfast" ? 4.6 : 11.6;
+      current.total += qty * rate;
+      grouped.set(entry.contractorId, current);
+    }
+    return Array.from(grouped.values())
+      .filter((row) => row.total > 0 || row.billNo)
+      .sort((a, b) => a.contractorName.localeCompare(b.contractorName));
+  }, [reportEntries, reportClient]);
+  const reportTotal = reportRows.reduce((total, row) => total + row.total, 0);
+  const reportTitle = `${reportClient === "all" ? "All Clients" : reportClient} Contractor Bill Amount Month Of ${MONTH_NAMES[reportMonth - 1].slice(0, 3)} ${reportYear}`;
+
+  const printSummaryReport = () => {
+    const win = window.open("", "_blank");
+    if (!win) {
+      toast({ title: "Popup blocked", description: "Allow popups in your browser to print the report.", variant: "destructive" });
+      return;
+    }
+    const rows = reportRows.map((row) =>
+      `<tr><td>${escapeHtml(row.contractorName)}</td><td class="amount">${formatReportAmount(row.total)}</td><td>${escapeHtml(row.billNo)}</td></tr>`,
+    ).join("");
+    win.document.write(`<!doctype html><html><head><meta charset="utf-8"><title>${escapeHtml(reportTitle)}</title><style>
+      body{font-family:Arial,sans-serif;margin:12mm;color:#111}h2{text-align:center;background:#ff0;border:1px solid #111;padding:10px;margin:0}
+      table{border-collapse:collapse;width:100%}th,td{border:1px solid #111;padding:8px 10px;text-align:left}
+      th{background:#b6d7a8}td.amount{text-align:right}tbody tr:nth-child(even){background:#d9ead3}
+      tfoot{font-weight:bold;background:#d9ead3}.total-label{text-align:right}
+      @media print{@page{size:A4 portrait;margin:10mm}}
+    </style></head><body><h2>${escapeHtml(reportTitle)}</h2><table><thead><tr><th>Contractor</th><th class="amount">Total</th><th>Bill No</th></tr></thead><tbody>${rows}</tbody><tfoot><tr><td class="total-label" colspan="1">Total</td><td class="amount">${formatReportAmount(reportTotal)}</td><td></td></tr></tfoot></table><script>window.onload=function(){window.print()}</script></body></html>`);
+    win.document.close();
+  };
+
+  const exportSummaryReport = () => {
+    if (reportRows.length === 0) {
+      toast({ title: "No report data", description: "There are no contractor meal entries for this period.", variant: "destructive" });
+      return;
+    }
+    const worksheet = XLSX.utils.aoa_to_sheet([
+      [reportTitle],
+      [],
+      ["Contractor", "Total", "Bill No"],
+      ...reportRows.map((row) => [row.contractorName, Math.round(row.total * 100) / 100, row.billNo]),
+      ["Total", Math.round(reportTotal * 100) / 100, ""],
+    ]);
+    worksheet["!cols"] = [{ wch: 36 }, { wch: 16 }, { wch: 20 }];
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, "Summary");
+    XLSX.writeFile(workbook, `Contractor_Bill_Summary_${reportMonth}_${reportYear}.xlsx`);
+  };
 
   // ---- Import / Export / Template ----
   const fileRef = useRef<HTMLInputElement>(null);
@@ -977,6 +1046,7 @@ ${tbl(`Contractor-wise (${dashPeriodLabel})`, dashContractors.map((c) => ({ labe
       <Tabs defaultValue="entry">
         <TabsList className="h-auto w-full flex-wrap justify-start">
           <TabsTrigger value="entry" data-testid="tab-meal-entry">Meal Entry</TabsTrigger>
+          <TabsTrigger value="summary" data-testid="tab-meal-summary-report">Summary Report</TabsTrigger>
           <TabsTrigger value="master" data-testid="tab-contractor-list">Contractor List</TabsTrigger>
           <TabsTrigger value="nongst" data-testid="tab-non-gst">Non GST Invoice</TabsTrigger>
           <TabsTrigger value="payments" data-testid="tab-payments">Payments</TabsTrigger>
@@ -1125,6 +1195,91 @@ ${tbl(`Contractor-wise (${dashPeriodLabel})`, dashContractors.map((c) => ({ labe
                       <td className="p-2 text-center" data-testid="text-total-lunch">{totals.l}</td>
                       <td className="p-2 text-center" data-testid="text-total-dinner">{totals.d}</td>
                       <td className="p-2" colSpan={2}>Grand Total: {totals.all}</td>
+                    </tr>
+                  </tfoot>
+                )}
+              </table>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        {/* ============ SUMMARY REPORT ============ */}
+        <TabsContent value="summary" className="space-y-4">
+          <Card>
+            <CardContent className="pt-4 flex flex-wrap items-end gap-3">
+              <div>
+                <Label>Month</Label>
+                <Select value={String(reportMonth)} onValueChange={(value) => setReportMonth(Number(value))}>
+                  <SelectTrigger className="w-36" data-testid="select-report-month"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    {MONTHS.map((monthName, index) => <SelectItem key={monthName} value={String(index + 1)}>{monthName}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <Label>Year</Label>
+                <Select value={String(reportYear)} onValueChange={(value) => setReportYear(Number(value))}>
+                  <SelectTrigger className="w-28" data-testid="select-report-year"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    {[reportYear - 2, reportYear - 1, reportYear, reportYear + 1].map((value) =>
+                      <SelectItem key={value} value={String(value)}>{value}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <Label>Client</Label>
+                <Select value={reportClient} onValueChange={setReportClient}>
+                  <SelectTrigger className="w-48" data-testid="select-report-client"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Clients</SelectItem>
+                    {clients.map((client) => <SelectItem key={client.id} value={client.name}>{client.name}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="flex-1" />
+              <Button variant="outline" onClick={printSummaryReport} disabled={reportFetching} data-testid="button-print-summary-report">
+                <Printer className="h-4 w-4 mr-1" /> Print Report
+              </Button>
+              <Button variant="outline" onClick={exportSummaryReport} disabled={reportFetching || reportRows.length === 0} data-testid="button-export-summary-report">
+                <Download className="h-4 w-4 mr-1" /> Export Excel
+              </Button>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardHeader className="py-3">
+              <CardTitle className="text-center text-base" data-testid="text-summary-report-title">
+                {reportTitle}{reportFetching ? " …" : ""}
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="overflow-x-auto p-0">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b bg-green-100 text-left">
+                    <th className="p-2">Contractor</th>
+                    <th className="p-2 text-right">Total</th>
+                    <th className="p-2">Bill No</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {reportRows.map((row) => (
+                    <tr key={`${row.clientName}-${row.contractorName}`} className="border-b even:bg-green-50" data-testid={`row-summary-${row.contractorName}`}>
+                      <td className="p-2 font-medium">{row.contractorName}</td>
+                      <td className="p-2 text-right">{formatReportAmount(row.total)}</td>
+                      <td className="p-2">{row.billNo}</td>
+                    </tr>
+                  ))}
+                  {reportRows.length === 0 && (
+                    <tr><td colSpan={3} className="p-6 text-center text-muted-foreground">
+                      {reportFetching ? "Loading report..." : "No contractor meal entries for this month and client."}
+                    </td></tr>
+                  )}
+                </tbody>
+                {reportRows.length > 0 && (
+                  <tfoot>
+                    <tr className="border-t bg-green-100 font-bold">
+                      <td className="p-2 text-right">Total</td>
+                      <td className="p-2 text-right" data-testid="text-summary-report-total">{formatReportAmount(reportTotal)}</td>
+                      <td className="p-2" />
                     </tr>
                   </tfoot>
                 )}
