@@ -1,0 +1,15 @@
+services:
+  - type: web
+    name: canteen-manager-wahidahmad12
+    runtime: node
+    plan: free
+    buildCommand: npm install && npm run build
+    startCommand: npm start
+    healthCheckPath: /
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: SESSION_SECRET
+        generateValue: true
+      - key: TIDB_DATABASE_URL
+        sync: false
