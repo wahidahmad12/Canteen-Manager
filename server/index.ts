@@ -8,6 +8,27 @@ import mysql from "mysql2/promise";
 import { dbReady } from "./db";
 
 const app = express();
+const allowedOrigins = new Set(
+  (process.env.CORS_ALLOWED_ORIGINS || "https://wahidahmad12.github.io")
+    .split(",")
+    .map((origin) => origin.trim())
+    .filter(Boolean),
+);
+app.use((req, res, next) => {
+  const origin = req.get("Origin");
+  if (origin && allowedOrigins.has(origin)) {
+    res.setHeader("Access-Control-Allow-Origin", origin);
+    res.setHeader("Access-Control-Allow-Credentials", "true");
+    res.setHeader("Access-Control-Allow-Methods", "GET, POST, PUT, PATCH, DELETE, OPTIONS");
+    res.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization");
+    res.setHeader("Vary", "Origin");
+  }
+
+  if (req.method === "OPTIONS" && origin) {
+    return res.sendStatus(allowedOrigins.has(origin) ? 204 : 403);
+  }
+  next();
+});
 app.use(express.static('public'));
 app.set("trust proxy", 1);
 const httpServer = createServer(app);
@@ -101,7 +122,8 @@ app.use((req, res, next) => {
       cookie: {
         maxAge: 30 * 24 * 60 * 60 * 1000,
         httpOnly: true,
-        sameSite: "lax",
+        sameSite: process.env.NODE_ENV === "production" ? "none" : "lax",
+        secure: process.env.NODE_ENV === "production",
       },
     })
   );
