@@ -13,6 +13,15 @@ const FP_STORAGE_KEY = "dj_fp_username";
 
 type Mode = "password" | "fingerprint" | "register-fp";
 
+async function parseLoginResponse<T>(response: Response): Promise<T> {
+  if (!response.headers.get("content-type")?.includes("application/json")) {
+    throw new Error(
+      `The API server returned a non-JSON response (${response.status}). Check the API server configuration.`,
+    );
+  }
+  return response.json() as Promise<T>;
+}
+
 export default function Login() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -91,10 +100,10 @@ export default function Login() {
         credentials: "include",
       });
       if (!res.ok) {
-        const err = await res.json();
+        const err = await parseLoginResponse<{ message?: string }>(res);
         throw new Error(err.message || "Login failed");
       }
-      const user = await res.json();
+      const user = await parseLoginResponse<{ employeeId?: number }>(res);
       if (user.employeeId) {
         const credsRes = await fetch(`/api/employees/${user.employeeId}/webauthn/credentials`, { credentials: "include" });
         const creds = credsRes.ok ? await credsRes.json() : [];
