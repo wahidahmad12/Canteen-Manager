@@ -2137,8 +2137,19 @@ export class DatabaseStorage implements IStorage {
     return photo?.photoData;
   }
 
+  private normalizeEmployeeData(data: any): any {
+    const out = { ...data };
+    for (const key of ["dailyRate", "fixedHra", "daAmount"]) {
+      if (out[key] === "" || out[key] === null) out[key] = "0";
+    }
+    for (const key of ["dob", "joiningDate", "leavingDate"]) {
+      if (out[key] === "") out[key] = null;
+    }
+    return out;
+  }
+
   async createEmployee(data: any): Promise<Employee> {
-    const { photoData, ...employeeData } = data;
+    const { photoData, ...employeeData } = this.normalizeEmployeeData(data);
     const [emp] = await db.transaction(async (tx) => {
       await tx.insert(employees).values(employeeData);
       const __iid = await getInsertId(tx);
@@ -2151,7 +2162,7 @@ export class DatabaseStorage implements IStorage {
   }
 
   async updateEmployee(id: number, data: any): Promise<Employee> {
-    const { photoData, ...employeeData } = data;
+    const { photoData, ...employeeData } = this.normalizeEmployeeData(data);
     const updateFields: any = {};
     for (const key of Object.keys(employeeData)) {
       if (employeeData[key] !== undefined) updateFields[key] = employeeData[key];
