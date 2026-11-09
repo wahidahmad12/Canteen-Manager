@@ -16,7 +16,7 @@ import { useLocation } from "wouter";
 import qrImg from "@assets/image_1786018663605.png";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, Legend, CartesianGrid } from "recharts";
-import { CONTRACTOR_MEALS, contractorInvoiceItems, contractorMealRate, type ContractorMealType, type ContractorMealKey } from "@shared/contractor-meals";
+import { CONTRACTOR_MEALS, contractorInvoiceFileName, contractorInvoiceItems, contractorMealRate, type ContractorMealType, type ContractorMealKey } from "@shared/contractor-meals";
 
 const MONTH_NAMES = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 const escapeHtml = (value: string) => value.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#39;");
@@ -544,7 +544,7 @@ export default function ContractorMealsPage() {
 ${page}
 ${forPrint ? "<script>window.onload = function(){ window.print(); };</scr" + "ipt>" : ""}
 </body></html>`;
-    return { html, page, fileName: `Invoice-${c.vendorCode}-${mm}-${useYear}.jpg` };
+    return { html, page, fileName: contractorInvoiceFileName(useInvNo, c.vendorCode, useMonth, useYear) };
   };
 
   const printBusy = useRef(false);

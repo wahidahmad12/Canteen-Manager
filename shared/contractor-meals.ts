@@ -8,6 +8,16 @@ export const CONTRACTOR_MEALS = [
 export type ContractorMealType = (typeof CONTRACTOR_MEALS)[number]["type"];
 export type ContractorMealKey = (typeof CONTRACTOR_MEALS)[number]["key"];
 
+export function contractorInvoiceFileName(billNo: string, vendorCode: string, month: number, year: number): string {
+  const months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+  const safeName = (value: string) => value.trim().replace(/[<>:"/\\|?*\x00-\x1f]/g, "-").replace(/[. ]+$/g, "");
+  const bill = safeName(billNo);
+  if (!bill) {
+    return `Invoice-${safeName(vendorCode)}-${String(month).padStart(2, "0")}-${year}.jpg`;
+  }
+  return `${bill}-${months[month - 1]}${String(year).slice(-2)}.jpg`;
+}
+
 export function contractorMealRate(type: string, rate: number | string | null | undefined): number {
   const saved = Number(rate);
   if (saved > 0) return saved;
