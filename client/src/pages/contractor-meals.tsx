@@ -16,6 +16,7 @@ import { useLocation } from "wouter";
 import qrImg from "@assets/image_1786018663605.png";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, Legend, CartesianGrid } from "recharts";
+import { CONTRACTOR_MEALS, contractorInvoiceItems, contractorMealRate, type ContractorMealType, type ContractorMealKey } from "@shared/contractor-meals";
 
 const MONTH_NAMES = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 const escapeHtml = (value: string) => value.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#39;");
@@ -26,6 +27,8 @@ type MealEntry = {
   id: number; entryDate: string; month: number; year: number; contractorId: number;
   mealType: string; qty: number; billNo: string; rate: number | string; vendorCode: string; contractorName: string; clientName: string;
 };
+type MealValues = Record<ContractorMealKey, string> & { billNo: string };
+type MealRates = Record<ContractorMealType, string>;
 // ---- Amount in words (Indian system) ----
 const ONES = ["", "One", "Two", "Three", "Four", "Five", "Six", "Seven", "Eight", "Nine", "Ten", "Eleven", "Twelve", "Thirteen", "Fourteen", "Fifteen", "Sixteen", "Seventeen", "Eighteen", "Nineteen"];
 const TENS = ["", "", "Twenty", "Thirty", "Forty", "Fifty", "Sixty", "Seventy", "Eighty", "Ninety"];
@@ -86,7 +89,7 @@ export default function ContractorMealsPage() {
     return `${y}-${m}-01`;
   });
   // edits[contractorId] = { billNo, breakfast, lunch, dinner } (strings so blanks allowed)
-  const [edits, setEdits] = useState<Record<number, { billNo: string; breakfast: string; lunch: string; dinner: string }>>({});
+  const [edits, setEdits] = useState<Record<number, MealValues>>({});
 
   const { data: entries = [], isFetching } = useQuery<MealEntry[]>({
     queryKey: ["/api/contractor-meals", month, year],
@@ -107,7 +110,7 @@ export default function ContractorMealsPage() {
 
   // Merge saved entries + local edits into row values
   const rowValue = (c: Contractor) => {
-    const saved = { billNo: "", breakfast: "", lunch: "", dinner: "", entryDate: "" };
+    const saved = { billNo: "", breakfast: "", lunch: "", dinner: "", special: "", entryDate: "" };
     for (const e of entries) {
       if (e.contractorId !== c.id) continue;
       if (e.billNo) saved.billNo = e.billNo;
@@ -115,6 +118,7 @@ export default function ContractorMealsPage() {
       if (e.mealType === "Breakfast") saved.breakfast = String(e.qty);
       if (e.mealType === "Lunch") saved.lunch = String(e.qty);
       if (e.mealType === "Dinner") saved.dinner = String(e.qty);
+      if (e.mealType === "Special") saved.special = String(e.qty);
     }
     const ed = edits[c.id];
     return {
@@ -122,16 +126,17 @@ export default function ContractorMealsPage() {
       breakfast: ed?.breakfast ?? saved.breakfast,
       lunch: ed?.lunch ?? saved.lunch,
       dinner: ed?.dinner ?? saved.dinner,
+      special: ed?.special ?? saved.special,
     };
   };
 
   const hasRowData = (c: Contractor) => {
     const v = rowValue(c);
-    return (Number(v.breakfast) || 0) > 0 || (Number(v.lunch) || 0) > 0 || (Number(v.dinner) || 0) > 0 || v.billNo.trim() !== "";
+    return CONTRACTOR_MEALS.some(({ key }) => (Number(v[key]) || 0) > 0) || v.billNo.trim() !== "";
   };
   const gridContractors = showAll ? filteredContractors : filteredContractors.filter(hasRowData);
 
-  const setCell = (c: Contractor, key: "billNo" | "breakfast" | "lunch" | "dinner", val: string) => {
+  const setCell = (c: Contractor, key: "billNo" | ContractorMealKey, val: string) => {
     setEdits((prev) => ({ ...prev, [c.id]: { ...rowValue(c), ...prev[c.id], [key]: val } }));
   };
 
@@ -145,6 +150,7 @@ export default function ContractorMealsPage() {
           breakfast: v.breakfast === "" ? null : Number(v.breakfast),
           lunch: v.lunch === "" ? null : Number(v.lunch),
           dinner: v.dinner === "" ? null : Number(v.dinner),
+          special: v.special === "" ? null : Number(v.special),
         };
       });
       await apiRequest("POST", "/api/contractor-meals/bulk", { entryDate, month, year, rows });
@@ -163,19 +169,20 @@ export default function ContractorMealsPage() {
 
   const monthName = MONTHS[month - 1];
   const totals = useMemo(() => {
-    let b = 0, l = 0, d = 0;
+    let b = 0, l = 0, d = 0, special = 0;
     for (const c of filteredContractors) {
       const v = rowValue(c);
       b += Number(v.breakfast) || 0;
       l += Number(v.lunch) || 0;
       d += Number(v.dinner) || 0;
+      special += Number(v.special) || 0;
     }
-    return { b, l, d, all: b + l + d };
+    return { b, l, d, special, all: b + l + d + special };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [filteredContractors, entries, edits]);
 
   const reportRows = useMemo(() => {
-    const grouped = new Map<number, { contractorName: string; clientName: string; billNo: string; total: number }>();
+    const grouped = new Map<number, { contractorName: string; clientName: string; billNo: string; total: number; special: number }>();
     for (const entry of reportEntries) {
       if (reportClient !== "all" && entry.clientName !== reportClient) continue;
       const current = grouped.get(entry.contractorId) || {
@@ -183,11 +190,13 @@ export default function ContractorMealsPage() {
         clientName: entry.clientName,
         billNo: "",
         total: 0,
+        special: 0,
       };
       if (entry.billNo) current.billNo = entry.billNo;
       const qty = Number(entry.qty) || 0;
-      const rate = Number(entry.rate) > 0 ? Number(entry.rate) : entry.mealType === "Breakfast" ? 4.6 : 11.6;
+      const rate = contractorMealRate(entry.mealType, entry.rate);
       current.total += qty * rate;
+      if (entry.mealType === "Special") current.special += qty;
       grouped.set(entry.contractorId, current);
     }
     return Array.from(grouped.values())
@@ -204,7 +213,7 @@ export default function ContractorMealsPage() {
       return;
     }
     const rows = reportRows.map((row) =>
-      `<tr><td>${escapeHtml(row.contractorName)}</td><td class="amount">${formatReportAmount(row.total)}</td><td>${escapeHtml(row.billNo)}</td></tr>`,
+      `<tr><td>${escapeHtml(row.contractorName)}</td><td class="amount">${row.special || ""}</td><td class="amount">${formatReportAmount(row.total)}</td><td>${escapeHtml(row.billNo)}</td></tr>`,
     ).join("");
     win.document.write(`<!doctype html><html><head><meta charset="utf-8"><title>${escapeHtml(reportTitle)}</title><style>
       body{font-family:Arial,sans-serif;margin:12mm;color:#111}h2{text-align:center;background:#ff0;border:1px solid #111;padding:10px;margin:0}
@@ -212,7 +221,7 @@ export default function ContractorMealsPage() {
       th{background:#b6d7a8}td.amount{text-align:right}tbody tr:nth-child(even){background:#d9ead3}
       tfoot{font-weight:bold;background:#d9ead3}.total-label{text-align:right}
       @media print{@page{size:A4 portrait;margin:10mm}}
-    </style></head><body><h2>${escapeHtml(reportTitle)}</h2><table><thead><tr><th>Contractor</th><th class="amount">Total</th><th>Bill No</th></tr></thead><tbody>${rows}</tbody><tfoot><tr><td class="total-label" colspan="1">Total</td><td class="amount">${formatReportAmount(reportTotal)}</td><td></td></tr></tfoot></table><script>window.onload=function(){window.print()}</script></body></html>`);
+    </style></head><body><h2>${escapeHtml(reportTitle)}</h2><table><thead><tr><th>Contractor</th><th>Special Lunch &amp; Dinner Qty</th><th class="amount">Total</th><th>Bill No</th></tr></thead><tbody>${rows}</tbody><tfoot><tr><td class="total-label">Total</td><td class="amount">${reportRows.reduce((sum, row) => sum + row.special, 0)}</td><td class="amount">${formatReportAmount(reportTotal)}</td><td></td></tr></tfoot></table><script>window.onload=function(){window.print()}</script></body></html>`);
     win.document.close();
   };
 
@@ -224,11 +233,11 @@ export default function ContractorMealsPage() {
     const worksheet = XLSX.utils.aoa_to_sheet([
       [reportTitle],
       [],
-      ["Contractor", "Total", "Bill No"],
-      ...reportRows.map((row) => [row.contractorName, Math.round(row.total * 100) / 100, row.billNo]),
-      ["Total", Math.round(reportTotal * 100) / 100, ""],
+      ["Contractor", "Special Lunch & Dinner Qty", "Total", "Bill No"],
+      ...reportRows.map((row) => [row.contractorName, row.special, Math.round(row.total * 100) / 100, row.billNo]),
+      ["Total", reportRows.reduce((sum, row) => sum + row.special, 0), Math.round(reportTotal * 100) / 100, ""],
     ]);
-    worksheet["!cols"] = [{ wch: 36 }, { wch: 16 }, { wch: 20 }];
+    worksheet["!cols"] = [{ wch: 36 }, { wch: 26 }, { wch: 16 }, { wch: 20 }];
     const workbook = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(workbook, worksheet, "Summary");
     XLSX.writeFile(workbook, `Contractor_Bill_Summary_${reportMonth}_${reportYear}.xlsx`);
@@ -246,11 +255,12 @@ export default function ContractorMealsPage() {
         "Breakfast": v.breakfast === "" ? "" : Number(v.breakfast),
         "Lunch": v.lunch === "" ? "" : Number(v.lunch),
         "Dinner": v.dinner === "" ? "" : Number(v.dinner),
+        "Special Lunch & Dinner": v.special === "" ? "" : Number(v.special),
         "Bill No": v.billNo,
       };
     });
     const ws = XLSX.utils.json_to_sheet(rows);
-    ws["!cols"] = [{ wch: 12 }, { wch: 34 }, { wch: 10 }, { wch: 10 }, { wch: 10 }, { wch: 16 }];
+    ws["!cols"] = [{ wch: 12 }, { wch: 34 }, { wch: 10 }, { wch: 10 }, { wch: 10 }, { wch: 24 }, { wch: 16 }];
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, "Meal Entry");
     XLSX.writeFile(wb, `Contractor_Meal_Template_${monthName}_${year}.xlsx`);
@@ -262,10 +272,10 @@ export default function ContractorMealsPage() {
     const dateStr = `01-${mm}-${year}`;
     const out: any[] = [];
     let sl = 1;
-    for (const meal of ["Breakfast", "Lunch", "Dinner"] as const) {
+    for (const meal of CONTRACTOR_MEALS) {
       for (const c of filteredContractors) {
         const v = rowValue(c);
-        const qty = v[meal.toLowerCase() as "breakfast" | "lunch" | "dinner"];
+        const qty = v[meal.key];
         if (qty === "") continue;
         out.push({
           "Sl No": sl++,
@@ -273,7 +283,7 @@ export default function ContractorMealsPage() {
           "Date": dateStr,
           "Month": monthName.slice(0, 3),
           "Contractor Name": c.name,
-          "Type Of Meal": meal,
+          "Type Of Meal": meal.label,
           "Qty": Number(qty) || 0,
           "Cont & Month": `${c.name}${monthName.slice(0, 3)}${year}`,
           "Bill No": v.billNo,
@@ -305,7 +315,7 @@ export default function ContractorMealsPage() {
       };
       const newEdits: typeof edits = {};
       let matched = 0, skipped = 0;
-      const applyCell = (c: Contractor, key: "breakfast" | "lunch" | "dinner" | "billNo", val: any) => {
+      const applyCell = (c: Contractor, key: ContractorMealKey | "billNo", val: any) => {
         if (val === undefined || val === null || String(val).trim() === "") return;
         const base = newEdits[c.id] ?? { ...rowValue(c) };
         if (key === "billNo") {
@@ -325,14 +335,15 @@ export default function ContractorMealsPage() {
         matched++;
         const meal = String(norm(r, ["typeofmeal", "mealtype", "meal"]) ?? "").trim().toLowerCase();
         const qty = norm(r, ["qty", "quantity"]);
-        if (meal === "breakfast" || meal === "lunch" || meal === "dinner") {
+        if (meal === "breakfast" || meal === "lunch" || meal === "dinner" || meal === "special" || meal === "special lunch & dinner") {
           // export-style file: one row per meal
-          applyCell(c, meal as any, qty);
+          applyCell(c, meal === "special lunch & dinner" ? "special" : meal, qty);
         } else {
           // template-style file: Breakfast/Lunch/Dinner columns
           applyCell(c, "breakfast", norm(r, ["breakfast"]));
           applyCell(c, "lunch", norm(r, ["lunch"]));
           applyCell(c, "dinner", norm(r, ["dinner"]));
+          applyCell(c, "special", norm(r, ["special", "speciallunch&dinner"]));
         }
         applyCell(c, "billNo", norm(r, ["billno", "bill"]));
       }
@@ -351,11 +362,11 @@ export default function ContractorMealsPage() {
   const [invContractor, setInvContractor] = useState<Contractor | null>(null);
   const [invNo, setInvNo] = useState("");
   const [invDate, setInvDate] = useState("");
-  const [invRates, setInvRates] = useState({ Breakfast: "", Lunch: "", Dinner: "" });
+  const [invRates, setInvRates] = useState<MealRates>({ Breakfast: "", Lunch: "", Dinner: "", Special: "" });
 
   const openInvoice = (c: Contractor) => {
     const v = rowValue(c);
-    const saved: Record<string, string> = { Breakfast: "", Lunch: "", Dinner: "" };
+    const saved: Record<string, string> = { Breakfast: "", Lunch: "", Dinner: "", Special: "" };
     for (const e of entries) {
       if (e.contractorId === c.id && Number(e.rate) > 0) saved[e.mealType] = String(Number(e.rate));
     }
@@ -368,6 +379,7 @@ export default function ContractorMealsPage() {
       Breakfast: saved.Breakfast || "4.6",
       Lunch: saved.Lunch || "11.6",
       Dinner: saved.Dinner || "11.6",
+      Special: saved.Special || "26",
     });
   };
 
@@ -376,7 +388,7 @@ export default function ContractorMealsPage() {
     try {
       await apiRequest("POST", "/api/contractor-meals/rates", {
         contractorId: c.id, month, year,
-        rates: { Breakfast: Number(invRates.Breakfast) || 0, Lunch: Number(invRates.Lunch) || 0, Dinner: Number(invRates.Dinner) || 0 },
+        rates: { Breakfast: Number(invRates.Breakfast) || 0, Lunch: Number(invRates.Lunch) || 0, Dinner: Number(invRates.Dinner) || 0, Special: Number(invRates.Special) || 0 },
       });
       qc.invalidateQueries({ queryKey: ["/api/contractor-meals", month, year] });
       qc.invalidateQueries({ queryKey: ["/api/date-entry/contractor-invoices/yearly-summary", year] });
@@ -392,22 +404,23 @@ export default function ContractorMealsPage() {
   const buildInvoiceHtml = (
     c: Contractor,
     forPrint: boolean,
-    override?: { rates: Record<"Breakfast" | "Lunch" | "Dinner", string>; invNo: string; invDate: string; bodyOnly?: boolean; ctx?: { entries: MealEntry[]; month: number; year: number } },
+    override?: { rates: MealRates; invNo: string; invDate: string; bodyOnly?: boolean; ctx?: { entries: MealEntry[]; month: number; year: number } },
   ) => {
     const useRates = override?.rates ?? invRates;
     const useInvNo = override?.invNo ?? invNo;
     const useInvDate = override?.invDate ?? invDate;
     const useMonth = override?.ctx?.month ?? month;
     const useYear = override?.ctx?.year ?? year;
-    let v: { billNo: string; breakfast: string; lunch: string; dinner: string };
+    let v: MealValues;
     if (override?.ctx) {
-      v = { billNo: "", breakfast: "", lunch: "", dinner: "" };
+      v = { billNo: "", breakfast: "", lunch: "", dinner: "", special: "" };
       for (const e of override.ctx.entries) {
         if (e.contractorId !== c.id) continue;
         if (e.billNo) v.billNo = e.billNo;
         if (e.mealType === "Breakfast") v.breakfast = String(e.qty);
         if (e.mealType === "Lunch") v.lunch = String(e.qty);
         if (e.mealType === "Dinner") v.dinner = String(e.qty);
+        if (e.mealType === "Special") v.special = String(e.qty);
       }
     } else {
       v = rowValue(c);
@@ -425,21 +438,15 @@ export default function ContractorMealsPage() {
     const [dy, dm, dd] = useInvDate.split("-");
     const dateDisp = useInvDate ? `${dd}-${dm}-${dy}` : "";
 
-    const items = (["Breakfast", "Lunch", "Dinner"] as const)
-      .map((meal) => {
-        const qty = Number(v[meal.toLowerCase() as "breakfast" | "lunch" | "dinner"]) || 0;
-        const rate = Number(useRates[meal]) || 0;
-        return { meal, qty, rate, total: Math.round(qty * rate * 100) / 100 };
-      })
-      .filter((it) => it.qty > 0);
+    const items = contractorInvoiceItems(v, useRates);
     const grand = Math.round(items.reduce((s, it) => s + it.total, 0) * 100) / 100;
     const esc = (s: string) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
     const fmt = (n: number) => n.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
-    const rowsHtml = items.map((it, i) => `
+    const rowsHtml = items.map((it) => `
       <tr>
-        <td class="c">${i + 1}</td>
-        <td><div class="item-name">${it.meal}</div><div class="item-period">${period}</div></td>
+        <td class="c">${it.number}</td>
+        <td><div class="item-name">${escapeHtml(it.meal)}</div><div class="item-period">${period}</div></td>
         <td class="c">${it.qty}</td>
         <td class="c">NOS</td>
         <td class="c">${it.rate}</td>
@@ -571,7 +578,7 @@ ${forPrint ? "<script>window.onload = function(){ window.print(); };</scr" + "ip
       const today = `${t.getFullYear()}-${String(t.getMonth() + 1).padStart(2, "0")}-${String(t.getDate()).padStart(2, "0")}`;
       const list = contractors.filter((c) => {
         const v = rowValue(c);
-        return (Number(v.breakfast) || 0) > 0 || (Number(v.lunch) || 0) > 0 || (Number(v.dinner) || 0) > 0;
+        return CONTRACTOR_MEALS.some(({ key }) => (Number(v[key]) || 0) > 0);
       });
       if (!list.length) {
         toast({ title: "Koi data nahi", description: "Is month me kisi contractor ki qty nahi hai. Pehle data bhar kar Save All kijiye.", variant: "destructive" });
@@ -580,15 +587,16 @@ ${forPrint ? "<script>window.onload = function(){ window.print(); };</scr" + "ip
       const pages: string[] = [];
       for (const c of list) {
         // rate: is month ki saved rate, warna default
-        const saved: Record<"Breakfast" | "Lunch" | "Dinner", string> = { Breakfast: "", Lunch: "", Dinner: "" };
+        const saved: MealRates = { Breakfast: "", Lunch: "", Dinner: "", Special: "" };
         for (const e of entries) {
-          if (e.contractorId === c.id && Number(e.rate) > 0) saved[e.mealType as "Breakfast" | "Lunch" | "Dinner"] = String(Number(e.rate));
+          const meal = CONTRACTOR_MEALS.find((item) => item.type === e.mealType);
+          if (e.contractorId === c.id && meal && Number(e.rate) > 0) saved[meal.type] = String(Number(e.rate));
         }
-        const rates = { Breakfast: saved.Breakfast || "4.6", Lunch: saved.Lunch || "11.6", Dinner: saved.Dinner || "11.6" };
+        const rates = { Breakfast: saved.Breakfast || "4.6", Lunch: saved.Lunch || "11.6", Dinner: saved.Dinner || "11.6", Special: saved.Special || "26" };
         // rate save pehle — fail ho to poora convert rok do, taki invoice aur data alag na ho
         await apiRequest("POST", "/api/contractor-meals/rates", {
           contractorId: c.id, month, year,
-          rates: { Breakfast: Number(rates.Breakfast) || 0, Lunch: Number(rates.Lunch) || 0, Dinner: Number(rates.Dinner) || 0 },
+          rates: { Breakfast: Number(rates.Breakfast) || 0, Lunch: Number(rates.Lunch) || 0, Dinner: Number(rates.Dinner) || 0, Special: Number(rates.Special) || 0 },
         });
         const { page } = buildInvoiceHtml(c, false, { rates, invNo: rowValue(c).billNo || "", invDate: today });
         pages.push(page);
@@ -622,7 +630,7 @@ ${forPrint ? "<script>window.onload = function(){ window.print(); };</scr" + "ip
   const nvRows = useMemo(() => {
     return contractors
       .map((c) => {
-        const r = { billNo: "", breakfast: 0, lunch: 0, dinner: 0, rates: { Breakfast: 0, Lunch: 0, Dinner: 0 } };
+        const r = { billNo: "", breakfast: 0, lunch: 0, dinner: 0, special: 0, rates: { Breakfast: 0, Lunch: 0, Dinner: 0, Special: 0 } };
         for (const e of nvEntries) {
           if (e.contractorId !== c.id) continue;
           if (e.billNo) r.billNo = e.billNo;
@@ -630,16 +638,18 @@ ${forPrint ? "<script>window.onload = function(){ window.print(); };</scr" + "ip
           if (e.mealType === "Breakfast") r.breakfast = e.qty;
           if (e.mealType === "Lunch") r.lunch = e.qty;
           if (e.mealType === "Dinner") r.dinner = e.qty;
+          if (e.mealType === "Special") r.special = e.qty;
         }
         const rates = {
           Breakfast: r.rates.Breakfast || 4.6,
           Lunch: r.rates.Lunch || 11.6,
           Dinner: r.rates.Dinner || 11.6,
+          Special: r.rates.Special || 26,
         };
-        const total = Math.round((r.breakfast * rates.Breakfast + r.lunch * rates.Lunch + r.dinner * rates.Dinner) * 100) / 100;
+        const total = Math.round((r.breakfast * rates.Breakfast + r.lunch * rates.Lunch + r.dinner * rates.Dinner + r.special * rates.Special) * 100) / 100;
         return { c, ...r, rates, total };
       })
-      .filter((r) => r.breakfast > 0 || r.lunch > 0 || r.dinner > 0);
+      .filter((r) => r.breakfast > 0 || r.lunch > 0 || r.dinner > 0 || r.special > 0);
   }, [contractors, nvEntries]);
 
   const nvOpenWindow = (html: string) => {
@@ -653,7 +663,7 @@ ${forPrint ? "<script>window.onload = function(){ window.print(); };</scr" + "ip
     return `${t.getFullYear()}-${String(t.getMonth() + 1).padStart(2, "0")}-${String(t.getDate()).padStart(2, "0")}`;
   };
   const nvPrintOne = (row: (typeof nvRows)[number]) => {
-    const rates = { Breakfast: String(row.rates.Breakfast), Lunch: String(row.rates.Lunch), Dinner: String(row.rates.Dinner) };
+    const rates = { Breakfast: String(row.rates.Breakfast), Lunch: String(row.rates.Lunch), Dinner: String(row.rates.Dinner), Special: String(row.rates.Special) };
     const { html } = buildInvoiceHtml(row.c, true, { rates, invNo: row.billNo, invDate: nvToday(), ctx: { entries: nvEntries, month: nvMonth, year: nvYear } });
     nvOpenWindow(html);
   };
@@ -661,10 +671,10 @@ ${forPrint ? "<script>window.onload = function(){ window.print(); };</scr" + "ip
     if (!nvRows.length) { toast({ title: "Koi data nahi", description: "Is month me koi invoice nahi hai.", variant: "destructive" }); return; }
     const today = nvToday();
     const pages = nvRows.map((row) => {
-      const rates = { Breakfast: String(row.rates.Breakfast), Lunch: String(row.rates.Lunch), Dinner: String(row.rates.Dinner) };
+      const rates = { Breakfast: String(row.rates.Breakfast), Lunch: String(row.rates.Lunch), Dinner: String(row.rates.Dinner), Special: String(row.rates.Special) };
       return buildInvoiceHtml(row.c, false, { rates, invNo: row.billNo, invDate: today, ctx: { entries: nvEntries, month: nvMonth, year: nvYear } }).page;
     });
-    const { html } = buildInvoiceHtml(nvRows[0].c, false, { rates: { Breakfast: "4.6", Lunch: "11.6", Dinner: "11.6" }, invNo: "", invDate: today, ctx: { entries: nvEntries, month: nvMonth, year: nvYear } });
+    const { html } = buildInvoiceHtml(nvRows[0].c, false, { rates: { Breakfast: "4.6", Lunch: "11.6", Dinner: "11.6", Special: "26" }, invNo: "", invDate: today, ctx: { entries: nvEntries, month: nvMonth, year: nvYear } });
     const head = html.slice(0, html.indexOf("</head>") + 7);
     nvOpenWindow(`${head}<body>${pages.map((p) => `<div class="page-break">${p}</div>`).join("")}<script>window.onload = function(){ window.print(); };</scr${""}ipt></body></html>`);
   };
@@ -735,7 +745,7 @@ ${forPrint ? "<script>window.onload = function(){ window.print(); };</scr" + "ip
     }
   };
   const nvShareOne = (row: (typeof nvRows)[number]) => {
-    const rates = { Breakfast: String(row.rates.Breakfast), Lunch: String(row.rates.Lunch), Dinner: String(row.rates.Dinner) };
+    const rates = { Breakfast: String(row.rates.Breakfast), Lunch: String(row.rates.Lunch), Dinner: String(row.rates.Dinner), Special: String(row.rates.Special) };
     const { html, fileName } = buildInvoiceHtml(row.c, false, { rates, invNo: row.billNo, invDate: nvToday(), ctx: { entries: nvEntries, month: nvMonth, year: nvYear } });
     nvShareFiles([{ html, fileName }]);
   };
@@ -743,7 +753,7 @@ ${forPrint ? "<script>window.onload = function(){ window.print(); };</scr" + "ip
     if (!nvRows.length) { toast({ title: "Koi data nahi", description: "Is month me koi invoice nahi hai.", variant: "destructive" }); return; }
     const today = nvToday();
     const items = nvRows.map((row) => {
-      const rates = { Breakfast: String(row.rates.Breakfast), Lunch: String(row.rates.Lunch), Dinner: String(row.rates.Dinner) };
+      const rates = { Breakfast: String(row.rates.Breakfast), Lunch: String(row.rates.Lunch), Dinner: String(row.rates.Dinner), Special: String(row.rates.Special) };
       const { html, fileName } = buildInvoiceHtml(row.c, false, { rates, invNo: row.billNo, invDate: today, ctx: { entries: nvEntries, month: nvMonth, year: nvYear } });
       return { html, fileName };
     });
@@ -814,7 +824,7 @@ ${forPrint ? "<script>window.onload = function(){ window.print(); };</scr" + "ip
   type Payment = { id: number; contractorId: number; paymentDate: string; amount: number | string; note: string; vendorCode: string; contractorName: string };
   type BillingSummary = {
     contractorId: number; vendorCode: string; name: string; clientName: string;
-    billed: number; contractBill: number; totalBill: number; received: number; balance: number;
+    billed: number; specialBill: number; contractBill: number; totalBill: number; received: number; balance: number;
   };
 
   const { data: payments = [] } = useQuery<Payment[]>({
@@ -868,10 +878,10 @@ ${forPrint ? "<script>window.onload = function(){ window.print(); };</scr" + "ip
   const [dashMonth, setDashMonth] = useState<string>("all");
   const [dashClient, setDashClient] = useState<string>("all");
   type DashData = {
-    monthly: { month: number; billed: number; contractBill: number; totalBill: number; received: number; balance: number }[];
-    yearly: { year: number; billed: number; contractBill: number; totalBill: number; received: number; balance: number }[];
+    monthly: { month: number; billed: number; specialBill: number; contractBill: number; totalBill: number; received: number; balance: number }[];
+    yearly: { year: number; billed: number; specialBill: number; contractBill: number; totalBill: number; received: number; balance: number }[];
     contractors: {
-      contractorId: number; vendorCode: string; name: string; clientName: string; billed: number; contractBill: number;
+      contractorId: number; vendorCode: string; name: string; clientName: string; billed: number; specialBill: number; contractBill: number;
       totalBill: number; received: number; balance: number; billNo?: string;
       contractBillPeriod?: string; contractBillNo?: string;
     }[];
@@ -888,12 +898,13 @@ ${forPrint ? "<script>window.onload = function(){ window.print(); };</scr" + "ip
   const dashYearly = dash?.yearly ?? [];
   const dashContractors = (dash?.contractors ?? []).filter((c) => c.totalBill > 0 || c.received > 0);
   const dashClientTotals = useMemo(() => {
-    const totals = new Map<string, { billed: number; contractBill: number; totalBill: number; received: number; balance: number }>();
+    const totals = new Map<string, { billed: number; specialBill: number; contractBill: number; totalBill: number; received: number; balance: number }>();
     for (const contractor of dash?.contractors ?? []) {
       if (contractor.totalBill <= 0 && contractor.received <= 0) continue;
       const clientName = contractor.clientName || "Unknown";
-      const current = totals.get(clientName) || { billed: 0, contractBill: 0, totalBill: 0, received: 0, balance: 0 };
+      const current = totals.get(clientName) || { billed: 0, specialBill: 0, contractBill: 0, totalBill: 0, received: 0, balance: 0 };
       current.billed += contractor.billed;
+      current.specialBill += contractor.specialBill;
       current.contractBill += contractor.contractBill;
       current.totalBill += contractor.totalBill;
       current.received += contractor.received;
@@ -920,19 +931,19 @@ ${forPrint ? "<script>window.onload = function(){ window.print(); };</scr" + "ip
   const exportDashboard = () => {
     const wb = XLSX.utils.book_new();
     const ws1 = XLSX.utils.json_to_sheet(
-      dashMonthlyShown.map((m) => ({ Month: m.name, "Meal Bill": m.billed, "Total Bill": m.totalBill, "Payment Received": m.received, Balance: m.balance })),
+      dashMonthlyShown.map((m) => ({ Month: m.name, "Meal Bill": m.billed, "Special Lunch & Dinner": m.specialBill, "Total Bill": m.totalBill, "Payment Received": m.received, Balance: m.balance })),
     );
     XLSX.utils.book_append_sheet(wb, ws1, `Monthwise ${dashPeriodLabel}`.slice(0,31));
     const ws2 = XLSX.utils.json_to_sheet(
-      dashYearly.map((y) => ({ Year: y.year, "Meal Bill": y.billed, "Total Bill": y.totalBill, "Payment Received": y.received, Balance: y.balance })),
+      dashYearly.map((y) => ({ Year: y.year, "Meal Bill": y.billed, "Special Lunch & Dinner": y.specialBill, "Total Bill": y.totalBill, "Payment Received": y.received, Balance: y.balance })),
     );
     XLSX.utils.book_append_sheet(wb, ws2, "Yearwise");
     const ws3 = XLSX.utils.json_to_sheet(
-      dashContractors.map((c) => ({ "Vendor Code": c.vendorCode, Contractor: c.name, "Meal Bill": c.billed, "Total Bill": c.totalBill, "Payment Received": c.received, Balance: c.balance })),
+      dashContractors.map((c) => ({ "Vendor Code": c.vendorCode, Contractor: c.name, "Meal Bill": c.billed, "Special Lunch & Dinner": c.specialBill, "Total Bill": c.totalBill, "Payment Received": c.received, Balance: c.balance })),
     );
     XLSX.utils.book_append_sheet(wb, ws3, `Contractorwise ${dashPeriodLabel}`.slice(0,31));
     const ws4 = XLSX.utils.json_to_sheet(
-      dashClientTotals.map((c) => ({ Client: c.clientName, "Meal Bill": c.billed, "Total Bill": c.totalBill, "Payment Received": c.received, Balance: c.balance })),
+      dashClientTotals.map((c) => ({ Client: c.clientName, "Meal Bill": c.billed, "Special Lunch & Dinner": c.specialBill, "Total Bill": c.totalBill, "Payment Received": c.received, Balance: c.balance })),
     );
     XLSX.utils.book_append_sheet(wb, ws4, `Client totals ${dashPeriodLabel}`.slice(0,31));
     XLSX.writeFile(wb, `Contractor-Dashboard-${dashYear}${dashContractor === "all" ? "" : "-" + dashContractorName.replace(/\s+/g, "")}.xlsx`);
@@ -941,19 +952,20 @@ ${forPrint ? "<script>window.onload = function(){ window.print(); };</scr" + "ip
   const printDashboard = () => {
     const esc = (s: string) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
     const money = (n: number) => (Number(n) || 0).toLocaleString("en-IN", { minimumFractionDigits: 2 });
-    const rows = (arr: { label: string; billed: number; totalBill: number; received: number; balance: number }[]) =>
-      arr.map((r) => `<tr><td>${esc(r.label)}</td><td class="r">${money(r.billed)}</td><td class="r">${money(r.totalBill)}</td><td class="r">${money(r.received)}</td><td class="r ${r.balance > 0 ? "red" : ""}">${money(r.balance)}</td></tr>`).join("");
-    const tbl = (title: string, arr: { label: string; billed: number; totalBill: number; received: number; balance: number }[]) => {
+    const rows = (arr: { label: string; billed: number; specialBill: number; totalBill: number; received: number; balance: number }[]) =>
+      arr.map((r) => `<tr><td>${esc(r.label)}</td><td class="r">${money(r.billed)}</td><td class="r">${money(r.specialBill)}</td><td class="r">${money(r.totalBill)}</td><td class="r">${money(r.received)}</td><td class="r ${r.balance > 0 ? "red" : ""}">${money(r.balance)}</td></tr>`).join("");
+    const tbl = (title: string, arr: { label: string; billed: number; specialBill: number; totalBill: number; received: number; balance: number }[]) => {
       const t = arr.reduce((s, r) => ({
         billed: s.billed + r.billed,
+        specialBill: s.specialBill + r.specialBill,
         totalBill: s.totalBill + r.totalBill,
         received: s.received + r.received,
         balance: s.balance + r.balance,
-      }), { billed: 0, totalBill: 0, received: 0, balance: 0 });
+      }), { billed: 0, specialBill: 0, totalBill: 0, received: 0, balance: 0 });
       return `<h3>${esc(title)}</h3>
-      <table><tr class="head"><th></th><th class="r">Meal Bill</th><th class="r">Total Bill</th><th class="r">Received</th><th class="r">Balance</th></tr>
+      <table><tr class="head"><th></th><th class="r">Meal Bill</th><th class="r">Special Lunch &amp; Dinner</th><th class="r">Total Bill</th><th class="r">Received</th><th class="r">Balance</th></tr>
       ${rows(arr)}
-      <tr class="total"><td>Total</td><td class="r">${money(t.billed)}</td><td class="r">${money(t.totalBill)}</td><td class="r">${money(t.received)}</td><td class="r">${money(t.balance)}</td></tr></table>`;
+      <tr class="total"><td>Total</td><td class="r">${money(t.billed)}</td><td class="r">${money(t.specialBill)}</td><td class="r">${money(t.totalBill)}</td><td class="r">${money(t.received)}</td><td class="r">${money(t.balance)}</td></tr></table>`;
     };
     const html = `<!DOCTYPE html><html><head><meta charset="utf-8"><title>Contractor Dashboard ${dashYear}</title>
 <style>
@@ -968,10 +980,10 @@ ${forPrint ? "<script>window.onload = function(){ window.print(); };</scr" + "ip
 </style></head><body>
 <h2>DJ Hospitality &amp; Facility Management Pvt Ltd</h2>
 <div class="sub">Contractor Meal Dashboard — ${dashPeriodLabel} — ${esc(dashClient === "all" ? "All Clients" : dashClient)} — ${esc(dashContractorName)}</div>
-${tbl(`Month-wise (${dashPeriodLabel})`, dashMonthlyShown.map((m) => ({ label: m.name, billed: m.billed, totalBill: m.totalBill, received: m.received, balance: m.balance })))}
-${tbl("Year-wise", dashYearly.map((y) => ({ label: String(y.year), billed: y.billed, totalBill: y.totalBill, received: y.received, balance: y.balance })))}
-${tbl(`Client-wise company totals (${dashPeriodLabel})`, dashClientTotals.map((c) => ({ label: c.clientName, billed: c.billed, totalBill: c.totalBill, received: c.received, balance: c.balance })))}
-${tbl(`Contractor-wise (${dashPeriodLabel})`, dashContractors.map((c) => ({ label: `${c.vendorCode} — ${c.name}`, billed: c.billed, totalBill: c.totalBill, received: c.received, balance: c.balance })))}
+${tbl(`Month-wise (${dashPeriodLabel})`, dashMonthlyShown.map((m) => ({ label: m.name, billed: m.billed, specialBill: m.specialBill, totalBill: m.totalBill, received: m.received, balance: m.balance })))}
+${tbl("Year-wise", dashYearly.map((y) => ({ label: String(y.year), billed: y.billed, specialBill: y.specialBill, totalBill: y.totalBill, received: y.received, balance: y.balance })))}
+${tbl(`Client-wise company totals (${dashPeriodLabel})`, dashClientTotals.map((c) => ({ label: c.clientName, billed: c.billed, specialBill: c.specialBill, totalBill: c.totalBill, received: c.received, balance: c.balance })))}
+${tbl(`Contractor-wise (${dashPeriodLabel})`, dashContractors.map((c) => ({ label: `${c.vendorCode} — ${c.name}`, billed: c.billed, specialBill: c.specialBill, totalBill: c.totalBill, received: c.received, balance: c.balance })))}
 <script>window.onload = function(){ window.print(); };</scr${""}ipt>
 </body></html>`;
     const w = window.open("", "_blank");
@@ -1123,7 +1135,7 @@ ${tbl(`Contractor-wise (${dashPeriodLabel})`, dashContractors.map((c) => ({ labe
           <Card>
             <CardHeader className="py-3">
               <CardTitle className="text-base">
-                {monthName} {year} — qty likhiye (Breakfast / Lunch / Dinner) {isFetching ? "…" : ""}
+                {monthName} {year} — qty likhiye (Breakfast / Lunch / Dinner / Special Lunch &amp; Dinner) {isFetching ? "…" : ""}
               </CardTitle>
             </CardHeader>
             <CardContent className="overflow-x-auto p-0">
@@ -1135,6 +1147,7 @@ ${tbl(`Contractor-wise (${dashPeriodLabel})`, dashContractors.map((c) => ({ labe
                     <th className="p-2 text-center">Breakfast</th>
                     <th className="p-2 text-center">Lunch</th>
                     <th className="p-2 text-center">Dinner</th>
+                    <th className="p-2 text-center">Special Lunch &amp; Dinner</th>
                     <th className="p-2">Bill No</th>
                     <th className="p-2 text-center">Invoice</th>
                   </tr>
@@ -1146,7 +1159,7 @@ ${tbl(`Contractor-wise (${dashPeriodLabel})`, dashContractors.map((c) => ({ labe
                       <tr key={c.id} className="border-b" data-testid={`row-meal-${c.vendorCode}`}>
                         <td className="p-2 whitespace-nowrap font-mono text-xs">{c.vendorCode}</td>
                         <td className="p-2">{c.name}</td>
-                        {(["breakfast", "lunch", "dinner"] as const).map((k) => (
+                        {(["breakfast", "lunch", "dinner", "special"] as const).map((k) => (
                           <td key={k} className="p-1 text-center">
                             <Input
                               type="number" min={0} inputMode="numeric"
@@ -1180,7 +1193,7 @@ ${tbl(`Contractor-wise (${dashPeriodLabel})`, dashContractors.map((c) => ({ labe
                     );
                   })}
                   {gridContractors.length === 0 && (
-                    <tr><td colSpan={7} className="p-6 text-center text-muted-foreground">
+                    <tr><td colSpan={8} className="p-6 text-center text-muted-foreground">
                       {filteredContractors.length === 0
                         ? 'No contractors. Pehle "Contractor List" tab me add kijiye.'
                         : 'Is month me abhi koi data nahi. Naya data bharne ke liye "Load" button dabaiye.'}
@@ -1194,6 +1207,7 @@ ${tbl(`Contractor-wise (${dashPeriodLabel})`, dashContractors.map((c) => ({ labe
                       <td className="p-2 text-center" data-testid="text-total-breakfast">{totals.b}</td>
                       <td className="p-2 text-center" data-testid="text-total-lunch">{totals.l}</td>
                       <td className="p-2 text-center" data-testid="text-total-dinner">{totals.d}</td>
+                      <td className="p-2 text-center" data-testid="text-total-special">{totals.special}</td>
                       <td className="p-2" colSpan={2}>Grand Total: {totals.all}</td>
                     </tr>
                   </tfoot>
@@ -1256,6 +1270,7 @@ ${tbl(`Contractor-wise (${dashPeriodLabel})`, dashContractors.map((c) => ({ labe
                 <thead>
                   <tr className="border-b bg-green-100 text-left">
                     <th className="p-2">Contractor</th>
+                    <th className="p-2 text-right">Special Lunch &amp; Dinner Qty</th>
                     <th className="p-2 text-right">Total</th>
                     <th className="p-2">Bill No</th>
                   </tr>
@@ -1264,12 +1279,13 @@ ${tbl(`Contractor-wise (${dashPeriodLabel})`, dashContractors.map((c) => ({ labe
                   {reportRows.map((row) => (
                     <tr key={`${row.clientName}-${row.contractorName}`} className="border-b even:bg-green-50" data-testid={`row-summary-${row.contractorName}`}>
                       <td className="p-2 font-medium">{row.contractorName}</td>
+                      <td className="p-2 text-right">{row.special || ""}</td>
                       <td className="p-2 text-right">{formatReportAmount(row.total)}</td>
                       <td className="p-2">{row.billNo}</td>
                     </tr>
                   ))}
                   {reportRows.length === 0 && (
-                    <tr><td colSpan={3} className="p-6 text-center text-muted-foreground">
+                    <tr><td colSpan={4} className="p-6 text-center text-muted-foreground">
                       {reportFetching ? "Loading report..." : "No contractor meal entries for this month and client."}
                     </td></tr>
                   )}
@@ -1278,6 +1294,7 @@ ${tbl(`Contractor-wise (${dashPeriodLabel})`, dashContractors.map((c) => ({ labe
                   <tfoot>
                     <tr className="border-t bg-green-100 font-bold">
                       <td className="p-2 text-right">Total</td>
+                      <td className="p-2 text-right">{reportRows.reduce((sum, row) => sum + row.special, 0)}</td>
                       <td className="p-2 text-right" data-testid="text-summary-report-total">{formatReportAmount(reportTotal)}</td>
                       <td className="p-2" />
                     </tr>
@@ -1447,6 +1464,7 @@ ${tbl(`Contractor-wise (${dashPeriodLabel})`, dashContractors.map((c) => ({ labe
                     <th className="border p-2 text-right">Breakfast</th>
                     <th className="border p-2 text-right">Lunch</th>
                     <th className="border p-2 text-right">Dinner</th>
+                    <th className="border p-2 text-right">Special Lunch &amp; Dinner</th>
                     <th className="border p-2 text-right">Total (₹)</th>
                     <th className="border p-2 text-center">Invoice</th>
                   </tr>
@@ -1460,6 +1478,7 @@ ${tbl(`Contractor-wise (${dashPeriodLabel})`, dashContractors.map((c) => ({ labe
                       <td className="border p-2 text-right">{row.breakfast || ""}</td>
                       <td className="border p-2 text-right">{row.lunch || ""}</td>
                       <td className="border p-2 text-right">{row.dinner || ""}</td>
+                      <td className="border p-2 text-right">{row.special || ""}</td>
                       <td className="border p-2 text-right font-semibold">{row.total.toLocaleString("en-IN", { minimumFractionDigits: 2 })}</td>
                       <td className="border p-2 text-center">
                         <div className="flex gap-1 justify-center">
@@ -1474,7 +1493,7 @@ ${tbl(`Contractor-wise (${dashPeriodLabel})`, dashContractors.map((c) => ({ labe
                     </tr>
                   ))}
                   {nvRows.length === 0 && (
-                    <tr><td className="border p-4 text-center text-muted-foreground" colSpan={8}>{nvFetching ? "Loading..." : "Is month me koi invoice data nahi hai."}</td></tr>
+                    <tr><td className="border p-4 text-center text-muted-foreground" colSpan={9}>{nvFetching ? "Loading..." : "Is month me koi invoice data nahi hai."}</td></tr>
                   )}
                 </tbody>
               </table>
@@ -1541,6 +1560,7 @@ ${tbl(`Contractor-wise (${dashPeriodLabel})`, dashContractors.map((c) => ({ labe
                     <th className="p-2">Vendor Code</th>
                     <th className="p-2">Contractor</th>
                     <th className="p-2 text-right">Meal Bill</th>
+                    <th className="p-2 text-right">Special Lunch &amp; Dinner</th>
                     <th className="p-2 text-right">Total Bill</th>
                     <th className="p-2 text-right">Received</th>
                     <th className="p-2 text-right">Balance</th>
@@ -1552,19 +1572,21 @@ ${tbl(`Contractor-wise (${dashPeriodLabel})`, dashContractors.map((c) => ({ labe
                       <td className="p-2 font-mono text-xs whitespace-nowrap">{b.vendorCode}</td>
                       <td className="p-2">{b.name}</td>
                       <td className="p-2 text-right">{fmtInr(b.billed)}</td>
+                      <td className="p-2 text-right">{fmtInr(b.specialBill)}</td>
                       <td className="p-2 text-right font-semibold">{fmtInr(b.totalBill)}</td>
                       <td className="p-2 text-right text-green-600">{fmtInr(b.received)}</td>
                       <td className={`p-2 text-right font-semibold ${b.balance > 0 ? "text-red-600" : "text-green-600"}`}>{fmtInr(b.balance)}</td>
                     </tr>
                   ))}
                   {billing.filter((b) => b.totalBill > 0 || b.received > 0).length === 0 && (
-                    <tr><td colSpan={6} className="p-6 text-center text-muted-foreground">Abhi koi bill ya payment nahi. Meal bill ke liye invoice me Rate save kijiye.</td></tr>
+                    <tr><td colSpan={7} className="p-6 text-center text-muted-foreground">Abhi koi bill ya payment nahi. Meal bill ke liye invoice me Rate save kijiye.</td></tr>
                   )}
                 </tbody>
                 <tfoot>
                   <tr className="border-t bg-muted/50 font-semibold">
                     <td className="p-2" colSpan={2}>Total</td>
                     <td className="p-2 text-right">{fmtInr(billing.reduce((s, b) => s + b.billed, 0))}</td>
+                    <td className="p-2 text-right">{fmtInr(billing.reduce((s, b) => s + b.specialBill, 0))}</td>
                     <td className="p-2 text-right">{fmtInr(billing.reduce((s, b) => s + b.totalBill, 0))}</td>
                     <td className="p-2 text-right">{fmtInr(billing.reduce((s, b) => s + b.received, 0))}</td>
                     <td className="p-2 text-right">{fmtInr(billing.reduce((s, b) => s + b.balance, 0))}</td>
@@ -1713,14 +1735,14 @@ ${tbl(`Contractor-wise (${dashPeriodLabel})`, dashContractors.map((c) => ({ labe
             <CardContent className="overflow-x-auto p-0">
               <table className="w-full text-sm">
                 <thead><tr className="border-b bg-muted/50 text-left">
-                  <th className="p-2">Month</th><th className="p-2 text-right">Meal Bill</th>
+                  <th className="p-2">Month</th><th className="p-2 text-right">Meal Bill</th><th className="p-2 text-right">Special Lunch &amp; Dinner</th>
                   <th className="p-2 text-right">Total Bill</th>
                   <th className="p-2 text-right">Received</th><th className="p-2 text-right">Balance</th>
                 </tr></thead>
                 <tbody>
                   {dashMonthlyShown.map((m) => (
                     <tr key={m.month} className="border-b" data-testid={`row-monthly-summary-${m.month}`}>
-                      <td className="p-2">{m.name}</td><td className="p-2 text-right">{fmtInr(m.billed)}</td>
+                      <td className="p-2">{m.name}</td><td className="p-2 text-right">{fmtInr(m.billed)}</td><td className="p-2 text-right">{fmtInr(m.specialBill)}</td>
                       <td className="p-2 text-right font-semibold">{fmtInr(m.totalBill)}</td>
                       <td className="p-2 text-right text-green-600">{fmtInr(m.received)}</td><td className="p-2 text-right">{fmtInr(m.balance)}</td>
                     </tr>
@@ -1728,6 +1750,7 @@ ${tbl(`Contractor-wise (${dashPeriodLabel})`, dashContractors.map((c) => ({ labe
                   <tr className="border-t bg-muted/50 font-semibold">
                     <td className="p-2">Total</td>
                     <td className="p-2 text-right">{fmtInr(dashMonthlyShown.reduce((s, m) => s + m.billed, 0))}</td>
+                    <td className="p-2 text-right">{fmtInr(dashMonthlyShown.reduce((s, m) => s + m.specialBill, 0))}</td>
                     <td className="p-2 text-right">{fmtInr(dashMonthlyShown.reduce((s, m) => s + m.totalBill, 0))}</td>
                     <td className="p-2 text-right">{fmtInr(dashMonthlyShown.reduce((s, m) => s + m.received, 0))}</td>
                     <td className="p-2 text-right">{fmtInr(dashMonthlyShown.reduce((s, m) => s + m.balance, 0))}</td>
@@ -1759,14 +1782,14 @@ ${tbl(`Contractor-wise (${dashPeriodLabel})`, dashContractors.map((c) => ({ labe
             <CardContent className="overflow-x-auto p-0">
               <table className="w-full text-sm">
                 <thead><tr className="border-b bg-muted/50 text-left">
-                  <th className="p-2">Year</th><th className="p-2 text-right">Meal Bill</th>
+                  <th className="p-2">Year</th><th className="p-2 text-right">Meal Bill</th><th className="p-2 text-right">Special Lunch &amp; Dinner</th>
                   <th className="p-2 text-right">Total Bill</th>
                   <th className="p-2 text-right">Received</th><th className="p-2 text-right">Balance</th>
                 </tr></thead>
                 <tbody>
                   {dashYearly.map((y) => (
                     <tr key={y.year} className="border-b" data-testid={`row-yearly-summary-${y.year}`}>
-                      <td className="p-2">{y.year}</td><td className="p-2 text-right">{fmtInr(y.billed)}</td>
+                      <td className="p-2">{y.year}</td><td className="p-2 text-right">{fmtInr(y.billed)}</td><td className="p-2 text-right">{fmtInr(y.specialBill)}</td>
                       <td className="p-2 text-right font-semibold">{fmtInr(y.totalBill)}</td>
                       <td className="p-2 text-right text-green-600">{fmtInr(y.received)}</td><td className="p-2 text-right">{fmtInr(y.balance)}</td>
                     </tr>
@@ -1774,6 +1797,7 @@ ${tbl(`Contractor-wise (${dashPeriodLabel})`, dashContractors.map((c) => ({ labe
                   <tr className="border-t bg-muted/50 font-semibold">
                     <td className="p-2">Total</td>
                     <td className="p-2 text-right">{fmtInr(dashYearly.reduce((s, y) => s + y.billed, 0))}</td>
+                    <td className="p-2 text-right">{fmtInr(dashYearly.reduce((s, y) => s + y.specialBill, 0))}</td>
                     <td className="p-2 text-right">{fmtInr(dashYearly.reduce((s, y) => s + y.totalBill, 0))}</td>
                     <td className="p-2 text-right">{fmtInr(dashYearly.reduce((s, y) => s + y.received, 0))}</td>
                     <td className="p-2 text-right">{fmtInr(dashYearly.reduce((s, y) => s + y.balance, 0))}</td>
@@ -1788,24 +1812,25 @@ ${tbl(`Contractor-wise (${dashPeriodLabel})`, dashContractors.map((c) => ({ labe
             <CardContent className="overflow-x-auto p-0">
               <table className="w-full text-sm">
                 <thead><tr className="border-b bg-muted/50 text-left">
-                  <th className="p-2">Company / Client</th><th className="p-2 text-right">Meal Bill</th>
+                  <th className="p-2">Company / Client</th><th className="p-2 text-right">Meal Bill</th><th className="p-2 text-right">Special Lunch &amp; Dinner</th>
                   <th className="p-2 text-right">Total Bill</th>
                   <th className="p-2 text-right">Received</th><th className="p-2 text-right">Balance</th>
                 </tr></thead>
                 <tbody>
                   {dashClientTotals.map((c) => (
                     <tr key={c.clientName} className="border-b" data-testid={`row-client-contract-total-${c.clientName}`}>
-                      <td className="p-2">{c.clientName}</td><td className="p-2 text-right">{fmtInr(c.billed)}</td>
+                      <td className="p-2">{c.clientName}</td><td className="p-2 text-right">{fmtInr(c.billed)}</td><td className="p-2 text-right">{fmtInr(c.specialBill)}</td>
                       <td className="p-2 text-right font-semibold">{fmtInr(c.totalBill)}</td>
                       <td className="p-2 text-right text-green-600">{fmtInr(c.received)}</td><td className="p-2 text-right">{fmtInr(c.balance)}</td>
                     </tr>
                   ))}
                   {dashClientTotals.length === 0 && (
-                    <tr><td colSpan={5} className="p-6 text-center text-muted-foreground">No company bills or payments for this period.</td></tr>
+                    <tr><td colSpan={6} className="p-6 text-center text-muted-foreground">No company bills or payments for this period.</td></tr>
                   )}
                   <tr className="border-t bg-muted/50 font-semibold">
                     <td className="p-2">Total</td>
                     <td className="p-2 text-right">{fmtInr(dashClientTotals.reduce((s, c) => s + c.billed, 0))}</td>
+                    <td className="p-2 text-right">{fmtInr(dashClientTotals.reduce((s, c) => s + c.specialBill, 0))}</td>
                     <td className="p-2 text-right">{fmtInr(dashClientTotals.reduce((s, c) => s + c.totalBill, 0))}</td>
                     <td className="p-2 text-right">{fmtInr(dashClientTotals.reduce((s, c) => s + c.received, 0))}</td>
                     <td className="p-2 text-right">{fmtInr(dashClientTotals.reduce((s, c) => s + c.balance, 0))}</td>
@@ -1824,6 +1849,7 @@ ${tbl(`Contractor-wise (${dashPeriodLabel})`, dashContractors.map((c) => ({ labe
                     <th className="p-2">Vendor Code</th>
                     <th className="p-2">Contractor</th>
                     <th className="p-2 text-right">Meal Bill</th>
+                    <th className="p-2 text-right">Special Lunch &amp; Dinner</th>
                     <th className="p-2 text-right">Total Bill</th>
                     <th className="p-2 text-right">Received</th>
                     <th className="p-2 text-right">Balance</th>
@@ -1835,19 +1861,21 @@ ${tbl(`Contractor-wise (${dashPeriodLabel})`, dashContractors.map((c) => ({ labe
                       <td className="p-2 font-mono text-xs whitespace-nowrap">{c.vendorCode}</td>
                       <td className="p-2">{c.name}</td>
                       <td className="p-2 text-right">{fmtInr(c.billed)}</td>
+                      <td className="p-2 text-right">{fmtInr(c.specialBill)}</td>
                       <td className="p-2 text-right font-semibold">{fmtInr(c.totalBill)}</td>
                       <td className="p-2 text-right text-green-600">{fmtInr(c.received)}</td>
                       <td className={`p-2 text-right font-semibold ${c.balance > 0 ? "text-red-600" : "text-green-600"}`}>{fmtInr(c.balance)}</td>
                     </tr>
                   ))}
                   {dashContractors.length === 0 && (
-                    <tr><td colSpan={6} className="p-6 text-center text-muted-foreground">Is year me koi bill/payment nahi mila.</td></tr>
+                    <tr><td colSpan={7} className="p-6 text-center text-muted-foreground">Is year me koi bill/payment nahi mila.</td></tr>
                   )}
                 </tbody>
                 <tfoot>
                   <tr className="border-t bg-muted/50 font-semibold">
                     <td className="p-2" colSpan={2}>Total</td>
                     <td className="p-2 text-right">{fmtInr(dashContractors.reduce((s, c) => s + c.billed, 0))}</td>
+                    <td className="p-2 text-right">{fmtInr(dashContractors.reduce((s, c) => s + c.specialBill, 0))}</td>
                     <td className="p-2 text-right">{fmtInr(dashContractors.reduce((s, c) => s + c.totalBill, 0))}</td>
                     <td className="p-2 text-right">{fmtInr(dashContractors.reduce((s, c) => s + c.received, 0))}</td>
                     <td className="p-2 text-right">{fmtInr(dashContractors.reduce((s, c) => s + c.balance, 0))}</td>
@@ -1867,9 +1895,8 @@ ${tbl(`Contractor-wise (${dashPeriodLabel})`, dashContractors.map((c) => ({ labe
           </DialogHeader>
           {invContractor && (() => {
             const v = rowValue(invContractor);
-            const qtys = { Breakfast: Number(v.breakfast) || 0, Lunch: Number(v.lunch) || 0, Dinner: Number(v.dinner) || 0 };
-            const total = (["Breakfast", "Lunch", "Dinner"] as const)
-              .reduce((s, m) => s + qtys[m] * (Number(invRates[m]) || 0), 0);
+            const qtys = { Breakfast: Number(v.breakfast) || 0, Lunch: Number(v.lunch) || 0, Dinner: Number(v.dinner) || 0, Special: Number(v.special) || 0 };
+            const total = CONTRACTOR_MEALS.reduce((s, meal) => s + qtys[meal.type] * (Number(invRates[meal.type]) || 0), 0);
             return (
               <div className="space-y-3">
                 <div className="grid grid-cols-2 gap-3">
@@ -1892,9 +1919,9 @@ ${tbl(`Contractor-wise (${dashPeriodLabel})`, dashContractors.map((c) => ({ labe
                     </tr>
                   </thead>
                   <tbody>
-                    {(["Breakfast", "Lunch", "Dinner"] as const).map((m) => (
+                    {CONTRACTOR_MEALS.map(({ type: m, label }) => (
                       <tr key={m} className="border-b">
-                        <td className="py-1">{m}</td>
+                        <td className="py-1">{label}</td>
                         <td className="py-1 text-center">{qtys[m]}</td>
                         <td className="py-1 text-center">
                           <Input

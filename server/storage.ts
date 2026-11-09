@@ -1,5 +1,6 @@
 
 import { db, pool } from "./db";
+import { CONTRACTOR_MEALS } from "../shared/contractor-meals";
 import { 
   dailyReports, 
   expenseItems, 
@@ -4558,7 +4559,7 @@ export class DatabaseStorage implements IStorage {
        FROM contractor_meal_entries e
        JOIN contractors c ON c.id = e.contractor_id
        WHERE e.month = ? AND e.year = ?
-       ORDER BY FIELD(e.meal_type,'Breakfast','Lunch','Dinner'), c.vendor_code`,
+       ORDER BY FIELD(e.meal_type,'Breakfast','Lunch','Dinner','Special'), c.vendor_code`,
       [month, year],
     );
     return rows as any[];
@@ -4598,7 +4599,7 @@ export class DatabaseStorage implements IStorage {
     const [rows] = await pool.query(
       `SELECT CASE WHEN e.month = 1 THEN 12 ELSE e.month - 1 END AS month,
               ROUND(SUM(e.qty * COALESCE(NULLIF(e.rate, 0),
-                CASE e.meal_type WHEN 'Breakfast' THEN 4.6 ELSE 11.6 END)), 2) AS invoiceTotal
+                CASE e.meal_type WHEN 'Breakfast' THEN 4.6 WHEN 'Special' THEN 26 ELSE 11.6 END)), 2) AS invoiceTotal
        FROM contractor_meal_entries e
        JOIN contractors c ON c.id = e.contractor_id
        WHERE ((e.year = ? AND e.month BETWEEN 2 AND 12) OR (e.year = ? AND e.month = 1))
@@ -4670,9 +4671,9 @@ export class DatabaseStorage implements IStorage {
 
   async saveContractorMealEntries(input: {
     entryDate: string; month: number; year: number;
-    rows: { contractorId: number; billNo?: string; breakfast?: number | null; lunch?: number | null; dinner?: number | null }[];
+    rows: { contractorId: number; billNo?: string; breakfast?: number | null; lunch?: number | null; dinner?: number | null; special?: number | null }[];
   }): Promise<void> {
-    const MEALS: [string, 'breakfast' | 'lunch' | 'dinner'][] = [['Breakfast', 'breakfast'], ['Lunch', 'lunch'], ['Dinner', 'dinner']];
+    const MEALS = CONTRACTOR_MEALS.map(({ type, key }) => [type, key] as const);
 
     // Validate everything before touching the database.
     const ids = input.rows.map((r) => Number(r.contractorId)).filter((n) => Number.isInteger(n) && n > 0);
@@ -4702,6 +4703,7 @@ export class DatabaseStorage implements IStorage {
         const billNo = String(r.billNo || '').trim();
         for (const [mealType, key] of MEALS) {
           const raw = (r as any)[key];
+          if (key === 'special' && raw === undefined) continue;
           if (raw === undefined || raw === null || raw === '') {
             // no value entered → remove any existing row for this meal
             await conn.execute(
@@ -4761,10 +4763,10 @@ export class DatabaseStorage implements IStorage {
   async getContractorBillingSummary(): Promise<any[]> {
     const [rows] = await pool.query(
       `SELECT c.id AS contractorId, c.vendor_code AS vendorCode, c.name, c.client_name AS clientName,
-              COALESCE(b.billed, 0) AS billed, COALESCE(cb.contractBill, 0) AS contractBill,
+              COALESCE(b.billed, 0) AS billed, COALESCE(b.specialBill, 0) AS specialBill, COALESCE(cb.contractBill, 0) AS contractBill,
               COALESCE(p.received, 0) AS received
        FROM contractors c
-       LEFT JOIN (SELECT contractor_id, SUM(qty * COALESCE(NULLIF(rate, 0), CASE meal_type WHEN 'Breakfast' THEN 4.6 ELSE 11.6 END)) AS billed FROM contractor_meal_entries GROUP BY contractor_id) b
+       LEFT JOIN (SELECT contractor_id, SUM(qty * COALESCE(NULLIF(rate, 0), CASE meal_type WHEN 'Breakfast' THEN 4.6 WHEN 'Special' THEN 26 ELSE 11.6 END)) AS billed, SUM(CASE WHEN meal_type = 'Special' THEN qty * COALESCE(NULLIF(rate, 0), 26) ELSE 0 END) AS specialBill FROM contractor_meal_entries GROUP BY contractor_id) b
          ON b.contractor_id = c.id
        LEFT JOIN (SELECT contractor_id, SUM(amount) AS contractBill FROM contractor_contract_bills GROUP BY contractor_id) cb
          ON cb.contractor_id = c.id
@@ -4775,6 +4777,7 @@ export class DatabaseStorage implements IStorage {
     return (rows as any[]).map((r) => ({
       ...r,
       billed: Number(r.billed) || 0,
+      specialBill: Number(r.specialBill) || 0,
       contractBill: Number(r.contractBill) || 0,
       totalBill: (Number(r.billed) || 0) + (Number(r.contractBill) || 0),
       received: Number(r.received) || 0,
@@ -4794,7 +4797,7 @@ export class DatabaseStorage implements IStorage {
 
     // month-wise bill for the year
     const [billRows]: any = await pool.query(
-      `SELECT month, SUM(qty * COALESCE(NULLIF(rate, 0), CASE meal_type WHEN 'Breakfast' THEN 4.6 ELSE 11.6 END)) AS billed FROM contractor_meal_entries WHERE year = ?${cFilter}${clFilter} GROUP BY month`,
+      `SELECT month, SUM(qty * COALESCE(NULLIF(rate, 0), CASE meal_type WHEN 'Breakfast' THEN 4.6 WHEN 'Special' THEN 26 ELSE 11.6 END)) AS billed, SUM(CASE WHEN meal_type = 'Special' THEN qty * COALESCE(NULLIF(rate, 0), 26) ELSE 0 END) AS specialBill FROM contractor_meal_entries WHERE year = ?${cFilter}${clFilter} GROUP BY month`,
       [year, ...cArgs, ...clArgs],
     );
     const [contractBillRows]: any = await pool.query(
@@ -4815,6 +4818,7 @@ export class DatabaseStorage implements IStorage {
       return {
         month: m,
         billed: Math.round(billed * 100) / 100,
+        specialBill: Number(billRows.find((r: any) => Number(r.month) === m)?.specialBill) || 0,
         contractBill: Math.round(contractBill * 100) / 100,
         totalBill: Math.round(totalBill * 100) / 100,
         received: Math.round(received * 100) / 100,
@@ -4824,7 +4828,7 @@ export class DatabaseStorage implements IStorage {
 
     // year-wise totals (all years, for year-over-year graph)
     const [yBill]: any = await pool.query(
-      `SELECT year, SUM(qty * COALESCE(NULLIF(rate, 0), CASE meal_type WHEN 'Breakfast' THEN 4.6 ELSE 11.6 END)) AS billed FROM contractor_meal_entries WHERE 1=1${cFilter}${clFilter} GROUP BY year ORDER BY year`,
+      `SELECT year, SUM(qty * COALESCE(NULLIF(rate, 0), CASE meal_type WHEN 'Breakfast' THEN 4.6 WHEN 'Special' THEN 26 ELSE 11.6 END)) AS billed, SUM(CASE WHEN meal_type = 'Special' THEN qty * COALESCE(NULLIF(rate, 0), 26) ELSE 0 END) AS specialBill FROM contractor_meal_entries WHERE 1=1${cFilter}${clFilter} GROUP BY year ORDER BY year`,
       [...cArgs, ...clArgs],
     );
     const [yContractBill]: any = await pool.query(
@@ -4848,6 +4852,7 @@ export class DatabaseStorage implements IStorage {
       return {
         year: y,
         billed: Math.round(billed * 100) / 100,
+        specialBill: Number(yBill.find((r: any) => Number(r.year) === y)?.specialBill) || 0,
         contractBill: Math.round(contractBill * 100) / 100,
         totalBill: Math.round(totalBill * 100) / 100,
         received: Math.round(received * 100) / 100,
@@ -4864,11 +4869,11 @@ export class DatabaseStorage implements IStorage {
     if (clientStr) { where.push('c.client_name = ?'); whereArgs.push(clientStr); }
     const [cRows]: any = await pool.query(
       `SELECT c.id AS contractorId, c.vendor_code AS vendorCode, c.name, c.client_name AS clientName,
-              COALESCE(b.billed, 0) AS billed, COALESCE(cb.contractBill, 0) AS contractBill,
+              COALESCE(b.billed, 0) AS billed, COALESCE(b.specialBill, 0) AS specialBill, COALESCE(cb.contractBill, 0) AS contractBill,
               COALESCE(p.received, 0) AS received, COALESCE(b.billNo, '') AS billNo,
               COALESCE(cb.billPeriod, '') AS contractBillPeriod, COALESCE(cb.billNo, '') AS contractBillNo
        FROM contractors c
-       LEFT JOIN (SELECT contractor_id, SUM(qty * COALESCE(NULLIF(rate, 0), CASE meal_type WHEN 'Breakfast' THEN 4.6 ELSE 11.6 END)) AS billed, GROUP_CONCAT(DISTINCT NULLIF(bill_no, '') ORDER BY month SEPARATOR ', ') AS billNo FROM contractor_meal_entries WHERE year = ?${mBillFilter} GROUP BY contractor_id) b ON b.contractor_id = c.id
+       LEFT JOIN (SELECT contractor_id, SUM(qty * COALESCE(NULLIF(rate, 0), CASE meal_type WHEN 'Breakfast' THEN 4.6 WHEN 'Special' THEN 26 ELSE 11.6 END)) AS billed, SUM(CASE WHEN meal_type = 'Special' THEN qty * COALESCE(NULLIF(rate, 0), 26) ELSE 0 END) AS specialBill, GROUP_CONCAT(DISTINCT NULLIF(bill_no, '') ORDER BY month SEPARATOR ', ') AS billNo FROM contractor_meal_entries WHERE year = ?${mBillFilter} GROUP BY contractor_id) b ON b.contractor_id = c.id
        LEFT JOIN (SELECT contractor_id, SUM(amount) AS contractBill, GROUP_CONCAT(DISTINCT NULLIF(bill_period, '') ORDER BY month SEPARATOR ', ') AS billPeriod, GROUP_CONCAT(DISTINCT NULLIF(bill_no, '') ORDER BY month SEPARATOR ', ') AS billNo FROM contractor_contract_bills WHERE year = ?${mBillFilter} GROUP BY contractor_id) cb ON cb.contractor_id = c.id
        LEFT JOIN (SELECT contractor_id, SUM(amount) AS received FROM contractor_payments WHERE YEAR(payment_date) = ?${mPayFilter} GROUP BY contractor_id) p ON p.contractor_id = c.id
        ${where.length ? 'WHERE ' + where.join(' AND ') : ''}
@@ -4883,6 +4888,7 @@ export class DatabaseStorage implements IStorage {
       return {
         ...r,
         billed: Math.round(billed * 100) / 100,
+        specialBill: Number(r.specialBill) || 0,
         contractBill: Math.round(contractBill * 100) / 100,
         totalBill: Math.round(totalBill * 100) / 100,
         received: Math.round(received * 100) / 100,
@@ -4896,7 +4902,7 @@ export class DatabaseStorage implements IStorage {
  async setContractorMealRates(contractorId: number, month: number, year: number, rates: Record<string, number>): Promise<void> {
     const [found]: any = await pool.query(`SELECT id FROM contractors WHERE id = ?`, [contractorId]);
     if (!found.length) throw new Error('Contractor not found');
-    for (const mealType of ['Breakfast', 'Lunch', 'Dinner']) {
+    for (const { type: mealType } of CONTRACTOR_MEALS) {
       const r = Number(rates?.[mealType]);
       if (!Number.isFinite(r) || r < 0) continue;
       await pool.execute(
