@@ -1,6 +1,6 @@
 import { strict as assert } from "node:assert";
 import { test } from "node:test";
-import { contractorInvoiceItems, contractorMealRate } from "./contractor-meals";
+import { contractorInvoiceFileName, contractorInvoiceItems, contractorMealRate } from "./contractor-meals";
 
 const rates = { Breakfast: "4.6", Lunch: "11.6", Dinner: "11.6", Special: "26" };
 
@@ -24,4 +24,14 @@ test("special meal uses its saved rate or the default rate", () => {
   assert.equal(contractorMealRate("Special", "16.25"), 16.25);
   assert.equal(contractorMealRate("Breakfast", 0), 4.6);
   assert.equal(contractorMealRate("Dinner", 0), 11.6);
+});
+
+test("invoice filename uses bill number and selected bill month", () => {
+  assert.equal(contractorInvoiceFileName("DJ-SKI-26-C094", "DJ-SKI-001", 10, 2026), "DJ-SKI-26-C094-Oct26.jpg");
+  assert.equal(contractorInvoiceFileName("DJ-SKI-27-C001", "DJ-SKI-001", 1, 2027), "DJ-SKI-27-C001-Jan27.jpg");
+});
+
+test("invoice filenames are safe and retain a fallback for missing bill numbers", () => {
+  assert.equal(contractorInvoiceFileName(" Bill/094 ", "DJ-SKI-001", 10, 2026), "Bill-094-Oct26.jpg");
+  assert.equal(contractorInvoiceFileName("", "DJ-SKI-001", 10, 2026), "Invoice-DJ-SKI-001-10-2026.jpg");
 });
