@@ -3535,6 +3535,35 @@ export class DatabaseStorage implements IStorage {
   async renameClientForm(clientId: number, formId: number, name: string): Promise<void> {
     await pool.query(`UPDATE client_forms SET name = ? WHERE id = ? AND client_id = ?`, [name, formId, clientId]);
   }
+  async deleteClientForm(clientId: number, formId: number): Promise<boolean> {
+    const connection = await pool.getConnection();
+    try {
+      await connection.beginTransaction();
+      const [forms]: any = await connection.query(
+        `SELECT id FROM client_forms WHERE id = ? AND client_id = ? FOR UPDATE`,
+        [formId, clientId],
+      );
+      if (forms.length === 0) {
+        await connection.rollback();
+        return false;
+      }
+      await connection.query(
+        `DELETE e FROM client_form_entries e
+         JOIN client_form_fields f ON f.id = e.field_id
+         WHERE f.form_id = ? AND f.client_id = ?`,
+        [formId, clientId],
+      );
+      await connection.query(`DELETE FROM client_form_fields WHERE form_id = ? AND client_id = ?`, [formId, clientId]);
+      await connection.query(`DELETE FROM client_forms WHERE id = ? AND client_id = ?`, [formId, clientId]);
+      await connection.commit();
+      return true;
+    } catch (error) {
+      await connection.rollback();
+      throw error;
+    } finally {
+      connection.release();
+    }
+  }
   async getClientForm(clientId: number, formId: number, month: number, year: number): Promise<{ fields: any[]; entries: any[] }> {
     const prefix = `${year}-${String(month).padStart(2, '0')}-%`;
     const [entryRows]: any = await pool.query(

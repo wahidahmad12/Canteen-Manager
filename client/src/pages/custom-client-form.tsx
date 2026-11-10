@@ -73,6 +73,7 @@ export function CustomClientFormTab({ clientId, clientName, month, year, canEdit
   const [selectedFormId, setSelectedFormId] = useState<number | null>(null);
   const [newFormName, setNewFormName] = useState("");
   const [renameValue, setRenameValue] = useState("");
+  const [deletingForm, setDeletingForm] = useState(false);
   const { data: forms = [], isLoading, isError } = useQuery<ClientForm[]>({
     queryKey: ["/api/client-forms", clientId, "forms"],
     queryFn: async () => {
@@ -125,6 +126,27 @@ export function CustomClientFormTab({ clientId, clientName, month, year, canEdit
     }
   };
 
+  const deleteForm = async () => {
+    if (!selectedForm || deletingForm) return;
+    const warning = `${clientName} — "${selectedForm.name}" form aur uske saare saved data ko permanently delete karein?`;
+    if (!window.confirm(warning)) return;
+    if (!window.confirm(`Final confirmation: "${selectedForm.name}" aur iska saara data hamesha ke liye delete hoga. Ye undo nahi ho sakta. Kya aap pakka delete karna chahte hain?`)) return;
+    setDeletingForm(true);
+    try {
+      await sendJson(`/api/client-forms/${clientId}/forms/${selectedForm.id}`, "DELETE");
+      setSelectedFormId(null);
+      await Promise.all([
+        qc.invalidateQueries({ queryKey: ["/api/client-forms", clientId, "forms"] }),
+        qc.invalidateQueries({ queryKey: ["/api/client-forms/yearly"] }),
+      ]);
+      toast({ title: `"${selectedForm.name}" form aur uska data delete ho gaya` });
+    } catch (e: any) {
+      toast({ title: "Form delete nahi hua", description: e.message, variant: "destructive" });
+    } finally {
+      setDeletingForm(false);
+    }
+  };
+
   if (isLoading) return <div className="flex justify-center py-10"><Loader2 className="w-6 h-6 animate-spin" /></div>;
   if (isError) return <div className="text-sm text-red-600 py-6">Form load nahi ho paya. Page refresh karke dobara try karein.</div>;
 
@@ -149,6 +171,10 @@ export function CustomClientFormTab({ clientId, clientName, month, year, canEdit
             <div className="flex flex-wrap gap-2 items-center">
               <Input value={renameValue} onChange={e => setRenameValue(e.target.value)} className="w-56 h-9" aria-label="Form name" data-testid="input-rename-client-form" />
               <Button size="sm" variant="outline" onClick={renameForm} data-testid="btn-rename-client-form"><Save className="w-4 h-4 mr-1" />Rename Form</Button>
+              <Button size="sm" variant="outline" className="border-red-300 text-red-600 hover:bg-red-50" onClick={deleteForm} disabled={deletingForm} data-testid="btn-delete-client-form">
+                {deletingForm ? <Loader2 className="w-4 h-4 mr-1 animate-spin" /> : <Trash2 className="w-4 h-4 mr-1" />}
+                {deletingForm ? "Deleting..." : "Delete Form"}
+              </Button>
             </div>
           )}
           <ClientNamedForm key={`${selectedForm.id}-${month}-${year}`} clientId={clientId} clientName={clientName} forms={forms} formId={selectedForm.id} formName={selectedForm.name} month={month} year={year} canEdit={canEdit} />
