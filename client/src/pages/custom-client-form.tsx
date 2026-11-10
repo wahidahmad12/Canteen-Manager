@@ -48,18 +48,55 @@ function printTable(title: string, table: HTMLTableElement | null): boolean {
   const printWindow = window.open("", "_blank");
   if (!printWindow) return false;
   const escapedTitle = title.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+  const printableTable = table.cloneNode(true) as HTMLTableElement;
+  printableTable.style.cssText = "width:100%;border-collapse:collapse;table-layout:auto;border:1px solid #94a3b8";
+  Array.from(printableTable.querySelectorAll("input")).forEach(input => {
+    const value = input.value;
+    input.replaceWith(document.createTextNode(value || ""));
+  });
+  Array.from(printableTable.querySelectorAll("select,textarea")).forEach(control => {
+    const value = control instanceof HTMLSelectElement ? control.selectedOptions[0]?.textContent || "" : control.value;
+    control.replaceWith(document.createTextNode(value));
+  });
+  Array.from(printableTable.querySelectorAll("thead th")).forEach((cell, index, cells) => {
+    const background = index < 2 ? "#1e3a5f" : index === cells.length - 1 ? "#155e75" : "#0f766e";
+    (cell as HTMLElement).style.cssText = `border:1px solid #ffffff;padding:7px 6px;background:${background};color:#ffffff;font-weight:700;text-align:center`;
+  });
+  Array.from(printableTable.querySelectorAll("tbody tr")).forEach((row, rowIndex) => {
+    Array.from(row.children).forEach((cell, cellIndex, cells) => {
+      const background = rowIndex % 2 === 0 ? "#ffffff" : "#e8f4f5";
+      (cell as HTMLElement).style.cssText = `border:1px solid #b8cbd3;padding:6px 5px;background:${background};color:${cellIndex === cells.length - 1 ? "#0f4c5c" : "#243746"};text-align:${cellIndex < 2 ? "left" : "center"}`;
+    });
+  });
+  Array.from(printableTable.querySelectorAll("tfoot tr")).forEach((row, rowIndex, rows) => {
+    const background = rowIndex === rows.length - 1 ? "#0f766e" : "#dbeafe";
+    const color = rowIndex === rows.length - 1 ? "#ffffff" : "#172554";
+    Array.from(row.children).forEach(cell => {
+      (cell as HTMLElement).style.cssText = `border:1px solid #ffffff;padding:7px 5px;background:${background};color:${color};font-weight:700;text-align:center`;
+    });
+  });
   printWindow.document.write(`<!doctype html><html><head><title>${escapedTitle}</title>
     <style>
-      body{font-family:Arial,sans-serif;font-size:12px;margin:24px;color:#111}
-      h2{margin:0 0 12px}
-      table{width:100%;border-collapse:collapse}
-      th,td{border:1px solid #999;padding:5px 7px}
-      th{background:#eee}
-      @media print{body{margin:8px}thead{display:table-header-group}}
-    </style></head><body><h2>${escapedTitle}</h2>${table.outerHTML}</body></html>`);
+      *{box-sizing:border-box;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+      html,body{width:100%;margin:0;padding:0}
+      body{font-family:Arial,sans-serif;font-size:10px;color:#172033}
+      .report-header{text-align:center;background:#123b5d;color:#fff;padding:9px 12px;border-bottom:5px solid #14b8a6;margin-bottom:8px}
+      .company{font-size:16px;font-weight:700;letter-spacing:.3px}
+      .report-type{font-size:9px;letter-spacing:1.5px;text-transform:uppercase;color:#b8e6e2;margin-top:3px}
+      h2{font-size:13px;margin:6px 0 0;color:#fff}
+      table{width:100%;max-width:100%;border-collapse:collapse;table-layout:auto}
+      th,td{overflow-wrap:anywhere}
+      @media print{@page{size:A4 landscape;margin:5mm}body{margin:0}thead{display:table-header-group}tr{break-inside:avoid}}
+    </style></head><body><header class="report-header" style="text-align:center;background:#123b5d;color:#fff;padding:9px 12px;border-bottom:5px solid #14b8a6;margin-bottom:8px">
+      <div class="company" style="font-size:16px;font-weight:700;letter-spacing:.3px">DJ Hospitality &amp; Facility Management Private Limited</div>
+      <div class="report-type" style="font-size:9px;letter-spacing:1.5px;text-transform:uppercase;color:#b8e6e2;margin-top:3px">Client Meal Ledger</div>
+      <h2 style="font-size:13px;margin:6px 0 0;color:#fff">${escapedTitle}</h2>
+    </header>${printableTable.outerHTML}</body></html>`);
   printWindow.document.close();
   printWindow.focus();
-  printWindow.print();
+  window.setTimeout(() => {
+    if (!printWindow.closed) printWindow.print();
+  }, 500);
   return true;
 }
 
