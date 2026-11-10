@@ -1,10 +1,10 @@
-import { Fragment, useEffect, useMemo, useState } from "react";
+import { Fragment, useEffect, useMemo, useRef, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
-import { Plus, Trash2, Save, Loader2, FileDown } from "lucide-react";
+import { Plus, Trash2, Save, Loader2, FileDown, Upload } from "lucide-react";
 
 const MONTHS = ["January","February","March","April","May","June","July","August","September","October","November","December"];
 const PRESETS = ["Breakfast", "Lunch", "Evening Snack", "Dinner", "Tea"];
@@ -65,6 +65,7 @@ export function CustomClientFormTab({ clientId, clientName, month, year, canEdit
   const [newLabel, setNewLabel] = useState("");
   const [newRate, setNewRate] = useState("");
   const [saving, setSaving] = useState(false);
+  const importRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     const q: Record<string, string> = {};
@@ -132,6 +133,57 @@ export function CustomClientFormTab({ clientId, clientName, month, year, canEdit
     }
   };
 
+  const downloadTemplate = () => {
+    const rows = fields.filter(f => f.active).length > 0
+      ? fields.filter(f => f.active).map(f => [f.label, f.rate])
+      : PRESETS.map(p => [p, 0]);
+    downloadXlsx("Form_Builder_Template.xlsx", "Columns", ["Column Name", "Rate"], rows);
+  };
+
+  const handleImport = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    e.target.value = "";
+    if (!file) return;
+    try {
+      const ExcelJS = (await import("exceljs")).default;
+      const wb = new ExcelJS.Workbook();
+      await wb.xlsx.load(await file.arrayBuffer());
+      const ws = wb.worksheets[0];
+      const cellText = (v: any) => String(v && typeof v === "object" ? (v.text ?? v.result ?? "") : (v ?? "")).trim();
+      const items: { label: string; rate: number }[] = [];
+      ws.eachRow((row, i) => {
+        const label = cellText(row.getCell(1).value);
+        const rateTxt = cellText(row.getCell(2).value);
+        const rate = Number(rateTxt);
+        if (i === 1 && /column|name|label/i.test(label)) return;
+        if (!label || rateTxt === "" || !Number.isFinite(rate) || rate < 0) return;
+        items.push({ label, rate });
+      });
+      if (items.length === 0) {
+        toast({ title: "File me koi valid row nahi mili", description: "Format: Column Name | Rate", variant: "destructive" });
+        return;
+      }
+      let added = 0, updated = 0;
+      for (const it of items) {
+        const existing = fields.find(f => f.active && f.label.toLowerCase() === it.label.toLowerCase());
+        if (existing) {
+          if (existing.rate !== it.rate) {
+            await sendJson(`/api/client-forms/fields/${existing.id}`, "PUT", { rate: it.rate });
+            updated++;
+          }
+        } else {
+          await sendJson(`/api/client-forms/${clientId}/fields`, "POST", { label: it.label, rate: it.rate });
+          added++;
+        }
+      }
+      refresh();
+      toast({ title: "Import ho gaya", description: `${added} column add, ${updated} rate update` });
+    } catch (err: any) {
+      refresh();
+      toast({ title: "Import nahi hua", description: err.message, variant: "destructive" });
+    }
+  };
+
   const handleSave = async () => {
     setSaving(true);
     try {
@@ -183,7 +235,10 @@ export function CustomClientFormTab({ clientId, clientName, month, year, canEdit
               <Input placeholder="Column name (e.g. Lemon Tea)" value={newLabel} onChange={e => setNewLabel(e.target.value)} className="w-52 h-9" data-testid="input-custom-field-label" />
               <Input type="number" min="0" step="0.01" placeholder="Rate ₹" value={newRate} onChange={e => setNewRate(e.target.value)} className="w-28 h-9" data-testid="input-custom-field-rate" />
               <Button size="sm" onClick={() => addField(newLabel, newRate)} data-testid="btn-add-custom-field"><Plus className="w-4 h-4 mr-1" />Add Column</Button>
-            </div>
+                            <Button size="sm" variant="outline" onClick={downloadTemplate} data-testid="btn-form-template"><FileDown className="w-4 h-4 mr-1" />Template</Button>
+                            <Button size="sm" variant="outline" onClick={() => importRef.current?.click()} data-testid="btn-form-import"><Upload className="w-4 h-4 mr-1" />Import</Button>
+                            <input ref={importRef} type="file" accept=".xlsx" className="hidden" onChange={handleImport} />
+                          </div>
             {unusedPresets.length > 0 && (
               <div className="flex flex-wrap gap-1 items-center text-xs text-muted-foreground">
                 Quick add:
