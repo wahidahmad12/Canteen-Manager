@@ -3550,6 +3550,14 @@ export async function registerRoutes(
       res.json({ ok: true });
     } catch (err: any) { res.status(500).json({ message: err.message }); }
   });
+  app.delete('/api/client-forms/:clientId/entries', requirePermission('salesinvoice'), async (req, res) => {
+    try {
+      const clientId = Number(req.params.clientId), month = Number(req.query.month), year = Number(req.query.year);
+      if (!clientId || !month || !year) return res.status(400).json({ message: "clientId, month and year are required" });
+      await storage.deleteClientFormMonthEntries(clientId, month, year);
+      res.json({ ok: true });
+    } catch (err: any) { res.status(500).json({ message: err.message }); }
+  });
   app.delete('/api/client-forms/fields/:id', requirePermission('salesinvoice'), async (req, res) => {
     try {
       await storage.deactivateClientFormField(Number(req.params.id));

@@ -3571,6 +3571,13 @@ export class DatabaseStorage implements IStorage {
   async deactivateClientFormField(id: number): Promise<void> {
     await db.execute(sql`UPDATE client_form_fields SET active = 0 WHERE id = ${id}`);
   }
+  async deleteClientFormMonthEntries(clientId: number, month: number, year: number): Promise<void> {
+    const prefix = `${year}-${String(month).padStart(2, '0')}-%`;
+    await db.execute(sql`
+      DELETE e FROM client_form_entries e JOIN client_form_fields f ON f.id = e.field_id
+      WHERE f.client_id = ${clientId} AND e.entry_date LIKE ${prefix}
+    `);
+  }
   async saveClientFormEntries(entries: { fieldId: number; entryDate: string; qty: number; rate: number }[]): Promise<void> {
     for (const e of entries) {
       if (e.qty > 0) {
