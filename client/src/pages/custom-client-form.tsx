@@ -50,13 +50,28 @@ function printTable(title: string, table: HTMLTableElement | null): boolean {
   const escapedTitle = title.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
   printWindow.document.write(`<!doctype html><html><head><title>${escapedTitle}</title>
     <style>
-      body{font-family:Arial,sans-serif;font-size:12px;margin:24px;color:#111}
-      h2{margin:0 0 12px}
-      table{width:100%;border-collapse:collapse}
-      th,td{border:1px solid #999;padding:5px 7px}
-      th{background:#eee}
-      @media print{body{margin:8px}thead{display:table-header-group}}
-    </style></head><body><h2>${escapedTitle}</h2>${table.outerHTML}</body></html>`);
+      *{box-sizing:border-box;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+      body{font-family:Arial,sans-serif;font-size:11px;margin:20px;color:#172033}
+      .report-header{text-align:center;background:#123b5d;color:#fff;padding:12px 16px;border-bottom:5px solid #14b8a6;margin-bottom:12px}
+      .company{font-size:17px;font-weight:700;letter-spacing:.3px}
+      .report-type{font-size:9px;letter-spacing:1.5px;text-transform:uppercase;color:#b8e6e2;margin-top:3px}
+      h2{font-size:14px;margin:8px 0 0;color:#fff}
+      table{width:100%;border-collapse:collapse;border:1px solid #94a3b8}
+      th,td{border:1px solid #cbd5e1;padding:5px 7px}
+      thead th{background:#0f766e!important;color:#fff!important;font-weight:700;text-align:center}
+      thead th:first-child,thead th:nth-child(2){background:#1e3a5f!important}
+      thead th:last-child{background:#155e75!important}
+      tbody tr:nth-child(even){background:#f1f7fa}
+      tbody td:first-child,tbody td:nth-child(2){color:#334155}
+      tbody td:last-child{font-weight:600;color:#0f4c5c}
+      tfoot td{background:#dbeafe!important;color:#172554;font-weight:700}
+      tfoot tr:last-child td{background:#0f766e!important;color:#fff!important}
+      @media print{@page{size:A4 landscape;margin:8mm}body{margin:0}thead{display:table-header-group}tr{break-inside:avoid}}
+    </style></head><body><header class="report-header">
+      <div class="company">DJ Hospitality &amp; Facility Management Private Limited</div>
+      <div class="report-type">Client Meal Ledger</div>
+      <h2>${escapedTitle}</h2>
+    </header>${table.outerHTML}</body></html>`);
   printWindow.document.close();
   printWindow.focus();
   printWindow.print();
