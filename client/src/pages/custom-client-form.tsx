@@ -1,4 +1,4 @@
-import { Fragment, useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -151,7 +151,7 @@ export function CustomClientFormTab({ clientId, clientName, month, year, canEdit
               <Button size="sm" variant="outline" onClick={renameForm} data-testid="btn-rename-client-form"><Save className="w-4 h-4 mr-1" />Rename Form</Button>
             </div>
           )}
-          <ClientNamedForm key={`${selectedForm.id}-${month}-${year}`} clientId={clientId} clientName={clientName} formId={selectedForm.id} formName={selectedForm.name} month={month} year={year} canEdit={canEdit} />
+          <ClientNamedForm key={`${selectedForm.id}-${month}-${year}`} clientId={clientId} clientName={clientName} forms={forms} formId={selectedForm.id} formName={selectedForm.name} month={month} year={year} canEdit={canEdit} />
         </>
       )}
       {!selectedForm && (
@@ -163,8 +163,8 @@ export function CustomClientFormTab({ clientId, clientName, month, year, canEdit
   );
 }
 
-function ClientNamedForm({ clientId, clientName, formId, formName, month, year, canEdit }: {
-  clientId: number; clientName: string; formId: number; formName: string; month: number; year: number; canEdit: boolean;
+function ClientNamedForm({ clientId, clientName, forms, formId, formName, month, year, canEdit }: {
+  clientId: number; clientName: string; forms: ClientForm[]; formId: number; formName: string; month: number; year: number; canEdit: boolean;
 }) {
   const { toast } = useToast();
   const qc = useQueryClient();
@@ -559,49 +559,48 @@ function ClientNamedForm({ clientId, clientName, formId, formName, month, year, 
       </TabsContent>
 
       <TabsContent value="summary">
-        <CustomClientYearlySummary clientId={clientId} clientName={clientName} formId={formId} formName={formName} year={year} />
+        <CustomClientYearlySummary clientId={clientId} clientName={clientName} forms={forms} year={year} />
       </TabsContent>
     </Tabs>
   );
 }
 
-function CustomClientYearlySummary({ clientId, clientName, formId, formName, year }: { clientId: number; clientName: string; formId: number; formName: string; year: number }) {
+function CustomClientYearlySummary({ clientId, clientName, forms, year }: { clientId: number; clientName: string; forms: ClientForm[]; year: number }) {
   const { toast } = useToast();
   const tableRef = useRef<HTMLTableElement>(null);
   const { data = [], isLoading } = useQuery<any[]>({
-    queryKey: ["/api/client-forms/yearly", year, formId],
+    queryKey: ["/api/client-forms/yearly", year, clientId],
     queryFn: async () => {
-      const res = await fetch(`/api/client-forms/yearly?year=${year}&formId=${formId}`, { credentials: "include" });
-      return res.ok ? res.json() : [];
+      const res = await fetch(`/api/client-forms/yearly?year=${year}&clientId=${clientId}`, { credentials: "include" });
+      if (!res.ok) throw new Error("Failed to load yearly summary");
+      return res.json();
     },
   });
-  const rows = data.filter(r => r.clientId === clientId);
-  const labels: string[] = Array.from(new Set(rows.map(r => r.label as string)));
-  const cell = (label: string, m: number) => rows.find(r => r.label === label && r.month === m);
-  const monthAmt = (m: number) => rows.filter(r => r.month === m).reduce((s, r) => s + r.amount, 0);
-  const labelQty = (l: string) => rows.filter(r => r.label === l).reduce((s, r) => s + r.qty, 0);
-  const labelAmt = (l: string) => rows.filter(r => r.label === l).reduce((s, r) => s + r.amount, 0);
-  const grand = rows.reduce((s, r) => s + r.amount, 0);
+  const monthAmount = (formId: number, month: number) =>
+    Number(data.find(r => r.formId === formId && r.month === month)?.amount) || 0;
+  const formTotal = (formId: number) => MONTHS.reduce((sum, _, i) => sum + monthAmount(formId, i + 1), 0);
+  const monthTotal = (month: number) => forms.reduce((sum, form) => sum + monthAmount(form.id, month), 0);
+  const grand = forms.reduce((sum, form) => sum + formTotal(form.id), 0);
 
   const exportYear = () => {
-    const header = ["Month", ...labels.flatMap(l => [`${l} Qty`, `${l} Amt`]), "Total"];
+    const header = ["Month", ...forms.map(f => f.name), "All Forms Total"];
     const out: (string | number)[][] = MONTHS.map((mn, i) => [
-      mn, ...labels.flatMap(l => { const c = cell(l, i + 1); return [c?.qty ?? "", c?.amount ?? ""]; }), monthAmt(i + 1) || "",
+      mn, ...forms.map(f => monthAmount(f.id, i + 1) || ""), monthTotal(i + 1) || "",
     ]);
-    out.push(["Total", ...labels.flatMap(l => [labelQty(l), labelAmt(l)]), grand]);
-    downloadXlsx(`${clientName}_${formName}_Yearly_${year}.xlsx`, "Yearly", header, out);
+    out.push(["Year Total", ...forms.map(f => formTotal(f.id)), grand]);
+    downloadXlsx(`${clientName}_All_Forms_Yearly_${year}.xlsx`, "Yearly", header, out);
   };
 
   if (isLoading) return <div className="flex justify-center py-10"><Loader2 className="w-6 h-6 animate-spin" /></div>;
-  if (labels.length === 0) return <div className="text-sm text-muted-foreground py-8 text-center border rounded-lg">{year} me abhi koi saved data nahi hai.</div>;
+  if (forms.length === 0) return <div className="text-sm text-muted-foreground py-8 text-center border rounded-lg">Abhi koi form nahi hai.</div>;
 
   return (
     <div>
       <div className="flex items-center mb-3">
-        <div className="text-sm font-semibold">{clientName} — {formName} — {year} Summary</div>
+        <div className="text-sm font-semibold">{clientName} — All Forms — Monthly &amp; Yearly Summary ({year})</div>
         <Button variant="outline" size="sm" className="ml-auto" onClick={exportYear}><FileDown className="w-4 h-4 mr-1" />Export Excel</Button>
         <Button variant="outline" size="sm" className="ml-2" onClick={() => {
-          if (!printTable(`${clientName} — ${formName} — ${year} Summary`, tableRef.current)) {
+          if (!printTable(`${clientName} — All Forms — Monthly & Yearly Summary (${year})`, tableRef.current)) {
             toast({ title: "Print window nahi khula", description: "Browser me pop-up allow karein.", variant: "destructive" });
           }
         }} data-testid="btn-custom-yearly-print"><Printer className="w-4 h-4 mr-1" />Print</Button>
@@ -611,28 +610,23 @@ function CustomClientYearlySummary({ clientId, clientName, formId, formName, yea
           <thead className="bg-muted">
             <tr>
               <th className="p-2 text-left">Month</th>
-              {labels.map(l => <th key={l} className="p-2 text-center" colSpan={2}>{l}</th>)}
-              <th className="p-2 text-right">Total ₹</th>
-            </tr>
-            <tr className="text-[10px] text-muted-foreground">
-              <th />
-              {labels.map(l => <Fragment key={l}><th className="p-1 text-center">Qty</th><th className="p-1 text-center">₹</th></Fragment>)}
-              <th />
+              {forms.map(form => <th key={form.id} className="p-2 text-right">{form.name} ₹</th>)}
+              <th className="p-2 text-right">All Forms Total ₹</th>
             </tr>
           </thead>
           <tbody>
             {MONTHS.map((mn, i) => (
               <tr key={mn} className="border-t">
                 <td className="p-1.5">{mn}</td>
-                {labels.map(l => { const c = cell(l, i + 1); return <Fragment key={l}><td className="p-1.5 text-center">{c ? fmt(c.qty) : ""}</td><td className="p-1.5 text-center">{c ? fmt(c.amount) : ""}</td></Fragment>; })}
-                <td className="p-1.5 text-right font-medium">{monthAmt(i + 1) ? fmt(monthAmt(i + 1)) : ""}</td>
+                {forms.map(form => <td key={form.id} className="p-1.5 text-right">{monthAmount(form.id, i + 1) ? fmt(monthAmount(form.id, i + 1)) : ""}</td>)}
+                <td className="p-1.5 text-right font-medium">{monthTotal(i + 1) ? fmt(monthTotal(i + 1)) : ""}</td>
               </tr>
             ))}
           </tbody>
           <tfoot className="bg-muted font-semibold">
             <tr className="border-t">
-              <td className="p-2">Total</td>
-              {labels.map(l => <Fragment key={l}><td className="p-2 text-center">{fmt(labelQty(l))}</td><td className="p-2 text-center">{fmt(labelAmt(l))}</td></Fragment>)}
+              <td className="p-2">Year Total</td>
+              {forms.map(form => <td key={form.id} className="p-2 text-right">{fmt(formTotal(form.id))}</td>)}
               <td className="p-2 text-right">{fmt(grand)}</td>
             </tr>
           </tfoot>
