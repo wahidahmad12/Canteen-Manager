@@ -1346,6 +1346,7 @@ export const tecSpecialOrders = mysqlTable("tec_special_orders", {
   month: int("month").notNull(),
   year: int("year").notNull(),
   slNo: int("sl_no").notNull(),
+  orderType: varchar("order_type", { length: 20 }).notNull().default("Canteen"),
   dateOfSupply: varchar("date_of_supply", { length: 20 }).default(""),
   particulars: varchar("particulars", { length: 500 }).notNull().default(""),
   qty: decimal("qty", { precision: 10, scale: 2 }).default("0"),
