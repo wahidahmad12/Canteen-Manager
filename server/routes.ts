@@ -3500,8 +3500,11 @@ export async function registerRoutes(
   // Client form builder: user-defined columns (Breakfast, Lunch, Tea ...) + daily qty per client
   app.get('/api/client-forms/yearly', requirePermission('salesinvoice'), async (req, res) => {
     try {
-      const year = Number(req.query.year), clientId = Number(req.query.clientId);
-      if (!year || !clientId) return res.status(400).json({ message: "year and clientId are required" });
+      const year = Number(req.query.year);
+      const clientId = req.query.clientId === undefined ? undefined : Number(req.query.clientId);
+      if (!year || (req.query.clientId !== undefined && !clientId)) {
+        return res.status(400).json({ message: "A valid year and optional clientId are required" });
+      }
       res.json(await storage.getClientFormsYearly(year, clientId));
     } catch (err: any) { res.status(500).json({ message: err.message }); }
   });

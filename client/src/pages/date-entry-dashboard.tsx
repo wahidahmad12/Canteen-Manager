@@ -218,9 +218,28 @@ export function DateEntryDashboard({ year }: { year: number }) {
 
   const { data: customForms = [] } = useQuery<any[]>({
     queryKey: ['/api/client-forms/yearly', year],
-    queryFn: () => fetch(`/api/client-forms/yearly?year=${year}`, { credentials: 'include' }).then(r => r.ok ? r.json() : []),
+    queryFn: async () => {
+      const res = await fetch(`/api/client-forms/yearly?year=${year}`, { credentials: 'include' });
+      if (!res.ok) throw new Error('Failed to load custom client form totals');
+      return res.json();
+    },
   });
   const customClientNames: string[] = Array.from(new Set((customForms as any[]).map((r: any) => r.clientName as string)));
+  const customClientTotals = customClientNames.map(clientName => ({
+    clientName,
+    total: (customForms as any[])
+      .filter((r: any) => r.clientName === clientName)
+      .reduce((sum: number, r: any) => sum + (Number(r.amount) || 0), 0),
+  }));
+  const customFormsMonthly = MONTHS_SHORT.map((name, i) => ({
+    name,
+    ...Object.fromEntries(customClientNames.map(clientName => [
+      clientName,
+      (customForms as any[])
+        .filter((r: any) => r.clientName === clientName && r.month === i + 1)
+        .reduce((sum: number, r: any) => sum + (Number(r.amount) || 0), 0),
+    ])),
+  }));
 
   // Previous year (for comparison)
   const prevYear = year - 1;
@@ -935,15 +954,15 @@ export function DateEntryDashboard({ year }: { year: number }) {
       )}
 
       {customClientNames.map(cn => {
-        const items = Array.from(new Set(customForms.filter((r: any) => r.clientName === cn).map((r: any) => r.label as string)));
+        const items = Array.from(new Set(customForms.filter((r: any) => r.clientName === cn).map((r: any) => r.formName as string)));
         const chart = MONTHS_SHORT.map((name, i) => {
           const o: any = { name };
-          customForms.filter((r: any) => r.clientName === cn && r.month === i + 1).forEach((r: any) => { o[r.label] = r.amount; });
+          customForms.filter((r: any) => r.clientName === cn && r.month === i + 1).forEach((r: any) => { o[r.formName] = Number(r.amount) || 0; });
           return o;
         });
         return (
           <div key={cn}>
-            <SectionHeader title={cn} subtitle="Custom form — Monthly Amount (₹)" color="#0d9488" />
+            <SectionHeader title={cn} subtitle={`Custom forms — Year total ₹${(customClientTotals.find(x => x.clientName === cn)?.total ?? 0).toLocaleString('en-IN')}`} color="#0d9488" />
             <ChartCard title={`${cn} — Monthly Amount ₹`}>
               <ResponsiveContainer width="100%" height={CHART_H}>
                 <BarChart data={chart} margin={{ top: 5, right: 10, left: -10, bottom: 5 }}>
@@ -961,6 +980,22 @@ export function DateEntryDashboard({ year }: { year: number }) {
           </div>
         );
       })}
+      {customClientNames.length > 0 && (
+        <ChartCard title="All Custom Clients — Monthly Amount (₹)">
+          <ResponsiveContainer width="100%" height={CHART_H}>
+            <BarChart data={customFormsMonthly} margin={{ top: 5, right: 10, left: -10, bottom: 5 }}>
+              <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
+              <XAxis dataKey="name" tick={{ fontSize: 10 }} />
+              <YAxis tick={{ fontSize: 10 }} tickFormatter={(value: number) => `₹${Number(value).toLocaleString('en-IN')}`} />
+              <Tooltip formatter={(value: any) => `₹${Number(value).toLocaleString('en-IN')}`} />
+              <Legend wrapperStyle={{ fontSize: 11 }} />
+              {customClientNames.map((clientName, i) => (
+                <Bar key={clientName} dataKey={clientName} stackId="custom-clients" fill={CUSTOM_COLORS[i % CUSTOM_COLORS.length]} />
+              ))}
+            </BarChart>
+          </ResponsiveContainer>
+        </ChartCard>
+      )}
 
       {/* ========== YEAR VS YEAR ========== */}
       <SectionHeader title={`${year} vs ${prevYear} — Year Comparison`} subtitle="This year compared with last year" color="#0ea5e9" />

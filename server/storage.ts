@@ -3586,21 +3586,26 @@ export class DatabaseStorage implements IStorage {
       .map((r: any) => ({ id: Number(r.id), label: r.label, rate: Number(r.rate) || 0, active: Number(r.active) === 1 }));
     return { fields, entries };
   }
-  async getClientFormsYearly(year: number, clientId: number): Promise<any[]> {
+  async getClientFormsYearly(year: number, clientId?: number): Promise<any[]> {
     const prefix = `${year}-%`;
+    const clientFilter = clientId ? `AND cf.client_id = ?` : "";
+    const params = clientId ? [prefix, clientId] : [prefix];
     const [rows]: any = await pool.query(
-      `SELECT cf.id AS formId, cf.name AS formName,
+      `SELECT cf.client_id AS clientId, c.name AS clientName,
+              cf.id AS formId, cf.name AS formName,
               CAST(SUBSTRING(e.entry_date, 6, 2) AS UNSIGNED) AS month,
               COALESCE(SUM(e.qty * e.rate), 0) AS amount
        FROM client_forms cf
+       JOIN client_names c ON c.id = cf.client_id
        LEFT JOIN client_form_fields f ON f.form_id = cf.id
        LEFT JOIN client_form_entries e ON e.field_id = f.id AND e.entry_date LIKE ? AND e.qty > 0
-       WHERE cf.client_id = ?
-       GROUP BY cf.id, cf.name, month
-       ORDER BY cf.sort_order, cf.id, month`,
-      [prefix, clientId],
+       WHERE 1=1 ${clientFilter}
+       GROUP BY cf.client_id, c.name, cf.id, cf.name, month
+       ORDER BY c.name, cf.sort_order, cf.id, month`,
+      params,
     );
     return rows.map((r: any) => ({
+      clientId: Number(r.clientId), clientName: r.clientName,
       formId: Number(r.formId), formName: r.formName,
       month: Number(r.month) || 0, amount: Number(r.amount) || 0,
     }));
