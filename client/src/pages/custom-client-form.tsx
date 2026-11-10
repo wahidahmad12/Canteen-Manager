@@ -86,12 +86,20 @@ function printTable(title: string, table: HTMLTableElement | null): boolean {
       h2{font-size:13px;margin:6px 0 0;color:#fff}
       table{width:100%;max-width:100%;border-collapse:collapse;table-layout:auto}
       th,td{overflow-wrap:anywhere}
-      @media print{@page{size:A4 landscape;margin:5mm}body{margin:0}thead{display:table-header-group}tr{break-inside:avoid}}
+      .signature{display:flex;justify-content:flex-end;margin:28px 8px 0;break-inside:avoid;page-break-inside:avoid}
+      .signature-block{min-width:220px;text-align:center;border-top:1px solid #334155;padding-top:6px;font-size:10px;font-weight:700}
+      @media print{
+        @page{size:A4 landscape;margin:8mm 8mm 14mm}
+        @page{@bottom-right{content:"Page " counter(page) " of " counter(pages);font:9px Arial,sans-serif;color:#334155}}
+        body{margin:0}
+        thead{display:table-header-group}
+        tr{break-inside:avoid}
+      }
     </style></head><body><header class="report-header" style="text-align:center;background:#123b5d;color:#fff;padding:9px 12px;border-bottom:5px solid #14b8a6;margin-bottom:8px">
       <div class="company" style="font-size:16px;font-weight:700;letter-spacing:.3px">DJ Hospitality &amp; Facility Management Private Limited</div>
       <div class="report-type" style="font-size:9px;letter-spacing:1.5px;text-transform:uppercase;color:#b8e6e2;margin-top:3px">Client Meal Ledger</div>
       <h2 style="font-size:13px;margin:6px 0 0;color:#fff">${escapedTitle}</h2>
-    </header>${printableTable.outerHTML}</body></html>`);
+    </header>${printableTable.outerHTML}<footer class="signature"><div class="signature-block">Authorised Signature for<br>DJ Hospitality &amp; Facility Management Private Limited</div></footer></body></html>`);
   printWindow.document.close();
   printWindow.focus();
   window.setTimeout(() => {
