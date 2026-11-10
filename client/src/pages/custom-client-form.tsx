@@ -219,6 +219,19 @@ export function CustomClientFormTab({ clientId, clientName, month, year, canEdit
     }
   };
 
+  const deleteMonthData = async () => {
+    if (!window.confirm(`${clientName} — ${MONTHS[month - 1]} ${year} ka saara data delete karein? Ye undo nahi hoga.`)) return;
+    try {
+      await sendJson(`/api/client-forms/${clientId}/entries?month=${month}&year=${year}`, "DELETE");
+      setQtys({});
+      setRateSnap({});
+      refresh();
+      toast({ title: "Data delete ho gaya", description: `${MONTHS[month - 1]} ${year}` });
+    } catch (e: any) {
+      toast({ title: "Delete nahi hua", description: e.message, variant: "destructive" });
+    }
+  };
+
   const downloadDataTemplate = () => {
     const header = ["Date", ...fields.map(f => f.label)];
     const rows = dates.map(d => [d.label, ...fields.map(f => qtyOf(f, d.iso) || "")]);
@@ -356,6 +369,7 @@ export function CustomClientFormTab({ clientId, clientName, month, year, canEdit
                 <>
                   <Button variant="outline" onClick={() => dataImportRef.current?.click()} data-testid="btn-data-import"><Upload className="w-4 h-4 mr-1" />Import Data</Button>
                   <input ref={dataImportRef} type="file" accept=".xlsx" className="hidden" onChange={handleDataImport} />
+                  <Button variant="outline" className="border-red-300 text-red-600 hover:bg-red-50" onClick={deleteMonthData} data-testid="btn-data-delete"><Trash2 className="w-4 h-4 mr-1" />Delete Data</Button>
                 </>
               )}
               <div className="ml-auto text-sm font-semibold self-center">Grand Total: ₹{fmt(grandAmt)}</div>
