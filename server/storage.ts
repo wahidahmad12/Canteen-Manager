@@ -3304,27 +3304,28 @@ export class DatabaseStorage implements IStorage {
   }
   async getHulSpecialOrdersByYear(year: number): Promise<HulSpecialOrder[]> {
     const [rows] = await db.execute(sql`
-      SELECT id, \`month\`, \`year\`, sl_no as slNo, date_of_supply as dateOfSupply,
+      SELECT id, \`month\`, \`year\`, sl_no as slNo, order_type as orderType, date_of_supply as dateOfSupply,
              particulars, qty, rate_per_plate as ratePerPlate, total,
              created_at as createdAt, updated_at as updatedAt
       FROM hul_special_orders
       WHERE \`year\` = ${year}
       ORDER BY \`month\`, sl_no
     `);
-    return rows as HulSpecialOrder[];
+    return rows as unknown as HulSpecialOrder[];
   }
   async createHulSpecialOrder(data: any): Promise<HulSpecialOrder> {
-    const { month, year, slNo, dateOfSupply, particulars, qty, ratePerPlate, total } = data;
+    const { month, year, slNo, orderType, dateOfSupply, particulars, qty, ratePerPlate, total } = data;
     const [result] = await db.execute(sql`
-      INSERT INTO hul_special_orders (month, year, sl_no, date_of_supply, particulars, qty, rate_per_plate, total)
-      VALUES (${month}, ${year}, ${slNo}, ${dateOfSupply || ''}, ${particulars || ''}, ${qty || 0}, ${ratePerPlate || 0}, ${total || 0})
+      INSERT INTO hul_special_orders (month, year, sl_no, order_type, date_of_supply, particulars, qty, rate_per_plate, total)
+      VALUES (${month}, ${year}, ${slNo}, ${orderType === 'Outside' ? 'Outside' : 'Canteen'}, ${dateOfSupply || ''}, ${particulars || ''}, ${qty || 0}, ${ratePerPlate || 0}, ${total || 0})
     `);
     const id = (result as any).insertId;
     const rows = await db.select().from(hulSpecialOrders).where(eq(hulSpecialOrders.id, id));
     return rows[0];
   }
   async updateHulSpecialOrder(id: number, data: any): Promise<HulSpecialOrder> {
-    const { id: _id, createdAt, ...safeData } = data;
+    const { id: _id, createdAt, orderType, ...safeData } = data;
+    if (orderType !== undefined) safeData.orderType = orderType === 'Outside' ? 'Outside' : 'Canteen';
     await db.update(hulSpecialOrders).set({ ...safeData, updatedAt: new Date() }).where(eq(hulSpecialOrders.id, id));
     const rows = await db.select().from(hulSpecialOrders).where(eq(hulSpecialOrders.id, id));
     return rows[0];

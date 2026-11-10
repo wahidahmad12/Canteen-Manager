@@ -373,6 +373,7 @@ async function initPool(): Promise<void> {
     `ALTER TABLE purchase_orders ADD COLUMN IF NOT EXISTS closed_at TIMESTAMP NULL`,
     `ALTER TABLE purchase_orders ADD COLUMN IF NOT EXISTS closed_by TEXT NULL`,
     `ALTER TABLE sales_invoices ADD COLUMN IF NOT EXISTS po_ids VARCHAR(255) NULL`,
+    `ALTER TABLE hul_special_orders ADD COLUMN IF NOT EXISTS order_type VARCHAR(20) NOT NULL DEFAULT 'Canteen'`,
     `ALTER TABLE tax_invoices MODIFY COLUMN po_number VARCHAR(500) DEFAULT ''`,
     `ALTER TABLE tax_invoices MODIFY COLUMN po_date VARCHAR(255) DEFAULT ''`,
     `ALTER TABLE quotations ADD UNIQUE INDEX uq_quotation_no (quotation_no)`,
