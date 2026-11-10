@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
-import { Plus, Trash2, Save, Loader2, FileDown, Upload } from "lucide-react";
+import { Plus, Trash2, Save, Loader2, FileDown, Upload, ChevronLeft, ChevronRight } from "lucide-react";
 
 const MONTHS = ["January","February","March","April","May","June","July","August","September","October","November","December"];
 const PRESETS = ["Breakfast", "Lunch", "Evening Snack", "Dinner", "Tea"];
@@ -120,6 +120,20 @@ export function CustomClientFormTab({ clientId, clientName, month, year, canEdit
       refresh();
     } catch (e: any) {
       toast({ title: "Remove nahi hua", description: e.message, variant: "destructive" });
+    }
+  };
+
+  const moveField = async (f: Field, dir: -1 | 1) => {
+    const ids = fields.filter(x => x.active).map(x => x.id);
+    const i = ids.indexOf(f.id);
+    const j = i + dir;
+    if (i < 0 || j < 0 || j >= ids.length) return;
+    [ids[i], ids[j]] = [ids[j], ids[i]];
+    try {
+      await sendJson(`/api/client-forms/${clientId}/field-order`, "PUT", { ids });
+      refresh();
+    } catch (e: any) {
+      toast({ title: "Move nahi hua", description: e.message, variant: "destructive" });
     }
   };
 
@@ -309,8 +323,10 @@ export function CustomClientFormTab({ clientId, clientName, month, year, canEdit
             )}
             {fields.length > 0 && (
               <div className="flex flex-wrap gap-2 pt-1">
-                {fields.filter(f => f.active).map(f => (
+                {fields.filter(f => f.active).map((f, idx, arr) => (
                   <div key={f.id} className="flex items-center gap-1 border rounded-md px-2 py-1 bg-background text-xs">
+                    <Button size="icon" variant="ghost" className="h-6 w-6" disabled={idx === 0} onClick={() => moveField(f, -1)} title="Move left"><ChevronLeft className="w-3.5 h-3.5" /></Button>
+                    <Button size="icon" variant="ghost" className="h-6 w-6" disabled={idx === arr.length - 1} onClick={() => moveField(f, 1)} title="Move right"><ChevronRight className="w-3.5 h-3.5" /></Button>
                     <span className="font-medium">{f.label}</span>
                     <span>₹</span>
                     <Input key={`${f.id}-${f.rate}`} type="number" min="0" step="0.01" defaultValue={f.rate} onBlur={e => changeRate(f, e.target.value)} className="w-20 h-7 text-xs" title="Naye entries ke liye rate (purane saved din same rahenge)" />

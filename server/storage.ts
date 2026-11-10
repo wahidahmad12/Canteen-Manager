@@ -3557,8 +3557,13 @@ export class DatabaseStorage implements IStorage {
     const next = Number((mx as any[])[0]?.n) || 1;
     await db.execute(sql`
       INSERT INTO client_form_fields (client_id, label, rate, sort_order, active) VALUES (${clientId}, ${label}, ${rate}, ${next}, 1)
-      ON DUPLICATE KEY UPDATE rate = VALUES(rate), active = 1
+      ON DUPLICATE KEY UPDATE rate = VALUES(rate), sort_order = IF(active = 1, sort_order, VALUES(sort_order)), active = 1
     `);
+  }
+  async reorderClientFormFields(clientId: number, ids: number[]): Promise<void> {
+    for (let i = 0; i < ids.length; i++) {
+      await db.execute(sql`UPDATE client_form_fields SET sort_order = ${i + 1} WHERE id = ${ids[i]} AND client_id = ${clientId}`);
+    }
   }
   async updateClientFormFieldRate(id: number, rate: number): Promise<void> {
     await db.execute(sql`UPDATE client_form_fields SET rate = ${rate} WHERE id = ${id}`);
