@@ -3522,6 +3522,15 @@ export async function registerRoutes(
       res.json({ ok: true });
     } catch (err: any) { res.status(500).json({ message: err.message }); }
   });
+  app.put('/api/client-forms/:clientId/field-order', requirePermission('salesinvoice'), async (req, res) => {
+    try {
+      const clientId = Number(req.params.clientId);
+      const ids = Array.isArray(req.body?.ids) ? req.body.ids.map(Number).filter((x: number) => Number.isInteger(x) && x > 0) : [];
+      if (!clientId || ids.length === 0) return res.status(400).json({ message: "clientId and ids are required" });
+      await storage.reorderClientFormFields(clientId, ids);
+      res.json({ ok: true });
+    } catch (err: any) { res.status(500).json({ message: err.message }); }
+  });
   app.put('/api/client-forms/entries', requirePermission('salesinvoice'), async (req, res) => {
     try {
       if (!Array.isArray(req.body?.entries)) return res.status(400).json({ message: "entries are required" });
