@@ -3675,6 +3675,7 @@ type SpecialOrderRow = {
   month: number;
   year: number;
   slNo: number;
+  orderType: 'Canteen' | 'Outside';
   dateOfSupply: string;
   particulars: string;
   qty: number;
@@ -3684,10 +3685,10 @@ type SpecialOrderRow = {
 };
 
 function emptySpecialRow(slNo: number, month: number, year: number): SpecialOrderRow {
-  return { month, year, slNo, dateOfSupply: '', particulars: '', qty: 0, ratePerPlate: 0, total: 0, _dirty: false };
+  return { month, year, slNo, orderType: 'Canteen', dateOfSupply: '', particulars: '', qty: 0, ratePerPlate: 0, total: 0, _dirty: false };
 }
 
-function SpecialOrderTab({ month, year, apiPath, title }: { month: number; year: number; apiPath: string; title: string }) {
+function SpecialOrderTab({ month, year, apiPath, title, splitByCategory = false }: { month: number; year: number; apiPath: string; title: string; splitByCategory?: boolean }) {
   const qc = useQueryClient();
   const { toast } = useToast();
   const [rows, setRows] = useState<SpecialOrderRow[]>([emptySpecialRow(1, month, year)]);
@@ -3706,7 +3707,7 @@ function SpecialOrderTab({ month, year, apiPath, title }: { month: number; year:
 
   useEffect(() => {
     if (dbRows.length > 0) {
-      setRows(dbRows.map(r => ({ ...r, dateOfSupply: r.dateOfSupply || '', qty: Number(r.qty), ratePerPlate: Number(r.ratePerPlate), total: Number(r.total), _dirty: false })));
+      setRows(dbRows.map(r => ({ ...r, orderType: r.orderType === 'Outside' ? 'Outside' : 'Canteen', dateOfSupply: r.dateOfSupply || '', qty: Number(r.qty), ratePerPlate: Number(r.ratePerPlate), total: Number(r.total), _dirty: false })));
     } else {
       setRows([emptySpecialRow(1, month, year)]);
     }
@@ -3745,7 +3746,7 @@ function SpecialOrderTab({ month, year, apiPath, title }: { month: number; year:
     try {
       for (const row of rows) {
         if (!row._dirty) continue;
-        const payload = { month, year, slNo: row.slNo, dateOfSupply: row.dateOfSupply || '', particulars: row.particulars, qty: row.qty, ratePerPlate: row.ratePerPlate, total: row.total };
+        const payload = { month, year, slNo: row.slNo, ...(splitByCategory ? { orderType: row.orderType } : {}), dateOfSupply: row.dateOfSupply || '', particulars: row.particulars, qty: row.qty, ratePerPlate: row.ratePerPlate, total: row.total };
         let res: Response;
         if (row.id) {
           res = await fetch(`${apiPath}/${row.id}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload), credentials: 'include' });
@@ -3776,39 +3777,62 @@ function SpecialOrderTab({ month, year, apiPath, title }: { month: number; year:
       const mkFill = (argb: string) => ({ type:'pattern' as const, pattern:'solid' as const, fgColor:{argb} });
       const MONTHS = ["January","February","March","April","May","June","July","August","September","October","November","December"];
 
-      ws.mergeCells('A1:F1');
-      const titleCell = ws.getCell('A1');
-      titleCell.value = `${title} — ${MONTHS[month-1]} ${year}`;
-      titleCell.font = { bold: true, size: 13, color: { argb: 'FFFFFFFF' } };
-      titleCell.fill = mkFill('FF1e3a5f');
-      titleCell.alignment = { horizontal: 'center', vertical: 'middle' };
-      ws.getRow(1).height = 24;
-
-      const hdr = ws.addRow(['Sl. No.', 'Date of Supply', 'Particulars', 'Qty', 'Rate Per Plate', 'Total']);
-      hdr.eachCell((c: any) => {
-        c.font = { bold: true, color: { argb: 'FFFFFFFF' }, size: 10 };
-        c.fill = mkFill('FF3b82f6'); c.border = thin;
-        c.alignment = { horizontal: 'center', vertical: 'middle', wrapText: true };
-      });
-      ws.getRow(2).height = 22;
       ws.columns = [{ width: 8 }, { width: 16 }, { width: 40 }, { width: 10 }, { width: 16 }, { width: 14 }];
+      const addSection = (sectionRows: SpecialOrderRow[], sectionTitle: string) => {
+        const titleRow = ws.addRow([sectionTitle]);
+        ws.mergeCells(`A${titleRow.number}:F${titleRow.number}`);
+        titleRow.getCell(1).font = { bold: true, size: 13, color: { argb: 'FFFFFFFF' } };
+        titleRow.getCell(1).fill = mkFill('FF1e3a5f');
+        titleRow.getCell(1).alignment = { horizontal: 'center', vertical: 'middle' };
+        titleRow.height = 24;
 
-      rows.forEach((row, idx) => {
-        const dr = ws.addRow([row.slNo, safeFormat(row.dateOfSupply), row.particulars, row.qty || '', row.ratePerPlate || '', row.total || '']);
-        dr.eachCell((c: any, ci: number) => {
-          c.border = thin; c.alignment = { horizontal: ci === 3 ? 'left' : 'center', vertical: 'middle' };
-          c.fill = mkFill(idx % 2 === 0 ? 'FFF8FAFC' : 'FFFFFFFF');
-          c.font = { size: 10 };
+        const hdr = ws.addRow(['Sl. No.', 'Date of Supply', 'Particulars', 'Qty', 'Rate Per Plate', 'Total']);
+        hdr.eachCell((c: any) => {
+          c.font = { bold: true, color: { argb: 'FFFFFFFF' }, size: 10 };
+          c.fill = mkFill('FF3b82f6'); c.border = thin;
+          c.alignment = { horizontal: 'center', vertical: 'middle', wrapText: true };
         });
-      });
-
-      // Grand Total row
-      const grandTotal = rows.reduce((s, r) => s + Number(r.total), 0);
-      const totRow = ws.addRow(['', '', 'Grand Total', '', '', grandTotal]);
-      totRow.eachCell((c: any, ci: number) => {
-        c.border = thin; c.font = { bold: true, size: 10, color: { argb: 'FFFFFFFF' } };
-        c.fill = mkFill('FF1e3a5f'); c.alignment = { horizontal: ci === 3 ? 'left' : 'center', vertical: 'middle' };
-      });
+        hdr.height = 22;
+        sectionRows.forEach((row, idx) => {
+          const dr = ws.addRow([row.slNo, safeFormat(row.dateOfSupply), row.particulars, row.qty || '', row.ratePerPlate || '', row.total || '']);
+          dr.eachCell((c: any, ci: number) => {
+            c.border = thin; c.alignment = { horizontal: ci === 3 ? 'left' : 'center', vertical: 'middle' };
+            c.fill = mkFill(idx % 2 === 0 ? 'FFF8FAFC' : 'FFFFFFFF');
+            c.font = { size: 10 };
+          });
+        });
+        const subtotal = sectionRows.reduce((s, r) => s + Number(r.total), 0);
+        const totalRow = ws.addRow(['', '', splitByCategory ? 'Total' : 'Grand Total', '', '', subtotal]);
+        totalRow.eachCell((c: any) => {
+          c.border = thin; c.font = { bold: true, size: 10, color: { argb: 'FFFFFFFF' } };
+          c.fill = mkFill('FF1e3a5f'); c.alignment = { horizontal: 'center', vertical: 'middle' };
+        });
+      };
+      if (splitByCategory) {
+        const canteenTotal = rows.filter(row => row.orderType === 'Canteen').reduce((sum, row) => sum + Number(row.total), 0);
+        const outsideTotal = rows.filter(row => row.orderType === 'Outside').reduce((sum, row) => sum + Number(row.total), 0);
+        (['Canteen', 'Outside'] as const).forEach(orderType => {
+          const sectionRows = rows.filter(row => row.orderType === orderType);
+          addSection(sectionRows, `HUL Special Order ${orderType} — ${MONTHS[month-1]} ${year}`);
+          ws.addRow([]);
+        });
+        const serviceCharge = Math.round(outsideTotal * 0.07);
+        const addSummaryRow = (label: string, amount: number) => {
+          const summaryRow = ws.addRow([label, '', '', '', '', amount]);
+          ws.mergeCells(`A${summaryRow.number}:E${summaryRow.number}`);
+          summaryRow.eachCell((cell: any) => {
+            cell.border = thin;
+            cell.font = { bold: true, size: 10 };
+            cell.alignment = { horizontal: 'right', vertical: 'middle' };
+          });
+          summaryRow.getCell(6).numFmt = '#,##0.##';
+        };
+        addSummaryRow('Service Charges 7%', serviceCharge);
+        addSummaryRow('Total', outsideTotal + serviceCharge);
+        addSummaryRow('Grand Total', canteenTotal + outsideTotal + serviceCharge);
+      } else {
+        addSection(rows, `${title} — ${MONTHS[month-1]} ${year}`);
+      }
 
       const buf = await wb.xlsx.writeBuffer();
       const blob = new Blob([buf], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
@@ -3819,38 +3843,61 @@ function SpecialOrderTab({ month, year, apiPath, title }: { month: number; year:
 
   const handlePrint = () => {
     const MONTHS = ["January","February","March","April","May","June","July","August","September","October","November","December"];
-    const grandTotal = rows.reduce((s, r) => s + Number(r.total), 0);
     const th = 'border:1px solid #94a3b8;padding:6px 10px;font-size:10px;text-align:center;background:#3b82f6;color:#fff;font-weight:bold;';
     const td = (i: number) => `border:1px solid #e2e8f0;padding:5px 8px;font-size:10px;background:${i%2===0?'#f8fafc':'#fff'};`;
-    const bodyRows = rows.map((row, idx) => `
-      <tr>
-        <td style="${td(idx)}text-align:center;">${row.slNo}</td>
-        <td style="${td(idx)}text-align:center;">${safeFormat(row.dateOfSupply)}</td>
-        <td style="${td(idx)}text-align:left;">${row.particulars || ''}</td>
-        <td style="${td(idx)}text-align:center;">${row.qty || ''}</td>
-        <td style="${td(idx)}text-align:center;">${row.ratePerPlate || ''}</td>
-        <td style="${td(idx)}text-align:center;font-weight:600;">${row.total || ''}</td>
-      </tr>`).join('');
+    const escapeHtml = (value: unknown) => String(value ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+    const renderSection = (sectionRows: SpecialOrderRow[], sectionTitle: string) => {
+      const bodyRows = sectionRows.map((row, idx) => `
+        <tr>
+          <td style="${td(idx)}text-align:center;">${row.slNo}</td>
+          <td style="${td(idx)}text-align:center;">${escapeHtml(safeFormat(row.dateOfSupply))}</td>
+          <td style="${td(idx)}text-align:left;">${escapeHtml(row.particulars)}</td>
+          <td style="${td(idx)}text-align:center;">${row.qty || ''}</td>
+          <td style="${td(idx)}text-align:center;">${row.ratePerPlate || ''}</td>
+          <td style="${td(idx)}text-align:center;font-weight:600;">${row.total || ''}</td>
+        </tr>`).join('');
+      const subtotal = sectionRows.reduce((s, r) => s + Number(r.total), 0);
+      return `<h3 style="text-align:center;color:#1e3a5f;margin:12px 0 4px;">${escapeHtml(sectionTitle)}</h3>
+        <table>
+          <thead><tr>
+            <th style="${th}width:60px;">Sl. No.</th>
+            <th style="${th}width:100px;">Date of Supply</th>
+            <th style="${th}text-align:left;">Particulars</th>
+            <th style="${th}width:70px;">Qty</th>
+            <th style="${th}width:120px;">Rate Per Plate</th>
+            <th style="${th}width:100px;">Total</th>
+          </tr></thead>
+          <tbody>${bodyRows}</tbody>
+          <tfoot><tr>
+            <td colspan="5" style="border:1px solid #94a3b8;padding:6px 10px;font-size:10px;font-weight:bold;text-align:right;background:#1e3a5f;color:#fff;">${splitByCategory ? 'Total' : 'Grand Total'}</td>
+            <td style="border:1px solid #94a3b8;padding:6px 10px;font-size:10px;font-weight:bold;text-align:center;background:#1e3a5f;color:#fff;">${subtotal.toFixed(2)}</td>
+          </tr></tfoot>
+        </table>`;
+    };
+    let sections: string[];
+    if (splitByCategory) {
+      const canteenTotal = rows.filter(row => row.orderType === 'Canteen').reduce((sum, row) => sum + Number(row.total), 0);
+      const outsideTotal = rows.filter(row => row.orderType === 'Outside').reduce((sum, row) => sum + Number(row.total), 0);
+      const serviceCharge = Math.round(outsideTotal * 0.07);
+      const summaryRow = (label: string, amount: number) => `<tr>
+        <td colspan="5" style="border:1px solid #94a3b8;padding:6px 10px;font-size:10px;font-weight:bold;text-align:right;">${label}</td>
+        <td style="border:1px solid #94a3b8;padding:6px 10px;font-size:10px;font-weight:bold;text-align:right;">${amount.toLocaleString('en-IN')}</td>
+      </tr>`;
+      const summary = `<table><tbody>
+        ${summaryRow('Service Charges 7%', serviceCharge)}
+        ${summaryRow('Total', outsideTotal + serviceCharge)}
+        ${summaryRow('Grand Total', canteenTotal + outsideTotal + serviceCharge)}
+      </tbody></table>`;
+      sections = (['Canteen', 'Outside'] as const).map(orderType =>
+        renderSection(rows.filter(row => row.orderType === orderType), `HUL Special Order ${orderType} — ${MONTHS[month-1]} ${year}`));
+      sections.push(summary);
+    } else {
+      sections = [renderSection(rows, `${title} — ${MONTHS[month-1]} ${year}`)];
+    }
     const win = window.open('', '_blank');
-    win?.document.write(`<html><head><title>${title}</title><style>body{font-family:Arial,sans-serif;margin:16px;}table{border-collapse:collapse;width:100%;}</style></head>
+    win?.document.write(`<html><head><title>${title}</title><style>body{font-family:Arial,sans-serif;margin:16px;}table{border-collapse:collapse;width:100%;margin-bottom:18px;}h3{page-break-after:avoid;}tr{page-break-inside:avoid;}</style></head>
     <body>
-      <h3 style="text-align:center;color:#1e3a5f;margin-bottom:4px;">${title}</h3>
-      <h4 style="text-align:center;color:#374151;margin-bottom:12px;">${title} — ${MONTHS[month-1]} ${year}</h4>
-      <table>
-        <thead><tr>
-          <th style="${th}width:60px;">Sl. No.</th>
-          <th style="${th}width:100px;">Date of Supply</th>
-          <th style="${th}text-align:left;">Particulars</th>
-          <th style="${th}width:70px;">Qty</th>
-          <th style="${th}width:120px;">Rate Per Plate</th>
-          <th style="${th}width:100px;">Total</th>
-        </tr></thead>
-        <tbody>${bodyRows}</tbody>
-        <tfoot><tr>
-          <td colspan="5" style="border:1px solid #94a3b8;padding:6px 10px;font-size:10px;font-weight:bold;text-align:right;background:#1e3a5f;color:#fff;">Grand Total</td>
-          <td style="border:1px solid #94a3b8;padding:6px 10px;font-size:10px;font-weight:bold;text-align:center;background:#1e3a5f;color:#fff;">${grandTotal.toFixed(2)}</td>
-        </tr></tfoot>
-      </table>
+      ${sections.join('')}
     </body></html>`);
     win?.document.close(); win?.print();
   };
@@ -3888,6 +3935,7 @@ function SpecialOrderTab({ month, year, apiPath, title }: { month: number; year:
             <thead>
               <tr style={{ background: '#3b82f6' }}>
                 <th className="border border-blue-400 px-3 py-2.5 text-white font-bold text-center w-14">Sl. No.</th>
+                {splitByCategory && <th className="border border-blue-400 px-3 py-2.5 text-white font-bold text-center w-28">Order Type</th>}
                 <th className="border border-blue-400 px-3 py-2.5 text-white font-bold text-center w-32">Date of Supply</th>
                 <th className="border border-blue-400 px-4 py-2.5 text-white font-bold text-left">Particulars</th>
                 <th className="border border-blue-400 px-3 py-2.5 text-white font-bold text-center w-20">Qty</th>
@@ -3900,6 +3948,17 @@ function SpecialOrderTab({ month, year, apiPath, title }: { month: number; year:
               {rows.map((row, idx) => (
                 <tr key={idx} className={row._dirty ? 'ring-1 ring-inset ring-yellow-400' : idx % 2 === 0 ? 'bg-white' : 'bg-slate-50'}>
                   <td className="border border-slate-200 px-2 py-1 text-center text-slate-500 font-mono text-xs">{row.slNo}</td>
+                  {splitByCategory && (
+                    <td className="border border-slate-200 px-2 py-1">
+                      <Select value={row.orderType} onValueChange={value => updateRow(idx, 'orderType', value as SpecialOrderRow['orderType'])}>
+                        <SelectTrigger className="h-8 text-xs" data-testid={`select-order-type-${idx}`}><SelectValue /></SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="Canteen">Canteen</SelectItem>
+                          <SelectItem value="Outside">Outside</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </td>
+                  )}
                   <td className="border border-slate-200 px-2 py-1">
                     <input
                       type="date"
@@ -3956,7 +4015,7 @@ function SpecialOrderTab({ month, year, apiPath, title }: { month: number; year:
             </tbody>
             <tfoot>
               <tr style={{ background: '#1e3a5f' }}>
-                <td colSpan={5} className="border border-slate-600 px-4 py-2 text-right font-bold text-white text-sm">Grand Total</td>
+                <td colSpan={splitByCategory ? 6 : 5} className="border border-slate-600 px-4 py-2 text-right font-bold text-white text-sm">Grand Total</td>
                 <td className="border border-slate-600 px-2 py-2 text-center font-bold text-white text-sm">
                   {grandTotal > 0 ? grandTotal.toFixed(2) : ''}
                 </td>
@@ -9172,8 +9231,8 @@ export function DateEntryTab() {
             <HulLocationTab location="TEC" month={parseInt(month)} year={parseInt(year)} loadKey={loadKey}/>
           </TabsContent>
           <TabsContent value="hul_special_order">
-            <div className="mb-2 text-sm text-muted-foreground font-medium">HUL — Special Order Entry (Sl. No., Particulars, Qty, Rate Per Plate, Total)</div>
-            <SpecialOrderTab month={parseInt(month)} year={parseInt(year)} apiPath="/api/hul-special-orders" title="HUL — Special Order" />
+            <div className="mb-2 text-sm text-muted-foreground font-medium">HUL — Special Order Entry (Order Type, Sl. No., Date of Supply, Particulars, Qty, Rate Per Plate, Total)</div>
+            <SpecialOrderTab month={parseInt(month)} year={parseInt(year)} apiPath="/api/hul-special-orders" title="HUL — Special Order" splitByCategory />
           </TabsContent>
           <TabsContent value="hul_tec_special_order">
             <div className="mb-2 text-sm text-muted-foreground font-medium">TEC — Special Order Entry (Sl. No., Date of Supply, Particulars, Qty, Rate Per Plate, Total)</div>
