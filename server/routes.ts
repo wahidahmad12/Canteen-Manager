@@ -3500,34 +3500,60 @@ export async function registerRoutes(
   // Client form builder: user-defined columns (Breakfast, Lunch, Tea ...) + daily qty per client
   app.get('/api/client-forms/yearly', requirePermission('salesinvoice'), async (req, res) => {
     try {
-      const year = Number(req.query.year);
-      if (!year) return res.status(400).json({ message: "year is required" });
-      res.json(await storage.getClientFormsYearly(year));
+      const year = Number(req.query.year), formId = Number(req.query.formId);
+      if (!year || !formId) return res.status(400).json({ message: "year and formId are required" });
+      res.json(await storage.getClientFormsYearly(year, formId));
     } catch (err: any) { res.status(500).json({ message: err.message }); }
   });
-  app.get('/api/client-forms/:clientId', requirePermission('salesinvoice'), async (req, res) => {
-    try {
-      const clientId = Number(req.params.clientId), month = Number(req.query.month), year = Number(req.query.year);
-      if (!clientId || !month || !year) return res.status(400).json({ message: "clientId, month and year are required" });
-      res.json(await storage.getClientForm(clientId, month, year));
-    } catch (err: any) { res.status(500).json({ message: err.message }); }
-  });
-  app.post('/api/client-forms/:clientId/fields', requirePermission('salesinvoice'), async (req, res) => {
+  app.get('/api/client-forms/:clientId/forms', requirePermission('salesinvoice'), async (req, res) => {
     try {
       const clientId = Number(req.params.clientId);
-      const label = String(req.body?.label || '').trim().slice(0, 100);
-      const rate = Number(req.body?.rate);
-      if (!clientId || !label || !Number.isFinite(rate) || rate < 0) return res.status(400).json({ message: "Valid column name and rate are required" });
-      await storage.saveClientFormField(clientId, label, rate);
+      if (!clientId) return res.status(400).json({ message: "clientId is required" });
+      res.json(await storage.getClientForms(clientId));
+    } catch (err: any) { res.status(500).json({ message: err.message }); }
+  });
+  app.post('/api/client-forms/:clientId/forms', requirePermission('salesinvoice'), async (req, res) => {
+    try {
+      const clientId = Number(req.params.clientId);
+      const name = String(req.body?.name || '').trim().slice(0, 100);
+      if (!clientId || !name) return res.status(400).json({ message: "Valid form name is required" });
+      const id = await storage.createClientForm(clientId, name);
+      res.json({ id, name });
+    } catch (err: any) { res.status(500).json({ message: err.message }); }
+  });
+  app.put('/api/client-forms/:clientId/forms/:formId', requirePermission('salesinvoice'), async (req, res) => {
+    try {
+      const clientId = Number(req.params.clientId), formId = Number(req.params.formId);
+      const name = String(req.body?.name || '').trim().slice(0, 100);
+      if (!clientId || !formId || !name) return res.status(400).json({ message: "Valid form name is required" });
+      await storage.renameClientForm(clientId, formId, name);
       res.json({ ok: true });
     } catch (err: any) { res.status(500).json({ message: err.message }); }
   });
-  app.put('/api/client-forms/:clientId/field-order', requirePermission('salesinvoice'), async (req, res) => {
+  app.get('/api/client-forms/:clientId/forms/:formId', requirePermission('salesinvoice'), async (req, res) => {
     try {
-      const clientId = Number(req.params.clientId);
+      const clientId = Number(req.params.clientId), formId = Number(req.params.formId);
+      const month = Number(req.query.month), year = Number(req.query.year);
+      if (!clientId || !formId || !month || !year) return res.status(400).json({ message: "clientId, formId, month and year are required" });
+      res.json(await storage.getClientForm(clientId, formId, month, year));
+    } catch (err: any) { res.status(500).json({ message: err.message }); }
+  });
+  app.post('/api/client-forms/:clientId/forms/:formId/fields', requirePermission('salesinvoice'), async (req, res) => {
+    try {
+      const clientId = Number(req.params.clientId), formId = Number(req.params.formId);
+      const label = String(req.body?.label || '').trim().slice(0, 100);
+      const rate = Number(req.body?.rate);
+      if (!clientId || !formId || !label || !Number.isFinite(rate) || rate < 0) return res.status(400).json({ message: "Valid column name and rate are required" });
+      await storage.saveClientFormField(clientId, formId, label, rate);
+      res.json({ ok: true });
+    } catch (err: any) { res.status(500).json({ message: err.message }); }
+  });
+  app.put('/api/client-forms/:clientId/forms/:formId/field-order', requirePermission('salesinvoice'), async (req, res) => {
+    try {
+      const clientId = Number(req.params.clientId), formId = Number(req.params.formId);
       const ids = Array.isArray(req.body?.ids) ? req.body.ids.map(Number).filter((x: number) => Number.isInteger(x) && x > 0) : [];
-      if (!clientId || ids.length === 0) return res.status(400).json({ message: "clientId and ids are required" });
-      await storage.reorderClientFormFields(clientId, ids);
+      if (!clientId || !formId || ids.length === 0) return res.status(400).json({ message: "clientId, formId and ids are required" });
+      await storage.reorderClientFormFields(clientId, formId, ids);
       res.json({ ok: true });
     } catch (err: any) { res.status(500).json({ message: err.message }); }
   });
@@ -3550,11 +3576,12 @@ export async function registerRoutes(
       res.json({ ok: true });
     } catch (err: any) { res.status(500).json({ message: err.message }); }
   });
-  app.delete('/api/client-forms/:clientId/entries', requirePermission('salesinvoice'), async (req, res) => {
+  app.delete('/api/client-forms/:clientId/forms/:formId/entries', requirePermission('salesinvoice'), async (req, res) => {
     try {
-      const clientId = Number(req.params.clientId), month = Number(req.query.month), year = Number(req.query.year);
-      if (!clientId || !month || !year) return res.status(400).json({ message: "clientId, month and year are required" });
-      await storage.deleteClientFormMonthEntries(clientId, month, year);
+      const clientId = Number(req.params.clientId), formId = Number(req.params.formId);
+      const month = Number(req.query.month), year = Number(req.query.year);
+      if (!clientId || !formId || !month || !year) return res.status(400).json({ message: "clientId, formId, month and year are required" });
+      await storage.deleteClientFormMonthEntries(clientId, formId, month, year);
       res.json({ ok: true });
     } catch (err: any) { res.status(500).json({ message: err.message }); }
   });

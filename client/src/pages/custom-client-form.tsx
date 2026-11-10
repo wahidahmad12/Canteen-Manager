@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
-import { Plus, Trash2, Save, Loader2, FileDown, Upload, ChevronLeft, ChevronRight } from "lucide-react";
+import { Plus, Trash2, Save, Loader2, FileDown, Upload, ChevronLeft, ChevronRight, Printer } from "lucide-react";
 
 const MONTHS = ["January","February","March","April","May","June","July","August","September","October","November","December"];
 const PRESETS = ["Breakfast", "Lunch", "Evening Snack", "Dinner", "Tea"];
@@ -43,17 +43,137 @@ async function downloadXlsx(fileName: string, sheetName: string, header: string[
   a.click();
 }
 
+function printTable(title: string, table: HTMLTableElement | null): boolean {
+  if (!table) return false;
+  const printWindow = window.open("", "_blank");
+  if (!printWindow) return false;
+  const escapedTitle = title.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+  printWindow.document.write(`<!doctype html><html><head><title>${escapedTitle}</title>
+    <style>
+      body{font-family:Arial,sans-serif;font-size:12px;margin:24px;color:#111}
+      h2{margin:0 0 12px}
+      table{width:100%;border-collapse:collapse}
+      th,td{border:1px solid #999;padding:5px 7px}
+      th{background:#eee}
+      @media print{body{margin:8px}thead{display:table-header-group}}
+    </style></head><body><h2>${escapedTitle}</h2>${table.outerHTML}</body></html>`);
+  printWindow.document.close();
+  printWindow.focus();
+  printWindow.print();
+  return true;
+}
+
+type ClientForm = { id: number; name: string };
+
 export function CustomClientFormTab({ clientId, clientName, month, year, canEdit }: {
   clientId: number; clientName: string; month: number; year: number; canEdit: boolean;
 }) {
   const { toast } = useToast();
   const qc = useQueryClient();
-  const formKey = ["/api/client-forms", clientId, month, year];
+  const [selectedFormId, setSelectedFormId] = useState<number | null>(null);
+  const [newFormName, setNewFormName] = useState("");
+  const [renameValue, setRenameValue] = useState("");
+  const { data: forms = [], isLoading, isError } = useQuery<ClientForm[]>({
+    queryKey: ["/api/client-forms", clientId, "forms"],
+    queryFn: async () => {
+      const res = await fetch(`/api/client-forms/${clientId}/forms`, { credentials: "include" });
+      if (!res.ok) throw new Error("Failed to load forms");
+      return res.json();
+    },
+  });
+  const selectedForm = forms.find(f => f.id === selectedFormId);
+
+  useEffect(() => {
+    if (forms.length > 0 && !forms.some(f => f.id === selectedFormId)) setSelectedFormId(forms[0].id);
+    if (forms.length === 0 && selectedFormId !== null) setSelectedFormId(null);
+  }, [forms, selectedFormId]);
+
+  useEffect(() => {
+    if (selectedForm) setRenameValue(selectedForm.name);
+  }, [selectedForm?.id, selectedForm?.name]);
+
+  const createForm = async () => {
+    const name = newFormName.trim();
+    if (!name) {
+      toast({ title: "Form ka naam bharein", variant: "destructive" });
+      return;
+    }
+    try {
+      const created = await sendJson(`/api/client-forms/${clientId}/forms`, "POST", { name });
+      setNewFormName("");
+      await qc.invalidateQueries({ queryKey: ["/api/client-forms", clientId, "forms"] });
+      setSelectedFormId(Number(created.id));
+      toast({ title: `"${name}" form create ho gaya` });
+    } catch (e: any) {
+      toast({ title: "Form create nahi hua", description: e.message, variant: "destructive" });
+    }
+  };
+
+  const renameForm = async () => {
+    if (!selectedForm) return;
+    const name = renameValue.trim();
+    if (!name) {
+      toast({ title: "Form ka naam bharein", variant: "destructive" });
+      return;
+    }
+    try {
+      await sendJson(`/api/client-forms/${clientId}/forms/${selectedForm.id}`, "PUT", { name });
+      await qc.invalidateQueries({ queryKey: ["/api/client-forms", clientId, "forms"] });
+      toast({ title: "Form name update ho gaya" });
+    } catch (e: any) {
+      toast({ title: "Form name update nahi hua", description: e.message, variant: "destructive" });
+    }
+  };
+
+  if (isLoading) return <div className="flex justify-center py-10"><Loader2 className="w-6 h-6 animate-spin" /></div>;
+  if (isError) return <div className="text-sm text-red-600 py-6">Form load nahi ho paya. Page refresh karke dobara try karein.</div>;
+
+  return (
+    <div className="space-y-4">
+      <div className="flex flex-wrap items-center gap-2">
+        {forms.map(form => (
+          <Button key={form.id} size="sm" variant={selectedFormId === form.id ? "default" : "outline"} onClick={() => setSelectedFormId(form.id)}>
+            {form.name}
+          </Button>
+        ))}
+        {canEdit && (
+          <div className="flex flex-wrap items-center gap-2">
+            <Input value={newFormName} onChange={e => setNewFormName(e.target.value)} placeholder="New form name" className="w-44 h-9" data-testid="input-client-form-name" />
+            <Button size="sm" onClick={createForm} data-testid="btn-create-client-form"><Plus className="w-4 h-4 mr-1" />Create Form</Button>
+          </div>
+        )}
+      </div>
+      {selectedForm && (
+        <>
+          {canEdit && (
+            <div className="flex flex-wrap gap-2 items-center">
+              <Input value={renameValue} onChange={e => setRenameValue(e.target.value)} className="w-56 h-9" aria-label="Form name" data-testid="input-rename-client-form" />
+              <Button size="sm" variant="outline" onClick={renameForm} data-testid="btn-rename-client-form"><Save className="w-4 h-4 mr-1" />Rename Form</Button>
+            </div>
+          )}
+          <ClientNamedForm key={`${selectedForm.id}-${month}-${year}`} clientId={clientId} clientName={clientName} formId={selectedForm.id} formName={selectedForm.name} month={month} year={year} canEdit={canEdit} />
+        </>
+      )}
+      {!selectedForm && (
+        <div className="text-sm text-muted-foreground py-8 text-center border rounded-lg">
+          Abhi koi form nahi hai. Is client ke liye form banane ke liye upar naam likh kar Create Form dabayein.
+        </div>
+      )}
+    </div>
+  );
+}
+
+function ClientNamedForm({ clientId, clientName, formId, formName, month, year, canEdit }: {
+  clientId: number; clientName: string; formId: number; formName: string; month: number; year: number; canEdit: boolean;
+}) {
+  const { toast } = useToast();
+  const qc = useQueryClient();
+  const formKey = ["/api/client-forms", clientId, formId, month, year];
 
   const { data, isLoading, isError } = useQuery<{ fields: Field[]; entries: Entry[] }>({
     queryKey: formKey,
     queryFn: async () => {
-      const res = await fetch(`/api/client-forms/${clientId}?month=${month}&year=${year}`, { credentials: "include" });
+      const res = await fetch(`/api/client-forms/${clientId}/forms/${formId}?month=${month}&year=${year}`, { credentials: "include" });
       if (!res.ok) throw new Error("Failed to load form");
       return res.json();
     },
@@ -67,6 +187,7 @@ export function CustomClientFormTab({ clientId, clientName, month, year, canEdit
   const [saving, setSaving] = useState(false);
   const importRef = useRef<HTMLInputElement>(null);
   const dataImportRef = useRef<HTMLInputElement>(null);
+  const monthlyTableRef = useRef<HTMLTableElement>(null);
 
   useEffect(() => {
     const q: Record<string, string> = {};
@@ -104,7 +225,7 @@ export function CustomClientFormTab({ clientId, clientName, month, year, canEdit
       return;
     }
     try {
-      await sendJson(`/api/client-forms/${clientId}/fields`, "POST", { label: label.trim(), rate });
+      await sendJson(`/api/client-forms/${clientId}/forms/${formId}/fields`, "POST", { label: label.trim(), rate });
       setNewLabel(""); setNewRate("");
       refresh();
       toast({ title: `"${label.trim()}" column add ho gaya` });
@@ -130,7 +251,7 @@ export function CustomClientFormTab({ clientId, clientName, month, year, canEdit
     if (i < 0 || j < 0 || j >= ids.length) return;
     [ids[i], ids[j]] = [ids[j], ids[i]];
     try {
-      await sendJson(`/api/client-forms/${clientId}/field-order`, "PUT", { ids });
+      await sendJson(`/api/client-forms/${clientId}/forms/${formId}/field-order`, "PUT", { ids });
       refresh();
     } catch (e: any) {
       toast({ title: "Move nahi hua", description: e.message, variant: "destructive" });
@@ -152,7 +273,7 @@ export function CustomClientFormTab({ clientId, clientName, month, year, canEdit
     const rows = fields.filter(f => f.active).length > 0
       ? fields.filter(f => f.active).map(f => [f.label, f.rate])
       : PRESETS.map(p => [p, 0]);
-    downloadXlsx("Form_Builder_Template.xlsx", "Columns", ["Column Name", "Rate"], rows);
+    downloadXlsx(`${formName.replace(/[^\w-]+/g, "_")}_Form_Template.xlsx`, "Columns", ["Column Name", "Rate"], rows);
   };
 
   const handleImport = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -187,7 +308,7 @@ export function CustomClientFormTab({ clientId, clientName, month, year, canEdit
             updated++;
           }
         } else {
-          await sendJson(`/api/client-forms/${clientId}/fields`, "POST", { label: it.label, rate: it.rate });
+          await sendJson(`/api/client-forms/${clientId}/forms/${formId}/fields`, "POST", { label: it.label, rate: it.rate });
           added++;
         }
       }
@@ -222,7 +343,7 @@ export function CustomClientFormTab({ clientId, clientName, month, year, canEdit
   const deleteMonthData = async () => {
     if (!window.confirm(`${clientName} — ${MONTHS[month - 1]} ${year} ka saara data delete karein? Ye undo nahi hoga.`)) return;
     try {
-      await sendJson(`/api/client-forms/${clientId}/entries?month=${month}&year=${year}`, "DELETE");
+      await sendJson(`/api/client-forms/${clientId}/forms/${formId}/entries?month=${month}&year=${year}`, "DELETE");
       setQtys({});
       setRateSnap({});
       refresh();
@@ -235,7 +356,7 @@ export function CustomClientFormTab({ clientId, clientName, month, year, canEdit
   const downloadDataTemplate = () => {
     const header = ["Date", ...fields.map(f => f.label)];
     const rows = dates.map(d => [d.label, ...fields.map(f => qtyOf(f, d.iso) || "")]);
-    downloadXlsx(`${clientName}_Data_Template_${MONTHS[month - 1]}_${year}.xlsx`, "Data", header, rows);
+    downloadXlsx(`${clientName}_${formName}_Data_Template_${MONTHS[month - 1]}_${year}.xlsx`, "Data", header, rows);
   };
 
   const handleDataImport = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -299,7 +420,7 @@ export function CustomClientFormTab({ clientId, clientName, month, year, canEdit
       rowAmt(d.iso) || "",
     ]);
     rows.push(["Total", "", ...fields.flatMap(f => [fieldQty(f), "", fieldAmt(f)]), grandAmt]);
-    downloadXlsx(`${clientName}_${MONTHS[month - 1]}_${year}.xlsx`, "Entry", header, rows);
+    downloadXlsx(`${clientName}_${formName}_${MONTHS[month - 1]}_${year}.xlsx`, "Entry", header, rows);
   };
 
   const unusedPresets = PRESETS.filter(p => !fields.some(f => f.label.toLowerCase() === p.toLowerCase()));
@@ -364,6 +485,11 @@ export function CustomClientFormTab({ clientId, clientName, month, year, canEdit
                 </Button>
               )}
               <Button variant="outline" onClick={exportMonth} data-testid="btn-custom-export"><FileDown className="w-4 h-4 mr-1" />Export Excel</Button>
+              <Button variant="outline" onClick={() => {
+                if (!printTable(`${clientName} — ${formName} — ${MONTHS[month - 1]} ${year}`, monthlyTableRef.current)) {
+                  toast({ title: "Print window nahi khula", description: "Browser me pop-up allow karein.", variant: "destructive" });
+                }
+              }} data-testid="btn-custom-print"><Printer className="w-4 h-4 mr-1" />Print</Button>
               <Button variant="outline" onClick={downloadDataTemplate} data-testid="btn-data-template"><FileDown className="w-4 h-4 mr-1" />Data Template</Button>
               {canEdit && (
                 <>
@@ -375,7 +501,7 @@ export function CustomClientFormTab({ clientId, clientName, month, year, canEdit
               <div className="ml-auto text-sm font-semibold self-center">Grand Total: ₹{fmt(grandAmt)}</div>
             </div>
             <div className="overflow-x-auto border rounded-lg">
-              <table className="w-full text-xs">
+              <table ref={monthlyTableRef} className="w-full text-xs">
                 <thead className="bg-muted">
                   <tr>
                     <th className="p-2 text-left">Date</th>
@@ -433,17 +559,19 @@ export function CustomClientFormTab({ clientId, clientName, month, year, canEdit
       </TabsContent>
 
       <TabsContent value="summary">
-        <CustomClientYearlySummary clientId={clientId} clientName={clientName} year={year} />
+        <CustomClientYearlySummary clientId={clientId} clientName={clientName} formId={formId} formName={formName} year={year} />
       </TabsContent>
     </Tabs>
   );
 }
 
-function CustomClientYearlySummary({ clientId, clientName, year }: { clientId: number; clientName: string; year: number }) {
+function CustomClientYearlySummary({ clientId, clientName, formId, formName, year }: { clientId: number; clientName: string; formId: number; formName: string; year: number }) {
+  const { toast } = useToast();
+  const tableRef = useRef<HTMLTableElement>(null);
   const { data = [], isLoading } = useQuery<any[]>({
-    queryKey: ["/api/client-forms/yearly", year],
+    queryKey: ["/api/client-forms/yearly", year, formId],
     queryFn: async () => {
-      const res = await fetch(`/api/client-forms/yearly?year=${year}`, { credentials: "include" });
+      const res = await fetch(`/api/client-forms/yearly?year=${year}&formId=${formId}`, { credentials: "include" });
       return res.ok ? res.json() : [];
     },
   });
@@ -461,7 +589,7 @@ function CustomClientYearlySummary({ clientId, clientName, year }: { clientId: n
       mn, ...labels.flatMap(l => { const c = cell(l, i + 1); return [c?.qty ?? "", c?.amount ?? ""]; }), monthAmt(i + 1) || "",
     ]);
     out.push(["Total", ...labels.flatMap(l => [labelQty(l), labelAmt(l)]), grand]);
-    downloadXlsx(`${clientName}_Yearly_${year}.xlsx`, "Yearly", header, out);
+    downloadXlsx(`${clientName}_${formName}_Yearly_${year}.xlsx`, "Yearly", header, out);
   };
 
   if (isLoading) return <div className="flex justify-center py-10"><Loader2 className="w-6 h-6 animate-spin" /></div>;
@@ -470,11 +598,16 @@ function CustomClientYearlySummary({ clientId, clientName, year }: { clientId: n
   return (
     <div>
       <div className="flex items-center mb-3">
-        <div className="text-sm font-semibold">{clientName} — {year} Summary</div>
+        <div className="text-sm font-semibold">{clientName} — {formName} — {year} Summary</div>
         <Button variant="outline" size="sm" className="ml-auto" onClick={exportYear}><FileDown className="w-4 h-4 mr-1" />Export Excel</Button>
+        <Button variant="outline" size="sm" className="ml-2" onClick={() => {
+          if (!printTable(`${clientName} — ${formName} — ${year} Summary`, tableRef.current)) {
+            toast({ title: "Print window nahi khula", description: "Browser me pop-up allow karein.", variant: "destructive" });
+          }
+        }} data-testid="btn-custom-yearly-print"><Printer className="w-4 h-4 mr-1" />Print</Button>
       </div>
       <div className="overflow-x-auto border rounded-lg">
-        <table className="w-full text-xs">
+        <table ref={tableRef} className="w-full text-xs">
           <thead className="bg-muted">
             <tr>
               <th className="p-2 text-left">Month</th>
