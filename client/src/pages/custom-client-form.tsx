@@ -66,6 +66,7 @@ export function CustomClientFormTab({ clientId, clientName, month, year, canEdit
   const [newRate, setNewRate] = useState("");
   const [saving, setSaving] = useState(false);
   const importRef = useRef<HTMLInputElement>(null);
+  const dataImportRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     const q: Record<string, string> = {};
@@ -204,6 +205,65 @@ export function CustomClientFormTab({ clientId, clientName, month, year, canEdit
     }
   };
 
+  const downloadDataTemplate = () => {
+    const header = ["Date", ...fields.map(f => f.label)];
+    const rows = dates.map(d => [d.label, ...fields.map(f => qtyOf(f, d.iso) || "")]);
+    downloadXlsx(`${clientName}_Data_Template_${MONTHS[month - 1]}_${year}.xlsx`, "Data", header, rows);
+  };
+
+  const handleDataImport = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    e.target.value = "";
+    if (!file) return;
+    try {
+      const ExcelJS = (await import("exceljs")).default;
+      const wb = new ExcelJS.Workbook();
+      await wb.xlsx.load(await file.arrayBuffer());
+      const ws = wb.worksheets[0];
+      const text = (v: any) => String(v && typeof v === "object" && !(v instanceof Date) ? (v.text ?? v.result ?? "") : (v ?? "")).trim();
+      const colByField = new Map<number, number>();
+      ws.getRow(1).eachCell((cell, col) => {
+        const h = text(cell.value).toLowerCase().replace(/\s+qty$/, "");
+        const f = fields.find(x => x.label.toLowerCase() === h);
+        if (f) colByField.set(f.id, col);
+      });
+      if (colByField.size === 0) {
+        toast({ title: "Header me koi column match nahi hua", description: "Pehle Template download karke use bharein", variant: "destructive" });
+        return;
+      }
+      const toIso = (v: any): string | null => {
+        if (v instanceof Date) {
+          return `${v.getUTCFullYear()}-${String(v.getUTCMonth() + 1).padStart(2, "0")}-${String(v.getUTCDate()).padStart(2, "0")}`;
+        }
+        const s = text(v);
+        const m = s.match(/^(\d{1,2})[-/.](\d{1,2})[-/.](\d{4})$/);
+        if (m) return `${m[3]}-${m[2].padStart(2, "0")}-${m[1].padStart(2, "0")}`;
+        if (/^\d{1,2}$/.test(s)) return `${year}-${String(month).padStart(2, "0")}-${s.padStart(2, "0")}`;
+        return /^\d{4}-\d{2}-\d{2}$/.test(s) ? s : null;
+      };
+      const valid = new Set(dates.map(d => d.iso));
+      const next = { ...qtys };
+      let count = 0;
+      ws.eachRow((row, i) => {
+        if (i === 1) return;
+        const iso = toIso(row.getCell(1).value);
+        if (!iso || !valid.has(iso)) return;
+        colByField.forEach((col, fieldId) => {
+          const raw = text(row.getCell(col).value);
+          if (raw === "") return;
+          const q = Number(raw);
+          if (!Number.isFinite(q) || q < 0) return;
+          next[keyOf(fieldId, iso)] = String(q);
+          count++;
+        });
+      });
+      setQtys(next);
+      toast({ title: "Import ho gaya", description: `${count} entries load hui. Save dabana na bhoolein.` });
+    } catch (err: any) {
+      toast({ title: "Import nahi hua", description: err.message, variant: "destructive" });
+    }
+  };
+
   const exportMonth = () => {
     const header = ["Date", "Day", ...fields.flatMap(f => [`${f.label} Qty`, `${f.label} Rate`, `${f.label} Amt`]), "Day Total"];
     const rows: (string | number)[][] = dates.map(d => [
@@ -275,6 +335,13 @@ export function CustomClientFormTab({ clientId, clientName, month, year, canEdit
                 </Button>
               )}
               <Button variant="outline" onClick={exportMonth} data-testid="btn-custom-export"><FileDown className="w-4 h-4 mr-1" />Export Excel</Button>
+              <Button variant="outline" onClick={downloadDataTemplate} data-testid="btn-data-template"><FileDown className="w-4 h-4 mr-1" />Data Template</Button>
+              {canEdit && (
+                <>
+                  <Button variant="outline" onClick={() => dataImportRef.current?.click()} data-testid="btn-data-import"><Upload className="w-4 h-4 mr-1" />Import Data</Button>
+                  <input ref={dataImportRef} type="file" accept=".xlsx" className="hidden" onChange={handleDataImport} />
+                </>
+              )}
               <div className="ml-auto text-sm font-semibold self-center">Grand Total: ₹{fmt(grandAmt)}</div>
             </div>
             <div className="overflow-x-auto border rounded-lg">
@@ -298,6 +365,16 @@ export function CustomClientFormTab({ clientId, clientName, month, year, canEdit
                             type="number" min="0" step="any" disabled={!canEdit}
                             value={qtys[keyOf(f.id, d.iso)] ?? ""}
                             onChange={e => setQtys(p => ({ ...p, [keyOf(f.id, d.iso)]: e.target.value }))}
+                            onKeyDown={e => {
+                              const step = e.key === "Enter" || e.key === "ArrowDown" ? 1 : e.key === "ArrowUp" ? -1 : 0;
+                              if (!step) return;
+                              e.preventDefault();
+                              const idx = dates.findIndex(x => x.iso === d.iso) + step;
+                              if (idx < 0 || idx >= dates.length) return;
+                              const nextEl = document.querySelector<HTMLInputElement>(`[data-testid="input-custom-${f.id}-${dates[idx].iso}"]`);
+                              nextEl?.focus();
+                              nextEl?.select();
+                            }}
                             className="h-8 w-20 mx-auto text-center text-xs"
                             data-testid={`input-custom-${f.id}-${d.iso}`}
                           />
