@@ -3530,6 +3530,15 @@ export async function registerRoutes(
       res.json({ ok: true });
     } catch (err: any) { res.status(500).json({ message: err.message }); }
   });
+  app.delete('/api/client-forms/:clientId/forms/:formId', requirePermission('salesinvoice'), async (req, res) => {
+    try {
+      const clientId = Number(req.params.clientId), formId = Number(req.params.formId);
+      if (!clientId || !formId) return res.status(400).json({ message: "clientId and formId are required" });
+      const deleted = await storage.deleteClientForm(clientId, formId);
+      if (!deleted) return res.status(404).json({ message: "Form not found for this client" });
+      res.json({ ok: true });
+    } catch (err: any) { res.status(500).json({ message: err.message }); }
+  });
   app.get('/api/client-forms/:clientId/forms/:formId', requirePermission('salesinvoice'), async (req, res) => {
     try {
       const clientId = Number(req.params.clientId), formId = Number(req.params.formId);
