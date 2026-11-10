@@ -244,14 +244,22 @@ async function initPool(): Promise<void> {
       rate DECIMAL(12,3) NOT NULL DEFAULT 0,
       UNIQUE KEY uq_pec_custom_item_qty (item_id, entry_date)
     )`,
+    `CREATE TABLE IF NOT EXISTS client_forms (
+      id INT AUTO_INCREMENT PRIMARY KEY,
+      client_id INT NOT NULL,
+      name VARCHAR(100) NOT NULL,
+      sort_order INT NOT NULL DEFAULT 0,
+      UNIQUE KEY uq_client_forms_name (client_id, name)
+    )`,
     `CREATE TABLE IF NOT EXISTS client_form_fields (
       id INT AUTO_INCREMENT PRIMARY KEY,
       client_id INT NOT NULL,
+      form_id INT NULL,
       label VARCHAR(100) NOT NULL,
       rate DECIMAL(12,3) NOT NULL DEFAULT 0,
       sort_order INT NOT NULL DEFAULT 0,
       active TINYINT(1) NOT NULL DEFAULT 1,
-      UNIQUE KEY uq_client_form_fields (client_id, label)
+      UNIQUE KEY uq_client_form_fields_form_label (form_id, label)
     )`,
     `CREATE TABLE IF NOT EXISTS client_form_entries (
       id INT AUTO_INCREMENT PRIMARY KEY,
@@ -482,6 +490,33 @@ async function initPool(): Promise<void> {
   for (const sql of migrations) {
     try { await pool.execute(sql); } catch (e: any) { console.log('[db] migration note:', e.message?.slice(0, 80)); }
   }
+
+  try {
+    await pool.execute(`ALTER TABLE client_form_fields ADD COLUMN IF NOT EXISTS form_id INT NULL`);
+    await pool.execute(`
+      INSERT IGNORE INTO client_forms (client_id, name, sort_order)
+      SELECT DISTINCT client_id, 'Form 1', 1 FROM client_form_fields
+    `);
+    await pool.execute(`
+      UPDATE client_form_fields f
+      JOIN client_forms cf ON cf.client_id = f.client_id AND cf.name = 'Form 1'
+      SET f.form_id = cf.id
+      WHERE f.form_id IS NULL
+    `);
+    const [indexes]: any = await pool.query(`
+      SELECT DISTINCT index_name AS indexName
+      FROM information_schema.statistics
+      WHERE table_schema = DATABASE() AND table_name = 'client_form_fields'
+        AND index_name IN ('uq_client_form_fields', 'uq_client_form_fields_form_label')
+    `);
+    const indexNames = (indexes as any[]).map((r: any) => r.indexName);
+    if (indexNames.includes('uq_client_form_fields')) {
+      await pool.execute(`ALTER TABLE client_form_fields DROP INDEX uq_client_form_fields`);
+    }
+    if (!indexNames.includes('uq_client_form_fields_form_label')) {
+      await pool.execute(`ALTER TABLE client_form_fields ADD UNIQUE INDEX uq_client_form_fields_form_label (form_id, label)`);
+    }
+  } catch (e: any) { console.log('[db] client form migration note:', e.message?.slice(0, 120)); }
 
   // Seed the default PEC Ventures rate row and lock (snapshot) every month that already has
   // saved entries, using the original hardcoded rates. This guarantees that previously-saved

@@ -3515,79 +3515,114 @@ export class DatabaseStorage implements IStorage {
   }
 
   // === CLIENT FORM BUILDER (user-defined date entry forms for any client) ===
-  async getClientForm(clientId: number, month: number, year: number): Promise<{ fields: any[]; entries: any[] }> {
-    const prefix = `${year}-${String(month).padStart(2, '0')}-%`;
-    const [entryRows] = await db.execute(sql`
-      SELECT e.field_id AS fieldId, e.entry_date AS entryDate, e.qty, e.rate
-      FROM client_form_entries e JOIN client_form_fields f ON f.id = e.field_id
-      WHERE f.client_id = ${clientId} AND e.entry_date LIKE ${prefix} AND e.qty > 0
-    `);
-    const entries = (entryRows as any[]).map(r => ({
-      fieldId: Number(r.fieldId), entryDate: r.entryDate, qty: Number(r.qty) || 0, rate: Number(r.rate) || 0,
+  async getClientForms(clientId: number): Promise<any[]> {
+    const [rows]: any = await pool.query(
+      `SELECT id, client_id AS clientId, name, sort_order AS sortOrder
+       FROM client_forms WHERE client_id = ? ORDER BY sort_order, id`,
+      [clientId],
+    );
+    return rows.map((r: any) => ({
+      id: Number(r.id), clientId: Number(r.clientId), name: r.name, sortOrder: Number(r.sortOrder) || 0,
     }));
-    const usedIds = Array.from(new Set(entries.map(q => q.fieldId)));
-    const [fieldRows] = await db.execute(sql`
-      SELECT id, label, rate, active FROM client_form_fields WHERE client_id = ${clientId} ORDER BY sort_order, id
-    `);
+  }
+  async createClientForm(clientId: number, name: string): Promise<number> {
+    const [mx]: any = await pool.query(`SELECT COALESCE(MAX(sort_order), 0) + 1 AS n FROM client_forms WHERE client_id = ?`, [clientId]);
+    const next = Number(mx[0]?.n) || 1;
+    await pool.query(`INSERT INTO client_forms (client_id, name, sort_order) VALUES (?, ?, ?)`, [clientId, name, next]);
+    const [rows]: any = await pool.query(`SELECT id FROM client_forms WHERE client_id = ? AND name = ?`, [clientId, name]);
+    return Number(rows[0]?.id);
+  }
+  async renameClientForm(clientId: number, formId: number, name: string): Promise<void> {
+    await pool.query(`UPDATE client_forms SET name = ? WHERE id = ? AND client_id = ?`, [name, formId, clientId]);
+  }
+  async getClientForm(clientId: number, formId: number, month: number, year: number): Promise<{ fields: any[]; entries: any[] }> {
+    const prefix = `${year}-${String(month).padStart(2, '0')}-%`;
+    const [entryRows]: any = await pool.query(
+      `SELECT e.field_id AS fieldId, e.entry_date AS entryDate, e.qty, e.rate
+       FROM client_form_entries e JOIN client_form_fields f ON f.id = e.field_id
+       WHERE f.client_id = ? AND f.form_id = ? AND e.entry_date LIKE ? AND e.qty > 0`,
+      [clientId, formId, prefix],
+    );
+    const entries: { fieldId: number; entryDate: string; qty: number; rate: number }[] = entryRows.map((r: any) => ({
+      fieldId: Number(r.fieldId), entryDate: String(r.entryDate), qty: Number(r.qty) || 0, rate: Number(r.rate) || 0,
+    }));
+    const usedIds = Array.from(new Set<number>(entries.map(q => q.fieldId)));
+    const [fieldRows]: any = await pool.query(
+      `SELECT id, label, rate, active FROM client_form_fields
+       WHERE client_id = ? AND form_id = ? ORDER BY sort_order, id`,
+      [clientId, formId],
+    );
     const fields = (fieldRows as any[])
-      .filter(r => Number(r.active) === 1 || usedIds.includes(Number(r.id)))
-      .map(r => ({ id: Number(r.id), label: r.label, rate: Number(r.rate) || 0, active: Number(r.active) === 1 }));
+      .filter((r: any) => Number(r.active) === 1 || usedIds.includes(Number(r.id)))
+      .map((r: any) => ({ id: Number(r.id), label: r.label, rate: Number(r.rate) || 0, active: Number(r.active) === 1 }));
     return { fields, entries };
   }
-  async getClientFormsYearly(year: number): Promise<any[]> {
+  async getClientFormsYearly(year: number, formId: number): Promise<any[]> {
     const prefix = `${year}-%`;
-    const [rows] = await db.execute(sql`
-      SELECT f.client_id AS clientId, c.name AS clientName, f.id AS fieldId, f.label AS label,
-             CAST(SUBSTRING(e.entry_date, 6, 2) AS UNSIGNED) AS month,
-             SUM(e.qty) AS qty, SUM(e.qty * e.rate) AS amount
-      FROM client_form_entries e
-      JOIN client_form_fields f ON f.id = e.field_id
-      JOIN client_names c ON c.id = f.client_id
-      WHERE e.entry_date LIKE ${prefix} AND e.qty > 0
-      GROUP BY f.client_id, c.name, f.id, f.label, month
-      ORDER BY f.client_id, f.sort_order, f.id, month
-    `);
-    return (rows as any[]).map(r => ({
-      clientId: Number(r.clientId), clientName: r.clientName, fieldId: Number(r.fieldId), label: r.label,
+    const [rows]: any = await pool.query(
+      `SELECT f.client_id AS clientId, f.form_id AS formId, c.name AS clientName, cf.name AS formName,
+              f.id AS fieldId, f.label AS label,
+              CAST(SUBSTRING(e.entry_date, 6, 2) AS UNSIGNED) AS month,
+              SUM(e.qty) AS qty, SUM(e.qty * e.rate) AS amount
+       FROM client_form_entries e
+       JOIN client_form_fields f ON f.id = e.field_id
+       JOIN client_names c ON c.id = f.client_id
+       JOIN client_forms cf ON cf.id = f.form_id
+       WHERE e.entry_date LIKE ? AND e.qty > 0 AND f.form_id = ?
+       GROUP BY f.client_id, f.form_id, c.name, cf.name, f.id, f.label, month
+       ORDER BY f.client_id, f.sort_order, f.id, month`,
+      [prefix, formId],
+    );
+    return rows.map((r: any) => ({
+      clientId: Number(r.clientId), formId: Number(r.formId), clientName: r.clientName, formName: r.formName,
+      fieldId: Number(r.fieldId), label: r.label,
       month: Number(r.month), qty: Number(r.qty) || 0, amount: Number(r.amount) || 0,
     }));
   }
-  async saveClientFormField(clientId: number, label: string, rate: number): Promise<void> {
-    const [mx] = await db.execute(sql`SELECT COALESCE(MAX(sort_order), 0) + 1 AS n FROM client_form_fields WHERE client_id = ${clientId}`);
-    const next = Number((mx as any[])[0]?.n) || 1;
-    await db.execute(sql`
-      INSERT INTO client_form_fields (client_id, label, rate, sort_order, active) VALUES (${clientId}, ${label}, ${rate}, ${next}, 1)
-      ON DUPLICATE KEY UPDATE rate = VALUES(rate), sort_order = IF(active = 1, sort_order, VALUES(sort_order)), active = 1
-    `);
+  async saveClientFormField(clientId: number, formId: number, label: string, rate: number): Promise<void> {
+    const [forms]: any = await pool.query(`SELECT id FROM client_forms WHERE id = ? AND client_id = ?`, [formId, clientId]);
+    if (!forms.length) throw new Error("Form not found for this client");
+    const [mx]: any = await pool.query(`SELECT COALESCE(MAX(sort_order), 0) + 1 AS n FROM client_form_fields WHERE form_id = ?`, [formId]);
+    const next = Number(mx[0]?.n) || 1;
+    await pool.query(
+      `INSERT INTO client_form_fields (client_id, form_id, label, rate, sort_order, active) VALUES (?, ?, ?, ?, ?, 1)
+       ON DUPLICATE KEY UPDATE rate = VALUES(rate), sort_order = IF(active = 1, sort_order, VALUES(sort_order)), active = 1`,
+      [clientId, formId, label, rate, next],
+    );
   }
-  async reorderClientFormFields(clientId: number, ids: number[]): Promise<void> {
+  async reorderClientFormFields(clientId: number, formId: number, ids: number[]): Promise<void> {
     for (let i = 0; i < ids.length; i++) {
-      await db.execute(sql`UPDATE client_form_fields SET sort_order = ${i + 1} WHERE id = ${ids[i]} AND client_id = ${clientId}`);
+      await pool.query(
+        `UPDATE client_form_fields SET sort_order = ? WHERE id = ? AND client_id = ? AND form_id = ?`,
+        [i + 1, ids[i], clientId, formId],
+      );
     }
   }
   async updateClientFormFieldRate(id: number, rate: number): Promise<void> {
-    await db.execute(sql`UPDATE client_form_fields SET rate = ${rate} WHERE id = ${id}`);
+    await pool.query(`UPDATE client_form_fields SET rate = ? WHERE id = ?`, [rate, id]);
   }
   async deactivateClientFormField(id: number): Promise<void> {
-    await db.execute(sql`UPDATE client_form_fields SET active = 0 WHERE id = ${id}`);
+    await pool.query(`UPDATE client_form_fields SET active = 0 WHERE id = ?`, [id]);
   }
-  async deleteClientFormMonthEntries(clientId: number, month: number, year: number): Promise<void> {
+  async deleteClientFormMonthEntries(clientId: number, formId: number, month: number, year: number): Promise<void> {
     const prefix = `${year}-${String(month).padStart(2, '0')}-%`;
-    await db.execute(sql`
-      DELETE e FROM client_form_entries e JOIN client_form_fields f ON f.id = e.field_id
-      WHERE f.client_id = ${clientId} AND e.entry_date LIKE ${prefix}
-    `);
+    await pool.query(
+      `DELETE e FROM client_form_entries e JOIN client_form_fields f ON f.id = e.field_id
+       WHERE f.client_id = ? AND f.form_id = ? AND e.entry_date LIKE ?`,
+      [clientId, formId, prefix],
+    );
   }
   async saveClientFormEntries(entries: { fieldId: number; entryDate: string; qty: number; rate: number }[]): Promise<void> {
     for (const e of entries) {
       if (e.qty > 0) {
-        await db.execute(sql`
-          INSERT INTO client_form_entries (field_id, entry_date, qty, rate)
-          VALUES (${e.fieldId}, ${e.entryDate}, ${e.qty}, ${e.rate})
-          ON DUPLICATE KEY UPDATE qty = VALUES(qty), rate = VALUES(rate)
-        `);
+        await pool.query(
+          `INSERT INTO client_form_entries (field_id, entry_date, qty, rate)
+           VALUES (?, ?, ?, ?)
+           ON DUPLICATE KEY UPDATE qty = VALUES(qty), rate = VALUES(rate)`,
+          [e.fieldId, e.entryDate, e.qty, e.rate],
+        );
       } else {
-        await db.execute(sql`DELETE FROM client_form_entries WHERE field_id = ${e.fieldId} AND entry_date = ${e.entryDate}`);
+        await pool.query(`DELETE FROM client_form_entries WHERE field_id = ? AND entry_date = ?`, [e.fieldId, e.entryDate]);
       }
     }
   }

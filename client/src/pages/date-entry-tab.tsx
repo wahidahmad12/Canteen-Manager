@@ -9154,7 +9154,7 @@ export function DateEntryTab() {
         const isCurrent = parseInt(year) === now.getFullYear() && parseInt(month) === now.getMonth() + 1;
         return (
           <CustomClientFormTab
-            key={`${selectedClient}-${month}-${year}-${loadKey}`}
+            key={`${selectedClient}-${loadKey}`}
             clientId={Number(selectedClient.slice(7))}
             clientName={opt.label}
             month={parseInt(month)}
