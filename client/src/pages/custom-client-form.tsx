@@ -48,33 +48,45 @@ function printTable(title: string, table: HTMLTableElement | null): boolean {
   const printWindow = window.open("", "_blank");
   if (!printWindow) return false;
   const escapedTitle = title.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+  const printableTable = table.cloneNode(true) as HTMLTableElement;
+  printableTable.style.cssText = "width:100%;border-collapse:collapse;table-layout:auto;border:1px solid #94a3b8";
+  Array.from(printableTable.querySelectorAll("thead th")).forEach((cell, index, cells) => {
+    const background = index < 2 ? "#1e3a5f" : index === cells.length - 1 ? "#155e75" : "#0f766e";
+    (cell as HTMLElement).style.cssText = `border:1px solid #ffffff;padding:7px 6px;background:${background};color:#ffffff;font-weight:700;text-align:center`;
+  });
+  Array.from(printableTable.querySelectorAll("tbody tr")).forEach((row, rowIndex) => {
+    Array.from(row.children).forEach((cell, cellIndex, cells) => {
+      const background = rowIndex % 2 === 0 ? "#ffffff" : "#e8f4f5";
+      (cell as HTMLElement).style.cssText = `border:1px solid #b8cbd3;padding:6px 5px;background:${background};color:${cellIndex === cells.length - 1 ? "#0f4c5c" : "#243746"};text-align:${cellIndex < 2 ? "left" : "center"}`;
+    });
+  });
+  Array.from(printableTable.querySelectorAll("tfoot tr")).forEach((row, rowIndex, rows) => {
+    const background = rowIndex === rows.length - 1 ? "#0f766e" : "#dbeafe";
+    const color = rowIndex === rows.length - 1 ? "#ffffff" : "#172554";
+    Array.from(row.children).forEach(cell => {
+      (cell as HTMLElement).style.cssText = `border:1px solid #ffffff;padding:7px 5px;background:${background};color:${color};font-weight:700;text-align:center`;
+    });
+  });
+  printWindow.onload = () => printWindow.print();
   printWindow.document.write(`<!doctype html><html><head><title>${escapedTitle}</title>
     <style>
       *{box-sizing:border-box;-webkit-print-color-adjust:exact;print-color-adjust:exact}
-      body{font-family:Arial,sans-serif;font-size:11px;margin:20px;color:#172033}
-      .report-header{text-align:center;background:#123b5d;color:#fff;padding:12px 16px;border-bottom:5px solid #14b8a6;margin-bottom:12px}
-      .company{font-size:17px;font-weight:700;letter-spacing:.3px}
+      html,body{width:100%;margin:0;padding:0}
+      body{font-family:Arial,sans-serif;font-size:10px;color:#172033}
+      .report-header{text-align:center;background:#123b5d;color:#fff;padding:9px 12px;border-bottom:5px solid #14b8a6;margin-bottom:8px}
+      .company{font-size:16px;font-weight:700;letter-spacing:.3px}
       .report-type{font-size:9px;letter-spacing:1.5px;text-transform:uppercase;color:#b8e6e2;margin-top:3px}
-      h2{font-size:14px;margin:8px 0 0;color:#fff}
-      table{width:100%;border-collapse:collapse;border:1px solid #94a3b8}
-      th,td{border:1px solid #cbd5e1;padding:5px 7px}
-      thead th{background:#0f766e!important;color:#fff!important;font-weight:700;text-align:center}
-      thead th:first-child,thead th:nth-child(2){background:#1e3a5f!important}
-      thead th:last-child{background:#155e75!important}
-      tbody tr:nth-child(even){background:#f1f7fa}
-      tbody td:first-child,tbody td:nth-child(2){color:#334155}
-      tbody td:last-child{font-weight:600;color:#0f4c5c}
-      tfoot td{background:#dbeafe!important;color:#172554;font-weight:700}
-      tfoot tr:last-child td{background:#0f766e!important;color:#fff!important}
-      @media print{@page{size:A4 landscape;margin:8mm}body{margin:0}thead{display:table-header-group}tr{break-inside:avoid}}
+      h2{font-size:13px;margin:6px 0 0;color:#fff}
+      table{width:100%;max-width:100%;border-collapse:collapse;table-layout:auto}
+      th,td{overflow-wrap:anywhere}
+      @media print{@page{size:A4 landscape;margin:5mm}body{margin:0}thead{display:table-header-group}tr{break-inside:avoid}}
     </style></head><body><header class="report-header">
       <div class="company">DJ Hospitality &amp; Facility Management Private Limited</div>
       <div class="report-type">Client Meal Ledger</div>
       <h2>${escapedTitle}</h2>
-    </header>${table.outerHTML}</body></html>`);
+    </header>${printableTable.outerHTML}</body></html>`);
   printWindow.document.close();
   printWindow.focus();
-  printWindow.print();
   return true;
 }
 
