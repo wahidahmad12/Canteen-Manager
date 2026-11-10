@@ -3346,17 +3346,18 @@ export class DatabaseStorage implements IStorage {
       .orderBy(tecSpecialOrders.month, tecSpecialOrders.slNo);
   }
   async createTecSpecialOrder(data: any): Promise<TecSpecialOrder> {
-    const { month, year, slNo, dateOfSupply, particulars, qty, ratePerPlate, total } = data;
+    const { month, year, slNo, orderType, dateOfSupply, particulars, qty, ratePerPlate, total } = data;
     const [result] = await db.execute(sql`
-      INSERT INTO tec_special_orders (month, year, sl_no, date_of_supply, particulars, qty, rate_per_plate, total)
-      VALUES (${month}, ${year}, ${slNo}, ${dateOfSupply || ''}, ${particulars || ''}, ${qty || 0}, ${ratePerPlate || 0}, ${total || 0})
+      INSERT INTO tec_special_orders (month, year, sl_no, order_type, date_of_supply, particulars, qty, rate_per_plate, total)
+      VALUES (${month}, ${year}, ${slNo}, ${orderType === 'Outside' ? 'Outside' : 'Canteen'}, ${dateOfSupply || ''}, ${particulars || ''}, ${qty || 0}, ${ratePerPlate || 0}, ${total || 0})
     `);
     const id = (result as any).insertId;
     const rows = await db.select().from(tecSpecialOrders).where(eq(tecSpecialOrders.id, id));
     return rows[0];
   }
   async updateTecSpecialOrder(id: number, data: any): Promise<TecSpecialOrder> {
-    const { id: _id, createdAt, ...safeData } = data;
+    const { id: _id, createdAt, orderType, ...safeData } = data;
+    if (orderType !== undefined) safeData.orderType = orderType === 'Outside' ? 'Outside' : 'Canteen';
     await db.update(tecSpecialOrders).set({ ...safeData, updatedAt: new Date() }).where(eq(tecSpecialOrders.id, id));
     const rows = await db.select().from(tecSpecialOrders).where(eq(tecSpecialOrders.id, id));
     return rows[0];

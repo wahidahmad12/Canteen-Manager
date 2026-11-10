@@ -3813,7 +3813,7 @@ function SpecialOrderTab({ month, year, apiPath, title, splitByCategory = false 
         const outsideTotal = rows.filter(row => row.orderType === 'Outside').reduce((sum, row) => sum + Number(row.total), 0);
         (['Canteen', 'Outside'] as const).forEach(orderType => {
           const sectionRows = rows.filter(row => row.orderType === orderType);
-          addSection(sectionRows, `HUL Special Order ${orderType} — ${MONTHS[month-1]} ${year}`);
+          addSection(sectionRows, `${title.replace(' —', '')} ${orderType} — ${MONTHS[month-1]} ${year}`);
           ws.addRow([]);
         });
         const serviceCharge = Math.round(outsideTotal * 0.07);
@@ -3889,7 +3889,7 @@ function SpecialOrderTab({ month, year, apiPath, title, splitByCategory = false 
         ${summaryRow('Grand Total', canteenTotal + outsideTotal + serviceCharge)}
       </tbody></table>`;
       sections = (['Canteen', 'Outside'] as const).map(orderType =>
-        renderSection(rows.filter(row => row.orderType === orderType), `HUL Special Order ${orderType} — ${MONTHS[month-1]} ${year}`));
+        renderSection(rows.filter(row => row.orderType === orderType), `${title.replace(' —', '')} ${orderType} — ${MONTHS[month-1]} ${year}`));
       sections.push(summary);
     } else {
       sections = [renderSection(rows, `${title} — ${MONTHS[month-1]} ${year}`)];
@@ -9236,7 +9236,7 @@ export function DateEntryTab() {
           </TabsContent>
           <TabsContent value="hul_tec_special_order">
             <div className="mb-2 text-sm text-muted-foreground font-medium">TEC — Special Order Entry (Sl. No., Date of Supply, Particulars, Qty, Rate Per Plate, Total)</div>
-            <SpecialOrderTab month={parseInt(month)} year={parseInt(year)} apiPath="/api/tec-special-orders" title="TEC — Special Order" />
+            <SpecialOrderTab month={parseInt(month)} year={parseInt(year)} apiPath="/api/tec-special-orders" title="TEC — Special Order" splitByCategory />
           </TabsContent>
           <TabsContent value="hul_kpf_sugar_supply">
             <div className="mb-2 text-sm text-muted-foreground font-medium">KPF Sugar Supply Entry (Sl. No., Date of Supply, Particulars, Qty, Rate Per Plate, Total)</div>
