@@ -3557,26 +3557,23 @@ export class DatabaseStorage implements IStorage {
       .map((r: any) => ({ id: Number(r.id), label: r.label, rate: Number(r.rate) || 0, active: Number(r.active) === 1 }));
     return { fields, entries };
   }
-  async getClientFormsYearly(year: number, formId: number): Promise<any[]> {
+  async getClientFormsYearly(year: number, clientId: number): Promise<any[]> {
     const prefix = `${year}-%`;
     const [rows]: any = await pool.query(
-      `SELECT f.client_id AS clientId, f.form_id AS formId, c.name AS clientName, cf.name AS formName,
-              f.id AS fieldId, f.label AS label,
+      `SELECT cf.id AS formId, cf.name AS formName,
               CAST(SUBSTRING(e.entry_date, 6, 2) AS UNSIGNED) AS month,
-              SUM(e.qty) AS qty, SUM(e.qty * e.rate) AS amount
-       FROM client_form_entries e
-       JOIN client_form_fields f ON f.id = e.field_id
-       JOIN client_names c ON c.id = f.client_id
-       JOIN client_forms cf ON cf.id = f.form_id
-       WHERE e.entry_date LIKE ? AND e.qty > 0 AND f.form_id = ?
-       GROUP BY f.client_id, f.form_id, c.name, cf.name, f.id, f.label, month
-       ORDER BY f.client_id, f.sort_order, f.id, month`,
-      [prefix, formId],
+              COALESCE(SUM(e.qty * e.rate), 0) AS amount
+       FROM client_forms cf
+       LEFT JOIN client_form_fields f ON f.form_id = cf.id
+       LEFT JOIN client_form_entries e ON e.field_id = f.id AND e.entry_date LIKE ? AND e.qty > 0
+       WHERE cf.client_id = ?
+       GROUP BY cf.id, cf.name, month
+       ORDER BY cf.sort_order, cf.id, month`,
+      [prefix, clientId],
     );
     return rows.map((r: any) => ({
-      clientId: Number(r.clientId), formId: Number(r.formId), clientName: r.clientName, formName: r.formName,
-      fieldId: Number(r.fieldId), label: r.label,
-      month: Number(r.month), qty: Number(r.qty) || 0, amount: Number(r.amount) || 0,
+      formId: Number(r.formId), formName: r.formName,
+      month: Number(r.month) || 0, amount: Number(r.amount) || 0,
     }));
   }
   async saveClientFormField(clientId: number, formId: number, label: string, rate: number): Promise<void> {
