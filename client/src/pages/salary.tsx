@@ -48,8 +48,6 @@ interface SalaryRecord {
   daysWorked: string;
   basicWage: string;
   da: string;
-  hra: string;
-  otherAllowance: string;
   grossWage: string;
   pfDeduction: string;
   esicDeduction: string;
@@ -259,8 +257,7 @@ function buildSlipHTML(salary: SalaryRecord, employee: Employee | undefined, att
   const n = (v: string | undefined | null) => Number(v) || 0;
   const basicRate = skillBasicRate !== undefined ? skillBasicRate : n(employee?.dailyRate);
   const basic = n(salary.basicWage);
-  const hra5 = n(salary.otherAllowance);
-  const fixedHRA = n(salary.hra);
+  const dailyWage = n(salary.daysWorked) ? (basic + n(salary.da)) / n(salary.daysWorked) : basicRate;
   const totalGross = n(salary.grossWage);
   const pfDed = n(salary.pfDeduction);
   const esicDed = n(salary.esicDeduction);
@@ -392,32 +389,32 @@ function buildSlipHTML(salary: SalaryRecord, employee: Employee | undefined, att
         <tr>
           <td style="background:${C.attLabelBg};border:${b};${cp}"></td>
           <td style="border:${b};${cp}"></td>
-          <td style="background:${C.earnLabelBg};color:${C.earnLabelColor};font-weight:600;border:${b};${cp}" colspan="2">HRA 5%</td>
-          <td style="text-align:right;font-weight:700;color:${C.earnValColor};border:${b};${cp}">${hra5}</td>
+          <td style="background:${C.earnLabelBg};color:${C.earnLabelColor};font-weight:600;border:${b};${cp}" colspan="2">Daily Wage</td>
+          <td style="text-align:right;font-weight:700;color:${C.earnValColor};border:${b};${cp}">${dailyWage.toFixed(2)}</td>
           <td style="background:${C.dedLabelBg};color:${C.dedLabelColor};font-weight:600;border:${b};${cp}" colspan="2">LWF</td>
           <td style="text-align:right;font-weight:700;color:${C.dedValColor};border:${b};${cp}">${lwf}</td>
         </tr>
         <tr>
           <td style="background:${C.attLabelBg};color:${C.attLabelColor};font-weight:600;border:${b};${cp}">HOLIDAYS</td>
           <td style="text-align:right;font-weight:700;color:${C.attValColor};border:${b};${cp}">${holidays}</td>
-          <td style="background:${C.earnLabelBg};color:${C.earnLabelColor};font-weight:600;border:${b};${cp}" colspan="2">Fixed HRA</td>
-          <td style="text-align:right;font-weight:700;color:${C.earnValColor};border:${b};${cp}">${fixedHRA}</td>
+          <td style="background:${C.earnLabelBg};color:${C.earnLabelColor};font-weight:600;border:${b};${cp}" colspan="2">OT Allow</td>
+          <td style="text-align:right;font-weight:700;color:${C.earnValColor};border:${b};${cp}">${n(salary.overtimeAmount)}</td>
           <td style="background:${C.dedLabelBg};color:${C.dedLabelColor};font-weight:600;font-size:11px;border:${b};${cp}" colspan="2">Total Dedu</td>
           <td style="text-align:right;font-weight:800;color:#fff;background:#c62828;font-size:14px;border:${b};${cp}">${totalDedu}</td>
         </tr>
         <tr>
           <td style="background:${C.attLabelBg};color:${C.attLabelColor};font-weight:700;border:${b};${cp}">Paid Days</td>
           <td style="text-align:right;font-weight:800;color:#fff;background:#0d47a1;font-size:14px;border:${b};${cp}">${paidDays}</td>
-          <td style="background:${C.earnLabelBg};color:${C.earnLabelColor};font-weight:600;border:${b};${cp}" colspan="2">OT Allow</td>
-          <td style="text-align:right;font-weight:700;color:${C.earnValColor};border:${b};${cp}">${n(salary.overtimeAmount)}</td>
+          <td style="background:${C.earnLabelBg};color:${C.earnLabelColor};font-weight:700;border:${b};${cp}" colspan="2">Total Gross</td>
+          <td style="text-align:right;font-weight:800;color:#fff;background:#2e7d32;font-size:14px;border:${b};${cp}" data-testid="text-total-gross">${totalGross}</td>
           <td style="background:#fff8e1;color:#e65100;font-weight:600;font-size:11px;border:${b};${cp}" colspan="2">Leave Balance ${salary.year}</td>
           <td style="text-align:right;font-weight:700;color:#e65100;border:${b};${cp}">0</td>
         </tr>
         <tr>
           <td style="background:${C.attLabelBg};color:${C.attLabelColor};font-weight:600;border:${b};${cp}">OT HRS</td>
           <td style="text-align:right;font-weight:700;color:${C.attValColor};border:${b};${cp}">${otHrs}</td>
-          <td style="background:${C.earnLabelBg};color:${C.earnLabelColor};font-weight:700;border:${b};${cp}" colspan="2">Total Gross</td>
-          <td style="text-align:right;font-weight:800;color:#fff;background:#2e7d32;font-size:14px;border:${b};${cp}">${totalGross}</td>
+          <td style="background:${C.earnLabelBg};border:${b};${cp}" colspan="2"></td>
+          <td style="border:${b};${cp}"></td>
           <td style="background:#fff8e1;color:#e65100;font-weight:600;font-size:10px;border:${b};${cp}" colspan="2">Leave Encashment Amt. ${salary.year}</td>
           <td style="text-align:right;font-weight:700;color:#e65100;border:${b};${cp}">0</td>
         </tr>
@@ -672,8 +669,6 @@ export default function SalaryRegister() {
       ?? skillRateMap.get(`${skillCategory}_${month}_${year}_`);
     const basicRate = skillBasedRate !== undefined ? skillBasedRate : n(emp?.dailyRate);
     const basicWage = n(s.basicWage);
-    const hra5 = n(s.otherAllowance);
-    const fixedHRA = n(s.hra);
     const da = n(s.da);
     const otAllow = n(s.overtimeAmount);
     const totalGross = n(s.grossWage);
@@ -697,7 +692,7 @@ export default function SalaryRegister() {
     const skills = emp?.skills || getSkillLevel(emp?.designation);
     return {
       emp, skills, prsDays, halfDay, holidayWorking, leave, holidays, weeklyOff, paidDays, otHrs,
-      basicRate, basicWage, hra5, fixedHRA, da, otAllow, totalGross,
+      basicRate, basicWage, da, otAllow, totalGross,
       pfDed, esicDed, pTax, lwf, totalDedu, netSalary,
       leaveBalance: 0, leaveEncash: 0, advance, payInAccount,
       pfEmployer, esicEmployer, bonus, employerTotal,
@@ -717,7 +712,7 @@ export default function SalaryRegister() {
         count: rs.length,
         prsDays: sum(r => r.prsDays), halfDay: sum(r => r.halfDay), holidayWorking: sum(r => r.holidayWorking),
         leave: sum(r => r.leave), holidays: sum(r => r.holidays), weeklyOff: sum(r => r.weeklyOff), paidDays: sum(r => r.paidDays), otHrs: sum(r => r.otHrs),
-        basicRate: sum(r => r.basicRate), basicWage: sum(r => r.basicWage),         hra5: sum(r => r.hra5), fixedHRA: sum(r => r.fixedHRA), da: sum(r => r.da),
+        basicRate: sum(r => r.basicRate), basicWage: sum(r => r.basicWage), da: sum(r => r.da),
         otAllow: sum(r => r.otAllow), totalGross: sum(r => r.totalGross),
         pfDed: sum(r => r.pfDed), esicDed: sum(r => r.esicDed), pTax: sum(r => r.pTax), lwf: sum(r => r.lwf),
         totalDedu: sum(r => r.totalDedu), netSalary: sum(r => r.netSalary),
@@ -866,8 +861,6 @@ export default function SalaryRegister() {
         <td style="text-align:right">${f(r.basicWage)}</td>
                 ${showDA ? `<td style="text-align:right">${f(r.da)}</td>` : ""}
         <td style="text-align:right">${f(r.otAllow)}</td>
-        <td style="text-align:right">${f(r.fixedHRA)}</td>
-        <td style="text-align:right">${f(r.hra5)}</td>
         <td style="text-align:right;font-weight:bold">${f(r.totalGross)}</td>
         <td style="text-align:right">${f(r.pfDed)}</td>
         <td style="text-align:right">${f(r.esicDed)}</td>
@@ -886,16 +879,14 @@ export default function SalaryRegister() {
       otHrs: acc.otHrs + (r?.otHrs || 0),
       basicWage: acc.basicWage + (r?.basicWage || 0),
       otAllow: acc.otAllow + (r?.otAllow || 0),
-      fixedHRA: acc.fixedHRA + (r?.fixedHRA || 0),
       da: acc.da + (r?.da || 0),
-      hra5: acc.hra5 + (r?.hra5 || 0),
       totalGross: acc.totalGross + (r?.totalGross || 0),
       pfDed: acc.pfDed + (r?.pfDed || 0),
       esicDed: acc.esicDed + (r?.esicDed || 0),
       pTax: acc.pTax + (r?.pTax || 0),
       totalDedu: acc.totalDedu + (r?.totalDedu || 0),
       netSalary: acc.netSalary + (r?.netSalary || 0),
-    }), { paidDays: 0, otHrs: 0, basicWage: 0, otAllow: 0, fixedHRA: 0, da: 0, hra5: 0, totalGross: 0, pfDed: 0, esicDed: 0, pTax: 0, totalDedu: 0, netSalary: 0 });
+    }), { paidDays: 0, otHrs: 0, basicWage: 0, otAllow: 0, da: 0, totalGross: 0, pfDed: 0, esicDed: 0, pTax: 0, totalDedu: 0, netSalary: 0 });
 
     const totalRow = filteredRows.length > 0 ? `<tr style="font-weight:bold;background:#f0f0f0">
       <td colspan="4" style="text-align:right;font-weight:bold">TOTAL</td>
@@ -906,8 +897,6 @@ export default function SalaryRegister() {
       <td style="text-align:right">${f(filteredTotals.basicWage)}</td>
             ${showDA ? `<td style="text-align:right">${f(filteredTotals.da)}</td>` : ""}
       <td style="text-align:right">${f(filteredTotals.otAllow)}</td>
-      <td style="text-align:right">${f(filteredTotals.fixedHRA)}</td>
-      <td style="text-align:right">${f(filteredTotals.hra5)}</td>
       <td style="text-align:right">${f(filteredTotals.totalGross)}</td>
       <td style="text-align:right">${f(filteredTotals.pfDed)}</td>
       <td style="text-align:right">${f(filteredTotals.esicDed)}</td>
@@ -1052,7 +1041,7 @@ export default function SalaryRegister() {
     const headers = [
       "Sl. No.", "Emp ID", "Emp Name", "Skills", "PRS DAYS", "Half Day",
       "Holiday Wrk", "HOLIDAYS", "Paid Days", "OT HRS", "Absent", "Week Off", "Total Days",
-      "Basic Rate", "Basic Wages", ...(showDA ? ["DA"] : []), "HRA 5%", "Fixed HRA", "OT Allow",
+      "Basic Rate", "Basic Wages", ...(showDA ? ["DA"] : []), "OT Allow",
       "Total Gross", "PF Deduction @12%", "ESIC @.75%", "P-TAX", "LWF",
       "Total Dedu", "Net Salary", "Leave Balance", "Leave Encash Amt.",
       "Advance", "Pay In Account", "PF @13%", "ESIC @3.25%", "Bonus @8.33%",
@@ -1072,7 +1061,7 @@ export default function SalaryRegister() {
         idx + 1, r.emp?.employeeCode || "-", r.emp?.name || "-", r.skills,
         r.prsDays, r.halfDay, r.holidayWorking, r.holidays + r.holidayWorking,
         r.paidDays, r.otHrs, r.leave, r.weeklyOff, totalDays,
-        r.basicRate, r.basicWage, ...(showDA ? [r.da] : []), r.hra5, r.fixedHRA,
+        r.basicRate, r.basicWage, ...(showDA ? [r.da] : []),
         r.otAllow || 0, r.totalGross, r.pfDed, r.esicDed, r.pTax, r.lwf || 0,
         r.totalDedu, r.netSalary, r.leaveBalance, r.leaveEncash,
         r.advance, r.payInAccount, r.pfEmployer, r.esicEmployer, r.bonus,
@@ -1096,7 +1085,7 @@ export default function SalaryRegister() {
         totals.prsDays, totals.halfDay, totals.holidayWorking,
         totals.holidays + totals.holidayWorking, totals.paidDays, totals.otHrs,
         totals.leave, totals.weeklyOff, totalDaysTotals, totals.basicRate,
-        totals.basicWage, ...(showDA ? [totals.da] : []), totals.hra5, totals.fixedHRA, totals.otAllow,
+        totals.basicWage, ...(showDA ? [totals.da] : []), totals.otAllow,
         totals.totalGross, totals.pfDed, totals.esicDed, totals.pTax, totals.lwf,
         totals.totalDedu, totals.netSalary, totals.leaveBalance, totals.leaveEncash,
         totals.advance, totals.payInAccount, totals.pfEmployer, totals.esicEmployer,
@@ -1297,7 +1286,7 @@ export default function SalaryRegister() {
       const emp = employeeMap.get(id);
       const agg = {
         paidDays: 0, otHrs: 0, monthsCount: 0,
-        basicWage: 0, hra5: 0, fixedHRA: 0, otAllow: 0, totalGross: 0,
+        basicWage: 0, otAllow: 0, totalGross: 0,
         pfDed: 0, esicDed: 0, pTax: 0, lwf: 0, totalDedu: 0, netSalary: 0,
         advance: 0, payInAccount: 0,
         pfEmployer: 0, esicEmployer: 0, bonus: 0, employerTotal: 0,
@@ -1312,8 +1301,6 @@ export default function SalaryRegister() {
         const basicWage = nv(rec.basicWage);
         const totalGross = nv(rec.grossWage);
         agg.basicWage += basicWage;
-        agg.hra5 += nv(rec.otherAllowance);
-        agg.fixedHRA += nv(rec.hra);
         agg.otAllow += nv(rec.overtimeAmount);
         agg.totalGross += totalGross;
         agg.pfDed += nv(rec.pfDeduction);
@@ -1355,7 +1342,7 @@ export default function SalaryRegister() {
     const sumF = (fn: (r: typeof reportRows[number]) => number) => reportRows.reduce((a, r) => a + fn(r), 0);
     const totals = {
       paidDays: sumF(r => r.paidDays), otHrs: sumF(r => r.otHrs),
-      basicWage: sumF(r => r.basicWage), hra5: sumF(r => r.hra5), fixedHRA: sumF(r => r.fixedHRA),
+      basicWage: sumF(r => r.basicWage),
       otAllow: sumF(r => r.otAllow), totalGross: sumF(r => r.totalGross),
       pfDed: sumF(r => r.pfDed), esicDed: sumF(r => r.esicDed), pTax: sumF(r => r.pTax), lwf: sumF(r => r.lwf),
       totalDedu: sumF(r => r.totalDedu), netSalary: sumF(r => r.netSalary),
@@ -1402,8 +1389,6 @@ export default function SalaryRegister() {
       <td>${fmtDec(r.paidDays)}</td>
       <td>${r.otHrs || ""}</td>
       <td style="text-align:right">${fmt(r.basicWage)}</td>
-      <td style="text-align:right">${fmt(r.hra5)}</td>
-      <td style="text-align:right">${fmt(r.fixedHRA)}</td>
       <td style="text-align:right">${r.otAllow ? fmt(r.otAllow) : ""}</td>
       <td style="text-align:right;font-weight:bold">${fmt(r.totalGross)}</td>
       <td style="text-align:right">${fmt(r.pfDed)}</td>
@@ -1442,7 +1427,7 @@ export default function SalaryRegister() {
         <tr>
           <th colspan="4" style="background:#e8eaf6;color:#283593">Employee Details</th>
           <th colspan="2" style="background:#e1f5fe;color:#0277bd">Attendance</th>
-          <th colspan="5" style="background:#e8f5e9;color:#2e7d32">Earnings</th>
+          <th colspan="3" style="background:#e8f5e9;color:#2e7d32">Earnings</th>
           <th colspan="5" style="background:#fce4ec;color:#c62828">Deductions</th>
           <th colspan="3" style="background:#fff8e1;color:#e65100">Net Pay</th>
           <th colspan="4" style="background:#ede7f6;color:#4527a0">Employer Contributions</th>
@@ -1456,8 +1441,6 @@ export default function SalaryRegister() {
           <th style="background:#b3e5fc">Paid Days</th>
           <th style="background:#b3e5fc">OT Hrs</th>
           <th style="background:#c8e6c9">Basic Wages</th>
-          <th style="background:#c8e6c9">HRA 5%</th>
-          <th style="background:#c8e6c9">Fixed HRA</th>
           <th style="background:#c8e6c9">OT Allow</th>
           <th style="background:#c8e6c9">Total Gross</th>
           <th style="background:#f8bbd0">PF @12%</th>
@@ -1484,8 +1467,6 @@ export default function SalaryRegister() {
         <td>${fmtDec(t.paidDays)}</td>
         <td>${t.otHrs || ""}</td>
         <td style="text-align:right">${fmt(t.basicWage)}</td>
-        <td style="text-align:right">${fmt(t.hra5)}</td>
-        <td style="text-align:right">${fmt(t.fixedHRA)}</td>
         <td style="text-align:right">${fmt(t.otAllow)}</td>
         <td style="text-align:right">${fmt(t.totalGross)}</td>
         <td style="text-align:right">${fmt(t.pfDed)}</td>
@@ -1525,7 +1506,7 @@ export default function SalaryRegister() {
     const headers = [
       "Sl. No.", "Emp ID", "Emp Name", "Skills",
       "Paid Days", "OT Hrs",
-      "Basic Wages", "HRA 5%", "Fixed HRA", "OT Allow", "Total Gross",
+      "Basic Wages", "OT Allow", "Total Gross",
       "PF @12%", "ESIC @.75%", "P-TAX", "LWF", "Total Dedu",
       "Net Salary", "Advance", "Pay In A/c",
       "PF @13%", "ESIC @3.25%", "Bonus @8.33%", "Employer Total",
@@ -1542,7 +1523,7 @@ export default function SalaryRegister() {
       const row = ws.addRow([
         i + 1, r.code, r.name, r.skills,
         r.paidDays, r.otHrs,
-        r.basicWage, r.hra5, r.fixedHRA, r.otAllow, r.totalGross,
+        r.basicWage, r.otAllow, r.totalGross,
         r.pfDed, r.esicDed, r.pTax, r.lwf, r.totalDedu,
         r.netSalary, r.advance, r.payInAccount,
         r.pfEmployer, r.esicEmployer, r.bonus, r.employerTotal,
@@ -1560,7 +1541,7 @@ export default function SalaryRegister() {
     const tot = ws.addRow([
       "", "", "Total", "",
       t.paidDays, t.otHrs,
-      t.basicWage, t.hra5, t.fixedHRA, t.otAllow, t.totalGross,
+      t.basicWage, t.otAllow, t.totalGross,
       t.pfDed, t.esicDed, t.pTax, t.lwf, t.totalDedu,
       t.netSalary, t.advance, t.payInAccount,
       t.pfEmployer, t.esicEmployer, t.bonus, t.employerTotal,
@@ -1814,7 +1795,7 @@ export default function SalaryRegister() {
                     <tr>
                       <th colSpan={4} className="px-2 py-1.5 text-center font-bold border border-indigo-200 bg-indigo-50 dark:bg-indigo-950 text-indigo-800 dark:text-indigo-200 text-xs sticky left-0 z-20">Employee Details</th>
                       <th colSpan={9} className="px-2 py-1.5 text-center font-bold border border-sky-200 bg-sky-50 dark:bg-sky-950 text-sky-800 dark:text-sky-200 text-xs">Attendance & Days</th>
-                      <th colSpan={showDA ? 7 : 6} className="px-2 py-1.5 text-center font-bold border border-emerald-200 bg-emerald-50 dark:bg-emerald-950 text-emerald-800 dark:text-emerald-200 text-xs">Earnings</th>
+                      <th colSpan={showDA ? 5 : 4} className="px-2 py-1.5 text-center font-bold border border-emerald-200 bg-emerald-50 dark:bg-emerald-950 text-emerald-800 dark:text-emerald-200 text-xs">Earnings</th>
                       <th colSpan={6} className="px-2 py-1.5 text-center font-bold border border-rose-200 bg-rose-50 dark:bg-rose-950 text-rose-800 dark:text-rose-200 text-xs">Deductions</th>
                       <th colSpan={4} className="px-2 py-1.5 text-center font-bold border border-amber-200 bg-amber-50 dark:bg-amber-950 text-amber-800 dark:text-amber-200 text-xs">Leave & Net Pay</th>
                       <th colSpan={4} className="px-2 py-1.5 text-center font-bold border border-violet-200 bg-violet-50 dark:bg-violet-950 text-violet-800 dark:text-violet-200 text-xs">Employer Contributions</th>
@@ -1838,8 +1819,6 @@ export default function SalaryRegister() {
                       <th className="px-2 py-2 text-right font-bold border border-emerald-200 bg-emerald-100 dark:bg-emerald-900 text-emerald-700 dark:text-emerald-300">Basic Rate</th>
                       <th className="px-2 py-2 text-right font-bold border border-emerald-200 bg-emerald-100 dark:bg-emerald-900 text-emerald-700 dark:text-emerald-300">Basic Wages</th>
                                             {showDA && <th className="px-2 py-2 text-right font-bold border border-emerald-200 bg-emerald-100 dark:bg-emerald-900 text-emerald-700 dark:text-emerald-300">DA</th>}
-                      <th className="px-2 py-2 text-right font-bold border border-emerald-200 bg-emerald-100 dark:bg-emerald-900 text-emerald-700 dark:text-emerald-300">HRA 5%</th>
-                      <th className="px-2 py-2 text-right font-bold border border-emerald-200 bg-emerald-100 dark:bg-emerald-900 text-emerald-700 dark:text-emerald-300">Fixed HRA</th>
                       <th className="px-2 py-2 text-right font-bold border border-emerald-200 bg-emerald-100 dark:bg-emerald-900 text-emerald-700 dark:text-emerald-300">OT Allow</th>
                       <th className="px-2 py-2 text-right font-bold border border-emerald-200 bg-emerald-100 dark:bg-emerald-900 text-emerald-700 dark:text-emerald-300">Total Gross</th>
                       <th className="px-2 py-2 text-right font-bold border border-rose-200 bg-rose-100 dark:bg-rose-900 text-rose-700 dark:text-rose-300">PF @12%</th>
@@ -1887,8 +1866,6 @@ export default function SalaryRegister() {
                           <td className="px-2 py-1.5 text-right border border-slate-200 font-semibold">{fmtDec(r.basicRate)}</td>
                           <td className="px-2 py-1.5 text-right border border-slate-200 text-emerald-700 dark:text-emerald-400">{fmt(r.basicWage)}</td>
                                                     {showDA && <td className="px-2 py-1.5 text-right border border-slate-200">{fmtDec(r.da)}</td>}
-                          <td className="px-2 py-1.5 text-right border border-slate-200">{fmt(r.hra5)}</td>
-                          <td className="px-2 py-1.5 text-right border border-slate-200">{fmtDec(r.fixedHRA)}</td>
                           <td className="px-2 py-1.5 text-right border border-slate-200">{r.otAllow ? fmt(r.otAllow) : "-"}</td>
                           <td className="px-2 py-1.5 text-right border border-slate-200 font-bold text-emerald-700 dark:text-emerald-400">{fmt(r.totalGross)}</td>
                           <td className="px-2 py-1.5 text-right border border-slate-200 text-rose-600 dark:text-rose-400">{fmt(r.pfDed)}</td>
@@ -1938,8 +1915,6 @@ export default function SalaryRegister() {
                       <td className="px-2 py-2 text-right border border-slate-300">{fmt(totals.basicRate)}</td>
                       <td className="px-2 py-2 text-right border border-slate-300 text-emerald-700 dark:text-emerald-400">{fmt(totals.basicWage)}</td>
                                             {showDA && <td className="px-2 py-2 text-right border border-slate-300">{fmtDec(totals.da)}</td>}
-                                            <td className="px-2 py-2 text-right border border-slate-300">{fmt(totals.hra5)}</td>
-                      <td className="px-2 py-2 text-right border border-slate-300">{fmtDec(totals.fixedHRA)}</td>
                       <td className="px-2 py-2 text-right border border-slate-300">{fmt(totals.otAllow)}</td>
                       <td className="px-2 py-2 text-right border border-slate-300 text-emerald-700 dark:text-emerald-400">{fmt(totals.totalGross)}</td>
                       <td className="px-2 py-2 text-right border border-slate-300 text-rose-700 dark:text-rose-400">{fmt(totals.pfDed)}</td>
@@ -1977,7 +1952,7 @@ export default function SalaryRegister() {
                   <tr>
                     <th colSpan={4} style={{ background: "#e8eaf6", color: "#283593", fontSize: "9px", fontWeight: 700 }}>Employee Details</th>
                     <th colSpan={6} style={{ background: "#e1f5fe", color: "#0277bd", fontSize: "9px", fontWeight: 700 }}>Attendance & Days</th>
-                    <th colSpan={showDA ? 7 : 6} style={{ background: "#e8f5e9", color: "#2e7d32", fontSize: "9px", fontWeight: 700 }}>Earnings</th>
+                    <th colSpan={showDA ? 5 : 4} style={{ background: "#e8f5e9", color: "#2e7d32", fontSize: "9px", fontWeight: 700 }}>Earnings</th>
                     <th colSpan={5} style={{ background: "#fce4ec", color: "#c62828", fontSize: "9px", fontWeight: 700 }}>Deductions</th>
                     <th colSpan={1} style={{ background: "#e8f5e9", color: "#1b5e20", fontSize: "9px", fontWeight: 700 }}>Net Salary</th>
                   </tr>
@@ -1995,8 +1970,6 @@ export default function SalaryRegister() {
                     <th style={{ background: "#c8e6c9" }}>Basic Rate</th>
                     <th style={{ background: "#c8e6c9" }}>Basic Wages</th>
                     {showDA && <th style={{ background: "#c8e6c9" }}>DA</th>}
-                    <th style={{ background: "#c8e6c9" }}>HRA 5%</th>
-                    <th style={{ background: "#c8e6c9" }}>Fixed HRA</th>
                     <th style={{ background: "#c8e6c9" }}>OT Allow</th>
                     <th style={{ background: "#c8e6c9" }}>Total Gross</th>
                     <th style={{ background: "#f8bbd0" }}>PF @12%</th>
@@ -2026,8 +1999,6 @@ export default function SalaryRegister() {
                         <td className="text-right" style={{ fontWeight: "bold" }}>{fmtDec(r.basicRate)}</td>
                         <td className="text-right" style={{ color: "#2e7d32" }}>{fmt(r.basicWage)}</td>
                                                 {showDA && <td className="text-right">{fmtDec(r.da)}</td>}
-                        <td className="text-right">{fmt(r.hra5)}</td>
-                        <td className="text-right">{fmtDec(r.fixedHRA)}</td>
                         <td className="text-right">{r.otAllow ? fmt(r.otAllow) : "-"}</td>
                         <td className="text-right" style={{ fontWeight: "bold", color: "#2e7d32" }}>{fmt(r.totalGross)}</td>
                         <td className="text-right" style={{ color: "#c62828" }}>{fmt(r.pfDed)}</td>
@@ -2053,8 +2024,6 @@ export default function SalaryRegister() {
                     <td className="text-right">{fmt(totals.basicRate || 0)}</td>
                     <td className="text-right" style={{ color: "#2e7d32" }}>{fmt(totals.basicWage)}</td>
                                         {showDA && <td className="text-right">{fmtDec(totals.da)}</td>}
-                    <td className="text-right">{fmt(totals.hra5)}</td>
-                    <td className="text-right">{fmtDec(totals.fixedHRA)}</td>
                     <td className="text-right">{fmt(totals.otAllow)}</td>
                     <td className="text-right" style={{ color: "#2e7d32" }}>{fmt(totals.totalGross)}</td>
                     <td className="text-right" style={{ color: "#c62828" }}>{fmt(totals.pfDed)}</td>
@@ -2395,7 +2364,7 @@ export default function SalaryRegister() {
                           <tr>
                             <th colSpan={4} className="px-2 py-1.5 text-center font-bold border border-indigo-200 bg-indigo-50 dark:bg-indigo-950 text-indigo-800 dark:text-indigo-200 text-xs sticky left-0 z-20">Employee Details</th>
                             <th colSpan={3} className="px-2 py-1.5 text-center font-bold border border-sky-200 bg-sky-50 dark:bg-sky-950 text-sky-800 dark:text-sky-200 text-xs">Attendance & Days</th>
-                            <th colSpan={5} className="px-2 py-1.5 text-center font-bold border border-emerald-200 bg-emerald-50 dark:bg-emerald-950 text-emerald-800 dark:text-emerald-200 text-xs">Earnings</th>
+                            <th colSpan={3} className="px-2 py-1.5 text-center font-bold border border-emerald-200 bg-emerald-50 dark:bg-emerald-950 text-emerald-800 dark:text-emerald-200 text-xs">Earnings</th>
                             <th colSpan={6} className="px-2 py-1.5 text-center font-bold border border-rose-200 bg-rose-50 dark:bg-rose-950 text-rose-800 dark:text-rose-200 text-xs">Deductions</th>
                             <th colSpan={2} className="px-2 py-1.5 text-center font-bold border border-amber-200 bg-amber-50 dark:bg-amber-950 text-amber-800 dark:text-amber-200 text-xs">Advance & Net Pay</th>
                             <th colSpan={4} className="px-2 py-1.5 text-center font-bold border border-violet-200 bg-violet-50 dark:bg-violet-950 text-violet-800 dark:text-violet-200 text-xs">Employer Contributions</th>
@@ -2410,8 +2379,6 @@ export default function SalaryRegister() {
                             <th className="px-2 py-2 text-center font-bold border border-indigo-300 bg-indigo-200 dark:bg-indigo-800 text-indigo-800 dark:text-indigo-200">Paid Days</th>
                             <th className="px-2 py-2 text-center font-bold border border-cyan-200 bg-cyan-100 dark:bg-cyan-900 text-cyan-700 dark:text-cyan-300">OT HRS</th>
                             <th className="px-2 py-2 text-right font-bold border border-emerald-200 bg-emerald-100 dark:bg-emerald-900 text-emerald-700 dark:text-emerald-300">Basic Wages</th>
-                            <th className="px-2 py-2 text-right font-bold border border-emerald-200 bg-emerald-100 dark:bg-emerald-900 text-emerald-700 dark:text-emerald-300">HRA 5%</th>
-                            <th className="px-2 py-2 text-right font-bold border border-emerald-200 bg-emerald-100 dark:bg-emerald-900 text-emerald-700 dark:text-emerald-300">Fixed HRA</th>
                             <th className="px-2 py-2 text-right font-bold border border-emerald-200 bg-emerald-100 dark:bg-emerald-900 text-emerald-700 dark:text-emerald-300">OT Allow</th>
                             <th className="px-2 py-2 text-right font-bold border border-emerald-200 bg-emerald-100 dark:bg-emerald-900 text-emerald-700 dark:text-emerald-300">Total Gross</th>
                             <th className="px-2 py-2 text-right font-bold border border-rose-200 bg-rose-100 dark:bg-rose-900 text-rose-700 dark:text-rose-300">PF @12%</th>
@@ -2447,8 +2414,6 @@ export default function SalaryRegister() {
                                 <td className="px-2 py-1.5 text-center border border-indigo-200 bg-indigo-50/50 dark:bg-indigo-900/20 font-bold text-indigo-700 dark:text-indigo-300">{fmtDec(r.paidDays)}</td>
                                 <td className="px-2 py-1.5 text-center border border-cyan-100 text-cyan-700 dark:text-cyan-300">{r.otHrs || "-"}</td>
                                 <td className="px-2 py-1.5 text-right border border-slate-200 text-emerald-700 dark:text-emerald-400">{fmt(r.basicWage)}</td>
-                                <td className="px-2 py-1.5 text-right border border-slate-200">{fmt(r.hra5)}</td>
-                                <td className="px-2 py-1.5 text-right border border-slate-200">{fmt(r.fixedHRA)}</td>
                                 <td className="px-2 py-1.5 text-right border border-slate-200">{r.otAllow ? fmt(r.otAllow) : "-"}</td>
                                 <td className="px-2 py-1.5 text-right border border-slate-200 font-bold text-emerald-700 dark:text-emerald-400">{fmt(r.totalGross)}</td>
                                 <td className="px-2 py-1.5 text-right border border-slate-200 text-rose-600 dark:text-rose-400">{fmt(r.pfDed)}</td>
@@ -2481,8 +2446,6 @@ export default function SalaryRegister() {
                             <td className="px-2 py-2 text-center border border-indigo-300 bg-indigo-100/50 dark:bg-indigo-900/30 font-bold text-indigo-700 dark:text-indigo-300">{fmtDec(annualReport.totals.paidDays)}</td>
                             <td className="px-2 py-2 text-center border border-cyan-200 text-cyan-700 dark:text-cyan-300">{annualReport.totals.otHrs || ""}</td>
                             <td className="px-2 py-2 text-right border border-slate-300 text-emerald-700 dark:text-emerald-400">{fmt(annualReport.totals.basicWage)}</td>
-                            <td className="px-2 py-2 text-right border border-slate-300">{fmt(annualReport.totals.hra5)}</td>
-                            <td className="px-2 py-2 text-right border border-slate-300">{fmt(annualReport.totals.fixedHRA)}</td>
                             <td className="px-2 py-2 text-right border border-slate-300">{fmt(annualReport.totals.otAllow)}</td>
                             <td className="px-2 py-2 text-right border border-slate-300 text-emerald-700 dark:text-emerald-400">{fmt(annualReport.totals.totalGross)}</td>
                             <td className="px-2 py-2 text-right border border-slate-300 text-rose-700 dark:text-rose-400">{fmt(annualReport.totals.pfDed)}</td>

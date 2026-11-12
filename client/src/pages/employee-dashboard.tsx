@@ -55,7 +55,6 @@ interface SalaryRecord {
   daysWorked: string;
   basicWage: string;
   da: string;
-  hra: string;
   grossWage: string;
   pfDeduction: string;
   esicDeduction: string;
@@ -259,7 +258,7 @@ export default function EmployeeDashboard() {
     const nv = (v: string | number | null | undefined) => Number(v) || 0;
     const basicRate = skillRate?.dailyRate ? (nv(skillRate.dailyRate) || nv(empInfo.dailyRate)) : nv(empInfo.dailyRate);
     const basic = nv(salary.basicWage);
-    const fixedHRA = nv(salary.hra);
+    const dailyWage = nv(salary.daysWorked) ? (basic + nv(salary.da)) / nv(salary.daysWorked) : basicRate;
     const otAllow = nv(salary.overtimeAmount);
     const totalGross = nv(salary.grossWage);
     const esicDed = nv(salary.esicDeduction);
@@ -416,32 +415,32 @@ export default function EmployeeDashboard() {
           <tr>
             <td style="background:${C.attLabelBg};border:${b};${cp}"></td>
             <td style="border:${b};${cp}"></td>
-            <td style="background:${C.earnLabelBg};color:${C.earnLabelColor};font-weight:600;border:${b};${cp}" colspan="2">HRA 5%</td>
-            <td style="text-align:right;font-weight:700;color:${C.earnValColor};border:${b};${cp}">${Math.round(basic * 0.05)}</td>
+            <td style="background:${C.earnLabelBg};color:${C.earnLabelColor};font-weight:600;border:${b};${cp}" colspan="2">Daily Wage</td>
+            <td style="text-align:right;font-weight:700;color:${C.earnValColor};border:${b};${cp}">${dailyWage.toFixed(2)}</td>
             <td style="background:${C.dedLabelBg};color:${C.dedLabelColor};font-weight:600;border:${b};${cp}" colspan="2">LWF</td>
             <td style="text-align:right;font-weight:700;color:${C.dedValColor};border:${b};${cp}">${nv(salary.lwf)}</td>
           </tr>
           <tr>
             <td style="background:${C.attLabelBg};color:${C.attLabelColor};font-weight:600;border:${b};${cp}">HOLIDAYS</td>
             <td style="text-align:right;font-weight:700;color:${C.attValColor};border:${b};${cp}">${holidays}</td>
-            <td style="background:${C.earnLabelBg};color:${C.earnLabelColor};font-weight:600;border:${b};${cp}" colspan="2">Fixed HRA</td>
-            <td style="text-align:right;font-weight:700;color:${C.earnValColor};border:${b};${cp}">${fixedHRA}</td>
+            <td style="background:${C.earnLabelBg};color:${C.earnLabelColor};font-weight:600;border:${b};${cp}" colspan="2">OT Allow</td>
+            <td style="text-align:right;font-weight:700;color:${C.earnValColor};border:${b};${cp}">${otAllow}</td>
             <td style="background:${C.dedLabelBg};color:${C.dedLabelColor};font-weight:600;font-size:11px;border:${b};${cp}" colspan="2">Total Dedu</td>
             <td style="text-align:right;font-weight:800;color:#fff;background:#c62828;font-size:14px;border:${b};${cp}">${totalDedu}</td>
           </tr>
           <tr>
             <td style="background:${C.attLabelBg};color:${C.attLabelColor};font-weight:700;border:${b};${cp}">Paid Days</td>
             <td style="text-align:right;font-weight:800;color:#fff;background:#0d47a1;font-size:14px;border:${b};${cp}">${paidDays}</td>
-            <td style="background:${C.earnLabelBg};color:${C.earnLabelColor};font-weight:600;border:${b};${cp}" colspan="2">OT Allow</td>
-            <td style="text-align:right;font-weight:700;color:${C.earnValColor};border:${b};${cp}">${otAllow}</td>
+            <td style="background:${C.earnLabelBg};color:${C.earnLabelColor};font-weight:700;border:${b};${cp}" colspan="2">Total Gross</td>
+            <td style="text-align:right;font-weight:800;color:#fff;background:#2e7d32;font-size:14px;border:${b};${cp}">${totalGross}</td>
             <td style="background:#fff8e1;color:#e65100;font-weight:600;font-size:11px;border:${b};${cp}" colspan="2">Leave Balance ${selectedYear}</td>
             <td style="text-align:right;font-weight:700;color:#e65100;border:${b};${cp}">0</td>
           </tr>
           <tr>
             <td style="background:${C.attLabelBg};color:${C.attLabelColor};font-weight:600;border:${b};${cp}">OT HRS</td>
             <td style="text-align:right;font-weight:700;color:${C.attValColor};border:${b};${cp}">${otHrs}</td>
-            <td style="background:${C.earnLabelBg};color:${C.earnLabelColor};font-weight:700;border:${b};${cp}" colspan="2">Total Gross</td>
-            <td style="text-align:right;font-weight:800;color:#fff;background:#2e7d32;font-size:14px;border:${b};${cp}">${totalGross}</td>
+            <td style="background:${C.earnLabelBg};border:${b};${cp}" colspan="2"></td>
+            <td style="border:${b};${cp}"></td>
             <td style="background:#fff8e1;color:#e65100;font-weight:600;font-size:10px;border:${b};${cp}" colspan="2">Leave Encashment Amt. ${selectedYear}</td>
             <td style="text-align:right;font-weight:700;color:#e65100;border:${b};${cp}">0</td>
           </tr>
@@ -783,8 +782,8 @@ export default function EmployeeDashboard() {
                     <p className="text-[10px] text-slate-500">Basic Wage</p>
                   </div>
                   <div className="bg-slate-50 dark:bg-slate-800/40 rounded-lg p-2 text-center">
-                    <p className="font-bold text-slate-700 dark:text-slate-300" data-testid="text-hra">{fmtAmt(salary.hra)}</p>
-                    <p className="text-[10px] text-slate-500">HRA</p>
+                    <p className="font-bold text-slate-700 dark:text-slate-300" data-testid="text-da">{fmtAmt(salary.da)}</p>
+                    <p className="text-[10px] text-slate-500">DA</p>
                   </div>
                   <div className="bg-slate-50 dark:bg-slate-800/40 rounded-lg p-2 text-center">
                     <p className="font-bold text-slate-700 dark:text-slate-300">{salary.daysWorked} days</p>

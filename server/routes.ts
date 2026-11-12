@@ -24,6 +24,53 @@ import { eq, desc } from "drizzle-orm";
 const webauthnRegChallenges = new Map<number, string>();
 const webauthnAuthChallenges = new Map<number, string>();
 
+type SalaryRecordLike = {
+  month: number;
+  year: number;
+  basicWage?: string | number | null;
+  da?: string | number | null;
+  overtimeHours?: string | number | null;
+  overtimeAmount?: string | number | null;
+  lwf?: string | number | null;
+  advanceDeduction?: string | number | null;
+  fineDeduction?: string | number | null;
+  otherDeduction?: string | number | null;
+};
+
+function recalculateSalaryRecord(
+  record: SalaryRecordLike,
+  overtime?: { hours: number; amount: number },
+) {
+  const overtimeHours = overtime?.hours ?? (Number(record.overtimeHours) || 0);
+  const overtimeAmount = overtime?.amount ?? (Number(record.overtimeAmount) || 0);
+  const basicWage = Number(record.basicWage) || 0;
+  const da = Number(record.da) || 0;
+  const grossWage = Math.round((basicWage + da + overtimeAmount) * 100) / 100;
+  const pfDeduction = Math.round(grossWage * 0.12 * 100) / 100;
+  const esicDeduction = Math.round(grossWage * 0.0075 * 100) / 100;
+  const professionalTax = calculateProfessionalTax(grossWage, record.month, record.year);
+  const lwf = Number(record.lwf) || 0;
+  const advanceDeduction = Number(record.advanceDeduction) || 0;
+  const fineDeduction = Number(record.fineDeduction) || 0;
+  const otherDeduction = Number(record.otherDeduction) || 0;
+  const totalDeduction = Math.round(
+    (pfDeduction + esicDeduction + professionalTax + lwf + advanceDeduction + fineDeduction + otherDeduction) * 100,
+  ) / 100;
+  const netPay = Math.round((grossWage - totalDeduction) * 100) / 100;
+
+  return {
+    ...record,
+    overtimeHours: String(overtimeHours),
+    overtimeAmount: String(overtimeAmount),
+    grossWage: String(grossWage),
+    pfDeduction: String(pfDeduction),
+    esicDeduction: String(esicDeduction),
+    professionalTax: String(professionalTax),
+    totalDeduction: String(totalDeduction),
+    netPay: String(netPay),
+  };
+}
+
 function requireAuth(req: Request, res: Response, next: NextFunction) {
   if (!req.session.userId) {
     return res.status(401).json({ message: "Not authenticated" });
@@ -534,11 +581,10 @@ export async function registerRoutes(
       otHours += Number(ot.overtimeHours) || 0;
       otAmount += Number(ot.overtimeAmount) || 0;
     }
-    const result = {
-      ...record,
-      overtimeHours: String(Math.round(otHours * 100) / 100),
-      overtimeAmount: String(Math.round(otAmount)),
-    };
+    const result = recalculateSalaryRecord(record, {
+      hours: Math.round(otHours * 100) / 100,
+      amount: Math.round(otAmount),
+    });
     res.json(result);
   });
 
@@ -1886,8 +1932,6 @@ export async function registerRoutes(
         });
         let otHrs = Number(rec.overtimeHours) || 0;
         let otAmt = Number(rec.overtimeAmount) || 0;
-        let grossWage = Number(rec.grossWage) || 0;
-        let esicDeduction = Number(rec.esicDeduction) || 0;
         if (empOt.length > 0) {
           otHrs = 0;
           otAmt = 0;
@@ -1897,31 +1941,8 @@ export async function registerRoutes(
           }
           otHrs = Math.round(otHrs * 100) / 100;
           otAmt = Math.round(otAmt);
-          const basicWage = Number(rec.basicWage) || 0;
-          const hra5 = Number(rec.otherAllowance) || 0;
-          const fixedHra = Number(rec.hra) || 0;
-          const da = Number(rec.da) || 0;
-          grossWage = Math.round((basicWage + hra5 + fixedHra + otAmt + da) * 100) / 100;
-          esicDeduction = grossWage <= 21000 ? Math.round(grossWage * 0.0075 * 100) / 100 : 0;
         }
-        const professionalTax = calculateProfessionalTax(grossWage, m, y);
-        const pfDeduction = Number(rec.pfDeduction) || 0;
-        const lwf = Number(rec.lwf) || 0;
-        const advanceDeduction = Number(rec.advanceDeduction) || 0;
-        const fineDeduction = Number(rec.fineDeduction) || 0;
-        const otherDeduction = Number(rec.otherDeduction) || 0;
-        const totalDeduction = Math.round((pfDeduction + esicDeduction + professionalTax + lwf + advanceDeduction + fineDeduction + otherDeduction) * 100) / 100;
-        const netPay = Math.round((grossWage - totalDeduction) * 100) / 100;
-        return {
-          ...rec,
-          overtimeHours: String(otHrs),
-          overtimeAmount: String(otAmt),
-          grossWage: String(grossWage),
-          esicDeduction: String(esicDeduction),
-          professionalTax: String(professionalTax),
-          totalDeduction: String(totalDeduction),
-          netPay: String(netPay),
-        };
+        return recalculateSalaryRecord(rec, { hours: otHrs, amount: otAmt });
       });
     };
 
@@ -1942,7 +1963,7 @@ export async function registerRoutes(
   app.get("/api/salary/:id", requireAdmin, async (req, res) => {
     const record = await storage.getSalaryRecord(Number(req.params.id));
     if (!record) return res.status(404).json({ message: "Salary record not found" });
-    res.json(record);
+    res.json(recalculateSalaryRecord(record));
   });
 
   app.post("/api/salary/generate", requireAdmin, async (req, res) => {

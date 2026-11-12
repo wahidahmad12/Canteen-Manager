@@ -111,7 +111,6 @@ interface Employee {
   accountNo: string | null;
   ifscCode: string | null;
   dailyRate: string | null;
-  fixedHra: string | null;
   daAmount: string | null;
   gender: string | null;
   religion: string | null; // Naya addition
@@ -236,7 +235,6 @@ const emptyForm = {
   accountNo: "",
   ifscCode: "",
   dailyRate: "",
-  fixedHra: "",
   daAmount: "",
   gender: "Male",
   religion: "",
@@ -409,7 +407,6 @@ export default function EmployeeMaster() {
       accountNo: emp.accountNo || "",
       ifscCode: emp.ifscCode || "",
       dailyRate: emp.dailyRate || "",
-      fixedHra: emp.fixedHra || "",
       daAmount: emp.daAmount || "",
       gender: emp.gender || "Male",
       religion: emp.religion || "",
@@ -885,9 +882,6 @@ export default function EmployeeMaster() {
                               <IndianRupee className="w-3 h-3" /> {emp.dailyRate}/day
                             </span>
                           )}
-                          {emp.fixedHra && emp.fixedHra !== "0" && (
-                            <span className="text-emerald-600 dark:text-emerald-400">HRA: ₹{emp.fixedHra}</span>
-                          )}
                         </div>
                       </div>
                       <div className="flex gap-1 shrink-0">
@@ -1148,10 +1142,6 @@ export default function EmployeeMaster() {
                 <div>
                   <Label htmlFor="dailyRate">Daily Rate</Label>
                   <Input id="dailyRate" value={form.dailyRate} onChange={e => setField("dailyRate", e.target.value)} inputMode="decimal" />
-                </div>
-                <div>
-                  <Label htmlFor="fixedHra">Fixed HRA (Monthly)</Label>
-                  <Input id="fixedHra" value={form.fixedHra} onChange={e => setField("fixedHra", e.target.value)} inputMode="decimal" placeholder="0" />
                 </div>
                 <div>
                   <Label htmlFor="daAmount">DA Amount (Monthly)</Label>

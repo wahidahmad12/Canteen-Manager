@@ -63,12 +63,11 @@ interface SalaryRecord {
   daysWorked: string;
   basicWage: string;
   da: string;
-  hra: string;
-  otherAllowance: string;
   grossWage: string;
   pfDeduction: string;
   esicDeduction: string;
   professionalTax: string;
+  lwf: string;
   advanceDeduction: string;
   fineDeduction: string;
   otherDeduction: string;
@@ -197,9 +196,8 @@ export default function WageSlip() {
     ? Number(skillRate.dailyRate) || n(employee?.dailyRate)
     : n(employee?.dailyRate);
   const basic = n(salary.basicWage);
-  const hra5 = Math.round(basic * 0.05);
-  const fixedHRA = n(salary.hra);
-  const otAllow = n(salary.otherAllowance);
+  const dailyWage = n(salary.daysWorked) ? (basic + n(salary.da)) / n(salary.daysWorked) : basicRate;
+  const otAllow = n(salary.overtimeAmount);
   const totalGross = n(salary.grossWage);
   const pfDed = n(salary.pfDeduction);
   const esicDed = n(salary.esicDeduction);
@@ -495,32 +493,32 @@ export default function WageSlip() {
                 <tr>
                   <td style={{ background: C.attLabelBg }}></td>
                   <td></td>
-                  <td style={{ background: C.earnLabelBg, color: C.earnLabelColor, fontWeight: 600 }} colSpan={2}>HRA 5%</td>
-                  <td style={{ textAlign: "right", fontWeight: 700, color: C.earnValColor }}>{hra5}</td>
+                  <td style={{ background: C.earnLabelBg, color: C.earnLabelColor, fontWeight: 600 }} colSpan={2}>Daily Wage</td>
+                  <td style={{ textAlign: "right", fontWeight: 700, color: C.earnValColor }}>{dailyWage.toFixed(2)}</td>
                   <td style={{ background: C.dedLabelBg, color: C.dedLabelColor, fontWeight: 600 }} colSpan={2}>LWF</td>
                   <td style={{ textAlign: "right", fontWeight: 700, color: C.dedValColor }}>{lwf}</td>
                 </tr>
                 <tr>
                   <td style={{ background: C.attLabelBg, color: C.attLabelColor, fontWeight: 600 }}>HOLIDAYS</td>
                   <td style={{ textAlign: "right", fontWeight: 700, color: C.attValColor }}>{holidays}</td>
-                  <td style={{ background: C.earnLabelBg, color: C.earnLabelColor, fontWeight: 600 }} colSpan={2}>Fixed HRA</td>
-                  <td style={{ textAlign: "right", fontWeight: 700, color: C.earnValColor }}>{fixedHRA}</td>
+                  <td style={{ background: C.earnLabelBg, color: C.earnLabelColor, fontWeight: 600 }} colSpan={2}>OT Allow</td>
+                  <td style={{ textAlign: "right", fontWeight: 700, color: C.earnValColor }}>{otAllow}</td>
                   <td style={{ background: C.dedLabelBg, color: C.dedLabelColor, fontWeight: 600, fontSize: "11px" }} colSpan={2}>Total Dedu</td>
                   <td style={{ textAlign: "right", fontWeight: 800, color: "#fff", background: "#c62828", fontSize: "14px" }} data-testid="text-total-deductions">{totalDedu}</td>
                 </tr>
                 <tr>
                   <td style={{ background: C.attLabelBg, color: C.attLabelColor, fontWeight: 700 }}>Paid Days</td>
                   <td style={{ textAlign: "right", fontWeight: 800, color: "#fff", background: "#0d47a1", fontSize: "14px" }} data-testid="text-paid-days">{paidDays}</td>
-                  <td style={{ background: C.earnLabelBg, color: C.earnLabelColor, fontWeight: 600 }} colSpan={2}>OT Allow</td>
-                  <td style={{ textAlign: "right", fontWeight: 700, color: C.earnValColor }}>{n(salary.overtimeAmount)}</td>
+                  <td style={{ background: C.earnLabelBg, color: C.earnLabelColor, fontWeight: 700 }} colSpan={2}>Total Gross</td>
+                  <td style={{ textAlign: "right", fontWeight: 800, color: "#fff", background: "#2e7d32", fontSize: "14px" }} data-testid="text-total-gross">{totalGross}</td>
                   <td style={{ background: "#fff8e1", color: "#e65100", fontWeight: 600, fontSize: "11px" }} colSpan={2}>Leave Balance {salary.year}</td>
                   <td style={{ textAlign: "right", fontWeight: 700, color: "#e65100" }}>0</td>
                 </tr>
                 <tr>
                   <td style={{ background: C.attLabelBg, color: C.attLabelColor, fontWeight: 600 }}>OT HRS</td>
                   <td style={{ textAlign: "right", fontWeight: 700, color: C.attValColor }}>{otHrs}</td>
-                  <td style={{ background: C.earnLabelBg, color: C.earnLabelColor, fontWeight: 700 }} colSpan={2}>Total Gross</td>
-                  <td style={{ textAlign: "right", fontWeight: 800, color: "#fff", background: "#2e7d32", fontSize: "14px" }} data-testid="text-total-gross">{totalGross}</td>
+                  <td style={{ background: C.earnLabelBg }} colSpan={2}></td>
+                  <td></td>
                   <td style={{ background: "#fff8e1", color: "#e65100", fontWeight: 600, fontSize: "10px" }} colSpan={2}>Leave Encashment Amt. {salary.year}</td>
                   <td style={{ textAlign: "right", fontWeight: 700, color: "#e65100" }}>0</td>
                 </tr>
