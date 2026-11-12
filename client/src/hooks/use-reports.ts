@@ -663,7 +663,7 @@ export function useClientNames() {
     queryFn: async () => {
       const res = await fetch(api.clients.list.path, { credentials: "include" });
       if (!res.ok) throw new Error("Failed to fetch clients");
-      return res.json() as Promise<{ id: number; name: string; address?: string; gstNo?: string; agreementValidTill?: string | null }[]>;
+      return res.json() as Promise<{ id: number; name: string; address?: string; gstNo?: string; stateName?: string; agreementValidTill?: string | null }[]>;
     },
   });
 }

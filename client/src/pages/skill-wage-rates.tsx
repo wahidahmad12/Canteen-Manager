@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { Layout } from "@/components/layout";
@@ -8,10 +8,22 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
-import { ArrowLeft, Save, Loader2, IndianRupee, Trash2 } from "lucide-react";
+import { ArrowLeft, Save, Loader2, IndianRupee } from "lucide-react";
 import { Link } from "wouter";
 import type { SkillWageRate } from "@shared/schema";
 import { SKILL_CATEGORIES } from "@shared/schema";
+import { useClientNames } from "@/hooks/use-reports";
+
+const DEFAULT_STATE = "__default__";
+const INDIAN_STATES_AND_UTS = [
+  "Andhra Pradesh", "Arunachal Pradesh", "Assam", "Bihar", "Chhattisgarh", "Goa", "Gujarat",
+  "Haryana", "Himachal Pradesh", "Jharkhand", "Karnataka", "Kerala", "Madhya Pradesh",
+  "Maharashtra", "Manipur", "Meghalaya", "Mizoram", "Nagaland", "Odisha", "Punjab",
+  "Rajasthan", "Sikkim", "Tamil Nadu", "Telangana", "Tripura", "Uttar Pradesh",
+  "Uttarakhand", "West Bengal", "Andaman and Nicobar Islands", "Chandigarh",
+  "Dadra and Nagar Haveli and Daman and Diu", "Delhi", "Jammu and Kashmir", "Ladakh",
+  "Lakshadweep", "Puducherry",
+];
 
 const MONTHS = [
   { value: 1, label: "Jan" }, { value: 2, label: "Feb" }, { value: 3, label: "Mar" },
@@ -24,24 +36,45 @@ export default function SkillWageRatesPage() {
   const { toast } = useToast();
   const currentYear = new Date().getFullYear();
   const [selectedYear, setSelectedYear] = useState(currentYear);
+  const [selectedState, setSelectedState] = useState("");
   const [rates, setRates] = useState<Record<string, Record<number, string>>>({});
+  const { data: clients = [] } = useClientNames();
 
   const { data: existingRates = [], isLoading } = useQuery<SkillWageRate[]>({
     queryKey: ["/api/skill-wage-rates", selectedYear],
     queryFn: () => fetch(`/api/skill-wage-rates?year=${selectedYear}`, { credentials: "include" }).then(r => r.json()),
   });
 
+  const stateOptions = useMemo(() => {
+    const savedStates = existingRates.map(rate => rate.stateName?.trim()).filter((state): state is string => !!state);
+    const clientStates = clients.map(client => client.stateName?.trim()).filter((state): state is string => !!state);
+    return Array.from(new Set([...INDIAN_STATES_AND_UTS, ...savedStates, ...clientStates])).sort((a, b) => a.localeCompare(b));
+  }, [clients, existingRates]);
+
+  useEffect(() => {
+    if (!selectedState) {
+      const firstClientState = clients.find(client => client.stateName?.trim())?.stateName?.trim();
+      const firstSavedState = existingRates.find(rate => rate.stateName?.trim())?.stateName?.trim();
+      setSelectedState(firstClientState || firstSavedState || DEFAULT_STATE);
+    }
+  }, [clients, existingRates, selectedState]);
+
   useEffect(() => {
     const newRates: Record<string, Record<number, string>> = {};
     for (const skill of SKILL_CATEGORIES) {
       newRates[skill] = {};
       for (const m of MONTHS) {
-        const existing = existingRates.find(r => r.skillCategory === skill && r.month === m.value);
+        const stateName = selectedState === DEFAULT_STATE ? "" : selectedState;
+        const existing = existingRates.find(r =>
+          r.skillCategory === skill &&
+          r.month === m.value &&
+          (r.stateName || "").trim().toLowerCase() === stateName.trim().toLowerCase()
+        );
         newRates[skill][m.value] = existing ? String(existing.dailyRate) : "";
       }
     }
     setRates(newRates);
-  }, [existingRates, selectedYear]);
+  }, [existingRates, selectedYear, selectedState]);
 
   const handleYearChange = (y: number) => {
     setSelectedYear(y);
@@ -93,12 +126,13 @@ export default function SkillWageRatesPage() {
 
   const saveMutation = useMutation({
     mutationFn: async () => {
-      const bulkRates: any[] = [];
+      const bulkRates: { stateName: string; skillCategory: string; month: number; year: number; dailyRate: string }[] = [];
+      const stateName = selectedState === DEFAULT_STATE ? "" : selectedState.trim();
       for (const skill of SKILL_CATEGORIES) {
         for (const m of MONTHS) {
           const val = rates[skill]?.[m.value];
           if (val && Number(val) > 0) {
-            bulkRates.push({ skillCategory: skill, month: m.value, year: selectedYear, dailyRate: val });
+            bulkRates.push({ stateName, skillCategory: skill, month: m.value, year: selectedYear, dailyRate: val });
           }
         }
       }
@@ -139,7 +173,7 @@ export default function SkillWageRatesPage() {
                 {years.map(y => <SelectItem key={y} value={String(y)}>{y}</SelectItem>)}
               </SelectContent>
             </Select>
-            <Button onClick={() => saveMutation.mutate()} disabled={saveMutation.isPending} data-testid="button-save-all">
+            <Button onClick={() => saveMutation.mutate()} disabled={saveMutation.isPending || !selectedState} data-testid="button-save-all">
               {saveMutation.isPending ? <Loader2 className="w-4 h-4 mr-1 animate-spin" /> : <Save className="w-4 h-4 mr-1" />}
               Save All
             </Button>
@@ -150,6 +184,23 @@ export default function SkillWageRatesPage() {
           <div className="flex justify-center py-10"><Loader2 className="w-6 h-6 animate-spin text-muted-foreground" /></div>
         ) : (
           <div className="space-y-4">
+            <Card>
+              <CardContent className="p-4 flex flex-col sm:flex-row sm:items-center gap-3">
+                <Label htmlFor="select-state" className="shrink-0">Applicable state</Label>
+                <Select value={selectedState} onValueChange={setSelectedState}>
+                  <SelectTrigger id="select-state" className="w-full sm:w-[320px]" data-testid="select-state">
+                    <SelectValue placeholder="Select a state" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value={DEFAULT_STATE}>Default / legacy rates</SelectItem>
+                    {stateOptions.map(state => <SelectItem key={state} value={state}>{state}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+                <p className="text-xs text-muted-foreground">
+                  Salary generation uses the state configured for the employee's client. Default rates are used only when no rate exists for that state.
+                </p>
+              </CardContent>
+            </Card>
             {SKILL_CATEGORIES.map(skill => (
               <Card key={skill}>
                 <CardHeader className="pb-2 pt-3">
@@ -201,9 +252,8 @@ export default function SkillWageRatesPage() {
         <Card>
           <CardContent className="p-4">
             <p className="text-xs text-muted-foreground">
-              These rates are used in Salary Register generation and Leave With Wages calculations. 
-              When a salary is generated for a month/year, the system looks up the daily rate from this table based on the employee's skill category. 
-              If no rate is set, it falls back to the employee's individual rate from Employee Master.
+              Enter the applicable monthly base rates manually; salary and Leave With Wages calculations use the rate for the client's configured state and skill category.
+              If no matching state rate is set, the system uses a default/legacy rate and then the employee's individual rate.
             </p>
           </CardContent>
         </Card>
