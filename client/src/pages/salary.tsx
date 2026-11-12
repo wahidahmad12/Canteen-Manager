@@ -14,6 +14,7 @@ import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
 import { useToast } from "@/hooks/use-toast";
 import { useClientNames, useCurrentUser } from "@/hooks/use-reports";
+import { usesLegacyHra } from "@shared/payroll-utils";
 import { apiRequest, queryClient as qc } from "@/lib/queryClient";
 import html2canvas from "html2canvas";
 import JSZip from "jszip";
@@ -255,12 +256,13 @@ function buildSalaryPaymentReceiptHTML(salary: SalaryRecord, employee: Employee,
   </article>`;
 }
 
-function buildSlipHTML(salary: SalaryRecord, employee: Employee | undefined, attendance: AttendanceRecord | undefined, logoSrc: string, locationOfWork: string | undefined, skillBasicRate?: number): string {
+function buildSlipHTML(salary: SalaryRecord, employee: Employee | undefined, attendance: AttendanceRecord | undefined, logoSrc: string, locationOfWork: string | undefined, stateName: string | undefined, skillBasicRate?: number): string {
   const n = (v: string | undefined | null) => Number(v) || 0;
   const basicRate = skillBasicRate !== undefined ? skillBasicRate : n(employee?.dailyRate);
   const basic = n(salary.basicWage);
   const hra5 = n(salary.otherAllowance);
   const fixedHra = n(salary.hra);
+  const showHra = usesLegacyHra(salary.clientName, stateName) || hra5 !== 0 || fixedHra !== 0;
   const dailyWage = n(salary.daysWorked) ? (basic + n(salary.da)) / n(salary.daysWorked) : basicRate;
   const totalGross = n(salary.grossWage);
   const pfDed = n(salary.pfDeduction);
@@ -300,7 +302,7 @@ function buildSlipHTML(salary: SalaryRecord, employee: Employee | undefined, att
   };
   const b = "1px solid #90a4ae";
   const cp = "padding:5px 8px";
-  const hraRows = `${hra5 > 0 ? `<tr><td style="background:${C.attLabelBg};border:${b};${cp}"></td><td style="border:${b};${cp}"></td><td style="background:${C.earnLabelBg};color:${C.earnLabelColor};font-weight:600;border:${b};${cp}" colspan="2">HRA 5%</td><td style="text-align:right;font-weight:700;color:${C.earnValColor};border:${b};${cp}">${hra5}</td><td colspan="3" style="border:${b};${cp}"></td></tr>` : ""}${fixedHra > 0 ? `<tr><td style="background:${C.attLabelBg};border:${b};${cp}"></td><td style="border:${b};${cp}"></td><td style="background:${C.earnLabelBg};color:${C.earnLabelColor};font-weight:600;border:${b};${cp}" colspan="2">Fixed HRA</td><td style="text-align:right;font-weight:700;color:${C.earnValColor};border:${b};${cp}">${fixedHra}</td><td colspan="3" style="border:${b};${cp}"></td></tr>` : ""}`;
+  const hraRows = showHra ? `<tr><td style="background:${C.attLabelBg};border:${b};${cp}"></td><td style="border:${b};${cp}"></td><td style="background:${C.earnLabelBg};color:${C.earnLabelColor};font-weight:600;border:${b};${cp}" colspan="2">HRA 5%</td><td style="text-align:right;font-weight:700;color:${C.earnValColor};border:${b};${cp}">${hra5}</td><td colspan="3" style="border:${b};${cp}"></td></tr><tr><td style="background:${C.attLabelBg};border:${b};${cp}"></td><td style="border:${b};${cp}"></td><td style="background:${C.earnLabelBg};color:${C.earnLabelColor};font-weight:600;border:${b};${cp}" colspan="2">Fixed HRA</td><td style="text-align:right;font-weight:700;color:${C.earnValColor};border:${b};${cp}">${fixedHra}</td><td colspan="3" style="border:${b};${cp}"></td></tr>` : "";
 
   return `<div style="width:800px;background:white;padding:0;font-family:'Inter','Segoe UI',Arial,sans-serif;">
     <table style="width:100%;border-collapse:collapse;font-size:13px;">
@@ -574,8 +576,8 @@ export default function SalaryRegister() {
         const empSkill = (emp?.skills || "").trim();
         const stateRateKey = `${empSkill}_${month}_${year}_${selectedClientState.toLowerCase()}`;
         const sRate = skillRateMap.get(stateRateKey) ?? skillRateMap.get(`${empSkill}_${month}_${year}_`);
-        const clientAddress = clients?.find((client) => client.name === s.clientName)?.address;
-        const html = buildSlipHTML(s, emp, att, logoPath, clientAddress, sRate);
+        const client = clients?.find((item) => item.name === s.clientName);
+        const html = buildSlipHTML(s, emp, att, logoPath, client?.address, client?.stateName, sRate);
 
         container.innerHTML = html;
 
@@ -617,7 +619,7 @@ export default function SalaryRegister() {
       document.body.removeChild(container);
       setDownloading(false);
     }
-  }, [salaries, employees, employeeMap, attendanceList, toast, month, year, selectedClientState, skillRateMap]);
+  }, [salaries, employees, employeeMap, attendanceList, clients, toast, month, year, selectedClientState, skillRateMap]);
 
   const generateMutation = useMutation({
     mutationFn: async () => {
@@ -677,6 +679,8 @@ export default function SalaryRegister() {
     const basicRate = skillBasedRate !== undefined ? skillBasedRate : n(emp?.dailyRate);
     const basicWage = n(s.basicWage);
     const da = n(s.da);
+    const hra5 = n(s.otherAllowance);
+    const fixedHRA = n(s.hra);
     const otAllow = n(s.overtimeAmount);
     const totalGross = n(s.grossWage);
     const pfDed = n(s.pfDeduction);
@@ -699,7 +703,7 @@ export default function SalaryRegister() {
     const skills = emp?.skills || getSkillLevel(emp?.designation);
     return {
       emp, skills, prsDays, halfDay, holidayWorking, leave, holidays, weeklyOff, paidDays, otHrs,
-      basicRate, basicWage, da, otAllow, totalGross,
+      basicRate, basicWage, da, hra5, fixedHRA, otAllow, totalGross,
       pfDed, esicDed, pTax, lwf, totalDedu, netSalary,
       leaveBalance: 0, leaveEncash: 0, advance, payInAccount,
       pfEmployer, esicEmployer, bonus, employerTotal,
@@ -720,6 +724,7 @@ export default function SalaryRegister() {
         prsDays: sum(r => r.prsDays), halfDay: sum(r => r.halfDay), holidayWorking: sum(r => r.holidayWorking),
         leave: sum(r => r.leave), holidays: sum(r => r.holidays), weeklyOff: sum(r => r.weeklyOff), paidDays: sum(r => r.paidDays), otHrs: sum(r => r.otHrs),
         basicRate: sum(r => r.basicRate), basicWage: sum(r => r.basicWage), da: sum(r => r.da),
+        hra5: sum(r => r.hra5), fixedHRA: sum(r => r.fixedHRA),
         otAllow: sum(r => r.otAllow), totalGross: sum(r => r.totalGross),
         pfDed: sum(r => r.pfDed), esicDed: sum(r => r.esicDed), pTax: sum(r => r.pTax), lwf: sum(r => r.lwf),
         totalDedu: sum(r => r.totalDedu), netSalary: sum(r => r.netSalary),
@@ -732,6 +737,7 @@ export default function SalaryRegister() {
   }, [salaries, computeRow]);
 
   const showDA = rows.some(r => r.da > 0);
+  const showHRA = usesLegacyHra(clientName, selectedClientState) || rows.some(r => r.hra5 !== 0 || r.fixedHRA !== 0);
 
   const receiptRows = useMemo(() => validSalaries.flatMap((salary) => {
     const employee = employeeMap.get(salary.employeeId);
@@ -867,6 +873,7 @@ export default function SalaryRegister() {
         <td style="text-align:right">${fDec(r.basicRate)}</td>
         <td style="text-align:right">${f(r.basicWage)}</td>
                 ${showDA ? `<td style="text-align:right">${f(r.da)}</td>` : ""}
+        ${showHRA ? `<td style="text-align:right">${fDec(r.hra5)}</td><td style="text-align:right">${fDec(r.fixedHRA)}</td>` : ""}
         <td style="text-align:right">${f(r.otAllow)}</td>
         <td style="text-align:right;font-weight:bold">${f(r.totalGross)}</td>
         <td style="text-align:right">${f(r.pfDed)}</td>
@@ -887,13 +894,15 @@ export default function SalaryRegister() {
       basicWage: acc.basicWage + (r?.basicWage || 0),
       otAllow: acc.otAllow + (r?.otAllow || 0),
       da: acc.da + (r?.da || 0),
+      hra5: acc.hra5 + (r?.hra5 || 0),
+      fixedHRA: acc.fixedHRA + (r?.fixedHRA || 0),
       totalGross: acc.totalGross + (r?.totalGross || 0),
       pfDed: acc.pfDed + (r?.pfDed || 0),
       esicDed: acc.esicDed + (r?.esicDed || 0),
       pTax: acc.pTax + (r?.pTax || 0),
       totalDedu: acc.totalDedu + (r?.totalDedu || 0),
       netSalary: acc.netSalary + (r?.netSalary || 0),
-    }), { paidDays: 0, otHrs: 0, basicWage: 0, otAllow: 0, da: 0, totalGross: 0, pfDed: 0, esicDed: 0, pTax: 0, totalDedu: 0, netSalary: 0 });
+    }), { paidDays: 0, otHrs: 0, basicWage: 0, otAllow: 0, da: 0, hra5: 0, fixedHRA: 0, totalGross: 0, pfDed: 0, esicDed: 0, pTax: 0, totalDedu: 0, netSalary: 0 });
 
     const totalRow = filteredRows.length > 0 ? `<tr style="font-weight:bold;background:#f0f0f0">
       <td colspan="4" style="text-align:right;font-weight:bold">TOTAL</td>
@@ -903,6 +912,7 @@ export default function SalaryRegister() {
       <td></td>
       <td style="text-align:right">${f(filteredTotals.basicWage)}</td>
             ${showDA ? `<td style="text-align:right">${f(filteredTotals.da)}</td>` : ""}
+      ${showHRA ? `<td style="text-align:right">${fDec(filteredTotals.hra5)}</td><td style="text-align:right">${fDec(filteredTotals.fixedHRA)}</td>` : ""}
       <td style="text-align:right">${f(filteredTotals.otAllow)}</td>
       <td style="text-align:right">${f(filteredTotals.totalGross)}</td>
       <td style="text-align:right">${f(filteredTotals.pfDed)}</td>
@@ -980,7 +990,7 @@ export default function SalaryRegister() {
             <th colspan="2">No. of Days<br/>Worked</th>
             <th rowspan="3">Units Of<br/>Work<br/>Down</th>
             <th rowspan="3">Daily rate<br/>of wages /<br/>Piece rate</th>
-            <th colspan="${showDA ? 5 : 4}">AMOUNT OF WAGES EARNED</th>
+            <th colspan="${2 + (showDA ? 1 : 0) + (showHRA ? 2 : 0)}">AMOUNT OF WAGES EARNED</th>
             <th rowspan="2">Total</th>
             <th colspan="4">DEDUCTIONS</th>
             <th rowspan="2">Net<br/>Amount<br/>Paid</th>
@@ -993,20 +1003,19 @@ export default function SalaryRegister() {
             <th>OT<br/>HRS</th>
             <th>Basic<br/>Wages</th>
             ${showDA ? "<th>Dearness<br/>allowance<br/>es</th>" : ""}
+            ${showHRA ? "<th>HRA 5%</th><th>Fixed HRA</th>" : ""}
             <th>Overtime</th>
-            <th>Other<br/>Cash<br/>Payment<br/>(Nature<br/>of<br/>payment<br/>to be<br/>indicat<br/>ed)</th>
-            <th>House<br/>Rent<br/>Allowan<br/>ce</th>
             <th>Provident<br/>Fund</th>
             <th>Employee<br/>'s Share of<br/>the<br/>Contributi<br/>on (E.S.I.)</th>
             <th>Professio<br/>nal Tax</th>
             <th>Total<br/>Deducti<br/>on</th>
           </tr>
           <tr>
-            ${"<th>Rs.</th>".repeat(showDA ? 11 : 10)}
+            ${"<th>Rs.</th>".repeat(10 + (showDA ? 1 : 0) + (showHRA ? 2 : 0))}
           </tr>
           <tr style="font-size:9px;font-style:italic">
             <th>1</th><th>2</th><th>3</th><th>4</th><th>5(a)</th><th>5(b)</th><th>6</th><th>7</th>
-            <th>8</th><th>9</th><th>10</th><th>11</th><th>12</th><th>13</th>
+            <th>8</th>${showDA ? "<th>9</th>" : ""}${showHRA ? "<th>11</th><th>12</th>" : ""}<th>10</th><th>13</th>
             <th>14(a)</th><th>14(b)</th><th>14(c)</th><th>14(d)</th><th>15</th>
             <th>16</th><th>17</th><th>18</th>
           </tr>
@@ -1019,7 +1028,7 @@ export default function SalaryRegister() {
     </body></html>`);
     printWin.document.close();
     printWin.print();
-  }, [salaries, rows, totals, clientName, month, year, salaryPrintSelectedIds]);
+  }, [salaries, rows, clients, clientName, month, year, salaryPrintSelectedIds, showDA, showHRA]);
 
   const handleExportExcel = useCallback(async () => {
     if (!salaries || salaries.length === 0 || rows.length === 0) return;
@@ -1048,7 +1057,7 @@ export default function SalaryRegister() {
     const headers = [
       "Sl. No.", "Emp ID", "Emp Name", "Skills", "PRS DAYS", "Half Day",
       "Holiday Wrk", "HOLIDAYS", "Paid Days", "OT HRS", "Absent", "Week Off", "Total Days",
-      "Basic Rate", "Basic Wages", ...(showDA ? ["DA"] : []), "OT Allow",
+      "Basic Rate", "Basic Wages", ...(showDA ? ["DA"] : []), ...(showHRA ? ["HRA 5%", "Fixed HRA"] : []), "OT Allow",
       "Total Gross", "PF Deduction @12%", "ESIC @.75%", "P-TAX", "LWF",
       "Total Dedu", "Net Salary", "Leave Balance", "Leave Encash Amt.",
       "Advance", "Pay In Account", "PF @13%", "ESIC @3.25%", "Bonus @8.33%",
@@ -1069,6 +1078,7 @@ export default function SalaryRegister() {
         r.prsDays, r.halfDay, r.holidayWorking, r.holidays + r.holidayWorking,
         r.paidDays, r.otHrs, r.leave, r.weeklyOff, totalDays,
         r.basicRate, r.basicWage, ...(showDA ? [r.da] : []),
+        ...(showHRA ? [r.hra5, r.fixedHRA] : []),
         r.otAllow || 0, r.totalGross, r.pfDed, r.esicDed, r.pTax, r.lwf || 0,
         r.totalDedu, r.netSalary, r.leaveBalance, r.leaveEncash,
         r.advance, r.payInAccount, r.pfEmployer, r.esicEmployer, r.bonus,
@@ -1092,7 +1102,7 @@ export default function SalaryRegister() {
         totals.prsDays, totals.halfDay, totals.holidayWorking,
         totals.holidays + totals.holidayWorking, totals.paidDays, totals.otHrs,
         totals.leave, totals.weeklyOff, totalDaysTotals, totals.basicRate,
-        totals.basicWage, ...(showDA ? [totals.da] : []), totals.otAllow,
+        totals.basicWage, ...(showDA ? [totals.da] : []), ...(showHRA ? [totals.hra5, totals.fixedHRA] : []), totals.otAllow,
         totals.totalGross, totals.pfDed, totals.esicDed, totals.pTax, totals.lwf,
         totals.totalDedu, totals.netSalary, totals.leaveBalance, totals.leaveEncash,
         totals.advance, totals.payInAccount, totals.pfEmployer, totals.esicEmployer,
@@ -1110,7 +1120,7 @@ export default function SalaryRegister() {
     ws.getColumn(2).width = 12;
     ws.getColumn(3).width = 22;
     ws.getColumn(4).width = 14;
-    for (let i = 5; i <= 35; i++) ws.getColumn(i).width = 13;
+    for (let i = 5; i <= headers.length; i++) ws.getColumn(i).width = 13;
 
     const buffer = await workbook.xlsx.writeBuffer();
     const blob = new Blob([buffer], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
@@ -1120,7 +1130,7 @@ export default function SalaryRegister() {
     link.click();
     URL.revokeObjectURL(link.href);
     toast({ title: "Excel Downloaded", description: `Salary Register exported to Excel.` });
-  }, [salaries, rows, totals, clientName, month, year, toast]);
+  }, [salaries, rows, totals, clientName, month, year, toast, showDA, showHRA]);
 
   useEffect(() => {
     if (salaries && salaries.length > 0 && !salaryPaidDate) {
@@ -1802,7 +1812,7 @@ export default function SalaryRegister() {
                     <tr>
                       <th colSpan={4} className="px-2 py-1.5 text-center font-bold border border-indigo-200 bg-indigo-50 dark:bg-indigo-950 text-indigo-800 dark:text-indigo-200 text-xs sticky left-0 z-20">Employee Details</th>
                       <th colSpan={9} className="px-2 py-1.5 text-center font-bold border border-sky-200 bg-sky-50 dark:bg-sky-950 text-sky-800 dark:text-sky-200 text-xs">Attendance & Days</th>
-                      <th colSpan={showDA ? 5 : 4} className="px-2 py-1.5 text-center font-bold border border-emerald-200 bg-emerald-50 dark:bg-emerald-950 text-emerald-800 dark:text-emerald-200 text-xs">Earnings</th>
+                      <th colSpan={4 + (showDA ? 1 : 0) + (showHRA ? 2 : 0)} className="px-2 py-1.5 text-center font-bold border border-emerald-200 bg-emerald-50 dark:bg-emerald-950 text-emerald-800 dark:text-emerald-200 text-xs">Earnings</th>
                       <th colSpan={6} className="px-2 py-1.5 text-center font-bold border border-rose-200 bg-rose-50 dark:bg-rose-950 text-rose-800 dark:text-rose-200 text-xs">Deductions</th>
                       <th colSpan={4} className="px-2 py-1.5 text-center font-bold border border-amber-200 bg-amber-50 dark:bg-amber-950 text-amber-800 dark:text-amber-200 text-xs">Leave & Net Pay</th>
                       <th colSpan={4} className="px-2 py-1.5 text-center font-bold border border-violet-200 bg-violet-50 dark:bg-violet-950 text-violet-800 dark:text-violet-200 text-xs">Employer Contributions</th>
@@ -1826,6 +1836,7 @@ export default function SalaryRegister() {
                       <th className="px-2 py-2 text-right font-bold border border-emerald-200 bg-emerald-100 dark:bg-emerald-900 text-emerald-700 dark:text-emerald-300">Basic Rate</th>
                       <th className="px-2 py-2 text-right font-bold border border-emerald-200 bg-emerald-100 dark:bg-emerald-900 text-emerald-700 dark:text-emerald-300">Basic Wages</th>
                                             {showDA && <th className="px-2 py-2 text-right font-bold border border-emerald-200 bg-emerald-100 dark:bg-emerald-900 text-emerald-700 dark:text-emerald-300">DA</th>}
+                      {showHRA && <><th className="px-2 py-2 text-right font-bold border border-emerald-200 bg-emerald-100 dark:bg-emerald-900 text-emerald-700 dark:text-emerald-300">HRA 5%</th><th className="px-2 py-2 text-right font-bold border border-emerald-200 bg-emerald-100 dark:bg-emerald-900 text-emerald-700 dark:text-emerald-300">Fixed HRA</th></>}
                       <th className="px-2 py-2 text-right font-bold border border-emerald-200 bg-emerald-100 dark:bg-emerald-900 text-emerald-700 dark:text-emerald-300">OT Allow</th>
                       <th className="px-2 py-2 text-right font-bold border border-emerald-200 bg-emerald-100 dark:bg-emerald-900 text-emerald-700 dark:text-emerald-300">Total Gross</th>
                       <th className="px-2 py-2 text-right font-bold border border-rose-200 bg-rose-100 dark:bg-rose-900 text-rose-700 dark:text-rose-300">PF @12%</th>
@@ -1873,6 +1884,7 @@ export default function SalaryRegister() {
                           <td className="px-2 py-1.5 text-right border border-slate-200 font-semibold">{fmtDec(r.basicRate)}</td>
                           <td className="px-2 py-1.5 text-right border border-slate-200 text-emerald-700 dark:text-emerald-400">{fmt(r.basicWage)}</td>
                                                     {showDA && <td className="px-2 py-1.5 text-right border border-slate-200">{fmtDec(r.da)}</td>}
+                          {showHRA && <><td className="px-2 py-1.5 text-right border border-slate-200">{fmtDec(r.hra5)}</td><td className="px-2 py-1.5 text-right border border-slate-200">{fmtDec(r.fixedHRA)}</td></>}
                           <td className="px-2 py-1.5 text-right border border-slate-200">{r.otAllow ? fmt(r.otAllow) : "-"}</td>
                           <td className="px-2 py-1.5 text-right border border-slate-200 font-bold text-emerald-700 dark:text-emerald-400">{fmt(r.totalGross)}</td>
                           <td className="px-2 py-1.5 text-right border border-slate-200 text-rose-600 dark:text-rose-400">{fmt(r.pfDed)}</td>
@@ -1922,6 +1934,7 @@ export default function SalaryRegister() {
                       <td className="px-2 py-2 text-right border border-slate-300">{fmt(totals.basicRate)}</td>
                       <td className="px-2 py-2 text-right border border-slate-300 text-emerald-700 dark:text-emerald-400">{fmt(totals.basicWage)}</td>
                                             {showDA && <td className="px-2 py-2 text-right border border-slate-300">{fmtDec(totals.da)}</td>}
+                      {showHRA && <><td className="px-2 py-2 text-right border border-slate-300">{fmtDec(totals.hra5)}</td><td className="px-2 py-2 text-right border border-slate-300">{fmtDec(totals.fixedHRA)}</td></>}
                       <td className="px-2 py-2 text-right border border-slate-300">{fmt(totals.otAllow)}</td>
                       <td className="px-2 py-2 text-right border border-slate-300 text-emerald-700 dark:text-emerald-400">{fmt(totals.totalGross)}</td>
                       <td className="px-2 py-2 text-right border border-slate-300 text-rose-700 dark:text-rose-400">{fmt(totals.pfDed)}</td>
@@ -1959,7 +1972,7 @@ export default function SalaryRegister() {
                   <tr>
                     <th colSpan={4} style={{ background: "#e8eaf6", color: "#283593", fontSize: "9px", fontWeight: 700 }}>Employee Details</th>
                     <th colSpan={6} style={{ background: "#e1f5fe", color: "#0277bd", fontSize: "9px", fontWeight: 700 }}>Attendance & Days</th>
-                    <th colSpan={showDA ? 5 : 4} style={{ background: "#e8f5e9", color: "#2e7d32", fontSize: "9px", fontWeight: 700 }}>Earnings</th>
+                    <th colSpan={4 + (showDA ? 1 : 0) + (showHRA ? 2 : 0)} style={{ background: "#e8f5e9", color: "#2e7d32", fontSize: "9px", fontWeight: 700 }}>Earnings</th>
                     <th colSpan={5} style={{ background: "#fce4ec", color: "#c62828", fontSize: "9px", fontWeight: 700 }}>Deductions</th>
                     <th colSpan={1} style={{ background: "#e8f5e9", color: "#1b5e20", fontSize: "9px", fontWeight: 700 }}>Net Salary</th>
                   </tr>
@@ -1977,6 +1990,7 @@ export default function SalaryRegister() {
                     <th style={{ background: "#c8e6c9" }}>Basic Rate</th>
                     <th style={{ background: "#c8e6c9" }}>Basic Wages</th>
                     {showDA && <th style={{ background: "#c8e6c9" }}>DA</th>}
+                    {showHRA && <><th style={{ background: "#c8e6c9" }}>HRA 5%</th><th style={{ background: "#c8e6c9" }}>Fixed HRA</th></>}
                     <th style={{ background: "#c8e6c9" }}>OT Allow</th>
                     <th style={{ background: "#c8e6c9" }}>Total Gross</th>
                     <th style={{ background: "#f8bbd0" }}>PF @12%</th>
@@ -2006,6 +2020,7 @@ export default function SalaryRegister() {
                         <td className="text-right" style={{ fontWeight: "bold" }}>{fmtDec(r.basicRate)}</td>
                         <td className="text-right" style={{ color: "#2e7d32" }}>{fmt(r.basicWage)}</td>
                                                 {showDA && <td className="text-right">{fmtDec(r.da)}</td>}
+                        {showHRA && <><td className="text-right">{fmtDec(r.hra5)}</td><td className="text-right">{fmtDec(r.fixedHRA)}</td></>}
                         <td className="text-right">{r.otAllow ? fmt(r.otAllow) : "-"}</td>
                         <td className="text-right" style={{ fontWeight: "bold", color: "#2e7d32" }}>{fmt(r.totalGross)}</td>
                         <td className="text-right" style={{ color: "#c62828" }}>{fmt(r.pfDed)}</td>
@@ -2031,6 +2046,7 @@ export default function SalaryRegister() {
                     <td className="text-right">{fmt(totals.basicRate || 0)}</td>
                     <td className="text-right" style={{ color: "#2e7d32" }}>{fmt(totals.basicWage)}</td>
                                         {showDA && <td className="text-right">{fmtDec(totals.da)}</td>}
+                    {showHRA && <><td className="text-right">{fmtDec(totals.hra5)}</td><td className="text-right">{fmtDec(totals.fixedHRA)}</td></>}
                     <td className="text-right">{fmt(totals.otAllow)}</td>
                     <td className="text-right" style={{ color: "#2e7d32" }}>{fmt(totals.totalGross)}</td>
                     <td className="text-right" style={{ color: "#c62828" }}>{fmt(totals.pfDed)}</td>
