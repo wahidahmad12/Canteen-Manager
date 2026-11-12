@@ -2453,15 +2453,15 @@ export class DatabaseStorage implements IStorage {
 
     for (const emp of activeEmps) {
       const att = attendanceRecords.find(a => a.employeeId === emp.id);
-      const daysWorked = att ? Number(att.totalPresent) : 0;
+      const paidDays = att ? Number(att.totalPresent) : 0;
       const skillRate = await this.getSkillWageRate((emp.skills || "").trim(), month, year, stateName);
       const dailyRate = skillRate ? Number(skillRate.dailyRate) : (Number(emp.dailyRate) || 0);
-      const basicWage = daysWorked * dailyRate;
+      const basicWage = paidDays * dailyRate;
       const daAmount = Number(emp.daAmount) || 0;
-      const da = Math.round(daysWorked * daAmount * 100) / 100;
+      const da = Math.round(paidDays * daAmount * 100) / 100;
       const includeHra = usesLegacyHra(clientName, stateName);
       const { hra5, fixedHra } = includeHra
-        ? calculateLegacyHra(basicWage, Number(emp.fixedHra) || 0, daysWorked)
+        ? calculateLegacyHra(basicWage, Number(emp.fixedHra) || 0, paidDays)
         : { hra5: 0, fixedHra: 0 };
       const empOtRecords = allOtRecords.filter(ot => {
         if (ot.employeeId !== emp.id) return false;
@@ -2491,7 +2491,7 @@ export class DatabaseStorage implements IStorage {
         clientName,
         month,
         year,
-        daysWorked: String(daysWorked),
+        daysWorked: String(paidDays),
         basicWage: String(basicWage),
         da: String(da),
         hra: String(fixedHra),

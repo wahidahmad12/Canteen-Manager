@@ -13,9 +13,13 @@ export function usesLegacyHra(clientName: string, stateName: string | null | und
   return HRA_CLIENTS.has(normalizedClient) && normalizedState === "west bengal";
 }
 
-export function calculateLegacyHra(basicWage: number, monthlyFixedHra: number, daysWorked: number) {
+export function showDaOnWageSlip(clientName: string, stateName: string | null | undefined): boolean {
+  return !usesLegacyHra(clientName, stateName);
+}
+
+export function calculateLegacyHra(basicWage: number, monthlyFixedHra: number, paidDays: number) {
   return {
     hra5: Math.round(basicWage * 0.05 * 100) / 100,
-    fixedHra: Math.round((monthlyFixedHra / 26) * daysWorked * 100) / 100,
+    fixedHra: Math.round((monthlyFixedHra / 26) * paidDays * 100) / 100,
   };
 }
