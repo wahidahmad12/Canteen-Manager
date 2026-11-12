@@ -15,6 +15,13 @@
       "when": 1775276921939,
       "tag": "0001_pec_ventures",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "5",
+      "when": 1794458989831,
+      "tag": "0002_state_skill_wage_rates",
+      "breakpoints": true
     }
   ]
 }

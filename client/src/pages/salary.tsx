@@ -493,7 +493,9 @@ export default function SalaryRegister() {
     enabled: loaded && !!clientName,
   });
 
-  const { data: skillWageRates = [] } = useQuery<{ id: number; skillCategory: string; month: number; year: number; dailyRate: string }[]>({
+  const selectedClientState = clients?.find(client => client.name === clientName)?.stateName?.trim() || "";
+
+  const { data: skillWageRates = [] } = useQuery<{ id: number; stateName: string; skillCategory: string; month: number; year: number; dailyRate: string }[]>({
     queryKey: ["/api/skill-wage-rates", year],
     queryFn: async () => {
       const res = await fetch(`/api/skill-wage-rates?year=${year}`, { credentials: "include" });
@@ -506,7 +508,7 @@ export default function SalaryRegister() {
   const skillRateMap = useMemo(() => {
     const map = new Map<string, number>();
     for (const r of skillWageRates) {
-      map.set(`${r.skillCategory}_${r.month}_${r.year}`, Number(r.dailyRate));
+      map.set(`${r.skillCategory}_${r.month}_${r.year}_${(r.stateName || "").trim().toLowerCase()}`, Number(r.dailyRate));
     }
     return map;
   }, [skillWageRates]);
@@ -567,7 +569,8 @@ export default function SalaryRegister() {
         const emp = employeeMap.get(s.employeeId);
         const att = attendanceList?.find((a) => a.employeeId === s.employeeId);
         const empSkill = emp?.skills || "";
-        const sRate = skillRateMap.get(`${empSkill}_${month}_${year}`);
+        const stateRateKey = `${empSkill}_${month}_${year}_${selectedClientState.toLowerCase()}`;
+        const sRate = skillRateMap.get(stateRateKey) ?? skillRateMap.get(`${empSkill}_${month}_${year}_`);
         const html = buildSlipHTML(s, emp, att, logoPath, sRate);
 
         container.innerHTML = html;
@@ -610,7 +613,7 @@ export default function SalaryRegister() {
       document.body.removeChild(container);
       setDownloading(false);
     }
-  }, [salaries, employees, employeeMap, attendanceList, toast, month, year]);
+  }, [salaries, employees, employeeMap, attendanceList, toast, month, year, selectedClientState, skillRateMap]);
 
   const generateMutation = useMutation({
     mutationFn: async () => {

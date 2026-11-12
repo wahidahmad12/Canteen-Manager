@@ -271,8 +271,8 @@ export interface IStorage {
   createEmployeeWageRate(data: any): Promise<EmployeeWageRate>;
   updateEmployeeWageRate(id: number, data: any): Promise<EmployeeWageRate>;
   deleteEmployeeWageRate(id: number): Promise<void>;
-  getSkillWageRates(year?: number): Promise<SkillWageRate[]>;
-  getSkillWageRate(skillCategory: string, month: number, year: number): Promise<SkillWageRate | undefined>;
+  getSkillWageRates(year?: number, stateName?: string): Promise<SkillWageRate[]>;
+  getSkillWageRate(skillCategory: string, month: number, year: number, stateName?: string): Promise<SkillWageRate | undefined>;
   createOrUpdateSkillWageRate(data: any): Promise<SkillWageRate>;
   deleteSkillWageRate(id: number): Promise<void>;
   getHalfYearlyReturns(clientName?: string): Promise<HalfYearlyReturn[]>;
@@ -2430,6 +2430,8 @@ export class DatabaseStorage implements IStorage {
 
   async generateSalary(clientName: string, month: number, year: number, paidOn?: string): Promise<SalaryRecord[]> {
     const emps = await this.getEmployees(clientName);
+    const client = (await this.getClientNames()).find(c => c.name === clientName);
+    const stateName = client?.stateName?.trim() || "";
     const lastDayOfMonth = new Date(year, month, 0);
     const firstDayOfMonth = new Date(year, month - 1, 1);
     const activeEmps = emps.filter(e => {
@@ -2451,7 +2453,7 @@ export class DatabaseStorage implements IStorage {
     for (const emp of activeEmps) {
       const att = attendanceRecords.find(a => a.employeeId === emp.id);
       const daysWorked = att ? Number(att.totalPresent) : 0;
-      const skillRate = await this.getSkillWageRate((emp.skills || "").trim(), month, year);
+      const skillRate = await this.getSkillWageRate((emp.skills || "").trim(), month, year, stateName);
       const dailyRate = skillRate ? Number(skillRate.dailyRate) : (Number(emp.dailyRate) || 0);
       const basicWage = daysWorked * dailyRate;
       const daAmount = Number(emp.daAmount) || 0;
@@ -2710,25 +2712,51 @@ export class DatabaseStorage implements IStorage {
   }
 
   // === SKILL WAGE RATES (Month/Year-wise by Skill Category) ===
-  async getSkillWageRates(year?: number): Promise<SkillWageRate[]> {
-    if (year) {
-      return await db.select().from(skillWageRates).where(eq(skillWageRates.year, year)).orderBy(skillWageRates.skillCategory, skillWageRates.month);
-    }
-    return await db.select().from(skillWageRates).orderBy(desc(skillWageRates.year), skillWageRates.month, skillWageRates.skillCategory);
+  async getSkillWageRates(year?: number, stateName?: string): Promise<SkillWageRate[]> {
+    const filters = [];
+    if (year) filters.push(eq(skillWageRates.year, year));
+    if (stateName !== undefined) filters.push(eq(skillWageRates.stateName, stateName.trim()));
+    const where = filters.length ? and(...filters) : undefined;
+    return await db.select().from(skillWageRates)
+      .where(where)
+      .orderBy(desc(skillWageRates.year), skillWageRates.stateName, skillWageRates.skillCategory, skillWageRates.month);
   }
-  async getSkillWageRate(skillCategory: string, month: number, year: number): Promise<SkillWageRate | undefined> {
+  async getSkillWageRate(skillCategory: string, month: number, year: number, stateName = ""): Promise<SkillWageRate | undefined> {
     const [rec] = await db.select().from(skillWageRates).where(
-      and(eq(skillWageRates.skillCategory, skillCategory.trim()), eq(skillWageRates.month, month), eq(skillWageRates.year, year))
+      and(
+        eq(skillWageRates.skillCategory, skillCategory.trim()),
+        eq(skillWageRates.month, month),
+        eq(skillWageRates.year, year),
+        eq(skillWageRates.stateName, stateName.trim()),
+      )
     );
-    return rec;
+    if (rec || !stateName.trim()) return rec;
+    const [legacyRate] = await db.select().from(skillWageRates).where(
+      and(
+        eq(skillWageRates.skillCategory, skillCategory.trim()),
+        eq(skillWageRates.month, month),
+        eq(skillWageRates.year, year),
+        eq(skillWageRates.stateName, ""),
+      )
+    );
+    return legacyRate;
   }
   async createOrUpdateSkillWageRate(data: any): Promise<SkillWageRate> {
-    const existing = await this.getSkillWageRate(data.skillCategory, data.month, data.year);
+    const stateName = String(data.stateName || "").trim();
+    const [existing] = await db.select().from(skillWageRates).where(
+      and(
+        eq(skillWageRates.skillCategory, data.skillCategory.trim()),
+        eq(skillWageRates.month, data.month),
+        eq(skillWageRates.year, data.year),
+        eq(skillWageRates.stateName, stateName),
+      )
+    );
     if (existing) {
       await db.update(skillWageRates).set({ dailyRate: data.dailyRate, remarks: data.remarks || "" }).where(eq(skillWageRates.id, existing.id));
       const [rec] = await db.select().from(skillWageRates).where(eq(skillWageRates.id, existing.id));
       return rec;
     }
+    data = { ...data, stateName };
     const [rec] = await db.transaction(async (tx) => {
 
       await tx.insert(skillWageRates).values(data);

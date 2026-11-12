@@ -515,6 +515,7 @@ export const employeeWageRates = mysqlTable("employee_wage_rates", {
 
 export const skillWageRates = mysqlTable("skill_wage_rates", {
   id: int("id").autoincrement().primaryKey(),
+  stateName: varchar("state_name", { length: 100 }).notNull().default(""),
   skillCategory: text("skill_category").notNull(),
   month: int("month").notNull(),
   year: int("year").notNull(),

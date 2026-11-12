@@ -2040,6 +2040,7 @@ export async function registerRoutes(
     if (!clientName) return res.status(400).json({ error: "clientName required" });
     const allOt = await storage.getOvertimeRecords(clientName);
     const allEmployees = await storage.getEmployees(clientName);
+    const stateName = (await storage.getClientNames()).find(c => c.name === clientName)?.stateName?.trim() || "";
     const empMap = new Map(allEmployees.map(e => [e.id, e]));
     let updated = 0;
     for (const ot of allOt) {
@@ -2050,7 +2051,7 @@ export async function registerRoutes(
       const year = d.getFullYear();
       let dailyRate = parseFloat(emp.dailyRate) || 0;
       if (emp.skills) {
-        const skillRate = await storage.getSkillWageRate(emp.skills, month, year);
+        const skillRate = await storage.getSkillWageRate(emp.skills || "", month, year, stateName);
         if (skillRate && Number(skillRate.dailyRate) > 0) {
           dailyRate = Number(skillRate.dailyRate);
         }
@@ -2161,19 +2162,19 @@ export async function registerRoutes(
     const actualDaysWorked = totalDaysInYear - (weeklyOffs + paidHolidays + leavesAvailed + absences + holidayWork);
     const leaveEarned = Math.floor(actualDaysWorked / 20);
 
-    const { employees, skillWageRates: swrTable } = await import("@shared/schema");
+    const { employees } = await import("@shared/schema");
     const empRows = await db.select().from(employees).where(eq(employees.id, employeeId));
     const empSkill = empRows.length > 0 ? (empRows[0].skills || "").trim() : "";
     let dailyRate = empRows.length > 0 ? Number(empRows[0].dailyRate || 0) : 0;
+    const employeeClientName = empRows[0]?.clientName || "";
+    const stateName = (await storage.getClientNames()).find(c => c.name === employeeClientName)?.stateName?.trim() || "";
 
     const monthsWithRates: number[] = [];
     let totalSkillRate = 0;
     for (let m = 1; m <= 12; m++) {
-      const sr = await db.select().from(swrTable).where(
-        and(eq(swrTable.skillCategory, empSkill), eq(swrTable.month, m), eq(swrTable.year, year))
-      );
-      if (sr.length > 0) {
-        totalSkillRate += Number(sr[0].dailyRate);
+      const skillRate = await storage.getSkillWageRate(empSkill, m, year, stateName);
+      if (skillRate) {
+        totalSkillRate += Number(skillRate.dailyRate);
         monthsWithRates.push(m);
       }
     }
@@ -2191,7 +2192,7 @@ export async function registerRoutes(
       const clientName = req.body.clientName as string;
       if (!employeeId || !clientName) return res.status(400).json({ error: "employeeId and clientName required" });
 
-      const { attendance, employees, skillWageRates: swrTable, leaveWithWages: lwwTable } = await import("@shared/schema");
+      const { attendance, employees, leaveWithWages: lwwTable } = await import("@shared/schema");
       const { eq, and } = await import("drizzle-orm");
       const { db } = await import("./db");
 
@@ -2199,6 +2200,7 @@ export async function registerRoutes(
       if (empRows.length === 0) return res.status(404).json({ error: "Employee not found" });
       const emp = empRows[0];
       const empSkill = (emp.skills || "").trim();
+      const stateName = (await storage.getClientNames()).find(c => c.name === clientName)?.stateName?.trim() || "";
 
       const allAttendance = await db.select().from(attendance).where(eq(attendance.employeeId, employeeId));
       if (allAttendance.length === 0) return res.json({ generated: 0, message: "No attendance records found" });
@@ -2244,11 +2246,9 @@ export async function registerRoutes(
         const monthsWithRates: number[] = [];
         let totalSkillRate = 0;
         for (let m = 1; m <= 12; m++) {
-          const sr = await db.select().from(swrTable).where(
-            and(eq(swrTable.skillCategory, empSkill), eq(swrTable.month, m), eq(swrTable.year, year))
-          );
-          if (sr.length > 0) {
-            totalSkillRate += Number(sr[0].dailyRate);
+          const skillRate = await storage.getSkillWageRate(empSkill, m, year, stateName);
+          if (skillRate) {
+            totalSkillRate += Number(skillRate.dailyRate);
             monthsWithRates.push(m);
           }
         }
@@ -2378,14 +2378,15 @@ export async function registerRoutes(
 
   app.get("/api/skill-wage-rates", requireAuth, async (req, res) => {
     const year = req.query.year ? Number(req.query.year) : undefined;
-    const rates = await storage.getSkillWageRates(year);
+    const stateName = typeof req.query.stateName === "string" ? req.query.stateName : undefined;
+    const rates = await storage.getSkillWageRates(year, stateName);
     res.json(rates);
   });
 
   app.get("/api/skill-wage-rates/lookup", requireAuth, async (req, res) => {
-    const { skillCategory, month, year } = req.query;
+    const { skillCategory, month, year, stateName } = req.query;
     if (!skillCategory || !month || !year) return res.status(400).json({ error: "skillCategory, month, year required" });
-    const rate = await storage.getSkillWageRate(String(skillCategory), Number(month), Number(year));
+    const rate = await storage.getSkillWageRate(String(skillCategory), Number(month), Number(year), typeof stateName === "string" ? stateName : "");
     res.json(rate || null);
   });
 
