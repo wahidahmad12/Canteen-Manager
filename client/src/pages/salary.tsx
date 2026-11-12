@@ -48,6 +48,8 @@ interface SalaryRecord {
   daysWorked: string;
   basicWage: string;
   da: string;
+  hra: string;
+  otherAllowance: string;
   grossWage: string;
   pfDeduction: string;
   esicDeduction: string;
@@ -253,10 +255,12 @@ function buildSalaryPaymentReceiptHTML(salary: SalaryRecord, employee: Employee,
   </article>`;
 }
 
-function buildSlipHTML(salary: SalaryRecord, employee: Employee | undefined, attendance: AttendanceRecord | undefined, logoSrc: string, skillBasicRate?: number): string {
+function buildSlipHTML(salary: SalaryRecord, employee: Employee | undefined, attendance: AttendanceRecord | undefined, logoSrc: string, locationOfWork: string | undefined, skillBasicRate?: number): string {
   const n = (v: string | undefined | null) => Number(v) || 0;
   const basicRate = skillBasicRate !== undefined ? skillBasicRate : n(employee?.dailyRate);
   const basic = n(salary.basicWage);
+  const hra5 = n(salary.otherAllowance);
+  const fixedHra = n(salary.hra);
   const dailyWage = n(salary.daysWorked) ? (basic + n(salary.da)) / n(salary.daysWorked) : basicRate;
   const totalGross = n(salary.grossWage);
   const pfDed = n(salary.pfDeduction);
@@ -296,6 +300,7 @@ function buildSlipHTML(salary: SalaryRecord, employee: Employee | undefined, att
   };
   const b = "1px solid #90a4ae";
   const cp = "padding:5px 8px";
+  const hraRows = `${hra5 > 0 ? `<tr><td style="background:${C.attLabelBg};border:${b};${cp}"></td><td style="border:${b};${cp}"></td><td style="background:${C.earnLabelBg};color:${C.earnLabelColor};font-weight:600;border:${b};${cp}" colspan="2">HRA 5%</td><td style="text-align:right;font-weight:700;color:${C.earnValColor};border:${b};${cp}">${hra5}</td><td colspan="3" style="border:${b};${cp}"></td></tr>` : ""}${fixedHra > 0 ? `<tr><td style="background:${C.attLabelBg};border:${b};${cp}"></td><td style="border:${b};${cp}"></td><td style="background:${C.earnLabelBg};color:${C.earnLabelColor};font-weight:600;border:${b};${cp}" colspan="2">Fixed HRA</td><td style="text-align:right;font-weight:700;color:${C.earnValColor};border:${b};${cp}">${fixedHra}</td><td colspan="3" style="border:${b};${cp}"></td></tr>` : ""}`;
 
   return `<div style="width:800px;background:white;padding:0;font-family:'Inter','Segoe UI',Arial,sans-serif;">
     <table style="width:100%;border-collapse:collapse;font-size:13px;">
@@ -316,7 +321,7 @@ function buildSlipHTML(salary: SalaryRecord, employee: Employee | undefined, att
         <tr><td colspan="8" style="background:${C.periodGrad};color:#fff;text-align:center;padding:10px;font-size:20px;font-weight:800;letter-spacing:2px;border:none;text-shadow:1px 1px 3px rgba(0,0,0,0.3);">${MONTHS[salary.month - 1].toUpperCase()} - ${salary.year}</td></tr>
 
         <tr><td colspan="2" style="background:${C.infoLabelBg};color:${C.infoLabelColor};font-weight:700;border:${b};${cp}">Company Name</td><td colspan="6" style="font-weight:700;font-size:14px;color:#1a237e;border:${b};${cp}">${esc(salary.clientName)}</td></tr>
-        <tr><td colspan="2" style="background:${C.infoLabelBg};color:${C.infoLabelColor};font-weight:600;border:${b};${cp}">Location of work</td><td colspan="6" style="font-size:12px;border:${b};${cp}">Khidirpur Factory, 1, Transport depot Rd, Goragacha Rood, Kolkata - 700110</td></tr>
+        <tr><td colspan="2" style="background:${C.infoLabelBg};color:${C.infoLabelColor};font-weight:600;border:${b};${cp}">Location of work</td><td colspan="6" style="font-size:12px;border:${b};${cp}">${esc(locationOfWork)}</td></tr>
         <tr><td colspan="2" style="background:${C.infoLabelBg};color:${C.infoLabelColor};font-weight:700;border:${b};${cp}">Name:</td><td colspan="6" style="font-size:16px;font-weight:800;color:#1a237e;border:${b};${cp}">${esc(employee?.name)}</td></tr>
 
         <tr>
@@ -386,6 +391,7 @@ function buildSlipHTML(salary: SalaryRecord, employee: Employee | undefined, att
           <td style="background:${C.dedLabelBg};color:${C.dedLabelColor};font-weight:600;border:${b};${cp}" colspan="2">PF @12%</td>
           <td style="text-align:right;font-weight:700;color:${C.dedValColor};border:${b};${cp}">${pfDed}</td>
         </tr>
+        ${hraRows}
         <tr>
           <td style="background:${C.attLabelBg};border:${b};${cp}"></td>
           <td style="border:${b};${cp}"></td>
@@ -568,7 +574,8 @@ export default function SalaryRegister() {
         const empSkill = (emp?.skills || "").trim();
         const stateRateKey = `${empSkill}_${month}_${year}_${selectedClientState.toLowerCase()}`;
         const sRate = skillRateMap.get(stateRateKey) ?? skillRateMap.get(`${empSkill}_${month}_${year}_`);
-        const html = buildSlipHTML(s, emp, att, logoPath, sRate);
+        const clientAddress = clients?.find((client) => client.name === s.clientName)?.address;
+        const html = buildSlipHTML(s, emp, att, logoPath, clientAddress, sRate);
 
         container.innerHTML = html;
 

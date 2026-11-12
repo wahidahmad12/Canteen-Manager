@@ -4,7 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Label } from '@/components/ui/label';
 import { User, CalendarDays, LogOut, Download, Building2, Phone, MapPin, Briefcase, IdCard, Smartphone, X, Share, Info, AlertTriangle, AlertCircle, CheckCircle, Clock } from 'lucide-react';
-import { useCurrentUser, useLogout } from '@/hooks/use-reports';
+import { useClientNames, useCurrentUser, useLogout } from '@/hooks/use-reports';
 import { useState, useEffect, useRef } from 'react';
 import logoImg from '@assets/logo1_1771660912341.png';
 
@@ -50,11 +50,14 @@ interface AttendanceRecord {
 
 interface SalaryRecord {
   id: number;
+  clientName: string;
   month: number;
   year: number;
   daysWorked: string;
   basicWage: string;
   da: string;
+  hra: string;
+  otherAllowance: string;
   grossWage: string;
   pfDeduction: string;
   esicDeduction: string;
@@ -106,6 +109,7 @@ function numberToWords(num: number): string {
 
 export default function EmployeeDashboard() {
   const { data: user } = useCurrentUser();
+  const { data: clients } = useClientNames();
   const logoutMutation = useLogout();
   const currentYear = new Date().getFullYear();
   const currentMonth = new Date().getMonth() + 1;
@@ -254,10 +258,14 @@ export default function EmployeeDashboard() {
   const handleDownloadSlip = async () => {
     if (!salary || !empInfo) return;
     const html2pdf = (await import('html2pdf.js')).default;
+    const locationOfWork = (clients?.find((client) => client.name === salary.clientName)?.address || "-")
+      .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#39;");
 
     const nv = (v: string | number | null | undefined) => Number(v) || 0;
     const basicRate = skillRate?.dailyRate ? (nv(skillRate.dailyRate) || nv(empInfo.dailyRate)) : nv(empInfo.dailyRate);
     const basic = nv(salary.basicWage);
+    const hra5 = nv(salary.otherAllowance);
+    const fixedHra = nv(salary.hra);
     const dailyWage = nv(salary.daysWorked) ? (basic + nv(salary.da)) / nv(salary.daysWorked) : basicRate;
     const otAllow = nv(salary.overtimeAmount);
     const totalGross = nv(salary.grossWage);
@@ -300,6 +308,7 @@ export default function EmployeeDashboard() {
     };
     const b = "1px solid #90a4ae";
     const cp = "padding:5px 8px;";
+    const hraRows = `${hra5 > 0 ? `<tr><td style="background:${C.attLabelBg};border:${b};${cp}"></td><td style="border:${b};${cp}"></td><td style="background:${C.earnLabelBg};color:${C.earnLabelColor};font-weight:600;border:${b};${cp}" colspan="2">HRA 5%</td><td style="text-align:right;font-weight:700;color:${C.earnValColor};border:${b};${cp}">${hra5}</td><td colspan="3" style="border:${b};${cp}"></td></tr>` : ""}${fixedHra > 0 ? `<tr><td style="background:${C.attLabelBg};border:${b};${cp}"></td><td style="border:${b};${cp}"></td><td style="background:${C.earnLabelBg};color:${C.earnLabelColor};font-weight:600;border:${b};${cp}" colspan="2">Fixed HRA</td><td style="text-align:right;font-weight:700;color:${C.earnValColor};border:${b};${cp}">${fixedHra}</td><td colspan="3" style="border:${b};${cp}"></td></tr>` : ""}`;
 
     const now = new Date();
     const genTs = now.toLocaleString("en-IN", { day: "2-digit", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit", second: "2-digit", hour12: true });
@@ -333,7 +342,7 @@ export default function EmployeeDashboard() {
           </tr>
           <tr>
             <td style="background:${C.infoLabelBg};color:${C.infoLabelColor};font-weight:600;border:${b};${cp}" colspan="2">Location of work</td>
-            <td colspan="6" style="font-size:12px;border:${b};${cp}">Khidirpur Factory, 1, Transport depot Rd, Goragacha Rood, Kolkata - 700110</td>
+            <td colspan="6" style="font-size:12px;border:${b};${cp}">${locationOfWork}</td>
           </tr>
           <tr>
             <td style="background:${C.infoLabelBg};color:${C.infoLabelColor};font-weight:700;border:${b};${cp}" colspan="2">Name:</td>
@@ -412,6 +421,7 @@ export default function EmployeeDashboard() {
             <td style="background:${C.dedLabelBg};color:${C.dedLabelColor};font-weight:600;border:${b};${cp}" colspan="2">PF @12%</td>
             <td style="text-align:right;font-weight:700;color:${C.dedValColor};border:${b};${cp}">${pfDed}</td>
           </tr>
+          ${hraRows}
           <tr>
             <td style="background:${C.attLabelBg};border:${b};${cp}"></td>
             <td style="border:${b};${cp}"></td>

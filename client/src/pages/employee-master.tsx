@@ -3,6 +3,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 import { Layout } from "@/components/layout";
 import { useClientNames } from "@/hooks/use-reports";
+import { usesLegacyHra } from "@shared/payroll-utils";
 import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -111,6 +112,7 @@ interface Employee {
   accountNo: string | null;
   ifscCode: string | null;
   dailyRate: string | null;
+  fixedHra: string | null;
   daAmount: string | null;
   gender: string | null;
   religion: string | null; // Naya addition
@@ -235,6 +237,7 @@ const emptyForm = {
   accountNo: "",
   ifscCode: "",
   dailyRate: "",
+  fixedHra: "",
   daAmount: "",
   gender: "Male",
   religion: "",
@@ -407,6 +410,7 @@ export default function EmployeeMaster() {
       accountNo: emp.accountNo || "",
       ifscCode: emp.ifscCode || "",
       dailyRate: emp.dailyRate || "",
+      fixedHra: emp.fixedHra || "",
       daAmount: emp.daAmount || "",
       gender: emp.gender || "Male",
       religion: emp.religion || "",
@@ -1143,8 +1147,14 @@ export default function EmployeeMaster() {
                   <Label htmlFor="dailyRate">Daily Rate</Label>
                   <Input id="dailyRate" value={form.dailyRate} onChange={e => setField("dailyRate", e.target.value)} inputMode="decimal" />
                 </div>
+                {usesLegacyHra(form.clientName, clients?.find(client => client.name === form.clientName)?.stateName) && (
+                  <div>
+                    <Label htmlFor="fixedHra">Fixed HRA (Monthly)</Label>
+                    <Input id="fixedHra" value={form.fixedHra} onChange={e => setField("fixedHra", e.target.value)} inputMode="decimal" placeholder="0" />
+                  </div>
+                )}
                 <div>
-                  <Label htmlFor="daAmount">DA Amount (Monthly)</Label>
+                  <Label htmlFor="daAmount">Daily DA Amount</Label>
                   <Input id="daAmount" value={form.daAmount} onChange={e => setField("daAmount", e.target.value)} inputMode="decimal" placeholder="0" />
                 </div>
                 <div>
