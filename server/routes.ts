@@ -1,6 +1,7 @@
 import type { Express, Request, Response, NextFunction } from "express";
 import type { Server } from "http";
 import { storage } from "./storage";
+import { usesLegacyHra } from "../shared/payroll-utils";
 import { pool, db } from "./db";
 import { api } from "@shared/routes";
 import { calculateProfessionalTax } from "@shared/professional-tax";
@@ -27,8 +28,11 @@ const webauthnAuthChallenges = new Map<number, string>();
 type SalaryRecordLike = {
   month: number;
   year: number;
+  clientName?: string | null;
   basicWage?: string | number | null;
   da?: string | number | null;
+  hra?: string | number | null;
+  otherAllowance?: string | number | null;
   overtimeHours?: string | number | null;
   overtimeAmount?: string | number | null;
   lwf?: string | number | null;
@@ -40,12 +44,16 @@ type SalaryRecordLike = {
 function recalculateSalaryRecord(
   record: SalaryRecordLike,
   overtime?: { hours: number; amount: number },
+  includeHra = false,
 ) {
   const overtimeHours = overtime?.hours ?? (Number(record.overtimeHours) || 0);
   const overtimeAmount = overtime?.amount ?? (Number(record.overtimeAmount) || 0);
   const basicWage = Number(record.basicWage) || 0;
   const da = Number(record.da) || 0;
-  const grossWage = Math.round((basicWage + da + overtimeAmount) * 100) / 100;
+  const fixedHra = includeHra ? Number(record.hra) || 0 : 0;
+  const hra5 = includeHra ? Number(record.otherAllowance) || 0 : 0;
+  const hra = fixedHra + hra5;
+  const grossWage = Math.round((basicWage + da + hra + overtimeAmount) * 100) / 100;
   const pfDeduction = Math.round(grossWage * 0.12 * 100) / 100;
   const esicDeduction = Math.round(grossWage * 0.0075 * 100) / 100;
   const professionalTax = calculateProfessionalTax(grossWage, record.month, record.year);
@@ -60,6 +68,8 @@ function recalculateSalaryRecord(
 
   return {
     ...record,
+    hra: String(fixedHra),
+    otherAllowance: String(hra5),
     overtimeHours: String(overtimeHours),
     overtimeAmount: String(overtimeAmount),
     grossWage: String(grossWage),
@@ -581,10 +591,12 @@ export async function registerRoutes(
       otHours += Number(ot.overtimeHours) || 0;
       otAmount += Number(ot.overtimeAmount) || 0;
     }
+    const salaryClientName = emp?.clientName || record.clientName || "";
+    const salaryClient = (await storage.getClientNames()).find(c => c.name === salaryClientName);
     const result = recalculateSalaryRecord(record, {
       hours: Math.round(otHours * 100) / 100,
       amount: Math.round(otAmount),
-    });
+    }, usesLegacyHra(salaryClientName, salaryClient?.stateName));
     res.json(result);
   });
 
@@ -1921,6 +1933,8 @@ export async function registerRoutes(
     const { month, year, months: monthsParam } = req.query;
     const clientName = effectiveClientName(req, req.query.clientName as string | undefined);
     if (!clientName || !year) return res.status(400).json({ message: "clientName, year required" });
+    const client = (await storage.getClientNames()).find(c => c.name === clientName);
+    const includeHra = usesLegacyHra(clientName, client?.stateName);
 
     const mergeOt = async (records: any[], m: number, y: number) => {
       const allOt = await storage.getOvertimeRecords(clientName as string);
@@ -1942,7 +1956,7 @@ export async function registerRoutes(
           otHrs = Math.round(otHrs * 100) / 100;
           otAmt = Math.round(otAmt);
         }
-        return recalculateSalaryRecord(rec, { hours: otHrs, amount: otAmt });
+        return recalculateSalaryRecord(rec, { hours: otHrs, amount: otAmt }, includeHra);
       });
     };
 
@@ -1963,7 +1977,8 @@ export async function registerRoutes(
   app.get("/api/salary/:id", requireAdmin, async (req, res) => {
     const record = await storage.getSalaryRecord(Number(req.params.id));
     if (!record) return res.status(404).json({ message: "Salary record not found" });
-    res.json(recalculateSalaryRecord(record));
+    const client = (await storage.getClientNames()).find(c => c.name === record.clientName);
+    res.json(recalculateSalaryRecord(record, undefined, usesLegacyHra(record.clientName, client?.stateName)));
   });
 
   app.post("/api/salary/generate", requireAdmin, async (req, res) => {

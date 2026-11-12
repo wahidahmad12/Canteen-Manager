@@ -1,6 +1,7 @@
 
 import { db, pool } from "./db";
 import { CONTRACTOR_MEALS } from "../shared/contractor-meals";
+import { usesLegacyHra } from "../shared/payroll-utils";
 import { 
   dailyReports, 
   expenseItems, 
@@ -2457,7 +2458,11 @@ export class DatabaseStorage implements IStorage {
       const dailyRate = skillRate ? Number(skillRate.dailyRate) : (Number(emp.dailyRate) || 0);
       const basicWage = daysWorked * dailyRate;
       const daAmount = Number(emp.daAmount) || 0;
-      const da = daAmount > 0 ? Math.round((daAmount / 26) * daysWorked * 100) / 100 : 0;
+      const da = Math.round(daysWorked * daAmount * 100) / 100;
+      const includeHra = usesLegacyHra(clientName, stateName);
+      const hra5 = includeHra ? Math.round(basicWage * 0.05 * 100) / 100 : 0;
+      const fixedHraAmount = includeHra ? Number(emp.fixedHra) || 0 : 0;
+      const fixedHra = Math.round((fixedHraAmount / 26) * daysWorked * 100) / 100;
       const empOtRecords = allOtRecords.filter(ot => {
         if (ot.employeeId !== emp.id) return false;
         const d = new Date(ot.date);
@@ -2473,7 +2478,7 @@ export class DatabaseStorage implements IStorage {
       overtimeHrs = Math.round(overtimeHrs * 100) / 100;
       const overtimeRate = Math.round((dailyRate * 1.05) / 4 * 100) / 100;
       const overtimeAmount = Math.round(overtimeAmountSum);
-      const grossWage = Math.round((basicWage + da + overtimeAmount) * 100) / 100;
+      const grossWage = Math.round((basicWage + da + hra5 + fixedHra + overtimeAmount) * 100) / 100;
       const pfDeduction = Math.round(grossWage * 0.12 * 100) / 100;
       const esicDeduction = Math.round(grossWage * 0.0075 * 100) / 100;
       const professionalTax = calculateProfessionalTax(grossWage, month, year);
@@ -2489,8 +2494,8 @@ export class DatabaseStorage implements IStorage {
         daysWorked: String(daysWorked),
         basicWage: String(basicWage),
         da: String(da),
-        hra: "0",
-        otherAllowance: "0",
+        hra: String(fixedHra),
+        otherAllowance: String(hra5),
         grossWage: String(grossWage),
         pfDeduction: String(pfDeduction),
         esicDeduction: String(esicDeduction),

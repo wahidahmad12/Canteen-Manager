@@ -4,7 +4,7 @@ import { useRef, useState } from "react";
 import { Loader2, Printer, ArrowLeft, Image, Share2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
-import { useCurrentUser } from "@/hooks/use-reports";
+import { useClientNames, useCurrentUser } from "@/hooks/use-reports";
 import logoPath from "@assets/logo1_1771660912341.png";
 import html2canvas from "html2canvas";
 
@@ -63,6 +63,8 @@ interface SalaryRecord {
   daysWorked: string;
   basicWage: string;
   da: string;
+  hra: string;
+  otherAllowance: string;
   grossWage: string;
   pfDeduction: string;
   esicDeduction: string;
@@ -124,6 +126,7 @@ export default function WageSlip() {
   const [captureTimestamp, setCaptureTimestamp] = useState<string | null>(null);
   const { toast } = useToast();
   const { data: currentUser } = useCurrentUser();
+  const { data: clients } = useClientNames();
 
   const { data: salary, isLoading: salaryLoading } = useQuery<SalaryRecord>({
     queryKey: ["/api/salary", id],
@@ -157,6 +160,7 @@ export default function WageSlip() {
 
   const employee = employees?.find((e) => e.id === salary?.employeeId);
   const attendance = attendanceList?.find((a) => a.employeeId === salary?.employeeId);
+  const locationOfWork = clients?.find((client) => client.name === salary?.clientName)?.address;
 
   // Current skill-based basic rate for this month/year (same source the Salary Register uses)
   const { data: skillRate } = useQuery<{ dailyRate: string } | null>({
@@ -196,6 +200,8 @@ export default function WageSlip() {
     ? Number(skillRate.dailyRate) || n(employee?.dailyRate)
     : n(employee?.dailyRate);
   const basic = n(salary.basicWage);
+  const hra5 = n(salary.otherAllowance);
+  const fixedHra = n(salary.hra);
   const dailyWage = n(salary.daysWorked) ? (basic + n(salary.da)) / n(salary.daysWorked) : basicRate;
   const otAllow = n(salary.overtimeAmount);
   const totalGross = n(salary.grossWage);
@@ -409,7 +415,7 @@ export default function WageSlip() {
                 </tr>
                 <tr>
                   <td style={{ background: C.infoLabelBg, color: C.infoLabelColor, fontWeight: 600 }} colSpan={2}>Location of work</td>
-                  <td colSpan={6} style={{ fontSize: "12px" }}>Khidirpur Factory, 1, Transport depot Rd, Goragacha Rood, Kolkata - 700110</td>
+                  <td colSpan={6} style={{ fontSize: "12px" }}>{locationOfWork || "-"}</td>
                 </tr>
                 <tr>
                   <td style={{ background: C.infoLabelBg, color: C.infoLabelColor, fontWeight: 700 }} colSpan={2}>Name:</td>
@@ -490,6 +496,24 @@ export default function WageSlip() {
                   <td style={{ background: C.dedLabelBg, color: C.dedLabelColor, fontWeight: 600 }} colSpan={2}>PF @12%</td>
                   <td style={{ textAlign: "right", fontWeight: 700, color: C.dedValColor }} data-testid="text-pf-ded">{pfDed}</td>
                 </tr>
+                {hra5 > 0 && (
+                  <tr>
+                    <td style={{ background: C.attLabelBg }}></td>
+                    <td></td>
+                    <td style={{ background: C.earnLabelBg, color: C.earnLabelColor, fontWeight: 600 }} colSpan={2}>HRA 5%</td>
+                    <td style={{ textAlign: "right", fontWeight: 700, color: C.earnValColor }}>{hra5}</td>
+                    <td colSpan={3}></td>
+                  </tr>
+                )}
+                {fixedHra > 0 && (
+                  <tr>
+                    <td style={{ background: C.attLabelBg }}></td>
+                    <td></td>
+                    <td style={{ background: C.earnLabelBg, color: C.earnLabelColor, fontWeight: 600 }} colSpan={2}>Fixed HRA</td>
+                    <td style={{ textAlign: "right", fontWeight: 700, color: C.earnValColor }}>{fixedHra}</td>
+                    <td colSpan={3}></td>
+                  </tr>
+                )}
                 <tr>
                   <td style={{ background: C.attLabelBg }}></td>
                   <td></td>
