@@ -4,6 +4,7 @@ import { Layout } from "@/components/layout";
 import { apiRequest } from "@/lib/queryClient";
 import { queryClient as qc } from "@/lib/queryClient";
 import { useClientNames } from "@/hooks/use-reports";
+import { djOfficeAddress } from "@shared/client-offices";
 import { useToast } from "@/hooks/use-toast";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -78,7 +79,7 @@ function useEmployees(clientName: string) {
   });
 }
 
-function FinesTab({ clientName, clientAddress, employees, empMap, filterMonth, filterYear }: { clientName: string; clientAddress: string; employees: any[]; empMap: Map<number, string>; filterMonth: string; filterYear: string }) {
+function FinesTab({ clientName, clientAddress, officeAddress, employees, empMap, filterMonth, filterYear }: { clientName: string; clientAddress: string; officeAddress: string; employees: any[]; empMap: Map<number, string>; filterMonth: string; filterYear: string }) {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [open, setOpen] = useState(false);
@@ -254,7 +255,7 @@ function FinesTab({ clientName, clientAddress, employees, empMap, filterMonth, f
         </tr>
         <tr>
           <td></td>
-          <td>7 Crimatorium Street, Kolkata- 700014</td>
+          <td>${officeAddress}</td>
           <td class="info-label">Under which contract is carried on</td>
           <td></td>
         </tr>
@@ -444,7 +445,7 @@ function FinesTab({ clientName, clientAddress, employees, empMap, filterMonth, f
   );
 }
 
-function AdvancesTab({ clientName, clientAddress, employees, empMap, filterMonth, filterYear }: { clientName: string; clientAddress: string; employees: any[]; empMap: Map<number, string>; filterMonth: string; filterYear: string }) {
+function AdvancesTab({ clientName, clientAddress, officeAddress, employees, empMap, filterMonth, filterYear }: { clientName: string; clientAddress: string; officeAddress: string; employees: any[]; empMap: Map<number, string>; filterMonth: string; filterYear: string }) {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [open, setOpen] = useState(false);
@@ -618,7 +619,7 @@ function AdvancesTab({ clientName, clientAddress, employees, empMap, filterMonth
         </tr>
         <tr>
           <td></td>
-          <td>7 Crimatorium Street, Kolkata- 700014</td>
+          <td>${officeAddress}</td>
           <td class="info-label">Under which contract is carried on</td>
           <td></td>
         </tr>
@@ -820,7 +821,7 @@ function AdvancesTab({ clientName, clientAddress, employees, empMap, filterMonth
   );
 }
 
-function OvertimeTab({ clientName, clientAddress, employees, empMap, filterMonth, filterYear }: { clientName: string; clientAddress: string; employees: any[]; empMap: Map<number, string>; filterMonth: string; filterYear: string }) {
+function OvertimeTab({ clientName, clientAddress, officeAddress, employees, empMap, filterMonth, filterYear }: { clientName: string; clientAddress: string; officeAddress: string; employees: any[]; empMap: Map<number, string>; filterMonth: string; filterYear: string }) {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [open, setOpen] = useState(false);
@@ -1098,7 +1099,7 @@ function OvertimeTab({ clientName, clientAddress, employees, empMap, filterMonth
       <table class="info-table">
         <tr>
           <td class="info-label" style="width:22%">Name and Address of the Contractor</td>
-          <td class="info-val" style="width:28%">DJ HOSPITALITY &amp; FACILITY MANAGEMENT PVT LTD<br/>7 Crimatorium Street, Kolkata- 700014</td>
+          <td class="info-val" style="width:28%">DJ HOSPITALITY &amp; FACILITY MANAGEMENT PVT LTD<br/>${officeAddress}</td>
           <td class="info-label" style="width:22%">Name and address of the establishment in /</td>
           <td class="info-val" style="width:28%">${clientName}${clientAddress ? '<br/>' + clientAddress : ''}</td>
         </tr>
@@ -1357,7 +1358,7 @@ function OvertimeTab({ clientName, clientAddress, employees, empMap, filterMonth
   );
 }
 
-function DamageTab({ clientName, clientAddress, employees, empMap, filterMonth, filterYear }: { clientName: string; clientAddress: string; employees: any[]; empMap: Map<number, string>; filterMonth: string; filterYear: string }) {
+function DamageTab({ clientName, clientAddress, officeAddress, employees, empMap, filterMonth, filterYear }: { clientName: string; clientAddress: string; officeAddress: string; employees: any[]; empMap: Map<number, string>; filterMonth: string; filterYear: string }) {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [open, setOpen] = useState(false);
@@ -1528,7 +1529,7 @@ function DamageTab({ clientName, clientAddress, employees, empMap, filterMonth, 
         </tr>
         <tr>
           <td></td>
-          <td>7 Crimatorium Street, Kolkata- 700014</td>
+          <td>${officeAddress}</td>
           <td class="info-label">Under which contract is carried on</td>
           <td></td>
         </tr>
@@ -1729,6 +1730,7 @@ export default function RegistersPage() {
     const c = clients?.find((cl: any) => cl.name === selectedClient);
     return c?.address || "";
   }, [clients, selectedClient]);
+  const officeAddress = djOfficeAddress(clients?.find(c => c.name === selectedClient)?.stateName);
 
   const { data: employees } = useEmployees(selectedClient);
 
@@ -1804,6 +1806,7 @@ export default function RegistersPage() {
           </div>
         </div>
 
+        {selectedClient && !officeAddress && <p className="text-sm text-red-600">Set a supported client state in Manage Clients to show the DJ office address.</p>}
         {!selectedClient ? (
           <Card>
             <CardContent className="py-16 text-center">
@@ -1832,16 +1835,16 @@ export default function RegistersPage() {
             </TabsList>
 
             <TabsContent value="fines">
-              <FinesTab clientName={selectedClient} clientAddress={clientAddress} employees={employees || []} empMap={empMap} filterMonth={filterMonth} filterYear={filterYear} />
+              <FinesTab clientName={selectedClient} clientAddress={clientAddress} officeAddress={officeAddress || ""} employees={employees || []} empMap={empMap} filterMonth={filterMonth} filterYear={filterYear} />
             </TabsContent>
             <TabsContent value="advances">
-              <AdvancesTab clientName={selectedClient} clientAddress={clientAddress} employees={employees || []} empMap={empMap} filterMonth={filterMonth} filterYear={filterYear} />
+              <AdvancesTab clientName={selectedClient} clientAddress={clientAddress} officeAddress={officeAddress || ""} employees={employees || []} empMap={empMap} filterMonth={filterMonth} filterYear={filterYear} />
             </TabsContent>
             <TabsContent value="overtime">
-              <OvertimeTab clientName={selectedClient} clientAddress={clientAddress} employees={employees || []} empMap={empMap} filterMonth={filterMonth} filterYear={filterYear} />
+              <OvertimeTab clientName={selectedClient} clientAddress={clientAddress} officeAddress={officeAddress || ""} employees={employees || []} empMap={empMap} filterMonth={filterMonth} filterYear={filterYear} />
             </TabsContent>
             <TabsContent value="damage">
-              <DamageTab clientName={selectedClient} clientAddress={clientAddress} employees={employees || []} empMap={empMap} filterMonth={filterMonth} filterYear={filterYear} />
+              <DamageTab clientName={selectedClient} clientAddress={clientAddress} officeAddress={officeAddress || ""} employees={employees || []} empMap={empMap} filterMonth={filterMonth} filterYear={filterYear} />
             </TabsContent>
           </Tabs>
         )}

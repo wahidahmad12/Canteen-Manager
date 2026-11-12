@@ -12,7 +12,8 @@ import { Link } from 'wouter';
 import { apiRequest, queryClient } from '@/lib/queryClient';
 import { useToast } from '@/hooks/use-toast';
 import type { Employee } from '@shared/schema';
-import { LETTERHEAD_HTML, getCoverLetterPrintStyles } from '@/lib/letterhead';
+import { letterheadForOffice, getCoverLetterPrintStyles } from '@/lib/letterhead';
+import { djOfficeAddress } from '@shared/client-offices';
 
 interface SalaryRecord {
   id: number;
@@ -33,6 +34,7 @@ export default function HalfYearlyReturn() {
   const { data: clientNames = [] } = useClientNames();
   const { toast } = useToast();
   const [selectedClient, setSelectedClient] = useState('');
+  const officeAddress = djOfficeAddress(clientNames.find(c => c.name === selectedClient)?.stateName);
   const currentYear = new Date().getFullYear();
   const currentMonth = new Date().getMonth() + 1;
   const defaultHalf = currentMonth <= 6 ? 'H2' : 'H1';
@@ -310,6 +312,7 @@ export default function HalfYearlyReturn() {
   return (
     <Layout>
       <div className="space-y-4 max-w-7xl mx-auto px-2 sm:px-4 pb-8">
+        {selectedClient && !officeAddress && <p className="text-sm text-red-600">Set a supported client state in Manage Clients to show the DJ office address.</p>}
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div className="flex items-center gap-2 sm:gap-3 min-w-0">
             <Link href="/registers">
@@ -552,7 +555,7 @@ export default function HalfYearlyReturn() {
             </Card>
 
             <div id="hy-cover-print" className="hidden">
-              <div dangerouslySetInnerHTML={{ __html: LETTERHEAD_HTML }} />
+              <div dangerouslySetInnerHTML={{ __html: letterheadForOffice(officeAddress) }} />
               <div className="ref-line">
                 <span>Ref. {refNumber || '___________'}</span>
                 <span>Date: {fmtDate(letterDate)}</span>
@@ -570,7 +573,7 @@ export default function HalfYearlyReturn() {
               </div>
               <div style={{ marginBottom: '16px' }}>
                 <p>Dear Sir,</p>
-                <p>Please find enclosed the following return pertaining to our establishment, DJ Hospitality & Facility Management Pvt Ltd, 7 Crematorium Street, Kolkata – 700014</p>
+                <p>Please find enclosed the following return pertaining to our establishment, DJ Hospitality & Facility Management Pvt Ltd{officeAddress ? `, ${officeAddress}` : ''}</p>
                 <p style={{ marginTop: '10px', fontWeight: 'bold' }}>Form – FORM XXIV Rule 82(1)</p>
                 <p style={{ marginTop: '10px' }}>We kindly request you to acknowledge receipt of this submission.</p>
               </div>
@@ -596,12 +599,12 @@ export default function HalfYearlyReturn() {
                 <tbody>
                   <tr>
                     <td className="label">1. Name and Address of contractor</td>
-                    <td className="value">: M/s DJ HOSPITALITY & FACILITY MANAGEMENT PRIVATE LIMITED<br />Ward.60, PS - Beniapukur, Kolkata-700014</td>
+                    <td className="value">: M/s DJ HOSPITALITY & FACILITY MANAGEMENT PRIVATE LIMITED<br />{officeAddress || ''}</td>
                   </tr>
                   <tr className="spacer"><td colSpan={2}></td></tr>
                   <tr>
                     <td className="label">2. Name and Address of the establishment</td>
-                    <td className="value">: M/s DJ HOSPITALITY & FACILITY MANAGEMENT PRIVATE LIMITED<br />Ward.60, PS - Beniapukur, Kolkata-700014</td>
+                    <td className="value">: M/s DJ HOSPITALITY & FACILITY MANAGEMENT PRIVATE LIMITED<br />{officeAddress || ''}</td>
                   </tr>
                   <tr className="spacer"><td colSpan={2}></td></tr>
                   <tr>

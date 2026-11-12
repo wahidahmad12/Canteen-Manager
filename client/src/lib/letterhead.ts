@@ -79,6 +79,12 @@ export const LETTERHEAD_HTML = `
   <div class="lh-rule"></div>
 `;
 
+export function letterheadForOffice(address: string | null): string {
+  return LETTERHEAD_HTML
+    .replace('<p class="address">Regd. &amp; Head Office: 730, Tin Made, Sodiem Siolim, Mapusa Bardez, North Goa-403502, India</p>', address ? `<p class="address">${address}</p>` : "")
+    .replace('<p class="address">Branch Office: 7 Crematorium Street, Kolkata- 700014</p>', "");
+}
+
 export function getCoverLetterPrintStyles() {
   return `
     @page { size: A4 portrait; margin: 12mm 20mm 20mm 20mm; }

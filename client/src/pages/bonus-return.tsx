@@ -15,7 +15,8 @@ import { useClientNames } from '@/hooks/use-reports';
 import { useToast } from '@/hooks/use-toast';
 import { Link } from 'wouter';
 import type { Employee, BonusReturn } from '@shared/schema';
-import { LETTERHEAD_HTML, getCoverLetterPrintStyles } from '@/lib/letterhead';
+import { letterheadForOffice, getCoverLetterPrintStyles } from '@/lib/letterhead';
+import { djOfficeAddress } from '@shared/client-offices';
 
 interface SalaryRecord {
   id: number;
@@ -42,6 +43,7 @@ export default function BonusReturn() {
   const { toast } = useToast();
   const { data: clientNames = [] } = useClientNames();
   const [selectedClient, setSelectedClient] = useState('');
+  const officeAddress = djOfficeAddress(clientNames.find(c => c.name === selectedClient)?.stateName);
   const currentYear = new Date().getFullYear();
   const currentMonth = new Date().getMonth() + 1;
   const defaultFYStart = currentMonth >= 4 ? currentYear : currentYear - 1;
@@ -566,6 +568,7 @@ ${rows.map(r => `<tr><td>${r.month}</td><td class="c">${r.present || ''}</td><td
   return (
     <Layout>
       <div className="space-y-6">
+        {selectedClient && !officeAddress && <p className="no-print text-sm text-red-600">Set a supported client state in Manage Clients to show the DJ office address.</p>}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 no-print">
           <div className="flex items-center gap-2 sm:gap-3 min-w-0">
             <Link href="/">
@@ -750,7 +753,7 @@ ${rows.map(r => `<tr><td>${r.month}</td><td class="c">${r.present || ''}</td><td
                     </div>
                     <div className="text-sm text-slate-800 dark:text-slate-200 space-y-2">
                       <p>Dear Sir,</p>
-                      <p>Please find enclosed the following return pertaining to our establishment <span className="font-semibold">DJ Hospitality & Facility Management Pvt Ltd</span>, 7 Crematorium Street, Kolkata- 700014</p>
+                      <p>Please find enclosed the following return pertaining to our establishment <span className="font-semibold">DJ Hospitality & Facility Management Pvt Ltd</span>{officeAddress ? `, ${officeAddress}` : ''}</p>
                       <p className="font-semibold mt-2">Form - D Under the payment of Bonus Act.</p>
                     </div>
                     <div className="text-sm text-slate-800 dark:text-slate-200 mt-8 space-y-1">
@@ -866,7 +869,7 @@ ${rows.map(r => `<tr><td>${r.month}</td><td class="c">${r.present || ''}</td><td
                 </div>
 
                 <div id="bonus-cover-print" className="hidden">
-                  <div dangerouslySetInnerHTML={{ __html: LETTERHEAD_HTML }} />
+                  <div dangerouslySetInnerHTML={{ __html: letterheadForOffice(officeAddress) }} />
                   <div className="bonus-cover-body">
                   <div className="ref-line">
                     <span>Ref. {refNumber || '___________'}</span>
@@ -884,7 +887,7 @@ ${rows.map(r => `<tr><td>${r.month}</td><td class="c">${r.present || ''}</td><td
                   </div>
                   <div style={{ marginBottom: "16px" }}>
                     <p>Dear Sir,</p>
-                    <p>Please find enclosed the following return pertaining to our establishment <strong>DJ Hospitality & Facility Management Pvt Ltd</strong>, 7 Crematorium Street, Kolkata- 700014</p>
+                    <p>Please find enclosed the following return pertaining to our establishment <strong>DJ Hospitality & Facility Management Pvt Ltd</strong>{officeAddress ? `, ${officeAddress}` : ''}</p>
                     <p style={{ marginTop: "10px", fontWeight: "bold" }}>Form - D Under the Payment of Bonus Act.</p>
                   </div>
                   <div style={{ marginTop: "50px" }}>
@@ -902,7 +905,7 @@ ${rows.map(r => `<tr><td>${r.month}</td><td class="c">${r.present || ''}</td><td
                     <div style={{ fontSize: "12px", fontWeight: "bold", color: "#1a237e" }}>FORM C</div>
                     <div style={{ fontSize: "8px" }}>[See rule 4 (c)]</div>
                     <div style={{ fontSize: "8px", fontWeight: 600, marginTop: "1px" }}>BONUS PAID TO EMPLOYEES FOR THE ACCOUNTING YEAR ENDING ON THE {fyLabel}</div>
-                    <div style={{ fontSize: "8px", fontWeight: 600 }}>Name of the establishment: DJ Hospitality & Facility Management Pvt Ltd, 7 Crematorium Street, Kolkata-700014</div>
+                    <div style={{ fontSize: "8px", fontWeight: 600 }}>Name of the establishment: DJ Hospitality & Facility Management Pvt Ltd{officeAddress ? `, ${officeAddress}` : ''}</div>
                     <div style={{ fontSize: "8px" }}>Client: {selectedClient} | No. of working days: <u>{workingDays || '____'}</u></div>
                   </div>
                   <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "7px", fontFamily: "Arial, sans-serif" }}><colgroup>{[3,10,10,3.5,8,3.5,6,6,3.2,3.2,3.2,3.2,3.2,6,6,7,13].map((w, i) => <col key={i} style={{ width: `${w}%` }} />)}</colgroup>
@@ -1055,7 +1058,7 @@ ${rows.map(r => `<tr><td>${r.month}</td><td class="c">${r.present || ''}</td><td
                         <p className="text-sm font-semibold">ENDING ON THE 31st March, {fyEnd}</p>
                       </div>
                       <div className="space-y-2 text-sm mb-6">
-                        <p><span className="font-semibold">1. Name of the establishment and its complete postal address:</span> {formDEmployerName}, 7 Crematorium Street, Kolkata - 700014 (Client: {selectedClient})</p>
+                        <p><span className="font-semibold">1. Name of the establishment and its complete postal address:</span> {formDEmployerName}{officeAddress ? `, ${officeAddress}` : ''} (Client: {selectedClient})</p>
                         <p><span className="font-semibold">2. Nature of industry:</span> {formDNatureOfIndustry}</p>
                         <p><span className="font-semibold">3. Name of the employer:</span> {formDEmployerName}</p>
                         <p><span className="font-semibold">4. Total number of employees:</span> {bonusRows.length}</p>
@@ -1124,7 +1127,7 @@ ${rows.map(r => `<tr><td>${r.month}</td><td class="c">${r.present || ''}</td><td
                     <p style={{ fontWeight: 600, fontSize: "12px" }}>ENDING ON THE 31st March, {fyEnd}</p>
                   </div>
                   <div style={{ fontFamily: "Georgia, 'Times New Roman', serif", fontSize: "12px", marginBottom: "16px", lineHeight: "1.8" }}>
-                    <p><b>1. Name of the establishment and its complete postal address:</b> {formDEmployerName}, 7 Crematorium Street, Kolkata - 700014 (Client: {selectedClient})</p>
+                    <p><b>1. Name of the establishment and its complete postal address:</b> {formDEmployerName}{officeAddress ? `, ${officeAddress}` : ''} (Client: {selectedClient})</p>
                     <p><b>2. Nature of industry:</b> {formDNatureOfIndustry}</p>
                     <p><b>3. Name of the employer:</b> {formDEmployerName}</p>
                     <p><b>4. Total number of employees:</b> {bonusRows.length}</p>

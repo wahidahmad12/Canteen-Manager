@@ -6,6 +6,8 @@ import { Label } from '@/components/ui/label';
 import { User, CalendarDays, LogOut, Download, Building2, Phone, MapPin, Briefcase, IdCard, Smartphone, X, Share, Info, AlertTriangle, AlertCircle, CheckCircle, Clock } from 'lucide-react';
 import { useClientNames, useCurrentUser, useLogout } from '@/hooks/use-reports';
 import { showDaOnWageSlip, usesLegacyHra } from "@shared/payroll-utils";
+import { djOfficeAddress } from "@shared/client-offices";
+import { useToast } from "@/hooks/use-toast";
 import { useState, useEffect, useRef } from 'react';
 import logoImg from '@assets/logo1_1771660912341.png';
 
@@ -109,6 +111,7 @@ function numberToWords(num: number): string {
 }
 
 export default function EmployeeDashboard() {
+  const { toast } = useToast();
   const { data: user } = useCurrentUser();
   const { data: clients } = useClientNames();
   const logoutMutation = useLogout();
@@ -269,6 +272,8 @@ export default function EmployeeDashboard() {
     const fixedHra = nv(salary.hra);
     const showHra = usesLegacyHra(salary.clientName, clients?.find(client => client.name === salary.clientName)?.stateName) || hra5 !== 0 || fixedHra !== 0;
     const showDa = showDaOnWageSlip(salary.clientName, clients?.find(client => client.name === salary.clientName)?.stateName);
+    const officeAddress = djOfficeAddress(clients?.find(client => client.name === salary.clientName)?.stateName);
+    if (!officeAddress) toast({ title: "Client state required", description: "Ask an administrator to set a supported client state for the DJ office address.", variant: "destructive" });
     const dailyWage = nv(salary.daysWorked) ? (basic + nv(salary.da)) / nv(salary.daysWorked) : basicRate;
     const otAllow = nv(salary.overtimeAmount);
     const totalGross = nv(salary.grossWage);
@@ -326,8 +331,7 @@ export default function EmployeeDashboard() {
                 <img src="${logoImg}" alt="DJ Logo" style="width:54px;height:54px;border-radius:8px;border:2px solid rgba(255,255,255,0.4);background:#fff;padding:2px;" />
                 <div>
                   <div style="font-size:17px;font-weight:800;letter-spacing:0.5px;text-shadow:1px 1px 2px rgba(0,0,0,0.3);">DJ HOSPITALITY &amp; FACILITY MANAGEMENT PVT LTD</div>
-                  <div style="font-size:10px;opacity:0.85;margin-top:2px;">Regd. &amp; Head Office: 730, Tin Made, Sodiem Siolim, Mapusa Bardez, North Goa-403502, India</div>
-                  <div style="font-size:10px;opacity:0.85;">Branch Office: 7 Crimatorium Street, Kolkata- 700014</div>
+                  <div style="font-size:10px;opacity:0.85;margin-top:2px;">${officeAddress || ""}</div>
                 </div>
               </div>
               <div style="margin-top:8px;font-size:15px;font-weight:700;letter-spacing:1px;background:rgba(255,255,255,0.15);display:inline-block;padding:3px 20px;border-radius:4px;">Form - XIX Wages Slip</div>

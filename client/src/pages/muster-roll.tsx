@@ -10,6 +10,7 @@ import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/hooks/use-toast";
 import { useClientNames } from "@/hooks/use-reports";
+import { djOfficeAddress } from "@shared/client-offices";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { Loader2, Download, Printer, Save, ClipboardList, Calendar, Users, FileSpreadsheet, Upload, ScanFace } from "lucide-react";
 import { PrintSettingsDialog } from "@/components/print-settings-dialog";
@@ -285,6 +286,8 @@ export default function MusterRoll() {
     if (selectedEmps.length === 0) return;
     const clientObj = clients?.find((c: any) => c.name === clientName);
     const clientAddr = clientObj?.address || "";
+    const officeAddress = djOfficeAddress(clientObj?.stateName);
+    if (!officeAddress) toast({ title: "Client state required", description: "Set a supported client state in Manage Clients to show the DJ office address.", variant: "destructive" });
     const printWin = window.open("", "_blank");
     if (!printWin) return;
 
@@ -337,7 +340,7 @@ export default function MusterRoll() {
         </tr>
         <tr>
           <td></td>
-          <td>7 Crimatorium Street, Kolkata- 700014</td>
+          <td>${officeAddress || ""}</td>
           <td class="info-label">Under which contract is carried on</td>
           <td></td>
         </tr>

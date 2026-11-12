@@ -4,6 +4,7 @@ import { insertDailyReportSchema, insertExpenseItemSchema, selectDailyReportSche
 import { eq } from "drizzle-orm";
 import { canteenSales } from "../shared/schema";
 import { vendorPaymentSchema } from "./vendor-payment";
+import { clientBranchesSchema } from "./client-offices";
 export const errorSchemas = {
   validation: z.object({
     message: z.string(),
@@ -402,7 +403,7 @@ export const api = {
     create: {
       method: 'POST' as const,
       path: '/api/clients' as const,
-      input: z.object({ name: z.string().min(1), address: z.string().optional(), gstNo: z.string().optional(), stateName: z.string().optional(), stateCode: z.string().optional(), clientCode: z.string().optional(), agreementValidTill: z.string().nullable().optional(), attendanceLat: z.number().nullable().optional(), attendanceLng: z.number().nullable().optional(), attendanceRadius: z.number().optional() }),
+      input: z.object({ name: z.string().min(1), address: z.string().optional(), gstNo: z.string().optional(), branches: clientBranchesSchema.optional(), stateName: z.string().optional(), stateCode: z.string().optional(), clientCode: z.string().optional(), agreementValidTill: z.string().nullable().optional(), attendanceLat: z.number().nullable().optional(), attendanceLng: z.number().nullable().optional(), attendanceRadius: z.number().optional() }),
       responses: {
         201: selectClientNameSchema,
         400: errorSchemas.validation,
@@ -411,7 +412,7 @@ export const api = {
     update: {
       method: 'PUT' as const,
       path: '/api/clients/:id' as const,
-      input: z.object({ name: z.string().min(1), address: z.string().optional(), gstNo: z.string().optional(), stateName: z.string().optional(), stateCode: z.string().optional(), clientCode: z.string().optional(), agreementValidTill: z.string().nullable().optional(), attendanceLat: z.number().nullable().optional(), attendanceLng: z.number().nullable().optional(), attendanceRadius: z.number().optional() }),
+      input: z.object({ name: z.string().min(1), address: z.string().optional(), gstNo: z.string().optional(), branches: clientBranchesSchema.optional(), stateName: z.string().optional(), stateCode: z.string().optional(), clientCode: z.string().optional(), agreementValidTill: z.string().nullable().optional(), attendanceLat: z.number().nullable().optional(), attendanceLng: z.number().nullable().optional(), attendanceRadius: z.number().optional() }),
       responses: {
         200: selectClientNameSchema,
         404: errorSchemas.notFound,

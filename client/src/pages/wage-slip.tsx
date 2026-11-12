@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
 import { useClientNames, useCurrentUser } from "@/hooks/use-reports";
 import { showDaOnWageSlip, usesLegacyHra } from "@shared/payroll-utils";
+import { djOfficeAddress } from "@shared/client-offices";
 import logoPath from "@assets/logo1_1771660912341.png";
 import html2canvas from "html2canvas";
 
@@ -205,6 +206,7 @@ export default function WageSlip() {
   const fixedHra = n(salary.hra);
   const showHra = usesLegacyHra(salary.clientName, clients?.find(client => client.name === salary.clientName)?.stateName) || hra5 !== 0 || fixedHra !== 0;
   const showDa = showDaOnWageSlip(salary.clientName, clients?.find(client => client.name === salary.clientName)?.stateName);
+  const officeAddress = djOfficeAddress(clients?.find(client => client.name === salary.clientName)?.stateName);
   const dailyWage = n(salary.daysWorked) ? (basic + n(salary.da)) / n(salary.daysWorked) : basicRate;
   const otAllow = n(salary.overtimeAmount);
   const totalGross = n(salary.grossWage);
@@ -384,6 +386,7 @@ export default function WageSlip() {
             </div>
           </div>
 
+          {!officeAddress && <p className="text-sm text-red-600">Set a supported client state in Manage Clients to show the DJ office address.</p>}
           <div ref={slipRef} className="wage-slip-container bg-white border-2 border-indigo-400 shadow-2xl rounded-xl overflow-hidden" style={{ backgroundColor: "#ffffff" }}>
             <table className="ws-table">
               <tbody>
@@ -393,8 +396,7 @@ export default function WageSlip() {
                       <img src={logoPath} alt="DJ Logo" style={{ width: "54px", height: "54px", borderRadius: "8px", border: "2px solid rgba(255,255,255,0.4)", background: "#fff", padding: "2px" }} />
                       <div>
                         <div style={{ fontSize: "17px", fontWeight: 800, letterSpacing: "0.5px", textShadow: "1px 1px 2px rgba(0,0,0,0.3)" }} data-testid="text-company-header">DJ HOSPITALITY & FACILITY MANAGEMENT PVT LTD</div>
-                        <div style={{ fontSize: "10px", opacity: 0.85, marginTop: "2px" }}>Regd. & Head Office: 730, Tin Made, Sodiem Siolim, Mapusa Bardez, North Goa-403502, India</div>
-                        <div style={{ fontSize: "10px", opacity: 0.85 }}>Branch Office: 7 Crimatorium Street, Kolkata- 700014</div>
+                        <div style={{ fontSize: "10px", opacity: 0.85, marginTop: "2px" }}>{officeAddress}</div>
                       </div>
                     </div>
                     <div style={{ marginTop: "8px", fontSize: "15px", fontWeight: 700, letterSpacing: "1px", background: "rgba(255,255,255,0.15)", display: "inline-block", padding: "3px 20px", borderRadius: "4px" }}>

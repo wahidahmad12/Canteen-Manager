@@ -2,6 +2,7 @@ import { mysqlTable, varchar, text, longtext, int, decimal, date, timestamp, boo
 import { createInsertSchema, createSelectSchema } from "drizzle-zod";
 import { z } from "zod";
 import { relations, sql } from "drizzle-orm";
+import type { ClientBranch } from "./client-offices";
 
 // === TABLE DEFINITIONS ===
 
@@ -172,6 +173,7 @@ export const clientNames = mysqlTable("client_names", {
   name: varchar("name", { length: 255 }).notNull().unique(),
   address: varchar("address", { length: 500 }).default(""),
   gstNo: varchar("gst_no", { length: 500 }).default(""),
+  branches: json("branches").$type<ClientBranch[]>(),
   stateName: varchar("state_name", { length: 100 }).default(""),
   stateCode: varchar("state_code", { length: 10 }).default(""),
   clientCode: varchar("client_code", { length: 100 }).default(""),
@@ -653,6 +655,9 @@ export const salesInvoices = mysqlTable("sales_invoices", {
   poId: int("po_id"),
   poIds: varchar("po_ids", { length: 255 }),
   clientName: text("client_name").notNull(),
+  branchName: varchar("branch_name", { length: 255 }),
+  branchAddress: text("branch_address"),
+  branchGstNo: varchar("branch_gst_no", { length: 500 }),
   billDate: text("bill_date").notNull(),
   billNumber: varchar("bill_number", { length: 100 }).notNull(),
   billAmount: decimal("bill_amount", { precision: 12, scale: 2 }).default("0").notNull(),

@@ -15,6 +15,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { useToast } from "@/hooks/use-toast";
 import { useClientNames, useCurrentUser } from "@/hooks/use-reports";
 import { showDaOnWageSlip, usesLegacyHra } from "@shared/payroll-utils";
+import { djOfficeAddress } from "@shared/client-offices";
 import { apiRequest, queryClient as qc } from "@/lib/queryClient";
 import html2canvas from "html2canvas";
 import JSZip from "jszip";
@@ -311,8 +312,7 @@ function buildSlipHTML(salary: SalaryRecord, employee: Employee | undefined, att
             <img src="${logoSrc}" crossorigin="anonymous" style="width:54px;height:54px;border-radius:8px;border:2px solid rgba(255,255,255,0.4);background:#fff;padding:2px;" />
             <div>
               <div style="font-size:17px;font-weight:800;letter-spacing:0.5px;text-shadow:1px 1px 2px rgba(0,0,0,0.3);">DJ HOSPITALITY &amp; FACILITY MANAGEMENT PVT LTD</div>
-              <div style="font-size:10px;opacity:0.85;margin-top:2px;">Regd. &amp; Head Office: 730, Tin Made, Sodiem Siolim, Mapusa Bardez, North Goa-403502, India</div>
-              <div style="font-size:10px;opacity:0.85;">Branch Office: 7 Crimatorium Street, Kolkata- 700014</div>
+              <div style="font-size:10px;opacity:0.85;margin-top:2px;">${esc(djOfficeAddress(stateName) || "")}</div>
             </div>
           </div>
           <div style="margin-top:8px;font-size:15px;font-weight:700;letter-spacing:1px;background:rgba(255,255,255,0.15);display:inline-block;padding:3px 20px;border-radius:4px;">Form - XIX Wages Slip</div>
@@ -554,6 +554,9 @@ export default function SalaryRegister() {
 
   const handleDownloadAllJpeg = useCallback(async () => {
     if (!salaries || salaries.length === 0 || !employees) return;
+    if (!djOfficeAddress(clients?.find(c => c.name === clientName)?.stateName)) {
+      toast({ title: "Client state required", description: "Set a supported client state in Manage Clients to show the DJ office address.", variant: "destructive" });
+    }
     setDownloading(true);
     toast({ title: "Generating JPEG files...", description: `Creating ${salaries.length} pay slips. Please wait.` });
 
@@ -618,7 +621,7 @@ export default function SalaryRegister() {
       document.body.removeChild(container);
       setDownloading(false);
     }
-  }, [salaries, employees, employeeMap, attendanceList, clients, toast, month, year, selectedClientState, skillRateMap]);
+  }, [salaries, employees, employeeMap, attendanceList, clients, clientName, toast, month, year, selectedClientState, skillRateMap]);
 
   const generateMutation = useMutation({
     mutationFn: async () => {
@@ -847,6 +850,8 @@ export default function SalaryRegister() {
     if (!salaries || salaries.length === 0 || rows.length === 0) return;
     const clientObj = clients?.find((c: any) => c.name === clientName);
     const clientAddr = clientObj?.address || "";
+    const officeAddress = djOfficeAddress(clientObj?.stateName);
+    if (!officeAddress) toast({ title: "Client state required", description: "Set a supported client state in Manage Clients to show the DJ office address.", variant: "destructive" });
     const printWin = window.open("", "_blank");
     if (!printWin) return;
 
@@ -953,7 +958,7 @@ export default function SalaryRegister() {
         </tr>
         <tr>
           <td></td>
-          <td>7 Crimatorium Street, Kolkata- 700014</td>
+          <td>${esc(officeAddress || "")}</td>
           <td class="info-label">Under which contract is carried on</td>
           <td></td>
         </tr>
@@ -1025,7 +1030,7 @@ export default function SalaryRegister() {
     </body></html>`);
     printWin.document.close();
     printWin.print();
-  }, [salaries, rows, clients, clientName, month, year, salaryPrintSelectedIds, showDA, showHRA]);
+  }, [salaries, rows, clients, clientName, month, year, salaryPrintSelectedIds, showDA, showHRA, toast]);
 
   const handleExportExcel = useCallback(async () => {
     if (!salaries || salaries.length === 0 || rows.length === 0) return;

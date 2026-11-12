@@ -25,6 +25,7 @@ import {
 import { Link } from "wouter";
 import { DateEntryTab } from "./date-entry-tab";
 import { TaxInvoiceTab } from "./tax-invoice-tab";
+import { branchGstNo, type ClientBranch } from "@shared/client-offices";
 import { OpenQuotationTab } from "@/components/open-quotation-tab";
 
 interface PurchaseOrderType {
@@ -46,6 +47,9 @@ interface SalesInvoice {
   poId: number | null;
   poIds?: string | null;
   clientName: string;
+  branchName?: string | null;
+  branchAddress?: string | null;
+  branchGstNo?: string | null;
   billDate: string;
   billNumber: string;
   billAmount: string;
@@ -129,6 +133,14 @@ function ViewInvoiceDialog({ invoice, onClose, poName, onEdit }: { invoice: Sale
             )}
           </div>
 
+          {(invoice.branchName || invoice.branchAddress || invoice.branchGstNo) && (
+            <div className="text-sm">
+              <p className="font-semibold">{invoice.branchName || "Regd. & Head Office"}</p>
+              <p>{invoice.branchAddress}</p>
+              {invoice.branchGstNo && <p>GST: {invoice.branchGstNo}</p>}
+            </div>
+          )}
+
           <div className="bg-slate-50 dark:bg-slate-900/40 rounded-xl p-3 space-y-2">
             <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wide">Bill Breakdown</p>
             <div className="space-y-1.5 text-sm">
@@ -203,6 +215,8 @@ function InvoiceFormDialog({ invoice, onClose, clients, purchaseOrders, allInvoi
   const isEdit = !!invoice;
 
   const [clientName, setClientName] = useState(invoice?.clientName || "");
+  const [officeChoice, setOfficeChoice] = useState("");
+  const [officeSnapshot, setOfficeSnapshot] = useState({ branchName: invoice?.branchName || null, branchAddress: invoice?.branchAddress || null, branchGstNo: invoice?.branchGstNo || null });
   const [billDate, setBillDate] = useState<Date>(invoice?.billDate ? new Date(invoice.billDate) : new Date());
   const [billNumber, setBillNumber] = useState(invoice?.billNumber || "");
   const [billNumberAuto, setBillNumberAuto] = useState(false);
@@ -344,6 +358,7 @@ function InvoiceFormDialog({ invoice, onClose, clients, purchaseOrders, allInvoi
     }
     const payload = {
       clientName,
+      ...officeSnapshot,
       billDate: format(billDate, "yyyy-MM-dd"),
       billNumber: billNumber.trim(),
       billAmount,
@@ -375,7 +390,7 @@ function InvoiceFormDialog({ invoice, onClose, clients, purchaseOrders, allInvoi
           <Label className="text-sm font-semibold text-indigo-700 dark:text-indigo-400 flex items-center gap-1.5">
             <Building2 className="w-3.5 h-3.5" /> Client Name
           </Label>
-          <Select value={clientName} onValueChange={setClientName} data-testid="select-sales-client">
+          <Select value={clientName} onValueChange={(name) => { setClientName(name); setOfficeChoice(""); setOfficeSnapshot({ branchName: null, branchAddress: null, branchGstNo: null }); }} data-testid="select-sales-client">
             <SelectTrigger className="h-10 border-indigo-200 dark:border-indigo-800" data-testid="select-sales-client-trigger">
               <SelectValue placeholder="Select client" />
             </SelectTrigger>
@@ -393,6 +408,29 @@ function InvoiceFormDialog({ invoice, onClose, clients, purchaseOrders, allInvoi
           <DatePicker date={billDate} setDate={(d) => d && setBillDate(d)} />
         </div>
       </div>
+
+      {clientName && (
+        <div className="space-y-1.5">
+          <Label>Client Office</Label>
+          <Select value={officeChoice} onValueChange={(id) => {
+            const client = clients.find((c: any) => c.name === clientName);
+            const branch: ClientBranch | undefined = client?.branches?.find((b: ClientBranch) => b.id === id);
+            setOfficeChoice(id);
+            setOfficeSnapshot({
+              branchName: branch?.name || null,
+              branchAddress: branch?.address || client?.address || null,
+              branchGstNo: (branch ? branchGstNo(branch, client?.gstNo) : client?.gstNo?.trim()) || null,
+            });
+          }}>
+            <SelectTrigger><SelectValue placeholder={officeSnapshot.branchName || (officeSnapshot.branchAddress ? "Saved office details" : "Choose an office (optional)")} /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="head">Regd. &amp; Head Office</SelectItem>
+              {clients.find((c: any) => c.name === clientName)?.branches?.map((b: { id: string; name: string }) => <SelectItem key={b.id} value={b.id}>{b.name}</SelectItem>)}
+            </SelectContent>
+          </Select>
+          {officeSnapshot.branchAddress && <p className="text-xs text-muted-foreground">{officeSnapshot.branchAddress}{officeSnapshot.branchGstNo ? ` · GST: ${officeSnapshot.branchGstNo}` : ""}</p>}
+        </div>
+      )}
 
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <div className="space-y-1.5">

@@ -663,7 +663,7 @@ export function useClientNames() {
     queryFn: async () => {
       const res = await fetch(api.clients.list.path, { credentials: "include" });
       if (!res.ok) throw new Error("Failed to fetch clients");
-      return res.json() as Promise<{ id: number; name: string; address?: string; gstNo?: string; stateName?: string; agreementValidTill?: string | null }[]>;
+      return res.json() as Promise<{ id: number; name: string; address?: string; gstNo?: string; branches?: import("@shared/client-offices").ClientBranch[] | null; stateName?: string; stateCode?: string; clientCode?: string; agreementValidTill?: string | null }[]>;
     },
   });
 }
@@ -693,12 +693,12 @@ export function useCreateClientName() {
 export function useUpdateClientName() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: async ({ id, name, address, gstNo, stateName, stateCode, clientCode, agreementValidTill, attendanceLat, attendanceLng, attendanceRadius }: { id: number; name: string; address?: string; gstNo?: string; stateName?: string; stateCode?: string; clientCode?: string; agreementValidTill?: string | null; attendanceLat?: number | null; attendanceLng?: number | null; attendanceRadius?: number }) => {
+    mutationFn: async ({ id, name, address, gstNo, branches, stateName, stateCode, clientCode, agreementValidTill, attendanceLat, attendanceLng, attendanceRadius }: { id: number; name: string; address?: string; gstNo?: string; branches?: import("@shared/client-offices").ClientBranch[]; stateName?: string; stateCode?: string; clientCode?: string; agreementValidTill?: string | null; attendanceLat?: number | null; attendanceLng?: number | null; attendanceRadius?: number }) => {
       const url = buildUrl(api.clients.update.path, { id });
       const res = await fetch(url, {
         method: api.clients.update.method,
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name, address, gstNo, stateName, stateCode, clientCode, agreementValidTill, attendanceLat, attendanceLng, attendanceRadius }),
+        body: JSON.stringify({ name, address, gstNo, branches, stateName, stateCode, clientCode, agreementValidTill, attendanceLat, attendanceLng, attendanceRadius }),
         credentials: "include",
       });
       if (!res.ok) throw new Error("Failed to update client");

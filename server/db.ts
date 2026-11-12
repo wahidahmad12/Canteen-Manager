@@ -490,6 +490,10 @@ async function initPool(): Promise<void> {
   for (const sql of migrations) {
     try { await pool.execute(sql); } catch (e: any) { console.log('[db] migration note:', e.message?.slice(0, 80)); }
   }
+  await pool.execute(`ALTER TABLE client_names ADD COLUMN IF NOT EXISTS branches JSON DEFAULT NULL`);
+  await pool.execute(`ALTER TABLE sales_invoices ADD COLUMN IF NOT EXISTS branch_name VARCHAR(255) NULL`);
+  await pool.execute(`ALTER TABLE sales_invoices ADD COLUMN IF NOT EXISTS branch_address TEXT NULL`);
+  await pool.execute(`ALTER TABLE sales_invoices ADD COLUMN IF NOT EXISTS branch_gst_no VARCHAR(500) NULL`);
 
   try {
     await pool.execute(`ALTER TABLE skill_wage_rates ADD COLUMN IF NOT EXISTS state_name VARCHAR(100) NOT NULL DEFAULT ''`);
