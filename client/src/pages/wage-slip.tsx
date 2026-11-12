@@ -5,6 +5,7 @@ import { Loader2, Printer, ArrowLeft, Image, Share2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
 import { useClientNames, useCurrentUser } from "@/hooks/use-reports";
+import { usesLegacyHra } from "@shared/payroll-utils";
 import logoPath from "@assets/logo1_1771660912341.png";
 import html2canvas from "html2canvas";
 
@@ -202,6 +203,7 @@ export default function WageSlip() {
   const basic = n(salary.basicWage);
   const hra5 = n(salary.otherAllowance);
   const fixedHra = n(salary.hra);
+  const showHra = usesLegacyHra(salary.clientName, clients?.find(client => client.name === salary.clientName)?.stateName) || hra5 !== 0 || fixedHra !== 0;
   const dailyWage = n(salary.daysWorked) ? (basic + n(salary.da)) / n(salary.daysWorked) : basicRate;
   const otAllow = n(salary.overtimeAmount);
   const totalGross = n(salary.grossWage);
@@ -496,7 +498,7 @@ export default function WageSlip() {
                   <td style={{ background: C.dedLabelBg, color: C.dedLabelColor, fontWeight: 600 }} colSpan={2}>PF @12%</td>
                   <td style={{ textAlign: "right", fontWeight: 700, color: C.dedValColor }} data-testid="text-pf-ded">{pfDed}</td>
                 </tr>
-                {hra5 > 0 && (
+                {showHra && (
                   <tr>
                     <td style={{ background: C.attLabelBg }}></td>
                     <td></td>
@@ -505,7 +507,7 @@ export default function WageSlip() {
                     <td colSpan={3}></td>
                   </tr>
                 )}
-                {fixedHra > 0 && (
+                {showHra && (
                   <tr>
                     <td style={{ background: C.attLabelBg }}></td>
                     <td></td>

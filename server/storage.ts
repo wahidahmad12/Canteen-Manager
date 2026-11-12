@@ -1,7 +1,7 @@
 
 import { db, pool } from "./db";
 import { CONTRACTOR_MEALS } from "../shared/contractor-meals";
-import { usesLegacyHra } from "../shared/payroll-utils";
+import { calculateLegacyHra, usesLegacyHra } from "../shared/payroll-utils";
 import { 
   dailyReports, 
   expenseItems, 
@@ -2460,9 +2460,9 @@ export class DatabaseStorage implements IStorage {
       const daAmount = Number(emp.daAmount) || 0;
       const da = Math.round(daysWorked * daAmount * 100) / 100;
       const includeHra = usesLegacyHra(clientName, stateName);
-      const hra5 = includeHra ? Math.round(basicWage * 0.05 * 100) / 100 : 0;
-      const fixedHraAmount = includeHra ? Number(emp.fixedHra) || 0 : 0;
-      const fixedHra = Math.round((fixedHraAmount / 26) * daysWorked * 100) / 100;
+      const { hra5, fixedHra } = includeHra
+        ? calculateLegacyHra(basicWage, Number(emp.fixedHra) || 0, daysWorked)
+        : { hra5: 0, fixedHra: 0 };
       const empOtRecords = allOtRecords.filter(ot => {
         if (ot.employeeId !== emp.id) return false;
         const d = new Date(ot.date);

@@ -5,6 +5,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Label } from '@/components/ui/label';
 import { User, CalendarDays, LogOut, Download, Building2, Phone, MapPin, Briefcase, IdCard, Smartphone, X, Share, Info, AlertTriangle, AlertCircle, CheckCircle, Clock } from 'lucide-react';
 import { useClientNames, useCurrentUser, useLogout } from '@/hooks/use-reports';
+import { usesLegacyHra } from "@shared/payroll-utils";
 import { useState, useEffect, useRef } from 'react';
 import logoImg from '@assets/logo1_1771660912341.png';
 
@@ -266,6 +267,7 @@ export default function EmployeeDashboard() {
     const basic = nv(salary.basicWage);
     const hra5 = nv(salary.otherAllowance);
     const fixedHra = nv(salary.hra);
+    const showHra = usesLegacyHra(salary.clientName, clients?.find(client => client.name === salary.clientName)?.stateName) || hra5 !== 0 || fixedHra !== 0;
     const dailyWage = nv(salary.daysWorked) ? (basic + nv(salary.da)) / nv(salary.daysWorked) : basicRate;
     const otAllow = nv(salary.overtimeAmount);
     const totalGross = nv(salary.grossWage);
@@ -308,7 +310,7 @@ export default function EmployeeDashboard() {
     };
     const b = "1px solid #90a4ae";
     const cp = "padding:5px 8px;";
-    const hraRows = `${hra5 > 0 ? `<tr><td style="background:${C.attLabelBg};border:${b};${cp}"></td><td style="border:${b};${cp}"></td><td style="background:${C.earnLabelBg};color:${C.earnLabelColor};font-weight:600;border:${b};${cp}" colspan="2">HRA 5%</td><td style="text-align:right;font-weight:700;color:${C.earnValColor};border:${b};${cp}">${hra5}</td><td colspan="3" style="border:${b};${cp}"></td></tr>` : ""}${fixedHra > 0 ? `<tr><td style="background:${C.attLabelBg};border:${b};${cp}"></td><td style="border:${b};${cp}"></td><td style="background:${C.earnLabelBg};color:${C.earnLabelColor};font-weight:600;border:${b};${cp}" colspan="2">Fixed HRA</td><td style="text-align:right;font-weight:700;color:${C.earnValColor};border:${b};${cp}">${fixedHra}</td><td colspan="3" style="border:${b};${cp}"></td></tr>` : ""}`;
+    const hraRows = showHra ? `<tr><td style="background:${C.attLabelBg};border:${b};${cp}"></td><td style="border:${b};${cp}"></td><td style="background:${C.earnLabelBg};color:${C.earnLabelColor};font-weight:600;border:${b};${cp}" colspan="2">HRA 5%</td><td style="text-align:right;font-weight:700;color:${C.earnValColor};border:${b};${cp}">${hra5}</td><td colspan="3" style="border:${b};${cp}"></td></tr><tr><td style="background:${C.attLabelBg};border:${b};${cp}"></td><td style="border:${b};${cp}"></td><td style="background:${C.earnLabelBg};color:${C.earnLabelColor};font-weight:600;border:${b};${cp}" colspan="2">Fixed HRA</td><td style="text-align:right;font-weight:700;color:${C.earnValColor};border:${b};${cp}">${fixedHra}</td><td colspan="3" style="border:${b};${cp}"></td></tr>` : "";
 
     const now = new Date();
     const genTs = now.toLocaleString("en-IN", { day: "2-digit", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit", second: "2-digit", hour12: true });
