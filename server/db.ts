@@ -492,6 +492,12 @@ async function initPool(): Promise<void> {
   }
 
   try {
+    await pool.execute(`ALTER TABLE skill_wage_rates ADD COLUMN IF NOT EXISTS state_name VARCHAR(100) NOT NULL DEFAULT ''`);
+  } catch (error) {
+    throw new Error("[db] Failed to migrate skill_wage_rates.state_name", { cause: error });
+  }
+
+  try {
     await pool.execute(`ALTER TABLE client_form_fields ADD COLUMN IF NOT EXISTS form_id INT NULL`);
     await pool.execute(`
       INSERT IGNORE INTO client_forms (client_id, name, sort_order)

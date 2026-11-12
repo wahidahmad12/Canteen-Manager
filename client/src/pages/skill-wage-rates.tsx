@@ -13,8 +13,11 @@ import { Link } from "wouter";
 import type { SkillWageRate } from "@shared/schema";
 import { SKILL_CATEGORIES } from "@shared/schema";
 import { useClientNames } from "@/hooks/use-reports";
+import { DEFAULT_WAGE_STATE, fetchSkillWageRates, initialWageState } from "@/lib/skill-wage-rates";
 
-const DEFAULT_STATE = "__default__";
+const DEFAULT_STATE = DEFAULT_WAGE_STATE;
+const EMPTY_RATES: SkillWageRate[] = [];
+const EMPTY_CLIENTS: { name: string; stateName?: string }[] = [];
 const INDIAN_STATES_AND_UTS = [
   "Andhra Pradesh", "Arunachal Pradesh", "Assam", "Bihar", "Chhattisgarh", "Goa", "Gujarat",
   "Haryana", "Himachal Pradesh", "Jharkhand", "Karnataka", "Kerala", "Madhya Pradesh",
@@ -38,12 +41,14 @@ export default function SkillWageRatesPage() {
   const [selectedYear, setSelectedYear] = useState(currentYear);
   const [selectedState, setSelectedState] = useState("");
   const [rates, setRates] = useState<Record<string, Record<number, string>>>({});
-  const { data: clients = [], isLoading: clientsLoading } = useClientNames();
+  const { data: clientData, isLoading: clientsLoading, isError: clientsError, refetch: refetchClients } = useClientNames();
+  const clients = clientData ?? EMPTY_CLIENTS;
 
-  const { data: existingRates = [], isLoading } = useQuery<SkillWageRate[]>({
+  const { data: rateData, isLoading, isError, error, refetch } = useQuery<SkillWageRate[]>({
     queryKey: ["/api/skill-wage-rates", selectedYear],
-    queryFn: () => fetch(`/api/skill-wage-rates?year=${selectedYear}`, { credentials: "include" }).then(r => r.json()),
+    queryFn: () => fetchSkillWageRates(selectedYear),
   });
+  const existingRates = rateData ?? EMPTY_RATES;
 
   const stateOptions = useMemo(() => {
     const savedStates = existingRates.map(rate => rate.stateName?.trim()).filter((state): state is string => !!state);
@@ -52,12 +57,10 @@ export default function SkillWageRatesPage() {
   }, [clients, existingRates]);
 
   useEffect(() => {
-    if (!selectedState && !clientsLoading && !isLoading) {
-      const firstClientState = clients.find(client => client.stateName?.trim())?.stateName?.trim();
-      const firstSavedState = existingRates.find(rate => rate.stateName?.trim())?.stateName?.trim();
-      setSelectedState(firstClientState || firstSavedState || DEFAULT_STATE);
+    if (!selectedState && !clientsLoading && !isLoading && !clientsError && !isError) {
+      setSelectedState(initialWageState(clients, existingRates));
     }
-  }, [clients, clientsLoading, existingRates, isLoading, selectedState]);
+  }, [clients, clientsLoading, clientsError, existingRates, isLoading, isError, selectedState]);
 
   useEffect(() => {
     const newRates: Record<string, Record<number, string>> = {};
@@ -173,15 +176,26 @@ export default function SkillWageRatesPage() {
                 {years.map(y => <SelectItem key={y} value={String(y)}>{y}</SelectItem>)}
               </SelectContent>
             </Select>
-            <Button onClick={() => saveMutation.mutate()} disabled={saveMutation.isPending || !selectedState} data-testid="button-save-all">
+            <Button onClick={() => saveMutation.mutate()} disabled={saveMutation.isPending || !selectedState || isLoading || isError || clientsError} data-testid="button-save-all">
               {saveMutation.isPending ? <Loader2 className="w-4 h-4 mr-1 animate-spin" /> : <Save className="w-4 h-4 mr-1" />}
               Save All
             </Button>
           </div>
         </div>
 
-        {isLoading ? (
+        {isLoading || clientsLoading ? (
           <div className="flex justify-center py-10"><Loader2 className="w-6 h-6 animate-spin text-muted-foreground" /></div>
+        ) : isError || clientsError ? (
+          <Card>
+            <CardContent className="p-4 space-y-3">
+              <p className="text-sm text-destructive" role="alert">
+                {isError ? (error instanceof Error ? error.message : "Could not load wage rates.") : "Could not load client states."}
+              </p>
+              <Button variant="outline" onClick={() => { if (isError) refetch(); if (clientsError) refetchClients(); }}>
+                Retry
+              </Button>
+            </CardContent>
+          </Card>
         ) : (
           <div className="space-y-4">
             <Card>
@@ -201,6 +215,12 @@ export default function SkillWageRatesPage() {
                 </p>
               </CardContent>
             </Card>
+            {selectedState !== DEFAULT_STATE && existingRates.some(rate => !rate.stateName?.trim()) && (
+              <p className="text-sm text-muted-foreground">
+                Existing rates without a state are under <button className="underline" onClick={() => setSelectedState(DEFAULT_STATE)}>Default / legacy rates</button>.
+                Blank state-specific fields use those default rates for salary calculations.
+              </p>
+            )}
             {SKILL_CATEGORIES.map(skill => (
               <Card key={skill}>
                 <CardHeader className="pb-2 pt-3">
