@@ -2458,9 +2458,6 @@ export class DatabaseStorage implements IStorage {
       const basicWage = daysWorked * dailyRate;
       const daAmount = Number(emp.daAmount) || 0;
       const da = daAmount > 0 ? Math.round((daAmount / 26) * daysWorked * 100) / 100 : 0;
-      const hra5 = Math.round(basicWage * 0.05 * 100) / 100;
-      const fixedHraAmount = Number(emp.fixedHra) || 0;
-      const fixedHra = fixedHraAmount > 0 ? Math.round((fixedHraAmount / 26) * daysWorked * 100) / 100 : 0;
       const empOtRecords = allOtRecords.filter(ot => {
         if (ot.employeeId !== emp.id) return false;
         const d = new Date(ot.date);
@@ -2476,9 +2473,9 @@ export class DatabaseStorage implements IStorage {
       overtimeHrs = Math.round(overtimeHrs * 100) / 100;
       const overtimeRate = Math.round((dailyRate * 1.05) / 4 * 100) / 100;
       const overtimeAmount = Math.round(overtimeAmountSum);
-      const grossWage = basicWage + hra5 + fixedHra + overtimeAmount + da;
-      const pfDeduction = Math.round(basicWage * 0.12 * 100) / 100;
-      const esicDeduction = grossWage <= 21000 ? Math.round(grossWage * 0.0075 * 100) / 100 : 0;
+      const grossWage = Math.round((basicWage + da + overtimeAmount) * 100) / 100;
+      const pfDeduction = Math.round(grossWage * 0.12 * 100) / 100;
+      const esicDeduction = Math.round(grossWage * 0.0075 * 100) / 100;
       const professionalTax = calculateProfessionalTax(grossWage, month, year);
       const lwf = (month === 6 || month === 12) ? 3 : 0;
       const totalDeduction = pfDeduction + esicDeduction + professionalTax + lwf;
@@ -2492,8 +2489,8 @@ export class DatabaseStorage implements IStorage {
         daysWorked: String(daysWorked),
         basicWage: String(basicWage),
         da: String(da),
-        hra: String(fixedHra),
-        otherAllowance: String(hra5),
+        hra: "0",
+        otherAllowance: "0",
         grossWage: String(grossWage),
         pfDeduction: String(pfDeduction),
         esicDeduction: String(esicDeduction),
