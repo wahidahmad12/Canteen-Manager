@@ -38,7 +38,7 @@ export default function SkillWageRatesPage() {
   const [selectedYear, setSelectedYear] = useState(currentYear);
   const [selectedState, setSelectedState] = useState("");
   const [rates, setRates] = useState<Record<string, Record<number, string>>>({});
-  const { data: clients = [] } = useClientNames();
+  const { data: clients = [], isLoading: clientsLoading } = useClientNames();
 
   const { data: existingRates = [], isLoading } = useQuery<SkillWageRate[]>({
     queryKey: ["/api/skill-wage-rates", selectedYear],
@@ -52,12 +52,12 @@ export default function SkillWageRatesPage() {
   }, [clients, existingRates]);
 
   useEffect(() => {
-    if (!selectedState) {
+    if (!selectedState && !clientsLoading && !isLoading) {
       const firstClientState = clients.find(client => client.stateName?.trim())?.stateName?.trim();
       const firstSavedState = existingRates.find(rate => rate.stateName?.trim())?.stateName?.trim();
       setSelectedState(firstClientState || firstSavedState || DEFAULT_STATE);
     }
-  }, [clients, existingRates, selectedState]);
+  }, [clients, clientsLoading, existingRates, isLoading, selectedState]);
 
   useEffect(() => {
     const newRates: Record<string, Record<number, string>> = {};

@@ -568,7 +568,7 @@ export default function SalaryRegister() {
         const s = salaries[i];
         const emp = employeeMap.get(s.employeeId);
         const att = attendanceList?.find((a) => a.employeeId === s.employeeId);
-        const empSkill = emp?.skills || "";
+        const empSkill = (emp?.skills || "").trim();
         const stateRateKey = `${empSkill}_${month}_${year}_${selectedClientState.toLowerCase()}`;
         const sRate = skillRateMap.get(stateRateKey) ?? skillRateMap.get(`${empSkill}_${month}_${year}_`);
         const html = buildSlipHTML(s, emp, att, logoPath, sRate);
@@ -668,7 +668,8 @@ export default function SalaryRegister() {
       : n(s.daysWorked);
     const otHrs = n(s.overtimeHours);
     const skillCategory = (emp?.skills || "").trim();
-    const skillBasedRate = skillRateMap.get(`${skillCategory}_${month}_${year}`);
+    const skillBasedRate = skillRateMap.get(`${skillCategory}_${month}_${year}_${selectedClientState.toLowerCase()}`)
+      ?? skillRateMap.get(`${skillCategory}_${month}_${year}_`);
     const basicRate = skillBasedRate !== undefined ? skillBasedRate : n(emp?.dailyRate);
     const basicWage = n(s.basicWage);
     const hra5 = n(s.otherAllowance);
@@ -702,7 +703,7 @@ export default function SalaryRegister() {
       pfEmployer, esicEmployer, bonus, employerTotal,
       serviceCharge, afterService, gst, finalTotal,
     };
-  }, [employeeMap, attendanceList, skillRateMap, month, year]);
+  }, [employeeMap, attendanceList, skillRateMap, month, year, selectedClientState]);
 
   const { rows, totals, validSalaries } = useMemo(() => {
     if (!salaries || salaries.length === 0) return { rows: [] as ReturnType<typeof computeRow>[], totals: null, validSalaries: [] };
