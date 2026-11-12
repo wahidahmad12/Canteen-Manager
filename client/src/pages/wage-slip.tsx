@@ -5,7 +5,7 @@ import { Loader2, Printer, ArrowLeft, Image, Share2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
 import { useClientNames, useCurrentUser } from "@/hooks/use-reports";
-import { usesLegacyHra } from "@shared/payroll-utils";
+import { showDaOnWageSlip, usesLegacyHra } from "@shared/payroll-utils";
 import logoPath from "@assets/logo1_1771660912341.png";
 import html2canvas from "html2canvas";
 
@@ -204,6 +204,7 @@ export default function WageSlip() {
   const hra5 = n(salary.otherAllowance);
   const fixedHra = n(salary.hra);
   const showHra = usesLegacyHra(salary.clientName, clients?.find(client => client.name === salary.clientName)?.stateName) || hra5 !== 0 || fixedHra !== 0;
+  const showDa = showDaOnWageSlip(salary.clientName, clients?.find(client => client.name === salary.clientName)?.stateName);
   const dailyWage = n(salary.daysWorked) ? (basic + n(salary.da)) / n(salary.daysWorked) : basicRate;
   const otAllow = n(salary.overtimeAmount);
   const totalGross = n(salary.grossWage);
@@ -230,9 +231,7 @@ export default function WageSlip() {
   const extraWork = holidayWorkingCount;
   const leave = n(attendance?.totalAbsent);
   const holidays = hCount + holidayWorkingCount;
-  const paidDays = attendance
-    ? prsDays + holidays + holidayWorkingCount + halfDayCount
-    : n(salary.daysWorked);
+  const paidDays = n(salary.daysWorked);
 
   const formatDate = (d: string | undefined | null) => {
     if (!d) return "-";
@@ -493,8 +492,10 @@ export default function WageSlip() {
                 <tr>
                   <td style={{ background: C.attLabelBg, color: C.attLabelColor, fontWeight: 600 }}>Holiday Wrk</td>
                   <td style={{ textAlign: "right", fontWeight: 700, color: C.attValColor }}>{extraWork}</td>
-                  <td style={{ background: C.earnLabelBg, color: C.earnLabelColor, fontWeight: 600 }} colSpan={2}>DA</td>
-                  <td style={{ textAlign: "right", fontWeight: 700, color: C.earnValColor }}>{n(salary.da)}</td>
+                  {showDa ? <>
+                    <td style={{ background: C.earnLabelBg, color: C.earnLabelColor, fontWeight: 600 }} colSpan={2}>DA</td>
+                    <td style={{ textAlign: "right", fontWeight: 700, color: C.earnValColor }}>{n(salary.da)}</td>
+                  </> : <td colSpan={3}></td>}
                   <td style={{ background: C.dedLabelBg, color: C.dedLabelColor, fontWeight: 600 }} colSpan={2}>PF @12%</td>
                   <td style={{ textAlign: "right", fontWeight: 700, color: C.dedValColor }} data-testid="text-pf-ded">{pfDed}</td>
                 </tr>

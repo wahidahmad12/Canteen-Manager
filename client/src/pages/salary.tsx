@@ -14,7 +14,7 @@ import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
 import { useToast } from "@/hooks/use-toast";
 import { useClientNames, useCurrentUser } from "@/hooks/use-reports";
-import { usesLegacyHra } from "@shared/payroll-utils";
+import { showDaOnWageSlip, usesLegacyHra } from "@shared/payroll-utils";
 import { apiRequest, queryClient as qc } from "@/lib/queryClient";
 import html2canvas from "html2canvas";
 import JSZip from "jszip";
@@ -263,6 +263,7 @@ function buildSlipHTML(salary: SalaryRecord, employee: Employee | undefined, att
   const hra5 = n(salary.otherAllowance);
   const fixedHra = n(salary.hra);
   const showHra = usesLegacyHra(salary.clientName, stateName) || hra5 !== 0 || fixedHra !== 0;
+  const showDa = showDaOnWageSlip(salary.clientName, stateName);
   const dailyWage = n(salary.daysWorked) ? (basic + n(salary.da)) / n(salary.daysWorked) : basicRate;
   const totalGross = n(salary.grossWage);
   const pfDed = n(salary.pfDeduction);
@@ -286,9 +287,7 @@ function buildSlipHTML(salary: SalaryRecord, employee: Employee | undefined, att
   const halfDayWS = halfDayCount;
   const holidayWorkingWS = holidayWorkingCount;
   const holidays = hCount + holidayWorkingCount;
-  const paidDays = attendance
-    ? prsDays + holidays + holidayWorkingCount + halfDayCount
-    : n(salary.daysWorked);
+  const paidDays = n(salary.daysWorked);
 
   const C = {
     headerGrad: "linear-gradient(135deg, #1a237e 0%, #283593 30%, #3949ab 60%, #5c6bc0 100%)",
@@ -388,8 +387,8 @@ function buildSlipHTML(salary: SalaryRecord, employee: Employee | undefined, att
         <tr>
           <td style="background:${C.attLabelBg};color:${C.attLabelColor};font-weight:600;border:${b};${cp}">Holiday Wrk</td>
           <td style="text-align:right;font-weight:700;color:${C.attValColor};border:${b};${cp}">${holidayWorkingWS}</td>
-          <td style="background:${C.earnLabelBg};color:${C.earnLabelColor};font-weight:600;border:${b};${cp}" colspan="2">DA</td>
-          <td style="text-align:right;font-weight:700;color:${C.earnValColor};border:${b};${cp}">${n(salary.da)}</td>
+          ${showDa ? `<td style="background:${C.earnLabelBg};color:${C.earnLabelColor};font-weight:600;border:${b};${cp}" colspan="2">DA</td>
+          <td style="text-align:right;font-weight:700;color:${C.earnValColor};border:${b};${cp}">${n(salary.da)}</td>` : `<td colspan="3" style="border:${b};${cp}"></td>`}
           <td style="background:${C.dedLabelBg};color:${C.dedLabelColor};font-weight:600;border:${b};${cp}" colspan="2">PF @12%</td>
           <td style="text-align:right;font-weight:700;color:${C.dedValColor};border:${b};${cp}">${pfDed}</td>
         </tr>
@@ -669,9 +668,7 @@ export default function SalaryRegister() {
     }
     let prsDays = rawPrsDays + holidayWorking;
     if (prsDays === 0) prsDays = n(att?.totalPresent) || n(s.daysWorked);
-    const paidDays = att
-      ? prsDays + (holidays + holidayWorking) + holidayWorking + halfDay
-      : n(s.daysWorked);
+    const paidDays = n(s.daysWorked);
     const otHrs = n(s.overtimeHours);
     const skillCategory = (emp?.skills || "").trim();
     const skillBasedRate = skillRateMap.get(`${skillCategory}_${month}_${year}_${selectedClientState.toLowerCase()}`)

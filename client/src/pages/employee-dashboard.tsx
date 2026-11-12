@@ -5,7 +5,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Label } from '@/components/ui/label';
 import { User, CalendarDays, LogOut, Download, Building2, Phone, MapPin, Briefcase, IdCard, Smartphone, X, Share, Info, AlertTriangle, AlertCircle, CheckCircle, Clock } from 'lucide-react';
 import { useClientNames, useCurrentUser, useLogout } from '@/hooks/use-reports';
-import { usesLegacyHra } from "@shared/payroll-utils";
+import { showDaOnWageSlip, usesLegacyHra } from "@shared/payroll-utils";
 import { useState, useEffect, useRef } from 'react';
 import logoImg from '@assets/logo1_1771660912341.png';
 
@@ -268,6 +268,7 @@ export default function EmployeeDashboard() {
     const hra5 = nv(salary.otherAllowance);
     const fixedHra = nv(salary.hra);
     const showHra = usesLegacyHra(salary.clientName, clients?.find(client => client.name === salary.clientName)?.stateName) || hra5 !== 0 || fixedHra !== 0;
+    const showDa = showDaOnWageSlip(salary.clientName, clients?.find(client => client.name === salary.clientName)?.stateName);
     const dailyWage = nv(salary.daysWorked) ? (basic + nv(salary.da)) / nv(salary.daysWorked) : basicRate;
     const otAllow = nv(salary.overtimeAmount);
     const totalGross = nv(salary.grossWage);
@@ -418,8 +419,8 @@ export default function EmployeeDashboard() {
           <tr>
             <td style="background:${C.attLabelBg};color:${C.attLabelColor};font-weight:600;border:${b};${cp}">Holiday Wrk</td>
             <td style="text-align:right;font-weight:700;color:${C.attValColor};border:${b};${cp}">${holidayWorkingCount}</td>
-            <td style="background:${C.earnLabelBg};color:${C.earnLabelColor};font-weight:600;border:${b};${cp}" colspan="2">DA</td>
-            <td style="text-align:right;font-weight:700;color:${C.earnValColor};border:${b};${cp}">${nv(salary.da)}</td>
+            ${showDa ? `<td style="background:${C.earnLabelBg};color:${C.earnLabelColor};font-weight:600;border:${b};${cp}" colspan="2">DA</td>
+            <td style="text-align:right;font-weight:700;color:${C.earnValColor};border:${b};${cp}">${nv(salary.da)}</td>` : `<td colspan="3" style="border:${b};${cp}"></td>`}
             <td style="background:${C.dedLabelBg};color:${C.dedLabelColor};font-weight:600;border:${b};${cp}" colspan="2">PF @12%</td>
             <td style="text-align:right;font-weight:700;color:${C.dedValColor};border:${b};${cp}">${pfDed}</td>
           </tr>
@@ -793,10 +794,12 @@ export default function EmployeeDashboard() {
                     <p className="font-bold text-slate-700 dark:text-slate-300" data-testid="text-basic-wage">{fmtAmt(salary.basicWage)}</p>
                     <p className="text-[10px] text-slate-500">Basic Wage</p>
                   </div>
-                  <div className="bg-slate-50 dark:bg-slate-800/40 rounded-lg p-2 text-center">
-                    <p className="font-bold text-slate-700 dark:text-slate-300" data-testid="text-da">{fmtAmt(salary.da)}</p>
-                    <p className="text-[10px] text-slate-500">DA</p>
-                  </div>
+                  {clients && showDaOnWageSlip(salary.clientName, clients.find(client => client.name === salary.clientName)?.stateName) && (
+                    <div className="bg-slate-50 dark:bg-slate-800/40 rounded-lg p-2 text-center">
+                      <p className="font-bold text-slate-700 dark:text-slate-300" data-testid="text-da">{fmtAmt(salary.da)}</p>
+                      <p className="text-[10px] text-slate-500">DA</p>
+                    </div>
+                  )}
                   <div className="bg-slate-50 dark:bg-slate-800/40 rounded-lg p-2 text-center">
                     <p className="font-bold text-slate-700 dark:text-slate-300">{salary.daysWorked} days</p>
                     <p className="text-[10px] text-slate-500">Days Worked</p>
