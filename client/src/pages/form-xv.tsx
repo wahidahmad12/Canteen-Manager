@@ -3,7 +3,9 @@ import { Button } from '@/components/ui/button';
 import { Printer, ArrowLeft } from 'lucide-react';
 import { Link, useParams } from 'wouter';
 import type { Employee } from '@shared/schema';
-import { LETTERHEAD_HTML, LETTERHEAD_CSS } from '@/lib/letterhead';
+import { letterheadForOffice, LETTERHEAD_CSS } from '@/lib/letterhead';
+import { useClientNames } from '@/hooks/use-reports';
+import { djOfficeAddress } from '@shared/client-offices';
 
 const fmtDate = (d: string | null | undefined): string => {
   if (!d) return "";
@@ -16,6 +18,7 @@ const fmtDate = (d: string | null | undefined): string => {
 export default function FormXV() {
   const params = useParams<{ id: string }>();
   const employeeId = Number(params.id);
+  const { data: clients } = useClientNames();
 
   const { data: employee, isLoading } = useQuery<Employee>({
     queryKey: ['/api/employees', employeeId],
@@ -45,6 +48,7 @@ export default function FormXV() {
 
   const age = employee.dob ? new Date().getFullYear() - new Date(employee.dob).getFullYear() : '';
   const dobDisplay = fmtDate(employee.dob);
+  const officeAddress = djOfficeAddress(clients?.find(c => c.name === employee.clientName)?.stateName);
 
   return (
     <div className="max-w-4xl mx-auto p-4 sm:p-8">
@@ -62,6 +66,7 @@ export default function FormXV() {
         </Button>
       </div>
 
+      {!officeAddress && <p className="print:hidden text-sm text-red-600">Set a supported client state in Manage Clients to show the DJ office address.</p>}
       <style>{`
         ${LETTERHEAD_CSS}
         @media print {
@@ -73,7 +78,7 @@ export default function FormXV() {
       `}</style>
 
       <div className="form-xv-print border-2 border-black bg-white text-black p-6 sm:p-10 print:border-0 print:p-0">
-        <div dangerouslySetInnerHTML={{ __html: LETTERHEAD_HTML }} />
+        <div dangerouslySetInnerHTML={{ __html: letterheadForOffice(officeAddress) }} />
         <div className="text-center mb-6 mt-4">
           <h2 className="text-lg font-bold uppercase tracking-wide" data-testid="text-form-title">FORM XV</h2>
           <p className="text-sm mt-1">(See Rule 77)</p>
@@ -85,7 +90,7 @@ export default function FormXV() {
             <div>
               <span className="font-semibold">Name and address of contractor:</span>
               <p className="mt-0.5">DJ Hospitality & Facility Management Pvt. Ltd.</p>
-              <p>70D, Tiljala Road, Kolkata - 700046</p>
+              <p>{officeAddress || ''}</p>
             </div>
             <div>
               <span className="font-semibold">Name and address of establishment in/under which contract is carried on:</span>

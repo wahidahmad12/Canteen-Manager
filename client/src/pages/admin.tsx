@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { clientBranchesSchema, type ClientBranch } from "@shared/client-offices";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 import { Layout } from "@/components/layout";
@@ -143,6 +144,7 @@ export default function Admin() {
   const [editingClientName, setEditingClientName] = useState("");
   const [editingClientAddress, setEditingClientAddress] = useState("");
   const [editingClientGst, setEditingClientGst] = useState("");
+  const [editingClientBranches, setEditingClientBranches] = useState<ClientBranch[]>([]);
   const [editingClientStateName, setEditingClientStateName] = useState("");
   const [editingClientStateCode, setEditingClientStateCode] = useState("");
   const [editingClientCode, setEditingClientCode] = useState("");
@@ -420,12 +422,18 @@ export default function Admin() {
 
   const handleUpdateClient = async (id: number) => {
     if (!editingClientName.trim()) return;
+    const parsedBranches = clientBranchesSchema.safeParse(editingClientBranches);
+    if (!parsedBranches.success) {
+      toast({ title: "Branch details required", description: "Enter a name and address for every branch.", variant: "destructive" });
+      return;
+    }
     try {
       await updateClientMutation.mutateAsync({
         id,
         name: editingClientName,
         address: editingClientAddress,
         gstNo: editingClientGst,
+        branches: parsedBranches.data,
         stateName: editingClientStateName,
         stateCode: editingClientStateCode.toUpperCase(),
         clientCode: editingClientCode.trim(),
@@ -446,6 +454,7 @@ export default function Admin() {
     setEditingClientName(client.name);
     setEditingClientAddress(client.address || "");
     setEditingClientGst(client.gstNo || "");
+    setEditingClientBranches(client.branches || []);
     setEditingClientStateName(client.stateName || "");
     setEditingClientStateCode(client.stateCode || "");
     setEditingClientCode(client.clientCode || "");
@@ -821,9 +830,10 @@ export default function Admin() {
           <CardContent className="p-4 sm:p-6 space-y-4">
             <div className="space-y-3 border border-teal-200 dark:border-teal-800 rounded-lg p-3">
               <div className="text-xs font-semibold text-teal-600 dark:text-teal-400">Add New Client</div>
+              <p className="text-xs text-muted-foreground">After adding the client, edit it to add branch offices.</p>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                 <Input placeholder="Client Name *" value={newClientName} onChange={(e) => setNewClientName(e.target.value)} className="border-teal-200 dark:border-teal-800" data-testid="input-new-client" />
-                <Input placeholder="GST No" value={newClientGst} onChange={(e) => setNewClientGst(e.target.value)} className="border-teal-200 dark:border-teal-800" data-testid="input-new-client-gst" />
+                <Input placeholder="Regd. & Head Office GST No" value={newClientGst} onChange={(e) => setNewClientGst(e.target.value)} className="border-teal-200 dark:border-teal-800" data-testid="input-new-client-gst" />
               </div>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                 <Input placeholder="State Name (e.g. West Bengal)" value={newClientStateName} onChange={(e) => setNewClientStateName(e.target.value)} className="border-teal-200 dark:border-teal-800" data-testid="input-new-client-state" />
@@ -831,7 +841,7 @@ export default function Admin() {
               </div>
               <Input placeholder="Client Code (used as Vendor Code in Tax Invoice)" value={newClientCode} onChange={(e) => setNewClientCode(e.target.value)} className="border-teal-200 dark:border-teal-800 font-mono" data-testid="input-new-client-code" />
               <div className="space-y-0.5">
-                <Label className="text-[10px] text-muted-foreground">Full Address <span className="text-violet-500">(Plot No., Street, Area, City, State — PIN)</span></Label>
+                <Label className="text-[10px] text-muted-foreground">Regd. &amp; Head Office Address <span className="text-violet-500">(Plot No., Street, Area, City, State — PIN)</span></Label>
                 <textarea value={newClientAddress} onChange={(e) => setNewClientAddress(e.target.value)} placeholder="e.g. Plot No.18, Block-D, Kalyani, Dist: Nadia, West Bengal — 741235" rows={2} className="w-full rounded-md border border-teal-200 dark:border-teal-800 bg-background px-3 py-1.5 text-sm shadow-sm placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-teal-400 resize-none" data-testid="input-new-client-address" />
               </div>
               <div className="flex gap-2 items-end">
@@ -858,7 +868,7 @@ export default function Admin() {
                       <div className="space-y-2">
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                           <Input value={editingClientName} onChange={(e) => setEditingClientName(e.target.value)} placeholder="Client Name *" className="border-teal-300" autoFocus data-testid={`input-edit-client-name-${client.id}`} />
-                          <Input value={editingClientGst} onChange={(e) => setEditingClientGst(e.target.value)} placeholder="GST No" className="border-teal-300" data-testid={`input-edit-client-gst-${client.id}`} />
+                          <Input value={editingClientGst} onChange={(e) => setEditingClientGst(e.target.value)} placeholder="Regd. & Head Office GST No" className="border-teal-300" data-testid={`input-edit-client-gst-${client.id}`} />
                         </div>
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                           <Input value={editingClientStateName} onChange={(e) => setEditingClientStateName(e.target.value)} placeholder="State Name" className="border-teal-300" data-testid={`input-edit-client-state-${client.id}`} />
@@ -866,8 +876,25 @@ export default function Admin() {
                         </div>
                         <Input value={editingClientCode} onChange={(e) => setEditingClientCode(e.target.value)} placeholder="Client Code (used as Vendor Code in Tax Invoice)" className="border-teal-300 font-mono" data-testid={`input-edit-client-code-${client.id}`} />
                         <div className="space-y-0.5">
-                          <Label className="text-[10px] text-muted-foreground">Full Address <span className="text-violet-500">(Plot No., Street, Area, City, State — PIN)</span></Label>
+                          <Label className="text-[10px] text-muted-foreground">Regd. &amp; Head Office Address <span className="text-violet-500">(Plot No., Street, Area, City, State — PIN)</span></Label>
                           <textarea value={editingClientAddress} onChange={(e) => setEditingClientAddress(e.target.value)} placeholder="e.g. Plot No.18, Block-D, Kalyani, Dist: Nadia, West Bengal — 741235" rows={2} className="w-full rounded-md border border-teal-300 bg-background px-3 py-1.5 text-sm shadow-sm placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-teal-400 resize-none" data-testid={`input-edit-client-address-${client.id}`} />
+                        </div>
+                        <div className="space-y-2 rounded-md border p-3">
+                          <div className="flex items-center justify-between">
+                            <Label>Branch Offices</Label>
+                            <Button type="button" size="sm" variant="outline" onClick={() => setEditingClientBranches(prev => [...prev, { id: crypto.randomUUID(), name: "", address: "", gstNo: "" }])}><Plus className="w-4 h-4 mr-1" /> Add branch</Button>
+                          </div>
+                          <p className="text-xs text-muted-foreground">Leave branch GST blank to use the head office GST. Save the client to keep changes.</p>
+                          {editingClientBranches.map((branch, index) => (
+                            <div key={branch.id} className="grid gap-2 rounded border p-2">
+                              <Input aria-label={`Branch ${index + 1} name`} placeholder="Branch name" value={branch.name} onChange={e => setEditingClientBranches(prev => prev.map(b => b.id === branch.id ? { ...b, name: e.target.value } : b))} />
+                              <Input aria-label={`Branch ${index + 1} address`} placeholder="Branch address" value={branch.address} onChange={e => setEditingClientBranches(prev => prev.map(b => b.id === branch.id ? { ...b, address: e.target.value } : b))} />
+                              <div className="flex gap-2">
+                                <Input aria-label={`Branch ${index + 1} GST`} placeholder="Branch GST No (optional)" value={branch.gstNo} onChange={e => setEditingClientBranches(prev => prev.map(b => b.id === branch.id ? { ...b, gstNo: e.target.value } : b))} />
+                                <Button type="button" variant="outline" onClick={() => setEditingClientBranches(prev => prev.filter(b => b.id !== branch.id))} aria-label={`Remove branch ${index + 1}`}><Trash2 className="w-4 h-4" /></Button>
+                              </div>
+                            </div>
+                          ))}
                         </div>
                         <div className="flex gap-2 items-end">
                           <div className="flex-1">
@@ -925,6 +952,11 @@ export default function Admin() {
                               </a>
                             </div>
                           )}
+                          {client.branches?.map((branch: ClientBranch) => (
+                            <div key={branch.id} className="text-xs text-muted-foreground mt-1">
+                              <span className="font-semibold">{branch.name}:</span> {branch.address} · GST: {branch.gstNo || client.gstNo || "Not set"}{!branch.gstNo && client.gstNo ? " (head office)" : ""}
+                            </div>
+                          ))}
                           <div className="flex flex-wrap gap-3 mt-1">
                             {client.stateName && <span className="text-xs text-muted-foreground">State: {client.stateName} {client.stateCode && <span className="font-mono font-bold text-teal-600">({client.stateCode})</span>}</span>}
                             {client.clientCode && <span className="text-xs text-muted-foreground">Client Code: <span className="font-mono font-bold text-violet-600">{client.clientCode}</span></span>}

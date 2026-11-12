@@ -2687,6 +2687,8 @@ export async function registerRoutes(
   app.post("/api/sales-invoices", requirePermission("salesinvoice"), async (req, res) => {
     try {
       const { clientName, billDate, billNumber, billAmount, gstPercent, gstAmount, totalBillAmount, tdsPercent, tdsAmount, paymentReceivedDate,       paymentReceivedAmount, utrNo, poId, poIds, bypassPO } = req.body;
+      const branchSnapshot = z.object({ branchName: z.string().max(255).nullable().optional(), branchAddress: z.string().nullable().optional(), branchGstNo: z.string().max(500).nullable().optional() }).safeParse(req.body);
+      if (!branchSnapshot.success) return res.status(400).json({ message: "Invalid branch details" });
       if (!clientName || !billDate || !billNumber) {
         return res.status(400).json({ message: "Client name, bill date, and bill number are required" });
       }
@@ -2724,6 +2726,7 @@ export async function registerRoutes(
       }
       const invoice = await storage.createSalesInvoice({
         clientName, billDate, billNumber,
+        ...branchSnapshot.data,
         billAmount: String(billAmount || 0),
         gstPercent: String(gstPercent || 0),
         gstAmount: String(gstAmount || 0),
@@ -2747,6 +2750,8 @@ export async function registerRoutes(
     try {
       const existing = await storage.getSalesInvoice(Number(req.params.id));
       if (!existing) return res.status(404).json({ message: "Sales invoice not found" });
+      const branchSnapshot = z.object({ branchName: z.string().max(255).nullable().optional(), branchAddress: z.string().nullable().optional(), branchGstNo: z.string().max(500).nullable().optional() }).safeParse(req.body);
+      if (!branchSnapshot.success) return res.status(400).json({ message: "Invalid branch details" });
       const { clientName, billDate, billNumber, billAmount, gstPercent, gstAmount, totalBillAmount, tdsPercent, tdsAmount, paymentReceivedDate,       paymentReceivedAmount, utrNo, poId, poIds, bypassPO } = req.body;
       if (billNumber !== undefined) {
         const allInvForDup = await storage.getSalesInvoices();
@@ -2790,6 +2795,7 @@ export async function registerRoutes(
         }
       }
       const invoice = await storage.updateSalesInvoice(Number(req.params.id), {
+        ...branchSnapshot.data,
         ...(clientName !== undefined && { clientName }),
         ...(billDate !== undefined && { billDate }),
         ...(billNumber !== undefined && { billNumber }),

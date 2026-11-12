@@ -4,6 +4,8 @@ import { Button } from '@/components/ui/button';
 import { Printer, ArrowLeft, CreditCard, FileText, Building2, Shield, Landmark, User } from 'lucide-react';
 import { Link, useParams } from 'wouter';
 import type { Employee } from '@shared/schema';
+import { useClientNames } from '@/hooks/use-reports';
+import { djOfficeAddress } from '@shared/client-offices';
 
 const fmtDate = (d: string | null | undefined): string => {
   if (!d) return "-";
@@ -16,6 +18,7 @@ const fmtDate = (d: string | null | undefined): string => {
 export default function FormXIV() {
   const params = useParams<{ id: string }>();
   const employeeId = Number(params.id);
+  const { data: clients } = useClientNames();
   const [viewMode, setViewMode] = useState<'form' | 'card'>('form');
 
   const { data: employee, isLoading } = useQuery<Employee>({
@@ -29,6 +32,7 @@ export default function FormXIV() {
   });
 
   if (isLoading) {
+    const officeAddress = djOfficeAddress(clients?.find(c => c.name === employee.clientName)?.stateName);
     return (
       <div className="min-h-screen flex items-center justify-center">
         <div className="animate-spin w-8 h-8 border-4 border-indigo-500 border-t-transparent rounded-full" />
@@ -81,8 +85,9 @@ export default function FormXIV() {
         </Button>
       </div>
 
+      {!officeAddress && <p className="print:hidden text-sm text-red-600">Set a supported client state in Manage Clients to show the DJ office address.</p>}
       {viewMode === 'form' ? (
-        <GovernmentFormView employee={employee} />
+        <GovernmentFormView employee={employee} officeAddress={officeAddress} />
       ) : (
         <DetailedCardView employee={employee} />
       )}
@@ -90,7 +95,7 @@ export default function FormXIV() {
   );
 }
 
-function GovernmentFormView({ employee }: { employee: Employee }) {
+function GovernmentFormView({ employee, officeAddress }: { employee: Employee; officeAddress: string | null }) {
   const tenure = (() => {
     const from = fmtDate(employee.joiningDate);
     const to = fmtDate(employee.leavingDate);
@@ -127,7 +132,7 @@ function GovernmentFormView({ employee }: { employee: Employee }) {
               <td className="border border-black px-3 py-1.5 font-semibold w-[45%] align-top">Name and address of contractor</td>
               <td className="border border-black px-3 py-1.5 align-top">
                 DJ Hospitality &amp; Facility Management Pvt. Ltd.<br />
-                70D, Tiljala Road, Kolkata – 700046
+                {officeAddress}
               </td>
             </tr>
             <tr>

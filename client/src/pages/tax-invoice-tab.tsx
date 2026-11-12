@@ -13,8 +13,9 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Checkbox } from "@/components/ui/checkbox";
 import logoPath from "@assets/logo1_1771660912341.png";
 import signaturePath from "@assets/DJ_Stamp_wahid_Sig_1785080823452.png";
+import { branchGstNo, type ClientBranch } from "@shared/client-offices";
 
-interface ClientOption { id: number; name: string; address?: string; gstNo?: string; stateCode?: string; clientCode?: string }
+interface ClientOption { id: number; name: string; address?: string; gstNo?: string; branches?: ClientBranch[] | null; stateCode?: string; clientCode?: string }
 
 interface ItemMasterOption {
   id: number;
@@ -389,6 +390,8 @@ export function TaxInvoiceTab({ clients }: { clients: ClientOption[] }) {
   const [billToAddress, setBillToAddress] = useState("");
   const [placeOfSupply, setPlaceOfSupply] = useState("");
   const [billToGstin, setBillToGstin] = useState("");
+  const [billBranch, setBillBranch] = useState("");
+  const [shipBranch, setShipBranch] = useState("");
   const [shipToName, setShipToName] = useState("");
   const [shipToAddress, setShipToAddress] = useState("");
   const [notes, setNotes] = useState("");
@@ -413,6 +416,7 @@ export function TaxInvoiceTab({ clients }: { clients: ClientOption[] }) {
     setInvoiceNumber(""); setInvoiceDate(""); setPoNumber(""); setPoDate(""); setVendorCode("");
     setBillToName(""); setBillToAddress(""); setPlaceOfSupply(""); setBillToGstin("");
     setShipToName(""); setShipToAddress(""); setNotes(""); setItems([emptyItem()]);
+    setBillBranch(""); setShipBranch("");
   }
 
   function openNew() {
@@ -423,6 +427,7 @@ export function TaxInvoiceTab({ clients }: { clients: ClientOption[] }) {
 
   function openEdit(inv: TaxInvoice) {
     setEditing(inv);
+    setBillBranch(""); setShipBranch("");
     setInvoiceNumber(inv.invoiceNumber);
     setInvoiceDate(toInputDate(inv.invoiceDate));
     setPoNumber(inv.poNumber || "");
@@ -441,6 +446,7 @@ export function TaxInvoiceTab({ clients }: { clients: ClientOption[] }) {
 
   async function openDuplicate(inv: TaxInvoice) {
     setEditing(null);
+    setBillBranch(""); setShipBranch("");
     setInvoiceNumber("");
     setInvoiceDate(toInputDate(inv.invoiceDate));
     setPoNumber(inv.poNumber || "");
@@ -477,6 +483,7 @@ export function TaxInvoiceTab({ clients }: { clients: ClientOption[] }) {
   function applyClient(name: string) {
     const c = clients.find(cl => cl.name === name);
     setBillToName(name);
+    setBillBranch("head");
     if (c) {
       setBillToAddress(c.address || "");
       setBillToGstin(c.gstNo || "");
@@ -495,7 +502,25 @@ export function TaxInvoiceTab({ clients }: { clients: ClientOption[] }) {
   function applyShipClient(name: string) {
     const c = clients.find(cl => cl.name === name);
     setShipToName(name);
+    setShipBranch("head");
     if (c) setShipToAddress(c.address || "");
+  }
+
+  function applyBillBranch(id: string) {
+    const client = clients.find(c => c.name === billToName);
+    if (!client) return;
+    const branch = client.branches?.find(b => b.id === id);
+    setBillBranch(id);
+    setBillToAddress(branch ? branch.address : client.address || "");
+    setBillToGstin(branch ? branchGstNo(branch, client.gstNo) : client.gstNo || "");
+  }
+
+  function applyShipBranch(id: string) {
+    const client = clients.find(c => c.name === shipToName);
+    if (!client) return;
+    const branch = client.branches?.find(b => b.id === id);
+    setShipBranch(id);
+    setShipToAddress(branch ? branch.address : client.address || "");
   }
 
   function updateItem(idx: number, field: keyof TaxInvoiceItem, value: string) {
@@ -549,6 +574,14 @@ export function TaxInvoiceTab({ clients }: { clients: ClientOption[] }) {
       const matchedPoList = splitList(poNumber).map(n => purchaseOrders.find(p => p.poNumber === n)).filter(Boolean) as typeof purchaseOrders;
       const matchedPo = matchedPoList[0];
       const matchedPoIds = matchedPoList.map(p => p.id).join(",");
+      const selectedClient = clients.find(c => c.name === billToName);
+      const selectedBranch = selectedClient?.branches?.find(b => b.id === billBranch)
+        || (billBranch !== "head" ? selectedClient?.branches?.find(b => b.address === billToAddress) : undefined);
+      const branchSnapshot = {
+        ...(selectedBranch ? { branchName: selectedBranch.name } : billBranch === "head" || !editing ? { branchName: null } : {}),
+        branchAddress: billToAddress || null,
+        branchGstNo: billToGstin || null,
+      };
 
       if (editing) {
         await apiRequest("PUT", `/api/tax-invoices/${editing.id}`, payload);
@@ -565,6 +598,7 @@ export function TaxInvoiceTab({ clients }: { clients: ClientOption[] }) {
               const tdsPct = Number(match.tdsPercent) || 0;
               const updatePayload = {
                 clientName: billToName.trim(),
+                ...branchSnapshot,
                 billDate: invoiceDate,
                 billNumber: invoiceNumber.trim(),
                 billAmount,
@@ -602,6 +636,7 @@ export function TaxInvoiceTab({ clients }: { clients: ClientOption[] }) {
       try {
         const salesPayload = {
           clientName: billToName.trim(),
+          ...branchSnapshot,
           billDate: invoiceDate,
           billNumber: invoiceNumber.trim(),
           billAmount,
@@ -1005,6 +1040,16 @@ export function TaxInvoiceTab({ clients }: { clients: ClientOption[] }) {
                   </Select>
                 </div>
                 <div>
+                  <Label>Bill To Office</Label>
+                  <Select value={billBranch} onValueChange={applyBillBranch}>
+                    <SelectTrigger><SelectValue placeholder="Choose an office (optional)" /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="head">Regd. &amp; Head Office</SelectItem>
+                      {clients.find(c => c.name === billToName)?.branches?.map(branch => <SelectItem key={branch.id} value={branch.id}>{branch.name}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div>
                   <Label>Name</Label>
                   <Input value={billToName} onChange={e => setBillToName(e.target.value)} data-testid="input-tax-bill-name" />
                 </div>
@@ -1029,6 +1074,16 @@ export function TaxInvoiceTab({ clients }: { clients: ClientOption[] }) {
                     <SelectTrigger data-testid="select-tax-ship-to"><SelectValue placeholder="Select client" /></SelectTrigger>
                     <SelectContent>
                       {clients.map(c => <SelectItem key={c.id} value={c.name}>{c.name}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <Label>Ship To Office</Label>
+                  <Select value={shipBranch} onValueChange={applyShipBranch}>
+                    <SelectTrigger><SelectValue placeholder="Choose an office (optional)" /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="head">Regd. &amp; Head Office</SelectItem>
+                      {clients.find(c => c.name === shipToName)?.branches?.map(branch => <SelectItem key={branch.id} value={branch.id}>{branch.name}</SelectItem>)}
                     </SelectContent>
                   </Select>
                 </div>

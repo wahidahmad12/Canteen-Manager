@@ -8,6 +8,7 @@ import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { Printer, Users, ArrowLeft, FileText, Building2, Briefcase, CreditCard, Download } from 'lucide-react';
 import { useClientNames } from '@/hooks/use-reports';
+import { djOfficeAddress } from '@shared/client-offices';
 import { Link } from 'wouter';
 import type { Employee } from '@shared/schema';
 import { PrintSettingsDialog } from '@/components/print-settings-dialog';
@@ -24,6 +25,7 @@ const fmtDate = (d: string | null | undefined): string => {
 export default function FormXIII() {
   const { data: clientNames = [] } = useClientNames();
   const [selectedClient, setSelectedClient] = useState('');
+  const officeAddress = djOfficeAddress(clientNames.find(c => c.name === selectedClient)?.stateName);
 
   const { data: employees = [], isLoading } = useQuery<Employee[]>({
     queryKey: ['/api/employees', selectedClient],
@@ -57,7 +59,7 @@ export default function FormXIII() {
       ["FORM XIII – Register of Workmen Employed by Contractor"],
       ["[See Rule 75 of Contract Labour (Regulation & Abolition) Central Rules, 1971]"],
       [`Name of Establishment: ${selectedClient}`],
-      ["Name of Contractor: DJ Hospitality & Facility Management Pvt. Ltd., 70D Tiljala Road, Kolkata – 700046"],
+      [`Name of Contractor: DJ Hospitality & Facility Management Pvt. Ltd.${officeAddress ? `, ${officeAddress}` : ''}`],
       [],
       [
         "S.No", "Name of Workman", "Father's / Husband's Name",
@@ -152,6 +154,7 @@ export default function FormXIII() {
   return (
     <Layout>
       <div className="space-y-6">
+        {selectedClient && !officeAddress && <p className="no-print text-sm text-red-600">Set a supported client state in Manage Clients to show the DJ office address.</p>}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 no-print">
           <div className="flex items-center gap-3">
             <Link href="/">
@@ -354,7 +357,7 @@ export default function FormXIII() {
                     <div style={{ fontSize: "11px" }}>Register of Workmen Employed by Contractor</div>
                     <div style={{ fontSize: "10px", color: "#666" }}>[See Rule 75]</div>
                     <div style={{ fontSize: "12px", fontWeight: 600, marginTop: "8px" }}>Name of the Establishment: {selectedClient}{(() => { const c = clientNames.find((cl: any) => cl.name === selectedClient); return c?.address ? `, ${c.address}` : ''; })()}</div>
-                    <div style={{ fontSize: "11px" }}>Name of the Contractor: DJ Hospitality & Facility Management Pvt Ltd</div>
+                    <div style={{ fontSize: "11px" }}>Name of the Contractor: DJ Hospitality & Facility Management Pvt Ltd{officeAddress ? `, ${officeAddress}` : ''}</div>
                   </div>
                   <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "9px", fontFamily: "Arial, sans-serif" }}>
                     <thead>

@@ -6,7 +6,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Printer, ArrowLeft } from 'lucide-react';
 import { Link } from 'wouter';
 import { useClientNames } from '@/hooks/use-reports';
-import { LETTERHEAD_HTML, LETTERHEAD_CSS } from '@/lib/letterhead';
+import { djOfficeAddress } from '@shared/client-offices';
+import { letterheadForOffice, LETTERHEAD_CSS } from '@/lib/letterhead';
 
 const fmtDate = (d: string | null | undefined): string => {
   if (!d) return "";
@@ -21,7 +22,8 @@ export default function FormVIA() {
   const [selectedClient, setSelectedClient] = useState('');
   const [formType, setFormType] = useState<'commencement' | 'completion'>('commencement');
   const [contractorName, setContractorName] = useState('DJ Hospitality & Facility Management Pvt. Ltd.');
-  const [contractorAddress, setContractorAddress] = useState('70D, Tiljala Road, Kolkata - 700046');
+  const [contractorAddress, setContractorAddress] = useState('');
+  const officeAddress = djOfficeAddress(clientNames.find(c => c.name === selectedClient)?.stateName);
   const [nameOfWork, setNameOfWork] = useState('Canteen Services');
   const [principalEmployer, setPrincipalEmployer] = useState('');
   const [principalAddress, setPrincipalAddress] = useState('');
@@ -37,9 +39,8 @@ export default function FormVIA() {
     setSelectedClient(val);
     setPrincipalEmployer(val);
     const client = (clientNames as any[]).find((c: any) => (c.name || c) === val);
-    if (client?.address) {
-      setPrincipalAddress(client.address);
-    }
+    setPrincipalAddress(client?.address || '');
+    setContractorAddress(djOfficeAddress(client?.stateName) || '');
   };
 
   return (
@@ -135,6 +136,7 @@ export default function FormVIA() {
         </div>
       </div>
 
+      {selectedClient && !officeAddress && <p className="print:hidden text-sm text-red-600">Set a supported client state in Manage Clients to show the DJ office address.</p>}
       <style>{`
         ${LETTERHEAD_CSS}
         @media print {
@@ -146,7 +148,7 @@ export default function FormVIA() {
       `}</style>
 
       <div className="form-via-print border-2 border-black bg-white text-black p-8 sm:p-12 print:border-0 print:p-0" style={{ fontFamily: 'serif', lineHeight: 1.8 }}>
-        <div dangerouslySetInnerHTML={{ __html: LETTERHEAD_HTML }} />
+        <div dangerouslySetInnerHTML={{ __html: letterheadForOffice(officeAddress) }} />
         <div className="text-center mb-10 mt-6">
           <h2 className="text-xl font-bold uppercase tracking-wide">FORM VI-A</h2>
           <p className="text-sm mt-1 italic">See Rule 25(2)(viii)</p>
