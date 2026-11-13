@@ -3,6 +3,7 @@ import { db, pool } from "./db";
 import { CONTRACTOR_MEALS } from "../shared/contractor-meals";
 import { calculateLegacyHra, usesLegacyHra } from "../shared/payroll-utils";
 import type { ClientBranch } from "../shared/client-offices";
+import { employeeRowToInsert, type EmployeeSpreadsheetRow } from "../shared/employee-spreadsheet";
 import { 
   dailyReports, 
   expenseItems, 
@@ -121,7 +122,7 @@ import {
   pankajReports,
 } from "@shared/schema";
 import { emptyVendorPayment, type VendorPayment } from "@shared/vendor-payment";
-import { eq, desc, lt, and, sql, gte, lte, or, asc } from "drizzle-orm";
+import { eq, desc, lt, and, sql, gte, lte, or, asc, inArray } from "drizzle-orm";
 import { bananaRateSqlCase } from "@shared/banana-rate";
 import { calculateProfessionalTax } from "@shared/professional-tax";
 import bcrypt from "bcryptjs";
@@ -219,6 +220,7 @@ export interface IStorage {
   getPurchaseItemStockYears(): Promise<number[]>;
   renumberDjInvoiceNos(): Promise<{ updated: number }>;
   getEmployees(clientName?: string): Promise<Employee[]>;
+  importEmployees(rows: EmployeeSpreadsheetRow[]): Promise<void>;
   getEmployee(id: number): Promise<Employee | undefined>;
   getEmployeePhoto(id: number): Promise<string | undefined>;
   createEmployee(data: any): Promise<Employee>;
@@ -2125,6 +2127,19 @@ export class DatabaseStorage implements IStorage {
       return await db.select().from(employees).where(eq(employees.clientName, clientName)).orderBy(employees.name);
     }
     return await db.select().from(employees).orderBy(employees.name);
+  }
+
+  async importEmployees(rows: EmployeeSpreadsheetRow[]): Promise<void> {
+    await db.transaction(async tx => {
+      const codes = rows.map(row => row.employeeCode.trim());
+      const existing = await tx.select({ employeeCode: employees.employeeCode })
+        .from(employees).where(inArray(employees.employeeCode, codes));
+      if (existing.length) throw new Error(`Employee code already exists: ${existing.map(emp => emp.employeeCode).join(", ")}`);
+      for (let offset = 0; offset < rows.length; offset += 250) {
+        const batch = rows.slice(offset, offset + 250).map(row => this.normalizeEmployeeData(employeeRowToInsert(row)));
+        await tx.insert(employees).values(batch);
+      }
+    });
   }
 
   async getEmployee(id: number): Promise<Employee | undefined> {

@@ -4,6 +4,8 @@ import { apiRequest } from "@/lib/queryClient";
 import { Layout } from "@/components/layout";
 import { useClientNames } from "@/hooks/use-reports";
 import { usesLegacyHra } from "@shared/payroll-utils";
+import { employeeColumns, type EmployeeSpreadsheetRow } from "@shared/employee-spreadsheet";
+import { employeeToSpreadsheetRow, readEmployeeWorksheet } from "@/lib/employee-spreadsheet";
 import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -277,6 +279,10 @@ export default function EmployeeMaster() {
   const photoLoadToken = useRef(0);
   const [photoLoading, setPhotoLoading] = useState(false);
   const [photoLoadFailed, setPhotoLoadFailed] = useState(false);
+  const [importRows, setImportRows] = useState<EmployeeSpreadsheetRow[] | null>(null);
+  const [importing, setImporting] = useState(false);
+  const [readingExcel, setReadingExcel] = useState(false);
+  const excelInputRef = useRef<HTMLInputElement>(null);
 
   const queryKey = filterClient && filterClient !== "all"
     ? ["/api/employees", filterClient]
@@ -514,6 +520,99 @@ export default function EmployeeMaster() {
 
   const clientNamesList = clients?.map((c: any) => typeof c === "string" ? c : c.name) || [];
 
+  const handleExportEmployees = async (template = false) => {
+    try {
+      const ExcelJS = (await import("exceljs")).default;
+      const workbook = new ExcelJS.Workbook();
+      const sheet = workbook.addWorksheet("Employees");
+      sheet.addRow(employeeColumns.map(([, label]) => label));
+      sheet.getRow(1).font = { bold: true };
+      sheet.views = [{ state: "frozen", ySplit: 1 }];
+      sheet.columns.forEach(column => { column.width = 22; column.numFmt = "@"; });
+      if (!template) {
+        for (const employee of filteredEmployees) {
+          const row = employeeToSpreadsheetRow({ ...employee });
+          sheet.addRow(employeeColumns.map(([field]) => row[field]));
+        }
+      }
+      const blob = new Blob([await workbook.xlsx.writeBuffer()], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = template ? "Employee_Master_Template.xlsx" : "Employee_Master.xlsx";
+      link.click();
+      URL.revokeObjectURL(url);
+    } catch (error) {
+      toast({ title: "Excel export failed", description: error instanceof Error ? error.message : "Could not create spreadsheet.", variant: "destructive" });
+    }
+  };
+
+  const handlePrintEmployees = () => {
+    const win = window.open("", "_blank");
+    if (!win) {
+      toast({ title: "Print window blocked", description: "Allow pop-ups and try again.", variant: "destructive" });
+      return;
+    }
+    const records = filteredEmployees.map(employee => {
+      const row = employeeToSpreadsheetRow({ ...employee });
+      return `<section><h2>${escapeHtml(row.employeeCode)} — ${escapeHtml(row.name)}</h2><dl>${employeeColumns.map(([field, label]) => `<div><dt>${escapeHtml(label)}</dt><dd>${escapeHtml(row[field]) || "—"}</dd></div>`).join("")}</dl></section>`;
+    }).join("");
+    win.document.write(`<html><head><title>Employee Master</title><style>
+      body{font-family:Arial,sans-serif;font-size:10pt} h1{font-size:16pt} h2{font-size:12pt;background:#eee;padding:6px}
+      section{break-inside:avoid;page-break-inside:avoid;margin-bottom:16px} dl{display:grid;grid-template-columns:1fr 1fr;gap:3px 14px}
+      dl div{display:grid;grid-template-columns:42% 58%;border-bottom:1px solid #ddd;padding:3px} dt{font-weight:bold} dd{margin:0;overflow-wrap:anywhere}
+      @page{size:A4;margin:12mm}
+      </style></head><body><h1>Employee Master</h1><p>${filteredEmployees.length} employees · Current filters applied</p>${records}</body></html>`);
+    win.document.close();
+    win.focus();
+    win.print();
+  };
+
+  const handleExcelFile = async (file: File | undefined) => {
+    if (!file) return;
+    setReadingExcel(true);
+    try {
+      const ExcelJS = (await import("exceljs")).default;
+      const workbook = new ExcelJS.Workbook();
+      await workbook.xlsx.load(await file.arrayBuffer());
+      const sheet = workbook.getWorksheet("Employees") || workbook.worksheets[0];
+      if (!sheet) throw new Error("The workbook has no worksheets.");
+      const rows = readEmployeeWorksheet(sheet);
+      const codes = new Set<string>();
+      for (const row of rows) {
+        const code = row.employeeCode.trim().toLowerCase();
+        if (codes.has(code)) throw new Error(`Duplicate employee code in file: ${row.employeeCode}. Nothing will be imported.`);
+        codes.add(code);
+      }
+      setImportRows(rows);
+    } catch (error) {
+      toast({ title: "Excel import failed", description: error instanceof Error ? error.message : "Could not read the spreadsheet.", variant: "destructive" });
+    } finally {
+      setReadingExcel(false);
+      if (excelInputRef.current) excelInputRef.current.value = "";
+    }
+  };
+
+  const handleConfirmImport = async () => {
+    if (!importRows) return;
+    setImporting(true);
+    try {
+      const res = await fetch("/api/employees/import", {
+        method: "POST", credentials: "include", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ employees: importRows }),
+      });
+      const result = await res.json();
+      if (!res.ok) throw new Error(result.message || "Import failed.");
+      await queryClient.invalidateQueries({ queryKey: ["/api/employees"] });
+      setImportRows(null);
+      toast({ title: "Import complete", description: `${result.imported} employees added.` });
+    } catch (error) {
+      toast({ title: "Import failed", description: error instanceof TypeError ? "Connection failed. Check the employee list before retrying; the import may have completed." : error instanceof Error ? error.message : "Check the employee list before retrying.", variant: "destructive" });
+    } finally {
+      setImporting(false);
+    }
+  };
+
   const handlePrintWeekOfReport = () => {
     const win = window.open("", "_blank", "width=1100,height=750");
     if (!win) return;
@@ -748,6 +847,11 @@ export default function EmployeeMaster() {
             <p className="text-muted-foreground text-xs sm:text-sm mt-1">Manage employee records</p>
           </div>
           <div className="flex flex-wrap gap-2">
+            <input ref={excelInputRef} type="file" accept=".xlsx" className="hidden" onChange={event => void handleExcelFile(event.target.files?.[0])} />
+            <Button variant="outline" onClick={handlePrintEmployees} disabled={!filteredEmployees.length || isLoading || isError}><Printer className="w-4 h-4 mr-2" /> Print Full Data</Button>
+            <Button variant="outline" onClick={() => void handleExportEmployees()} disabled={!filteredEmployees.length || isLoading || isError}><Download className="w-4 h-4 mr-2" /> Export Excel</Button>
+            <Button variant="outline" onClick={() => void handleExportEmployees(true)}>Excel Template</Button>
+            <Button variant="outline" disabled={readingExcel || importing} onClick={() => excelInputRef.current?.click()}>{readingExcel && <Loader2 className="w-4 h-4 mr-2 animate-spin" />} Import Excel</Button>
             <Button variant="outline" onClick={toggleFilteredSelection} disabled={!filteredEmployees.length}>
               {allFilteredSelected ? "Unselect visible" : "Select visible"}
             </Button>
@@ -773,6 +877,7 @@ export default function EmployeeMaster() {
           </div>
         </div>
 
+        <p className="text-xs text-muted-foreground">Print and export use the current filters and include sensitive employee details. Photos and biometrics are excluded. Imports add new employees only; use the Excel template, enter dates as YYYY-MM-DD and keep employee, bank and ID numbers as text.</p>
         <Card>
           <CardContent className="p-3 sm:p-4">
             <div className="flex flex-col sm:flex-row gap-3">
@@ -1314,6 +1419,18 @@ export default function EmployeeMaster() {
       </Dialog>
 
 
+      <AlertDialog open={!!importRows} onOpenChange={open => { if (!open && !importing) setImportRows(null); }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Import {importRows?.length} employees?</AlertDialogTitle>
+            <AlertDialogDescription>Only new employees will be added. If any employee code already exists, the entire import will be cancelled. No existing records will be changed.</AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={importing}>Cancel</AlertDialogCancel>
+            <Button onClick={() => void handleConfirmImport()} disabled={importing}>{importing ? "Importing..." : "Import employees"}</Button>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
       <AlertDialog open={confirmCloseOpen} onOpenChange={setConfirmCloseOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>
