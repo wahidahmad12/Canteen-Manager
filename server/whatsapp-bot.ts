@@ -1,8 +1,12 @@
 import type { Express, Request, Response } from "express";
-import type { WASocket } from "@whiskeysockets/baileys";
+import type { WAMessage, WASocket } from "@whiskeysockets/baileys";
+import { randomUUID } from "node:crypto";
+import { readFile, rename, writeFile } from "node:fs/promises";
+import { join } from "node:path";
 import pino from "pino";
 import QRCode from "qrcode";
 import { storage } from "./storage";
+import { isAllowedSlipMessage, isNewerMessage } from "./whatsapp-message-selection";
 
 const FIXED_ITEMS: { description: string; uom: string; defaultRate: number }[] = [
   { description: "Cup Dahi 85g", uom: "Kg", defaultRate: 15 },
@@ -56,7 +60,10 @@ export function parseNumber(v: unknown): number | null {
 
 export function normalizeDate(raw: string): string | null {
   const s = String(raw || "").trim();
-  if (/^\d{4}-\d{2}-\d{2}$/.test(s)) return s;
+  if (/^\d{4}-\d{2}-\d{2}$/.test(s)) {
+    const d = new Date(`${s}T00:00:00Z`);
+    return Number.isNaN(d.getTime()) || d.toISOString().slice(0, 10) !== s ? null : s;
+  }
   const m = s.match(/(\d{1,2})\s*[.\-/]\s*(\d{1,2})\s*[.\-/]\s*(\d{2,4})/);
   if (!m) return null;
   const year = m[3].length === 2 ? 2000 + Number(m[3]) : Number(m[3]);
@@ -173,9 +180,14 @@ function resolveItem(it: ExtractedItem, fallbackRate = 0) {
   return { qty: round2(qty), rate: round2(rate), amount: round2(amount) };
 }
 
-async function saveSlip(slip: ExtractedSlip) {
+class ReportExistsError extends Error {}
+
+async function saveSlip(slip: ExtractedSlip, allowReplace = true) {
   const date = normalizeDate(slip.date);
   if (!date) throw new Error(`Could not read a valid date from the slip (got "${slip.date}")`);
+
+  const existing = await storage.getReportByDate(date);
+  if (existing && !allowReplace) throw new ReportExistsError("A report already exists for this date. Confirm before replacing it.");
 
   const stored = await storage.getLatestFixedItemRates();
   const prevRates: Record<string, number> = {};
@@ -216,7 +228,6 @@ async function saveSlip(slip: ExtractedSlip) {
   const akbar = parseNumber(slip.akbarAmount);
   const openingBalance = akbar ?? (await storage.getPreviousDayBalance(date));
 
-  const existing = await storage.getReportByDate(date);
   const payload = { date, openingBalance, receivedAmount, giveByWahid, items };
   const report = existing
     ? await storage.updateReport(existing.id, payload)
@@ -242,6 +253,12 @@ function formatReply(r: Awaited<ReturnType<typeof saveSlip>>) {
 }
 
 export async function startWhatsAppBot(app: Express): Promise<void> {
+  let activeSocket: WASocket | undefined;
+  let latestImage: WAMessage | undefined;
+  let recordQueue = Promise.resolve();
+  const pending = new Map<string, { token: string; slip: ExtractedSlip; createdAt: number; saving: boolean }>();
+  const cachePath = join("whatsapp_auth_session", "latest-slip.bin");
+
   app.get("/api/whatsapp/qr", async (req: Request, res: Response) => {
     if (!req.session?.userId) return res.status(401).json({ message: "Not authenticated" });
     if (req.session.role !== "admin") return res.status(403).json({ message: "Admin access required" });
@@ -259,26 +276,121 @@ export async function startWhatsAppBot(app: Express): Promise<void> {
 <body style="font-family:sans-serif;text-align:center;padding:2rem">${body}</body></html>`);
   });
 
+  app.post("/api/whatsapp/fetch", async (req: Request, res: Response) => {
+    if (!req.session?.userId) return res.status(401).json({ message: "Not authenticated" });
+    if (req.session.role !== "admin") return res.status(403).json({ message: "Admin access required" });
+    if (!connected || !activeSocket) return res.status(503).json({ message: "WhatsApp is not connected." });
+    const allowed = process.env.WHATSAPP_REPORT_SENDER;
+    if (!allowed) return res.status(503).json({ message: "WHATSAPP_REPORT_SENDER is not configured." });
+    if (pending.get(req.sessionID)?.saving) return res.status(409).json({ message: "A slip is already being saved." });
+    try {
+      await recordQueue;
+      if (!latestImage || !isAllowedSlipMessage(latestImage, allowed)) {
+        return res.status(404).json({ message: "No slip is available in WhatsApp history. Please send the photo again." });
+      }
+      const { downloadMediaMessage, extractMessageContent } = await import("@whiskeysockets/baileys");
+      const image = extractMessageContent(latestImage.message)?.imageMessage;
+      if (!image) throw new Error("The saved WhatsApp message does not contain an image.");
+      const buffer = await downloadMediaMessage(latestImage, "buffer", {}, {
+        logger: pino({ level: "silent" }),
+        reuploadRequest: activeSocket.updateMediaMessage,
+      });
+      const slip = await extractSlip(buffer, image.mimetype || "image/jpeg");
+      const date = normalizeDate(slip.date);
+      if (!date) throw new Error("Could not read a valid date from the slip.");
+      const existing = await storage.getReportByDate(date);
+      const token = randomUUID();
+      pending.forEach((entry, sessionId) => {
+        if (!entry.saving && Date.now() - entry.createdAt > 10 * 60_000) pending.delete(sessionId);
+      });
+      pending.set(req.sessionID, { token, slip, createdAt: Date.now(), saving: false });
+      return res.json({ token, date, exists: !!existing });
+    } catch (error) {
+      console.error("[whatsapp] failed to fetch slip:", error);
+      return res.status(500).json({ message: error instanceof Error ? error.message : "Could not fetch the slip." });
+    }
+  });
+
+  app.post("/api/whatsapp/fetch/save", async (req: Request, res: Response) => {
+    if (!req.session?.userId) return res.status(401).json({ message: "Not authenticated" });
+    if (req.session.role !== "admin") return res.status(403).json({ message: "Admin access required" });
+    const entry = pending.get(req.sessionID);
+    if (!entry || entry.token !== req.body?.token || Date.now() - entry.createdAt > 10 * 60_000) {
+      return res.status(400).json({ message: "Slip preview expired. Fetch it again." });
+    }
+    if (entry.saving) return res.status(409).json({ message: "This slip is already being saved." });
+    entry.saving = true;
+    try {
+      const result = await saveSlip(entry.slip, req.body?.confirmReplace === true);
+      pending.delete(req.sessionID);
+      return res.json({ id: result.report.id, date: result.date, updated: result.updated });
+    } catch (error) {
+      if (error instanceof ReportExistsError) return res.status(409).json({ code: "REPORT_EXISTS", message: error.message });
+      console.error("[whatsapp] failed to save fetched slip:", error);
+      return res.status(500).json({ message: error instanceof Error ? error.message : "Could not save the slip." });
+    } finally {
+      entry.saving = false;
+    }
+  });
+
   // Baileys is ESM-only; keep this import dynamic in the production CommonJS bundle.
-  const { default: makeWASocket, useMultiFileAuthState, DisconnectReason, downloadMediaMessage, fetchLatestBaileysVersion } =
+  const { default: makeWASocket, useMultiFileAuthState, DisconnectReason, downloadMediaMessage, fetchLatestBaileysVersion, extractMessageContent, proto } =
     await import("@whiskeysockets/baileys");
   const logger = pino({ level: "silent" });
   const { state, saveCreds } = await useMultiFileAuthState("whatsapp_auth_session");
+  try {
+    const cached: { message: string; remoteJidAlt?: string } = JSON.parse(await readFile(cachePath, "utf8"));
+    const message = proto.WebMessageInfo.decode(Buffer.from(cached.message, "base64"));
+    if (!message.key?.remoteJid) throw new Error("Cached WhatsApp message has no sender.");
+    latestImage = { ...message, key: { ...message.key, remoteJidAlt: cached.remoteJidAlt } };
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code !== "ENOENT") console.error("[whatsapp] failed to read cached slip:", error);
+  }
   const { version } = await fetchLatestBaileysVersion().catch(() => ({ version: undefined as any }));
 
   const connect = () => {
     const sock: WASocket = makeWASocket({ auth: state, logger, ...(version ? { version } : {}) });
 
+    const isAllowed = async (msg: WAMessage, allowed: string) => {
+      if (msg.key.fromMe) return false;
+      if (!msg.key.remoteJidAlt && msg.key.remoteJid?.endsWith("@lid")) {
+        msg.key.remoteJidAlt = await sock.signalRepository.lidMapping.getPNForLID(msg.key.remoteJid) || undefined;
+      }
+      return isAllowedSlipMessage(msg, allowed);
+    };
+
+    const remember = (messages: WAMessage[]) => {
+      recordQueue = recordQueue.then(async () => {
+        const allowed = process.env.WHATSAPP_REPORT_SENDER;
+        if (!allowed) return;
+        if (latestImage && !isAllowedSlipMessage(latestImage, allowed)) latestImage = undefined;
+        for (const msg of messages) {
+          if (!extractMessageContent(msg.message)?.imageMessage || !await isAllowed(msg, allowed)) continue;
+          if (!isNewerMessage(msg, latestImage)) continue;
+          latestImage = msg;
+          const tempPath = `${cachePath}.tmp`;
+          await writeFile(tempPath, JSON.stringify({
+            message: Buffer.from(proto.WebMessageInfo.encode(msg).finish()).toString("base64"),
+            remoteJidAlt: msg.key.remoteJidAlt,
+          }));
+          await rename(tempPath, cachePath);
+        }
+      }).catch((error) => console.error("[whatsapp] failed to cache slip:", error));
+    };
+
     sock.ev.on("creds.update", saveCreds);
+    sock.ev.on("messaging-history.set", ({ messages }) => remember(messages));
 
     sock.ev.on("connection.update", ({ connection, lastDisconnect, qr }) => {
       if (qr) currentQr = qr;
       if (connection === "open") {
+        activeSocket = sock;
         connected = true;
         currentQr = null;
         console.log("[whatsapp] connected");
       } else if (connection === "close") {
         connected = false;
+        if (activeSocket === sock) activeSocket = undefined;
         const code = (lastDisconnect?.error as any)?.output?.statusCode;
         if (code === DisconnectReason.loggedOut) {
           console.log("[whatsapp] logged out; delete whatsapp_auth_session/ and restart to re-link");
@@ -289,15 +401,22 @@ export async function startWhatsAppBot(app: Express): Promise<void> {
     });
 
     sock.ev.on("messages.upsert", async ({ messages, type }) => {
+      remember(messages);
       if (type !== "notify") return;
       const allowed = process.env.WHATSAPP_REPORT_SENDER;
       if (!allowed) return;
       for (const msg of messages) {
         const jid = msg.key.remoteJid;
-        if (!jid || msg.key.fromMe || jid.endsWith("@g.us") || jid !== allowed) continue;
-        const image = msg.message?.imageMessage;
-        if (!image) continue;
+        if (!jid) continue;
         try {
+          if (!await isAllowed(msg, allowed)) continue;
+        } catch (error) {
+          console.error("[whatsapp] failed to verify sender:", error);
+          continue;
+        }
+        try {
+          const image = extractMessageContent(msg.message)?.imageMessage;
+          if (!image) continue;
           const buffer = (await downloadMediaMessage(msg, "buffer", {}, {
             logger,
             reuploadRequest: sock.updateMediaMessage,
