@@ -147,6 +147,8 @@ export interface IStorage {
   getReports(): Promise<ReportWithItems[]>;
   getReport(id: number): Promise<ReportWithItems | undefined>;
   getPreviousDayBalance(date: string): Promise<number>;
+  getReportByDate(date: string): Promise<ReportWithItems | undefined>;
+  getLatestFixedItemRates(): Promise<Record<string, number>>;
   createReport(report: CreateReportRequest): Promise<ReportWithItems>;
   updateReport(id: number, report: UpdateReportRequest): Promise<ReportWithItems>;
   deleteReport(id: number): Promise<void>;
@@ -443,6 +445,24 @@ export class DatabaseStorage implements IStorage {
       ...report[0],
       items: items.sort((a, b) => a.id - b.id), // Maintain insertion order roughly
     };
+  }
+
+  async getReportByDate(dateStr: string): Promise<ReportWithItems | undefined> {
+    const [report] = await db.select().from(dailyReports).where(eq(dailyReports.date, dateStr));
+    return report ? await this.getReport(report.id) : undefined;
+  }
+
+  async getLatestFixedItemRates(): Promise<Record<string, number>> {
+    const rows = await db.select({ description: expenseItems.description, rate: expenseItems.rate })
+      .from(expenseItems)
+      .where(eq(expenseItems.category, "fixed"))
+      .orderBy(desc(expenseItems.id))
+      .limit(500);
+    const rates: Record<string, number> = {};
+    for (const r of rows) {
+      if (!(r.description in rates) && Number(r.rate) > 0) rates[r.description] = Number(r.rate);
+    }
+    return rates;
   }
 
   async getPreviousDayBalance(dateStr: string): Promise<number> {
