@@ -106,7 +106,7 @@ Keep qty as written when it is a mixed fraction such as "2 1/2" (do not drop the
 
 async function extractWithGemini(image: Buffer, mime: string, key: string): Promise<ExtractedSlip> {
   const res = await fetch(
-    `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${key}`,
+    `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.8-flash:generateContent?key=${key}`,
     {
       method: "POST",
       headers: { "Content-Type": "application/json" },
