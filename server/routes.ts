@@ -22,6 +22,7 @@ import { generateRegistrationOptions, verifyRegistrationResponse, generateAuthen
 import { isoBase64URL, isoUint8Array } from '@simplewebauthn/server/helpers';
 import { eq, desc } from "drizzle-orm";
 import { registerEmployeeImportRoutes } from "./employee-import-routes";
+import { startWhatsAppBot } from "./whatsapp-bot";
 
 const webauthnRegChallenges = new Map<number, string>();
 const webauthnAuthChallenges = new Map<number, string>();
@@ -1003,6 +1004,8 @@ export async function registerRoutes(
   });
 
   registerVendorRoutes(app, storage, requireAuth, requireAdmin);
+
+  startWhatsAppBot(app).catch((err) => console.error("[whatsapp] failed to start:", err));
 
   // === PURCHASE INVOICE ROUTES ===
   app.get(api.purchaseInvoices.lastPrices.path, requireAuth, async (req, res) => {
