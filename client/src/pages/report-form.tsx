@@ -11,8 +11,10 @@ import { Separator } from "@/components/ui/separator";
 import { useToast } from "@/hooks/use-toast";
 import { DatePicker } from "@/components/ui/date-picker";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { Loader2, Plus, Trash2, Calculator, Save, ArrowLeft, X, CalendarDays, Wallet, IndianRupee, ShoppingBasket, Leaf, TrendingDown, TrendingUp, Banknote, Package, FileDown, RefreshCw } from "lucide-react";
-import { useCreateReport, useUpdateReport, useReport, useItemMaster, useVegetableLastPrices } from "@/hooks/use-reports";
+import { Loader2, Plus, Trash2, Calculator, Save, ArrowLeft, X, CalendarDays, Wallet, IndianRupee, ShoppingBasket, Leaf, TrendingDown, TrendingUp, Banknote, Package, FileDown, RefreshCw, MessageCircle, QrCode } from "lucide-react";
+import { useCreateReport, useUpdateReport, useReport, useItemMaster, useVegetableLastPrices, useCurrentUser } from "@/hooks/use-reports";
+import { useQueryClient } from "@tanstack/react-query";
+import { api } from "@shared/routes";
 import { insertDailyReportSchema, insertExpenseItemSchema } from "@shared/schema";
 import {
   Select,
@@ -142,6 +144,9 @@ export default function ReportForm() {
   const reportId = params?.id ? parseInt(params.id) : null;
 
   const { toast } = useToast();
+  const { data: currentUser } = useCurrentUser();
+  const queryClient = useQueryClient();
+  const [fetchingWhatsApp, setFetchingWhatsApp] = useState(false);
   const { data: report, isLoading: isReportLoading } = useReport(reportId);
   const { data: salesItems = [] } = useItemMaster();
   const vegetableItems = salesItems
@@ -222,6 +227,43 @@ export default function ReportForm() {
       ],
     },
   });
+
+  const handleFetchWhatsApp = async () => {
+    if (form.formState.isDirty && !window.confirm("Unsaved changes will be lost when the fetched report opens. Continue?")) return;
+    setFetchingWhatsApp(true);
+    try {
+      const previewResponse = await fetch("/api/whatsapp/fetch", { method: "POST", credentials: "include" });
+      const preview = await previewResponse.json();
+      if (!previewResponse.ok) throw new Error(preview.message || "Could not fetch the WhatsApp slip.");
+      let confirmReplace = false;
+      if (preview.exists) {
+        confirmReplace = window.confirm(`A report for ${preview.date} already exists. Replace it with this WhatsApp slip?`);
+        if (!confirmReplace) return;
+      }
+      const save = (replace: boolean) => fetch("/api/whatsapp/fetch/save", {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ token: preview.token, confirmReplace: replace }),
+      });
+      let response = await save(confirmReplace);
+      let result = await response.json();
+      if (response.status === 409 && result.code === "REPORT_EXISTS" && !confirmReplace) {
+        if (!window.confirm(`A report for ${preview.date} now exists. Replace it with this WhatsApp slip?`)) return;
+        response = await save(true);
+        result = await response.json();
+      }
+      if (!response.ok) throw new Error(result.message || "Could not save the WhatsApp slip.");
+      await queryClient.invalidateQueries({ queryKey: [api.reports.list.path] });
+      await queryClient.invalidateQueries({ queryKey: [api.reports.get.path, result.id] });
+      toast({ title: "WhatsApp report saved", description: `Report for ${result.date} is ready.` });
+      setLocation(`/report/${result.id}`);
+    } catch (error) {
+      toast({ title: "WhatsApp fetch failed", description: error instanceof Error ? error.message : "Something went wrong", variant: "destructive" });
+    } finally {
+      setFetchingWhatsApp(false);
+    }
+  };
 
   const selectedDate = useWatch({ control: form.control, name: "date" });
 
@@ -373,7 +415,19 @@ export default function ReportForm() {
               <p className="text-muted-foreground text-xs sm:text-sm">Fill in the daily expense details</p>
             </div>
           </div>
-          <div className="flex gap-2 sm:gap-3 ml-12 sm:ml-0">
+          <div className="flex flex-wrap gap-2 sm:gap-3 ml-12 sm:ml-0">
+             {currentUser?.role === "admin" && (
+               <>
+                 <Button variant="outline" type="button" onClick={handleFetchWhatsApp} disabled={fetchingWhatsApp} className="text-xs sm:text-sm h-9 sm:h-10 rounded-xl" data-testid="button-fetch-whatsapp">
+                   {fetchingWhatsApp ? <Loader2 className="w-4 h-4 mr-1 animate-spin" /> : <MessageCircle className="w-4 h-4 mr-1" />} Fetch from WhatsApp
+                 </Button>
+                 <Button variant="outline" type="button" asChild className="text-xs sm:text-sm h-9 sm:h-10 rounded-xl" data-testid="button-whatsapp-qr">
+                   <a href={`${import.meta.env.VITE_API_BASE_URL?.replace(/\/+$/, "") || ""}/api/whatsapp/qr`} target="_blank" rel="noopener noreferrer">
+                     <QrCode className="w-4 h-4 mr-1" /> WhatsApp QR
+                   </a>
+                 </Button>
+               </>
+             )}
              {isEditMode && reportId && (
                <Button variant="outline" type="button" onClick={() => setLocation(`/report/${reportId}/pdf`)} className="text-xs sm:text-sm h-9 sm:h-10 rounded-xl border-emerald-300 text-emerald-700 hover:bg-emerald-50 dark:border-emerald-700 dark:text-emerald-400" data-testid="button-pdf-report">
                  <FileDown className="w-4 h-4 mr-1" /> PDF
