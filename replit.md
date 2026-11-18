@@ -43,6 +43,7 @@ Letterhead: Whenever printing or generating any letter/document that needs a let
 - **API Pattern**: RESTful JSON API under `/api/` using Zod schemas for validation and typing.
 - **Development**: Vite dev server integrated as Express middleware for HMR.
 - **Production**: Client built to `dist/public/`, server bundled to `dist/index.cjs` with esbuild.
+- **WhatsApp expense slips**: Configure `WHATSAPP_REPORT_SENDER` as the sender's full WhatsApp JID (for example `919876543210@s.whatsapp.net`) and set `GEMINI_API_KEY` or `OPENAI_API_KEY` on the backend. Sign in as an admin on the backend origin and open `/api/whatsapp/qr` to link a device. The backend must stay running to receive images. Keep `whatsapp_auth_session/` private and persist it across restarts; otherwise the device must be linked again.
 
 ### Shared Code
 - **Schema Management**: `shared/schema.ts` defines Drizzle ORM table definitions and Zod schemas, acting as a single source of truth for database structure and validation.
