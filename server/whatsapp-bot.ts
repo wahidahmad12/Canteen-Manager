@@ -1,11 +1,5 @@
 import type { Express, Request, Response } from "express";
-import makeWASocket, {
-  useMultiFileAuthState,
-  DisconnectReason,
-  downloadMediaMessage,
-  fetchLatestBaileysVersion,
-  type WASocket,
-} from "@whiskeysockets/baileys";
+import type { WASocket } from "@whiskeysockets/baileys";
 import pino from "pino";
 import QRCode from "qrcode";
 import { storage } from "./storage";
@@ -265,6 +259,9 @@ export async function startWhatsAppBot(app: Express): Promise<void> {
 <body style="font-family:sans-serif;text-align:center;padding:2rem">${body}</body></html>`);
   });
 
+  // Baileys is ESM-only; keep this import dynamic in the production CommonJS bundle.
+  const { default: makeWASocket, useMultiFileAuthState, DisconnectReason, downloadMediaMessage, fetchLatestBaileysVersion } =
+    await import("@whiskeysockets/baileys");
   const logger = pino({ level: "silent" });
   const { state, saveCreds } = await useMultiFileAuthState("whatsapp_auth_session");
   const { version } = await fetchLatestBaileysVersion().catch(() => ({ version: undefined as any }));
