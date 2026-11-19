@@ -7,6 +7,7 @@ import pino from "pino";
 import QRCode from "qrcode";
 import { storage } from "./storage";
 import { isAllowedSlipMessage, isNewerMessage } from "./whatsapp-message-selection";
+import { requestGeminiSlip } from "./gemini-slip";
 
 const FIXED_ITEMS: { description: string; uom: string; defaultRate: number }[] = [
   { description: "Cup Dahi 85g", uom: "Kg", defaultRate: 15 },
@@ -105,26 +106,7 @@ All other lines go in items: category "vegetable" for fresh vegetables, saag/gre
 Keep qty as written when it is a mixed fraction such as "2 1/2" (do not drop the fraction). uom is usually "Kg" for vegetables, "Pcs" otherwise. Do not invent lines.`;
 
 async function extractWithGemini(image: Buffer, mime: string, key: string): Promise<ExtractedSlip> {
-  const res = await fetch(
-    `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.8-flash:generateContent?key=${key}`,
-    {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        contents: [{
-          parts: [
-            { text: SYSTEM_PROMPT },
-            { inline_data: { mime_type: mime, data: image.toString("base64") } },
-          ],
-        }],
-        generationConfig: { response_mime_type: "application/json", temperature: 0 },
-      }),
-    },
-  );
-  if (!res.ok) throw new Error(`Gemini error ${res.status}: ${(await res.text()).slice(0, 200)}`);
-  const json: any = await res.json();
-  const text = json?.candidates?.[0]?.content?.parts?.map((p: any) => p.text).join("") ?? "";
-  return JSON.parse(text);
+  return requestGeminiSlip<ExtractedSlip>(image, mime, key, SYSTEM_PROMPT);
 }
 
 async function extractWithOpenAI(image: Buffer, mime: string, key: string): Promise<ExtractedSlip> {
