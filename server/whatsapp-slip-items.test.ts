@@ -1,6 +1,6 @@
 import { strict as assert } from "node:assert";
 import { test } from "node:test";
-import { matchWhatsAppMasterItem, normalizeWhatsAppItemDescription, whatsAppAliasKey } from "./whatsapp-slip-items";
+import { matchSavedFixedItem, matchWhatsAppMasterItem, normalizeWhatsAppItemDescription, whatsAppAliasKey } from "./whatsapp-slip-items";
 
 test("maps WhatsApp vegetable G.Chilli spelling variants to the green chilli item", () => {
   for (const name of ["G.Chilli", "g. chilli", "G Chilli", "G.Chili"]) {
@@ -46,4 +46,12 @@ test("remembers a user-selected master id across case and punctuation, without g
   assert.equal(matchWhatsAppMasterItem("g chilli", "vegetable", master, aliases)?.id, 1);
   assert.equal(matchWhatsAppMasterItem("g chilli", "other", master, aliases), undefined);
   assert.equal(matchWhatsAppMasterItem("g chilli", "vegetable", master.filter(item => item.id !== 1), aliases), undefined);
+});
+
+test("fixed voice mappings resolve to current Item Master items for WhatsApp", () => {
+  const master = [{ id: 1, itemName: "Rice", itemCategory: "General" }];
+  const aliases = new Map([[whatsAppAliasKey("chawal", "fixed"), 1]]);
+  assert.equal(matchSavedFixedItem("Chawal", master, aliases)?.itemName, "Rice");
+  assert.equal(matchSavedFixedItem("Chawal", [], aliases), undefined);
+  assert.equal(matchWhatsAppMasterItem("Chawal", "other", master, aliases), undefined);
 });

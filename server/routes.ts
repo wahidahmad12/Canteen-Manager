@@ -16,7 +16,8 @@ import {
   nominationNominees,
   employees,
   canteenSales,
-  salesInvoicePoIds
+  salesInvoicePoIds,
+  whatsappItemAliases
 } from "@shared/schema";
 import { generateRegistrationOptions, verifyRegistrationResponse, generateAuthenticationOptions, verifyAuthenticationResponse } from '@simplewebauthn/server';
 import { isoBase64URL, isoUint8Array } from '@simplewebauthn/server/helpers';
@@ -24,6 +25,7 @@ import { eq, desc } from "drizzle-orm";
 import { registerEmployeeImportRoutes } from "./employee-import-routes";
 import { startWhatsAppBot } from "./whatsapp-bot";
 import { scanGroceryImage } from "./grocery-scan";
+import { registerVoiceItemRoutes } from "./voice-item-routes";
 
 const webauthnRegChallenges = new Map<number, string>();
 const webauthnAuthChallenges = new Map<number, string>();
@@ -658,6 +660,14 @@ export async function registerRoutes(
   });
 
   // === PROTECTED ROUTES (require auth) ===
+  registerVoiceItemRoutes(app, requirePermission("expense"), {
+    getItems: () => storage.getItemMasterItems(),
+    getAliases: async () => new Map((await db.select().from(whatsappItemAliases)).map(row => [row.aliasKey, row.itemId])),
+    saveAlias: async (aliasKey, itemId) => {
+      await db.insert(whatsappItemAliases).values({ aliasKey, itemId }).onDuplicateKeyUpdate({ set: { itemId } });
+    },
+  });
+
   app.get(api.reports.list.path, requirePermission('expense'), async (req, res) => {
     const reports = await storage.getReports();
     res.json(reports);
