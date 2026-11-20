@@ -44,7 +44,8 @@ Letterhead: Whenever printing or generating any letter/document that needs a let
 - **Development**: Vite dev server integrated as Express middleware for HMR.
 - **Production**: Client built to `dist/public/`, server bundled to `dist/index.cjs` with esbuild.
 - **WhatsApp expense slips**: Configure `WHATSAPP_REPORT_SENDER` as the sender's full WhatsApp JID (for example `919876543210@s.whatsapp.net`) and set `GEMINI_API_KEY` or `OPENAI_API_KEY` on the backend. Sign in as an admin on the backend origin and open `/api/whatsapp/qr` to link a device. The backend must stay running to receive images. Keep `whatsapp_auth_session/` private and persist it across restarts; otherwise the device must be linked again.
-- When Gemini returns 503 for `gemini-3.8-flash`, slip extraction retries with `gemini-3.1-flash-lite`; the alternate model may have different pricing and extraction accuracy. Other errors are reported without a model retry.
+- **Grocery Scan**: Set `GEMINI_API_KEY` or `OPENAI_API_KEY` on the backend. Gemini takes precedence if both are set; a legacy Gemini key stored in `OPENAI_API_KEY` is also supported.
+- When Gemini returns 503 for `gemini-3.8-flash`, WhatsApp slip and grocery extraction retry with `gemini-3.1-flash-lite`; the alternate model may have different pricing and extraction accuracy. Other errors are reported without a model retry.
 - On the Daily Cash Expance form, admins can open the WhatsApp QR page or fetch the latest available sender image. Fetch asks for confirmation before replacing an existing report. Older images are available only if WhatsApp synchronizes them to the bot or they were received and cached; if no image is available, resend it. The cached image metadata is stored alongside the private WhatsApp session.
 
 ### Shared Code
