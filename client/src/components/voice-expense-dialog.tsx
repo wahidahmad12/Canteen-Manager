@@ -42,17 +42,24 @@ interface SpeechRecognitionLike {
 type SpeechRecognitionConstructor = new () => SpeechRecognitionLike;
 
 interface VoiceExpenseDialogProps {
+  category: ExpenseCategory;
   catalog: VoiceExpenseCatalogItem[];
   onAdd: (items: VoiceExpenseItem[]) => void;
 }
 
 const categoryLabels: Record<ExpenseCategory, string> = {
-  fixed: "Fixed item",
-  vegetable: "Vegetable",
-  other: "Other item",
+  fixed: "Fixed Items",
+  vegetable: "Vegetable Purchase",
+  other: "Other Item Purchase",
 };
 
-export function VoiceExpenseDialog({ catalog, onAdd }: VoiceExpenseDialogProps) {
+const examples: Record<ExpenseCategory, string> = {
+  fixed: "Petrol, 2 litre, 200 rupees.",
+  vegetable: "Aloo, 2 kilo, 100 rupees.",
+  other: "Rice, 2 kilo, 100 rupees.",
+};
+
+export function VoiceExpenseDialog({ category, catalog, onAdd }: VoiceExpenseDialogProps) {
   const [open, setOpen] = useState(false);
   const [language, setLanguage] = useState("hi-IN");
   const [transcript, setTranscript] = useState("");
@@ -61,6 +68,7 @@ export function VoiceExpenseDialog({ catalog, onAdd }: VoiceExpenseDialogProps) 
   const [error, setError] = useState("");
   const recognitionRef = useRef<SpeechRecognitionLike | null>(null);
   const transcriptBeforeListeningRef = useRef("");
+  const sectionCatalog = catalog.filter(item => item.category === category);
 
   useEffect(() => () => recognitionRef.current?.stop(), []);
 
@@ -77,6 +85,7 @@ export function VoiceExpenseDialog({ catalog, onAdd }: VoiceExpenseDialogProps) 
     }
 
     setError("");
+    setReviewItems([]);
     transcriptBeforeListeningRef.current = transcript.trim();
     const recognition = new Recognition();
     recognition.lang = language;
@@ -117,16 +126,16 @@ export function VoiceExpenseDialog({ catalog, onAdd }: VoiceExpenseDialogProps) 
   const toggleListening = () => {
     if (listening) {
       recognitionRef.current?.stop();
-      setListening(false);
     } else {
       startListening();
     }
   };
 
   const handleParse = () => {
-    const parsed = parseVoiceExpenseTranscript(transcript, catalog);
+    const parsed = parseVoiceExpenseTranscript(transcript, sectionCatalog, category);
     if (parsed.length === 0) {
-      setError("No expense items found. Try saying an item, quantity, and total amount, for example: Aloo, 2 kilo, 100 rupees.");
+      setReviewItems([]);
+      setError(`No expense items found. Try saying an item, quantity, and total amount, for example: ${examples[category]}`);
       return;
     }
     setReviewItems(parsed);
@@ -145,12 +154,19 @@ export function VoiceExpenseDialog({ catalog, onAdd }: VoiceExpenseDialogProps) 
   };
 
   const handleAdd = () => {
-    const validItems = reviewItems.filter(item => item.description.trim());
-    if (validItems.length === 0) {
-      setError("Add at least one expense description before continuing.");
+    if (reviewItems.some(item => !item.description.trim())) {
+      setError("Enter a description for every item before continuing.");
       return;
     }
-    onAdd(validItems);
+    if (category === "fixed" && reviewItems.some(item => !sectionCatalog.some(option => option.name === item.description))) {
+      setError("Choose a fixed item for every entry before continuing.");
+      return;
+    }
+    if (category === "fixed" && reviewItems.some(item => sectionCatalog.find(option => option.name === item.description)?.uom.toLowerCase() !== item.uom.toLowerCase())) {
+      setError("The unit does not match the fixed item. Correct the unit and quantity before adding.");
+      return;
+    }
+    onAdd(reviewItems);
     setOpen(false);
     setTranscript("");
     setReviewItems([]);
@@ -160,11 +176,13 @@ export function VoiceExpenseDialog({ catalog, onAdd }: VoiceExpenseDialogProps) 
   return (
     <>
       <Button
-        variant="outline"
         type="button"
         onClick={() => setOpen(true)}
-        className="text-xs sm:text-sm h-9 sm:h-10 rounded-xl border-indigo-200 text-indigo-700 hover:bg-indigo-50 dark:border-indigo-800 dark:text-indigo-300 dark:hover:bg-indigo-900/30"
-        data-testid="button-voice-expense"
+        size="sm"
+        variant="secondary"
+        className="bg-white/20 hover:bg-white/30 text-white border-0 backdrop-blur-sm"
+        aria-label={`Voice entry for ${categoryLabels[category]}`}
+        data-testid={`button-voice-expense-${category}`}
       >
         <Mic className="w-4 h-4 mr-1" />
         Voice Entry
@@ -183,10 +201,10 @@ export function VoiceExpenseDialog({ catalog, onAdd }: VoiceExpenseDialogProps) 
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <Mic className="w-5 h-5 text-indigo-600" />
-              Add expenses by voice
+              {categoryLabels[category]} — Voice Entry
             </DialogTitle>
             <DialogDescription>
-              Speak one expense per sentence with its quantity and total amount. Review the suggestions before adding them to the report.
+              Speak one expense per sentence with its quantity and total amount. Review the suggestions before adding them to {categoryLabels[category]}.
             </DialogDescription>
           </DialogHeader>
 
@@ -215,20 +233,24 @@ export function VoiceExpenseDialog({ catalog, onAdd }: VoiceExpenseDialogProps) 
               </p>
             )}
 
-            <label htmlFor="voice-expense-transcript" className="block text-sm font-medium">
+            <label htmlFor={`voice-expense-transcript-${category}`} className="block text-sm font-medium">
               Transcript
             </label>
             <textarea
-              id="voice-expense-transcript"
+              id={`voice-expense-transcript-${category}`}
               value={transcript}
-              onChange={(event) => setTranscript(event.target.value)}
-              placeholder={"Example: Aloo, 2 kilo, 100 rupees. Petrol, 2 litre, 200 rupees."}
+              disabled={listening}
+              onChange={(event) => {
+                setTranscript(event.target.value);
+                setReviewItems([]);
+              }}
+              placeholder={`Example: ${examples[category]}`}
               rows={4}
               className="w-full rounded-md border bg-background px-3 py-2 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
               data-testid="textarea-voice-expense-transcript"
             />
             <p className="text-xs text-muted-foreground">
-              Example: “Aloo, 2 kilo, 100 rupees.” Speak each item as a separate sentence. You can correct the transcript before parsing. Your browser may process voice audio online.
+              Example: “{examples[category]}” Speak each item as a separate sentence. You can correct the transcript before parsing. Your browser may process voice audio online.
             </p>
 
             {error && <p className="text-sm text-destructive" role="alert">{error}</p>}
@@ -242,27 +264,38 @@ export function VoiceExpenseDialog({ catalog, onAdd }: VoiceExpenseDialogProps) 
               <div className="space-y-3">
                 <h3 className="text-sm font-semibold">Review before adding</h3>
                 {reviewItems.map((item, index) => (
-                  <div key={`${item.description}-${index}`} className="grid grid-cols-1 sm:grid-cols-6 gap-2 rounded-lg border p-3">
-                    <Input
-                      value={item.description}
-                      onChange={(event) => updateItem(index, { description: event.target.value })}
-                      aria-label={`Item ${index + 1} description`}
-                      placeholder="Item name"
-                      className="sm:col-span-2"
-                    />
-                    <Select
-                      value={item.category}
-                      onValueChange={(value: ExpenseCategory) => updateItem(index, { category: value })}
-                    >
-                      <SelectTrigger aria-label={`Item ${index + 1} category`}>
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {(Object.keys(categoryLabels) as ExpenseCategory[]).map(category => (
-                          <SelectItem key={category} value={category}>{categoryLabels[category]}</SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+                  <div key={index} className="grid grid-cols-1 sm:grid-cols-5 gap-2 rounded-lg border p-3">
+                    {category === "fixed" ? (
+                      <div className="sm:col-span-2">
+                        <Select
+                          value={sectionCatalog.some(option => option.name === item.description) ? item.description : ""}
+                          onValueChange={(value) => {
+                            const selected = sectionCatalog.find(option => option.name === value);
+                            updateItem(index, { description: value, uom: selected?.uom ?? item.uom });
+                          }}
+                        >
+                          <SelectTrigger aria-label={`Item ${index + 1} fixed item`}>
+                            <SelectValue placeholder="Choose fixed item" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {sectionCatalog.map(option => (
+                              <SelectItem key={option.name} value={option.name}>{option.name}</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        {!sectionCatalog.some(option => option.name === item.description) && (
+                          <p className="text-xs text-muted-foreground mt-1">Heard: {item.description}. Choose the matching fixed item.</p>
+                        )}
+                      </div>
+                    ) : (
+                      <Input
+                        value={item.description}
+                        onChange={(event) => updateItem(index, { description: event.target.value })}
+                        aria-label={`Item ${index + 1} description`}
+                        placeholder="Item name"
+                        className="sm:col-span-2"
+                      />
+                    )}
                     <Input
                       value={item.uom}
                       onChange={(event) => updateItem(index, { uom: event.target.value })}
@@ -294,8 +327,12 @@ export function VoiceExpenseDialog({ catalog, onAdd }: VoiceExpenseDialogProps) 
           </div>
 
           <DialogFooter>
-            <Button type="button" variant="outline" onClick={() => setOpen(false)}>Cancel</Button>
-            <Button type="button" onClick={handleAdd} disabled={reviewItems.length === 0}>
+            <Button type="button" variant="outline" onClick={() => {
+              recognitionRef.current?.stop();
+              setListening(false);
+              setOpen(false);
+            }}>Cancel</Button>
+            <Button type="button" onClick={handleAdd} disabled={reviewItems.length === 0 || listening}>
               <Plus className="w-4 h-4 mr-2" />
               Add {reviewItems.length || ""} {reviewItems.length === 1 ? "item" : "items"}
             </Button>

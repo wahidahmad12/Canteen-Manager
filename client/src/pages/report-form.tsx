@@ -158,7 +158,6 @@ export default function ReportForm() {
     .filter((item: any) => item.itemCategory !== 'Vegetable')
     .map((item: any) => ({ id: item.id, name: item.itemName, uom: item.uom, rate: Number(item.rate) || 0 }));
   const voiceCatalog = [
-    ...DEFAULT_FIXED_ITEMS.map(item => ({ name: item.description, category: 'fixed' as const, uom: item.uom })),
     ...salesItems.map((item: any) => ({
       name: item.itemName,
       category: item.itemCategory === 'Vegetable' ? 'vegetable' as const : 'other' as const,
@@ -377,6 +376,9 @@ export default function ReportForm() {
   }, [report, form]);
 
   const items = useWatch({ control: form.control, name: "items" });
+  const fixedVoiceCatalog = items
+    .filter(item => item.category === "fixed" && item.description)
+    .map(item => ({ name: item.description, category: "fixed" as const, uom: item.uom }));
   const openingBalance = useWatch({ control: form.control, name: "openingBalance" }) || 0;
   const receivedAmount = useWatch({ control: form.control, name: "receivedAmount" }) || 0;
   const giveByWahid = useWatch({ control: form.control, name: "giveByWahid" }) || 0;
@@ -462,7 +464,6 @@ export default function ReportForm() {
             </div>
           </div>
           <div className="flex flex-wrap gap-2 sm:gap-3 ml-12 sm:ml-0">
-             <VoiceExpenseDialog catalog={voiceCatalog} onAdd={handleAddVoiceItems} />
              {currentUser?.role === "admin" && (
                <>
                  <Button variant="outline" type="button" onClick={handleFetchWhatsApp} disabled={fetchingWhatsApp} className="text-xs sm:text-sm h-9 sm:h-10 rounded-xl" data-testid="button-fetch-whatsapp">
@@ -645,11 +646,12 @@ export default function ReportForm() {
         </Card>
 
         <Card className="border-0 shadow-lg overflow-hidden" data-testid="card-fixed-items">
-          <CardHeader className="bg-gradient-to-r from-amber-500 to-orange-500 text-white pb-3 pt-4">
+          <CardHeader className="bg-gradient-to-r from-amber-500 to-orange-500 text-white pb-3 pt-4 flex flex-row flex-wrap items-center justify-between gap-2">
             <CardTitle className="flex items-center gap-2 text-base sm:text-lg">
               <ShoppingBasket className="w-5 h-5" />
               Fixed Items
             </CardTitle>
+            <VoiceExpenseDialog category="fixed" catalog={fixedVoiceCatalog} onAdd={handleAddVoiceItems} />
           </CardHeader>
           <CardContent className="p-0">
             <div className="sm:hidden divide-y">
@@ -838,11 +840,13 @@ export default function ReportForm() {
         </Card>
 
         <Card className="border-0 shadow-lg overflow-hidden" data-testid="card-vegetable-items">
-          <CardHeader className="bg-gradient-to-r from-emerald-500 to-teal-500 text-white pb-3 pt-4 flex flex-row items-center justify-between">
+          <CardHeader className="bg-gradient-to-r from-emerald-500 to-teal-500 text-white pb-3 pt-4 flex flex-row flex-wrap items-center justify-between gap-2">
             <CardTitle className="flex items-center gap-2 text-base sm:text-lg">
               <Leaf className="w-5 h-5" />
               Vegetable Purchase
             </CardTitle>
+            <div className="flex flex-wrap gap-2">
+            <VoiceExpenseDialog category="vegetable" catalog={voiceCatalog} onAdd={handleAddVoiceItems} />
             <Button 
               type="button" 
               size="sm" 
@@ -862,6 +866,7 @@ export default function ReportForm() {
               <Plus className="w-4 h-4 mr-1" />
               Add Item
             </Button>
+            </div>
           </CardHeader>
           <CardContent className="p-0">
             <div className="sm:hidden divide-y">
@@ -1171,11 +1176,13 @@ export default function ReportForm() {
         </Card>
 
         <Card className="border-0 shadow-lg overflow-hidden" data-testid="card-other-items">
-          <CardHeader className="bg-gradient-to-r from-purple-500 to-violet-500 text-white pb-3 pt-4 flex flex-row items-center justify-between">
+          <CardHeader className="bg-gradient-to-r from-purple-500 to-violet-500 text-white pb-3 pt-4 flex flex-row flex-wrap items-center justify-between gap-2">
             <CardTitle className="flex items-center gap-2 text-base sm:text-lg">
               <Package className="w-5 h-5" />
               Other Item Purchase
             </CardTitle>
+            <div className="flex flex-wrap gap-2">
+            <VoiceExpenseDialog category="other" catalog={voiceCatalog} onAdd={handleAddVoiceItems} />
             <Button 
               type="button" 
               size="sm" 
@@ -1195,6 +1202,7 @@ export default function ReportForm() {
               <Plus className="w-4 h-4 mr-1" />
               Add Item
             </Button>
+            </div>
           </CardHeader>
           <CardContent className="p-0">
             <div className="sm:hidden divide-y">

@@ -133,9 +133,12 @@ function parseLine(line: string, catalog: VoiceExpenseCatalogItem[]): VoiceExpen
 export function parseVoiceExpenseTranscript(
   transcript: string,
   catalog: VoiceExpenseCatalogItem[],
+  category?: ExpenseCategory,
 ): VoiceExpenseItem[] {
+  const scopedCatalog = category ? catalog.filter(item => item.category === category) : catalog;
   return transcript
     .split(/[\n;]+|[.!?]\s+/)
-    .map(line => parseLine(line, catalog))
-    .filter((item): item is VoiceExpenseItem => item !== null);
+    .map(line => parseLine(line, scopedCatalog))
+    .filter((item): item is VoiceExpenseItem => item !== null)
+    .map(item => category ? { ...item, category } : item);
 }
