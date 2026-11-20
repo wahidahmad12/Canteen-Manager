@@ -96,7 +96,7 @@ export function VoiceExpenseDialog({ category, catalog, onAdd }: VoiceExpenseDia
       let interimText = "";
       for (let index = 0; index < event.results.length; index += 1) {
         const result = event.results[index];
-        if (result.isFinal) finalText += `${result[0].transcript} `;
+        if (result.isFinal) finalText += `${result[0].transcript.trim()}\n`;
         else interimText += `${result[0].transcript} `;
       }
       const base = transcriptBeforeListeningRef.current;

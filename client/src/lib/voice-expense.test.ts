@@ -104,3 +104,36 @@ test("review calculations keep quantity, rate and total consistent", () => {
   const withAmount = updateVoiceExpenseItem(withRate, { amount: 120 });
   assert.deepEqual([withAmount.qty, withAmount.rate, withAmount.amount], [4, 30, 120]);
 });
+
+test("starts the next catalog item after rate or total in one continuous phrase", () => {
+  const items = [
+    { name: "Dahi 100g Khatta", category: "fixed" as const, uom: "Pcs" },
+    { name: "Dahi 100g Sweet", category: "fixed" as const, uom: "Pcs" },
+    { name: "Egg", category: "fixed" as const, uom: "Box" },
+  ];
+
+  const rateEntries = parseVoiceExpenseTranscript(
+    "khatta dahi 10 pieces rate 21 sweet dahi 5 pieces rate 22 egg 2 box rate 1150",
+    items,
+    "fixed",
+  );
+  assert.deepEqual(rateEntries.map(item => [item.description, item.qty, item.rate, item.amount]), [
+    ["Dahi 100g Khatta", 10, 21, 210],
+    ["Dahi 100g Sweet", 5, 22, 110],
+    ["Egg", 2, 1150, 2300],
+  ]);
+});
+
+test("combines speech recognition fragments and calculates unit rate from total", () => {
+  const items = [{ name: "Aloo", category: "vegetable" as const, uom: "Kg" }];
+  const [entry] = parseVoiceExpenseTranscript("Aloo\n10 kilo\nकुल 750 रुपये", items, "vegetable");
+  assert.deepEqual([entry.description, entry.qty, entry.amount, entry.rate], ["Aloo", 10, 750, 75]);
+  const [totalAmount] = parseVoiceExpenseTranscript("Aloo 10 kilo total amount 750", items, "vegetable");
+  assert.deepEqual([totalAmount.qty, totalAmount.amount, totalAmount.rate], [10, 750, 75]);
+});
+
+test("does not mistake fixed product pack size for purchase quantity", () => {
+  const items = [{ name: "Dahi 100g Khatta", category: "fixed" as const, uom: "Pcs" }];
+  const [entry] = parseVoiceExpenseTranscript("खट्टा दही १०० ग्राम १० पीस रेट २१", items, "fixed");
+  assert.deepEqual([entry.qty, entry.rate, entry.amount], [10, 21, 210]);
+});
