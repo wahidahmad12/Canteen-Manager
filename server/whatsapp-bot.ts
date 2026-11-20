@@ -8,6 +8,10 @@ import QRCode from "qrcode";
 import { storage } from "./storage";
 import { isAllowedSlipMessage, isNewerMessage } from "./whatsapp-message-selection";
 import { requestGeminiSlip } from "./gemini-slip";
+import { matchWhatsAppMasterItem, normalizeWhatsAppAlias, normalizeWhatsAppItemDescription, whatsAppAliasKey } from "./whatsapp-slip-items";
+import { api } from "@shared/routes";
+import { whatsappItemAliases } from "@shared/schema";
+import { db } from "./db";
 
 const FIXED_ITEMS: { description: string; uom: string; defaultRate: number }[] = [
   { description: "Cup Dahi 85g", uom: "Kg", defaultRate: 15 },
@@ -162,16 +166,13 @@ function resolveItem(it: ExtractedItem, fallbackRate = 0) {
   return { qty: round2(qty), rate: round2(rate), amount: round2(amount) };
 }
 
-class ReportExistsError extends Error {}
-
-async function saveSlip(slip: ExtractedSlip, allowReplace = true) {
+async function prepareSlip(slip: ExtractedSlip) {
   const date = normalizeDate(slip.date);
   if (!date) throw new Error(`Could not read a valid date from the slip (got "${slip.date}")`);
 
-  const existing = await storage.getReportByDate(date);
-  if (existing && !allowReplace) throw new ReportExistsError("A report already exists for this date. Confirm before replacing it.");
-
   const stored = await storage.getLatestFixedItemRates();
+  const master = await storage.getItemMasterItems();
+  const aliases = new Map((await db.select().from(whatsappItemAliases)).map(alias => [alias.aliasKey, alias.itemId]));
   const prevRates: Record<string, number> = {};
   for (const f of FIXED_ITEMS) prevRates[f.description] = stored[f.description] ?? f.defaultRate;
 
@@ -184,61 +185,37 @@ async function saveSlip(slip: ExtractedSlip, allowReplace = true) {
     else dynamicFromSlip.push(it);
   }
 
-  const rateChanges: string[] = [];
   const items = FIXED_ITEMS.map((f) => {
     const src = fixedFromSlip.get(f.description);
     const r = src ? resolveItem(src, prevRates[f.description]) : { qty: 0, rate: prevRates[f.description], amount: 0 };
-    if (src && r.qty > 0 && Math.abs(r.rate - prevRates[f.description]) > 0.01) {
-      rateChanges.push(`${f.description}: ${prevRates[f.description]} → ${r.rate}`);
-    }
     const rate = src && r.qty > 0 ? r.rate : prevRates[f.description];
     return { category: "fixed", description: f.description, uom: f.uom, ...r, rate };
   });
 
-  const vegNames: string[] = [];
+  const sources: Record<string, { description: string; category: "vegetable" | "other" }> = {};
   for (const it of dynamicFromSlip) {
     const category = it.category === "vegetable" ? "vegetable" : "other";
-    const description = String(it.description).trim();
+    const source = String(it.description).trim();
+    const match = matchWhatsAppMasterItem(source, category, master, aliases);
+    const description = match?.itemName ?? normalizeWhatsAppItemDescription(source, category);
     const r = resolveItem(it);
-    if (category === "vegetable") vegNames.push(description);
+    sources[`wa-${items.length}`] = { description: source, category };
     items.push({ category, description, uom: it.uom?.trim() || (category === "vegetable" ? "Kg" : "Pcs"), ...r });
   }
-  if (vegNames.length) await storage.seedVegetableItems(Array.from(new Set(vegNames)));
 
   const giveByWahid = parseNumber(slip.giveByWahid) ?? 0;
   const receivedAmount = parseNumber(slip.madamOrCashSeal) ?? 0;
   const akbar = parseNumber(slip.akbarAmount);
   const openingBalance = akbar ?? (await storage.getPreviousDayBalance(date));
 
-  const payload = { date, openingBalance, receivedAmount, giveByWahid, items };
-  const report = existing
-    ? await storage.updateReport(existing.id, payload)
-    : await storage.createReport(payload);
-
-  const total = round2(items.reduce((s, i) => s + i.amount, 0));
-  const written = parseNumber(slip.totalExpense);
-  return { report, date, total, written, rateChanges, updated: !!existing, count: report.items.length };
-}
-
-function formatReply(r: Awaited<ReturnType<typeof saveSlip>>) {
-  const lines = [
-    `✅ Expense report ${r.updated ? "updated" : "saved"}`,
-    `📅 Date: ${r.date}`,
-    `🧾 Items: ${r.count}`,
-    `💰 Total: ₹${r.total}`,
-  ];
-  if (r.written !== null && Math.abs(r.written - r.total) > 0.5) {
-    lines.push(`⚠️ Warning: items sum ₹${r.total} differs from slip total ₹${r.written}. Please verify.`);
-  }
-  if (r.rateChanges.length) lines.push("", "📈 Fixed item rates changed:", ...r.rateChanges.map((c) => `• ${c}`));
-  return lines.join("\n");
+  return { report: { date, openingBalance, receivedAmount, giveByWahid, items }, sources };
 }
 
 export async function startWhatsAppBot(app: Express): Promise<void> {
   let activeSocket: WASocket | undefined;
   let latestImage: WAMessage | undefined;
   let recordQueue = Promise.resolve();
-  const pending = new Map<string, { token: string; slip: ExtractedSlip; createdAt: number; saving: boolean }>();
+  const pending = new Map<string, { token: string; createdAt: number; saving: boolean; sources: Record<string, { description: string; category: "vegetable" | "other" }> }>();
   const cachePath = join("whatsapp_auth_session", "latest-slip.bin");
 
   app.get("/api/whatsapp/qr", async (req: Request, res: Response) => {
@@ -280,16 +257,52 @@ export async function startWhatsAppBot(app: Express): Promise<void> {
       const slip = await extractSlip(buffer, image.mimetype || "image/jpeg");
       const date = normalizeDate(slip.date);
       if (!date) throw new Error("Could not read a valid date from the slip.");
+      const { report, sources } = await prepareSlip(slip);
       const existing = await storage.getReportByDate(date);
       const token = randomUUID();
       pending.forEach((entry, sessionId) => {
         if (!entry.saving && Date.now() - entry.createdAt > 10 * 60_000) pending.delete(sessionId);
       });
-      pending.set(req.sessionID, { token, slip, createdAt: Date.now(), saving: false });
-      return res.json({ token, date, exists: !!existing });
+      pending.set(req.sessionID, { token, createdAt: Date.now(), saving: false, sources });
+      const readItems = [
+        ...(slip.fixedItems ?? []).filter(item => item?.description).map(item => ({ description: String(item.description), category: "fixed" })),
+        ...(slip.items ?? []).filter(item => item?.description).map(item => ({ description: String(item.description), category: item.category || "other" })),
+      ];
+      return res.json({ token, date, exists: !!existing, report, sources, readItems, writtenTotal: parseNumber(slip.totalExpense) });
     } catch (error) {
       console.error("[whatsapp] failed to fetch slip:", error);
       return res.status(500).json({ message: error instanceof Error ? error.message : "Could not fetch the slip." });
+    }
+  });
+
+  app.post("/api/whatsapp/fetch/map-item", async (req: Request, res: Response) => {
+    if (!req.session?.userId) return res.status(401).json({ message: "Not authenticated" });
+    if (req.session.role !== "admin") return res.status(403).json({ message: "Admin access required" });
+    const entry = pending.get(req.sessionID);
+    if (!entry || entry.token !== req.body?.token || Date.now() - entry.createdAt > 10 * 60_000) {
+      return res.status(400).json({ message: "Slip preview expired. Fetch it again." });
+    }
+    if (entry.saving) return res.status(409).json({ message: "This slip is already being saved." });
+    const sourceId = req.body?.sourceId;
+    const itemId = req.body?.itemId;
+    if (typeof sourceId !== "string" || !Object.hasOwn(entry.sources, sourceId) ||
+      !Number.isSafeInteger(itemId) || itemId <= 0) {
+      return res.status(400).json({ message: "Choose an item from the current preview." });
+    }
+    const source = entry.sources[sourceId];
+    if (!normalizeWhatsAppAlias(source.description)) return res.status(400).json({ message: "The extracted item name cannot be mapped." });
+    try {
+      const item = (await storage.getItemMasterItems()).find(candidate => candidate.id === itemId);
+      if (!item || (item.itemCategory === "Vegetable" ? "vegetable" : "other") !== source.category) {
+        return res.status(400).json({ message: "Choose an Item Master item from the same section." });
+      }
+      const aliasKey = whatsAppAliasKey(source.description, source.category);
+      await db.insert(whatsappItemAliases).values({ aliasKey, itemId: item.id })
+        .onDuplicateKeyUpdate({ set: { itemId: item.id } });
+      return res.json({ itemName: item.itemName });
+    } catch (error) {
+      console.error("[whatsapp] failed to save item mapping:", error);
+      return res.status(500).json({ message: "Could not save this item mapping. Please try again." });
     }
   });
 
@@ -301,13 +314,27 @@ export async function startWhatsAppBot(app: Express): Promise<void> {
       return res.status(400).json({ message: "Slip preview expired. Fetch it again." });
     }
     if (entry.saving) return res.status(409).json({ message: "This slip is already being saved." });
+    const parsed = api.reports.create.input.safeParse(req.body?.report);
+    if (!parsed.success) return res.status(400).json({ message: `Invalid report: ${parsed.error.errors[0].message}` });
+    const input = parsed.data;
+    if (!normalizeDate(input.date) || normalizeDate(input.date) !== input.date ||
+      input.items.some(item => !["fixed", "vegetable", "other"].includes(item.category) || !item.description.trim() || !item.uom.trim())) {
+      return res.status(400).json({ message: "Check the date, item descriptions, categories and units." });
+    }
     entry.saving = true;
     try {
-      const result = await saveSlip(entry.slip, req.body?.confirmReplace === true);
+      const existing = await storage.getReportByDate(input.date);
+      if (existing && req.body?.confirmReplace !== true) {
+        return res.status(409).json({ code: "REPORT_EXISTS", message: "A report already exists for this date. Confirm before replacing it." });
+      }
+      const items = input.items.map(item => ({ ...item, amount: round2(item.qty * item.rate) }));
+      const payload = { ...input, items };
+      const report = existing
+        ? await storage.updateReport(existing.id, payload)
+        : await storage.createReport(payload);
       pending.delete(req.sessionID);
-      return res.json({ id: result.report.id, date: result.date, updated: result.updated });
+      return res.json({ id: report.id, date: input.date, updated: !!existing });
     } catch (error) {
-      if (error instanceof ReportExistsError) return res.status(409).json({ code: "REPORT_EXISTS", message: error.message });
       console.error("[whatsapp] failed to save fetched slip:", error);
       return res.status(500).json({ message: error instanceof Error ? error.message : "Could not save the slip." });
     } finally {
@@ -396,19 +423,9 @@ export async function startWhatsAppBot(app: Express): Promise<void> {
           console.error("[whatsapp] failed to verify sender:", error);
           continue;
         }
-        try {
-          const image = extractMessageContent(msg.message)?.imageMessage;
-          if (!image) continue;
-          const buffer = (await downloadMediaMessage(msg, "buffer", {}, {
-            logger,
-            reuploadRequest: sock.updateMediaMessage,
-          })) as Buffer;
-          const slip = await extractSlip(buffer, image.mimetype || "image/jpeg");
-          const result = await saveSlip(slip);
-          await sock.sendMessage(jid, { text: formatReply(result) });
-        } catch (err: any) {
-          console.error("[whatsapp] failed to process slip:", err);
-          await sock.sendMessage(jid, { text: `❌ Could not process the slip: ${err?.message ?? "unknown error"}` }).catch(() => {});
+        if (extractMessageContent(msg.message)?.imageMessage) {
+          await sock.sendMessage(jid, { text: "Slip received. An admin can fetch, review and save it in Daily Cash Expense." })
+            .catch(error => console.error("[whatsapp] failed to acknowledge slip:", error));
         }
       }
     });

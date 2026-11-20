@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useForm, useFieldArray, useWatch } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -149,6 +149,14 @@ export default function ReportForm() {
   const { data: currentUser } = useCurrentUser();
   const queryClient = useQueryClient();
   const [fetchingWhatsApp, setFetchingWhatsApp] = useState(false);
+  const [mappingWhatsAppItem, setMappingWhatsAppItem] = useState(false);
+  const [whatsAppPreview, setWhatsAppPreview] = useState<{
+    token: string;
+    readItems: { description: string; category: string }[];
+    writtenTotal: number | null;
+    sources: Record<string, { description: string; category: "vegetable" | "other" }>;
+  } | null>(null);
+  const whatsAppPreviewRef = useRef(false);
   const { data: report, isLoading: isReportLoading } = useReport(reportId);
   const { data: salesItems = [] } = useItemMaster();
   const vegetableItems = salesItems
@@ -238,35 +246,22 @@ export default function ReportForm() {
   });
 
   const handleFetchWhatsApp = async () => {
-    if (form.formState.isDirty && !window.confirm("Unsaved changes will be lost when the fetched report opens. Continue?")) return;
+    if ((form.formState.isDirty || whatsAppPreview) && !window.confirm("Unsaved changes will be lost when the fetched report opens. Continue?")) return;
     setFetchingWhatsApp(true);
     try {
       const previewResponse = await fetch("/api/whatsapp/fetch", { method: "POST", credentials: "include" });
       const preview = await previewResponse.json();
       if (!previewResponse.ok) throw new Error(preview.message || "Could not fetch the WhatsApp slip.");
-      let confirmReplace = false;
-      if (preview.exists) {
-        confirmReplace = window.confirm(`A report for ${preview.date} already exists. Replace it with this WhatsApp slip?`);
-        if (!confirmReplace) return;
-      }
-      const save = (replace: boolean) => fetch("/api/whatsapp/fetch/save", {
-        method: "POST",
-        credentials: "include",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ token: preview.token, confirmReplace: replace }),
-      });
-      let response = await save(confirmReplace);
-      let result = await response.json();
-      if (response.status === 409 && result.code === "REPORT_EXISTS" && !confirmReplace) {
-        if (!window.confirm(`A report for ${preview.date} now exists. Replace it with this WhatsApp slip?`)) return;
-        response = await save(true);
-        result = await response.json();
-      }
-      if (!response.ok) throw new Error(result.message || "Could not save the WhatsApp slip.");
-      await queryClient.invalidateQueries({ queryKey: [api.reports.list.path] });
-      await queryClient.invalidateQueries({ queryKey: [api.reports.get.path, result.id] });
-      toast({ title: "WhatsApp report saved", description: `Report for ${result.date} is ready.` });
-      setLocation(`/report/${result.id}`);
+      const report = api.reports.create.input.parse(preview.report);
+      const sources = z.record(z.object({ description: z.string(), category: z.enum(["vegetable", "other"]) })).parse(preview.sources);
+      if (typeof preview.token !== "string" || !Array.isArray(preview.readItems)) throw new Error("Invalid WhatsApp preview response.");
+      const [year, month, day] = report.date.split("-").map(Number);
+      const date = new Date(year, month - 1, day);
+      if (!year || !month || !day || Number.isNaN(date.getTime())) throw new Error("Invalid date in WhatsApp preview.");
+      whatsAppPreviewRef.current = true;
+      setWhatsAppPreview({ token: preview.token, readItems: preview.readItems, writtenTotal: preview.writtenTotal, sources });
+      form.reset({ ...report, date, items: report.items.map((item, index) => ({ ...item, reportId: 0, tempId: sources[`wa-${index}`] ? `wa-${index}` : undefined })) });
+      toast({ title: "WhatsApp preview ready", description: "Check and edit the report before saving." });
     } catch (error) {
       toast({ title: "WhatsApp fetch failed", description: error instanceof Error ? error.message : "Something went wrong", variant: "destructive" });
     } finally {
@@ -274,22 +269,45 @@ export default function ReportForm() {
     }
   };
 
+  const rememberWhatsAppItem = async (index: number, itemId: number): Promise<boolean> => {
+    const sourceId = form.getValues(`items.${index}.tempId`);
+    if (!whatsAppPreview || !sourceId || !whatsAppPreview.sources[sourceId]) return true;
+    setMappingWhatsAppItem(true);
+    try {
+      const response = await fetch("/api/whatsapp/fetch/map-item", {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ token: whatsAppPreview.token, sourceId, itemId }),
+      });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.message || "Could not save item mapping.");
+      toast({ title: "Item mapping remembered", description: `${whatsAppPreview.sources[sourceId].description} → ${data.itemName}` });
+      return form.getValues(`items.${index}.tempId`) === sourceId;
+    } catch (error) {
+      toast({ title: "Item mapping failed", description: error instanceof Error ? error.message : "Could not save item mapping.", variant: "destructive" });
+      return false;
+    } finally {
+      setMappingWhatsAppItem(false);
+    }
+  };
+
   const selectedDate = useWatch({ control: form.control, name: "date" });
 
   useEffect(() => {
-    if (!isEditMode && selectedDate) {
+    if (!isEditMode && selectedDate && !whatsAppPreviewRef.current) {
       const dateStr = format(selectedDate, 'yyyy-MM-dd');
       fetch(`/api/reports/previous-balance/${dateStr}`)
         .then(res => res.json())
         .then(data => {
-          if (data.balance !== undefined) {
+          if (!whatsAppPreviewRef.current && data.balance !== undefined) {
             form.setValue("openingBalance", Math.round(Number(data.balance) * 100) / 100);
           }
         });
       fetch(`/api/cash-seals/by-date/${dateStr}`)
         .then(res => res.json())
         .then(data => {
-          if (data.totalGivenToAkbarAli !== undefined) {
+          if (!whatsAppPreviewRef.current && data.totalGivenToAkbarAli !== undefined) {
             form.setValue("receivedAmount", Math.round(Number(data.totalGivenToAkbarAli) * 100) / 100);
           }
         })
@@ -300,12 +318,12 @@ export default function ReportForm() {
   // In edit mode: always refresh the Akbar Ali (receivedAmount) from the cash seal
   // This ensures it stays in sync if the cash seal was saved after the report was created
   useEffect(() => {
-    if (isEditMode && report) {
+    if (isEditMode && report && !whatsAppPreviewRef.current) {
       const dateStr = typeof report.date === 'string' ? report.date : format(new Date(report.date), 'yyyy-MM-dd');
       fetch(`/api/cash-seals/by-date/${dateStr}`)
         .then(res => res.json())
         .then(data => {
-          if (data.totalGivenToAkbarAli !== undefined && Number(data.totalGivenToAkbarAli) > 0) {
+          if (!whatsAppPreviewRef.current && data.totalGivenToAkbarAli !== undefined && Number(data.totalGivenToAkbarAli) > 0) {
             form.setValue("receivedAmount", Math.round(Number(data.totalGivenToAkbarAli) * 100) / 100);
           }
         })
@@ -355,7 +373,7 @@ export default function ReportForm() {
   };
 
   useEffect(() => {
-    if (report) {
+    if (report && !whatsAppPreviewRef.current) {
       const loadedItems = report.items && report.items.length > 0
         ? report.items.map((item: any) => ({
             ...item,
@@ -421,7 +439,28 @@ export default function ReportForm() {
         }))
       };
 
-      if (isEditMode && reportId) {
+      if (whatsAppPreview) {
+        const save = (confirmReplace: boolean) => fetch("/api/whatsapp/fetch/save", {
+          method: "POST",
+          credentials: "include",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ token: whatsAppPreview.token, report: formattedData, confirmReplace }),
+        });
+        let response = await save(false);
+        let result = await response.json();
+        if (response.status === 409 && result.code === "REPORT_EXISTS") {
+          if (!window.confirm(`A report for ${formattedData.date} already exists. Replace it with this reviewed report?`)) return;
+          response = await save(true);
+          result = await response.json();
+        }
+        if (!response.ok) throw new Error(result.message || "Could not save the WhatsApp report.");
+        await queryClient.invalidateQueries({ queryKey: [api.reports.list.path] });
+        await queryClient.invalidateQueries({ queryKey: [api.reports.get.path, result.id] });
+        toast({ title: "WhatsApp report saved", description: `Report for ${result.date} is ready.` });
+        whatsAppPreviewRef.current = false;
+        setWhatsAppPreview(null);
+        setLocation(`/report/${result.id}`);
+      } else if (isEditMode && reportId) {
         await updateMutation.mutateAsync({ id: reportId, ...formattedData });
         toast({ title: "Report updated", description: "The daily report has been saved." });
       } else {
@@ -450,7 +489,9 @@ export default function ReportForm() {
 
   return (
     <Layout>
-      <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6 sm:space-y-8 pb-32 sm:pb-24">
+      <form onSubmit={form.handleSubmit(onSubmit, () => {
+        if (whatsAppPreview) toast({ title: "Check report details", description: "Please correct invalid amounts or quantities before saving the preview.", variant: "destructive" });
+      })} className="space-y-6 sm:space-y-8 pb-32 sm:pb-24">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
           <div className="flex items-center gap-3 sm:gap-4">
             <Button variant="outline" size="icon" onClick={() => setLocation("/")} type="button" className="shrink-0 rounded-xl border-indigo-200 hover:bg-indigo-50 dark:border-indigo-800 dark:hover:bg-indigo-900/30">
@@ -466,7 +507,7 @@ export default function ReportForm() {
           <div className="flex flex-wrap gap-2 sm:gap-3 ml-12 sm:ml-0">
              {currentUser?.role === "admin" && (
                <>
-                 <Button variant="outline" type="button" onClick={handleFetchWhatsApp} disabled={fetchingWhatsApp} className="text-xs sm:text-sm h-9 sm:h-10 rounded-xl" data-testid="button-fetch-whatsapp">
+                 <Button variant="outline" type="button" onClick={handleFetchWhatsApp} disabled={fetchingWhatsApp || mappingWhatsAppItem || form.formState.isSubmitting} className="text-xs sm:text-sm h-9 sm:h-10 rounded-xl" data-testid="button-fetch-whatsapp">
                    {fetchingWhatsApp ? <Loader2 className="w-4 h-4 mr-1 animate-spin" /> : <MessageCircle className="w-4 h-4 mr-1" />} Fetch from WhatsApp
                  </Button>
                  <Button variant="outline" type="button" asChild className="text-xs sm:text-sm h-9 sm:h-10 rounded-xl" data-testid="button-whatsapp-qr">
@@ -486,11 +527,11 @@ export default function ReportForm() {
              </Button>
              <Button 
                type="submit" 
-               disabled={createMutation.isPending || updateMutation.isPending}
+               disabled={createMutation.isPending || updateMutation.isPending || form.formState.isSubmitting || mappingWhatsAppItem}
                className="shadow-lg shadow-indigo-500/20 text-xs sm:text-sm h-9 sm:h-10 rounded-xl bg-gradient-to-r from-indigo-500 to-purple-600 hover:from-indigo-600 hover:to-purple-700 border-0"
                data-testid="button-save-report"
              >
-               {(createMutation.isPending || updateMutation.isPending) ? (
+               {(createMutation.isPending || updateMutation.isPending || form.formState.isSubmitting) ? (
                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
                ) : (
                  <Save className="w-4 h-4 mr-2" />
@@ -499,6 +540,27 @@ export default function ReportForm() {
              </Button>
           </div>
         </div>
+
+        {whatsAppPreview && (
+          <Card className="border-amber-300 bg-amber-50 dark:bg-amber-950/20" data-testid="whatsapp-preview">
+            <CardHeader className="pb-2">
+              <CardTitle className="text-base">WhatsApp slip preview — not saved</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-2 text-sm">
+              <p>These are the names read from the image. Select the correct Item Master item below to remember the mapping for future dates. Check the report before saving; the preview expires after 10 minutes.</p>
+              {whatsAppPreview.readItems.length ? (
+                <ul className="list-disc pl-5 max-h-40 overflow-y-auto">
+                  {whatsAppPreview.readItems.map((item, index) => (
+                    <li key={index}>{item.description} <span className="text-muted-foreground">({item.category})</span></li>
+                  ))}
+                </ul>
+              ) : <p>No item names were read from the image. Add them manually below.</p>}
+              {whatsAppPreview.writtenTotal !== null && (
+                <p>Slip total: ₹{whatsAppPreview.writtenTotal} · Report total: ₹{grandTotalExpense.toFixed(2)}. Please compare before saving.</p>
+              )}
+            </CardContent>
+          </Card>
+        )}
 
         <Card className="border-0 shadow-lg overflow-hidden" data-testid="card-general-info">
           <CardHeader className="bg-gradient-to-r from-blue-500 to-cyan-500 text-white pb-3 pt-4">
@@ -880,7 +942,10 @@ export default function ReportForm() {
                         <span className="w-5 h-5 rounded-full bg-gradient-to-br from-emerald-400 to-teal-500 text-white text-[10px] flex items-center justify-center font-bold shrink-0">{vegIndex}</span>
                         <Select
                           value={items[index]?.description || ''}
-                          onValueChange={(val) => {
+                          disabled={mappingWhatsAppItem}
+                          onValueChange={async (val) => {
+                            const selected = vegetableItems.find(item => item.name === val);
+                            if (selected && !await rememberWhatsAppItem(index, selected.id)) return;
                             form.setValue(`items.${index}.description`, val);
                             const lastRate = vegPriceMap.get(val);
                             const masterInfo = itemMasterRateMap.get(val);
@@ -918,6 +983,17 @@ export default function ReportForm() {
                         <Trash2 className="w-4 h-4" />
                       </Button>
                     </div>
+                    {whatsAppPreview && (
+                      <div>
+                        {whatsAppPreview.sources[items[index]?.tempId || ""] && <p className="text-xs text-muted-foreground">Read: {whatsAppPreview.sources[items[index]?.tempId || ""].description}</p>}
+                        <Input
+                          aria-label={`Edit vegetable item ${vegIndex} name`}
+                          placeholder="Edit item name"
+                          value={items[index]?.description || ""}
+                          onChange={event => form.setValue(`items.${index}.description`, event.target.value, { shouldDirty: true })}
+                        />
+                      </div>
+                    )}
                     <div className="grid grid-cols-4 gap-2">
                       <div>
                         <label className="text-[10px] text-muted-foreground uppercase font-semibold">UoM</label>
@@ -1025,7 +1101,10 @@ export default function ReportForm() {
                         <td>
                           <Select
                             value={items[index]?.description || ''}
-                            onValueChange={(val) => {
+                            disabled={mappingWhatsAppItem}
+                            onValueChange={async (val) => {
+                              const selected = vegetableItems.find(item => item.name === val);
+                              if (selected && !await rememberWhatsAppItem(index, selected.id)) return;
                               form.setValue(`items.${index}.description`, val);
                               const lastRate = vegPriceMap.get(val);
                               const masterInfo = itemMasterRateMap.get(val);
@@ -1056,6 +1135,18 @@ export default function ReportForm() {
                               )}
                             </SelectContent>
                           </Select>
+                          {whatsAppPreview && (
+                            <div>
+                              {whatsAppPreview.sources[items[index]?.tempId || ""] && <p className="text-xs text-muted-foreground">Read: {whatsAppPreview.sources[items[index]?.tempId || ""].description}</p>}
+                              <Input
+                                className="mt-1"
+                                aria-label={`Edit vegetable item ${vegIndex} name`}
+                                placeholder="Edit item name"
+                                value={items[index]?.description || ""}
+                                onChange={event => form.setValue(`items.${index}.description`, event.target.value, { shouldDirty: true })}
+                              />
+                            </div>
+                          )}
                         </td>
                         <td>
                           <Input 
@@ -1216,7 +1307,10 @@ export default function ReportForm() {
                         <span className="w-5 h-5 rounded-full bg-gradient-to-br from-purple-400 to-violet-500 text-white text-[10px] flex items-center justify-center font-bold shrink-0">{otherIndex}</span>
                         <Select
                           value={items[index]?.description || ''}
-                          onValueChange={(val) => {
+                          disabled={mappingWhatsAppItem}
+                          onValueChange={async (val) => {
+                            const selected = otherItems.find(item => item.name === val);
+                            if (selected && !await rememberWhatsAppItem(index, selected.id)) return;
                             form.setValue(`items.${index}.description`, val);
                             const masterInfo = otherItemRateMap.get(val);
                             if (masterInfo?.rate && !items[index]?.rate) {
@@ -1253,6 +1347,17 @@ export default function ReportForm() {
                         <Trash2 className="w-4 h-4" />
                       </Button>
                     </div>
+                    {whatsAppPreview && (
+                      <div>
+                        {whatsAppPreview.sources[items[index]?.tempId || ""] && <p className="text-xs text-muted-foreground">Read: {whatsAppPreview.sources[items[index]?.tempId || ""].description}</p>}
+                        <Input
+                          aria-label={`Edit other item ${otherIndex} name`}
+                          placeholder="Edit item name"
+                          value={items[index]?.description || ""}
+                          onChange={event => form.setValue(`items.${index}.description`, event.target.value, { shouldDirty: true })}
+                        />
+                      </div>
+                    )}
                     <div className="grid grid-cols-4 gap-2">
                       <div>
                         <label className="text-[10px] text-muted-foreground uppercase font-semibold">UoM</label>
@@ -1364,7 +1469,10 @@ export default function ReportForm() {
                         <td>
                           <Select
                             value={items[index]?.description || ''}
-                            onValueChange={(val) => {
+                            disabled={mappingWhatsAppItem}
+                            onValueChange={async (val) => {
+                              const selected = otherItems.find(item => item.name === val);
+                              if (selected && !await rememberWhatsAppItem(index, selected.id)) return;
                               form.setValue(`items.${index}.description`, val);
                               const masterInfo = otherItemRateMap.get(val);
                               if (masterInfo?.rate && !items[index]?.rate) {
@@ -1389,6 +1497,18 @@ export default function ReportForm() {
                               )}
                             </SelectContent>
                           </Select>
+                          {whatsAppPreview && (
+                            <div>
+                              {whatsAppPreview.sources[items[index]?.tempId || ""] && <p className="text-xs text-muted-foreground">Read: {whatsAppPreview.sources[items[index]?.tempId || ""].description}</p>}
+                              <Input
+                                className="mt-1"
+                                aria-label={`Edit other item ${otherIndex} name`}
+                                placeholder="Edit item name"
+                                value={items[index]?.description || ""}
+                                onChange={event => form.setValue(`items.${index}.description`, event.target.value, { shouldDirty: true })}
+                              />
+                            </div>
+                          )}
                         </td>
                         <td>
                           <Input

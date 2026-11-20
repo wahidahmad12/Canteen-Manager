@@ -328,6 +328,11 @@ export const itemMaster = mysqlTable("item_master", {
   createdAt: timestamp("created_at").defaultNow(),
 });
 
+export const whatsappItemAliases = mysqlTable("whatsapp_item_aliases", {
+  aliasKey: varchar("alias_key", { length: 64 }).primaryKey(),
+  itemId: int("item_id").notNull().references(() => itemMaster.id, { onDelete: "cascade" }),
+});
+
 // === SALARY & PAYROLL TABLES ===
 
 // Employee Master

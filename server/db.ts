@@ -31,6 +31,11 @@ async function initPool(): Promise<void> {
   db = drizzle(pool, { schema, mode: "default" });
 
   const migrations = [
+    `CREATE TABLE IF NOT EXISTS whatsapp_item_aliases (
+      alias_key VARCHAR(64) PRIMARY KEY,
+      item_id INT NOT NULL,
+      FOREIGN KEY (item_id) REFERENCES item_master(id) ON DELETE CASCADE
+    )`,
     `CREATE TABLE IF NOT EXISTS vendor_payment_details (
       vendor_id INT PRIMARY KEY,
       bank_name VARCHAR(255) NOT NULL DEFAULT '',
