@@ -17,7 +17,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { parseVoiceExpenseTranscript, type ExpenseCategory, type VoiceExpenseCatalogItem, type VoiceExpenseItem } from "@/lib/voice-expense";
+import { parseVoiceExpenseTranscript, updateVoiceExpenseItem, type ExpenseCategory, type VoiceExpenseCatalogItem, type VoiceExpenseItem } from "@/lib/voice-expense";
 
 interface SpeechRecognitionResultLike {
   readonly isFinal: boolean;
@@ -54,9 +54,9 @@ const categoryLabels: Record<ExpenseCategory, string> = {
 };
 
 const examples: Record<ExpenseCategory, string> = {
-  fixed: "Petrol, 2 litre, 200 rupees.",
-  vegetable: "Aloo, 2 kilo, 100 rupees.",
-  other: "Rice, 2 kilo, 100 rupees.",
+  fixed: "Khatta dahi, 10 pieces, rate 21.",
+  vegetable: "Aloo, 2 kilo, rate 50.",
+  other: "Rice, 2 kilo, rate 50.",
 };
 
 export function VoiceExpenseDialog({ category, catalog, onAdd }: VoiceExpenseDialogProps) {
@@ -143,14 +143,9 @@ export function VoiceExpenseDialog({ category, catalog, onAdd }: VoiceExpenseDia
   };
 
   const updateItem = (index: number, patch: Partial<VoiceExpenseItem>) => {
-    setReviewItems(current => current.map((item, currentIndex) => {
-      if (currentIndex !== index) return item;
-      const updated = { ...item, ...patch };
-      if (patch.qty !== undefined || patch.amount !== undefined) {
-        updated.rate = updated.qty > 0 ? updated.amount / updated.qty : 0;
-      }
-      return updated;
-    }));
+    setReviewItems(current => current.map((item, currentIndex) =>
+      currentIndex === index ? updateVoiceExpenseItem(item, patch) : item
+    ));
   };
 
   const handleAdd = () => {
@@ -164,6 +159,20 @@ export function VoiceExpenseDialog({ category, catalog, onAdd }: VoiceExpenseDia
     }
     if (category === "fixed" && reviewItems.some(item => sectionCatalog.find(option => option.name === item.description)?.uom.toLowerCase() !== item.uom.toLowerCase())) {
       setError("The unit does not match the fixed item. Correct the unit and quantity before adding.");
+      return;
+    }
+    if (reviewItems.some(item => !Number.isFinite(item.qty) || item.qty <= 0 ||
+      !Number.isFinite(item.rate) || item.rate < 0 ||
+      !Number.isFinite(item.amount) || item.amount < 0)) {
+      setError("Enter a quantity greater than zero and a valid non-negative rate and amount for every item.");
+      return;
+    }
+    if (reviewItems.some(item => Math.abs(item.qty * item.rate - item.amount) > 0.01)) {
+      setError("Amount does not match quantity × rate. Correct the rate or amount before adding.");
+      return;
+    }
+    if (reviewItems.some(item => item.rate === 0) &&
+      !window.confirm("Some items have a ₹0 rate. Add them with no expense?")) {
       return;
     }
     onAdd(reviewItems);
@@ -204,7 +213,7 @@ export function VoiceExpenseDialog({ category, catalog, onAdd }: VoiceExpenseDia
               {categoryLabels[category]} — Voice Entry
             </DialogTitle>
             <DialogDescription>
-              Speak one expense per sentence with its quantity and total amount. Review the suggestions before adding them to {categoryLabels[category]}.
+              Speak one item per sentence with its quantity and rate, or say its total amount. Check every field before adding it to {categoryLabels[category]}.
             </DialogDescription>
           </DialogHeader>
 
@@ -250,7 +259,7 @@ export function VoiceExpenseDialog({ category, catalog, onAdd }: VoiceExpenseDia
               data-testid="textarea-voice-expense-transcript"
             />
             <p className="text-xs text-muted-foreground">
-              Example: “{examples[category]}” Speak each item as a separate sentence. You can correct the transcript before parsing. Your browser may process voice audio online.
+              Example: “{examples[category]}” Say “rate” for price per unit or “total” for the whole amount. Speak each item separately. Your browser may process voice audio online.
             </p>
 
             {error && <p className="text-sm text-destructive" role="alert">{error}</p>}
@@ -264,9 +273,10 @@ export function VoiceExpenseDialog({ category, catalog, onAdd }: VoiceExpenseDia
               <div className="space-y-3">
                 <h3 className="text-sm font-semibold">Review before adding</h3>
                 {reviewItems.map((item, index) => (
-                  <div key={index} className="grid grid-cols-1 sm:grid-cols-5 gap-2 rounded-lg border p-3">
+                  <div key={index} className="grid grid-cols-2 sm:grid-cols-6 gap-2 rounded-lg border p-3">
                     {category === "fixed" ? (
-                      <div className="sm:col-span-2">
+                      <div className="col-span-2">
+                        <label className="text-xs font-medium" htmlFor={`voice-${category}-${index}-item`}>Item</label>
                         <Select
                           value={sectionCatalog.some(option => option.name === item.description) ? item.description : ""}
                           onValueChange={(value) => {
@@ -274,7 +284,7 @@ export function VoiceExpenseDialog({ category, catalog, onAdd }: VoiceExpenseDia
                             updateItem(index, { description: value, uom: selected?.uom ?? item.uom });
                           }}
                         >
-                          <SelectTrigger aria-label={`Item ${index + 1} fixed item`}>
+                          <SelectTrigger id={`voice-${category}-${index}-item`} aria-label={`Item ${index + 1} fixed item`}>
                             <SelectValue placeholder="Choose fixed item" />
                           </SelectTrigger>
                           <SelectContent>
@@ -288,38 +298,74 @@ export function VoiceExpenseDialog({ category, catalog, onAdd }: VoiceExpenseDia
                         )}
                       </div>
                     ) : (
-                      <Input
-                        value={item.description}
-                        onChange={(event) => updateItem(index, { description: event.target.value })}
-                        aria-label={`Item ${index + 1} description`}
-                        placeholder="Item name"
-                        className="sm:col-span-2"
-                      />
+                      <div className="col-span-2 space-y-1">
+                        <label className="text-xs font-medium" htmlFor={`voice-${category}-${index}-item`}>Item</label>
+                        <Input
+                          id={`voice-${category}-${index}-item`}
+                          value={item.description}
+                          onChange={(event) => updateItem(index, { description: event.target.value })}
+                          aria-label={`Item ${index + 1} description`}
+                          placeholder="Item name"
+                        />
+                        {sectionCatalog.length > 0 && (
+                          <Select value="" onValueChange={(value) => {
+                            const selected = sectionCatalog.find(option => option.name === value);
+                            if (selected) updateItem(index, { description: selected.name, uom: selected.uom });
+                          }}>
+                            <SelectTrigger aria-label={`Select item ${index + 1} from item master`}>
+                              <SelectValue placeholder="Choose from item list" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {sectionCatalog.map(option => (
+                                <SelectItem key={option.name} value={option.name}>{option.name}</SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        )}
+                      </div>
                     )}
+                    <label className="text-xs font-medium space-y-1">Unit
                     <Input
                       value={item.uom}
                       onChange={(event) => updateItem(index, { uom: event.target.value })}
                       aria-label={`Item ${index + 1} unit`}
                       placeholder="Unit"
                     />
+                    </label>
+                    <label className="text-xs font-medium space-y-1">Quantity
                     <Input
                       type="number"
                       min="0"
                       step="any"
-                      value={item.qty}
+                      value={item.qty || ""}
                       onChange={(event) => updateItem(index, { qty: Number(event.target.value) || 0 })}
                       aria-label={`Item ${index + 1} quantity`}
                       placeholder="Qty"
                     />
+                    </label>
+                    <label className="text-xs font-medium space-y-1">Rate ₹
                     <Input
                       type="number"
                       min="0"
                       step="any"
-                      value={item.amount}
+                      inputMode="decimal"
+                      value={item.rate || ""}
+                      onChange={(event) => updateItem(index, { rate: Number(event.target.value) || 0 })}
+                      aria-label={`Item ${index + 1} rate`}
+                      placeholder="Rate"
+                    />
+                    </label>
+                    <label className="text-xs font-medium space-y-1">Total ₹
+                    <Input
+                      type="number"
+                      min="0"
+                      step="any"
+                      value={item.amount || ""}
                       onChange={(event) => updateItem(index, { amount: Number(event.target.value) || 0 })}
                       aria-label={`Item ${index + 1} amount`}
                       placeholder="Amount ₹"
                     />
+                    </label>
                   </div>
                 ))}
               </div>
