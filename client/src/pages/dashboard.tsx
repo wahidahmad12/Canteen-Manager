@@ -177,8 +177,12 @@ export default function Dashboard() {
     purchaseInvoices.forEach((inv: any) => {
       const grand = Number(inv.grandTotal) || 0;
       totalAmount += grand;
-      if (inv.paymentGiven) { totalPaid += grand; paidCount++; }
-      else { totalUnpaid += grand; unpaidCount++; }
+      const paidSum = (inv.payments || []).reduce((s: number, p: any) => s + Number(p.amount), 0);
+      // Old invoices marked paymentGiven count as fully paid; otherwise use recorded payments
+      const paid = inv.paymentGiven ? grand : Math.min(paidSum, grand);
+      totalPaid += paid;
+      totalUnpaid += grand - paid;
+      if (grand > 0 && paid >= grand) paidCount++; else unpaidCount++;
       vendorMap.set(inv.vendorName, (vendorMap.get(inv.vendorName) || 0) + grand);
     });
     const vendorData = Array.from(vendorMap.entries()).map(([name, amount]) => ({ name: name.length > 12 ? name.slice(0, 12) + '...' : name, amount })).sort((a, b) => b.amount - a.amount).slice(0, 8);
