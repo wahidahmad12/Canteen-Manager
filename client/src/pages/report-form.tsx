@@ -149,10 +149,12 @@ export default function ReportForm() {
   const { data: currentUser } = useCurrentUser();
   const queryClient = useQueryClient();
   const [fetchingWhatsApp, setFetchingWhatsApp] = useState(false);
+  const [mappingWhatsAppItem, setMappingWhatsAppItem] = useState(false);
   const [whatsAppPreview, setWhatsAppPreview] = useState<{
     token: string;
     readItems: { description: string; category: string }[];
     writtenTotal: number | null;
+    sources: Record<string, { description: string; category: "vegetable" | "other" }>;
   } | null>(null);
   const whatsAppPreviewRef = useRef(false);
   const { data: report, isLoading: isReportLoading } = useReport(reportId);
@@ -251,18 +253,42 @@ export default function ReportForm() {
       const preview = await previewResponse.json();
       if (!previewResponse.ok) throw new Error(preview.message || "Could not fetch the WhatsApp slip.");
       const report = api.reports.create.input.parse(preview.report);
+      const sources = z.record(z.object({ description: z.string(), category: z.enum(["vegetable", "other"]) })).parse(preview.sources);
       if (typeof preview.token !== "string" || !Array.isArray(preview.readItems)) throw new Error("Invalid WhatsApp preview response.");
       const [year, month, day] = report.date.split("-").map(Number);
       const date = new Date(year, month - 1, day);
       if (!year || !month || !day || Number.isNaN(date.getTime())) throw new Error("Invalid date in WhatsApp preview.");
       whatsAppPreviewRef.current = true;
-      setWhatsAppPreview({ token: preview.token, readItems: preview.readItems, writtenTotal: preview.writtenTotal });
-      form.reset({ ...report, date, items: report.items.map(item => ({ ...item, reportId: 0 })) });
+      setWhatsAppPreview({ token: preview.token, readItems: preview.readItems, writtenTotal: preview.writtenTotal, sources });
+      form.reset({ ...report, date, items: report.items.map((item, index) => ({ ...item, reportId: 0, tempId: sources[`wa-${index}`] ? `wa-${index}` : undefined })) });
       toast({ title: "WhatsApp preview ready", description: "Check and edit the report before saving." });
     } catch (error) {
       toast({ title: "WhatsApp fetch failed", description: error instanceof Error ? error.message : "Something went wrong", variant: "destructive" });
     } finally {
       setFetchingWhatsApp(false);
+    }
+  };
+
+  const rememberWhatsAppItem = async (index: number, itemId: number): Promise<boolean> => {
+    const sourceId = form.getValues(`items.${index}.tempId`);
+    if (!whatsAppPreview || !sourceId || !whatsAppPreview.sources[sourceId]) return true;
+    setMappingWhatsAppItem(true);
+    try {
+      const response = await fetch("/api/whatsapp/fetch/map-item", {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ token: whatsAppPreview.token, sourceId, itemId }),
+      });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.message || "Could not save item mapping.");
+      toast({ title: "Item mapping remembered", description: `${whatsAppPreview.sources[sourceId].description} → ${data.itemName}` });
+      return form.getValues(`items.${index}.tempId`) === sourceId;
+    } catch (error) {
+      toast({ title: "Item mapping failed", description: error instanceof Error ? error.message : "Could not save item mapping.", variant: "destructive" });
+      return false;
+    } finally {
+      setMappingWhatsAppItem(false);
     }
   };
 
@@ -481,7 +507,7 @@ export default function ReportForm() {
           <div className="flex flex-wrap gap-2 sm:gap-3 ml-12 sm:ml-0">
              {currentUser?.role === "admin" && (
                <>
-                 <Button variant="outline" type="button" onClick={handleFetchWhatsApp} disabled={fetchingWhatsApp} className="text-xs sm:text-sm h-9 sm:h-10 rounded-xl" data-testid="button-fetch-whatsapp">
+                 <Button variant="outline" type="button" onClick={handleFetchWhatsApp} disabled={fetchingWhatsApp || mappingWhatsAppItem || form.formState.isSubmitting} className="text-xs sm:text-sm h-9 sm:h-10 rounded-xl" data-testid="button-fetch-whatsapp">
                    {fetchingWhatsApp ? <Loader2 className="w-4 h-4 mr-1 animate-spin" /> : <MessageCircle className="w-4 h-4 mr-1" />} Fetch from WhatsApp
                  </Button>
                  <Button variant="outline" type="button" asChild className="text-xs sm:text-sm h-9 sm:h-10 rounded-xl" data-testid="button-whatsapp-qr">
@@ -501,7 +527,7 @@ export default function ReportForm() {
              </Button>
              <Button 
                type="submit" 
-               disabled={createMutation.isPending || updateMutation.isPending || form.formState.isSubmitting}
+               disabled={createMutation.isPending || updateMutation.isPending || form.formState.isSubmitting || mappingWhatsAppItem}
                className="shadow-lg shadow-indigo-500/20 text-xs sm:text-sm h-9 sm:h-10 rounded-xl bg-gradient-to-r from-indigo-500 to-purple-600 hover:from-indigo-600 hover:to-purple-700 border-0"
                data-testid="button-save-report"
              >
@@ -521,7 +547,7 @@ export default function ReportForm() {
               <CardTitle className="text-base">WhatsApp slip preview — not saved</CardTitle>
             </CardHeader>
             <CardContent className="space-y-2 text-sm">
-              <p>These are the names read from the image. Check and edit the report below, then select Save Report. The preview expires after 10 minutes.</p>
+              <p>These are the names read from the image. Select the correct Item Master item below to remember the mapping for future dates. Check the report before saving; the preview expires after 10 minutes.</p>
               {whatsAppPreview.readItems.length ? (
                 <ul className="list-disc pl-5 max-h-40 overflow-y-auto">
                   {whatsAppPreview.readItems.map((item, index) => (
@@ -916,7 +942,10 @@ export default function ReportForm() {
                         <span className="w-5 h-5 rounded-full bg-gradient-to-br from-emerald-400 to-teal-500 text-white text-[10px] flex items-center justify-center font-bold shrink-0">{vegIndex}</span>
                         <Select
                           value={items[index]?.description || ''}
-                          onValueChange={(val) => {
+                          disabled={mappingWhatsAppItem}
+                          onValueChange={async (val) => {
+                            const selected = vegetableItems.find(item => item.name === val);
+                            if (selected && !await rememberWhatsAppItem(index, selected.id)) return;
                             form.setValue(`items.${index}.description`, val);
                             const lastRate = vegPriceMap.get(val);
                             const masterInfo = itemMasterRateMap.get(val);
@@ -955,12 +984,15 @@ export default function ReportForm() {
                       </Button>
                     </div>
                     {whatsAppPreview && (
-                      <Input
-                        aria-label={`Edit vegetable item ${vegIndex} name`}
-                        placeholder="Edit item name"
-                        value={items[index]?.description || ""}
-                        onChange={event => form.setValue(`items.${index}.description`, event.target.value, { shouldDirty: true })}
-                      />
+                      <div>
+                        {whatsAppPreview.sources[items[index]?.tempId || ""] && <p className="text-xs text-muted-foreground">Read: {whatsAppPreview.sources[items[index]?.tempId || ""].description}</p>}
+                        <Input
+                          aria-label={`Edit vegetable item ${vegIndex} name`}
+                          placeholder="Edit item name"
+                          value={items[index]?.description || ""}
+                          onChange={event => form.setValue(`items.${index}.description`, event.target.value, { shouldDirty: true })}
+                        />
+                      </div>
                     )}
                     <div className="grid grid-cols-4 gap-2">
                       <div>
@@ -1069,7 +1101,10 @@ export default function ReportForm() {
                         <td>
                           <Select
                             value={items[index]?.description || ''}
-                            onValueChange={(val) => {
+                            disabled={mappingWhatsAppItem}
+                            onValueChange={async (val) => {
+                              const selected = vegetableItems.find(item => item.name === val);
+                              if (selected && !await rememberWhatsAppItem(index, selected.id)) return;
                               form.setValue(`items.${index}.description`, val);
                               const lastRate = vegPriceMap.get(val);
                               const masterInfo = itemMasterRateMap.get(val);
@@ -1101,13 +1136,16 @@ export default function ReportForm() {
                             </SelectContent>
                           </Select>
                           {whatsAppPreview && (
-                            <Input
-                              className="mt-1"
-                              aria-label={`Edit vegetable item ${vegIndex} name`}
-                              placeholder="Edit item name"
-                              value={items[index]?.description || ""}
-                              onChange={event => form.setValue(`items.${index}.description`, event.target.value, { shouldDirty: true })}
-                            />
+                            <div>
+                              {whatsAppPreview.sources[items[index]?.tempId || ""] && <p className="text-xs text-muted-foreground">Read: {whatsAppPreview.sources[items[index]?.tempId || ""].description}</p>}
+                              <Input
+                                className="mt-1"
+                                aria-label={`Edit vegetable item ${vegIndex} name`}
+                                placeholder="Edit item name"
+                                value={items[index]?.description || ""}
+                                onChange={event => form.setValue(`items.${index}.description`, event.target.value, { shouldDirty: true })}
+                              />
+                            </div>
                           )}
                         </td>
                         <td>
@@ -1269,7 +1307,10 @@ export default function ReportForm() {
                         <span className="w-5 h-5 rounded-full bg-gradient-to-br from-purple-400 to-violet-500 text-white text-[10px] flex items-center justify-center font-bold shrink-0">{otherIndex}</span>
                         <Select
                           value={items[index]?.description || ''}
-                          onValueChange={(val) => {
+                          disabled={mappingWhatsAppItem}
+                          onValueChange={async (val) => {
+                            const selected = otherItems.find(item => item.name === val);
+                            if (selected && !await rememberWhatsAppItem(index, selected.id)) return;
                             form.setValue(`items.${index}.description`, val);
                             const masterInfo = otherItemRateMap.get(val);
                             if (masterInfo?.rate && !items[index]?.rate) {
@@ -1307,12 +1348,15 @@ export default function ReportForm() {
                       </Button>
                     </div>
                     {whatsAppPreview && (
-                      <Input
-                        aria-label={`Edit other item ${otherIndex} name`}
-                        placeholder="Edit item name"
-                        value={items[index]?.description || ""}
-                        onChange={event => form.setValue(`items.${index}.description`, event.target.value, { shouldDirty: true })}
-                      />
+                      <div>
+                        {whatsAppPreview.sources[items[index]?.tempId || ""] && <p className="text-xs text-muted-foreground">Read: {whatsAppPreview.sources[items[index]?.tempId || ""].description}</p>}
+                        <Input
+                          aria-label={`Edit other item ${otherIndex} name`}
+                          placeholder="Edit item name"
+                          value={items[index]?.description || ""}
+                          onChange={event => form.setValue(`items.${index}.description`, event.target.value, { shouldDirty: true })}
+                        />
+                      </div>
                     )}
                     <div className="grid grid-cols-4 gap-2">
                       <div>
@@ -1425,7 +1469,10 @@ export default function ReportForm() {
                         <td>
                           <Select
                             value={items[index]?.description || ''}
-                            onValueChange={(val) => {
+                            disabled={mappingWhatsAppItem}
+                            onValueChange={async (val) => {
+                              const selected = otherItems.find(item => item.name === val);
+                              if (selected && !await rememberWhatsAppItem(index, selected.id)) return;
                               form.setValue(`items.${index}.description`, val);
                               const masterInfo = otherItemRateMap.get(val);
                               if (masterInfo?.rate && !items[index]?.rate) {
@@ -1451,13 +1498,16 @@ export default function ReportForm() {
                             </SelectContent>
                           </Select>
                           {whatsAppPreview && (
-                            <Input
-                              className="mt-1"
-                              aria-label={`Edit other item ${otherIndex} name`}
-                              placeholder="Edit item name"
-                              value={items[index]?.description || ""}
-                              onChange={event => form.setValue(`items.${index}.description`, event.target.value, { shouldDirty: true })}
-                            />
+                            <div>
+                              {whatsAppPreview.sources[items[index]?.tempId || ""] && <p className="text-xs text-muted-foreground">Read: {whatsAppPreview.sources[items[index]?.tempId || ""].description}</p>}
+                              <Input
+                                className="mt-1"
+                                aria-label={`Edit other item ${otherIndex} name`}
+                                placeholder="Edit item name"
+                                value={items[index]?.description || ""}
+                                onChange={event => form.setValue(`items.${index}.description`, event.target.value, { shouldDirty: true })}
+                              />
+                            </div>
                           )}
                         </td>
                         <td>

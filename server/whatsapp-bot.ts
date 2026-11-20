@@ -8,8 +8,10 @@ import QRCode from "qrcode";
 import { storage } from "./storage";
 import { isAllowedSlipMessage, isNewerMessage } from "./whatsapp-message-selection";
 import { requestGeminiSlip } from "./gemini-slip";
-import { normalizeWhatsAppItemDescription } from "./whatsapp-slip-items";
+import { matchWhatsAppMasterItem, normalizeWhatsAppAlias, normalizeWhatsAppItemDescription, whatsAppAliasKey } from "./whatsapp-slip-items";
 import { api } from "@shared/routes";
+import { whatsappItemAliases } from "@shared/schema";
+import { db } from "./db";
 
 const FIXED_ITEMS: { description: string; uom: string; defaultRate: number }[] = [
   { description: "Cup Dahi 85g", uom: "Kg", defaultRate: 15 },
@@ -169,6 +171,8 @@ async function prepareSlip(slip: ExtractedSlip) {
   if (!date) throw new Error(`Could not read a valid date from the slip (got "${slip.date}")`);
 
   const stored = await storage.getLatestFixedItemRates();
+  const master = await storage.getItemMasterItems();
+  const aliases = new Map((await db.select().from(whatsappItemAliases)).map(alias => [alias.aliasKey, alias.itemId]));
   const prevRates: Record<string, number> = {};
   for (const f of FIXED_ITEMS) prevRates[f.description] = stored[f.description] ?? f.defaultRate;
 
@@ -188,10 +192,14 @@ async function prepareSlip(slip: ExtractedSlip) {
     return { category: "fixed", description: f.description, uom: f.uom, ...r, rate };
   });
 
+  const sources: Record<string, { description: string; category: "vegetable" | "other" }> = {};
   for (const it of dynamicFromSlip) {
     const category = it.category === "vegetable" ? "vegetable" : "other";
-    const description = normalizeWhatsAppItemDescription(String(it.description), category);
+    const source = String(it.description).trim();
+    const match = matchWhatsAppMasterItem(source, category, master, aliases);
+    const description = match?.itemName ?? normalizeWhatsAppItemDescription(source, category);
     const r = resolveItem(it);
+    sources[`wa-${items.length}`] = { description: source, category };
     items.push({ category, description, uom: it.uom?.trim() || (category === "vegetable" ? "Kg" : "Pcs"), ...r });
   }
 
@@ -200,14 +208,14 @@ async function prepareSlip(slip: ExtractedSlip) {
   const akbar = parseNumber(slip.akbarAmount);
   const openingBalance = akbar ?? (await storage.getPreviousDayBalance(date));
 
-  return { date, openingBalance, receivedAmount, giveByWahid, items };
+  return { report: { date, openingBalance, receivedAmount, giveByWahid, items }, sources };
 }
 
 export async function startWhatsAppBot(app: Express): Promise<void> {
   let activeSocket: WASocket | undefined;
   let latestImage: WAMessage | undefined;
   let recordQueue = Promise.resolve();
-  const pending = new Map<string, { token: string; createdAt: number; saving: boolean }>();
+  const pending = new Map<string, { token: string; createdAt: number; saving: boolean; sources: Record<string, { description: string; category: "vegetable" | "other" }> }>();
   const cachePath = join("whatsapp_auth_session", "latest-slip.bin");
 
   app.get("/api/whatsapp/qr", async (req: Request, res: Response) => {
@@ -249,21 +257,52 @@ export async function startWhatsAppBot(app: Express): Promise<void> {
       const slip = await extractSlip(buffer, image.mimetype || "image/jpeg");
       const date = normalizeDate(slip.date);
       if (!date) throw new Error("Could not read a valid date from the slip.");
-      const report = await prepareSlip(slip);
+      const { report, sources } = await prepareSlip(slip);
       const existing = await storage.getReportByDate(date);
       const token = randomUUID();
       pending.forEach((entry, sessionId) => {
         if (!entry.saving && Date.now() - entry.createdAt > 10 * 60_000) pending.delete(sessionId);
       });
-      pending.set(req.sessionID, { token, createdAt: Date.now(), saving: false });
+      pending.set(req.sessionID, { token, createdAt: Date.now(), saving: false, sources });
       const readItems = [
         ...(slip.fixedItems ?? []).filter(item => item?.description).map(item => ({ description: String(item.description), category: "fixed" })),
         ...(slip.items ?? []).filter(item => item?.description).map(item => ({ description: String(item.description), category: item.category || "other" })),
       ];
-      return res.json({ token, date, exists: !!existing, report, readItems, writtenTotal: parseNumber(slip.totalExpense) });
+      return res.json({ token, date, exists: !!existing, report, sources, readItems, writtenTotal: parseNumber(slip.totalExpense) });
     } catch (error) {
       console.error("[whatsapp] failed to fetch slip:", error);
       return res.status(500).json({ message: error instanceof Error ? error.message : "Could not fetch the slip." });
+    }
+  });
+
+  app.post("/api/whatsapp/fetch/map-item", async (req: Request, res: Response) => {
+    if (!req.session?.userId) return res.status(401).json({ message: "Not authenticated" });
+    if (req.session.role !== "admin") return res.status(403).json({ message: "Admin access required" });
+    const entry = pending.get(req.sessionID);
+    if (!entry || entry.token !== req.body?.token || Date.now() - entry.createdAt > 10 * 60_000) {
+      return res.status(400).json({ message: "Slip preview expired. Fetch it again." });
+    }
+    if (entry.saving) return res.status(409).json({ message: "This slip is already being saved." });
+    const sourceId = req.body?.sourceId;
+    const itemId = req.body?.itemId;
+    if (typeof sourceId !== "string" || !Object.hasOwn(entry.sources, sourceId) ||
+      !Number.isSafeInteger(itemId) || itemId <= 0) {
+      return res.status(400).json({ message: "Choose an item from the current preview." });
+    }
+    const source = entry.sources[sourceId];
+    if (!normalizeWhatsAppAlias(source.description)) return res.status(400).json({ message: "The extracted item name cannot be mapped." });
+    try {
+      const item = (await storage.getItemMasterItems()).find(candidate => candidate.id === itemId);
+      if (!item || (item.itemCategory === "Vegetable" ? "vegetable" : "other") !== source.category) {
+        return res.status(400).json({ message: "Choose an Item Master item from the same section." });
+      }
+      const aliasKey = whatsAppAliasKey(source.description, source.category);
+      await db.insert(whatsappItemAliases).values({ aliasKey, itemId: item.id })
+        .onDuplicateKeyUpdate({ set: { itemId: item.id } });
+      return res.json({ itemName: item.itemName });
+    } catch (error) {
+      console.error("[whatsapp] failed to save item mapping:", error);
+      return res.status(500).json({ message: "Could not save this item mapping. Please try again." });
     }
   });
 
