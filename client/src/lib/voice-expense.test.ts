@@ -43,3 +43,22 @@ test("keeps unrecognized descriptions as editable other expenses", () => {
     rate: 250,
   });
 });
+
+test("section voice entries stay in the selected category, even for known or unmatched items", () => {
+  const [vegetable] = parseVoiceExpenseTranscript("Petrol 2 litre 200 rupees", catalog, "vegetable");
+  assert.equal(vegetable.category, "vegetable");
+  const [other] = parseVoiceExpenseTranscript("Aloo 2 kilo 100 rupees", catalog, "other");
+  assert.equal(other.category, "other");
+  const [fixed] = parseVoiceExpenseTranscript("Unknown 100 rupees", catalog, "fixed");
+  assert.equal(fixed.category, "fixed");
+});
+
+test("section matching ignores items from other categories", () => {
+  const duplicateNames = [
+    { name: "Rice", category: "other" as const, uom: "Bag" },
+    { name: "Rice", category: "vegetable" as const, uom: "Kg" },
+  ];
+  const [item] = parseVoiceExpenseTranscript("Rice 100 rupees", duplicateNames, "vegetable");
+  assert.equal(item.category, "vegetable");
+  assert.equal(item.uom, "Kg");
+});
