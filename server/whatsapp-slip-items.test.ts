@@ -8,9 +8,17 @@ test("maps WhatsApp vegetable G.Chilli spelling variants to the green chilli ite
   }
 });
 
+test("maps Phoolgobi vegetable spelling variants to the cauliflower item", () => {
+  for (const name of ["Phoolgobi", "phool gobi", "Phool Gobhi", "Phool Gobhee"]) {
+    assert.equal(normalizeWhatsAppItemDescription(name, "vegetable"), "Cauliflower (Phool Gobhee)");
+  }
+});
+
 test("does not rename other chilli items or non-vegetable entries", () => {
   assert.equal(normalizeWhatsAppItemDescription("Red Chilli", "vegetable"), "Red Chilli");
   assert.equal(normalizeWhatsAppItemDescription("G.Chilli Powder", "vegetable"), "G.Chilli Powder");
   assert.equal(normalizeWhatsAppItemDescription("G.Chilli", "other"), "G.Chilli");
+  assert.equal(normalizeWhatsAppItemDescription("Phoolgobi", "other"), "Phoolgobi");
+  assert.equal(normalizeWhatsAppItemDescription("Phoolgobi pickle", "vegetable"), "Phoolgobi pickle");
   assert.equal(normalizeWhatsAppItemDescription("  Tomato  ", "vegetable"), "Tomato");
 });
