@@ -12,10 +12,12 @@ import { useToast } from "@/hooks/use-toast";
 import { DatePicker } from "@/components/ui/date-picker";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Loader2, Plus, Trash2, Calculator, Save, ArrowLeft, X, CalendarDays, Wallet, IndianRupee, ShoppingBasket, Leaf, TrendingDown, TrendingUp, Banknote, Package, FileDown, RefreshCw, MessageCircle, QrCode } from "lucide-react";
+import { VoiceExpenseDialog } from "@/components/voice-expense-dialog";
 import { useCreateReport, useUpdateReport, useReport, useItemMaster, useVegetableLastPrices, useCurrentUser } from "@/hooks/use-reports";
 import { useQueryClient } from "@tanstack/react-query";
 import { api } from "@shared/routes";
 import { insertDailyReportSchema, insertExpenseItemSchema } from "@shared/schema";
+import type { VoiceExpenseItem } from "@/lib/voice-expense";
 import {
   Select,
   SelectContent,
@@ -155,6 +157,14 @@ export default function ReportForm() {
   const otherItems = salesItems
     .filter((item: any) => item.itemCategory !== 'Vegetable')
     .map((item: any) => ({ id: item.id, name: item.itemName, uom: item.uom, rate: Number(item.rate) || 0 }));
+  const voiceCatalog = [
+    ...DEFAULT_FIXED_ITEMS.map(item => ({ name: item.description, category: 'fixed' as const, uom: item.uom })),
+    ...salesItems.map((item: any) => ({
+      name: item.itemName,
+      category: item.itemCategory === 'Vegetable' ? 'vegetable' as const : 'other' as const,
+      uom: item.uom || 'Pcs',
+    })),
+  ];
   const { data: vegLastPrices = [] } = useVegetableLastPrices();
   const createMutation = useCreateReport();
   const updateMutation = useUpdateReport();
@@ -309,6 +319,42 @@ export default function ReportForm() {
     name: "items",
   });
 
+  const handleAddVoiceItems = (voiceItems: VoiceExpenseItem[]) => {
+    for (const voiceItem of voiceItems) {
+      const currentItems = form.getValues("items");
+      const fixedIndex = voiceItem.category === "fixed"
+        ? currentItems.findIndex(item =>
+            item.category === "fixed" &&
+            item.description.trim().toLocaleLowerCase() === voiceItem.description.trim().toLocaleLowerCase()
+          )
+        : -1;
+
+      if (fixedIndex >= 0) {
+        const existing = currentItems[fixedIndex];
+        const qty = Number(existing.qty) + voiceItem.qty;
+        const amount = Number(existing.amount) + voiceItem.amount;
+        form.setValue(`items.${fixedIndex}.qty`, qty, { shouldDirty: true });
+        form.setValue(`items.${fixedIndex}.amount`, amount, { shouldDirty: true });
+        form.setValue(`items.${fixedIndex}.rate`, qty > 0 ? amount / qty : 0, { shouldDirty: true });
+      } else {
+        append({
+          reportId: reportId || 0,
+          category: voiceItem.category,
+          description: voiceItem.description.trim(),
+          uom: voiceItem.uom,
+          qty: voiceItem.qty,
+          rate: voiceItem.rate,
+          amount: voiceItem.amount,
+        });
+      }
+    }
+
+    toast({
+      title: "Voice entries added",
+      description: `${voiceItems.length} ${voiceItems.length === 1 ? "item was" : "items were"} added to the form. Please review before saving.`,
+    });
+  };
+
   useEffect(() => {
     if (report) {
       const loadedItems = report.items && report.items.length > 0
@@ -416,6 +462,7 @@ export default function ReportForm() {
             </div>
           </div>
           <div className="flex flex-wrap gap-2 sm:gap-3 ml-12 sm:ml-0">
+             <VoiceExpenseDialog catalog={voiceCatalog} onAdd={handleAddVoiceItems} />
              {currentUser?.role === "admin" && (
                <>
                  <Button variant="outline" type="button" onClick={handleFetchWhatsApp} disabled={fetchingWhatsApp} className="text-xs sm:text-sm h-9 sm:h-10 rounded-xl" data-testid="button-fetch-whatsapp">
