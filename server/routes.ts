@@ -23,6 +23,7 @@ import { isoBase64URL, isoUint8Array } from '@simplewebauthn/server/helpers';
 import { eq, desc } from "drizzle-orm";
 import { registerEmployeeImportRoutes } from "./employee-import-routes";
 import { startWhatsAppBot } from "./whatsapp-bot";
+import { scanGroceryImage } from "./grocery-scan";
 
 const webauthnRegChallenges = new Map<number, string>();
 const webauthnAuthChallenges = new Map<number, string>();
@@ -3211,60 +3212,18 @@ export async function registerRoutes(
       if (!m) return res.status(400).json({ message: "Please upload a JPG, PNG or WEBP photo." });
       const decodedBytes = Math.floor(m[2].length * 3 / 4);
       if (decodedBytes > 10 * 1024 * 1024) return res.status(400).json({ message: "Photo too big (max 10 MB)." });
-      const apiKey = process.env.OPENAI_API_KEY;
-      if (!apiKey) {
-        return res.status(503).json({ message: "AI key not set up yet. Please add the AI API key first." });
+      const keys = { gemini: process.env.GEMINI_API_KEY, openai: process.env.OPENAI_API_KEY };
+      if (!keys.gemini && !keys.openai) {
+        return res.status(503).json({ message: "AI key not set up. Configure GEMINI_API_KEY or OPENAI_API_KEY on the server." });
       }
-      const prompt = `This is a photo of a handwritten grocery list/receipt (may be in Hindi, Marathi or English). Extract every item with its quantity and price. Respond ONLY with JSON: {"items":[{"itemName":string,"quantity":string,"cost":number}]}. Use the item name as written (transliterate to Latin letters if needed). quantity like "1 kg", "2 pc", or "" if not written. cost is the price number, 0 if unreadable.`;
-      const isGoogleKey = apiKey.startsWith("AIza");
-      let content = "{}";
-      if (isGoogleKey) {
-        const mimeType = `image/${m[1] === "jpg" ? "jpeg" : m[1]}`;
-        const aiRes = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            contents: [{ parts: [
-              { text: prompt },
-              { inline_data: { mime_type: mimeType, data: m[2] } },
-            ]}],
-            generationConfig: { response_mime_type: "application/json", maxOutputTokens: 2000 },
-          }),
-        });
-        if (!aiRes.ok) {
-          const errText = await aiRes.text();
-          console.error("Gemini scan error:", errText.slice(0, 500));
-          return res.status(502).json({ message: "AI could not read the image. Please try a clearer photo." });
-        }
-        const aiJson: any = await aiRes.json();
-        content = aiJson.candidates?.[0]?.content?.parts?.[0]?.text || "{}";
-      } else {
-        const aiRes = await fetch("https://api.openai.com/v1/chat/completions", {
-          method: "POST",
-          headers: { "Content-Type": "application/json", Authorization: `Bearer ${apiKey}` },
-          body: JSON.stringify({
-            model: "gpt-4o-mini",
-            max_tokens: 1500,
-            response_format: { type: "json_object" },
-            messages: [{
-              role: "user",
-              content: [
-                { type: "text", text: prompt },
-                { type: "image_url", image_url: { url: image } },
-              ],
-            }],
-          }),
-        });
-        if (!aiRes.ok) {
-          const errText = await aiRes.text();
-          console.error("OpenAI scan error:", errText.slice(0, 500));
-          return res.status(502).json({ message: "AI could not read the image. Please try a clearer photo." });
-        }
-        const aiJson: any = await aiRes.json();
-        content = aiJson.choices?.[0]?.message?.content || "{}";
+      let parsed: any;
+      try {
+        parsed = await scanGroceryImage(image, `image/${m[1] === "jpg" ? "jpeg" : m[1]}`, m[2], keys);
+        if (!parsed || !Array.isArray(parsed.items)) throw new Error("AI returned an invalid grocery item list");
+      } catch (error) {
+        console.error("Grocery scan failed:", error);
+        return res.status(502).json({ message: "Grocery scan service failed. Please try again or contact an administrator." });
       }
-      let parsed: any = {};
-      try { parsed = JSON.parse(content); } catch { return res.status(502).json({ message: "AI returned an unreadable answer. Please try again." }); }
       const items = Array.isArray(parsed.items) ? parsed.items
         .filter((it: any) => it && typeof it.itemName === "string" && it.itemName.trim())
         .map((it: any) => ({
