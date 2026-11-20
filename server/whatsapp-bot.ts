@@ -8,7 +8,7 @@ import QRCode from "qrcode";
 import { storage } from "./storage";
 import { isAllowedSlipMessage, isNewerMessage } from "./whatsapp-message-selection";
 import { requestGeminiSlip } from "./gemini-slip";
-import { matchWhatsAppMasterItem, normalizeWhatsAppAlias, normalizeWhatsAppItemDescription, whatsAppAliasKey } from "./whatsapp-slip-items";
+import { matchSavedFixedItem, matchWhatsAppMasterItem, normalizeWhatsAppAlias, normalizeWhatsAppItemDescription, whatsAppAliasKey } from "./whatsapp-slip-items";
 import { api } from "@shared/routes";
 import { whatsappItemAliases } from "@shared/schema";
 import { db } from "./db";
@@ -105,7 +105,7 @@ Return ONLY JSON with this shape:
   "fixedItems": [{"description": string, "qty": number|string, "amount": number}],
   "items": [{"description": string, "category": "vegetable"|"other", "uom": string, "qty": number|string, "rate": number|null, "amount": number}]
 }
-fixedItems may only use these names: "Cup Dahi 85g","Dahi 100g Khatta","Dahi 100g Sweet","Pkt Dahi 1Kg","Rasgulla","Egg","Paneer","Petrol","Transport/Parking" ("Parking" -> "Transport/Parking"). If qty is not written use "-".
+Put fixed items such as "Cup Dahi 85g","Dahi 100g Khatta","Dahi 100g Sweet","Pkt Dahi 1Kg","Rasgulla","Egg","Paneer","Petrol","Transport/Parking" in fixedItems. Preserve the name as written on the slip, including abbreviations. If qty is not written use "-".
 All other lines go in items: category "vegetable" for fresh vegetables, saag/greens, lemon, chilli, ginger, garlic, potato, onion etc.; "other" for groceries, mithai, besan, roll paper, packaging etc.
 Keep qty as written when it is a mixed fraction such as "2 1/2" (do not drop the fraction). uom is usually "Kg" for vegetables, "Pcs" otherwise. Do not invent lines.`;
 
@@ -176,21 +176,38 @@ async function prepareSlip(slip: ExtractedSlip) {
   const prevRates: Record<string, number> = {};
   for (const f of FIXED_ITEMS) prevRates[f.description] = stored[f.description] ?? f.defaultRate;
 
-  const fixedFromSlip = new Map<string, ExtractedItem>();
+  const fixedFromSlip = new Map<string, { source: ExtractedItem; uom: string }>();
   const dynamicFromSlip: ExtractedItem[] = [];
-  for (const it of [...(slip.fixedItems ?? []), ...(slip.items ?? [])]) {
+  const extracted = [
+    ...(slip.fixedItems ?? []).map(item => ({ item, fixedSection: true })),
+    ...(slip.items ?? []).map(item => ({ item, fixedSection: false })),
+  ];
+  for (const { item: it, fixedSection } of extracted) {
     if (!it?.description) continue;
-    const fixed = matchFixedItem(it.description);
-    if (fixed) fixedFromSlip.set(fixed.description, it);
+    const category = it.category === "vegetable" ? "vegetable" : "other";
+    const dynamicId = aliases.get(whatsAppAliasKey(it.description, category));
+    const dynamicSaved = master.some(item => item.id === dynamicId && (item.itemCategory === "Vegetable" ? "vegetable" : "other") === category);
+    const fixedMatch = matchSavedFixedItem(it.description, master, aliases);
+    const fixedMaster = master.find(item => item.id === fixedMatch?.id);
+    const preferDynamic = dynamicSaved && !fixedSection;
+    const fixed = !preferDynamic && fixedMaster
+      ? { description: fixedMaster.itemName, uom: fixedMaster.uom }
+      : preferDynamic ? undefined : matchFixedItem(it.description);
+    if (fixed) fixedFromSlip.set(fixed.description, { source: it, uom: fixed.uom });
     else dynamicFromSlip.push(it);
   }
 
   const items = FIXED_ITEMS.map((f) => {
-    const src = fixedFromSlip.get(f.description);
+    const src = fixedFromSlip.get(f.description)?.source;
     const r = src ? resolveItem(src, prevRates[f.description]) : { qty: 0, rate: prevRates[f.description], amount: 0 };
     const rate = src && r.qty > 0 ? r.rate : prevRates[f.description];
     return { category: "fixed", description: f.description, uom: f.uom, ...r, rate };
   });
+  for (const [description, { source, uom }] of Array.from(fixedFromSlip)) {
+    if (!FIXED_ITEMS.some(item => item.description === description)) {
+      items.push({ category: "fixed", description, uom, ...resolveItem(source) });
+    }
+  }
 
   const sources: Record<string, { description: string; category: "vegetable" | "other" }> = {};
   for (const it of dynamicFromSlip) {

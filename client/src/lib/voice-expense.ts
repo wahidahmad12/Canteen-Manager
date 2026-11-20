@@ -1,3 +1,5 @@
+import { normalizeExpenseItemAlias } from "@shared/expense-item-alias";
+
 export type ExpenseCategory = "fixed" | "vegetable" | "other";
 
 export interface VoiceExpenseItem {
@@ -7,12 +9,59 @@ export interface VoiceExpenseItem {
   qty: number;
   amount: number;
   rate: number;
+  heard?: string;
+  unitWasSpoken?: boolean;
 }
 
 export interface VoiceExpenseCatalogItem {
+  id?: number;
   name: string;
   category: ExpenseCategory;
   uom: string;
+}
+
+export interface VoiceItemPhrase {
+  phrase: string;
+  itemId: number;
+}
+
+export function parseVoiceExpenseWithMatches(
+  transcript: string,
+  catalog: VoiceExpenseCatalogItem[],
+  category: ExpenseCategory,
+  matches: VoiceItemPhrase[],
+): VoiceExpenseItem[] {
+  const scoped = catalog.filter(item => item.category === category);
+  const signatures = new Map<string, { phrase: string; item: VoiceExpenseCatalogItem }[]>();
+  const signature = (value: string) => itemTokens(value).sort().join(" ");
+  for (const match of matches) {
+    const item = scoped.find(candidate => candidate.id === match.itemId);
+    const key = signature(match.phrase);
+    if (!item || !key) continue;
+    const group = signatures.get(key) ?? [];
+    group.push({ phrase: match.phrase, item });
+    signatures.set(key, group);
+  }
+  const variants: VoiceExpenseCatalogItem[] = [];
+  const resolved = new Map<string, VoiceExpenseCatalogItem>();
+  for (const [key, group] of Array.from(signatures)) {
+    if (new Set(group.map(entry => entry.item.id)).size !== 1) continue;
+    const { phrase, item } = group[0];
+    if (!scoped.some(candidate => candidate.name === phrase && candidate.id === item.id)) {
+      variants.push({ ...item, name: phrase });
+      resolved.set(phrase, item);
+    }
+  }
+  const variantKeys = new Set(variants.map(item => signature(item.name)));
+  const parsingCatalog = [...scoped.filter(item => !variantKeys.has(signature(item.name))), ...variants];
+  return parseVoiceExpenseTranscript(transcript, parsingCatalog, category, true, { matches, catalog: scoped, variants: new Set(variants) }).map(item => {
+    const heardKey = normalizeExpenseItemAlias(item.heard ?? "");
+    const exactIds = new Set(matches.filter(match => heardKey && normalizeExpenseItemAlias(match.phrase) === heardKey).map(match => match.itemId));
+    const exactId = exactIds.size === 1 ? Array.from(exactIds)[0] : undefined;
+    const variant = heardKey === normalizeExpenseItemAlias(item.description) ? resolved.get(item.description) : undefined;
+    const master = scoped.find(candidate => candidate.id === exactId) ?? variant;
+    return master ? { ...item, description: master.name, uom: item.unitWasSpoken ? item.uom : master.uom } : item;
+  });
 }
 
 export function updateVoiceExpenseItem(item: VoiceExpenseItem, patch: Partial<VoiceExpenseItem>): VoiceExpenseItem {
@@ -193,25 +242,80 @@ function findCatalogMentions(line: string, catalog: VoiceExpenseCatalogItem[]) {
 function splitLineAtCatalogItems(line: string, catalog: VoiceExpenseCatalogItem[]) {
   const mentions = findCatalogMentions(line, catalog);
   if (mentions.length < 2) return [line];
-  return mentions.map((mention, index) => {
+  const prefix = line.slice(0, mentions[0].start).trim();
+  return [...(prefix && isCompleteVoiceEntry(prefix) ? [prefix] : []), ...mentions.map((mention, index) => {
     const end = mentions[index + 1]?.start ?? line.length;
     return line.slice(mention.start, end).trim();
-  }).filter(Boolean);
+  })].filter(Boolean);
+}
+
+function splitAfterExplicitPrice(line: string): string[] {
+  const price = /(?:\brate\b|\btotal(?:\s+amount)?\b|\bamount\b|रेट|दर|कुल|टोटल)\s*[:=]?\s*(?:₹|rs\.?)?\s*\d+(?:\.\d+)?(?:\s*(?:₹|rs\.?|rupees?|रुपये|रुपया|रु))?/gi;
+  const segments: string[] = [];
+  let start = 0;
+  for (const match of Array.from(line.matchAll(price))) {
+    const end = match.index! + match[0].length;
+    const rest = line.slice(end).trimStart();
+    if (!rest || /^(?:total|amount|per|कुल|टोटल|प्रति)\b/i.test(rest)) continue;
+    segments.push(line.slice(start, end).trim());
+    start = end;
+  }
+  segments.push(line.slice(start).trim());
+  return segments.filter(Boolean);
 }
 
 function isCompleteVoiceEntry(value: string) {
   return /(?:rate|रेट|दर|प्रति|amount|total|कुल|टोटल)\s*[:=]?\s*[\d०-९০-৯]+|(?:₹|rs\.?|rupees?|रुपये|रुपया|रु)\s*[\d०-९০-৯]+|[\d०-९০-৯]+\s*(?:₹|rs\.?|rupees?|रुपये|रुपया|रु)/i.test(value);
 }
 
-function parseLine(line: string, catalog: VoiceExpenseCatalogItem[]): VoiceExpenseItem | null {
+function heardItemName(line: string, catalogMatch?: VoiceExpenseCatalogItem): string {
+  const priceStart = line.search(/(?:\b(?:rate|total|amount)\b|रेट|दर|कुल|टोटल)|(?:₹|rs\.?|rupees?|रुपये|रुपया|रु)\s*\d|\d+(?:\.\d+)?\s*(?:₹|rs\.?|rupees?|रुपये|रुपया|रु)/i);
+  let name = (priceStart < 0 ? line : line.slice(0, priceStart)).trim();
+  if (priceStart < 0) name = name.replace(/\s+\d+(?:\.\d+)?\s*$/, "");
+  const quantity = name.match(/\s+\d+(?:\.\d+)?\s*(?:kilograms?|kilos?|kgs?|kg|किलोग्राम|किलो|কিলোগ্রাম|কেজি|কিলো|grams?|gm|g|ग्राम|গ্রাম|litres?|liters?|ltr|l|लीटर|লিটার|pieces?|pcs?|पीस|পিস|packets?|pkts?|pkt|पैकेट|প্যাকেট|boxes?|box|बॉक्स|trips?|trip|bags?|bag)\s*$/i);
+  const productSize = catalogMatch?.name.match(/\d+(?:\.\d+)?\s*(?:kg|gm|g|ml|ltr|l)\s*$/i)?.[0];
+  const sameSize = quantity && productSize &&
+    quantity[0].match(/\d+(?:\.\d+)?/)?.[0] === productSize.match(/\d+(?:\.\d+)?/)?.[0] &&
+    unitPatterns.find(unit => unit.pattern.test(quantity[0]))?.uom === unitPatterns.find(unit => unit.pattern.test(productSize))?.uom;
+  if (quantity && !sameSize) {
+    name = name.slice(0, quantity.index);
+  } else if (!quantity) {
+    name = name.replace(/\s+\d+(?:\.\d+)?\s*$/, "");
+  }
+  return name
+    .replace(/^\s*(?:and|और|फिर)\s+/i, "")
+    .replace(/\s+(?:quantity|qty|मात्रा|संख्या|ka|ke|ki|का|के|की)\s*$/i, "")
+    .replace(/^[\s,.:;]+|[\s,.:;]+$/g, "")
+    .trim();
+}
+
+function parseLine(
+  line: string,
+  catalog: VoiceExpenseCatalogItem[],
+  includeHeard: boolean,
+  matchContext?: { matches: VoiceItemPhrase[]; catalog: VoiceExpenseCatalogItem[]; variants: Set<VoiceExpenseCatalogItem> },
+): VoiceExpenseItem | null {
   const normalizedLine = normalizeDigits(line).trim();
   if (!normalizedLine) return null;
 
-  const catalogMatch = findCatalogMatch(normalizedLine, catalog);
+  const heardKey = normalizeExpenseItemAlias(heardItemName(normalizedLine));
+  const exactMatches = matchContext?.matches.filter(match => heardKey && normalizeExpenseItemAlias(match.phrase) === heardKey) ?? [];
+  const exactIds = new Set(exactMatches.map(match => match.itemId));
+  const exactId = exactIds.size === 1 ? Array.from(exactIds)[0] : undefined;
+  const found = findCatalogMatch(normalizedLine, catalog);
+  const safeFound = found && matchContext?.variants.has(found) &&
+    normalizeExpenseItemAlias(found.name) !== heardKey
+    ? findCatalogMatch(normalizedLine, matchContext.catalog)
+    : found;
+  const catalogMatch = matchContext?.catalog.find(item => item.id === exactId) ?? safeFound;
   let valuesLine = normalizedLine;
   if (catalogMatch) {
     const nameTokens = new Set(itemTokens(catalogMatch.name));
-    const catalogSizes = catalogMatch.name.match(/\d+(?:\.\d+)?\s*(?:g|gm|kg|ml|ltr|l)\b/gi) ?? [];
+    const catalogSizes = Array.from(new Map(
+      [catalogMatch.name, ...(exactIds.size === 1 ? exactMatches.map(match => match.phrase) : [])]
+        .flatMap(name => name.match(/\d+(?:\.\d+)?\s*(?:gm|kg|ml|ltr|g|l)\b/gi) ?? [])
+        .map(size => [size.toLowerCase().replace(/\s+/g, ""), size] as const),
+    ).values());
     for (const size of catalogSizes) {
       const [, sizeValue, sizeUnit] = size.match(/(\d+(?:\.\d+)?)\s*(g|gm|kg|ml|ltr|l)\b/i) ?? [];
       const spokenUnits: Record<string, string> = {
@@ -284,6 +388,7 @@ function parseLine(line: string, catalog: VoiceExpenseCatalogItem[]): VoiceExpen
     qty,
     amount: Math.round(amount * 100) / 100,
     rate: explicitRate ? Number(explicitRate[1]) : qty > 0 ? amount / qty : 0,
+    ...(includeHeard ? { heard: heardItemName(normalizedLine, catalogMatch), unitWasSpoken: !!unit } : {}),
   };
 }
 
@@ -291,9 +396,13 @@ export function parseVoiceExpenseTranscript(
   transcript: string,
   catalog: VoiceExpenseCatalogItem[],
   category?: ExpenseCategory,
+  includeHeard = false,
+  matchContext?: { matches: VoiceItemPhrase[]; catalog: VoiceExpenseCatalogItem[]; variants: Set<VoiceExpenseCatalogItem> },
 ): VoiceExpenseItem[] {
   const scopedCatalog = category ? catalog.filter(item => item.category === category) : catalog;
-  const segments = transcript.split(/[\n;]+|[.!?]\s+/).flatMap(line => splitLineAtCatalogItems(line, scopedCatalog));
+  const segments = normalizeDigits(transcript).split(/[\n;]+|(?<!\b[A-Za-z])[.!?]\s+/)
+    .flatMap(splitAfterExplicitPrice)
+    .flatMap(line => splitLineAtCatalogItems(line, scopedCatalog));
   const groupedSegments: string[] = [];
   let current = "";
   for (const segment of segments) {
@@ -308,7 +417,7 @@ export function parseVoiceExpenseTranscript(
   if (current) groupedSegments.push(current);
 
   return groupedSegments
-    .map(line => parseLine(line, scopedCatalog))
+    .map(line => parseLine(line, scopedCatalog, includeHeard, matchContext))
     .filter((item): item is VoiceExpenseItem => item !== null)
     .map(item => category ? { ...item, category } : item);
 }

@@ -167,6 +167,7 @@ export default function ReportForm() {
     .map((item: any) => ({ id: item.id, name: item.itemName, uom: item.uom, rate: Number(item.rate) || 0 }));
   const voiceCatalog = [
     ...salesItems.map((item: any) => ({
+      id: item.id as number,
       name: item.itemName,
       category: item.itemCategory === 'Vegetable' ? 'vegetable' as const : 'other' as const,
       uom: item.uom || 'Pcs',
@@ -394,9 +395,14 @@ export default function ReportForm() {
   }, [report, form]);
 
   const items = useWatch({ control: form.control, name: "items" });
-  const fixedVoiceCatalog = items
+  const fixedRows = items
     .filter(item => item.category === "fixed" && item.description)
     .map(item => ({ name: item.description, category: "fixed" as const, uom: item.uom }));
+  const fixedVoiceCatalog = [
+    ...fixedRows.map(item => ({ ...item, id: salesItems.find((master: any) => master.itemName === item.name)?.id as number | undefined })),
+    ...salesItems.filter((master: any) => !fixedRows.some(item => item.name === master.itemName))
+      .map((master: any) => ({ id: master.id as number, name: master.itemName as string, category: "fixed" as const, uom: master.uom || "Pcs" })),
+  ];
   const openingBalance = useWatch({ control: form.control, name: "openingBalance" }) || 0;
   const receivedAmount = useWatch({ control: form.control, name: "receivedAmount" }) || 0;
   const giveByWahid = useWatch({ control: form.control, name: "giveByWahid" }) || 0;

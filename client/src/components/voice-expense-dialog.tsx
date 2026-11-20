@@ -17,7 +17,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { parseVoiceExpenseTranscript, updateVoiceExpenseItem, type ExpenseCategory, type VoiceExpenseCatalogItem, type VoiceExpenseItem } from "@/lib/voice-expense";
+import { parseVoiceExpenseWithMatches, updateVoiceExpenseItem, type ExpenseCategory, type VoiceExpenseCatalogItem, type VoiceExpenseItem, type VoiceItemPhrase } from "@/lib/voice-expense";
+import { apiRequest } from "@/lib/queryClient";
 
 interface SpeechRecognitionResultLike {
   readonly isFinal: boolean;
@@ -65,7 +66,9 @@ export function VoiceExpenseDialog({ category, catalog, onAdd }: VoiceExpenseDia
   const [transcript, setTranscript] = useState("");
   const [reviewItems, setReviewItems] = useState<VoiceExpenseItem[]>([]);
   const [listening, setListening] = useState(false);
+  const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
+  const [notice, setNotice] = useState("");
   const recognitionRef = useRef<SpeechRecognitionLike | null>(null);
   const transcriptBeforeListeningRef = useRef("");
   const sectionCatalog = catalog.filter(item => item.category === category);
@@ -85,6 +88,7 @@ export function VoiceExpenseDialog({ category, catalog, onAdd }: VoiceExpenseDia
     }
 
     setError("");
+    setNotice("");
     setReviewItems([]);
     transcriptBeforeListeningRef.current = transcript.trim();
     const recognition = new Recognition();
@@ -131,21 +135,63 @@ export function VoiceExpenseDialog({ category, catalog, onAdd }: VoiceExpenseDia
     }
   };
 
-  const handleParse = () => {
-    const parsed = parseVoiceExpenseTranscript(transcript, sectionCatalog, category);
-    if (parsed.length === 0) {
-      setReviewItems([]);
-      setError(`No expense items found. Try saying an item, quantity, and total amount, for example: ${examples[category]}`);
-      return;
-    }
-    setReviewItems(parsed);
+  const handleParse = async () => {
+    setBusy(true);
     setError("");
+    setNotice("");
+    try {
+      const response = await apiRequest("POST", "/api/voice-expense/matches", { transcript, category });
+      const data: unknown = await response.json();
+      if (!Array.isArray(data) || !data.every((entry): entry is VoiceItemPhrase =>
+        typeof entry?.phrase === "string" && Number.isSafeInteger(entry?.itemId))) {
+        throw new Error("Invalid item matching response.");
+      }
+      const parsed = parseVoiceExpenseWithMatches(transcript, sectionCatalog, category, data);
+      if (parsed.length === 0) {
+        setReviewItems([]);
+        setError(`No expense items found. Try saying an item, quantity, and total amount, for example: ${examples[category]}`);
+        return;
+      }
+      setReviewItems(parsed);
+    } catch (error) {
+      setReviewItems([]);
+      setError(`Could not review item mappings: ${error instanceof Error ? error.message : "Please try again."}`);
+    } finally {
+      setBusy(false);
+    }
   };
 
   const updateItem = (index: number, patch: Partial<VoiceExpenseItem>) => {
     setReviewItems(current => current.map((item, currentIndex) =>
       currentIndex === index ? updateVoiceExpenseItem(item, patch) : item
     ));
+  };
+
+  const selectItem = async (index: number, name: string) => {
+    const selected = sectionCatalog.find(option => option.name === name);
+    if (!selected) return;
+    const heard = reviewItems[index].heard?.trim();
+    if (!selected.id) {
+      updateItem(index, { description: selected.name, uom: selected.uom });
+      setError("This fixed item is not in Item Master, so its spoken name cannot be remembered. Add it to Item Master to save a mapping.");
+      return;
+    }
+    if (!heard) {
+      setError("Enter the heard item name before selecting its Item Master match.");
+      return;
+    }
+    setBusy(true);
+    setError("");
+    setNotice("");
+    try {
+      await apiRequest("POST", "/api/voice-expense/map-item", { description: heard, category, itemId: selected.id });
+      updateItem(index, { description: selected.name, uom: selected.uom });
+      setNotice(`Remembered "${heard}" as ${selected.name} for future voice and WhatsApp entries in this section.`);
+    } catch (error) {
+      setError(`Could not remember this item: ${error instanceof Error ? error.message : "Please try again."}`);
+    } finally {
+      setBusy(false);
+    }
   };
 
   const handleAdd = () => {
@@ -180,6 +226,7 @@ export function VoiceExpenseDialog({ category, catalog, onAdd }: VoiceExpenseDia
     setTranscript("");
     setReviewItems([]);
     setError("");
+    setNotice("");
   };
 
   return (
@@ -199,6 +246,7 @@ export function VoiceExpenseDialog({ category, catalog, onAdd }: VoiceExpenseDia
       <Dialog
         open={open}
         onOpenChange={(nextOpen) => {
+          if (busy) return;
           if (!nextOpen) {
             recognitionRef.current?.stop();
             setListening(false);
@@ -219,7 +267,7 @@ export function VoiceExpenseDialog({ category, catalog, onAdd }: VoiceExpenseDia
 
           <div className="space-y-4">
             <div className="flex flex-col sm:flex-row gap-2">
-              <Select value={language} onValueChange={setLanguage} disabled={listening}>
+              <Select value={language} onValueChange={setLanguage} disabled={listening || busy}>
                 <SelectTrigger className="sm:w-48" aria-label="Speech language">
                   <SelectValue />
                 </SelectTrigger>
@@ -229,7 +277,7 @@ export function VoiceExpenseDialog({ category, catalog, onAdd }: VoiceExpenseDia
                   <SelectItem value="bn-IN">Bengali</SelectItem>
                 </SelectContent>
               </Select>
-              <Button type="button" onClick={toggleListening} variant={listening ? "destructive" : "default"} className="sm:flex-1">
+              <Button type="button" onClick={toggleListening} disabled={busy} variant={listening ? "destructive" : "default"} className="sm:flex-1">
                 {listening ? <MicOff className="w-4 h-4 mr-2" /> : <Mic className="w-4 h-4 mr-2" />}
                 {listening ? "Stop listening" : "Start speaking"}
               </Button>
@@ -248,7 +296,7 @@ export function VoiceExpenseDialog({ category, catalog, onAdd }: VoiceExpenseDia
             <textarea
               id={`voice-expense-transcript-${category}`}
               value={transcript}
-              disabled={listening}
+              disabled={listening || busy}
               onChange={(event) => {
                 setTranscript(event.target.value);
                 setReviewItems([]);
@@ -261,10 +309,14 @@ export function VoiceExpenseDialog({ category, catalog, onAdd }: VoiceExpenseDia
             <p className="text-xs text-muted-foreground">
               Example: “{examples[category]}” Say “rate” for price per unit or “total” for the whole amount. Speak each item separately. Your browser may process voice audio online.
             </p>
+            <p className="text-xs text-muted-foreground">
+              Selecting an Item Master match saves the heard name immediately for voice and WhatsApp, even if you cancel the report.
+            </p>
 
             {error && <p className="text-sm text-destructive" role="alert">{error}</p>}
+            {notice && <p className="text-sm text-green-700 dark:text-green-400" role="status">{notice}</p>}
 
-            <Button type="button" variant="secondary" onClick={handleParse} disabled={!transcript.trim() || listening}>
+            <Button type="button" variant="secondary" onClick={handleParse} disabled={!transcript.trim() || listening || busy}>
               <WandSparkles className="w-4 h-4 mr-2" />
               Review detected items
             </Button>
@@ -274,15 +326,17 @@ export function VoiceExpenseDialog({ category, catalog, onAdd }: VoiceExpenseDia
                 <h3 className="text-sm font-semibold">Review before adding</h3>
                 {reviewItems.map((item, index) => (
                   <div key={index} className="grid grid-cols-2 sm:grid-cols-6 gap-2 rounded-lg border p-3">
+                    <label className="col-span-2 sm:col-span-6 text-xs font-medium space-y-1">
+                      Heard item name
+                      <Input value={item.heard ?? ""} disabled={busy} onChange={event => updateItem(index, { heard: event.target.value })} aria-label={`Item ${index + 1} heard name`} />
+                    </label>
                     {category === "fixed" ? (
                       <div className="col-span-2">
                         <label className="text-xs font-medium" htmlFor={`voice-${category}-${index}-item`}>Item</label>
                         <Select
                           value={sectionCatalog.some(option => option.name === item.description) ? item.description : ""}
-                          onValueChange={(value) => {
-                            const selected = sectionCatalog.find(option => option.name === value);
-                            updateItem(index, { description: value, uom: selected?.uom ?? item.uom });
-                          }}
+                          disabled={busy}
+                          onValueChange={(value) => { void selectItem(index, value); }}
                         >
                           <SelectTrigger id={`voice-${category}-${index}-item`} aria-label={`Item ${index + 1} fixed item`}>
                             <SelectValue placeholder="Choose fixed item" />
@@ -293,9 +347,12 @@ export function VoiceExpenseDialog({ category, catalog, onAdd }: VoiceExpenseDia
                             ))}
                           </SelectContent>
                         </Select>
-                        {!sectionCatalog.some(option => option.name === item.description) && (
-                          <p className="text-xs text-muted-foreground mt-1">Heard: {item.description}. Choose the matching fixed item.</p>
+                        {sectionCatalog.find(option => option.name === item.description)?.id && (
+                          <Button type="button" size="sm" variant="outline" disabled={busy} className="mt-1" onClick={() => { void selectItem(index, item.description); }}>
+                            Remember match
+                          </Button>
                         )}
+                        {!sectionCatalog.some(option => option.name === item.description) && <p className="text-xs text-muted-foreground mt-1">Choose the matching fixed item.</p>}
                       </div>
                     ) : (
                       <div className="col-span-2 space-y-1">
@@ -303,15 +360,13 @@ export function VoiceExpenseDialog({ category, catalog, onAdd }: VoiceExpenseDia
                         <Input
                           id={`voice-${category}-${index}-item`}
                           value={item.description}
+                          disabled={busy}
                           onChange={(event) => updateItem(index, { description: event.target.value })}
                           aria-label={`Item ${index + 1} description`}
                           placeholder="Item name"
                         />
                         {sectionCatalog.length > 0 && (
-                          <Select value="" onValueChange={(value) => {
-                            const selected = sectionCatalog.find(option => option.name === value);
-                            if (selected) updateItem(index, { description: selected.name, uom: selected.uom });
-                          }}>
+                          <Select value="" disabled={busy} onValueChange={(value) => { void selectItem(index, value); }}>
                             <SelectTrigger aria-label={`Select item ${index + 1} from item master`}>
                               <SelectValue placeholder="Choose from item list" />
                             </SelectTrigger>
@@ -327,6 +382,7 @@ export function VoiceExpenseDialog({ category, catalog, onAdd }: VoiceExpenseDia
                     <label className="text-xs font-medium space-y-1">Unit
                     <Input
                       value={item.uom}
+                      disabled={busy}
                       onChange={(event) => updateItem(index, { uom: event.target.value })}
                       aria-label={`Item ${index + 1} unit`}
                       placeholder="Unit"
@@ -338,6 +394,7 @@ export function VoiceExpenseDialog({ category, catalog, onAdd }: VoiceExpenseDia
                       min="0"
                       step="any"
                       value={item.qty || ""}
+                      disabled={busy}
                       onChange={(event) => updateItem(index, { qty: Number(event.target.value) || 0 })}
                       aria-label={`Item ${index + 1} quantity`}
                       placeholder="Qty"
@@ -350,6 +407,7 @@ export function VoiceExpenseDialog({ category, catalog, onAdd }: VoiceExpenseDia
                       step="any"
                       inputMode="decimal"
                       value={item.rate || ""}
+                      disabled={busy}
                       onChange={(event) => updateItem(index, { rate: Number(event.target.value) || 0 })}
                       aria-label={`Item ${index + 1} rate`}
                       placeholder="Rate"
@@ -361,6 +419,7 @@ export function VoiceExpenseDialog({ category, catalog, onAdd }: VoiceExpenseDia
                       min="0"
                       step="any"
                       value={item.amount || ""}
+                      disabled={busy}
                       onChange={(event) => updateItem(index, { amount: Number(event.target.value) || 0 })}
                       aria-label={`Item ${index + 1} amount`}
                       placeholder="Amount ₹"
@@ -373,12 +432,12 @@ export function VoiceExpenseDialog({ category, catalog, onAdd }: VoiceExpenseDia
           </div>
 
           <DialogFooter>
-            <Button type="button" variant="outline" onClick={() => {
+            <Button type="button" variant="outline" disabled={busy} onClick={() => {
               recognitionRef.current?.stop();
               setListening(false);
               setOpen(false);
             }}>Cancel</Button>
-            <Button type="button" onClick={handleAdd} disabled={reviewItems.length === 0 || listening}>
+            <Button type="button" onClick={handleAdd} disabled={reviewItems.length === 0 || listening || busy}>
               <Plus className="w-4 h-4 mr-2" />
               Add {reviewItems.length || ""} {reviewItems.length === 1 ? "item" : "items"}
             </Button>

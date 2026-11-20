@@ -1,6 +1,6 @@
 import { strict as assert } from "node:assert";
 import { test } from "node:test";
-import { parseVoiceExpenseTranscript, updateVoiceExpenseItem } from "./voice-expense";
+import { parseVoiceExpenseTranscript, parseVoiceExpenseWithMatches, updateVoiceExpenseItem } from "./voice-expense";
 
 const catalog = [
   { name: "Aloo", category: "vegetable" as const, uom: "Kg" },
@@ -136,4 +136,81 @@ test("does not mistake fixed product pack size for purchase quantity", () => {
   const items = [{ name: "Dahi 100g Khatta", category: "fixed" as const, uom: "Pcs" }];
   const [entry] = parseVoiceExpenseTranscript("खट्टा दही १०० ग्राम १० पीस रेट २१", items, "fixed");
   assert.deepEqual([entry.qty, entry.rate, entry.amount], [10, 21, 210]);
+});
+
+test("reviews saved and bracket matches in consecutive voice entries", () => {
+  const items = [
+    { id: 1, name: "Green Chilli (Haree Mirch)", category: "vegetable" as const, uom: "Kg" },
+    { id: 2, name: "Bitter Gourd (Karela)", category: "vegetable" as const, uom: "Kg" },
+  ];
+  const parsed = parseVoiceExpenseWithMatches("G. Chilli 10 kilo total 750 karala 2 kilo rate 50", items, "vegetable", [
+    { phrase: "G. Chilli", itemId: 1 }, { phrase: "karala", itemId: 2 },
+  ]);
+  assert.deepEqual(parsed.map(item => [item.heard, item.description, item.qty, item.rate, item.amount]), [
+    ["G. Chilli", "Green Chilli (Haree Mirch)", 10, 75, 750],
+    ["karala", "Bitter Gourd (Karela)", 2, 50, 100],
+  ]);
+});
+
+test("does not apply saved matches from another section or removed master", () => {
+  const parsed = parseVoiceExpenseWithMatches("chawal 2 kilo rate 50", [
+    { id: 3, name: "Rice", category: "other", uom: "Kg" },
+  ], "vegetable", [{ phrase: "chawal", itemId: 3 }, { phrase: "chawal", itemId: 99 }]);
+  assert.equal(parsed[0].description, "chawal");
+  assert.equal(parsed[0].heard, "chawal");
+});
+
+test("keeps unfamiliar consecutive items after a rate or total for manual mapping", () => {
+  const parsed = parseVoiceExpenseWithMatches(
+    "lauki 10 kilo total 750 tinda 2 kilo rate 50",
+    [], "vegetable", [],
+  );
+  assert.deepEqual(parsed.map(item => [item.heard, item.qty, item.rate, item.amount]), [
+    ["lauki", 10, 75, 750], ["tinda", 2, 50, 100],
+  ]);
+});
+
+test("explicit saved mapping wins over a different exact master name", () => {
+  const parsed = parseVoiceExpenseWithMatches("karela 2 kilo rate 50", [
+    { id: 1, name: "Karela", category: "vegetable", uom: "Kg" },
+    { id: 2, name: "Bitter Gourd (Karela)", category: "vegetable", uom: "Kg" },
+  ], "vegetable", [{ phrase: "karela", itemId: 2 }]);
+  assert.equal(parsed[0].description, "Bitter Gourd (Karela)");
+});
+
+test("heard names retain product sizes and words so the saved alias reflects what was said", () => {
+  const items = [
+    { id: 1, name: "Dahi 100g Khatta", category: "fixed" as const, uom: "Pcs" },
+    { id: 2, name: "Pkt Dahi 1Kg", category: "fixed" as const, uom: "Pkt" },
+  ];
+  const first = parseVoiceExpenseWithMatches("Dahi 100g Khatta 10 pcs rate 21", items, "fixed", []);
+  assert.equal(first[0].heard, "Dahi 100g Khatta");
+  const second = parseVoiceExpenseWithMatches("Pkt Dahi 1 kilo total 75", items, "fixed", []);
+  assert.equal(second[0].heard, "Pkt Dahi 1 kilo");
+  const unknown = parseVoiceExpenseWithMatches("Salt and Pepper 250g 10 packets rate 21", [], "other", []);
+  assert.equal(unknown[0].heard, "Salt and Pepper 250g");
+});
+
+test("resolves distinct saved product sizes independently in one transcript", () => {
+  const items = [
+    { id: 1, name: "Dahi 100g Khatta", category: "fixed" as const, uom: "Pcs" },
+    { id: 2, name: "Dahi 200g Khatta", category: "fixed" as const, uom: "Pcs" },
+  ];
+  const parsed = parseVoiceExpenseWithMatches("Dahi 100g Khatta 10 pcs rate 21 Dahi 200g Khatta 5 pcs rate 30", items, "fixed", [
+    { phrase: "Dahi 100g Khatta", itemId: 1 },
+    { phrase: "Dahi 200g Khatta", itemId: 2 },
+  ]);
+  assert.deepEqual(parsed.map(item => [item.description, item.qty, item.rate]), [
+    ["Dahi 100g Khatta", 10, 21], ["Dahi 200g Khatta", 5, 30],
+  ]);
+});
+
+test("does not apply a saved alias to a different product size", () => {
+  const items = [{ id: 1, name: "Rock Salt", category: "other" as const, uom: "Pkt" }];
+  const parsed = parseVoiceExpenseWithMatches("salt 100g 10 pcs rate 10 salt 250g 5 pcs rate 20", items, "other", [
+    { phrase: "salt 250g", itemId: 1 },
+  ]);
+  assert.notEqual(parsed[0].description, "Rock Salt");
+  assert.equal(parsed[1].description, "Rock Salt");
+  assert.equal(parsed[1].qty, 5);
 });
