@@ -8,6 +8,7 @@ import QRCode from "qrcode";
 import { storage } from "./storage";
 import { isAllowedSlipMessage, isNewerMessage } from "./whatsapp-message-selection";
 import { requestGeminiSlip } from "./gemini-slip";
+import { normalizeWhatsAppItemDescription } from "./whatsapp-slip-items";
 
 const FIXED_ITEMS: { description: string; uom: string; defaultRate: number }[] = [
   { description: "Cup Dahi 85g", uom: "Kg", defaultRate: 15 },
@@ -198,7 +199,7 @@ async function saveSlip(slip: ExtractedSlip, allowReplace = true) {
   const vegNames: string[] = [];
   for (const it of dynamicFromSlip) {
     const category = it.category === "vegetable" ? "vegetable" : "other";
-    const description = String(it.description).trim();
+    const description = normalizeWhatsAppItemDescription(String(it.description), category);
     const r = resolveItem(it);
     if (category === "vegetable") vegNames.push(description);
     items.push({ category, description, uom: it.uom?.trim() || (category === "vegetable" ? "Kg" : "Pcs"), ...r });
