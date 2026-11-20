@@ -147,6 +147,62 @@ function findCatalogMatch(line: string, catalog: VoiceExpenseCatalogItem[]) {
   return best.length === 1 ? best[0] : undefined;
 }
 
+function findCatalogMentions(line: string, catalog: VoiceExpenseCatalogItem[]) {
+  const tokenMatches: Array<{ token: string; start: number }> = [];
+  line.replace(/[\w\u0900-\u097F\u0980-\u09FF]+/g, (token, offset: number) => {
+    tokenMatches.push({ token, start: offset });
+    return token;
+  });
+  const tokens = tokenMatches
+    .map(match => ({
+      value: itemTokens(match.token)[0],
+      start: match.start,
+      end: match.start + match.token.length,
+    }))
+    .filter(token => token.value);
+  const mentions: Array<{ start: number; end: number; item: VoiceExpenseCatalogItem }> = [];
+
+  for (let start = 0; start < tokens.length;) {
+    const matches = catalog.filter(item => {
+      const nameTokens = itemTokens(item.name);
+      const candidateTokens = tokens.slice(start, start + nameTokens.length).map(token => token.value);
+      return candidateTokens.length === nameTokens.length &&
+        nameTokens.every(token => candidateTokens.includes(token));
+    });
+    if (!matches.length) {
+      start += 1;
+      continue;
+    }
+
+    const maxLength = Math.max(...matches.map(item => itemTokens(item.name).length));
+    const best = matches.filter(item => itemTokens(item.name).length === maxLength);
+    if (best.length !== 1) {
+      start += 1;
+      continue;
+    }
+    mentions.push({
+      start: tokens[start].start,
+      end: tokens[start + maxLength - 1].end,
+      item: best[0],
+    });
+    start += maxLength;
+  }
+  return mentions;
+}
+
+function splitLineAtCatalogItems(line: string, catalog: VoiceExpenseCatalogItem[]) {
+  const mentions = findCatalogMentions(line, catalog);
+  if (mentions.length < 2) return [line];
+  return mentions.map((mention, index) => {
+    const end = mentions[index + 1]?.start ?? line.length;
+    return line.slice(mention.start, end).trim();
+  }).filter(Boolean);
+}
+
+function isCompleteVoiceEntry(value: string) {
+  return /(?:rate|रेट|दर|प्रति|amount|total|कुल|टोटल)\s*[:=]?\s*[\d०-९০-৯]+|(?:₹|rs\.?|rupees?|रुपये|रुपया|रु)\s*[\d०-९০-৯]+|[\d०-९০-৯]+\s*(?:₹|rs\.?|rupees?|रुपये|रुपया|रु)/i.test(value);
+}
+
 function parseLine(line: string, catalog: VoiceExpenseCatalogItem[]): VoiceExpenseItem | null {
   const normalizedLine = normalizeDigits(line).trim();
   if (!normalizedLine) return null;
@@ -154,17 +210,33 @@ function parseLine(line: string, catalog: VoiceExpenseCatalogItem[]): VoiceExpen
   const catalogMatch = findCatalogMatch(normalizedLine, catalog);
   let valuesLine = normalizedLine;
   if (catalogMatch) {
-    const exactName = normalizedLine.toLocaleLowerCase().indexOf(catalogMatch.name.toLocaleLowerCase());
-    if (exactName >= 0) {
-      valuesLine = normalizedLine.slice(0, exactName) + " " + normalizedLine.slice(exactName + catalogMatch.name.length);
+    const nameTokens = new Set(itemTokens(catalogMatch.name));
+    const catalogSizes = catalogMatch.name.match(/\d+(?:\.\d+)?\s*(?:g|gm|kg|ml|ltr|l)\b/gi) ?? [];
+    for (const size of catalogSizes) {
+      const [, sizeValue, sizeUnit] = size.match(/(\d+(?:\.\d+)?)\s*(g|gm|kg|ml|ltr|l)\b/i) ?? [];
+      const spokenUnits: Record<string, string> = {
+        g: "g|gm|grams?|ग्राम|গ্রাম",
+        gm: "g|gm|grams?|ग्राम|গ্রাম",
+        kg: "kg|kgs?|kilos?|kilograms?|किलो|किलोग्राम|কেজি|কিলো",
+        ml: "ml|millilitres?|milliliters?",
+        ltr: "ltr|litres?|liters?|लीटर|লিটার",
+        l: "l|litres?|liters?|लीटर|লিটার",
+      };
+      if (sizeValue && sizeUnit) {
+        const unit = spokenUnits[sizeUnit.toLowerCase()];
+        valuesLine = valuesLine.replace(new RegExp(`\\b${sizeValue}\\s*(?:${unit})(?![\\w\\u0900-\\u097F\\u0980-\\u09FF])`, "i"), " ");
+      }
     }
+    valuesLine = valuesLine.replace(/[\w\u0900-\u097F\u0980-\u09FF]+/g, token =>
+      nameTokens.has(itemTokens(token)[0]) ? " " : token
+    );
   }
   const quantityMatch = valuesLine.match(
     /(\d+(?:\.\d+)?)\s*(kilograms?|kilos?|kgs?|kg|किलोग्राम|किलो|কিলোগ্রাম|কেজি|কিলো|grams?|g|ग्राम|গ্রাম|litres?|liters?|ltr|l|लीटर|লিটার|pieces?|pcs?|पीस|পিস|packets?|pkts?|pkt|पैकेट|প্যাকেট|boxes?|box|बॉक्स|trips?|trip|bags?|bag)/i,
   );
   const explicitQty = valuesLine.match(/(?:quantity|qty|मात्रा|संख्या)\s*[:=]?\s*(\d+(?:\.\d+)?)/i);
   const explicitRate = valuesLine.match(/(?:rate|रेट|दर|प्रति)\s*[:=]?\s*(?:₹|rs\.?)?\s*(\d+(?:\.\d+)?)/i);
-  const explicitAmount = valuesLine.match(/(?:amount|total|कुल|टोटल)\s*[:=]?\s*(?:₹|rs\.?)?\s*(\d+(?:\.\d+)?)/i);
+  const explicitAmount = valuesLine.match(/(?:amount|total(?:\s+amount)?|कुल(?:\s+रकम)?|टोटल)\s*[:=]?\s*(?:₹|rs\.?)?\s*(\d+(?:\.\d+)?)/i);
   const currencyMatch = valuesLine.match(
     /(?:₹|rs\.?|rupees?|rup(?:ay|aye|iya)|रुपये|रुपया|रु)\s*(\d+(?:\.\d+)?)|(\d+(?:\.\d+)?)\s*(?:₹|rs\.?|rupees?|rup(?:ay|aye|iya)|रुपये|रुपया|रु)/i,
   );
@@ -221,8 +293,21 @@ export function parseVoiceExpenseTranscript(
   category?: ExpenseCategory,
 ): VoiceExpenseItem[] {
   const scopedCatalog = category ? catalog.filter(item => item.category === category) : catalog;
-  return transcript
-    .split(/[\n;]+|[.!?]\s+/)
+  const segments = transcript.split(/[\n;]+|[.!?]\s+/).flatMap(line => splitLineAtCatalogItems(line, scopedCatalog));
+  const groupedSegments: string[] = [];
+  let current = "";
+  for (const segment of segments) {
+    const hasCatalogItem = findCatalogMatch(segment, scopedCatalog) !== undefined;
+    if (current && (hasCatalogItem || isCompleteVoiceEntry(current))) {
+      groupedSegments.push(current);
+      current = segment;
+    } else {
+      current = [current, segment].filter(Boolean).join(" ");
+    }
+  }
+  if (current) groupedSegments.push(current);
+
+  return groupedSegments
     .map(line => parseLine(line, scopedCatalog))
     .filter((item): item is VoiceExpenseItem => item !== null)
     .map(item => category ? { ...item, category } : item);
