@@ -92,6 +92,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
     ...(user?.role === 'admin' ? [{ href: '/canteen-coupons', label: 'Canteen Coupons', icon: Receipt, perm: null as string | null }] : []),
     { href: '/daily-pnl', label: tr('dailyPnl'), icon: BarChart3, perm: null },
     { href: '/monthly-pnl', label: tr('monthlyPnl'), icon: IndianRupee, perm: null },
+    ...(user?.role === 'admin' ? [{ href: '/yearly-client-report', label: 'Client Yearly Summary', icon: BarChart3, perm: null }] : []),
     { href: '/fixed-assets', label: 'Fixed Assets', icon: Package, perm: null },
     { href: '/qr-scanner', label: 'QR Scanner', icon: QrCode, perm: null },
     { href: '/daily-attendance', label: 'Fingerprint Entry', icon: Fingerprint, perm: 'attendance' },

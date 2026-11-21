@@ -44,6 +44,7 @@ import DepreciationReportPage from "./pages/depreciation-report";
 import SalesDashboard from "./pages/sales-dashboard";
 import DailyPnlPage from "./pages/daily-pnl";
 import MonthlyPnlPage from "./pages/monthly-pnl";
+import YearlyClientReport from "./pages/yearly-client-report";
 import BomPage from "./pages/bom";
 import WeeklyBomPage from "./pages/weekly-bom";
 import PriceHistoryPage from "./pages/price-history";
@@ -160,6 +161,7 @@ function AuthenticatedRouter() {
       <Route path="/sales-dashboard" component={SalesDashboard} />
       <Route path="/daily-pnl" component={DailyPnlPage} />
       <Route path="/monthly-pnl" component={MonthlyPnlPage} />
+      <Route path="/yearly-client-report">{() => <AdminOnlyRoute><YearlyClientReport /></AdminOnlyRoute>}</Route>
       <Route path="/bom" component={BomPage} />
       <Route path="/weekly-bom" component={WeeklyBomPage} />
       <Route path="/price-history">{() => <PermRoute perm="purchase"><PriceHistoryPage /></PermRoute>}</Route>
