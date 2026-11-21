@@ -7,6 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
 import { 
   useItemMaster,
@@ -32,13 +33,125 @@ import {
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Loader2, Plus, Pencil, Trash2, Save, X, Lock, KeyRound, Building2, Users, UserPlus, Store, Package, Search, Shield, ShieldCheck, ArrowLeft, Settings, Phone, MapPin, Crown, User, ShoppingCart, Coins, RefreshCw, Link2, MessageSquare, Bell, AlertCircle, Info, CheckCircle, AlertTriangle, FileText } from "lucide-react";
+import { Loader2, Plus, Pencil, Trash2, Save, X, Lock, KeyRound, Building2, Users, UserPlus, Store, Package, Search, Shield, ShieldCheck, ArrowLeft, Settings, Phone, MapPin, Crown, User, ShoppingCart, Coins, RefreshCw, Link2, MessageSquare, Bell, AlertCircle, Info, CheckCircle, AlertTriangle, FileText, Eye, EyeOff, Check } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { ItemIdCards } from "@/components/item-id-cards";
 import { useToast } from "@/hooks/use-toast";
 import { useLocation } from "wouter";
 import { api, buildUrl } from "@shared/routes";
 import { emptyVendorPayment, isValidPaymentQr, MAX_PAYMENT_QR_BYTES, type VendorPayment } from "@shared/vendor-payment";
+import { passwordRules, type PasswordRule } from "@shared/password-rules";
+import { useLang } from "@/contexts/language-context";
+import type { TranslationKey } from "@/lib/translations";
+
+const passwordRuleLabels: Record<PasswordRule, TranslationKey> = {
+  length: "passwordLength", bytes: "passwordBytes", uppercase: "passwordUppercase",
+  lowercase: "passwordLowercase", digit: "passwordDigit", symbol: "passwordSymbol", username: "passwordUsername",
+};
+
+function ChangeOwnPassword({ username }: { username: string }) {
+  const { tr, lang } = useLang();
+  const { toast } = useToast();
+  const [open, setOpen] = useState(false);
+  const [current, setCurrent] = useState("");
+  const [password, setPassword] = useState("");
+  const [confirm, setConfirm] = useState("");
+  const [visible, setVisible] = useState({ current: false, password: false, confirm: false });
+  const [pending, setPending] = useState(false);
+  const checks = passwordRules(password, username);
+  const valid = !!current && password !== current && Object.values(checks).every(Boolean) && password === confirm;
+  const clear = () => {
+    setCurrent(""); setPassword(""); setConfirm("");
+    setVisible({ current: false, password: false, confirm: false });
+  };
+  const handleOpen = (next: boolean) => {
+    if (pending) return;
+    if (!next) clear();
+    setOpen(next);
+  };
+  const submit = async (event: React.FormEvent) => {
+    event.preventDefault();
+    if (!valid || pending) return;
+    setPending(true);
+    try {
+      const response = await fetch("/api/auth/change-password", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ currentPassword: current, newPassword: password }),
+      });
+      if (!response.ok) {
+        const data: { message?: string; code?: string; missing?: PasswordRule[] } = await response.json();
+        const keys: Record<string, TranslationKey> = {
+          incorrectCurrent: "passwordIncorrect", samePassword: "passwordSame", invalidBody: "passwordInvalidBody",
+          userNotFound: "passwordUserNotFound", weakPassword: "passwordWeak",
+        };
+        const translated = data.code && keys[data.code] ? tr(keys[data.code]) : "";
+        const missing = data.missing?.filter(rule => Object.hasOwn(passwordRuleLabels, rule)).map(rule => tr(passwordRuleLabels[rule])).join(", ");
+        const message = data.message || response.statusText;
+        const detail = lang === "en" || !translated ? message : `${translated}${missing ? `: ${missing}` : ""} (${message})`;
+        toast({ title: tr("passwordChangeFailed"), description: detail, variant: "destructive" });
+        return;
+      }
+      clear();
+      setOpen(false);
+      toast({ title: tr("passwordChanged") });
+    } catch {
+      toast({ title: tr("passwordChangeFailed"), variant: "destructive" });
+    } finally {
+      setPending(false);
+    }
+  };
+
+  const fields = [
+    { key: "current" as const, label: "currentPassword" as const, value: current, set: setCurrent, autoComplete: "current-password" },
+    { key: "password" as const, label: "newPassword" as const, value: password, set: setPassword, autoComplete: "new-password" },
+    { key: "confirm" as const, label: "confirmNewPassword" as const, value: confirm, set: setConfirm, autoComplete: "new-password" },
+  ];
+  return (
+    <Dialog open={open} onOpenChange={handleOpen}>
+      <Button type="button" variant="outline" size="sm" onClick={() => setOpen(true)}>
+        <KeyRound className="mr-2 h-4 w-4" />{tr("changePassword")}
+      </Button>
+      <DialogContent className="max-h-[90vh] overflow-y-auto" showCloseButton={!pending}>
+        <DialogHeader>
+          <DialogTitle>{tr("changePassword")}</DialogTitle>
+          <DialogDescription>{tr("changePasswordDescription")}</DialogDescription>
+        </DialogHeader>
+        <form onSubmit={submit} className="space-y-4">
+          {fields.map(field => (
+            <div key={field.key} className="space-y-1">
+              <Label htmlFor={`own-password-${field.key}`}>{tr(field.label)}</Label>
+              <div className="relative">
+                <Input id={`own-password-${field.key}`} type={visible[field.key] ? "text" : "password"} value={field.value} autoComplete={field.autoComplete} disabled={pending} onChange={event => field.set(event.target.value)} className="pr-10" />
+                <Button type="button" variant="ghost" size="icon" className="absolute right-0 top-0 h-full" disabled={pending} aria-label={`${tr(visible[field.key] ? "hidePassword" : "showPassword")} - ${tr(field.label)}`} onClick={() => setVisible(value => ({ ...value, [field.key]: !value[field.key] }))}>
+                  {visible[field.key] ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                </Button>
+              </div>
+              {field.key === "password" && (
+                <ul className="text-xs space-y-1 pt-1">
+                  {(Object.keys(checks) as PasswordRule[]).map(rule => (
+                    <li key={rule} className={`flex items-center gap-1 ${checks[rule] ? "text-green-700 dark:text-green-400" : "text-muted-foreground"}`}>
+                      {checks[rule] ? <Check className="h-3 w-3" aria-hidden="true" /> : <X className="h-3 w-3" aria-hidden="true" />} {tr(passwordRuleLabels[rule])}
+                    </li>
+                  ))}
+                  <li className={`flex items-center gap-1 ${current && password && current !== password ? "text-green-700 dark:text-green-400" : "text-muted-foreground"}`}>
+                    {current && password && current !== password ? <Check className="h-3 w-3" aria-hidden="true" /> : <X className="h-3 w-3" aria-hidden="true" />} {tr("passwordDifferent")}
+                  </li>
+                </ul>
+              )}
+              {field.key === "confirm" && confirm && password !== confirm && <p className="text-xs text-destructive">{tr("passwordMismatch")}</p>}
+            </div>
+          ))}
+          <DialogFooter>
+            <Button type="button" variant="outline" disabled={pending} onClick={() => handleOpen(false)}>{tr("passwordCancel")}</Button>
+            <Button type="submit" disabled={!valid || pending}>{pending && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}{tr("passwordSave")}</Button>
+          </DialogFooter>
+        </form>
+      </DialogContent>
+    </Dialog>
+  );
+}
 
 const vendorPaymentFields = [
   ["bankName", "Bank name", 255],
@@ -758,6 +871,7 @@ export default function Admin() {
           </div>
           <div className="ml-12 sm:ml-0">
             <div className="flex flex-wrap items-center gap-2">
+              {currentUser && <ChangeOwnPassword username={currentUser.username} />}
               <Button variant="outline" size="sm" onClick={() => navigate("/licence-agreements")}>
                 <FileText className="mr-2 h-4 w-4" />Licence &amp; Agreement
               </Button>
