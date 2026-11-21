@@ -1,4 +1,5 @@
 import { CiplaStatementPanel } from "./cipla-statement";
+import { CIPLA_MEAL_RATES, HUL_MEAL_RATES, PEC_DEFAULT_RATES, UBL_YEARLY_RATES, UNICHEM_MEAL_RATES } from "@/lib/client-summary-rates";
 import { useState, useRef, useEffect, useMemo, Fragment } from "react";
 import { DateEntryDashboard } from "./date-entry-dashboard";
 import { UblFormat3Tab } from "./ubl-format3";
@@ -5269,17 +5270,7 @@ function UblSummaryTab({ month, year }: { month: number; year: number }) {
             {/* UBL Yearly Rate Wise Summary */}
             {(() => {
               const fmt = (n: number) => n ? `₹${n.toLocaleString('en-IN')}` : '—';
-              const ublYrRates = [
-                { field:'tea',       name:'Tea (All)',   rate:7   },
-                { field:'biscuit',   name:'Biscuit',     rate:0.5 },
-                { field:'breakfast', name:'Breakfast',   rate:20  },
-                { field:'contractorBreakfast', name:'Cont. Brkft', rate:25 },
-                { field:'lunch',     name:'Lunch',       rate:50  },
-                { field:'mutton',    name:'Mutton',      rate:149 },
-                { field:'tiffin',    name:'Tiffin',      rate:25  },
-                { field:'boiledEgg', name:'Boiled Egg',  rate:7   },
-                { field:'dinner',    name:'Dinner',      rate:48  },
-              ];
+              const ublYrRates = UBL_YEARLY_RATES;
               const totals = ublYrRates.map(r => ({ ...r, qty: sumF(yrDate, r.field) }));
               const grand = totals.reduce((s, r) => s + r.qty * r.rate, 0);
               return (
@@ -5455,12 +5446,12 @@ function CiplaSummaryTab({ month, year }: { month: number; year: number }) {
         ws.columns=[22,12,12,12,20,16,16].map((w: number)=>({width:w}));
         MONTHS.forEach((_mName, mi) => {
           const row = yrCipla.find((r: any) => r.month === mi + 1);
-          const mealTotal = (row?.breakfast||0)*23+(row?.lunch||0)*58+(row?.dinner||0)*58;
+          const mealTotal = (row?.breakfast||0)*CIPLA_MEAL_RATES.breakfast+(row?.lunch||0)*CIPLA_MEAL_RATES.lunch+(row?.dinner||0)*CIPLA_MEAL_RATES.dinner;
           const invoiceTotal = getInvoiceTotalForPeriod(mi + 1);
           const dr = ws.addRow([getCiplaBillingRowLabel(mi + 1), row?.breakfast||'', row?.lunch||'', row?.dinner||'', mealTotal||'', invoiceTotal||'', mealTotal+invoiceTotal||'']);
           dr.eachCell((c: any) => { c.border=thin; c.alignment={horizontal:'center'}; });
         });
-        const mealGrand = sumF(yrCipla,'breakfast')*23+sumF(yrCipla,'lunch')*58+sumF(yrCipla,'dinner')*58;
+        const mealGrand = sumF(yrCipla,'breakfast')*CIPLA_MEAL_RATES.breakfast+sumF(yrCipla,'lunch')*CIPLA_MEAL_RATES.lunch+sumF(yrCipla,'dinner')*CIPLA_MEAL_RATES.dinner;
         const invoiceGrand = ciplaInvoiceTotals.reduce((total, row) => total + Number(row.invoiceTotal || 0), 0);
         const totRow = ws.addRow(['Grand Total', sumF(yrCipla,'breakfast')||'', sumF(yrCipla,'lunch')||'', sumF(yrCipla,'dinner')||'', mealGrand, invoiceGrand, mealGrand+invoiceGrand]);
         totRow.eachCell((c: any) => { c.font={bold:true}; c.fill=mkFill('FFE8F0FE'); c.border=thin; c.alignment={horizontal:'center'}; });
@@ -6075,7 +6066,7 @@ function UnichemSummaryTab({ month, year }: { month: number; year: number }) {
                         // Sunday Extra: always from Sunday Lunch Bill Qty (Form 2)
                         const se = sl?.sundayLunch || 0;
                         const lu=l?.lunch||0, di=l?.dinner||0;
-                        const grand = bf*15+es*15+ns*15+se*10+lu*58+di*58;
+                        const grand = bf*UNICHEM_MEAL_RATES.breakfast+es*UNICHEM_MEAL_RATES.evening+ns*UNICHEM_MEAL_RATES.night+se*UNICHEM_MEAL_RATES.sunday+lu*UNICHEM_MEAL_RATES.lunch+di*UNICHEM_MEAL_RATES.dinner;
                         const bg = mi%2===0 ? '#f9fafb' : '#fff';
                         const c = (n:number) => n||'';
                         const a = (n:number,r:number) => n ? (n*r).toLocaleString('en-IN') : '';
@@ -6096,7 +6087,7 @@ function UnichemSummaryTab({ month, year }: { month: number; year: number }) {
                         const bf=sumS('breakfast'), es=sumS('eveningSnacks'), ns=sumS('nightSnacks');
                         const se = yrSundayLunch.reduce((s, r) => s + r.sundayLunch, 0);
                         const lu=sumL('lunch'), di=sumL('dinner');
-                        const grand = bf*15+es*15+ns*15+se*10+lu*58+di*58;
+                        const grand = bf*UNICHEM_MEAL_RATES.breakfast+es*UNICHEM_MEAL_RATES.evening+ns*UNICHEM_MEAL_RATES.night+se*UNICHEM_MEAL_RATES.sunday+lu*UNICHEM_MEAL_RATES.lunch+di*UNICHEM_MEAL_RATES.dinner;
                         return (
                           <tr>
                             <td style={tdTot}>Grand Total</td>
@@ -6398,7 +6389,7 @@ function HulSummaryTab({ month, year }: { month: number; year: number }) {
             const r=filtData.find(x=>x.month===m);
             const bf=r?.breakfast||0,ln=r?.lunch||0,es=r?.eveningSnacks||0,ns=r?.nightSnacks||0;
             const gbf=r?.guestBreakfast||0,gln=r?.guestLunch||0,ges=r?.guestEveningSnacks||0,gns=r?.guestNightSnacks||0;
-            const mSub=bf*35+ln*50+es*30+ns*17,gSub=gbf*40+gln*70+ges*40+gns*27;
+            const mSub=bf*HUL_MEAL_RATES.breakfast+ln*HUL_MEAL_RATES.lunch+es*HUL_MEAL_RATES.evening+ns*HUL_MEAL_RATES.night,gSub=gbf*HUL_MEAL_RATES.guestBreakfast+gln*HUL_MEAL_RATES.guestLunch+ges*HUL_MEAL_RATES.guestEvening+gns*HUL_MEAL_RATES.guestNight;
             const dr=ws.addRow([MONTHS[m-1],bf||'',ln||'',es||'',ns||'',mSub||'',gbf||'',gln||'',ges||'',gns||'',gSub||'',(mSub+gSub)||'']);
             dr.eachCell((c:any)=>{c.border=thin;c.alignment={horizontal:'center'};});
           });
@@ -6406,7 +6397,7 @@ function HulSummaryTab({ month, year }: { month: number; year: number }) {
           const tes=filtData.reduce((s,r)=>s+(r.eveningSnacks||0),0),tns=filtData.reduce((s,r)=>s+(r.nightSnacks||0),0);
           const tgbf=filtData.reduce((s,r)=>s+(r.guestBreakfast||0),0),tgln=filtData.reduce((s,r)=>s+(r.guestLunch||0),0);
           const tges=filtData.reduce((s,r)=>s+(r.guestEveningSnacks||0),0),tgns=filtData.reduce((s,r)=>s+(r.guestNightSnacks||0),0);
-          const tmSub=tbf*35+tln*50+tes*30+tns*17,tgSub=tgbf*40+tgln*70+tges*40+tgns*27;
+          const tmSub=tbf*HUL_MEAL_RATES.breakfast+tln*HUL_MEAL_RATES.lunch+tes*HUL_MEAL_RATES.evening+tns*HUL_MEAL_RATES.night,tgSub=tgbf*HUL_MEAL_RATES.guestBreakfast+tgln*HUL_MEAL_RATES.guestLunch+tges*HUL_MEAL_RATES.guestEvening+tgns*HUL_MEAL_RATES.guestNight;
           const tot=ws.addRow(['GRAND TOTAL',tbf||'',tln||'',tes||'',tns||'',tmSub||'',tgbf||'',tgln||'',tges||'',tgns||'',tgSub||'',(tmSub+tgSub)||'']);
           tot.eachCell((c:any)=>{c.font={bold:true};c.fill=mkFill('FFFFF2CC');c.border=thin;c.alignment={horizontal:'center'};});
         };
@@ -7694,19 +7685,7 @@ function HulSummaryTab({ month, year }: { month: number; year: number }) {
 // PEC VENTURES PRIVATE LIMITED — Canteen Expense Per Day
 // ============================================================
 
-const PEC_RATES = {
-  redLabel:     620,
-  tataTea:      310,
-  coffee:       5.5,
-  sugar:        48,
-  ginger:       180,
-  biscuit:      5,
-  teaCup:       0.8,
-  greenElaychi: 3.6,
-  greenTea:     120,
-  blackSalt:    115,
-  milk:         28,
-};
+const PEC_RATES = PEC_DEFAULT_RATES;
 
 type PecRateMap = typeof PEC_RATES;
 
