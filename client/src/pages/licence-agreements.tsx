@@ -1,10 +1,11 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import * as XLSX from "xlsx";
 import { Layout } from "@/components/layout";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
@@ -68,6 +69,49 @@ async function fileToBase64(file: File): Promise<string> {
   });
 }
 
+function AttachmentViewer({ record, onClose }: { record: LicenceRecord; onClose: () => void }) {
+  const [objectUrl, setObjectUrl] = useState<string | null>(null);
+  const { data: pdf, isLoading, isError, error } = useQuery({
+    queryKey: ["/api/licence-agreements", record.id, "attachment"],
+    queryFn: async () => {
+      const response = await apiRequest("GET", `/api/licence-agreements/${record.id}/attachment`);
+      if (!response.headers.get("content-type")?.toLowerCase().startsWith("application/pdf")) {
+        throw new Error("The attachment response is not a PDF.");
+      }
+      return response.blob();
+    },
+    staleTime: 0,
+    gcTime: 0,
+  });
+
+  useEffect(() => {
+    if (!pdf) return;
+    const url = URL.createObjectURL(pdf);
+    setObjectUrl(url);
+    return () => URL.revokeObjectURL(url);
+  }, [pdf]);
+
+  return (
+    <Dialog open onOpenChange={(open) => { if (!open) onClose(); }}>
+      <DialogContent className="flex h-[90vh] max-w-5xl flex-col">
+        <DialogHeader className="pr-8">
+          <DialogTitle>View PDF</DialogTitle>
+          <DialogDescription className="break-all">{record.attachmentName}</DialogDescription>
+        </DialogHeader>
+        {isLoading ? <div className="flex flex-1 items-center justify-center"><Loader2 className="h-6 w-6 animate-spin" /><span className="sr-only">Loading PDF</span></div>
+          : isError ? <p className="text-sm text-destructive" role="alert">Could not load PDF: {error instanceof Error ? error.message : "Please try again."}</p>
+          : objectUrl && <>
+            <div className="flex flex-wrap gap-2">
+              <Button asChild size="sm" variant="outline"><a href={objectUrl} target="_blank" rel="noopener noreferrer">Open in new tab</a></Button>
+              <Button asChild size="sm" variant="outline"><a href={objectUrl} download={record.attachmentName || "document.pdf"}><Download className="mr-2 h-4 w-4" />Download PDF</a></Button>
+            </div>
+            <iframe src={objectUrl} title={`PDF: ${record.attachmentName || "attachment"}`} className="min-h-0 w-full flex-1 rounded border" />
+          </>}
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 export default function LicenceAgreementsPage() {
   const [, navigate] = useLocation();
   const { toast } = useToast();
@@ -76,6 +120,7 @@ export default function LicenceAgreementsPage() {
   const [editId, setEditId] = useState<number | null>(null);
   const [attachment, setAttachment] = useState<File | null>(null);
   const [existingAttachmentName, setExistingAttachmentName] = useState<string | null>(null);
+  const [viewingRecord, setViewingRecord] = useState<LicenceRecord | null>(null);
 
   const { data: records = [], isLoading, isError, error } = useQuery<LicenceRecord[]>({
     queryKey: ["/api/licence-agreements"],
@@ -247,7 +292,7 @@ export default function LicenceAgreementsPage() {
                     <td className="p-2">{formattedDate(record.expiryDate)}</td>
                     <td className="p-2"><strong>{formattedDate(record.renewalDate)}</strong><div className="text-xs">{days < 0 ? `${Math.abs(days)} days overdue` : `in ${days} days`}</div></td>
                     <td className="p-2">{record.validityDays}</td>
-                    <td className="p-2">{record.attachmentName ? <a className="inline-flex items-center gap-1 underline" href={`/api/licence-agreements/${record.id}/attachment`}><FileText className="h-4 w-4" />PDF</a> : "—"}</td>
+                    <td className="p-2">{record.attachmentName ? <><Button type="button" variant="ghost" size="sm" className="no-print" onClick={() => setViewingRecord(record)} aria-label={`View PDF for ${record.licenceName}`}><FileText className="mr-1 h-4 w-4" />View PDF</Button><span className="print-only">PDF</span></> : "—"}</td>
                     <td className="no-print p-2"><div className="flex gap-1">
                       <Button size="icon" variant="ghost" onClick={() => editRecord(record)} aria-label="Edit record"><Pencil className="h-4 w-4" /></Button>
                       <Button size="icon" variant="ghost" className="text-destructive" onClick={() => { if (window.confirm("Delete this record and its PDF?")) deleteMutation.mutate(record.id); }} aria-label="Delete record"><Trash2 className="h-4 w-4" /></Button>
@@ -258,6 +303,7 @@ export default function LicenceAgreementsPage() {
           </CardContent>
         </Card>
       </div>
+      {viewingRecord && <AttachmentViewer key={viewingRecord.id} record={viewingRecord} onClose={() => setViewingRecord(null)} />}
     </Layout>
   );
 }
