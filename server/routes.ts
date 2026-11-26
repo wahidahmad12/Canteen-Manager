@@ -3,6 +3,7 @@ import type { Server } from "http";
 import { storage } from "./storage";
 import { usesLegacyHra } from "../shared/payroll-utils";
 import { pool, db } from "./db";
+import { CLIENT_COUPON_TYPES } from "../shared/client-coupons";
 import { api } from "@shared/routes";
 import { calculateProfessionalTax } from "@shared/professional-tax";
 import { registerVendorRoutes } from "./vendor-routes";
@@ -3569,6 +3570,166 @@ export async function registerRoutes(
       const month = Number(req.query.month), year = Number(req.query.year);
       if (!clientId || !formId || !month || !year) return res.status(400).json({ message: "clientId, formId, month and year are required" });
       res.json(await storage.getClientForm(clientId, formId, month, year));
+    } catch (err: any) { res.status(500).json({ message: err.message }); }
+  });
+  app.get('/api/client-forms/:clientId/coupon-entries', requirePermission('salesinvoice'), async (req, res) => {
+    try {
+      const clientId = Number(req.params.clientId);
+      const month = Number(req.query.month), year = Number(req.query.year);
+      if (!Number.isInteger(clientId) || clientId <= 0 || !Number.isInteger(month) || month < 1 || month > 12 || !Number.isInteger(year) || year < 2000 || year > 9999) {
+        return res.status(400).json({ message: "Valid clientId, month and year are required" });
+      }
+      const prefix = `${year}-${String(month).padStart(2, '0')}-%`;
+      const [rows]: any = await pool.query(
+        `SELECT entry_date AS entryDate, coupon_type AS couponType, employee_count AS employeeCount, contractor_count AS contractorCount
+         FROM client_coupon_entries WHERE client_id = ? AND entry_date LIKE ?`,
+        [clientId, prefix],
+      );
+      res.json(rows.map((row: any) => ({
+        entryDate: String(row.entryDate),
+        couponType: String(row.couponType),
+        employeeCount: Number(row.employeeCount) || 0,
+        contractorCount: Number(row.contractorCount) || 0,
+      })));
+    } catch (err: any) { res.status(500).json({ message: err.message }); }
+  });
+  app.put('/api/client-forms/:clientId/coupon-entries', requirePermission('salesinvoice'), async (req, res) => {
+    const clientId = Number(req.params.clientId);
+    const month = Number(req.query.month), year = Number(req.query.year);
+    const prefix = `${year}-${String(month).padStart(2, '0')}-`;
+    if (!Number.isInteger(clientId) || clientId <= 0 || !Number.isInteger(month) || month < 1 || month > 12 || !Number.isInteger(year) || year < 2000 || year > 9999 || !Array.isArray(req.body?.entries)) {
+      return res.status(400).json({ message: "Valid clientId, month, year and entries are required" });
+    }
+    const allowedTypes = new Set<string>(CLIENT_COUPON_TYPES.map(type => type.value));
+    const entries = req.body.entries;
+    const daysInMonth = new Date(year, month, 0).getDate();
+    if (entries.length !== daysInMonth * CLIENT_COUPON_TYPES.length) {
+      return res.status(400).json({ message: "Coupon entries must include every date and coupon type for the selected month" });
+    }
+    const seenEntries = new Set<string>();
+    for (const entry of entries) {
+      const entryDate = String(entry?.entryDate || "");
+      const couponType = String(entry?.couponType || "");
+      const employeeCount = Number(entry?.employeeCount);
+      const contractorCount = Number(entry?.contractorCount);
+      const entryKey = `${entryDate}|${couponType}`;
+      if (!validIsoDate(entryDate) || !entryDate.startsWith(prefix) || !allowedTypes.has(couponType) || seenEntries.has(entryKey) ||
+        !Number.isInteger(employeeCount) || employeeCount < 0 || !Number.isInteger(contractorCount) || contractorCount < 0) {
+        return res.status(400).json({ message: "Coupon entries must contain valid dates, coupon types and non-negative whole-number counts" });
+      }
+      seenEntries.add(entryKey);
+    }
+    const connection = await pool.getConnection();
+    try {
+      await connection.beginTransaction();
+      for (const entry of entries) {
+        const entryDate = String(entry.entryDate);
+        const couponType = String(entry.couponType);
+        const employeeCount = Number(entry.employeeCount);
+        const contractorCount = Number(entry.contractorCount);
+        if (employeeCount === 0 && contractorCount === 0) {
+          await connection.query(
+            `DELETE FROM client_coupon_entries WHERE client_id = ? AND entry_date = ? AND coupon_type = ?`,
+            [clientId, entryDate, couponType],
+          );
+        } else {
+          await connection.query(
+            `INSERT INTO client_coupon_entries (client_id, entry_date, coupon_type, employee_count, contractor_count)
+             VALUES (?, ?, ?, ?, ?)
+             ON DUPLICATE KEY UPDATE employee_count = VALUES(employee_count), contractor_count = VALUES(contractor_count)`,
+            [clientId, entryDate, couponType, employeeCount, contractorCount],
+          );
+        }
+      }
+      await connection.commit();
+      res.json({ ok: true });
+    } catch (err: any) {
+      await connection.rollback();
+      res.status(500).json({ message: err.message });
+    } finally {
+      connection.release();
+    }
+  });
+  app.get('/api/client-forms/:clientId/requisition-amounts', requirePermission('salesinvoice'), async (req, res) => {
+    try {
+      const clientId = Number(req.params.clientId);
+      const month = Number(req.query.month), year = Number(req.query.year);
+      if (!Number.isInteger(clientId) || clientId <= 0 || !Number.isInteger(month) || month < 1 || month > 12 || !Number.isInteger(year) || year < 2000 || year > 9999) {
+        return res.status(400).json({ message: "Valid clientId, month and year are required" });
+      }
+      const [rows]: any = await pool.query(
+        `SELECT id, month, year, sl_no AS slNo, date_of_supply AS dateOfSupply, particulars, qty, rate_per_plate AS ratePerPlate, total
+         FROM client_requisition_amounts WHERE client_id = ? AND month = ? AND year = ? ORDER BY sl_no, id`,
+        [clientId, month, year],
+      );
+      res.json(rows.map((row: any) => ({
+        ...row,
+        id: Number(row.id), month: Number(row.month), year: Number(row.year), slNo: Number(row.slNo),
+        qty: Number(row.qty) || 0, ratePerPlate: Number(row.ratePerPlate) || 0, total: Number(row.total) || 0,
+      })));
+    } catch (err: any) { res.status(500).json({ message: err.message }); }
+  });
+  app.post('/api/client-forms/:clientId/requisition-amounts', requirePermission('salesinvoice'), async (req, res) => {
+    try {
+      const clientId = Number(req.params.clientId);
+      const month = Number(req.body?.month), year = Number(req.body?.year), slNo = Number(req.body?.slNo);
+      const dateOfSupply = String(req.body?.dateOfSupply || "");
+      const particulars = String(req.body?.particulars || "").trim();
+      const qty = Number(req.body?.qty), ratePerPlate = Number(req.body?.ratePerPlate);
+      if (!Number.isInteger(clientId) || clientId <= 0 || !Number.isInteger(month) || month < 1 || month > 12 ||
+        !Number.isInteger(year) || year < 2000 || year > 9999 || !Number.isInteger(slNo) || slNo < 1 ||
+        (dateOfSupply !== "" && !validIsoDate(dateOfSupply)) || particulars.length > 255 ||
+        !Number.isFinite(qty) || qty < 0 || !Number.isFinite(ratePerPlate) || ratePerPlate < 0) {
+        return res.status(400).json({ message: "Requisition row contains invalid values" });
+      }
+      const total = Number((qty * ratePerPlate).toFixed(2));
+      const [result]: any = await pool.execute(
+        `INSERT INTO client_requisition_amounts (client_id, month, year, sl_no, date_of_supply, particulars, qty, rate_per_plate, total)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        [clientId, month, year, slNo, dateOfSupply, particulars, qty, ratePerPlate, total],
+      );
+      res.json({ id: Number(result.insertId), total });
+    } catch (err: any) { res.status(500).json({ message: err.message }); }
+  });
+  app.put('/api/client-forms/:clientId/requisition-amounts/:id', requirePermission('salesinvoice'), async (req, res) => {
+    try {
+      const clientId = Number(req.params.clientId), id = Number(req.params.id);
+      const month = Number(req.body?.month), year = Number(req.body?.year), slNo = Number(req.body?.slNo);
+      const dateOfSupply = String(req.body?.dateOfSupply || "");
+      const particulars = String(req.body?.particulars || "").trim();
+      const qty = Number(req.body?.qty), ratePerPlate = Number(req.body?.ratePerPlate);
+      if (!Number.isInteger(clientId) || clientId <= 0 || !Number.isInteger(id) || id <= 0 ||
+        !Number.isInteger(month) || month < 1 || month > 12 || !Number.isInteger(year) || year < 2000 || year > 9999 ||
+        !Number.isInteger(slNo) || slNo < 1 || (dateOfSupply !== "" && !validIsoDate(dateOfSupply)) ||
+        particulars.length > 255 || !Number.isFinite(qty) || qty < 0 || !Number.isFinite(ratePerPlate) || ratePerPlate < 0) {
+        return res.status(400).json({ message: "Requisition row contains invalid values" });
+      }
+      const total = Number((qty * ratePerPlate).toFixed(2));
+      const [result]: any = await pool.execute(
+        `UPDATE client_requisition_amounts
+         SET month = ?, year = ?, sl_no = ?, date_of_supply = ?, particulars = ?, qty = ?, rate_per_plate = ?, total = ?
+         WHERE id = ? AND client_id = ?`,
+        [month, year, slNo, dateOfSupply, particulars, qty, ratePerPlate, total, id, clientId],
+      );
+      if (result.affectedRows === 0) {
+        const [rows]: any = await pool.query(`SELECT id FROM client_requisition_amounts WHERE id = ? AND client_id = ?`, [id, clientId]);
+        if (rows.length === 0) return res.status(404).json({ message: "Requisition row not found" });
+      }
+      res.json({ ok: true, total });
+    } catch (err: any) { res.status(500).json({ message: err.message }); }
+  });
+  app.delete('/api/client-forms/:clientId/requisition-amounts/:id', requirePermission('salesinvoice'), async (req, res) => {
+    try {
+      const clientId = Number(req.params.clientId), id = Number(req.params.id);
+      if (!Number.isInteger(clientId) || clientId <= 0 || !Number.isInteger(id) || id <= 0) {
+        return res.status(400).json({ message: "Valid clientId and requisition row id are required" });
+      }
+      const [result]: any = await pool.execute(
+        `DELETE FROM client_requisition_amounts WHERE id = ? AND client_id = ?`,
+        [id, clientId],
+      );
+      if (result.affectedRows === 0) return res.status(404).json({ message: "Requisition row not found" });
+      res.json({ ok: true });
     } catch (err: any) { res.status(500).json({ message: err.message }); }
   });
   app.post('/api/client-forms/:clientId/forms/:formId/fields', requirePermission('salesinvoice'), async (req, res) => {
