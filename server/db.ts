@@ -274,6 +274,31 @@ async function initPool(): Promise<void> {
       rate DECIMAL(12,3) NOT NULL DEFAULT 0,
       UNIQUE KEY uq_client_form_entries (field_id, entry_date)
     )`,
+    `CREATE TABLE IF NOT EXISTS client_coupon_entries (
+      id INT AUTO_INCREMENT PRIMARY KEY,
+      client_id INT NOT NULL,
+      entry_date VARCHAR(10) NOT NULL,
+      coupon_type VARCHAR(10) NOT NULL,
+      employee_count INT NOT NULL DEFAULT 0,
+      contractor_count INT NOT NULL DEFAULT 0,
+      UNIQUE KEY uq_client_coupon_entry (client_id, entry_date, coupon_type),
+      KEY idx_client_coupon_date (client_id, entry_date)
+    )`,
+    `CREATE TABLE IF NOT EXISTS client_requisition_amounts (
+      id INT AUTO_INCREMENT PRIMARY KEY,
+      client_id INT NOT NULL,
+      month INT NOT NULL,
+      year INT NOT NULL,
+      sl_no INT NOT NULL,
+      date_of_supply VARCHAR(10) NOT NULL DEFAULT '',
+      particulars VARCHAR(255) NOT NULL DEFAULT '',
+      qty DECIMAL(12,3) NOT NULL DEFAULT 0,
+      rate_per_plate DECIMAL(12,2) NOT NULL DEFAULT 0,
+      total DECIMAL(12,2) NOT NULL DEFAULT 0,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+      KEY idx_client_requisition_period (client_id, year, month)
+    )`,
     `CREATE TABLE IF NOT EXISTS menu_category_items (
       id INT AUTO_INCREMENT PRIMARY KEY,
       category_name VARCHAR(100) NOT NULL,

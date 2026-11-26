@@ -5,6 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
 import { Plus, Trash2, Save, Loader2, FileDown, Upload, ChevronLeft, ChevronRight, Printer } from "lucide-react";
+import { CLIENT_COUPON_TYPES } from "@shared/client-coupons";
 
 const MONTHS = ["January","February","March","April","May","June","July","August","September","October","November","December"];
 const PRESETS = ["Breakfast", "Lunch", "Evening Snack", "Dinner", "Tea"];
@@ -128,6 +129,7 @@ export function CustomClientFormTab({ clientId, clientName, month, year, canEdit
     },
   });
   const selectedForm = forms.find(f => f.id === selectedFormId);
+  const hasCouponModules = /3b\s+advanced\s+composites/i.test(clientName);
 
   useEffect(() => {
     if (forms.length > 0 && !forms.some(f => f.id === selectedFormId)) setSelectedFormId(forms[0].id);
@@ -196,41 +198,62 @@ export function CustomClientFormTab({ clientId, clientName, month, year, canEdit
   if (isError) return <div className="text-sm text-red-600 py-6">Form load nahi ho paya. Page refresh karke dobara try karein.</div>;
 
   return (
-    <div className="space-y-4">
-      <div className="flex flex-wrap items-center gap-2">
-        {forms.map(form => (
-          <Button key={form.id} size="sm" variant={selectedFormId === form.id ? "default" : "outline"} onClick={() => setSelectedFormId(form.id)}>
-            {form.name}
-          </Button>
-        ))}
-        {canEdit && (
+    <Tabs defaultValue={hasCouponModules ? "coupons" : "forms"}>
+      {hasCouponModules && (
+        <TabsList className="mb-4 flex-wrap h-auto">
+          <TabsTrigger value="forms" data-testid="tab-client-forms">Client Forms</TabsTrigger>
+          <TabsTrigger value="coupons" data-testid="tab-client-coupons">Coupon Summary</TabsTrigger>
+          <TabsTrigger value="requisition" data-testid="tab-client-requisition">Requisition Amount</TabsTrigger>
+        </TabsList>
+      )}
+      <TabsContent value="forms">
+        <div className="space-y-4">
           <div className="flex flex-wrap items-center gap-2">
-            <Input value={newFormName} onChange={e => setNewFormName(e.target.value)} placeholder="New form name" className="w-44 h-9" data-testid="input-client-form-name" />
-            <Button size="sm" onClick={createForm} data-testid="btn-create-client-form"><Plus className="w-4 h-4 mr-1" />Create Form</Button>
-          </div>
-        )}
-      </div>
-      {selectedForm && (
-        <>
-          {canEdit && (
-            <div className="flex flex-wrap gap-2 items-center">
-              <Input value={renameValue} onChange={e => setRenameValue(e.target.value)} className="w-56 h-9" aria-label="Form name" data-testid="input-rename-client-form" />
-              <Button size="sm" variant="outline" onClick={renameForm} data-testid="btn-rename-client-form"><Save className="w-4 h-4 mr-1" />Rename Form</Button>
-              <Button size="sm" variant="outline" className="border-red-300 text-red-600 hover:bg-red-50" onClick={deleteForm} disabled={deletingForm} data-testid="btn-delete-client-form">
-                {deletingForm ? <Loader2 className="w-4 h-4 mr-1 animate-spin" /> : <Trash2 className="w-4 h-4 mr-1" />}
-                {deletingForm ? "Deleting..." : "Delete Form"}
+            {forms.map(form => (
+              <Button key={form.id} size="sm" variant={selectedFormId === form.id ? "default" : "outline"} onClick={() => setSelectedFormId(form.id)}>
+                {form.name}
               </Button>
+            ))}
+            {canEdit && (
+              <div className="flex flex-wrap items-center gap-2">
+                <Input value={newFormName} onChange={e => setNewFormName(e.target.value)} placeholder="New form name" className="w-44 h-9" data-testid="input-client-form-name" />
+                <Button size="sm" onClick={createForm} data-testid="btn-create-client-form"><Plus className="w-4 h-4 mr-1" />Create Form</Button>
+              </div>
+            )}
+          </div>
+          {selectedForm && (
+            <>
+              {canEdit && (
+                <div className="flex flex-wrap gap-2 items-center">
+                  <Input value={renameValue} onChange={e => setRenameValue(e.target.value)} className="w-56 h-9" aria-label="Form name" data-testid="input-rename-client-form" />
+                  <Button size="sm" variant="outline" onClick={renameForm} data-testid="btn-rename-client-form"><Save className="w-4 h-4 mr-1" />Rename Form</Button>
+                  <Button size="sm" variant="outline" className="border-red-300 text-red-600 hover:bg-red-50" onClick={deleteForm} disabled={deletingForm} data-testid="btn-delete-client-form">
+                    {deletingForm ? <Loader2 className="w-4 h-4 mr-1 animate-spin" /> : <Trash2 className="w-4 h-4 mr-1" />}
+                    {deletingForm ? "Deleting..." : "Delete Form"}
+                  </Button>
+                </div>
+              )}
+              <ClientNamedForm key={`${selectedForm.id}-${month}-${year}`} clientId={clientId} clientName={clientName} forms={forms} formId={selectedForm.id} formName={selectedForm.name} month={month} year={year} canEdit={canEdit} />
+            </>
+          )}
+          {!selectedForm && (
+            <div className="text-sm text-muted-foreground py-8 text-center border rounded-lg">
+              Abhi koi form nahi hai. Is client ke liye form banane ke liye upar naam likh kar Create Form dabayein.
             </div>
           )}
-          <ClientNamedForm key={`${selectedForm.id}-${month}-${year}`} clientId={clientId} clientName={clientName} forms={forms} formId={selectedForm.id} formName={selectedForm.name} month={month} year={year} canEdit={canEdit} />
+        </div>
+      </TabsContent>
+      {hasCouponModules && (
+        <>
+          <TabsContent value="coupons">
+            <ClientCouponLedger clientId={clientId} clientName={clientName} month={month} year={year} canEdit={canEdit} />
+          </TabsContent>
+          <TabsContent value="requisition">
+            <ClientRequisitionAmountTab clientId={clientId} month={month} year={year} canEdit={canEdit} />
+          </TabsContent>
         </>
       )}
-      {!selectedForm && (
-        <div className="text-sm text-muted-foreground py-8 text-center border rounded-lg">
-          Abhi koi form nahi hai. Is client ke liye form banane ke liye upar naam likh kar Create Form dabayein.
-        </div>
-      )}
-    </div>
+    </Tabs>
   );
 }
 
@@ -633,6 +656,412 @@ function ClientNamedForm({ clientId, clientName, forms, formId, formName, month,
         <CustomClientYearlySummary clientId={clientId} clientName={clientName} forms={forms} year={year} />
       </TabsContent>
     </Tabs>
+  );
+}
+
+type CouponEntry = { entryDate: string; couponType: string; employeeCount: number; contractorCount: number };
+type CouponCounts = { employeeCount: string; contractorCount: string };
+const couponEntryKey = (entryDate: string, couponType: string) => `${entryDate}|${couponType}`;
+
+function ClientCouponLedger({ clientId, clientName, month, year, canEdit }: {
+  clientId: number; clientName: string; month: number; year: number; canEdit: boolean;
+}) {
+  const { toast } = useToast();
+  const qc = useQueryClient();
+  const [counts, setCounts] = useState<Record<string, CouponCounts>>({});
+  const [saving, setSaving] = useState(false);
+  const { data = [], isLoading, isError } = useQuery<CouponEntry[]>({
+    queryKey: ["/api/client-coupons", clientId, month, year],
+    queryFn: async () => {
+      const res = await fetch(`/api/client-forms/${clientId}/coupon-entries?month=${month}&year=${year}`, { credentials: "include" });
+      if (!res.ok) throw new Error("Failed to load coupon entries");
+      return res.json();
+    },
+  });
+
+  const dates = useMemo(() => {
+    const last = new Date(year, month, 0).getDate();
+    return Array.from({ length: last }, (_, index) =>
+      `${year}-${String(month).padStart(2, "0")}-${String(index + 1).padStart(2, "0")}`,
+    );
+  }, [month, year]);
+
+  useEffect(() => {
+    const next: Record<string, CouponCounts> = {};
+    data.forEach(entry => {
+      next[couponEntryKey(entry.entryDate, entry.couponType)] = {
+        employeeCount: String(entry.employeeCount),
+        contractorCount: String(entry.contractorCount),
+      };
+    });
+    setCounts(next);
+  }, [data]);
+
+  const getCount = (entryDate: string, couponType: string, kind: keyof CouponCounts) =>
+    Number(counts[couponEntryKey(entryDate, couponType)]?.[kind]) || 0;
+  const updateCount = (entryDate: string, couponType: string, kind: keyof CouponCounts, value: string) => {
+    const key = couponEntryKey(entryDate, couponType);
+    setCounts(previous => ({
+      ...previous,
+      [key]: {
+        employeeCount: previous[key]?.employeeCount ?? "",
+        contractorCount: previous[key]?.contractorCount ?? "",
+        [kind]: value,
+      },
+    }));
+  };
+  const summary = CLIENT_COUPON_TYPES.map(type => {
+    const employeeCount = dates.reduce((total, date) => total + getCount(date, type.value, "employeeCount"), 0);
+    const contractorCount = dates.reduce((total, date) => total + getCount(date, type.value, "contractorCount"), 0);
+    const totalCoupon = employeeCount + contractorCount;
+    return { ...type, employeeCount, contractorCount, totalCoupon, totalAmount: totalCoupon * type.amount };
+  });
+  const grandAmount = summary.reduce((total, row) => total + row.totalAmount, 0);
+  const printMonthlyReport = () => {
+    const printWindow = window.open("", "_blank");
+    if (!printWindow) {
+      toast({ title: "Print window nahi khula", description: "Browser me pop-up allow karein.", variant: "destructive" });
+      return;
+    }
+    const escapeHtml = (value: string) => value.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+    const dailyTable = (label: string, kind: keyof CouponCounts) => {
+      const totals = CLIENT_COUPON_TYPES.map(type => dates.reduce((total, date) => total + getCount(date, type.value, kind), 0));
+      return `<table><thead><tr><th></th><th colspan="${CLIENT_COUPON_TYPES.length}">Denominations Qty - ${label}</th></tr><tr><th>Date</th>${CLIENT_COUPON_TYPES.map(type => `<th>${type.label}</th>`).join("")}</tr></thead>
+        <tbody>${dates.map(date => `<tr><td>${date.slice(-2)}-${String(month).padStart(2, "0")}-${year}</td>${CLIENT_COUPON_TYPES.map(type => `<td>${getCount(date, type.value, kind) || ""}</td>`).join("")}</tr>`).join("")}</tbody>
+        <tfoot><tr><th>TOTAL</th>${totals.map(total => `<th>${total || ""}</th>`).join("")}</tr></tfoot></table>`;
+    };
+    const summaryTable = `<table class="summary"><thead><tr><th colspan="5">Monthly Summary</th></tr><tr><th>Coupon Amount</th><th>Employee Coupon</th><th>Contractor Coupon</th><th>Total Coupon</th><th>Total Amount</th></tr></thead>
+      <tbody>${summary.map(row => `<tr><td>${row.label}</td><td>${row.employeeCount}</td><td>${row.contractorCount}</td><td>${row.totalCoupon}</td><td>₹${fmt(row.totalAmount)}</td></tr>`).join("")}</tbody>
+      <tfoot><tr><th colspan="4">Total Amount</th><th>₹${fmt(grandAmount)}</th></tr></tfoot></table>`;
+    const title = `${clientName} — Coupon Report — ${MONTHS[month - 1]} ${year}`;
+    printWindow.document.write(`<!doctype html><html><head><title>${escapeHtml(title)}</title><style>
+      @page{size:A4 landscape;margin:5mm}
+      *{box-sizing:border-box;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+      body{font-family:Arial,sans-serif;font-size:7px;margin:0;color:#111}
+      h1{text-align:center;font-size:12px;margin:0 0 5px}
+      .daily{display:grid;grid-template-columns:1fr 1fr;gap:5px}
+      table{width:100%;border-collapse:collapse;table-layout:fixed}
+      th,td{border:1px solid #444;text-align:center;padding:1px 2px;white-space:nowrap}
+      thead{background:#e5e7eb;font-weight:bold}
+      th:first-child,td:first-child{width:52px}
+      tfoot{font-weight:bold;background:#e5e7eb}
+      .summary{width:38%;margin:5px auto 0;font-size:8px}
+      .summary thead tr:first-child{background:#1f4e79;color:#fff}
+      .summary thead tr:nth-child(2){background:#e6b8b7}
+    </style></head><body><h1>${escapeHtml(title)}</h1><div class="daily">${dailyTable("Employee", "employeeCount")}${dailyTable("Contractors", "contractorCount")}</div>${summaryTable}</body></html>`);
+    printWindow.document.close();
+    printWindow.focus();
+    window.setTimeout(() => {
+      if (!printWindow.closed) printWindow.print();
+    }, 500);
+  };
+
+  const handleSave = async () => {
+    setSaving(true);
+    try {
+      const entries = dates.flatMap(entryDate => CLIENT_COUPON_TYPES.map(type => ({
+        entryDate,
+        couponType: type.value,
+        employeeCount: getCount(entryDate, type.value, "employeeCount"),
+        contractorCount: getCount(entryDate, type.value, "contractorCount"),
+      })));
+      const res = await fetch(`/api/client-forms/${clientId}/coupon-entries?month=${month}&year=${year}`, {
+        method: "PUT",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ entries }),
+      });
+      if (!res.ok) {
+        const error = await res.json().catch(() => ({}));
+        throw new Error(error.message || "Could not save coupon entries");
+      }
+      await qc.invalidateQueries({ queryKey: ["/api/client-coupons", clientId, month, year] });
+      toast({ title: "Coupon entries saved", description: `${clientName} — ${MONTHS[month - 1]} ${year}` });
+    } catch (error: any) {
+      toast({ title: "Coupon entries could not be saved", description: error.message, variant: "destructive" });
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  if (isLoading) return <div className="flex justify-center py-10"><Loader2 className="w-6 h-6 animate-spin" /></div>;
+  if (isError) return <div className="text-sm text-red-600 py-6">Coupon entries could not be loaded. Refresh and try again.</div>;
+
+  return (
+    <Tabs defaultValue="monthly-summary">
+      <TabsList className="mb-4 flex-wrap h-auto">
+        <TabsTrigger value="monthly-summary" data-testid="tab-coupon-monthly-summary">Monthly Summary</TabsTrigger>
+        <TabsTrigger value="daily-entry" data-testid="tab-coupon-daily-entry">Daily Entry</TabsTrigger>
+      </TabsList>
+      <TabsContent value="monthly-summary">
+        <div className="mb-3">
+          <Button variant="outline" onClick={printMonthlyReport} data-testid="btn-print-coupon-report">
+            <Printer className="w-4 h-4 mr-1" />Print Full Monthly Report
+          </Button>
+        </div>
+        <div className="overflow-x-auto border rounded-lg">
+          <table className="w-full min-w-[560px] text-sm border-collapse" data-testid="table-coupon-monthly-summary">
+            <thead>
+              <tr><th colSpan={5} className="bg-[#1f4e79] text-white text-base p-2">Monthly Summary</th></tr>
+              <tr className="bg-[#e6b8b7] text-center">
+                <th className="border p-2">Coupon Amount</th>
+                <th className="border p-2">Employee Coupon</th>
+                <th className="border p-2">Contractor Coupon</th>
+                <th className="border p-2">Total Coupon</th>
+                <th className="border p-2">Total Amount</th>
+              </tr>
+            </thead>
+            <tbody>
+              {summary.map(row => (
+                <tr key={row.value} className="text-center">
+                  <td className="border p-1.5">{row.label}</td>
+                  <td className="border p-1.5">{row.employeeCount || ""}</td>
+                  <td className="border p-1.5">{row.contractorCount || ""}</td>
+                  <td className="border p-1.5">{row.totalCoupon || ""}</td>
+                  <td className="border p-1.5">{row.totalAmount ? `₹${fmt(row.totalAmount)}` : ""}</td>
+                </tr>
+              ))}
+            </tbody>
+            <tfoot className="font-semibold">
+              <tr>
+                <td colSpan={4} className="border p-2 text-right">Total Amount</td>
+                <td className="border p-2 text-center">₹{fmt(grandAmount)}</td>
+              </tr>
+            </tfoot>
+          </table>
+        </div>
+      </TabsContent>
+      <TabsContent value="daily-entry">
+        {canEdit && (
+          <div className="mb-3">
+            <Button onClick={handleSave} disabled={saving} data-testid="btn-save-coupon-entries">
+              {saving ? <Loader2 className="w-4 h-4 mr-1 animate-spin" /> : <Save className="w-4 h-4 mr-1" />}
+              Save Coupons
+            </Button>
+          </div>
+        )}
+        <div className="overflow-x-auto border rounded-lg">
+          <table className="w-full min-w-[1500px] text-xs border-collapse" data-testid="table-coupon-daily-entry">
+            <thead className="bg-muted">
+              <tr>
+                <th rowSpan={2} className="border p-2 sticky left-0 bg-muted">Date</th>
+                {CLIENT_COUPON_TYPES.map(type => <th key={type.value} colSpan={2} className="border p-2">{type.label} (₹{type.amount})</th>)}
+              </tr>
+              <tr>
+                {CLIENT_COUPON_TYPES.flatMap(type => [
+                  <th key={`${type.value}-employee`} className="border p-2">Employee</th>,
+                  <th key={`${type.value}-contractor`} className="border p-2">Contractor</th>,
+                ])}
+              </tr>
+            </thead>
+            <tbody>
+              {dates.map(entryDate => (
+                <tr key={entryDate} className="border-t">
+                  <td className="border p-1.5 whitespace-nowrap sticky left-0 bg-background">{entryDate.slice(-2)}-{String(month).padStart(2, "0")}-{year}</td>
+                  {CLIENT_COUPON_TYPES.flatMap(type => (["employeeCount", "contractorCount"] as const).map(kind => (
+                    <td key={`${type.value}-${kind}`} className="border p-1">
+                      <Input
+                        type="number"
+                        min="0"
+                        step="1"
+                        disabled={!canEdit}
+                        value={counts[couponEntryKey(entryDate, type.value)]?.[kind] ?? ""}
+                        onChange={event => updateCount(entryDate, type.value, kind, event.target.value)}
+                        className="h-8 min-w-16 text-center text-xs"
+                        aria-label={`${entryDate} ${type.label} ${kind === "employeeCount" ? "employee" : "contractor"} coupons`}
+                      />
+                    </td>
+                  )))}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </TabsContent>
+    </Tabs>
+  );
+}
+
+type RequisitionAmountRow = {
+  id?: number;
+  slNo: number;
+  dateOfSupply: string;
+  particulars: string;
+  qty: number;
+  ratePerPlate: number;
+  total: number;
+  _dirty?: boolean;
+};
+
+function emptyRequisitionRow(slNo: number): RequisitionAmountRow {
+  return { slNo, dateOfSupply: "", particulars: "", qty: 0, ratePerPlate: 0, total: 0, _dirty: false };
+}
+
+function ClientRequisitionAmountTab({ clientId, month, year, canEdit }: {
+  clientId: number; month: number; year: number; canEdit: boolean;
+}) {
+  const { toast } = useToast();
+  const qc = useQueryClient();
+  const [rows, setRows] = useState<RequisitionAmountRow[]>([emptyRequisitionRow(1)]);
+  const [saving, setSaving] = useState(false);
+  const queryKey = ["/api/client-requisition-amounts", clientId, month, year];
+  const { data = [], isLoading, isError } = useQuery<RequisitionAmountRow[]>({
+    queryKey,
+    queryFn: async () => {
+      const res = await fetch(`/api/client-forms/${clientId}/requisition-amounts?month=${month}&year=${year}`, { credentials: "include" });
+      if (!res.ok) throw new Error("Failed to load requisition amounts");
+      return res.json();
+    },
+    refetchInterval: false,
+  });
+
+  useEffect(() => {
+    setRows(data.length > 0
+      ? data.map(row => ({ ...row, qty: Number(row.qty) || 0, ratePerPlate: Number(row.ratePerPlate) || 0, total: Number(row.total) || 0, _dirty: false }))
+      : [emptyRequisitionRow(1)]);
+  }, [data, month, year]);
+
+  const updateRow = (index: number, field: keyof RequisitionAmountRow, value: string | number) => {
+    setRows(previous => {
+      const next = [...previous];
+      const row = { ...next[index], [field]: value, _dirty: true };
+      if (field === "qty" || field === "ratePerPlate") {
+        const qty = field === "qty" ? Number(value) : Number(next[index].qty);
+        const rate = field === "ratePerPlate" ? Number(value) : Number(next[index].ratePerPlate);
+        row.total = Number((qty * rate).toFixed(2));
+      }
+      next[index] = row;
+      return next;
+    });
+  };
+
+  const addRow = () => setRows(previous => [...previous, emptyRequisitionRow(previous.length + 1)]);
+
+  const deleteRow = async (index: number) => {
+    const row = rows[index];
+    if (row.id) {
+      try {
+        const res = await fetch(`/api/client-forms/${clientId}/requisition-amounts/${row.id}`, { method: "DELETE", credentials: "include" });
+        if (!res.ok) {
+          const error = await res.json().catch(() => ({}));
+          throw new Error(error.message || "Could not delete requisition row");
+        }
+      } catch (error: any) {
+        toast({ title: "Delete failed", description: error.message, variant: "destructive" });
+        return;
+      }
+    }
+    setRows(previous => previous
+      .filter((_, rowIndex) => rowIndex !== index)
+      .map((item, rowIndex) => ({ ...item, slNo: rowIndex + 1, _dirty: Boolean(item.id) })));
+  };
+
+  const saveAll = async () => {
+    setSaving(true);
+    try {
+      for (let index = 0; index < rows.length; index++) {
+        const row = rows[index];
+        if (!row._dirty) continue;
+        const payload = {
+          month, year, slNo: index + 1, dateOfSupply: row.dateOfSupply,
+          particulars: row.particulars, qty: row.qty, ratePerPlate: row.ratePerPlate,
+        };
+        const res = await fetch(
+          row.id
+            ? `/api/client-forms/${clientId}/requisition-amounts/${row.id}`
+            : `/api/client-forms/${clientId}/requisition-amounts`,
+          {
+            method: row.id ? "PUT" : "POST",
+            credentials: "include",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(payload),
+          },
+        );
+        if (!res.ok) {
+          const error = await res.json().catch(() => ({}));
+          throw new Error(error.message || `Could not save row ${index + 1}`);
+        }
+      }
+      await qc.invalidateQueries({ queryKey });
+      toast({ title: "Requisition amounts saved" });
+    } catch (error: any) {
+      toast({ title: "Save failed", description: error.message, variant: "destructive" });
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  if (isLoading) return <div className="flex justify-center py-10"><Loader2 className="w-6 h-6 animate-spin" /></div>;
+  if (isError) return <div className="text-sm text-red-600 py-6">Requisition amounts could not be loaded. Refresh and try again.</div>;
+
+  const grandTotal = rows.reduce((total, row) => total + row.total, 0);
+
+  return (
+    <div className="space-y-3">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <h3 className="font-semibold text-base text-blue-900">Requisition Amount — {MONTHS[month - 1]} {year}</h3>
+        {canEdit && (
+          <div className="flex gap-2">
+            <Button size="sm" variant="outline" onClick={addRow} data-testid="btn-add-requisition-row">
+              <Plus className="w-4 h-4 mr-1" />Add Row
+            </Button>
+            <Button size="sm" onClick={saveAll} disabled={saving} data-testid="btn-save-requisition-amounts">
+              {saving ? <Loader2 className="w-4 h-4 mr-1 animate-spin" /> : <Save className="w-4 h-4 mr-1" />}
+              Save All
+            </Button>
+          </div>
+        )}
+      </div>
+      <div className="overflow-x-auto rounded-lg border border-slate-200">
+        <table className="w-full min-w-[780px] border-collapse text-sm" data-testid="table-requisition-amounts">
+          <thead>
+            <tr className="bg-[#1f4e79] text-white">
+              <th className="border border-blue-300 px-3 py-2.5 text-center">Sl. No.</th>
+              <th className="border border-blue-300 px-3 py-2.5 text-center">Date of Supply</th>
+              <th className="border border-blue-300 px-4 py-2.5 text-center">Particulars</th>
+              <th className="border border-blue-300 px-3 py-2.5 text-center">Qty</th>
+              <th className="border border-blue-300 px-3 py-2.5 text-center">Rate Per Plate</th>
+              <th className="border border-blue-300 px-3 py-2.5 text-center">Total</th>
+              {canEdit && <th className="border border-blue-300 px-2 py-2.5" />}
+            </tr>
+          </thead>
+          <tbody>
+            {rows.map((row, index) => (
+              <tr key={row.id ?? `new-${index}`} className={row._dirty ? "bg-amber-50" : index % 2 === 0 ? "bg-white" : "bg-slate-50"}>
+                <td className="border border-slate-200 px-2 py-1 text-center text-slate-500">{index + 1}</td>
+                <td className="border border-slate-200 px-2 py-1">
+                  <Input type="date" value={row.dateOfSupply} disabled={!canEdit} onChange={event => updateRow(index, "dateOfSupply", event.target.value)} className="h-8 min-w-36 text-xs" />
+                </td>
+                <td className="border border-slate-200 px-2 py-1">
+                  <Input value={row.particulars} disabled={!canEdit} onChange={event => updateRow(index, "particulars", event.target.value)} className="h-8 min-w-48 text-xs" />
+                </td>
+                <td className="border border-slate-200 px-2 py-1">
+                  <Input type="number" min="0" step="any" value={row.qty || ""} disabled={!canEdit} onChange={event => updateRow(index, "qty", Number(event.target.value) || 0)} className="h-8 min-w-20 text-center text-xs" />
+                </td>
+                <td className="border border-slate-200 px-2 py-1">
+                  <Input type="number" min="0" step="0.01" value={row.ratePerPlate || ""} disabled={!canEdit} onChange={event => updateRow(index, "ratePerPlate", Number(event.target.value) || 0)} className="h-8 min-w-28 text-center text-xs" />
+                </td>
+                <td className="border border-slate-200 px-2 py-1 text-right font-medium">{fmt(row.total)}</td>
+                {canEdit && (
+                  <td className="border border-slate-200 px-1 py-1 text-center">
+                    <Button size="icon" variant="ghost" className="h-8 w-8 text-red-600" onClick={() => deleteRow(index)} aria-label={`Delete requisition row ${index + 1}`}>
+                      <Trash2 className="w-4 h-4" />
+                    </Button>
+                  </td>
+                )}
+              </tr>
+            ))}
+          </tbody>
+          <tfoot className="bg-muted font-semibold">
+            <tr>
+              <td colSpan={canEdit ? 5 : 4} className="border p-2 text-right">Total Amount</td>
+              <td className="border p-2 text-right">{fmt(grandTotal)}</td>
+              {canEdit && <td className="border" />}
+            </tr>
+          </tfoot>
+        </table>
+      </div>
+    </div>
   );
 }
 
