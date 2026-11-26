@@ -5,7 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
 import { Plus, Trash2, Save, Loader2, FileDown, Upload, ChevronLeft, ChevronRight, Printer } from "lucide-react";
-import { CLIENT_COUPON_TYPES } from "@shared/client-coupons";
+import { CLIENT_COUPON_TYPES, couponMonthlySummary, summarizeCouponForm, type CouponFormData } from "@shared/client-coupons";
 
 const MONTHS = ["January","February","March","April","May","June","July","August","September","October","November","December"];
 const PRESETS = ["Breakfast", "Lunch", "Evening Snack", "Dinner", "Tea"];
@@ -198,7 +198,7 @@ export function CustomClientFormTab({ clientId, clientName, month, year, canEdit
   if (isError) return <div className="text-sm text-red-600 py-6">Form load nahi ho paya. Page refresh karke dobara try karein.</div>;
 
   return (
-    <Tabs defaultValue={hasCouponModules ? "coupons" : "forms"}>
+    <Tabs defaultValue="forms">
       {hasCouponModules && (
         <TabsList className="mb-4 flex-wrap h-auto">
           <TabsTrigger value="forms" data-testid="tab-client-forms">Client Forms</TabsTrigger>
@@ -246,7 +246,7 @@ export function CustomClientFormTab({ clientId, clientName, month, year, canEdit
       {hasCouponModules && (
         <>
           <TabsContent value="coupons">
-            <ClientCouponLedger clientId={clientId} clientName={clientName} month={month} year={year} canEdit={canEdit} />
+            <ClientCouponLedger clientId={clientId} clientName={clientName} forms={forms} month={month} year={year} />
           </TabsContent>
           <TabsContent value="requisition">
             <ClientRequisitionAmountTab clientId={clientId} month={month} year={year} canEdit={canEdit} />
@@ -659,23 +659,30 @@ function ClientNamedForm({ clientId, clientName, forms, formId, formName, month,
   );
 }
 
-type CouponEntry = { entryDate: string; couponType: string; employeeCount: number; contractorCount: number };
-type CouponCounts = { employeeCount: string; contractorCount: string };
+type CouponKind = "employeeCount" | "contractorCount";
 const couponEntryKey = (entryDate: string, couponType: string) => `${entryDate}|${couponType}`;
 
-function ClientCouponLedger({ clientId, clientName, month, year, canEdit }: {
-  clientId: number; clientName: string; month: number; year: number; canEdit: boolean;
+function ClientCouponLedger({ clientId, clientName, forms, month, year }: {
+  clientId: number; clientName: string; forms: ClientForm[]; month: number; year: number;
 }) {
   const { toast } = useToast();
-  const qc = useQueryClient();
-  const [counts, setCounts] = useState<Record<string, CouponCounts>>({});
-  const [saving, setSaving] = useState(false);
-  const { data = [], isLoading, isError } = useQuery<CouponEntry[]>({
-    queryKey: ["/api/client-coupons", clientId, month, year],
+  const formByName = (name: string) => forms.find(form => form.name.trim().replace(/\s+/g, " ").toLowerCase() === name);
+  const employeeForm = formByName("employee coupon");
+  const contractorForm = formByName("contractor coupon");
+  const { data, isFetching, isError } = useQuery<{ employee: CouponFormData; contractor: CouponFormData }>({
+    queryKey: ["/api/client-coupon-summary", clientId, employeeForm?.id, contractorForm?.id, month, year],
+    enabled: Boolean(employeeForm && contractorForm),
+    refetchOnMount: "always",
+    refetchInterval: false,
     queryFn: async () => {
-      const res = await fetch(`/api/client-forms/${clientId}/coupon-entries?month=${month}&year=${year}`, { credentials: "include" });
-      if (!res.ok) throw new Error("Failed to load coupon entries");
-      return res.json();
+      if (!employeeForm || !contractorForm) throw new Error("Coupon forms not found");
+      const loadForm = async (formId: number): Promise<CouponFormData> => {
+        const res = await fetch(`/api/client-forms/${clientId}/forms/${formId}?month=${month}&year=${year}`, { credentials: "include" });
+        if (!res.ok) throw new Error("Failed to load coupon form");
+        return res.json();
+      };
+      const [employee, contractor] = await Promise.all([loadForm(employeeForm.id), loadForm(contractorForm.id)]);
+      return { employee, contractor };
     },
   });
 
@@ -686,36 +693,28 @@ function ClientCouponLedger({ clientId, clientName, month, year, canEdit }: {
     );
   }, [month, year]);
 
-  useEffect(() => {
-    const next: Record<string, CouponCounts> = {};
-    data.forEach(entry => {
-      next[couponEntryKey(entry.entryDate, entry.couponType)] = {
-        employeeCount: String(entry.employeeCount),
-        contractorCount: String(entry.contractorCount),
-      };
-    });
-    setCounts(next);
-  }, [data]);
+  if (!employeeForm || !contractorForm) {
+    const missing = [!employeeForm && "Employee Coupon", !contractorForm && "Contractor Coupon"].filter(Boolean).join(", ");
+    return <div className="text-sm text-red-600 py-6">Coupon summary ke liye ye existing form nahi mila: {missing}.</div>;
+  }
+  if (isFetching) return <div className="flex justify-center py-10"><Loader2 className="w-6 h-6 animate-spin" /></div>;
+  if (isError || !data) return <div className="text-sm text-red-600 py-6">Coupon forms load nahi ho paye. Page refresh karke dobara try karein.</div>;
 
-  const getCount = (entryDate: string, couponType: string, kind: keyof CouponCounts) =>
-    Number(counts[couponEntryKey(entryDate, couponType)]?.[kind]) || 0;
-  const updateCount = (entryDate: string, couponType: string, kind: keyof CouponCounts, value: string) => {
-    const key = couponEntryKey(entryDate, couponType);
-    setCounts(previous => ({
-      ...previous,
-      [key]: {
-        employeeCount: previous[key]?.employeeCount ?? "",
-        contractorCount: previous[key]?.contractorCount ?? "",
-        [kind]: value,
-      },
-    }));
-  };
-  const summary = CLIENT_COUPON_TYPES.map(type => {
-    const employeeCount = dates.reduce((total, date) => total + getCount(date, type.value, "employeeCount"), 0);
-    const contractorCount = dates.reduce((total, date) => total + getCount(date, type.value, "contractorCount"), 0);
-    const totalCoupon = employeeCount + contractorCount;
-    return { ...type, employeeCount, contractorCount, totalCoupon, totalAmount: totalCoupon * type.amount };
-  });
+  const employee = summarizeCouponForm(data.employee);
+  const contractor = summarizeCouponForm(data.contractor);
+  const errors = [
+    employee.missing.length && `Employee Coupon: columns missing — ${employee.missing.join(", ")}`,
+    contractor.missing.length && `Contractor Coupon: columns missing — ${contractor.missing.join(", ")}`,
+    employee.unrecognized.length && `Employee Coupon: saved columns not recognized — ${employee.unrecognized.join(", ")}`,
+    contractor.unrecognized.length && `Contractor Coupon: saved columns not recognized — ${contractor.unrecognized.join(", ")}`,
+  ].filter(Boolean);
+  if (errors.length) {
+    return <div className="text-sm text-red-600 py-6"><p>Coupon summary nahi ban sakti. Form columns check karein:</p>{errors.map(error => <p key={error}>{error}</p>)}</div>;
+  }
+
+  const getCount = (entryDate: string, couponType: string, kind: CouponKind) =>
+    (kind === "employeeCount" ? employee : contractor).counts[couponEntryKey(entryDate, couponType)] ?? 0;
+  const summary = couponMonthlySummary(employee.counts, contractor.counts, dates);
   const grandAmount = summary.reduce((total, row) => total + row.totalAmount, 0);
   const printMonthlyReport = () => {
     const printWindow = window.open("", "_blank");
@@ -724,7 +723,7 @@ function ClientCouponLedger({ clientId, clientName, month, year, canEdit }: {
       return;
     }
     const escapeHtml = (value: string) => value.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
-    const dailyTable = (label: string, kind: keyof CouponCounts) => {
+    const dailyTable = (label: string, kind: CouponKind) => {
       const totals = CLIENT_COUPON_TYPES.map(type => dates.reduce((total, date) => total + getCount(date, type.value, kind), 0));
       return `<table><thead><tr><th></th><th colspan="${CLIENT_COUPON_TYPES.length}">Denominations Qty - ${label}</th></tr><tr><th>Date</th>${CLIENT_COUPON_TYPES.map(type => `<th>${type.label}</th>`).join("")}</tr></thead>
         <tbody>${dates.map(date => `<tr><td>${date.slice(-2)}-${String(month).padStart(2, "0")}-${year}</td>${CLIENT_COUPON_TYPES.map(type => `<td>${getCount(date, type.value, kind) || ""}</td>`).join("")}</tr>`).join("")}</tbody>
@@ -756,44 +755,9 @@ function ClientCouponLedger({ clientId, clientName, month, year, canEdit }: {
     }, 500);
   };
 
-  const handleSave = async () => {
-    setSaving(true);
-    try {
-      const entries = dates.flatMap(entryDate => CLIENT_COUPON_TYPES.map(type => ({
-        entryDate,
-        couponType: type.value,
-        employeeCount: getCount(entryDate, type.value, "employeeCount"),
-        contractorCount: getCount(entryDate, type.value, "contractorCount"),
-      })));
-      const res = await fetch(`/api/client-forms/${clientId}/coupon-entries?month=${month}&year=${year}`, {
-        method: "PUT",
-        credentials: "include",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ entries }),
-      });
-      if (!res.ok) {
-        const error = await res.json().catch(() => ({}));
-        throw new Error(error.message || "Could not save coupon entries");
-      }
-      await qc.invalidateQueries({ queryKey: ["/api/client-coupons", clientId, month, year] });
-      toast({ title: "Coupon entries saved", description: `${clientName} — ${MONTHS[month - 1]} ${year}` });
-    } catch (error: any) {
-      toast({ title: "Coupon entries could not be saved", description: error.message, variant: "destructive" });
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  if (isLoading) return <div className="flex justify-center py-10"><Loader2 className="w-6 h-6 animate-spin" /></div>;
-  if (isError) return <div className="text-sm text-red-600 py-6">Coupon entries could not be loaded. Refresh and try again.</div>;
-
   return (
-    <Tabs defaultValue="monthly-summary">
-      <TabsList className="mb-4 flex-wrap h-auto">
-        <TabsTrigger value="monthly-summary" data-testid="tab-coupon-monthly-summary">Monthly Summary</TabsTrigger>
-        <TabsTrigger value="daily-entry" data-testid="tab-coupon-daily-entry">Daily Entry</TabsTrigger>
-      </TabsList>
-      <TabsContent value="monthly-summary">
+    <div>
+        <p className="text-sm text-muted-foreground mb-3">Saved Employee Coupon aur Contractor Coupon forms ka monthly summary. Changes ke baad pehle form save karein.</p>
         <div className="mb-3">
           <Button variant="outline" onClick={printMonthlyReport} data-testid="btn-print-coupon-report">
             <Printer className="w-4 h-4 mr-1" />Print Full Monthly Report
@@ -830,55 +794,7 @@ function ClientCouponLedger({ clientId, clientName, month, year, canEdit }: {
             </tfoot>
           </table>
         </div>
-      </TabsContent>
-      <TabsContent value="daily-entry">
-        {canEdit && (
-          <div className="mb-3">
-            <Button onClick={handleSave} disabled={saving} data-testid="btn-save-coupon-entries">
-              {saving ? <Loader2 className="w-4 h-4 mr-1 animate-spin" /> : <Save className="w-4 h-4 mr-1" />}
-              Save Coupons
-            </Button>
-          </div>
-        )}
-        <div className="overflow-x-auto border rounded-lg">
-          <table className="w-full min-w-[1500px] text-xs border-collapse" data-testid="table-coupon-daily-entry">
-            <thead className="bg-muted">
-              <tr>
-                <th rowSpan={2} className="border p-2 sticky left-0 bg-muted">Date</th>
-                {CLIENT_COUPON_TYPES.map(type => <th key={type.value} colSpan={2} className="border p-2">{type.label} (₹{type.amount})</th>)}
-              </tr>
-              <tr>
-                {CLIENT_COUPON_TYPES.flatMap(type => [
-                  <th key={`${type.value}-employee`} className="border p-2">Employee</th>,
-                  <th key={`${type.value}-contractor`} className="border p-2">Contractor</th>,
-                ])}
-              </tr>
-            </thead>
-            <tbody>
-              {dates.map(entryDate => (
-                <tr key={entryDate} className="border-t">
-                  <td className="border p-1.5 whitespace-nowrap sticky left-0 bg-background">{entryDate.slice(-2)}-{String(month).padStart(2, "0")}-{year}</td>
-                  {CLIENT_COUPON_TYPES.flatMap(type => (["employeeCount", "contractorCount"] as const).map(kind => (
-                    <td key={`${type.value}-${kind}`} className="border p-1">
-                      <Input
-                        type="number"
-                        min="0"
-                        step="1"
-                        disabled={!canEdit}
-                        value={counts[couponEntryKey(entryDate, type.value)]?.[kind] ?? ""}
-                        onChange={event => updateCount(entryDate, type.value, kind, event.target.value)}
-                        className="h-8 min-w-16 text-center text-xs"
-                        aria-label={`${entryDate} ${type.label} ${kind === "employeeCount" ? "employee" : "contractor"} coupons`}
-                      />
-                    </td>
-                  )))}
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </TabsContent>
-    </Tabs>
+    </div>
   );
 }
 
