@@ -749,9 +749,9 @@ function ClientCouponLedger({ clientId, clientName, forms, month, year }: {
       th,td{border:1px solid #444;text-align:center;padding:1px;white-space:nowrap}
       thead{background:#e5e7eb;font-weight:bold}
       tfoot{font-weight:bold;background:#e5e7eb}
-      .daily-table{font-size:6px}
-      .date-column{width:8%}
-      .qty-column{width:5.75%}
+      .daily-table{width:auto;margin:0 auto;font-size:7px}
+      .date-column{width:76px}
+      .qty-column{width:40px}
       .daily-table thead th{padding:2px 0}
       .daily-table tbody td{font-variant-numeric:tabular-nums}
       .summary{width:38%;margin:5px auto 0;font-size:8px}
