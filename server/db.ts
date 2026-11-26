@@ -109,10 +109,12 @@ async function initPool(): Promise<void> {
       date_of_birth DATE DEFAULT NULL,
       age INT DEFAULT NULL,
       share_percentage DECIMAL(5,2) NOT NULL,
+      share_is_auto BOOLEAN NOT NULL DEFAULT FALSE,
       guardian_name VARCHAR(150) DEFAULT NULL,
       guardian_relationship VARCHAR(50) DEFAULT NULL,
       guardian_address TEXT DEFAULT NULL
     )`,
+    `ALTER TABLE nomination_nominees ADD COLUMN IF NOT EXISTS share_is_auto BOOLEAN NOT NULL DEFAULT FALSE`,
     `ALTER TABLE employees ADD COLUMN IF NOT EXISTS da_amount DECIMAL(10,2) DEFAULT 0`,
     `ALTER TABLE employees ADD COLUMN IF NOT EXISTS marital_status VARCHAR(50) DEFAULT NULL`,
     `ALTER TABLE employees ADD COLUMN IF NOT EXISTS religion VARCHAR(100) DEFAULT NULL`,

@@ -47,11 +47,13 @@ try {
       date_of_birth DATE NULL,
       age INT NULL,
       share_percentage DECIMAL(5,2) NOT NULL,
+      share_is_auto BOOLEAN NOT NULL DEFAULT FALSE,
       guardian_name VARCHAR(150) NULL,
       guardian_relationship VARCHAR(50) NULL,
       guardian_address TEXT NULL
     );
   `);
+  await conn.execute(`ALTER TABLE nomination_nominees ADD COLUMN IF NOT EXISTS share_is_auto BOOLEAN NOT NULL DEFAULT FALSE`);
   console.log("✅ nomination_nominees table ready");
 } catch (e) {
   console.error("Migration error:", e);
