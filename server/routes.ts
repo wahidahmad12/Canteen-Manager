@@ -1402,25 +1402,32 @@ export async function registerRoutes(
           return res.status(400).json({ message: "Missing required nomination data" });
       }
 
-      const [insertedNomination] = await db.insert(employeeNominations).values(nomination);
-      const nominationId = insertedNomination.insertId;
-
-      if (nominees && Array.isArray(nominees) && nominees.length > 0) {
-        const nomineesData = nominees.map((n: any) => ({
-          nominationId: nominationId,
-          nomineeCategory: n.nomineeCategory || "GENERAL",
-          name: String(n.name || ""),
-          address: String(n.address || ""),
-          relationship: String(n.relationship || ""),
-          dateOfBirth: n.dateOfBirth ? String(n.dateOfBirth) : null,
-          age: n.age ? Number(n.age) : null,
-          sharePercentage: String(n.sharePercentage ?? 0),
-          guardianName: n.guardianName || null,
-          guardianRelationship: n.guardianRelationship || null,
-          guardianAddress: n.guardianAddress || null,
-        }));
-        await db.insert(nominationNominees).values(nomineesData);
+      if (!Array.isArray(nominees)) {
+        return res.status(400).json({ message: "Nominees must be a list" });
       }
+
+      const nominationId = await db.transaction(async (tx) => {
+        const [insertedNomination] = await tx.insert(employeeNominations).values(nomination);
+        const id = insertedNomination.insertId;
+        if (nominees.length > 0) {
+          const nomineesData = nominees.map((n: any) => ({
+            nominationId: id,
+            nomineeCategory: n.nomineeCategory || "GENERAL",
+            name: String(n.name || ""),
+            address: String(n.address || ""),
+            relationship: String(n.relationship || ""),
+            dateOfBirth: n.dateOfBirth ? String(n.dateOfBirth) : null,
+            age: n.age ? Number(n.age) : null,
+            sharePercentage: String(n.sharePercentage ?? 0),
+            shareIsAuto: n.shareIsAuto === true,
+            guardianName: n.guardianName || null,
+            guardianRelationship: n.guardianRelationship || null,
+            guardianAddress: n.guardianAddress || null,
+          }));
+          await tx.insert(nominationNominees).values(nomineesData);
+        }
+        return id;
+      });
 
       res.status(201).json({ id: nominationId, message: "Nomination successfully save ho gaya" });
     } catch (error) {

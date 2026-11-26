@@ -1437,7 +1437,7 @@ export const employeeNominations = mysqlTable("employee_nominations", {
   formType: varchar("form_type", { length: 30 }).notNull(), // 'FORM_VII_WAGES' | 'FORM_II_PF' | 'FORM_III_GRATUITY'
   
   // Specific Form Declarations & Details
-  dateOfSubmission: date("date_of_submission").notNull(),
+  dateOfSubmission: date("date_of_submission", { mode: "string" }).notNull(),
   place: varchar("place", { length: 100 }).default("Kolkata"),
   
   // Form II (PF) Specific
@@ -1448,8 +1448,8 @@ export const employeeNominations = mysqlTable("employee_nominations", {
   // Form III (Gratuity) Specific
   religion: varchar("religion", { length: 50 }),
   ticketOrSerialNo: varchar("ticket_serial_no", { length: 50 }),
-  dateOfAppointment: date("date_of_appointment"),
-  dateOfSuperannuation: date("date_of_superannuation"),
+  dateOfAppointment: date("date_of_appointment", { mode: "string" }),
+  dateOfSuperannuation: date("date_of_superannuation", { mode: "string" }),
   village: varchar("village", { length: 100 }),
   postOffice: varchar("post_office", { length: 100 }),
   thana: varchar("thana", { length: 100 }),
@@ -1473,9 +1473,10 @@ export const nominationNominees = mysqlTable("nomination_nominees", {
   name: varchar("name", { length: 150 }).notNull(),
   address: text("address").notNull(),
   relationship: varchar("relationship", { length: 50 }).notNull(),
-  dateOfBirth: date("date_of_birth"),
+  dateOfBirth: date("date_of_birth", { mode: "string" }),
   age: int("age"),
   sharePercentage: decimal("share_percentage", { precision: 5, scale: 2 }).notNull(), // e.g. 100.00
+  shareIsAuto: boolean("share_is_auto").notNull().default(false),
   guardianName: varchar("guardian_name", { length: 150 }),
   guardianRelationship: varchar("guardian_relationship", { length: 50 }),
   guardianAddress: text("guardian_address"),
