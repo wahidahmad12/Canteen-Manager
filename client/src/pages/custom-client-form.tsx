@@ -53,7 +53,9 @@ function printTable(title: string, table: HTMLTableElement | null, reportType = 
   const escapedTitle = title.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
   const escapedReportType = reportType.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
   const printableTable = table.cloneNode(true) as HTMLTableElement;
-  printableTable.style.cssText = "width:100%;border-collapse:collapse;table-layout:auto;border:1px solid #94a3b8";
+  const isRequisitionAmount = reportType === "Requisition Amount";
+  printableTable.style.cssText = `width:100%;border-collapse:collapse;table-layout:${isRequisitionAmount ? "fixed" : "auto"};border:1px solid #94a3b8`;
+  if (isRequisitionAmount) printableTable.classList.add("requisition-amount-print");
   Array.from(printableTable.querySelectorAll("input")).forEach(input => {
     const value = input.value;
     input.replaceWith(document.createTextNode(value || ""));
@@ -90,6 +92,15 @@ function printTable(title: string, table: HTMLTableElement | null, reportType = 
       h2{font-size:13px;margin:6px 0 0;color:#fff}
       table{width:100%;max-width:100%;border-collapse:collapse;table-layout:auto}
       th,td{overflow-wrap:anywhere}
+      .requisition-amount-print th,.requisition-amount-print td{padding:4px 3px!important;font-size:9px}
+      .requisition-amount-print th:nth-child(1){width:8%}
+      .requisition-amount-print th:nth-child(2){width:16%}
+      .requisition-amount-print th:nth-child(3){width:39%}
+      .requisition-amount-print th:nth-child(4){width:9%}
+      .requisition-amount-print th:nth-child(5){width:14%}
+      .requisition-amount-print th:nth-child(6){width:14%}
+      .requisition-amount-print td:nth-child(2),.requisition-amount-print td:nth-child(n+4){white-space:nowrap}
+      .requisition-amount-print tbody td:nth-child(n+4),.requisition-amount-print tfoot td:last-child{text-align:right!important}
       .signature{display:flex;justify-content:flex-end;margin:28px 8px 0;break-inside:avoid;page-break-inside:avoid}
       .signature-block{min-width:220px;text-align:center;border-top:1px solid #334155;padding-top:6px;font-size:10px;font-weight:700}
       @media print{
