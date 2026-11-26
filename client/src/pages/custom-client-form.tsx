@@ -723,12 +723,19 @@ function ClientCouponLedger({ clientId, clientName, forms, month, year }: {
       return;
     }
     const escapeHtml = (value: string) => value.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
-    const dailyTable = (label: string, kind: CouponKind) => {
-      const totals = CLIENT_COUPON_TYPES.map(type => dates.reduce((total, date) => total + getCount(date, type.value, kind), 0));
-      return `<table><thead><tr><th></th><th colspan="${CLIENT_COUPON_TYPES.length}">Denominations Qty - ${label}</th></tr><tr><th>Date</th>${CLIENT_COUPON_TYPES.map(type => `<th>${type.label}</th>`).join("")}</tr></thead>
-        <tbody>${dates.map(date => `<tr><td>${date.slice(-2)}-${String(month).padStart(2, "0")}-${year}</td>${CLIENT_COUPON_TYPES.map(type => `<td>${getCount(date, type.value, kind) || ""}</td>`).join("")}</tr>`).join("")}</tbody>
-        <tfoot><tr><th>TOTAL</th>${totals.map(total => `<th>${total || ""}</th>`).join("")}</tr></tfoot></table>`;
-    };
+    const employeeTotals = CLIENT_COUPON_TYPES.map(type =>
+      dates.reduce((total, date) => total + getCount(date, type.value, "employeeCount"), 0));
+    const contractorTotals = CLIENT_COUPON_TYPES.map(type =>
+      dates.reduce((total, date) => total + getCount(date, type.value, "contractorCount"), 0));
+    const dailyTable = `<table class="daily-table">
+      <colgroup><col class="date-column">${CLIENT_COUPON_TYPES.map(() => '<col class="qty-column">').join("")}${CLIENT_COUPON_TYPES.map(() => '<col class="qty-column">').join("")}</colgroup>
+      <thead>
+        <tr><th rowspan="2">Date</th><th colspan="${CLIENT_COUPON_TYPES.length}">Denominations Qty - Employee</th><th colspan="${CLIENT_COUPON_TYPES.length}">Denominations Qty - Contractors</th></tr>
+        <tr>${CLIENT_COUPON_TYPES.map(type => `<th>${type.label}</th>`).join("")}${CLIENT_COUPON_TYPES.map(type => `<th>${type.label}</th>`).join("")}</tr>
+      </thead>
+      <tbody>${dates.map(date => `<tr><td>${date.slice(-2)}-${String(month).padStart(2, "0")}-${year}</td>${CLIENT_COUPON_TYPES.map(type => `<td>${getCount(date, type.value, "employeeCount") || ""}</td>`).join("")}${CLIENT_COUPON_TYPES.map(type => `<td>${getCount(date, type.value, "contractorCount") || ""}</td>`).join("")}</tr>`).join("")}</tbody>
+      <tfoot><tr><th>TOTAL</th>${employeeTotals.map(total => `<th>${total || ""}</th>`).join("")}${contractorTotals.map(total => `<th>${total || ""}</th>`).join("")}</tr></tfoot>
+    </table>`;
     const summaryTable = `<table class="summary"><thead><tr><th colspan="5">Monthly Summary</th></tr><tr><th>Coupon Amount</th><th>Employee Coupon</th><th>Contractor Coupon</th><th>Total Coupon</th><th>Total Amount</th></tr></thead>
       <tbody>${summary.map(row => `<tr><td>${row.label}</td><td>${row.employeeCount}</td><td>${row.contractorCount}</td><td>${row.totalCoupon}</td><td>₹${fmt(row.totalAmount)}</td></tr>`).join("")}</tbody>
       <tfoot><tr><th colspan="4">Total Amount</th><th>₹${fmt(grandAmount)}</th></tr></tfoot></table>`;
@@ -738,16 +745,19 @@ function ClientCouponLedger({ clientId, clientName, forms, month, year }: {
       *{box-sizing:border-box;-webkit-print-color-adjust:exact;print-color-adjust:exact}
       body{font-family:Arial,sans-serif;font-size:7px;margin:0;color:#111}
       h1{text-align:center;font-size:12px;margin:0 0 5px}
-      .daily{display:grid;grid-template-columns:1fr 1fr;gap:5px}
       table{width:100%;border-collapse:collapse;table-layout:fixed}
-      th,td{border:1px solid #444;text-align:center;padding:1px 2px;white-space:nowrap}
+      th,td{border:1px solid #444;text-align:center;padding:1px;white-space:nowrap}
       thead{background:#e5e7eb;font-weight:bold}
-      th:first-child,td:first-child{width:52px}
       tfoot{font-weight:bold;background:#e5e7eb}
+      .daily-table{font-size:6px}
+      .date-column{width:8%}
+      .qty-column{width:5.75%}
+      .daily-table thead th{padding:2px 0}
+      .daily-table tbody td{font-variant-numeric:tabular-nums}
       .summary{width:38%;margin:5px auto 0;font-size:8px}
       .summary thead tr:first-child{background:#1f4e79;color:#fff}
       .summary thead tr:nth-child(2){background:#e6b8b7}
-    </style></head><body><h1>${escapeHtml(title)}</h1><div class="daily">${dailyTable("Employee", "employeeCount")}${dailyTable("Contractors", "contractorCount")}</div>${summaryTable}</body></html>`);
+    </style></head><body><h1>${escapeHtml(title)}</h1>${dailyTable}${summaryTable}</body></html>`);
     printWindow.document.close();
     printWindow.focus();
     window.setTimeout(() => {
