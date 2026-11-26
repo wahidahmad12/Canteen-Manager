@@ -5,7 +5,8 @@ import { Input } from "@/components/ui/input";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
 import { Plus, Trash2, Save, Loader2, FileDown, Upload, ChevronLeft, ChevronRight, Printer } from "lucide-react";
-import { CLIENT_COUPON_TYPES, couponMonthlySummary, summarizeCouponForm, type CouponFormData } from "@shared/client-coupons";
+import { summarizeCouponForm, type CouponFormData } from "@shared/client-coupons";
+import { addCouponReportSheet, couponReportHtml, makeCouponReport } from "@/lib/coupon-report";
 
 const MONTHS = ["January","February","March","April","May","June","July","August","September","October","November","December"];
 const PRESETS = ["Breakfast", "Lunch", "Evening Snack", "Dinner", "Tea"];
@@ -31,10 +32,11 @@ async function sendJson(url: string, method: string, body?: any) {
   return res.json();
 }
 
-async function downloadXlsx(fileName: string, sheetName: string, header: string[], rows: (string | number)[][]) {
+async function downloadXlsx(fileName: string, sheetName: string, header: string[], rows: (string | number)[][], columnWidths?: number[]) {
   const ExcelJS = (await import("exceljs")).default;
   const wb = new ExcelJS.Workbook();
   const ws = wb.addWorksheet(sheetName.slice(0, 30));
+  columnWidths?.forEach((width, index) => { ws.getColumn(index + 1).width = width; });
   ws.addRow(header).font = { bold: true };
   rows.forEach(r => ws.addRow(r));
   const buf = await wb.xlsx.writeBuffer();
@@ -44,11 +46,12 @@ async function downloadXlsx(fileName: string, sheetName: string, header: string[
   a.click();
 }
 
-function printTable(title: string, table: HTMLTableElement | null): boolean {
+function printTable(title: string, table: HTMLTableElement | null, reportType = "Client Meal Ledger"): boolean {
   if (!table) return false;
   const printWindow = window.open("", "_blank");
   if (!printWindow) return false;
   const escapedTitle = title.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+  const escapedReportType = reportType.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
   const printableTable = table.cloneNode(true) as HTMLTableElement;
   printableTable.style.cssText = "width:100%;border-collapse:collapse;table-layout:auto;border:1px solid #94a3b8";
   Array.from(printableTable.querySelectorAll("input")).forEach(input => {
@@ -98,7 +101,7 @@ function printTable(title: string, table: HTMLTableElement | null): boolean {
       }
     </style></head><body><header class="report-header" style="text-align:center;background:#123b5d;color:#fff;padding:9px 12px;border-bottom:5px solid #14b8a6;margin-bottom:8px">
       <div class="company" style="font-size:16px;font-weight:700;letter-spacing:.3px">DJ Hospitality &amp; Facility Management Private Limited</div>
-      <div class="report-type" style="font-size:9px;letter-spacing:1.5px;text-transform:uppercase;color:#b8e6e2;margin-top:3px">Client Meal Ledger</div>
+      <div class="report-type" style="font-size:9px;letter-spacing:1.5px;text-transform:uppercase;color:#b8e6e2;margin-top:3px">${escapedReportType}</div>
       <h2 style="font-size:13px;margin:6px 0 0;color:#fff">${escapedTitle}</h2>
     </header>${printableTable.outerHTML}<footer class="signature"><div class="signature-block">Authorised Signature for<br>DJ Hospitality &amp; Facility Management Private Limited</div></footer></body></html>`);
   printWindow.document.close();
@@ -249,7 +252,7 @@ export function CustomClientFormTab({ clientId, clientName, month, year, canEdit
             <ClientCouponLedger clientId={clientId} clientName={clientName} forms={forms} month={month} year={year} />
           </TabsContent>
           <TabsContent value="requisition">
-            <ClientRequisitionAmountTab clientId={clientId} month={month} year={year} canEdit={canEdit} />
+            <ClientRequisitionAmountTab clientId={clientId} clientName={clientName} month={month} year={year} canEdit={canEdit} />
           </TabsContent>
         </>
       )}
@@ -659,9 +662,6 @@ function ClientNamedForm({ clientId, clientName, forms, formId, formName, month,
   );
 }
 
-type CouponKind = "employeeCount" | "contractorCount";
-const couponEntryKey = (entryDate: string, couponType: string) => `${entryDate}|${couponType}`;
-
 function ClientCouponLedger({ clientId, clientName, forms, month, year }: {
   clientId: number; clientName: string; forms: ClientForm[]; month: number; year: number;
 }) {
@@ -712,52 +712,31 @@ function ClientCouponLedger({ clientId, clientName, forms, month, year }: {
     return <div className="text-sm text-red-600 py-6"><p>Coupon summary nahi ban sakti. Form columns check karein:</p>{errors.map(error => <p key={error}>{error}</p>)}</div>;
   }
 
-  const getCount = (entryDate: string, couponType: string, kind: CouponKind) =>
-    (kind === "employeeCount" ? employee : contractor).counts[couponEntryKey(entryDate, couponType)] ?? 0;
-  const summary = couponMonthlySummary(employee.counts, contractor.counts, dates);
-  const grandAmount = summary.reduce((total, row) => total + row.totalAmount, 0);
+  const report = makeCouponReport(clientName, MONTHS[month - 1], year, dates, employee.counts, contractor.counts);
+  const { summary, totalAmount: grandAmount } = report;
+  const exportSummary = async () => {
+    try {
+      const ExcelJS = (await import("exceljs")).default;
+      const workbook = new ExcelJS.Workbook();
+      addCouponReportSheet(workbook, report);
+      const buffer = await workbook.xlsx.writeBuffer();
+      const url = URL.createObjectURL(new Blob([buffer], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" }));
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = `${clientName.replace(/[^\w-]+/g, "_")}_Coupon_Report_${MONTHS[month - 1]}_${year}.xlsx`;
+      link.click();
+      window.setTimeout(() => URL.revokeObjectURL(url), 1000);
+    } catch (error) {
+      toast({ title: "Excel export failed", description: error instanceof Error ? error.message : "Could not export coupon summary", variant: "destructive" });
+    }
+  };
   const printMonthlyReport = () => {
     const printWindow = window.open("", "_blank");
     if (!printWindow) {
       toast({ title: "Print window nahi khula", description: "Browser me pop-up allow karein.", variant: "destructive" });
       return;
     }
-    const escapeHtml = (value: string) => value.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
-    const employeeTotals = CLIENT_COUPON_TYPES.map(type =>
-      dates.reduce((total, date) => total + getCount(date, type.value, "employeeCount"), 0));
-    const contractorTotals = CLIENT_COUPON_TYPES.map(type =>
-      dates.reduce((total, date) => total + getCount(date, type.value, "contractorCount"), 0));
-    const dailyTable = `<table class="daily-table">
-      <colgroup><col class="date-column">${CLIENT_COUPON_TYPES.map(() => '<col class="qty-column">').join("")}${CLIENT_COUPON_TYPES.map(() => '<col class="qty-column">').join("")}</colgroup>
-      <thead>
-        <tr><th rowspan="2">Date</th><th colspan="${CLIENT_COUPON_TYPES.length}">Denominations Qty - Employee</th><th colspan="${CLIENT_COUPON_TYPES.length}">Denominations Qty - Contractors</th></tr>
-        <tr>${CLIENT_COUPON_TYPES.map(type => `<th>${type.label}</th>`).join("")}${CLIENT_COUPON_TYPES.map(type => `<th>${type.label}</th>`).join("")}</tr>
-      </thead>
-      <tbody>${dates.map(date => `<tr><td>${date.slice(-2)}-${String(month).padStart(2, "0")}-${year}</td>${CLIENT_COUPON_TYPES.map(type => `<td>${getCount(date, type.value, "employeeCount") || ""}</td>`).join("")}${CLIENT_COUPON_TYPES.map(type => `<td>${getCount(date, type.value, "contractorCount") || ""}</td>`).join("")}</tr>`).join("")}</tbody>
-      <tfoot><tr><th>TOTAL</th>${employeeTotals.map(total => `<th>${total || ""}</th>`).join("")}${contractorTotals.map(total => `<th>${total || ""}</th>`).join("")}</tr></tfoot>
-    </table>`;
-    const summaryTable = `<table class="summary"><thead><tr><th colspan="5">Monthly Summary</th></tr><tr><th>Coupon Amount</th><th>Employee Coupon</th><th>Contractor Coupon</th><th>Total Coupon</th><th>Total Amount</th></tr></thead>
-      <tbody>${summary.map(row => `<tr><td>${row.label}</td><td>${row.employeeCount}</td><td>${row.contractorCount}</td><td>${row.totalCoupon}</td><td>₹${fmt(row.totalAmount)}</td></tr>`).join("")}</tbody>
-      <tfoot><tr><th colspan="4">Total Amount</th><th>₹${fmt(grandAmount)}</th></tr></tfoot></table>`;
-    const title = `${clientName} — Coupon Report — ${MONTHS[month - 1]} ${year}`;
-    printWindow.document.write(`<!doctype html><html><head><title>${escapeHtml(title)}</title><style>
-      @page{size:A4 landscape;margin:5mm}
-      *{box-sizing:border-box;-webkit-print-color-adjust:exact;print-color-adjust:exact}
-      body{font-family:Arial,sans-serif;font-size:7px;margin:0;color:#111}
-      h1{text-align:center;font-size:12px;margin:0 0 5px}
-      table{width:100%;border-collapse:collapse;table-layout:fixed}
-      th,td{border:1px solid #444;text-align:center;padding:1px;white-space:nowrap}
-      thead{background:#e5e7eb;font-weight:bold}
-      tfoot{font-weight:bold;background:#e5e7eb}
-      .daily-table{width:auto;margin:0 auto;font-size:7px}
-      .date-column{width:76px}
-      .qty-column{width:40px}
-      .daily-table thead th{padding:2px 0}
-      .daily-table tbody td{font-variant-numeric:tabular-nums}
-      .summary{width:38%;margin:5px auto 0;font-size:8px}
-      .summary thead tr:first-child{background:#1f4e79;color:#fff}
-      .summary thead tr:nth-child(2){background:#e6b8b7}
-    </style></head><body><h1>${escapeHtml(title)}</h1>${dailyTable}${summaryTable}</body></html>`);
+    printWindow.document.write(couponReportHtml(report));
     printWindow.document.close();
     printWindow.focus();
     window.setTimeout(() => {
@@ -768,9 +747,12 @@ function ClientCouponLedger({ clientId, clientName, forms, month, year }: {
   return (
     <div>
         <p className="text-sm text-muted-foreground mb-3">Saved Employee Coupon aur Contractor Coupon forms ka monthly summary. Changes ke baad pehle form save karein.</p>
-        <div className="mb-3">
+        <div className="mb-3 flex flex-wrap gap-2">
           <Button variant="outline" onClick={printMonthlyReport} data-testid="btn-print-coupon-report">
             <Printer className="w-4 h-4 mr-1" />Print Full Monthly Report
+          </Button>
+          <Button variant="outline" onClick={exportSummary} data-testid="btn-export-coupon-summary">
+            <FileDown className="w-4 h-4 mr-1" />Export Excel
           </Button>
         </div>
         <div className="overflow-x-auto border rounded-lg">
@@ -823,13 +805,14 @@ function emptyRequisitionRow(slNo: number): RequisitionAmountRow {
   return { slNo, dateOfSupply: "", particulars: "", qty: 0, ratePerPlate: 0, total: 0, _dirty: false };
 }
 
-function ClientRequisitionAmountTab({ clientId, month, year, canEdit }: {
-  clientId: number; month: number; year: number; canEdit: boolean;
+function ClientRequisitionAmountTab({ clientId, clientName, month, year, canEdit }: {
+  clientId: number; clientName: string; month: number; year: number; canEdit: boolean;
 }) {
   const { toast } = useToast();
   const qc = useQueryClient();
   const [rows, setRows] = useState<RequisitionAmountRow[]>([emptyRequisitionRow(1)]);
   const [saving, setSaving] = useState(false);
+  const printTableRef = useRef<HTMLTableElement>(null);
   const queryKey = ["/api/client-requisition-amounts", clientId, month, year];
   const { data = [], isLoading, isError } = useQuery<RequisitionAmountRow[]>({
     queryKey,
@@ -921,22 +904,55 @@ function ClientRequisitionAmountTab({ clientId, month, year, canEdit }: {
   if (isError) return <div className="text-sm text-red-600 py-6">Requisition amounts could not be loaded. Refresh and try again.</div>;
 
   const grandTotal = rows.reduce((total, row) => total + row.total, 0);
+  const reportTitle = `${clientName} — Requisition Amount — ${MONTHS[month - 1]} ${year}`;
+  const headers = ["Sl. No.", "Date of Supply", "Particulars", "Qty", "Rate Per Plate", "Total"];
+  const reportRows: (string | number)[][] = rows.map((row, index) => [
+    index + 1,
+    row.dateOfSupply ? row.dateOfSupply.split("-").reverse().join("-") : "",
+    row.particulars,
+    row.qty,
+    row.ratePerPlate,
+    row.total,
+  ]);
+  const exportExcel = async () => {
+    try {
+      await downloadXlsx(
+        `${clientName.replace(/[^\w-]+/g, "_")}_Requisition_Amount_${MONTHS[month - 1]}_${year}.xlsx`,
+        "Requisition Amount",
+        headers,
+        [...reportRows, ["", "", "", "", "Total Amount", grandTotal]],
+        [10, 18, 40, 12, 18, 18],
+      );
+    } catch (error) {
+      toast({ title: "Excel export failed", description: error instanceof Error ? error.message : "Could not export requisition amounts", variant: "destructive" });
+    }
+  };
 
   return (
     <div className="space-y-3">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <h3 className="font-semibold text-base text-blue-900">Requisition Amount — {MONTHS[month - 1]} {year}</h3>
-        {canEdit && (
-          <div className="flex gap-2">
-            <Button size="sm" variant="outline" onClick={addRow} data-testid="btn-add-requisition-row">
-              <Plus className="w-4 h-4 mr-1" />Add Row
-            </Button>
-            <Button size="sm" onClick={saveAll} disabled={saving} data-testid="btn-save-requisition-amounts">
-              {saving ? <Loader2 className="w-4 h-4 mr-1 animate-spin" /> : <Save className="w-4 h-4 mr-1" />}
-              Save All
-            </Button>
-          </div>
-        )}
+        <div className="flex flex-wrap gap-2">
+          <Button size="sm" variant="outline" onClick={() => {
+            if (!printTable(reportTitle, printTableRef.current, "Requisition Amount")) {
+              toast({ title: "Print window nahi khula", description: "Browser me pop-up allow karein.", variant: "destructive" });
+            }
+          }} data-testid="btn-print-requisition-amounts"><Printer className="w-4 h-4 mr-1" />Print</Button>
+          <Button size="sm" variant="outline" onClick={exportExcel} data-testid="btn-export-requisition-amounts">
+            <FileDown className="w-4 h-4 mr-1" />Export Excel
+          </Button>
+          {canEdit && (
+            <>
+              <Button size="sm" variant="outline" onClick={addRow} data-testid="btn-add-requisition-row">
+                <Plus className="w-4 h-4 mr-1" />Add Row
+              </Button>
+              <Button size="sm" onClick={saveAll} disabled={saving} data-testid="btn-save-requisition-amounts">
+                {saving ? <Loader2 className="w-4 h-4 mr-1 animate-spin" /> : <Save className="w-4 h-4 mr-1" />}
+                Save All
+              </Button>
+            </>
+          )}
+        </div>
       </div>
       <div className="overflow-x-auto rounded-lg border border-slate-200">
         <table className="w-full min-w-[780px] border-collapse text-sm" data-testid="table-requisition-amounts">
@@ -980,11 +996,18 @@ function ClientRequisitionAmountTab({ clientId, month, year, canEdit }: {
           </tbody>
           <tfoot className="bg-muted font-semibold">
             <tr>
-              <td colSpan={canEdit ? 5 : 4} className="border p-2 text-right">Total Amount</td>
+              <td colSpan={5} className="border p-2 text-right">Total Amount</td>
               <td className="border p-2 text-right">{fmt(grandTotal)}</td>
               {canEdit && <td className="border" />}
             </tr>
           </tfoot>
+        </table>
+      </div>
+      <div className="hidden">
+        <table ref={printTableRef}>
+          <thead><tr>{headers.map(header => <th key={header}>{header}</th>)}</tr></thead>
+          <tbody>{reportRows.map((row, index) => <tr key={index}>{row.map((value, column) => <td key={column}>{value}</td>)}</tr>)}</tbody>
+          <tfoot><tr><td colSpan={5}>Total Amount</td><td>{fmt(grandTotal)}</td></tr></tfoot>
         </table>
       </div>
     </div>
