@@ -10,6 +10,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
 import { useLang } from "@/contexts/language-context";
+import { useMealRegisterClient } from "@/hooks/use-meal-register-client";
 import { apiRequest } from "@/lib/queryClient";
 import { normalizeDinerCode } from "@shared/meal-register";
 
@@ -36,6 +37,7 @@ export default function MealDinersPage() {
   const { tr } = useLang();
   const { toast } = useToast();
   const qc = useQueryClient();
+  const { clients, clientsLoading, selectedClient, setSelectedClient, canSelectClient, hasClientAssignment } = useMealRegisterClient();
   const [search, setSearch] = useState("");
   const [active, setActive] = useState("true");
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -46,19 +48,20 @@ export default function MealDinersPage() {
   const [pendingDelete, setPendingDelete] = useState<Diner | null>(null);
 
   const query = useQuery({
-    queryKey: ["/api/meal-diners", { search, active }],
+    queryKey: ["/api/meal-diners", selectedClient, { search, active }],
     queryFn: async () => {
-      const params = new URLSearchParams({ active });
+      const params = new URLSearchParams({ active, clientName: selectedClient });
       if (search.trim()) params.set("search", search.trim());
       const response = await apiRequest("GET", `/api/meal-diners?${params}`);
       return response.json() as Promise<Diner[]>;
     },
+    enabled: !!selectedClient,
   });
 
   const refresh = () => qc.invalidateQueries({ queryKey: ["/api/meal-diners"] });
   const save = useMutation({
     mutationFn: async () => {
-      const payload = { ...form, dinerCode: normalizeDinerCode(form.dinerCode) };
+      const payload = { ...form, dinerCode: normalizeDinerCode(form.dinerCode), clientName: selectedClient };
       return editing
         ? apiRequest("PATCH", `/api/meal-diners/${editing.id}`, payload)
         : apiRequest("POST", "/api/meal-diners", payload);
@@ -73,13 +76,13 @@ export default function MealDinersPage() {
     onError: (error: Error) => toast({ title: error.message, variant: "destructive" }),
   });
   const deactivate = useMutation({
-    mutationFn: (id: number) => apiRequest("DELETE", `/api/meal-diners/${id}`),
+    mutationFn: (id: number) => apiRequest("DELETE", `/api/meal-diners/${id}?clientName=${encodeURIComponent(selectedClient)}`),
     onSuccess: () => { setPendingDelete(null); refresh(); },
     onError: (error: Error) => toast({ title: error.message, variant: "destructive" }),
   });
   const bulkImport = useMutation({
     mutationFn: async () => {
-      const response = await apiRequest("POST", "/api/meal-diners/bulk", { lines: bulkText });
+      const response = await apiRequest("POST", "/api/meal-diners/bulk", { lines: bulkText, clientName: selectedClient });
       return response.json() as Promise<{ created: number; updated: number; skipped: number }>;
     },
     onSuccess: (counts) => {
@@ -119,13 +122,22 @@ export default function MealDinersPage() {
               <p className="text-xs text-slate-300">{tr("dinerCode")} · {tr("dinerName")}</p>
             </div>
           </div>
-          <div className="flex flex-wrap gap-2">
-            <Button className="border-slate-600 bg-slate-800 text-amber-300 hover:bg-slate-700" variant="outline" onClick={() => setBulkOpen(true)}><Upload className="mr-2 h-4 w-4" />{tr("bulkImport")}</Button>
-            <Button className="bg-amber-500 font-bold text-slate-950 hover:bg-amber-400" onClick={openNew}><Plus className="mr-2 h-4 w-4" />{tr("addDiner")}</Button>
+          <div className="flex flex-wrap items-end gap-2">
+            {canSelectClient ? (
+              <div className="min-w-52 space-y-1">
+                <Label htmlFor="meal-diner-client" className="text-xs text-slate-300">{tr("selectClient")}</Label>
+                <select id="meal-diner-client" value={selectedClient} disabled={clientsLoading} onChange={(event) => setSelectedClient(event.target.value)} className="h-10 w-full rounded-md border border-slate-600 bg-slate-800 px-3 text-sm text-white">
+                  <option value="">{tr("selectClient")}</option>
+                  {clients.map((client) => <option key={client.id} value={client.name}>{client.name}</option>)}
+                </select>
+              </div>
+            ) : <div className="rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-sm"><span className="text-slate-300">{tr("selectClient")}: </span><strong>{selectedClient || "—"}</strong></div>}
+            <Button disabled={!selectedClient} className="border-slate-600 bg-slate-800 text-amber-300 hover:bg-slate-700" variant="outline" onClick={() => setBulkOpen(true)}><Upload className="mr-2 h-4 w-4" />{tr("bulkImport")}</Button>
+            <Button disabled={!selectedClient} className="bg-amber-500 font-bold text-slate-950 hover:bg-amber-400" onClick={openNew}><Plus className="mr-2 h-4 w-4" />{tr("addDiner")}</Button>
           </div>
         </header>
 
-        <Card className="overflow-hidden border-slate-200 shadow-sm">
+        {!selectedClient ? <Card className="border-amber-200 bg-amber-50 shadow-sm"><CardContent className="p-5 text-sm font-medium text-amber-900">{hasClientAssignment ? tr("clientRequired") : tr("clientAssignmentMissing")}</CardContent></Card> : <Card className="overflow-hidden border-slate-200 shadow-sm">
           <CardHeader className="border-b bg-slate-50 p-3 pb-3">
             <div className="flex flex-col gap-2 sm:flex-row">
               <div className="relative flex-1">
@@ -169,7 +181,7 @@ export default function MealDinersPage() {
               </div>
             )}
           </CardContent>
-        </Card>
+        </Card>}
 
         <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
           <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-2xl">

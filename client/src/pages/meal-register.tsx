@@ -7,7 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { useCurrentUser } from "@/hooks/use-reports";
+import { useMealRegisterClient } from "@/hooks/use-meal-register-client";
 import { useToast } from "@/hooks/use-toast";
 import { useLang } from "@/contexts/language-context";
 import { apiRequest } from "@/lib/queryClient";
@@ -56,7 +56,7 @@ export default function MealRegisterPage() {
   const { tr, lang } = useLang();
   const { toast } = useToast();
   const qc = useQueryClient();
-  const { data: user } = useCurrentUser();
+  const { user, clients, clientsLoading, selectedClient, setSelectedClient, canSelectClient, hasClientAssignment } = useMealRegisterClient();
   const [date, setDate] = useState(() => localDateKey());
   const [dinerCode, setDinerCode] = useState("");
   const [dinerName, setDinerName] = useState("");
@@ -73,12 +73,14 @@ export default function MealRegisterPage() {
   const today = localDateKey();
 
   const dinersQuery = useQuery({
-    queryKey: ["/api/meal-diners", { active: "true" }],
-    queryFn: async () => (await apiRequest("GET", "/api/meal-diners?active=true")).json() as Promise<Diner[]>,
+    queryKey: ["/api/meal-diners", selectedClient, { active: "true" }],
+    queryFn: async () => (await apiRequest("GET", `/api/meal-diners?active=true&clientName=${encodeURIComponent(selectedClient)}`)).json() as Promise<Diner[]>,
+    enabled: !!selectedClient,
   });
   const registerQuery = useQuery({
-    queryKey: ["/api/meal-register", date],
-    queryFn: async () => (await apiRequest("GET", `/api/meal-register?date=${encodeURIComponent(date)}`)).json() as Promise<RegisterData>,
+    queryKey: ["/api/meal-register", date, selectedClient],
+    queryFn: async () => (await apiRequest("GET", `/api/meal-register?date=${encodeURIComponent(date)}&clientName=${encodeURIComponent(selectedClient)}`)).json() as Promise<RegisterData>,
+    enabled: !!selectedClient,
   });
   const entries = registerQuery.data?.entries || [];
   const tpEntries = registerQuery.data?.tpEntries || [];
@@ -87,8 +89,8 @@ export default function MealRegisterPage() {
   const locale = lang === "hi" ? "hi-IN" : lang === "bn" ? "bn-BD" : "en";
   const weekdayName = new Date(2025, 0, 5 + weekday).toLocaleDateString(locale, { weekday: "long" });
   const weekdayShort = new Date(2025, 0, 5 + weekday).toLocaleDateString(locale, { weekday: "short" });
-  const invalidate = () => qc.invalidateQueries({ queryKey: ["/api/meal-register", date] });
-  const tpInvalidate = () => qc.invalidateQueries({ queryKey: ["/api/meal-register", date] });
+  const invalidate = () => qc.invalidateQueries({ queryKey: ["/api/meal-register", date, selectedClient] });
+  const tpInvalidate = () => qc.invalidateQueries({ queryKey: ["/api/meal-register", date, selectedClient] });
 
   const entryMutation = useMutation({
     mutationFn: async ({ mealType, cash }: { mealType: MealType; cash: number }) => {
@@ -98,7 +100,7 @@ export default function MealRegisterPage() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
-        body: JSON.stringify({ date, dinerCode: code, mealType, cash }),
+        body: JSON.stringify({ date, dinerCode: code, mealType, cash, clientName: selectedClient }),
       });
       const data = await response.json();
       if (response.status === 409) throw Object.assign(new Error(data.message), { entry: data.entry as RegisterEntry });
@@ -118,28 +120,28 @@ export default function MealRegisterPage() {
   });
   const actionMutation = useMutation({
     mutationFn: async ({ id, action }: { id: number; action: "settle" | "add_lunch_20" | "add_lunch_due" }) =>
-      apiRequest("PATCH", `/api/meal-register/entries/${id}/action`, { action }),
+      apiRequest("PATCH", `/api/meal-register/entries/${id}/action`, { action, clientName: selectedClient }),
     onSuccess: () => { setDuplicate(null); invalidate(); },
     onError: (error: Error) => toast({ title: error.message, variant: "destructive" }),
   });
   const deleteEntryMutation = useMutation({
-    mutationFn: (id: number) => apiRequest("DELETE", `/api/meal-register/entries/${id}`),
+    mutationFn: (id: number) => apiRequest("DELETE", `/api/meal-register/entries/${id}?clientName=${encodeURIComponent(selectedClient)}`),
     onSuccess: () => { setConfirmEntry(null); invalidate(); },
     onError: (error: Error) => toast({ title: error.message, variant: "destructive" }),
   });
   const tpAddMutation = useMutation({
     mutationFn: ({ mealCode, qty }: { mealCode: TpMealCode; qty: number }) =>
-      apiRequest("POST", "/api/meal-register/tp-entries", { date, mealCode, qty }),
+      apiRequest("POST", "/api/meal-register/tp-entries", { date, mealCode, qty, clientName: selectedClient }),
     onSuccess: () => invalidate(),
     onError: (error: Error) => toast({ title: error.message, variant: "destructive" }),
   });
   const tpDeleteMutation = useMutation({
-    mutationFn: (id: number) => apiRequest("DELETE", `/api/meal-register/tp-entries/${id}`),
+    mutationFn: (id: number) => apiRequest("DELETE", `/api/meal-register/tp-entries/${id}?clientName=${encodeURIComponent(selectedClient)}`),
     onSuccess: tpInvalidate,
     onError: (error: Error) => toast({ title: error.message, variant: "destructive" }),
   });
   const tpClearMutation = useMutation({
-    mutationFn: () => apiRequest("DELETE", `/api/meal-register/tp-entries?date=${encodeURIComponent(date)}`),
+    mutationFn: () => apiRequest("DELETE", `/api/meal-register/tp-entries?date=${encodeURIComponent(date)}&clientName=${encodeURIComponent(selectedClient)}`),
     onSuccess: () => { setConfirmClearTp(false); invalidate(); },
     onError: (error: Error) => toast({ title: error.message, variant: "destructive" }),
   });
@@ -178,6 +180,10 @@ export default function MealRegisterPage() {
     return matchesSearch && (filter === "all" || isPending);
   }), [entries, filter, search]);
   const addEntry = (mealType: MealType, cash: number) => {
+    if (!selectedClient) {
+      toast({ title: tr("clientRequired"), variant: "destructive" });
+      return;
+    }
     if (!dinerCode.trim()) {
       toast({ title: tr("dinerCode"), variant: "destructive" });
       return;
@@ -204,7 +210,7 @@ export default function MealRegisterPage() {
       const workbook = new ExcelJS.Workbook();
       const summary = workbook.addWorksheet("Daily Summary");
       summary.addRows([
-        ["Daily Canteen Register", date, weekdayName],
+        ["Daily Canteen Register", selectedClient, date, weekdayName],
         ["Category", "Count", "Amount"],
         ["Permanent Breakfast", permanentStats.bfCount, permanentStats.bfAmount],
         ["Permanent Lunch", permanentStats.lunchCount, permanentStats.lunchAmount],
@@ -227,7 +233,8 @@ export default function MealRegisterPage() {
         thirdParty.addRow([TP_MEAL_CATALOG[code].label, TP_MEAL_CATALOG[code].price, thirdPartyStats.totals[code].qty, thirdPartyStats.totals[code].amount]);
       });
       const buffer = await workbook.xlsx.writeBuffer();
-      downloadBlob(new Blob([new Uint8Array(buffer)], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" }), `Canteen_Register_${date}.xlsx`);
+      const clientFilePart = selectedClient.replace(/[^A-Za-z0-9_-]+/g, "_");
+      downloadBlob(new Blob([new Uint8Array(buffer)], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" }), `Canteen_Register_${clientFilePart}_${date}.xlsx`);
     } catch (error) {
       toast({ title: tr("exportExcel"), description: error instanceof Error ? error.message : undefined, variant: "destructive" });
     }
@@ -237,7 +244,7 @@ export default function MealRegisterPage() {
       const { jsPDF } = await import("jspdf");
       const doc = new jsPDF({ orientation: "landscape", unit: "mm", format: "a4" });
       doc.setFontSize(15);
-      doc.text(`Daily Canteen Register — ${date} (${weekdayName})`, 12, 14);
+      doc.text(`Daily Canteen Register — ${selectedClient} — ${date} (${weekdayName})`, 12, 14);
       doc.setFontSize(9);
       doc.text(`Permanent net ${formatMoney(permanentStats.net)} · Third party ${formatMoney(thirdPartyStats.amount)} · Grand net ${formatMoney(permanentStats.net + thirdPartyStats.amount)}`, 12, 21);
       const rows = entries.slice().reverse();
@@ -286,7 +293,8 @@ export default function MealRegisterPage() {
     if (!file) return;
     try {
       const data: unknown = JSON.parse(await file.text());
-      const response = await apiRequest("POST", "/api/meal-register/import-legacy", data);
+      if (typeof data !== "object" || data === null || Array.isArray(data)) throw new Error(tr("importLegacy"));
+      const response = await apiRequest("POST", "/api/meal-register/import-legacy", { ...data, clientName: selectedClient });
       const counts = await response.json();
       toast({
         title: tr("importLegacyComplete"),
@@ -318,10 +326,19 @@ export default function MealRegisterPage() {
             <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-amber-500 text-xl font-black text-slate-950 shadow-inner">₹</div>
             <div>
               <h1 className="flex flex-wrap items-center gap-2 text-lg font-bold tracking-tight sm:text-xl">{tr("canteenRegister")}<span className="rounded-full border border-emerald-500/40 bg-emerald-500/20 px-2 py-0.5 text-[10px] font-extrabold text-emerald-300">{weekdayName}</span></h1>
-              <p className="text-xs text-slate-300">BF ₹5 · Lunch ₹20 · Both ₹25</p>
+              <p className="text-xs text-slate-300">{selectedClient || tr("selectClient")} · BF ₹5 · Lunch ₹20 · Both ₹25</p>
             </div>
           </div>
           <div className="flex flex-wrap items-center gap-2">
+            {canSelectClient ? (
+              <div className="min-w-52 space-y-1">
+                <Label htmlFor="meal-register-client" className="text-xs text-slate-300">{tr("selectClient")}</Label>
+                <select id="meal-register-client" value={selectedClient} disabled={clientsLoading} onChange={(event) => setSelectedClient(event.target.value)} className="h-10 w-full rounded-md border border-slate-600 bg-slate-800 px-3 text-sm text-white">
+                  <option value="">{tr("selectClient")}</option>
+                  {clients.map((client) => <option key={client.id} value={client.name}>{client.name}</option>)}
+                </select>
+              </div>
+            ) : <div className="rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-sm"><span className="text-slate-300">{tr("selectClient")}: </span><strong>{selectedClient || "—"}</strong></div>}
             <div className="flex items-center gap-2 rounded-xl border border-slate-700 bg-slate-800 px-3 py-1.5">
               <Label htmlFor="register-date" className="text-xs font-medium text-slate-300">{tr("date")}</Label>
               <Input id="register-date" type="date" value={date} onChange={(event) => setDate(event.target.value)} className="no-print h-8 w-auto border-0 bg-transparent px-1 text-sm font-semibold text-white [color-scheme:dark]" />
@@ -334,11 +351,12 @@ export default function MealRegisterPage() {
             {user?.role === "admin" && (
               <>
                 <input ref={legacyFileRef} type="file" accept=".json,application/json" className="hidden" onChange={(event) => void importLegacy(event.target.files?.[0])} />
-                <Button className="no-print border-amber-500 bg-slate-800 text-amber-300 hover:bg-slate-700" variant="outline" onClick={() => legacyFileRef.current?.click()}><FileUp className="mr-2 h-4 w-4" />{tr("importLegacy")}</Button>
+                <Button disabled={!selectedClient} className="no-print border-amber-500 bg-slate-800 text-amber-300 hover:bg-slate-700" variant="outline" onClick={() => legacyFileRef.current?.click()}><FileUp className="mr-2 h-4 w-4" />{tr("importLegacy")}</Button>
               </>
             )}
           </div>
           </header>
+        {!selectedClient && <div role="status" className="rounded-lg border border-amber-300 bg-amber-50 px-4 py-3 text-sm font-semibold text-amber-900">{hasClientAssignment ? tr("clientRequired") : tr("clientAssignmentMissing")}</div>}
         {date !== today && <div role="alert" className="rounded-lg border border-red-300 bg-red-50 px-4 py-2 text-sm font-semibold text-red-800">{tr("selectedDateWarning")} {date}</div>}
 
         <section className="grid gap-2.5 sm:grid-cols-2 xl:grid-cols-5">
@@ -367,14 +385,14 @@ export default function MealRegisterPage() {
               <div className="flex items-end gap-2">
                 <div className="min-w-0 flex-1 space-y-1"><Label htmlFor="custom-meal">{tr("mealType")}</Label><select id="custom-meal" value={customMeal} onChange={(event) => setCustomMeal(event.target.value as MealType)} className="h-10 w-full rounded-md border bg-background px-3 text-sm">{MEAL_TYPES.map((type) => <option key={type} value={type}>{type === "BF" ? `${tr("breakfast")} ₹5` : type === "Lunch" ? `${tr("lunch")} ₹20` : `${tr("bothMeals")} ₹25`}</option>)}</select></div>
                 <div className="w-24 space-y-1"><Label htmlFor="custom-cash">{tr("cash")}</Label><Input id="custom-cash" inputMode="decimal" type="number" min="0" max="100000" value={customCash} onChange={(event) => setCustomCash(event.target.value)} /></div>
-                <Button disabled={entryMutation.isPending || customCash === ""} onClick={() => { addEntry(customMeal, Number(customCash)); setCustomCash(""); }}>{tr("addEntry")}</Button>
+                <Button disabled={!selectedClient || entryMutation.isPending || customCash === ""} onClick={() => { addEntry(customMeal, Number(customCash)); setCustomCash(""); }}>{tr("addEntry")}</Button>
               </div>
             </div>
             <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
-              <Button variant="outline" className="h-auto min-h-12" onClick={() => addEntry("BF", 5)}>☕ {tr("breakfast")} ₹5</Button>
-              <Button variant="outline" className="h-auto min-h-12" onClick={() => addEntry("Lunch", 20)}>🍛 {tr("lunch")} ₹20</Button>
-              <Button variant="outline" className="h-auto min-h-12" onClick={() => addEntry("Both", 25)}>🍱 {tr("bothMeals")} ₹25</Button>
-              <Button variant="outline" className="h-auto min-h-12" onClick={() => addEntry("BF", 0)}>⏳ {tr("due")}</Button>
+              <Button disabled={!selectedClient} variant="outline" className="h-auto min-h-12" onClick={() => addEntry("BF", 5)}>☕ {tr("breakfast")} ₹5</Button>
+              <Button disabled={!selectedClient} variant="outline" className="h-auto min-h-12" onClick={() => addEntry("Lunch", 20)}>🍛 {tr("lunch")} ₹20</Button>
+              <Button disabled={!selectedClient} variant="outline" className="h-auto min-h-12" onClick={() => addEntry("Both", 25)}>🍱 {tr("bothMeals")} ₹25</Button>
+              <Button disabled={!selectedClient} variant="outline" className="h-auto min-h-12" onClick={() => addEntry("BF", 0)}>⏳ {tr("due")}</Button>
             </div>
           </CardContent>
         </Card>
@@ -429,7 +447,7 @@ export default function MealRegisterPage() {
               <Label htmlFor="tap-quantity">{tr("tapQuantity")}</Label>
               <select id="tap-quantity" value={tapQty} onChange={(event) => setTapQty(Number(event.target.value))} className="h-9 rounded-md border border-purple-300 bg-white px-2 text-sm">{[1, 2, 5, 10].map((qty) => <option key={qty} value={qty}>+{qty}</option>)}</select>
               <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={showAllMenu} onChange={(event) => setShowAllMenu(event.target.checked)} />{tr("showAllMenu")}</label>
-              {user?.role === "admin" && <Button size="sm" variant="destructive" onClick={() => setConfirmClearTp(true)}>{tr("clearTp")}</Button>}
+              {user?.role === "admin" && <Button disabled={!selectedClient} size="sm" variant="destructive" onClick={() => setConfirmClearTp(true)}>{tr("clearTp")}</Button>}
             </div>
           </CardHeader>
           <CardContent className="space-y-4">
@@ -439,7 +457,7 @@ export default function MealRegisterPage() {
                 const isHidden = !available && !showAllMenu && meal.category === "LUNCH";
                 if (isHidden) return null;
                 const labelKey = { TP_BF: "tpBreakfast", TP_VEG: "tpVegLunch", TP_EGG: "tpEggLunch", TP_FISH: "tpFishLunch", TP_CHICKEN: "tpChickenLunch", TP_OUTSIDE: "tpOutsideLunch" }[meal.code] as Parameters<typeof tr>[0];
-                return <Button key={meal.code} variant="outline" disabled={!available || tpAddMutation.isPending} className={`h-auto min-h-16 justify-between whitespace-normal border-purple-200 bg-white text-left hover:bg-purple-50 ${meal.code === "TP_BF" ? "border-emerald-300 bg-emerald-50 hover:bg-emerald-100" : ""}`} onClick={() => tpAddMutation.mutate({ mealCode: meal.code as TpMealCode, qty: tapQty })}>
+                return <Button key={meal.code} variant="outline" disabled={!selectedClient || !available || tpAddMutation.isPending} className={`h-auto min-h-16 justify-between whitespace-normal border-purple-200 bg-white text-left hover:bg-purple-50 ${meal.code === "TP_BF" ? "border-emerald-300 bg-emerald-50 hover:bg-emerald-100" : ""}`} onClick={() => tpAddMutation.mutate({ mealCode: meal.code as TpMealCode, qty: tapQty })}>
                   <span>{tr(labelKey)} · ₹{meal.price}{!available ? ` · ${tr("notAvailable")}` : ""}</span><span className="font-bold">+{tapQty} ({formatMoney(tapQty * meal.price)})</span>
                 </Button>;
               })}
