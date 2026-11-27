@@ -438,6 +438,7 @@ export default function Admin() {
     labour: 'Labour Works',
     salesinvoice: 'Sales Invoice Ledger',
     attendance: 'Face Attendance',
+    meal_register: 'Canteen Register',
     dateentry_ubl: 'Date Entry — UBL',
     dateentry_cipla: 'Date Entry — Cipla',
     dateentry_hul: 'Date Entry — HUL',

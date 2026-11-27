@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { Link, useLocation } from 'wouter';
-import { LayoutDashboard, FilePlus, Settings, Calculator, ClipboardList, UtensilsCrossed, ShoppingCart, LogOut, User, Menu, X, Users, CalendarDays, Wallet, FileText, BookOpen, HardHat, ChevronDown, ChevronRight, IndianRupee, Smartphone, Download, Share, MoreHorizontal, Receipt, BarChart3, Languages, Package, History, QrCode, Fingerprint } from 'lucide-react';
+import { LayoutDashboard, FilePlus, Settings, Calculator, ClipboardList, UtensilsCrossed, ShoppingCart, LogOut, User, Menu, X, Users, CalendarDays, Wallet, FileText, BookOpen, HardHat, ChevronDown, ChevronRight, IndianRupee, Smartphone, Download, Share, MoreHorizontal, Receipt, BarChart3, Languages, Package, History, QrCode, Fingerprint, BookUser } from 'lucide-react';
 import logoImg from '@assets/logo1_1771660912341.png';
 import { useCurrentUser, useLogout } from '@/hooks/use-reports';
 import { Button } from '@/components/ui/button';
@@ -19,7 +19,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
   const [labourOpen, setLabourOpen] = useState(() => labourWorksPaths.some(p => location.startsWith(p)));
   const [langMenuOpen, setLangMenuOpen] = useState(false);
 
-  const perms = user?.role === 'admin' ? ['expense', 'cashseal', 'inventory', 'menu', 'purchase', 'labour', 'salesinvoice'] : (user?.permissions || []);
+  const perms = user?.role === 'admin' ? ['expense', 'cashseal', 'inventory', 'menu', 'purchase', 'labour', 'salesinvoice', 'meal_register'] : (user?.permissions || []);
 
   const deferredPrompt = useRef<any>(null);
   const [showInstallBanner, setShowInstallBanner] = useState(false);
@@ -90,6 +90,8 @@ export function Layout({ children }: { children: React.ReactNode }) {
     { href: '/sales-invoice', label: tr('salesInvoiceLedger'), icon: FileText, perm: 'salesinvoice' },
     { href: '/contractor-meals', label: 'Contractor Meal Entry', icon: Users, perm: 'salesinvoice' },
     ...(user?.role === 'admin' ? [{ href: '/canteen-coupons', label: 'Canteen Coupons', icon: Receipt, perm: null as string | null }] : []),
+    { href: '/meal-register', label: tr('canteenRegister'), icon: UtensilsCrossed, perm: 'meal_register' },
+    { href: '/meal-diners', label: tr('canteenEmployeeMaster'), icon: BookUser, perm: 'meal_register' },
     { href: '/daily-pnl', label: tr('dailyPnl'), icon: BarChart3, perm: null },
     { href: '/monthly-pnl', label: tr('monthlyPnl'), icon: IndianRupee, perm: null },
     ...(user?.role === 'admin' ? [{ href: '/yearly-client-report', label: 'Client Yearly Summary', icon: BarChart3, perm: null }] : []),

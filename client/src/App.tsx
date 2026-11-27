@@ -52,6 +52,8 @@ import ItemStockReportPage from "./pages/item-stock-report";
 import EmployeeDashboard from "./pages/employee-dashboard";
 import LicenceAgreementsPage from "./pages/licence-agreements";
 import CanteenCouponsPage from "./pages/canteen-coupons";
+import MealRegisterPage from "./pages/meal-register";
+import MealDinersPage from "./pages/meal-diners";
 import QrScannerPage from "./pages/qr-scanner";
 import DailyAttendancePage from "./pages/daily-attendance";
 import AttendanceReportPage from "./pages/attendance-report";
@@ -98,7 +100,7 @@ function SplashScreen() {
 
 function PermRoute({ perm, children }: { perm: string; children: React.ReactNode }) {
   const { data: user } = useCurrentUser();
-  const perms = user?.role === 'admin' ? ['expense', 'cashseal', 'inventory', 'menu', 'purchase', 'labour', 'salesinvoice', 'attendance'] : (user?.permissions || []);
+  const perms = user?.role === 'admin' ? ['expense', 'cashseal', 'inventory', 'menu', 'purchase', 'labour', 'salesinvoice', 'attendance', 'meal_register'] : (user?.permissions || []);
   if (!perms.includes(perm)) return <Redirect to="/" />;
   return <>{children}</>;
 }
@@ -140,6 +142,8 @@ function AuthenticatedRouter() {
       <Route path="/employee-master">{() => <AdminOnlyRoute><EmployeeMaster /></AdminOnlyRoute>}</Route>
       <Route path="/licence-agreements">{() => <AdminOnlyRoute><LicenceAgreementsPage /></AdminOnlyRoute>}</Route>
       <Route path="/canteen-coupons">{() => <AdminOnlyRoute><CanteenCouponsPage /></AdminOnlyRoute>}</Route>
+      <Route path="/meal-register">{() => <PermRoute perm="meal_register"><MealRegisterPage /></PermRoute>}</Route>
+      <Route path="/meal-diners">{() => <PermRoute perm="meal_register"><MealDinersPage /></PermRoute>}</Route>
       <Route path="/muster-roll" component={MusterRoll} />
       <Route path="/salary" component={Salary} />
       <Route path="/salary/:id/slip" component={WageSlip} />
