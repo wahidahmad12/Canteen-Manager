@@ -154,8 +154,10 @@ export default function MealRegisterPage() {
     stats.pending += evaluated.activeDue > 0 || evaluated.activeReturn > 0 ? 1 : 0;
     stats.bfAmount += evaluated.bfPaidAmt;
     stats.lunchAmount += evaluated.lunchPaidAmt;
+    stats.morningCash += Number(item.morningCash);
+    stats.lunchCash += Number(item.lunchCash);
     return stats;
-  }, { bfCount: 0, lunchCount: 0, bfAmount: 0, lunchAmount: 0, due: 0, returnAmount: 0, net: 0, pending: 0 }), [entries]);
+  }, { bfCount: 0, lunchCount: 0, bfAmount: 0, lunchAmount: 0, morningCash: 0, lunchCash: 0, due: 0, returnAmount: 0, net: 0, pending: 0 }), [entries]);
   const thirdPartyStats = useMemo(() => {
     const totals = Object.fromEntries(Object.keys(TP_MEAL_CATALOG).map((code) => [code, { qty: 0, amount: 0 }])) as Record<TpMealCode, { qty: number; amount: number }>;
     tpEntries.forEach((entry) => {
@@ -300,47 +302,64 @@ export default function MealRegisterPage() {
   };
 
   const cards = [
-    { title: tr("breakfastStat"), value: `${permanentStats.bfCount + thirdPartyStats.breakfastCount} · ${formatMoney(permanentStats.bfAmount + thirdPartyStats.totals.TP_BF.amount)}`, detail: `${tr("active")}: ${permanentStats.bfCount} (${formatMoney(permanentStats.bfAmount)}) · TP: ${thirdPartyStats.breakfastCount} (${formatMoney(thirdPartyStats.totals.TP_BF.amount)})` },
-    { title: tr("lunchStat"), value: `${permanentStats.lunchCount + thirdPartyStats.lunchCount} · ${formatMoney(permanentStats.lunchAmount + thirdPartyStats.amount - thirdPartyStats.totals.TP_BF.amount)}`, detail: `${tr("active")}: ${permanentStats.lunchCount} (${formatMoney(permanentStats.lunchAmount)}) · TP: ${thirdPartyStats.lunchCount} (${formatMoney(thirdPartyStats.amount - thirdPartyStats.totals.TP_BF.amount)})` },
-    { title: tr("pendingDue"), value: formatMoney(permanentStats.due), detail: `${permanentStats.pending} ${tr("pendingEntries")}` },
-    { title: tr("pendingReturn"), value: formatMoney(permanentStats.returnAmount), detail: tr("returnStat") },
-    { title: tr("netCollection"), value: formatMoney(permanentStats.net + thirdPartyStats.amount), detail: `${tr("thirdPartyStat")}: ${formatMoney(thirdPartyStats.amount)}` },
-    { title: tr("thirdParty"), value: formatMoney(thirdPartyStats.amount), detail: `${thirdPartyStats.breakfastCount + thirdPartyStats.lunchCount} ${tr("count")}` },
+    { title: tr("breakfastStat"), value: `${permanentStats.bfCount + thirdPartyStats.breakfastCount} ${tr("count")} · ${formatMoney(permanentStats.bfAmount + thirdPartyStats.totals.TP_BF.amount)}`, detail: `Perm: ${permanentStats.bfCount} (${formatMoney(permanentStats.bfAmount)}) + TP: ${thirdPartyStats.breakfastCount} (${formatMoney(thirdPartyStats.totals.TP_BF.amount)})`, color: "border-emerald-200 text-emerald-800", badge: "bg-emerald-100 text-emerald-800" },
+    { title: tr("lunchStat"), value: `${permanentStats.lunchCount + thirdPartyStats.lunchCount} ${tr("count")} · ${formatMoney(permanentStats.lunchAmount + thirdPartyStats.amount - thirdPartyStats.totals.TP_BF.amount)}`, detail: `Perm: ${permanentStats.lunchCount} (${formatMoney(permanentStats.lunchAmount)}) + TP: ${thirdPartyStats.lunchCount} (${formatMoney(thirdPartyStats.amount - thirdPartyStats.totals.TP_BF.amount)})`, color: "border-indigo-200 text-indigo-800", badge: "bg-indigo-100 text-indigo-800" },
+    { title: tr("pendingDue"), value: `${formatMoney(permanentStats.due)} (${permanentStats.pending})`, detail: `${tr("pendingReturn")}: ${formatMoney(permanentStats.returnAmount)}`, color: "border-amber-300 bg-amber-50 text-amber-900", badge: "bg-amber-100 text-amber-900" },
+    { title: tr("netStat"), value: `${tr("netStat")}: ${formatMoney(permanentStats.net)} Perm`, detail: `${formatMoney(thirdPartyStats.amount)} TP · Morn ${formatMoney(permanentStats.morningCash)} · Lunch ${formatMoney(permanentStats.lunchCash)}`, color: "border-slate-200 text-blue-800", badge: "bg-slate-100 text-slate-700" },
+    { title: tr("netCollection"), value: formatMoney(permanentStats.net + thirdPartyStats.amount), detail: `${permanentStats.bfCount + permanentStats.lunchCount + thirdPartyStats.breakfastCount + thirdPartyStats.lunchCount} ${tr("count")} · Perm + TP`, color: "border-slate-900 bg-slate-900 text-emerald-400", badge: "bg-amber-500/20 text-amber-300" },
   ];
 
   return (
     <Layout>
       <div className="meal-register-print space-y-4">
         <style>{`@page{size:A4 portrait;margin:8mm}@media print{body *{visibility:hidden!important}.meal-register-print,.meal-register-print *{visibility:visible!important}.meal-register-print{position:absolute;left:0;top:0;width:100%;max-width:none!important;padding:0!important}.meal-register-print .no-print{display:none!important}.meal-register-print table{border-collapse:collapse;width:100%}.meal-register-print th,.meal-register-print td{border:1px solid #64748b;padding:4px;font-size:8pt}.meal-register-print tr{break-inside:avoid}.meal-register-print .print-card{break-inside:avoid}}`}</style>
-        <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-          <div className="flex items-center gap-2">
-            <UtensilsCrossed className="h-6 w-6" />
-            <div><h1 className="text-2xl font-bold">{tr("canteenRegister")}</h1><p className="text-sm text-muted-foreground">{weekdayName}</p></div>
+        <header className="flex flex-col gap-4 rounded-2xl bg-slate-900 p-4 text-white shadow-md sm:p-5 xl:flex-row xl:items-center xl:justify-between">
+          <div className="flex items-center gap-3">
+            <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-amber-500 text-xl font-black text-slate-950 shadow-inner">₹</div>
+            <div>
+              <h1 className="flex flex-wrap items-center gap-2 text-lg font-bold tracking-tight sm:text-xl">{tr("canteenRegister")}<span className="rounded-full border border-emerald-500/40 bg-emerald-500/20 px-2 py-0.5 text-[10px] font-extrabold text-emerald-300">{weekdayName}</span></h1>
+              <p className="text-xs text-slate-300">BF ₹5 · Lunch ₹20 · Both ₹25</p>
+            </div>
           </div>
           <div className="flex flex-wrap items-center gap-2">
-            <Label htmlFor="register-date">{tr("date")}</Label>
-            <Input id="register-date" type="date" value={date} onChange={(event) => setDate(event.target.value)} className="no-print w-auto" />
+            <div className="flex items-center gap-2 rounded-xl border border-slate-700 bg-slate-800 px-3 py-1.5">
+              <Label htmlFor="register-date" className="text-xs font-medium text-slate-300">{tr("date")}</Label>
+              <Input id="register-date" type="date" value={date} onChange={(event) => setDate(event.target.value)} className="no-print h-8 w-auto border-0 bg-transparent px-1 text-sm font-semibold text-white [color-scheme:dark]" />
+            </div>
             <div className="no-print flex flex-wrap gap-2">
-              <Button variant="outline" onClick={exportExcel}><Download className="mr-2 h-4 w-4" />{tr("exportExcel")}</Button>
-              <Button variant="outline" onClick={exportPdf}><Download className="mr-2 h-4 w-4" />{tr("exportPdf")}</Button>
-              <Button variant="outline" onClick={() => window.print()}><Printer className="mr-2 h-4 w-4" />{tr("printA4")}</Button>
+              <Button className="border-0 bg-emerald-600 text-white hover:bg-emerald-500" onClick={exportExcel}><Download className="mr-2 h-4 w-4" />{tr("exportExcel")}</Button>
+              <Button className="border-0 bg-rose-600 text-white hover:bg-rose-500" onClick={exportPdf}><Download className="mr-2 h-4 w-4" />{tr("exportPdf")}</Button>
+              <Button className="border-0 bg-blue-600 text-white hover:bg-blue-500" onClick={() => window.print()}><Printer className="mr-2 h-4 w-4" />{tr("printA4")}</Button>
             </div>
             {user?.role === "admin" && (
               <>
                 <input ref={legacyFileRef} type="file" accept=".json,application/json" className="hidden" onChange={(event) => void importLegacy(event.target.files?.[0])} />
-                <Button className="no-print" variant="outline" onClick={() => legacyFileRef.current?.click()}><FileUp className="mr-2 h-4 w-4" />{tr("importLegacy")}</Button>
+                <Button className="no-print border-amber-500 bg-slate-800 text-amber-300 hover:bg-slate-700" variant="outline" onClick={() => legacyFileRef.current?.click()}><FileUp className="mr-2 h-4 w-4" />{tr("importLegacy")}</Button>
               </>
             )}
           </div>
-        </div>
+          </header>
         {date !== today && <div role="alert" className="rounded-lg border border-red-300 bg-red-50 px-4 py-2 text-sm font-semibold text-red-800">{tr("selectedDateWarning")} {date}</div>}
 
-        <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-6">
-          {cards.map((card) => <Card key={card.title}><CardHeader className="pb-2"><CardTitle className="text-sm">{card.title}</CardTitle></CardHeader><CardContent><div className="text-2xl font-bold">{card.value}</div><p className="text-xs text-muted-foreground">{card.detail}</p></CardContent></Card>)}
+        <section className="grid gap-2.5 sm:grid-cols-2 xl:grid-cols-5">
+          {cards.map((card, index) => <Card key={card.title} className={`rounded-xl border-2 shadow-sm ${card.color}`}>
+            <CardHeader className="flex-row items-center justify-between space-y-0 p-3 pb-1">
+              <CardTitle className={`text-[11px] font-bold uppercase ${index === 4 ? "text-amber-300" : ""}`}>{card.title}</CardTitle>
+              <span className={`rounded px-1.5 py-0.5 text-[10px] font-bold ${card.badge}`}>{index < 2 ? (index === 0 ? "BF" : "LUNCH") : index === 4 ? "₹" : "TOTAL"}</span>
+            </CardHeader>
+            <CardContent className="p-3 pt-0">
+              <div className={`text-xl font-extrabold ${index === 4 ? "text-emerald-400" : ""}`}>{card.value}</div>
+              <p className={`mt-1 text-[11px] ${index === 4 ? "text-slate-300" : "text-slate-600"}`}>{card.detail}</p>
+            </CardContent>
+          </Card>)}
         </section>
 
-        <Card className="no-print border-blue-200">
-          <CardHeader><CardTitle className="flex items-center gap-2"><BookOpenCheck className="h-5 w-5" />{tr("quickEntry")}</CardTitle></CardHeader>
+        <div className="grid items-start gap-4 xl:grid-cols-12">
+          <section className="space-y-4 xl:col-span-7">
+        <Card className="no-print overflow-hidden border-2 border-blue-200 shadow-sm">
+          <CardHeader className="border-b border-blue-100 bg-blue-50 p-3">
+            <CardTitle className="flex items-center gap-2 text-sm font-extrabold text-slate-900"><span className="rounded-md bg-blue-600 px-2 py-0.5 text-[11px] text-white">PERMANENT</span><BookOpenCheck className="h-4 w-4 text-blue-700" />{tr("quickEntry")}</CardTitle>
+          </CardHeader>
           <CardContent className="space-y-4">
             <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-[1fr_1fr_auto]">
               <div className="space-y-1"><Label htmlFor="quick-diner-code">{tr("dinerCode")}</Label><Input id="quick-diner-code" list="meal-diner-options" value={dinerCode} onChange={(event) => onCodeChange(event.target.value)} onKeyDown={(event) => event.key === "Enter" && (event.preventDefault(), addEntry("Both", 25))} placeholder={tr("dinerCodePlaceholder")} autoComplete="off" className="uppercase" /><datalist id="meal-diner-options">{diners.map((diner) => <option key={diner.id} value={diner.dinerCode}>{diner.name}</option>)}</datalist></div>
@@ -360,19 +379,19 @@ export default function MealRegisterPage() {
           </CardContent>
         </Card>
 
-        <Card>
-          <CardHeader className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-            <CardTitle>{tr("canteenRegister")} · {date} ({weekdayShort})</CardTitle>
+        <Card className="overflow-hidden border border-slate-300 shadow-sm">
+          <CardHeader className="flex flex-col gap-3 bg-slate-800 p-3 text-white sm:flex-row sm:items-center sm:justify-between">
+            <div><CardTitle className="text-sm font-extrabold">{tr("canteenRegister")} · {date} ({weekdayShort})</CardTitle><p className="text-[11px] text-slate-300">BF ₹5 · Lunch ₹20 · Both ₹25</p></div>
             <div className="no-print flex flex-wrap items-center gap-2">
-              <Button size="sm" variant={filter === "all" ? "default" : "outline"} onClick={() => setFilter("all")}>{tr("allEntries")} ({entries.length})</Button>
-              <Button size="sm" variant={filter === "pending" ? "default" : "outline"} onClick={() => setFilter("pending")}>{tr("pendingEntries")} ({permanentStats.pending})</Button>
-              <div className="relative min-w-44 flex-1 sm:flex-none"><Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" /><Input value={search} onChange={(event) => setSearch(event.target.value)} placeholder={tr("searchDiners")} className="pl-8" /></div>
+              <Button className="border-slate-600 bg-slate-700 text-white hover:bg-slate-600" size="sm" variant={filter === "all" ? "default" : "outline"} onClick={() => setFilter("all")}>{tr("allEntries")} ({entries.length})</Button>
+              <Button className="border-slate-600 bg-slate-700 text-white hover:bg-slate-600" size="sm" variant={filter === "pending" ? "default" : "outline"} onClick={() => setFilter("pending")}>{tr("pendingEntries")} ({permanentStats.pending})</Button>
+              <div className="relative min-w-44 flex-1 sm:flex-none"><Search className="absolute left-2.5 top-2.5 h-4 w-4 text-slate-400" /><Input value={search} onChange={(event) => setSearch(event.target.value)} placeholder={tr("searchDiners")} className="border-slate-600 bg-slate-700 pl-8 text-white placeholder:text-slate-400" /></div>
             </div>
           </CardHeader>
           <CardContent>
             <div className="overflow-x-auto">
               <table className="w-full min-w-[1050px] text-sm">
-                <thead><tr className="border-b text-left text-xs text-muted-foreground">
+                <thead><tr className="border-b bg-slate-100 text-left text-[11px] font-bold uppercase text-slate-700">
                   <th className="p-2">#</th><th className="p-2">{tr("dinerCode")}</th><th className="p-2">{tr("dinerName")}</th><th className="p-2">{tr("mealType")}</th>
                   <th className="p-2 text-right">BF ₹</th><th className="p-2 text-right">L. ₹</th><th className="p-2 text-right">Morn</th><th className="p-2 text-right">{tr("due")}</th>
                   <th className="p-2 text-right">{tr("returnStat")}</th><th className="p-2 text-right">{tr("lunch")}</th><th className="p-2 text-right">Net</th><th className="p-2">{tr("status")}</th><th className="no-print p-2">{tr("actions")}</th>
@@ -380,7 +399,7 @@ export default function MealRegisterPage() {
                 <tbody>
                   {filteredEntries.map((entry, index) => {
                     const ev = evaluateEntry(entry);
-                    return <tr key={entry.id} className={`border-b last:border-0 ${ev.statusType === "due" ? "bg-amber-50" : ev.statusType === "return" ? "bg-rose-50" : ""}`}>
+                    return <tr key={entry.id} className={`border-b border-slate-200 text-xs last:border-0 ${ev.statusType === "due" ? "bg-amber-50" : ev.statusType === "return" ? "bg-rose-50" : index % 2 ? "bg-slate-50" : "bg-white"}`}>
                       <td className="p-2">{index + 1}</td><td className="p-2 font-semibold">{entry.dinerCode}</td><td className="p-2">{entry.dinerName || "—"}</td><td className="p-2">{entry.mealType}</td>
                       <td className="p-2 text-right">{formatMoney(ev.bfPaidAmt)}</td><td className="p-2 text-right">{formatMoney(ev.lunchPaidAmt)}</td>
                       <td className="p-2 text-right">{formatMoney(entry.morningCash)}</td>
@@ -401,13 +420,14 @@ export default function MealRegisterPage() {
             </div>
           </CardContent>
         </Card>
-
-        <Card className="border-purple-200">
-          <CardHeader className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-            <div><CardTitle>{tr("thirdParty")}</CardTitle><p className="text-sm text-muted-foreground">{weekdayName}: BF ₹20 · {tr("lunchMenu")}</p></div>
+          </section>
+          <section className="space-y-4 xl:col-span-5">
+        <Card className="no-print overflow-hidden border-2 border-purple-300 shadow-sm">
+          <CardHeader className="flex flex-col gap-2 border-b border-purple-200 bg-purple-50 p-3 sm:flex-row sm:items-center sm:justify-between">
+            <div><CardTitle className="text-sm font-extrabold text-purple-950">{tr("thirdParty")}</CardTitle><p className="text-xs text-purple-800">{weekdayName}: BF ₹20 · {tr("lunchMenu")}</p></div>
             <div className="no-print flex flex-wrap items-center gap-2">
               <Label htmlFor="tap-quantity">{tr("tapQuantity")}</Label>
-              <select id="tap-quantity" value={tapQty} onChange={(event) => setTapQty(Number(event.target.value))} className="h-9 rounded-md border bg-background px-2 text-sm">{[1, 2, 5, 10].map((qty) => <option key={qty} value={qty}>+{qty}</option>)}</select>
+              <select id="tap-quantity" value={tapQty} onChange={(event) => setTapQty(Number(event.target.value))} className="h-9 rounded-md border border-purple-300 bg-white px-2 text-sm">{[1, 2, 5, 10].map((qty) => <option key={qty} value={qty}>+{qty}</option>)}</select>
               <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={showAllMenu} onChange={(event) => setShowAllMenu(event.target.checked)} />{tr("showAllMenu")}</label>
               {user?.role === "admin" && <Button size="sm" variant="destructive" onClick={() => setConfirmClearTp(true)}>{tr("clearTp")}</Button>}
             </div>
@@ -419,14 +439,14 @@ export default function MealRegisterPage() {
                 const isHidden = !available && !showAllMenu && meal.category === "LUNCH";
                 if (isHidden) return null;
                 const labelKey = { TP_BF: "tpBreakfast", TP_VEG: "tpVegLunch", TP_EGG: "tpEggLunch", TP_FISH: "tpFishLunch", TP_CHICKEN: "tpChickenLunch", TP_OUTSIDE: "tpOutsideLunch" }[meal.code] as Parameters<typeof tr>[0];
-                return <Button key={meal.code} variant="outline" disabled={!available || tpAddMutation.isPending} className="h-auto min-h-16 justify-between whitespace-normal text-left" onClick={() => tpAddMutation.mutate({ mealCode: meal.code as TpMealCode, qty: tapQty })}>
+                return <Button key={meal.code} variant="outline" disabled={!available || tpAddMutation.isPending} className={`h-auto min-h-16 justify-between whitespace-normal border-purple-200 bg-white text-left hover:bg-purple-50 ${meal.code === "TP_BF" ? "border-emerald-300 bg-emerald-50 hover:bg-emerald-100" : ""}`} onClick={() => tpAddMutation.mutate({ mealCode: meal.code as TpMealCode, qty: tapQty })}>
                   <span>{tr(labelKey)} · ₹{meal.price}{!available ? ` · ${tr("notAvailable")}` : ""}</span><span className="font-bold">+{tapQty} ({formatMoney(tapQty * meal.price)})</span>
                 </Button>;
               })}
             </div>
             <div className="overflow-x-auto">
               <table className="w-full min-w-[460px] text-sm">
-                <thead><tr className="border-b text-left text-muted-foreground"><th className="p-2">{tr("thirdParty")}</th><th className="p-2 text-right">{tr("cash")}</th><th className="p-2 text-right">{tr("count")}</th><th className="p-2 text-right">{tr("netCollection")}</th></tr></thead>
+                <thead><tr className="border-b bg-purple-900 text-left text-[11px] font-bold text-white"><th className="p-2">{tr("thirdParty")}</th><th className="p-2 text-right">{tr("cash")}</th><th className="p-2 text-right">{tr("count")}</th><th className="p-2 text-right">{tr("netCollection")}</th></tr></thead>
                 <tbody>{(Object.keys(TP_MEAL_CATALOG) as TpMealCode[]).map((code) => {
                   const labelKey = { TP_BF: "tpBreakfast", TP_VEG: "tpVegLunch", TP_EGG: "tpEggLunch", TP_FISH: "tpFishLunch", TP_CHICKEN: "tpChickenLunch", TP_OUTSIDE: "tpOutsideLunch" }[code] as Parameters<typeof tr>[0];
                   return <tr key={code} className="border-b last:border-0"><td className="p-2">{tr(labelKey)}</td><td className="p-2 text-right">{formatMoney(TP_MEAL_CATALOG[code].price)}</td><td className="p-2 text-right">{thirdPartyStats.totals[code].qty}</td><td className="p-2 text-right">{formatMoney(thirdPartyStats.totals[code].amount)}</td></tr>;
@@ -440,6 +460,24 @@ export default function MealRegisterPage() {
               </span>)}
               {!tpEntries.length && <span className="text-sm text-muted-foreground">{tr("noEntries")}</span>}
             </div>
+          </CardContent>
+        </Card>
+          </section>
+        </div>
+        <Card className="overflow-hidden border border-slate-300 shadow-sm">
+          <CardHeader className="bg-slate-900 p-3 text-white">
+            <CardTitle className="text-sm font-extrabold uppercase tracking-wide">{tr("canteenRegister")} · {tr("netCollection")}</CardTitle>
+            <p className="text-[11px] text-slate-300">Permanent + {tr("thirdParty")} · {date} ({weekdayName})</p>
+          </CardHeader>
+          <CardContent className="overflow-x-auto p-0">
+            <table className="w-full min-w-[640px] text-xs">
+              <thead><tr className="bg-slate-100 text-left font-bold text-slate-700"><th className="p-2">{tr("mealType")}</th><th className="p-2 text-right">Permanent</th><th className="p-2 text-right">{tr("thirdParty")}</th><th className="bg-emerald-50 p-2 text-right text-emerald-950">{tr("netCollection")}</th></tr></thead>
+              <tbody>
+                <tr className="border-b"><td className="p-2 font-semibold">{tr("breakfastStat")}</td><td className="p-2 text-right">{permanentStats.bfCount} · {formatMoney(permanentStats.bfAmount)}</td><td className="p-2 text-right">{thirdPartyStats.breakfastCount} · {formatMoney(thirdPartyStats.totals.TP_BF.amount)}</td><td className="bg-emerald-50 p-2 text-right font-bold">{permanentStats.bfCount + thirdPartyStats.breakfastCount} · {formatMoney(permanentStats.bfAmount + thirdPartyStats.totals.TP_BF.amount)}</td></tr>
+                <tr className="border-b"><td className="p-2 font-semibold">{tr("lunchStat")}</td><td className="p-2 text-right">{permanentStats.lunchCount} · {formatMoney(permanentStats.lunchAmount)}</td><td className="p-2 text-right">{thirdPartyStats.lunchCount} · {formatMoney(thirdPartyStats.amount - thirdPartyStats.totals.TP_BF.amount)}</td><td className="bg-emerald-50 p-2 text-right font-bold">{permanentStats.lunchCount + thirdPartyStats.lunchCount} · {formatMoney(permanentStats.lunchAmount + thirdPartyStats.amount - thirdPartyStats.totals.TP_BF.amount)}</td></tr>
+                <tr className="bg-slate-100 font-extrabold"><td className="p-2">{tr("netCollection")}</td><td className="p-2 text-right">{formatMoney(permanentStats.net)}</td><td className="p-2 text-right">{formatMoney(thirdPartyStats.amount)}</td><td className="bg-emerald-100 p-2 text-right">{formatMoney(permanentStats.net + thirdPartyStats.amount)}</td></tr>
+              </tbody>
+            </table>
           </CardContent>
         </Card>
       </div>

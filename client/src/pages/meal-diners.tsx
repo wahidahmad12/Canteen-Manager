@@ -111,19 +111,22 @@ export default function MealDinersPage() {
   return (
     <Layout>
       <div className="space-y-4">
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-          <div>
-            <h1 className="flex items-center gap-2 text-2xl font-bold"><BookUser className="h-6 w-6" />{tr("canteenEmployeeMaster")}</h1>
-            <p className="text-sm text-muted-foreground">{tr("dinerCode")} · {tr("dinerName")}</p>
+        <header className="flex flex-col gap-4 rounded-2xl bg-slate-900 p-4 text-white shadow-md sm:flex-row sm:items-center sm:justify-between sm:p-5">
+          <div className="flex items-center gap-3">
+            <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-amber-500 text-white"><BookUser className="h-5 w-5" /></div>
+            <div>
+              <h1 className="text-lg font-extrabold tracking-tight sm:text-xl">{tr("canteenEmployeeMaster")}</h1>
+              <p className="text-xs text-slate-300">{tr("dinerCode")} · {tr("dinerName")}</p>
+            </div>
           </div>
           <div className="flex flex-wrap gap-2">
-            <Button variant="outline" onClick={() => setBulkOpen(true)}><Upload className="mr-2 h-4 w-4" />{tr("bulkImport")}</Button>
-            <Button onClick={openNew}><Plus className="mr-2 h-4 w-4" />{tr("addDiner")}</Button>
+            <Button className="border-slate-600 bg-slate-800 text-amber-300 hover:bg-slate-700" variant="outline" onClick={() => setBulkOpen(true)}><Upload className="mr-2 h-4 w-4" />{tr("bulkImport")}</Button>
+            <Button className="bg-amber-500 font-bold text-slate-950 hover:bg-amber-400" onClick={openNew}><Plus className="mr-2 h-4 w-4" />{tr("addDiner")}</Button>
           </div>
-        </div>
+        </header>
 
-        <Card>
-          <CardHeader className="pb-3">
+        <Card className="overflow-hidden border-slate-200 shadow-sm">
+          <CardHeader className="border-b bg-slate-50 p-3 pb-3">
             <div className="flex flex-col gap-2 sm:flex-row">
               <div className="relative flex-1">
                 <Search className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
@@ -140,14 +143,14 @@ export default function MealDinersPage() {
             {query.isLoading ? <p className="py-8 text-center text-muted-foreground">…</p> : (
               <div className="overflow-x-auto">
                 <table className="w-full min-w-[760px] text-sm">
-                  <thead><tr className="border-b text-left text-muted-foreground">
+                  <thead><tr className="border-b bg-slate-800 text-left text-[11px] font-bold uppercase text-white">
                     <th className="p-2">{tr("dinerCode")}</th><th className="p-2">{tr("dinerName")}</th>
                     <th className="p-2">{tr("company")}</th><th className="p-2">{tr("department")}</th>
                     <th className="p-2">{tr("mobile")}</th><th className="p-2">{tr("active")}</th><th className="p-2">{tr("actions")}</th>
                   </tr></thead>
                   <tbody>
                     {diners.map((diner) => (
-                      <tr key={diner.id} className="border-b last:border-0">
+                      <tr key={diner.id} className={`border-b border-slate-200 text-xs last:border-0 ${Boolean(diner.isActive) ? "odd:bg-white even:bg-slate-50" : "bg-slate-100 text-slate-500"}`}>
                         <td className="p-2 font-semibold">{diner.dinerCode}</td><td className="p-2">{diner.name || "—"}</td>
                         <td className="p-2">{diner.companyName || "—"}</td><td className="p-2">{diner.department || "—"}</td>
                         <td className="p-2">{diner.mobile || "—"}</td>
