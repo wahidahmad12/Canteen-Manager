@@ -1,5 +1,6 @@
 
 import { db, pool } from "./db";
+import { saveDailyEntry } from "./daily-entry-save";
 import { CONTRACTOR_MEALS } from "../shared/contractor-meals";
 import { calculateLegacyHra, usesLegacyHra } from "../shared/payroll-utils";
 import type { ClientBranch } from "../shared/client-offices";
@@ -2992,14 +2993,10 @@ export class DatabaseStorage implements IStorage {
       .orderBy(ublDateEntries.entryDate);
   }
   async createUblDateEntry(data: any): Promise<UblDateEntry> {
-    const { id: _id, createdAt, updatedAt, ...values } = data ?? {};
-    return await insertAndGet<UblDateEntry>(ublDateEntries, values);
+    return saveDailyEntry(pool, { table: ublDateEntries, scope: [], syncUblBreakfast: true }, data);
   }
   async updateUblDateEntry(id: number, data: any): Promise<UblDateEntry> {
-    const { id: _id, createdAt, updatedAt, ...values } = data ?? {};
-    await db.update(ublDateEntries).set({ ...values, updatedAt: new Date() }).where(eq(ublDateEntries.id, id));
-    const [updated] = await db.select().from(ublDateEntries).where(eq(ublDateEntries.id, id));
-    return updated;
+    return saveDailyEntry(pool, { table: ublDateEntries, scope: [], syncUblBreakfast: true }, data, id);
   }
   async deleteUblDateEntry(id: number): Promise<void> {
     await db.delete(ublDateEntries).where(eq(ublDateEntries.id, id));
@@ -3015,12 +3012,10 @@ export class DatabaseStorage implements IStorage {
       .orderBy(ciplaDateEntries.entryDate);
   }
   async createCiplaDateEntry(data: any): Promise<CiplaDateEntry> {
-    return await insertAndGet<CiplaDateEntry>(ciplaDateEntries, data);
+    return saveDailyEntry(pool, { table: ciplaDateEntries, scope: [] }, data);
   }
   async updateCiplaDateEntry(id: number, data: any): Promise<CiplaDateEntry> {
-    await db.update(ciplaDateEntries).set({ ...data, updatedAt: new Date() }).where(eq(ciplaDateEntries.id, id));
-    const [updated] = await db.select().from(ciplaDateEntries).where(eq(ciplaDateEntries.id, id));
-    return updated;
+    return saveDailyEntry(pool, { table: ciplaDateEntries, scope: [] }, data, id);
   }
   async deleteCiplaDateEntry(id: number): Promise<void> {
     await db.delete(ciplaDateEntries).where(eq(ciplaDateEntries.id, id));
@@ -3036,12 +3031,10 @@ export class DatabaseStorage implements IStorage {
       .orderBy(ublLunchEntries.entryDate);
   }
   async createUblLunchEntry(data: any): Promise<UblLunchEntry> {
-    return await insertAndGet<UblLunchEntry>(ublLunchEntries, data);
+    return saveDailyEntry(pool, { table: ublLunchEntries, scope: [] }, data);
   }
   async updateUblLunchEntry(id: number, data: any): Promise<UblLunchEntry> {
-    await db.update(ublLunchEntries).set({ ...data, updatedAt: new Date() }).where(eq(ublLunchEntries.id, id));
-    const [updated] = await db.select().from(ublLunchEntries).where(eq(ublLunchEntries.id, id));
-    return updated;
+    return saveDailyEntry(pool, { table: ublLunchEntries, scope: [] }, data, id);
   }
   async deleteUblLunchEntry(id: number): Promise<void> {
     await db.delete(ublLunchEntries).where(eq(ublLunchEntries.id, id));
@@ -3073,23 +3066,10 @@ export class DatabaseStorage implements IStorage {
       .orderBy(unichEmSnackEntries.entryDate);
   }
   async createUnichEmSnackEntry(data: any): Promise<UnichEmSnackEntry> {
-    const { location, entryDate, month, year, weekDay, breakfast, eveningSnacks, nightSnacks, sundayExtraSnacks, remarks } = data;
-    await db.execute(sql`
-      INSERT INTO unichem_snack_entries (location, entry_date, month, year, week_day, breakfast, evening_snacks, night_snacks, sunday_extra_snacks, remarks)
-      VALUES (${location}, ${entryDate}, ${month}, ${year}, ${weekDay || null}, ${breakfast || 0}, ${eveningSnacks || 0}, ${nightSnacks || 0}, ${sundayExtraSnacks || 0}, ${remarks || ''})
-      ON DUPLICATE KEY UPDATE
-        breakfast = VALUES(breakfast), evening_snacks = VALUES(evening_snacks), night_snacks = VALUES(night_snacks),
-        sunday_extra_snacks = VALUES(sunday_extra_snacks), remarks = VALUES(remarks), week_day = VALUES(week_day), updated_at = NOW()
-    `);
-    const rows = await db.select().from(unichEmSnackEntries)
-      .where(and(eq(unichEmSnackEntries.location, location), eq(unichEmSnackEntries.entryDate, entryDate)));
-    return rows[0];
+    return saveDailyEntry(pool, { table: unichEmSnackEntries, scope: ["location"] }, data);
   }
   async updateUnichEmSnackEntry(id: number, data: any): Promise<UnichEmSnackEntry> {
-    const { id: _id, entryDate, createdAt, _dirty, ...safeData } = data;
-    await db.update(unichEmSnackEntries).set({ ...safeData, updatedAt: new Date() }).where(eq(unichEmSnackEntries.id, id));
-    const rows = await db.select().from(unichEmSnackEntries).where(eq(unichEmSnackEntries.id, id));
-    return rows[0];
+    return saveDailyEntry(pool, { table: unichEmSnackEntries, scope: ["location"], immutableDate: true }, data, id);
   }
   async deleteUnichEmSnackEntry(id: number): Promise<void> {
     await db.delete(unichEmSnackEntries).where(eq(unichEmSnackEntries.id, id));
@@ -3110,23 +3090,10 @@ export class DatabaseStorage implements IStorage {
     return rows[0];
   }
   async createUnichEmLunchEntry(data: any): Promise<UnichEmLunchEntry> {
-    // Use upsert to handle the unique constraint on (location, entry_date, meal_type)
-    const { location, entryDate, month, year, weekDay, mealType, orderQty, actual, total, billQty } = data;
-    await db.execute(sql`
-      INSERT INTO unichem_lunch_entries (location, entry_date, month, year, week_day, meal_type, order_qty, actual, total, bill_qty)
-      VALUES (${location}, ${entryDate}, ${month}, ${year}, ${weekDay || null}, ${mealType || 'lunch'}, ${orderQty || 0}, ${actual || 0}, ${total || 0}, ${billQty || 0})
-      ON DUPLICATE KEY UPDATE
-        order_qty = VALUES(order_qty), actual = VALUES(actual), total = VALUES(total), bill_qty = VALUES(bill_qty), week_day = VALUES(week_day), updated_at = NOW()
-    `);
-    const rows = await db.select().from(unichEmLunchEntries)
-      .where(and(eq(unichEmLunchEntries.location, location), eq(unichEmLunchEntries.entryDate, entryDate), eq(unichEmLunchEntries.mealType, mealType || 'lunch')));
-    return rows[0];
+    return saveDailyEntry(pool, { table: unichEmLunchEntries, scope: ["location", "mealType"] }, { ...data, mealType: data.mealType || "lunch" });
   }
   async updateUnichEmLunchEntry(id: number, data: any): Promise<UnichEmLunchEntry> {
-    const { id: _id, entryDate, createdAt, _dirty, ...safeData } = data;
-    await db.update(unichEmLunchEntries).set({ ...safeData, updatedAt: new Date() }).where(eq(unichEmLunchEntries.id, id));
-    const rows = await db.select().from(unichEmLunchEntries).where(eq(unichEmLunchEntries.id, id));
-    return rows[0];
+    return saveDailyEntry(pool, { table: unichEmLunchEntries, scope: ["location", "mealType"], immutableDate: true }, data, id);
   }
   async deleteUnichEmLunchEntry(id: number): Promise<void> {
     await db.delete(unichEmLunchEntries).where(eq(unichEmLunchEntries.id, id));
@@ -3139,24 +3106,10 @@ export class DatabaseStorage implements IStorage {
       .orderBy(hulDateEntries.entryDate);
   }
   async createHulDateEntry(data: any): Promise<HulDateEntry> {
-    const { location, entryDate, month, year, weekDay, breakfast, lunch, eveningSnacks, nightSnacks, guestBreakfast, guestLunch, guestEveningSnacks, guestNightSnacks } = data;
-    await db.execute(sql`
-      INSERT INTO hul_date_entries (location, entry_date, month, year, week_day, breakfast, lunch, evening_snacks, night_snacks, guest_breakfast, guest_lunch, guest_evening_snacks, guest_night_snacks)
-      VALUES (${location}, ${entryDate}, ${month}, ${year}, ${weekDay || null}, ${breakfast || 0}, ${lunch || 0}, ${eveningSnacks || 0}, ${nightSnacks || 0}, ${guestBreakfast || 0}, ${guestLunch || 0}, ${guestEveningSnacks || 0}, ${guestNightSnacks || 0})
-      ON DUPLICATE KEY UPDATE
-        breakfast = VALUES(breakfast), lunch = VALUES(lunch), evening_snacks = VALUES(evening_snacks), night_snacks = VALUES(night_snacks),
-        guest_breakfast = VALUES(guest_breakfast), guest_lunch = VALUES(guest_lunch), guest_evening_snacks = VALUES(guest_evening_snacks),
-        guest_night_snacks = VALUES(guest_night_snacks), week_day = VALUES(week_day), updated_at = NOW()
-    `);
-    const rows = await db.select().from(hulDateEntries)
-      .where(and(eq(hulDateEntries.location, location), eq(hulDateEntries.entryDate, entryDate)));
-    return rows[0];
+    return saveDailyEntry(pool, { table: hulDateEntries, scope: ["location"] }, data);
   }
   async updateHulDateEntry(id: number, data: any): Promise<HulDateEntry> {
-    const { id: _id, entryDate, createdAt, _dirty, ...safeData } = data;
-    await db.update(hulDateEntries).set({ ...safeData, updatedAt: new Date() }).where(eq(hulDateEntries.id, id));
-    const rows = await db.select().from(hulDateEntries).where(eq(hulDateEntries.id, id));
-    return rows[0];
+    return saveDailyEntry(pool, { table: hulDateEntries, scope: ["location"], immutableDate: true }, data, id);
   }
   async deleteHulDateEntry(id: number): Promise<void> {
     await db.delete(hulDateEntries).where(eq(hulDateEntries.id, id));
@@ -3340,23 +3293,10 @@ export class DatabaseStorage implements IStorage {
       .orderBy(hulKpfExecSnacks.entryDate);
   }
   async createHulKpfExecSnack(data: any): Promise<HulKpfExecSnack> {
-    const { entryDate, month, year, weekDay, snacks, biscuit, chips, coldDrinkWater, shiftOfficerBreakfast } = data;
-    await db.execute(sql`
-      INSERT INTO hul_kpf_exec_snacks (entry_date, month, year, week_day, snacks, biscuit, chips, cold_drink_water, shift_officer_breakfast)
-      VALUES (${entryDate}, ${month}, ${year}, ${weekDay || null}, ${snacks || 0}, ${biscuit || 0}, ${chips || 0}, ${coldDrinkWater || 0}, ${shiftOfficerBreakfast || 0})
-      ON DUPLICATE KEY UPDATE
-        snacks = VALUES(snacks), biscuit = VALUES(biscuit), chips = VALUES(chips),
-        cold_drink_water = VALUES(cold_drink_water), shift_officer_breakfast = VALUES(shift_officer_breakfast),
-        week_day = VALUES(week_day), updated_at = NOW()
-    `);
-    const rows = await db.select().from(hulKpfExecSnacks).where(eq(hulKpfExecSnacks.entryDate, entryDate));
-    return rows[0];
+    return saveDailyEntry(pool, { table: hulKpfExecSnacks, scope: [] }, data);
   }
   async updateHulKpfExecSnack(id: number, data: any): Promise<HulKpfExecSnack> {
-    const { id: _id, entryDate, createdAt, _dirty, ...safeData } = data;
-    await db.update(hulKpfExecSnacks).set({ ...safeData, updatedAt: new Date() }).where(eq(hulKpfExecSnacks.id, id));
-    const rows = await db.select().from(hulKpfExecSnacks).where(eq(hulKpfExecSnacks.id, id));
-    return rows[0];
+    return saveDailyEntry(pool, { table: hulKpfExecSnacks, scope: [], immutableDate: true }, data, id);
   }
   async deleteHulKpfExecSnack(id: number): Promise<void> {
     await db.delete(hulKpfExecSnacks).where(eq(hulKpfExecSnacks.id, id));

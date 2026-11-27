@@ -29,6 +29,7 @@ import { scanGroceryImage } from "./grocery-scan";
 import { registerVoiceItemRoutes } from "./voice-item-routes";
 import { changePasswordHandler } from "./change-password";
 import { registerMealRegisterRoutes } from "./meal-register-routes";
+import { saveUblContractorMeals } from "./daily-entry-save";
 
 const webauthnRegChallenges = new Map<number, string>();
 const webauthnAuthChallenges = new Map<number, string>();
@@ -2996,26 +2997,15 @@ export async function registerRoutes(
     const entries = await storage.getUblDateEntries(month, year);
     res.json(entries);
   });
-  // Format 3 contractor breakfast is the source of truth for Format 1 "Cont. Brkft" on dates that have Format 3 data
-  const applyUblF3Breakfast = async (body: any) => {
-    const d = typeof body?.entryDate === 'string' ? body.entryDate.split('T')[0] : '';
-    if (!/^\d{4}-\d{2}-\d{2}$/.test(d)) return body;
-    try {
-      const [rows]: any = await pool.execute(
-        `SELECT COUNT(*) AS c, COALESCE(SUM(qty),0) AS t FROM ubl_f3_meal_entries WHERE entry_date = ? AND meal_type = 'breakfast'`, [d]);
-      if (Number(rows[0]?.c) > 0) return { ...body, contractorBreakfast: Number(rows[0].t) };
-    } catch { /* Format 3 tables not available yet */ }
-    return body;
-  };
   app.post('/api/ubl-date-entries', requirePermission('salesinvoice'), async (req, res) => {
     try {
-      const entry = await storage.createUblDateEntry(await applyUblF3Breakfast(req.body));
+      const entry = await storage.createUblDateEntry(req.body);
       res.status(201).json(entry);
     } catch (err: any) { res.status(500).json({ message: err.message }); }
   });
   app.put('/api/ubl-date-entries/:id', requirePermission('salesinvoice'), async (req, res) => {
     try {
-      const entry = await storage.updateUblDateEntry(Number(req.params.id), await applyUblF3Breakfast(req.body));
+      const entry = await storage.updateUblDateEntry(Number(req.params.id), req.body);
       res.json(entry);
     } catch (err: any) { res.status(500).json({ message: err.message }); }
   });
@@ -3093,38 +3083,7 @@ export async function registerRoutes(
   app.post('/api/ubl-f3/entries/bulk', requirePermission('salesinvoice'), async (req, res) => {
     try {
       const entries: any[] = Array.isArray(req.body?.entries) ? req.body.entries : [];
-      const touchedBreakfast = new Set<string>();
-      for (const e of entries) {
-        const d = String(e.entryDate ?? '').split('T')[0];
-        const cid = Number(e.contractorId);
-        const mt = String(e.mealType ?? '');
-        const qty = Math.max(0, Math.floor(Number(e.qty) || 0));
-        if (!/^\d{4}-\d{2}-\d{2}$/.test(d) || !cid || !UBL_F3_MEALS.includes(mt)) continue;
-        if (qty > 0) {
-          await pool.execute(
-            `INSERT INTO ubl_f3_meal_entries (entry_date, contractor_id, meal_type, qty) VALUES (?, ?, ?, ?)
-             ON DUPLICATE KEY UPDATE qty = VALUES(qty)`, [d, cid, mt, qty]);
-        } else {
-          await pool.execute(
-            `DELETE FROM ubl_f3_meal_entries WHERE entry_date = ? AND contractor_id = ? AND meal_type = ?`, [d, cid, mt]);
-        }
-        if (mt === 'breakfast') touchedBreakfast.add(d);
-      }
-      // Push contractor breakfast totals into Format 1 (Cont. Brkft)
-      for (const d of Array.from(touchedBreakfast)) {
-        const [t]: any = await pool.execute(
-          `SELECT COALESCE(SUM(qty),0) AS t FROM ubl_f3_meal_entries WHERE entry_date = ? AND meal_type = 'breakfast'`, [d]);
-        const total = Number(t[0].t) || 0;
-        const [ex]: any = await pool.execute(`SELECT id FROM ubl_date_entries WHERE entry_date = ? LIMIT 1`, [d]);
-        if (ex.length) {
-          await pool.execute(`UPDATE ubl_date_entries SET contractor_breakfast = ?, updated_at = NOW() WHERE id = ?`, [total, ex[0].id]);
-        } else if (total > 0) {
-          const dt = new Date(d + 'T00:00:00');
-          await pool.execute(
-            `INSERT INTO ubl_date_entries (entry_date, month, year, week_day, contractor_breakfast) VALUES (?, ?, ?, ?, ?)`,
-            [d, dt.getMonth() + 1, dt.getFullYear(), ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'][dt.getDay()], total]);
-        }
-      }
+      await saveUblContractorMeals(pool, entries);
       res.json({ ok: true, saved: entries.length });
     } catch (err: any) { res.status(500).json({ message: err.message }); }
   });

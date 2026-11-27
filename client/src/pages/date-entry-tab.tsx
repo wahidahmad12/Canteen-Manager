@@ -6,6 +6,7 @@ import { UblFormat3Tab } from "./ubl-format3";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useCurrentUser, useClientNames } from "@/hooks/use-reports";
 import { CustomClientFormTab } from "./custom-client-form";
+import { readSavedEntry, reconcileSavedEntry } from "@/lib/date-entry-save";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
@@ -123,9 +124,7 @@ function UblDateEntryTab({ month, year, loadKey = 0 }: { month: number; year: nu
   const createMutation = useMutation({
     mutationFn: async (data: UblRow) => {
       const res = await fetch('/api/ubl-date-entries', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(data), credentials: "include" });
-      const result = await res.json().catch(() => ({}));
-      if (!res.ok) throw new Error(result.message || `Save failed (${res.status})`);
-      return result;
+      return readSavedEntry(res);
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['/api/ubl-date-entries', month, year] });
@@ -136,9 +135,7 @@ function UblDateEntryTab({ month, year, loadKey = 0 }: { month: number; year: nu
   const updateMutation = useMutation({
     mutationFn: async ({ id, data }: { id: number; data: any }) => {
       const res = await fetch(`/api/ubl-date-entries/${id}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(data), credentials: "include" });
-      const result = await res.json().catch(() => ({}));
-      if (!res.ok) throw new Error(result.message || `Save failed (${res.status})`);
-      return result;
+      return readSavedEntry(res);
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['/api/ubl-date-entries', month, year] });
@@ -202,9 +199,8 @@ function UblDateEntryTab({ month, year, loadKey = 0 }: { month: number; year: nu
       const saved = id
         ? await updateMutation.mutateAsync({ id, data })
         : await createMutation.mutateAsync(data);
-      setLocalRows(prev => prev.map((r, i) => i === idx
-        ? { ...r, ...(saved && typeof saved === "object" ? saved : {}), entryDate: row.entryDate, weekDay: row.weekDay, _dirty: false }
-        : r));
+      const savedValues = typeof saved.contractorBreakfast === "number" ? { contractorBreakfast: saved.contractorBreakfast } : undefined;
+      setLocalRows(prev => reconcileSavedEntry(prev, rows, row, saved.id, savedValues));
       toast({ title: "Saved" });
     } catch (e: any) {
       toast({ title: "Error", description: e.message, variant: "destructive" });
@@ -719,7 +715,7 @@ function UblLunchEntryTab({ month, year, loadKey = 0 }: { month: number; year: n
   const createMutation = useMutation({
     mutationFn: async (data: UblLunchRow) => {
       const res = await fetch('/api/ubl-lunch-entries', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(data), credentials:"include" });
-      return res.json();
+      return readSavedEntry(res);
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey:['/api/ubl-lunch-entries', month, year] });
@@ -730,7 +726,7 @@ function UblLunchEntryTab({ month, year, loadKey = 0 }: { month: number; year: n
   const updateMutation = useMutation({
     mutationFn: async ({ id, data }: { id: number; data: any }) => {
       const res = await fetch(`/api/ubl-lunch-entries/${id}`, { method:'PUT', headers:{'Content-Type':'application/json'}, body:JSON.stringify(data), credentials:"include" });
-      return res.json();
+      return readSavedEntry(res);
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey:['/api/ubl-lunch-entries', month, year] });
@@ -788,8 +784,8 @@ function UblLunchEntryTab({ month, year, loadKey = 0 }: { month: number; year: n
     if (!row.id && !row._dirty) { toast({ title: "No changes to save" }); return; }
     try {
       const { _dirty, id, ...data } = row;
-      if (id) await updateMutation.mutateAsync({ id, data });
-      else await createMutation.mutateAsync(row);
+      const saved = id ? await updateMutation.mutateAsync({ id, data }) : await createMutation.mutateAsync(data);
+      setLocalRows(prev => reconcileSavedEntry(prev, rows, row, saved.id));
       toast({ title: "Saved" });
     } catch (e: any) { toast({ title:"Error", description:e.message, variant:"destructive" }); }
   };
@@ -1260,7 +1256,7 @@ function UnichemSnackTab({ month, year, loadKey = 0 }: { month: number; year: nu
   const createMutation = useMutation({
     mutationFn: async (data: SnackRow) => {
       const res = await fetch('/api/unichem-snack-entries', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(data), credentials: "include" });
-      return res.json();
+      return readSavedEntry(res);
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['/api/unichem-snack-entries', month, year, location] });
@@ -1270,7 +1266,7 @@ function UnichemSnackTab({ month, year, loadKey = 0 }: { month: number; year: nu
   const updateMutation = useMutation({
     mutationFn: async ({ id, data }: { id: number; data: any }) => {
       const res = await fetch(`/api/unichem-snack-entries/${id}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(data), credentials: "include" });
-      return res.json();
+      return readSavedEntry(res);
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['/api/unichem-snack-entries', month, year, location] });
@@ -1292,13 +1288,8 @@ function UnichemSnackTab({ month, year, loadKey = 0 }: { month: number; year: nu
     if (!row.id && !row._dirty) { toast({ title: "No changes to save" }); return; }
     try {
       const { _dirty, id, ...data } = row;
-      if (id) await updateMutation.mutateAsync({ id, data });
-      else await createMutation.mutateAsync(row);
-      const result = await refetch();
-      const freshRows = ((result.data || []) as SnackRow[]).map(r => ({ ...r, entryDate: normDate(r.entryDate), _dirty: false }));
-      const generated = generateMonthRows(month, year, (d, m, y) => snackRowDefaults(d, m, y, location));
-      const existingMap = freshRows.reduce((acc: Record<string, SnackRow>, r) => { acc[r.entryDate] = r; return acc; }, {});
-      setLocalRows(generated.map(g => existingMap[g.entryDate] ? existingMap[g.entryDate] : g));
+      const saved = id ? await updateMutation.mutateAsync({ id, data }) : await createMutation.mutateAsync(row);
+      setLocalRows(prev => reconcileSavedEntry(prev, rows, row, saved.id));
       toast({ title: "Row saved" });
     } catch (e: any) { toast({ title: "Error", description: e.message, variant: "destructive" }); }
   };
@@ -1446,21 +1437,17 @@ function UnichemSnackTab({ month, year, loadKey = 0 }: { month: number; year: nu
     const dirty = rows.filter(r => r._dirty);
     if (!dirty.length) { toast({ title: "Nothing to save" }); return; }
     let saved = 0;
-    for (const row of rows) {
+    for (let idx = 0; idx < rows.length; idx++) {
+      const row = rows[idx];
       if (!row._dirty) continue;
       try {
         const { _dirty, id, ...data } = row;
-        if (id) await updateMutation.mutateAsync({ id, data });
-        else await createMutation.mutateAsync(row);
+        const result = id ? await updateMutation.mutateAsync({ id, data }) : await createMutation.mutateAsync(row);
+        setLocalRows(prev => reconcileSavedEntry(prev, rows, row, result.id));
         saved++;
-      } catch (e: any) { toast({ title: "Error", description: e.message, variant: "destructive" }); }
+      } catch (e: any) { toast({ title: "Error", description: e.message, variant: "destructive" }); return; }
     }
     toast({ title: `Saved ${saved} rows` });
-    const result = await refetch();
-    const freshRows = ((result.data || []) as SnackRow[]).map(r => ({ ...r, entryDate: normDate(r.entryDate), _dirty: false }));
-    const generated = generateMonthRows(month, year, (d, m, y) => snackRowDefaults(d, m, y, location));
-    const existingMap = freshRows.reduce((acc: Record<string, SnackRow>, r) => { acc[r.entryDate] = r; return acc; }, {});
-    setLocalRows(generated.map(g => existingMap[g.entryDate] ? existingMap[g.entryDate] : g));
   };
 
   const handlePrintAllLocations = async () => {
@@ -1979,7 +1966,7 @@ function UnichemMealSubTab({ month, year, location, mealType, loadKey = 0, plate
   const createMutation = useMutation({
     mutationFn: async (data: LunchRow) => {
       const res = await fetch('/api/unichem-lunch-entries', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(data), credentials: "include" });
-      return res.json();
+      return readSavedEntry(res);
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['/api/unichem-lunch-entries', month, year, location, mealType] });
@@ -1989,7 +1976,7 @@ function UnichemMealSubTab({ month, year, location, mealType, loadKey = 0, plate
   const updateMutation = useMutation({
     mutationFn: async ({ id, data }: { id: number; data: any }) => {
       const res = await fetch(`/api/unichem-lunch-entries/${id}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(data), credentials: "include" });
-      return res.json();
+      return readSavedEntry(res);
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['/api/unichem-lunch-entries', month, year, location, mealType] });
@@ -2015,13 +2002,8 @@ function UnichemMealSubTab({ month, year, location, mealType, loadKey = 0, plate
     }
     try {
       const { _dirty, id, ...data } = row;
-      if (id) await updateMutation.mutateAsync({ id, data });
-      else await createMutation.mutateAsync({ ...row, mealType });
-      const result = await refetch();
-      const freshRows = ((result.data || []) as LunchRow[]).map(r => ({ ...r, entryDate: normDate(r.entryDate), _dirty: false }));
-      const generated = generateMonthRows(month, year, (d, m, y) => unichEmLunchRowDefaults(d, m, y, location, mealType));
-      const existingMap = freshRows.reduce((acc: Record<string, LunchRow>, r) => { acc[r.entryDate] = r; return acc; }, {});
-      setLocalRows(generated.map(g => existingMap[g.entryDate] ? existingMap[g.entryDate] : g));
+      const saved = id ? await updateMutation.mutateAsync({ id, data }) : await createMutation.mutateAsync({ ...row, mealType });
+      setLocalRows(prev => reconcileSavedEntry(prev, rows, row, saved.id));
       toast({ title: "Row saved" });
     } catch (e: any) { toast({ title: "Error", description: e.message, variant: "destructive" }); }
   };
@@ -2091,20 +2073,17 @@ function UnichemMealSubTab({ month, year, location, mealType, loadKey = 0, plate
     const dirty = rows.filter(r => r._dirty && (r.id || (r.orderQty||0) > 0 || (r.actual||0) > 0));
     if (!dirty.length) { toast({ title: "Nothing to save" }); return; }
     let saved = 0;
-    for (const row of dirty) {
+    for (let idx = 0; idx < rows.length; idx++) {
+      const row = rows[idx];
+      if (!dirty.includes(row)) continue;
       try {
         const { _dirty, id, ...data } = row;
-        if (id) await updateMutation.mutateAsync({ id, data });
-        else await createMutation.mutateAsync({ ...row, mealType });
+        const result = id ? await updateMutation.mutateAsync({ id, data }) : await createMutation.mutateAsync({ ...row, mealType });
+        setLocalRows(prev => reconcileSavedEntry(prev, rows, row, result.id));
         saved++;
-      } catch (e: any) { toast({ title: "Error", description: e.message, variant: "destructive" }); }
+      } catch (e: any) { toast({ title: "Error", description: e.message, variant: "destructive" }); return; }
     }
     toast({ title: `Saved ${saved} rows` });
-    const result = await refetch();
-    const freshRows = ((result.data || []) as LunchRow[]).map(r => ({ ...r, entryDate: normDate(r.entryDate), _dirty: false }));
-    const generated = generateMonthRows(month, year, (d, m, y) => unichEmLunchRowDefaults(d, m, y, location, mealType));
-    const existingMap = freshRows.reduce((acc: Record<string, LunchRow>, r) => { acc[r.entryDate] = r; return acc; }, {});
-    setLocalRows(generated.map(g => existingMap[g.entryDate] ? existingMap[g.entryDate] : g));
   };
 
   const mealLabel = mealType === 'lunch' ? 'Lunch' : 'Dinner';
@@ -2564,7 +2543,7 @@ function CiplaDateEntryTab({ month, year, loadKey = 0 }: { month: number; year: 
   const createMutation = useMutation({
     mutationFn: async (data: CiplaRow) => {
       const res = await fetch('/api/cipla-date-entries', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(data), credentials:"include" });
-      return res.json();
+      return readSavedEntry(res);
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey:['/api/cipla-date-entries', month, year] });
@@ -2575,7 +2554,7 @@ function CiplaDateEntryTab({ month, year, loadKey = 0 }: { month: number; year: 
   const updateMutation = useMutation({
     mutationFn: async ({ id, data }: { id: number; data: any }) => {
       const res = await fetch(`/api/cipla-date-entries/${id}`, { method:'PUT', headers:{'Content-Type':'application/json'}, body:JSON.stringify(data), credentials:"include" });
-      return res.json();
+      return readSavedEntry(res);
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey:['/api/cipla-date-entries', month, year] });
@@ -2633,8 +2612,8 @@ function CiplaDateEntryTab({ month, year, loadKey = 0 }: { month: number; year: 
     if (!row.id && !row._dirty) { toast({ title: "No changes to save" }); return; }
     try {
       const { _dirty, id, ...data } = row;
-      if (id) await updateMutation.mutateAsync({ id, data });
-      else await createMutation.mutateAsync(row);
+      const saved = id ? await updateMutation.mutateAsync({ id, data }) : await createMutation.mutateAsync(data);
+      setLocalRows(prev => reconcileSavedEntry(prev, rows, row, saved.id));
       toast({ title:"Saved" });
     } catch (e: any) { toast({ title:"Error", description:e.message, variant:"destructive" }); }
   };
@@ -3298,14 +3277,14 @@ function HulKpfExecSnacksTab({ month, year, loadKey = 0 }: { month: number; year
   const createMutation = useMutation({
     mutationFn: async (data: ExecSnackRow) => {
       const res = await fetch('/api/hul-kpf-exec-snacks', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(data), credentials: 'include' });
-      return res.json();
+      return readSavedEntry(res);
     },
     onSuccess: () => { qc.invalidateQueries({ queryKey: ['/api/hul-kpf-exec-snacks', month, year] }); qc.invalidateQueries({ queryKey: ['/api/hul-kpf-exec-snacks/yearly-summary'] }); },
   });
   const updateMutation = useMutation({
     mutationFn: async ({ id, data }: { id: number; data: any }) => {
       const res = await fetch(`/api/hul-kpf-exec-snacks/${id}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(data), credentials: 'include' });
-      return res.json();
+      return readSavedEntry(res);
     },
     onSuccess: () => { qc.invalidateQueries({ queryKey: ['/api/hul-kpf-exec-snacks', month, year] }); qc.invalidateQueries({ queryKey: ['/api/hul-kpf-exec-snacks/yearly-summary'] }); },
   });
@@ -3347,8 +3326,8 @@ function HulKpfExecSnacksTab({ month, year, loadKey = 0 }: { month: number; year
 
   const saveRow = async (row: ExecSnackRow) => {
     const { _dirty, id, ...data } = row;
-    if (id) await updateMutation.mutateAsync({ id, data });
-    else await createMutation.mutateAsync(row);
+    const saved = id ? await updateMutation.mutateAsync({ id, data }) : await createMutation.mutateAsync(row);
+    setLocalRows(prev => reconcileSavedEntry(prev, rows, row, saved.id));
   };
 
   const handleSaveRow = async (idx: number) => {
@@ -3356,8 +3335,6 @@ function HulKpfExecSnacksTab({ month, year, loadKey = 0 }: { month: number; year
     if (!row.id && !row._dirty) { toast({ title: 'No changes to save' }); return; }
     try {
       await saveRow(row);
-      const result = await refetch();
-      setLocalRows(generateRows((result.data || []) as ExecSnackRow[]));
       toast({ title: 'Row saved' });
     } catch (e: any) { toast({ title: 'Error', description: e.message, variant: 'destructive' }); }
   };
@@ -3373,12 +3350,12 @@ function HulKpfExecSnacksTab({ month, year, loadKey = 0 }: { month: number; year
   };
 
   const handleSaveAll = async () => {
-    const dirty = rows.filter(r => r._dirty && (r.snacks || r.biscuit || r.chips || r.coldDrinkWater || r.shiftOfficerBreakfast));
+    const dirty = rows.filter(r => r._dirty && (r.id || r.snacks || r.biscuit || r.chips || r.coldDrinkWater || r.shiftOfficerBreakfast));
     if (!dirty.length) { toast({ title: 'Nothing to save' }); return; }
     try {
-      for (const row of dirty) await saveRow(row);
-      const result = await refetch();
-      setLocalRows(generateRows((result.data || []) as ExecSnackRow[]));
+      for (let idx = 0; idx < rows.length; idx++) {
+        if (dirty.includes(rows[idx])) await saveRow(rows[idx]);
+      }
       toast({ title: `Saved ${dirty.length} rows` });
     } catch (e: any) { toast({ title: 'Error', description: e.message, variant: 'destructive' }); }
   };
@@ -4437,14 +4414,14 @@ function HulLocationTab({ month, year, location, loadKey = 0 }: { month: number;
   const createMutation = useMutation({
     mutationFn: async (data: HulRow) => {
       const res = await fetch('/api/hul-date-entries', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(data), credentials: 'include' });
-      return res.json();
+      return readSavedEntry(res);
     },
     onSuccess: () => { qc.invalidateQueries({ queryKey: ['/api/hul-date-entries', month, year, location] }); qc.invalidateQueries({ queryKey: ['/api/hul-date-entries/yearly-summary'] }); },
   });
   const updateMutation = useMutation({
     mutationFn: async ({ id, data }: { id: number; data: any }) => {
       const res = await fetch(`/api/hul-date-entries/${id}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(data), credentials: 'include' });
-      return res.json();
+      return readSavedEntry(res);
     },
     onSuccess: () => { qc.invalidateQueries({ queryKey: ['/api/hul-date-entries', month, year, location] }); qc.invalidateQueries({ queryKey: ['/api/hul-date-entries/yearly-summary'] }); },
   });
@@ -4486,8 +4463,8 @@ function HulLocationTab({ month, year, location, loadKey = 0 }: { month: number;
 
   const saveRow = async (row: HulRow) => {
     const { _dirty, id, ...data } = row;
-    if (id) await updateMutation.mutateAsync({ id, data });
-    else await createMutation.mutateAsync(row);
+    const saved = id ? await updateMutation.mutateAsync({ id, data }) : await createMutation.mutateAsync(row);
+    setLocalRows(prev => reconcileSavedEntry(prev, rows, row, saved.id));
   };
 
   const handleSaveRow = async (idx: number) => {
@@ -4495,8 +4472,6 @@ function HulLocationTab({ month, year, location, loadKey = 0 }: { month: number;
     if (!row.id && !row._dirty) { toast({ title: 'No changes to save' }); return; }
     try {
       await saveRow(row);
-      const result = await refetch();
-      setLocalRows(generateRows((result.data || []) as HulRow[]));
       toast({ title: 'Row saved' });
     } catch (e: any) { toast({ title: 'Error', description: e.message, variant: 'destructive' }); }
   };
@@ -4512,12 +4487,12 @@ function HulLocationTab({ month, year, location, loadKey = 0 }: { month: number;
   };
 
   const handleSaveAll = async () => {
-    const dirty = rows.filter(r => r._dirty && (r.breakfast||r.lunch||r.eveningSnacks||r.nightSnacks||r.guestBreakfast||r.guestLunch||r.guestEveningSnacks||r.guestNightSnacks));
+    const dirty = rows.filter(r => r._dirty && (r.id||r.breakfast||r.lunch||r.eveningSnacks||r.nightSnacks||r.guestBreakfast||r.guestLunch||r.guestEveningSnacks||r.guestNightSnacks));
     if (!dirty.length) { toast({ title: 'Nothing to save' }); return; }
     try {
-      for (const row of dirty) await saveRow(row);
-      const result = await refetch();
-      setLocalRows(generateRows((result.data || []) as HulRow[]));
+      for (let idx = 0; idx < rows.length; idx++) {
+        if (dirty.includes(rows[idx])) await saveRow(rows[idx]);
+      }
       toast({ title: `Saved ${dirty.length} rows` });
     } catch (e: any) { toast({ title: 'Error', description: e.message, variant: 'destructive' }); }
   };

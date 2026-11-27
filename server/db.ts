@@ -573,6 +573,13 @@ async function initPool(): Promise<void> {
   for (const sql of migrations) {
     try { await pool.execute(sql); } catch (e: any) { console.log('[db] migration note:', e.message?.slice(0, 80)); }
   }
+  await pool.execute(`CREATE TABLE IF NOT EXISTS daily_entry_locks (
+    form_name VARCHAR(80) NOT NULL,
+    entry_date DATE NOT NULL,
+    scope1 VARCHAR(100) NOT NULL,
+    scope2 VARCHAR(20) NOT NULL,
+    PRIMARY KEY (form_name, entry_date, scope1, scope2)
+  )`);
   await pool.execute(`ALTER TABLE client_names ADD COLUMN IF NOT EXISTS branches JSON DEFAULT NULL`);
   await pool.execute(`ALTER TABLE sales_invoices ADD COLUMN IF NOT EXISTS branch_name VARCHAR(255) NULL`);
   await pool.execute(`ALTER TABLE sales_invoices ADD COLUMN IF NOT EXISTS branch_address TEXT NULL`);
