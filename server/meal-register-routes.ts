@@ -1,4 +1,4 @@
-import type { Express, Request, RequestHandler } from "express";
+import type { Express, RequestHandler } from "express";
 import type { Pool, PoolConnection } from "mysql2/promise";
 import { z } from "zod";
 import {
@@ -109,10 +109,6 @@ function mysqlDate(value: unknown): string {
   return String(value ?? "").slice(0, 10);
 }
 
-function clientScope(req: Request): string | null {
-  return typeof req.session.clientName === "string" ? req.session.clientName : null;
-}
-
 function asMealEntry(row: any): MealEntry {
   return {
     dinerCode: row.dinerCode,
@@ -146,10 +142,34 @@ export function registerMealRegisterRoutes(
   requireAdmin: RequestHandler,
 ) {
   const permission = requirePermission("meal_register");
+  const clientScope: RequestHandler = async (req, res, next) => {
+    const requestedClient = req.session.role === "admin"
+      ? req.query.clientName ?? req.body?.clientName
+      : req.session.clientName;
+    const clientName = typeof requestedClient === "string" ? requestedClient.trim() : "";
+    if (!clientName) {
+      return res.status(req.session.role === "admin" ? 400 : 403).json({
+        message: req.session.role === "admin"
+          ? "Select a client"
+          : "Your account has no assigned client. Ask an administrator to assign one.",
+      });
+    }
+    try {
+      const [clients]: any = await pool.query(
+        "SELECT id FROM client_names WHERE name = ? LIMIT 1",
+        [clientName],
+      );
+      if (!clients.length) return res.status(400).json({ message: "Invalid client" });
+      res.locals.mealRegisterClientName = clientName;
+      next();
+    } catch (error) {
+      console.error("Canteen register client scope validation failed", error);
+      res.status(500).json({ message: "Could not validate selected client" });
+    }
+  };
 
-  app.get("/api/meal-diners", permission, async (req, res) => {
-    const clientName = clientScope(req);
-    if (clientName === null) return res.status(403).json({ message: "Client scope required" });
+  app.get("/api/meal-diners", permission, clientScope, async (req, res) => {
+    const clientName = res.locals.mealRegisterClientName as string;
     const query = z.object({
       search: z.string().max(255).optional(),
       active: z.enum(["true", "false", "all"]).optional(),
@@ -180,9 +200,8 @@ export function registerMealRegisterRoutes(
     }
   });
 
-  app.post("/api/meal-diners", permission, async (req, res) => {
-    const clientName = clientScope(req);
-    if (clientName === null) return res.status(403).json({ message: "Client scope required" });
+  app.post("/api/meal-diners", permission, clientScope, async (req, res) => {
+    const clientName = res.locals.mealRegisterClientName as string;
     const parsed = dinerSchema.safeParse(req.body);
     if (!parsed.success) return res.status(400).json({ message: "Invalid diner details" });
     const diner = parsed.data;
@@ -203,9 +222,8 @@ export function registerMealRegisterRoutes(
     }
   });
 
-  app.patch("/api/meal-diners/:id", permission, async (req, res) => {
-    const clientName = clientScope(req);
-    if (clientName === null) return res.status(403).json({ message: "Client scope required" });
+  app.patch("/api/meal-diners/:id", permission, clientScope, async (req, res) => {
+    const clientName = res.locals.mealRegisterClientName as string;
     const id = Number(req.params.id);
     if (!Number.isSafeInteger(id) || id < 1) return res.status(400).json({ message: "Invalid diner ID" });
     const parsed = dinerPatchSchema.safeParse(req.body);
@@ -231,9 +249,8 @@ export function registerMealRegisterRoutes(
     }
   });
 
-  app.delete("/api/meal-diners/:id", permission, async (req, res) => {
-    const clientName = clientScope(req);
-    if (clientName === null) return res.status(403).json({ message: "Client scope required" });
+  app.delete("/api/meal-diners/:id", permission, clientScope, async (req, res) => {
+    const clientName = res.locals.mealRegisterClientName as string;
     const id = Number(req.params.id);
     if (!Number.isSafeInteger(id) || id < 1) return res.status(400).json({ message: "Invalid diner ID" });
     try {
@@ -258,9 +275,8 @@ export function registerMealRegisterRoutes(
     }
   });
 
-  app.post("/api/meal-diners/bulk", permission, async (req, res) => {
-    const clientName = clientScope(req);
-    if (clientName === null) return res.status(403).json({ message: "Client scope required" });
+  app.post("/api/meal-diners/bulk", permission, clientScope, async (req, res) => {
+    const clientName = res.locals.mealRegisterClientName as string;
     const input = z.object({ lines: z.string().max(1_000_000) }).safeParse(req.body);
     if (!input.success) return res.status(400).json({ message: "Invalid bulk diner list" });
     const counts = { created: 0, updated: 0, skipped: 0 };
@@ -308,9 +324,8 @@ export function registerMealRegisterRoutes(
     }
   });
 
-  app.get("/api/meal-register", permission, async (req, res) => {
-    const clientName = clientScope(req);
-    if (clientName === null) return res.status(403).json({ message: "Client scope required" });
+  app.get("/api/meal-register", permission, clientScope, async (req, res) => {
+    const clientName = res.locals.mealRegisterClientName as string;
     const parsedDate = dateSchema.safeParse(req.query.date);
     if (!parsedDate.success) return res.status(400).json({ message: "A valid date is required" });
     try {
@@ -343,9 +358,8 @@ export function registerMealRegisterRoutes(
     }
   });
 
-  app.post("/api/meal-register/entries", permission, async (req, res) => {
-    const clientName = clientScope(req);
-    if (clientName === null) return res.status(403).json({ message: "Client scope required" });
+  app.post("/api/meal-register/entries", permission, clientScope, async (req, res) => {
+    const clientName = res.locals.mealRegisterClientName as string;
     const parsed = entrySchema.safeParse(req.body);
     if (!parsed.success) return res.status(400).json({ message: "Invalid meal entry" });
     const input = parsed.data;
@@ -391,9 +405,8 @@ export function registerMealRegisterRoutes(
     }
   });
 
-  app.patch("/api/meal-register/entries/:id/action", permission, async (req, res) => {
-    const clientName = clientScope(req);
-    if (clientName === null) return res.status(403).json({ message: "Client scope required" });
+  app.patch("/api/meal-register/entries/:id/action", permission, clientScope, async (req, res) => {
+    const clientName = res.locals.mealRegisterClientName as string;
     const id = Number(req.params.id);
     if (!Number.isSafeInteger(id) || id < 1) return res.status(400).json({ message: "Invalid entry ID" });
     const input = actionSchema.safeParse(req.body);
@@ -425,9 +438,8 @@ export function registerMealRegisterRoutes(
     }
   });
 
-  app.delete("/api/meal-register/entries/:id", permission, async (req, res) => {
-    const clientName = clientScope(req);
-    if (clientName === null) return res.status(403).json({ message: "Client scope required" });
+  app.delete("/api/meal-register/entries/:id", permission, clientScope, async (req, res) => {
+    const clientName = res.locals.mealRegisterClientName as string;
     const id = Number(req.params.id);
     if (!Number.isSafeInteger(id) || id < 1) return res.status(400).json({ message: "Invalid entry ID" });
     try {
@@ -443,9 +455,8 @@ export function registerMealRegisterRoutes(
     }
   });
 
-  app.post("/api/meal-register/tp-entries", permission, async (req, res) => {
-    const clientName = clientScope(req);
-    if (clientName === null) return res.status(403).json({ message: "Client scope required" });
+  app.post("/api/meal-register/tp-entries", permission, clientScope, async (req, res) => {
+    const clientName = res.locals.mealRegisterClientName as string;
     const parsed = tpEntrySchema.safeParse(req.body);
     if (!parsed.success) return res.status(400).json({ message: "Invalid third-party meal entry" });
     const input = parsed.data;
@@ -467,9 +478,8 @@ export function registerMealRegisterRoutes(
     }
   });
 
-  app.delete("/api/meal-register/tp-entries", permission, requireAdmin, async (req, res) => {
-    const clientName = clientScope(req);
-    if (clientName === null) return res.status(403).json({ message: "Client scope required" });
+  app.delete("/api/meal-register/tp-entries", permission, requireAdmin, clientScope, async (req, res) => {
+    const clientName = res.locals.mealRegisterClientName as string;
     const parsedDate = dateSchema.safeParse(req.query.date);
     if (!parsedDate.success) return res.status(400).json({ message: "A valid date is required" });
     try {
@@ -484,9 +494,8 @@ export function registerMealRegisterRoutes(
     }
   });
 
-  app.delete("/api/meal-register/tp-entries/:id", permission, async (req, res) => {
-    const clientName = clientScope(req);
-    if (clientName === null) return res.status(403).json({ message: "Client scope required" });
+  app.delete("/api/meal-register/tp-entries/:id", permission, clientScope, async (req, res) => {
+    const clientName = res.locals.mealRegisterClientName as string;
     const id = Number(req.params.id);
     if (!Number.isSafeInteger(id) || id < 1) return res.status(400).json({ message: "Invalid entry ID" });
     try {
@@ -502,9 +511,8 @@ export function registerMealRegisterRoutes(
     }
   });
 
-  app.post("/api/meal-register/import-legacy", permission, requireAdmin, async (req, res) => {
-    const clientName = clientScope(req);
-    if (clientName === null) return res.status(403).json({ message: "Client scope required" });
+  app.post("/api/meal-register/import-legacy", permission, requireAdmin, clientScope, async (req, res) => {
+    const clientName = res.locals.mealRegisterClientName as string;
     const payload = req.body;
     if (!isRecord(payload) || payload.app !== "CanteenSmartRegister" ||
       !isRecord(payload.employeeDb) || !isRecord(payload.permDailyMap) || !isRecord(payload.tpDailyMap)) {
