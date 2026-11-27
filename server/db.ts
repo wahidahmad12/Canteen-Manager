@@ -518,6 +518,57 @@ async function initPool(): Promise<void> {
     )`,
     `INSERT IGNORE INTO ubl_f3_meal_types (meal_type, enabled) VALUES
       ('breakfast',1),('lunch',0),('evening_snacks',0),('dinner',0)`,
+    `CREATE TABLE IF NOT EXISTS meal_diners (
+      id INT AUTO_INCREMENT PRIMARY KEY,
+      client_name VARCHAR(255) NOT NULL DEFAULT '',
+      diner_code VARCHAR(30) NOT NULL,
+      name VARCHAR(255) NOT NULL DEFAULT '',
+      company_name VARCHAR(255) NOT NULL DEFAULT '',
+      department VARCHAR(255) NOT NULL DEFAULT '',
+      designation VARCHAR(255) NOT NULL DEFAULT '',
+      mobile VARCHAR(20) NOT NULL DEFAULT '',
+      diner_type VARCHAR(30) NOT NULL DEFAULT 'regular',
+      notes VARCHAR(500) NOT NULL DEFAULT '',
+      is_active TINYINT(1) NOT NULL DEFAULT 1,
+      created_by INT NULL,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+      UNIQUE KEY uq_meal_diners_client_code (client_name, diner_code),
+      KEY idx_meal_diners_name (name)
+    )`,
+    `CREATE TABLE IF NOT EXISTS meal_register_entries (
+      id INT AUTO_INCREMENT PRIMARY KEY,
+      client_name VARCHAR(255) NOT NULL DEFAULT '',
+      entry_date DATE NOT NULL,
+      diner_code VARCHAR(30) NOT NULL,
+      diner_name VARCHAR(255) NOT NULL DEFAULT '',
+      meal_type VARCHAR(10) NOT NULL,
+      morning_cash DECIMAL(10,2) NOT NULL DEFAULT 0,
+      lunch_cash DECIMAL(10,2) NOT NULL DEFAULT 0,
+      original_due DECIMAL(10,2) NOT NULL DEFAULT 0,
+      original_return DECIMAL(10,2) NOT NULL DEFAULT 0,
+      due_settled TINYINT(1) NOT NULL DEFAULT 0,
+      return_settled TINYINT(1) NOT NULL DEFAULT 0,
+      legacy_uid BIGINT NULL,
+      created_by INT NULL,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+      UNIQUE KEY uq_meal_entry_day_diner (client_name, entry_date, diner_code),
+      KEY idx_meal_entry_date (entry_date)
+    )`,
+    `CREATE TABLE IF NOT EXISTS meal_register_tp_entries (
+      id INT AUTO_INCREMENT PRIMARY KEY,
+      client_name VARCHAR(255) NOT NULL DEFAULT '',
+      entry_date DATE NOT NULL,
+      meal_code VARCHAR(20) NOT NULL,
+      qty INT NOT NULL,
+      unit_price DECIMAL(10,2) NOT NULL,
+      total_amount DECIMAL(10,2) NOT NULL,
+      legacy_uid BIGINT NULL,
+      created_by INT NULL,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      KEY idx_meal_tp_date (entry_date)
+    )`,
   ];
   for (const sql of migrations) {
     try { await pool.execute(sql); } catch (e: any) { console.log('[db] migration note:', e.message?.slice(0, 80)); }

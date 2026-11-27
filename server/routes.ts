@@ -28,6 +28,7 @@ import { startWhatsAppBot } from "./whatsapp-bot";
 import { scanGroceryImage } from "./grocery-scan";
 import { registerVoiceItemRoutes } from "./voice-item-routes";
 import { changePasswordHandler } from "./change-password";
+import { registerMealRegisterRoutes } from "./meal-register-routes";
 
 const webauthnRegChallenges = new Map<number, string>();
 const webauthnAuthChallenges = new Map<number, string>();
@@ -1019,6 +1020,7 @@ export async function registerRoutes(
   });
 
   registerVendorRoutes(app, storage, requireAuth, requireAdmin);
+  registerMealRegisterRoutes(app, pool, requirePermission, requireAdmin);
 
   startWhatsAppBot(app).catch((err) => console.error("[whatsapp] failed to start:", err));
 

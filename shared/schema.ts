@@ -1,4 +1,4 @@
-import { mysqlTable, varchar, text, longtext, int, decimal, date, timestamp, boolean, json } from "drizzle-orm/mysql-core";
+import { mysqlTable, varchar, text, longtext, int, bigint, decimal, date, timestamp, boolean, json, index, uniqueIndex } from "drizzle-orm/mysql-core";
 import { createInsertSchema, createSelectSchema } from "drizzle-zod";
 import { z } from "zod";
 import { relations, sql } from "drizzle-orm";
@@ -561,6 +561,63 @@ export const users = mysqlTable("users", {
   createdAt: timestamp("created_at").defaultNow(),
 });
 
+export const mealDiners = mysqlTable("meal_diners", {
+  id: int("id").autoincrement().primaryKey(),
+  clientName: varchar("client_name", { length: 255 }).notNull().default(""),
+  dinerCode: varchar("diner_code", { length: 30 }).notNull(),
+  name: varchar("name", { length: 255 }).notNull().default(""),
+  companyName: varchar("company_name", { length: 255 }).notNull().default(""),
+  department: varchar("department", { length: 255 }).notNull().default(""),
+  designation: varchar("designation", { length: 255 }).notNull().default(""),
+  mobile: varchar("mobile", { length: 20 }).notNull().default(""),
+  dinerType: varchar("diner_type", { length: 30 }).notNull().default("regular"),
+  notes: varchar("notes", { length: 500 }).notNull().default(""),
+  isActive: boolean("is_active").notNull().default(true),
+  createdBy: int("created_by"),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow().onUpdateNow(),
+}, (table) => ({
+  clientCode: uniqueIndex("uq_meal_diners_client_code").on(table.clientName, table.dinerCode),
+  dinerName: index("idx_meal_diners_name").on(table.name),
+}));
+
+export const mealRegisterEntries = mysqlTable("meal_register_entries", {
+  id: int("id").autoincrement().primaryKey(),
+  clientName: varchar("client_name", { length: 255 }).notNull().default(""),
+  entryDate: date("entry_date").notNull(),
+  dinerCode: varchar("diner_code", { length: 30 }).notNull(),
+  dinerName: varchar("diner_name", { length: 255 }).notNull().default(""),
+  mealType: varchar("meal_type", { length: 10 }).notNull(),
+  morningCash: decimal("morning_cash", { precision: 10, scale: 2 }).notNull().default("0"),
+  lunchCash: decimal("lunch_cash", { precision: 10, scale: 2 }).notNull().default("0"),
+  originalDue: decimal("original_due", { precision: 10, scale: 2 }).notNull().default("0"),
+  originalReturn: decimal("original_return", { precision: 10, scale: 2 }).notNull().default("0"),
+  dueSettled: boolean("due_settled").notNull().default(false),
+  returnSettled: boolean("return_settled").notNull().default(false),
+  legacyUid: bigint("legacy_uid", { mode: "number" }),
+  createdBy: int("created_by"),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow().onUpdateNow(),
+}, (table) => ({
+  dayDiner: uniqueIndex("uq_meal_entry_day_diner").on(table.clientName, table.entryDate, table.dinerCode),
+  entryDate: index("idx_meal_entry_date").on(table.entryDate),
+}));
+
+export const mealRegisterTpEntries = mysqlTable("meal_register_tp_entries", {
+  id: int("id").autoincrement().primaryKey(),
+  clientName: varchar("client_name", { length: 255 }).notNull().default(""),
+  entryDate: date("entry_date").notNull(),
+  mealCode: varchar("meal_code", { length: 20 }).notNull(),
+  qty: int("qty").notNull(),
+  unitPrice: decimal("unit_price", { precision: 10, scale: 2 }).notNull(),
+  totalAmount: decimal("total_amount", { precision: 10, scale: 2 }).notNull(),
+  legacyUid: bigint("legacy_uid", { mode: "number" }),
+  createdBy: int("created_by"),
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => ({
+  entryDate: index("idx_meal_tp_date").on(table.entryDate),
+}));
+
 // Admin settings for access control
 export const adminSettings = mysqlTable("admin_settings", {
   id: int("id").autoincrement().primaryKey(),
@@ -799,7 +856,7 @@ export type ItemMaster = typeof itemMaster.$inferSelect;
 export const insertItemMasterSchema = createInsertSchema(itemMaster).omit({ id: true, createdAt: true });
 export const selectItemMasterSchema = createSelectSchema(itemMaster, { createdAt: z.string().or(z.date()) });
 
-export const ALL_PERMISSIONS = ['expense', 'cashseal', 'inventory', 'menu', 'purchase', 'attendance'] as const;
+export const ALL_PERMISSIONS = ['expense', 'cashseal', 'inventory', 'menu', 'purchase', 'attendance', 'meal_register'] as const;
 export type Permission = typeof ALL_PERMISSIONS[number];
 
 export type User = typeof users.$inferSelect;
