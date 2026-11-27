@@ -1,6 +1,6 @@
 import { useMemo, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { BookOpenCheck, Download, FileUp, Printer, Search, Trash2, UtensilsCrossed } from "lucide-react";
+import { BookOpenCheck, Download, FileUp, Printer, Search, Trash2, UserRoundPlus, UtensilsCrossed } from "lucide-react";
 import { Layout } from "@/components/layout";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -11,6 +11,7 @@ import { useMealRegisterClient } from "@/hooks/use-meal-register-client";
 import { useToast } from "@/hooks/use-toast";
 import { useLang } from "@/contexts/language-context";
 import { apiRequest } from "@/lib/queryClient";
+import { Link } from "wouter";
 import {
   addLunch20,
   addLunchDue,
@@ -104,6 +105,7 @@ export default function MealRegisterPage() {
       });
       const data = await response.json();
       if (response.status === 409) throw Object.assign(new Error(data.message), { entry: data.entry as RegisterEntry });
+      if (response.status === 404) throw new Error(tr("dinerNotFoundForClient"));
       if (!response.ok) throw new Error(data.message || response.statusText);
       return data as RegisterEntry;
     },
@@ -375,8 +377,11 @@ export default function MealRegisterPage() {
         <div className="grid items-start gap-4 xl:grid-cols-12">
           <section className="space-y-4 xl:col-span-7">
         <Card className="no-print overflow-hidden border-2 border-blue-200 shadow-sm">
-          <CardHeader className="border-b border-blue-100 bg-blue-50 p-3">
+          <CardHeader className="flex flex-row flex-wrap items-center justify-between gap-2 border-b border-blue-100 bg-blue-50 p-3">
             <CardTitle className="flex items-center gap-2 text-sm font-extrabold text-slate-900"><span className="rounded-md bg-blue-600 px-2 py-0.5 text-[11px] text-white">PERMANENT</span><BookOpenCheck className="h-4 w-4 text-blue-700" />{tr("quickEntry")}</CardTitle>
+            <Link href={`/meal-diners${selectedClient ? `?clientName=${encodeURIComponent(selectedClient)}` : ""}`} className="inline-flex items-center gap-1.5 rounded-lg border border-blue-300 bg-white px-2.5 py-1.5 text-xs font-bold text-blue-800 hover:bg-blue-100">
+              <UserRoundPlus className="h-3.5 w-3.5" />{tr("manageDiners")}
+            </Link>
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-[1fr_1fr_auto]">
@@ -388,11 +393,31 @@ export default function MealRegisterPage() {
                 <Button disabled={!selectedClient || entryMutation.isPending || customCash === ""} onClick={() => { addEntry(customMeal, Number(customCash)); setCustomCash(""); }}>{tr("addEntry")}</Button>
               </div>
             </div>
-            <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
-              <Button disabled={!selectedClient} variant="outline" className="h-auto min-h-12" onClick={() => addEntry("BF", 5)}>☕ {tr("breakfast")} ₹5</Button>
-              <Button disabled={!selectedClient} variant="outline" className="h-auto min-h-12" onClick={() => addEntry("Lunch", 20)}>🍛 {tr("lunch")} ₹20</Button>
-              <Button disabled={!selectedClient} variant="outline" className="h-auto min-h-12" onClick={() => addEntry("Both", 25)}>🍱 {tr("bothMeals")} ₹25</Button>
-              <Button disabled={!selectedClient} variant="outline" className="h-auto min-h-12" onClick={() => addEntry("BF", 0)}>⏳ {tr("due")}</Button>
+            <div className="space-y-1.5">
+              <p className="text-[11px] font-bold uppercase text-slate-600">2. {tr("oneTapEntry")}</p>
+              <div className="grid grid-cols-2 gap-1.5 sm:grid-cols-4">
+                {([
+                  ["BF", 5, "☕", tr("breakfastPaid"), tr("morningClear"), "border-emerald-500 bg-emerald-50 text-emerald-950 hover:bg-emerald-100"],
+                  ["Both", 25, "🍱", tr("comboPaid"), tr("comboDetail"), "border-blue-500 bg-blue-50 text-blue-950 hover:bg-blue-100"],
+                  ["BF", 0, "⏳", tr("breakfastDue"), tr("collectAtLunch"), "border-amber-500 bg-amber-50 text-amber-950 hover:bg-amber-100"],
+                  ["Lunch", 20, "🍛", tr("lunchOnly"), tr("lunchOnlyDetail"), "border-indigo-400 bg-indigo-50 text-indigo-950 hover:bg-indigo-100"],
+                ] as const).map(([meal, cash, icon, title, detail, color]) => (
+                  <Button key={title} type="button" disabled={!selectedClient || entryMutation.isPending} variant="outline" className={`h-auto min-h-[62px] justify-start rounded-xl border-2 px-2.5 py-2 text-left ${color}`} onClick={() => addEntry(meal, cash)}>
+                    <span className="min-w-0 whitespace-normal">
+                      <span className="block text-xs font-extrabold">{icon} {title}</span>
+                      <span className="block text-[10px] font-medium">{detail}</span>
+                    </span>
+                  </Button>
+                ))}
+              </div>
+              <div className="grid grid-cols-2 gap-1.5 sm:grid-cols-4">
+                {[50, 100, 200, 500].map((cash) => (
+                  <Button key={cash} type="button" disabled={!selectedClient || entryMutation.isPending} variant="outline" className="h-auto min-h-11 justify-between gap-1 rounded-xl border-rose-400 bg-rose-50 px-2.5 py-1.5 text-rose-950 hover:bg-rose-100" onClick={() => addEntry("Both", cash)}>
+                    <span className="text-xs font-extrabold">💵 {tr("note")} ₹{cash}</span>
+                    <span className="rounded border border-rose-200 bg-white px-1.5 py-0.5 text-[10px] font-bold text-rose-700">{tr("changeReturn")} ₹{cash - 25}</span>
+                  </Button>
+                ))}
+              </div>
             </div>
           </CardContent>
         </Card>

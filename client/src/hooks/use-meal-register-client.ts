@@ -4,7 +4,9 @@ import { useClientNames, useCurrentUser } from "@/hooks/use-reports";
 export function useMealRegisterClient() {
   const { data: user } = useCurrentUser();
   const { data: clients = [], isLoading: clientsLoading } = useClientNames();
-  const [selectedClient, setSelectedClient] = useState("");
+  const [selectedClient, setSelectedClient] = useState(() =>
+    typeof window === "undefined" ? "" : new URLSearchParams(window.location.search).get("clientName") || "",
+  );
 
   useEffect(() => {
     if (user && user.role !== "admin") setSelectedClient(user.clientName || "");
